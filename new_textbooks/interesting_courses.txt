@@ -1,0 +1,7 @@
+Pattern Recognition and Analysis https://ocw.mit.edu/courses/mas-622j-pattern-recognition-and-analysis-fall-2006/pages/syllabus/
+Information and Entropy https://ocw.mit.edu/courses/6-050j-information-and-entropy-spring-2008/resources/mit6_050js08_textbook/
+Fundamentals of Probability (graduate students that includes measure theory) https://ocw.mit.edu/courses/6-436j-fundamentals-of-probability-fall-2018/
+How to Prove It book
+Matrix Methods in Data Analysis, Signal Processing, And Machine Learning https://ocw.mit.edu/courses/18-065-matrix-methods-in-data-analysis-signal-processing-and-machine-learning-spring-2018/
+Probabilistic Systems Analysis and Applied Probability (undergraduate level) https://ocw.mit.edu/courses/6-041sc-probabilistic-systems-analysis-and-applied-probability-fall-2013/pages/syllabus/
+  

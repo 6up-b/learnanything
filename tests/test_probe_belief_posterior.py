@@ -4,8 +4,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.probes import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.diagnosis.probes import (
     Hypothesis,
     HypothesisSet,
     _apply_observation,
@@ -55,6 +55,14 @@ def _attempt(repository, loaded, *, points: int, fatal: list[str] | None = None,
 
 def test_score_bucket_boundaries():
     assert [score_bucket(s) for s in range(5)] == ["low", "low", "mid", "mid", "high"]
+    assert [score_bucket(s, 5) for s in range(6)] == [
+        "low",
+        "low",
+        "mid",
+        "mid",
+        "high",
+        "high",
+    ]
 
 
 # --- Bug A: hypothesis posterior is updated and persisted -----------------

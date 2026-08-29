@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.facet_state_reader import facet_states_by_lo
-from learnloop.services.goal_projection import goal_report
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.learner.facet_state_reader import facet_states_by_lo
+from learnloop.goals.goal_projection import goal_report
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import Goal, GoalFacetScope
 
@@ -124,6 +125,21 @@ def test_mvp07_vault_refuses_legacy_facet_state_write(mvp07):
         with repository.connection() as connection:
             repository._upsert_facet_uncertainty_state(
                 connection, {"algorithm_version": "mvp-0.7"}
+            )
+
+
+@pytest.mark.parametrize("algorithm_version", sorted(CANONICAL_STATE_VERSIONS))
+def test_every_canonical_version_refuses_legacy_facet_state_write(
+    mvp07,
+    algorithm_version,
+):
+    _vault, repository = mvp07
+
+    with pytest.raises(AssertionError):
+        with repository.connection() as connection:
+            repository._upsert_facet_recall_state(
+                connection,
+                {"algorithm_version": algorithm_version},
             )
 
 

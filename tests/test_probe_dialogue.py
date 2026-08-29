@@ -3,20 +3,22 @@
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
-from learnloop.services.probe_dialogue import (
+from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
+from learnloop.diagnosis.probe_dialogue import (
     DialogueBlockState,
     begin_dialogue_block,
     end_dialogue_block,
     next_dialogue_turn,
     record_turn_submitted,
 )
-from learnloop.services.probe_episodes import enter_episode, episode_posterior
+from learnloop.diagnosis.probe_episodes import enter_episode, episode_posterior
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
@@ -172,7 +174,7 @@ def test_second_dialogue_block_on_same_lo_can_open(tmp_path):
     assert turn2["kind"] == "commit"
 
 
-class FakeDialogueClient:
+class FakeDialogueClient(StructuredClientFake):
     """AI provider double exposing run_probe_dialogue_turn."""
 
     model = "fake-dialogue-model"
@@ -183,8 +185,8 @@ class FakeDialogueClient:
         self.contexts = []
 
     def run_probe_dialogue_turn(self, context):
-        from learnloop.codex.client import CodexUnavailable
-        from learnloop.codex.schemas import ProbeDialogueTurn
+        from learnloop.ai.errors import CodexUnavailable
+        from learnloop.diagnosis.ai_contracts import ProbeDialogueTurn
 
         self.contexts.append(context)
         if self._error:

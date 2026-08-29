@@ -16,8 +16,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 

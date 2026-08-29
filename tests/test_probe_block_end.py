@@ -5,20 +5,20 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.probe_blocks import (
+from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+from learnloop.diagnosis.probe_blocks import (
     OPEN_SET_REVIEW_CAPABILITY,
     end_diagnostic_block,
     evaluate_open_set_trigger,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     EpisodePosterior,
     commit_presentation,
     eligible_instruments,
@@ -27,7 +27,7 @@ from learnloop.services.probe_episodes import (
     episode_posterior,
     serve_presentation,
 )
-from learnloop.services.probe_hypotheses import H_OTHER
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -403,7 +403,7 @@ def _submit_repairable(loaded, repository, *, item_id, presentation_id):
 
 
 def _common_repair_receipts(repository, attempt_id: str) -> list[str]:
-    from learnloop.services.followups import COMMON_REPAIR_DECISIONS
+    from learnloop.diagnosis.followups import COMMON_REPAIR_DECISIONS
 
     decisions: list[str] = []
     for factor in repository.unresolved_cause_factors_for_attempt(attempt_id):

@@ -12,9 +12,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import commitment_arcs as ARC
-from learnloop.services import commitments as C
-from learnloop.services import depth_transition as DT
+from learnloop.curriculum import commitment_arcs as ARC
+from learnloop.curriculum import commitments as C
+from learnloop.curriculum import depth_transition as DT
 
 from tests.helpers import NOW
 
@@ -116,12 +116,12 @@ def test_auto_within_envelope_activates_exactly_one_edge_and_prior_stays_reached
 
 
 def _card_version(repo, *, contract, title):
-    from learnloop.services import activities as A
+    from learnloop.substrate import activities as A
     fam = repo.ensure_activity_family(purpose="practice", legacy_kind=None, title=title, clock=CLOCK)
     card = repo.ensure_activity_card(family_id=fam, clock=CLOCK)
     cv = repo.ensure_activity_card_version(
-        card_id=card, version=1, card_contract_hash=A._canonical_hash(contract),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_id=card, version=1, card_contract_hash=A.canonical_hash(contract),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
     return fam, card, cv
 

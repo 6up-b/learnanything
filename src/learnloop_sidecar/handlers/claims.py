@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.hypothesis_claims import (
+from learnloop.learner.hypothesis_claims import (
     HypothesisClaimError,
     dismiss_claim,
     export_claim_events,

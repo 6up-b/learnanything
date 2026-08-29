@@ -9,7 +9,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, discover_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.tutor_qa import TutorQAError, build_tutor_qa_note
+from learnloop.tutor.tutor_qa import TutorQAError, build_tutor_qa_note
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault

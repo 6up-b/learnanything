@@ -1,0 +1,85 @@
+schema_version: 1
+id: 
+  pi_gen_perturbation_analyze_and_optimize_nonuniform_collision_probab_d04dbe89
+learning_object_id: lo_analyze_and_optimize_nonuniform_collision_probab
+subjects:
+practice_mode: short_answer
+attempt_types_allowed:
+  - diagnostic_probe
+  - dont_know
+evidence_facets:
+  - facet_for_independent_birthdays_with_category_probabil
+evidence_weights:
+  facet_for_independent_birthdays_with_category_probabil: 1.0
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: "In a model of nonuniform birthday collisions, four independent people are
+  assigned to four birth regions. Compare the collision probability under the probability
+  vectors\n\n\\[\np=(0.45,0.15,0.25,0.15) \\quad\\text{and}\\quad q=(0.35,0.25,0.25,0.15).\n\
+  \\]\n\nA collision means that at least two people occupy the same region. Determine
+  which vector gives the larger collision probability and justify the comparison using
+  the elementary-symmetric-polynomial expression for distinct outcomes. This is a
+  partial transfer between two coordinates, not a replacement by their exact average."
+expected_answer: "For four people and four regions, the no-collision probability is
+  \\(4!e_4=24p_1p_2p_3p_4\\). Thus\n\\[\nP_p(\\text{no collision})=24(0.45)(0.15)(0.25)(0.15)=0.06075,\n\
+  \\]\nwhile\n\\[\nP_q(\\text{no collision})=24(0.35)(0.25)(0.25)(0.15)=0.07875.\n\
+  \\]\nTherefore \\(P_p(\\text{collision})=0.93925\\) and \\(P_q(\\text{collision})=0.92125\\
+  ), so \\(p\\) gives the larger collision probability. The transfer raises the product
+  of the changed coordinates while preserving their sum, increasing the distinct-outcome
+  probability."
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand:
+transfer_distance: 0.35
+scaffold_level:
+capability:
+task_features:
+task_feature_schema:
+surface_family: perturbation_llm_partial_transfer_four_regions
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: correctness
+      points: 4.0
+      description: Response demonstrates the target idea with a decisive reason.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status:
+  fatal_errors:
+    - id: surface_bound_error
+      description: Answer reproduces the familiar surface and breaks on the 
+        shifted surface.
+      max_grade: 1
+      misconception_id:
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs: []
+created_at: '2026-08-04T05:52:39Z'
+updated_at: '2026-08-04T05:52:40Z'

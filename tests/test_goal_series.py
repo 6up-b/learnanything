@@ -5,9 +5,9 @@ from datetime import timedelta
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services import goal_series
-from learnloop.services.goal_series import goal_report_series
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.goals import goal_series
+from learnloop.goals.goal_series import goal_report_series
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item
@@ -71,6 +71,27 @@ def test_series_reflects_evidence_arriving_over_time(tmp_path):
         "decay_estimated",
         "held_flat",
     }
+
+
+def test_series_scratch_copy_attaches_without_migrating(tmp_path, monkeypatch):
+    vault, repository = _loaded(tmp_path)
+
+    def unexpected_migration(*_args, **_kwargs):
+        raise AssertionError("historical scratch copies must retain their schema")
+
+    monkeypatch.setattr(
+        "learnloop.db.repositories.apply_migrations",
+        unexpected_migration,
+    )
+
+    series = goal_report_series(
+        vault,
+        repository,
+        vault.goals[0],
+        clock=FrozenClock(NOW + timedelta(days=10)),
+    )
+
+    assert series
 
 
 def test_series_replays_past_non_cascading_attempt_references(tmp_path):

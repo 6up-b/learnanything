@@ -6,8 +6,8 @@ import os
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.apply_protocol import recover_apply_intents
-from learnloop.services.patches import (
+from learnloop.content.proposals.apply_protocol import recover_apply_intents
+from learnloop.content.proposals.patches import (
     PatchApplicationError,
     apply_accepted_items,
     compute_target_hash,
@@ -315,8 +315,8 @@ def _crash_child(vault_root: str, patch_id: str, boundary: str) -> None:
 
     from pathlib import Path
 
-    from learnloop.services import apply_protocol
-    from learnloop.services.patches import _proposal_origin
+    from learnloop.content.proposals import apply_protocol
+    from learnloop.content.proposals.patches import _proposal_origin
 
     vault = load_vault(Path(vault_root))
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -408,7 +408,7 @@ def test_recovery_is_idempotent_and_noop_when_clean(tmp_path):
 
 
 def test_doctor_fix_recovers_mid_flight_intent(tmp_path):
-    from learnloop.services.doctor import run_doctor
+    from learnloop.ops.doctor import run_doctor
 
     paths = create_basic_vault(tmp_path / "vault")
     repository = _repo(paths)

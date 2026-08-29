@@ -9,7 +9,7 @@ from pathlib import Path
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations, default_migrations_dir
 from learnloop.db.repositories import Repository
-from learnloop.services.probes import probe_posterior
+from learnloop.diagnosis.probes import probe_posterior
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
@@ -68,8 +68,8 @@ def test_migration_closes_in_progress_phases_as_superseded(tmp_path):
 def test_legacy_probe_history_replays_identically_after_migration(tmp_path):
     # A pre-redesign phase with recorded attempts must replay through the frozen
     # legacy path — same locked set, same posterior — after the cutover closes it.
-    from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-    from learnloop.services.probes import enter_probe
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.diagnosis.probes import enter_probe
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)

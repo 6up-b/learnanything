@@ -4,7 +4,7 @@ facet universe, and pooled demonstration outranks the no-supply debt bucket."""
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.coverage_rollup import coverage_rollup
+from learnloop.content.synthesis.coverage_rollup import coverage_rollup
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import SourceSet
 

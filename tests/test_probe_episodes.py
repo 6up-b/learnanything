@@ -6,14 +6,14 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
 from learnloop.ids import new_ulid
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     _resolved_slot_map_from_snapshot,
     commit_item_presentation,
     commit_presentation,
@@ -27,7 +27,7 @@ from learnloop.services.probe_episodes import (
     serve_presentation,
     stop_diagnosing_and_teach,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_DEFAULT_ROWS,
     CONTRAST_CONFUSABLE_V1,
     CardValidationError,
@@ -39,22 +39,36 @@ from learnloop.services.probe_families import (
     run_family_admission_gate,
     validate_and_compile_card,
 )
-from learnloop.services.probe_hypotheses import H_OTHER
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault
+from tests.helpers import (
+    NOW,
+    NOW_ISO,
+    admit_probe_instrument_card,
+    create_basic_vault,
+    set_algorithm_version,
+)
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
 CLOCK = FrozenClock(NOW)
 
 
-def _setup(tmp_path, *, with_card: bool = True, extra_item: bool = False):
+def _setup(
+    tmp_path,
+    *,
+    with_card: bool = True,
+    extra_item: bool = False,
+    algorithm_version: str | None = None,
+):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if algorithm_version is not None:
+        set_algorithm_version(paths, algorithm_version)
     if extra_item:
         _add_item(vault_root, "pi_svd_define_002", surface_family="fresh_surface")
     loaded = load_vault(vault_root)
@@ -372,6 +386,79 @@ def test_selected_diagnostic_probe_creates_exactly_one_observation(tmp_path):
     assert repository.probe_episode(episode.id).status == "in_progress"
 
 
+def test_presentation_activity_disqualification_precedes_live_projection(tmp_path):
+    """A contaminated near-clone cannot certify for one process lifetime."""
+
+    _, loaded, repository = _setup(tmp_path, algorithm_version="mvp-0.7")
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    hypothesis_set = episode_hypothesis_set(repository, episode)
+    eligible = eligible_instruments(
+        loaded, repository, episode, hypothesis_set=hypothesis_set
+    )[0]
+    presentation = commit_presentation(
+        loaded,
+        repository,
+        episode,
+        eligible,
+        extra_selection_components={
+            "near_clone": True,
+            "source_practice_item_id": ITEM_ID,
+        },
+        clock=CLOCK,
+    )
+    serve_presentation(repository, presentation.id, clock=CLOCK)
+
+    # An ordinary attempt submitted against a probe presentation is an
+    # instructional diagnostic. Immutable attempt signals alone look like a
+    # clean verification, so this specifically proves the recorded activity
+    # fact reached the projection before it ran.
+    attempt_id = new_ulid()
+    result = apply_attempt(
+        loaded,
+        repository,
+        ApplyAttemptInput(
+            draft=AttemptDraft(
+                practice_item_id=ITEM_ID,
+                learner_answer_md="answer",
+                attempt_type="independent_attempt",
+                probe_presentation_id=presentation.id,
+            ),
+            attempt_id=attempt_id,
+            grade=ResolvedGrade(
+                rubric_score=4,
+                criterion_points={"correctness": 4.0},
+                evidence_rows=[
+                    {
+                        "id": new_ulid(),
+                        "criterion_id": "correctness",
+                        "points_awarded": 4.0,
+                        "evidence": "Correct definition.",
+                        "notes": None,
+                        "local_grader_id": "test",
+                        "grader_tier": 1,
+                        "created_at": NOW_ISO,
+                    }
+                ],
+                error_attributions=[],
+                grader_confidence=1.0,
+                confidence=4,
+                manual_review_reason=None,
+            ),
+            grading_source="ai",
+        ),
+        clock=CLOCK,
+    )
+
+    activity = repository.causal_activity_classification(result.attempt_id)
+    assert activity is not None
+    assert activity["contamination_class"] == "instructional_diagnostic"
+    assert activity["near_clone"] is True
+    assert activity["eligible_for_certification"] is False
+    cells = repository.facet_capability_evidence_all()
+    assert cells
+    assert sum(cell.certification_credit for cell in cells) == 0.0
+
+
 def test_retried_submission_is_idempotent(tmp_path):
     _, loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
@@ -626,7 +713,7 @@ def test_missing_instruments_park_episode_with_one_deduplicated_need(tmp_path):
 
 
 def test_pending_items_episode_keeps_lo_schedulable_with_belief_updates(tmp_path):
-    from learnloop.services.scheduler import build_due_queue
+    from learnloop.scheduling.scheduler import build_due_queue
 
     vault_root, loaded, repository = _setup(tmp_path, with_card=False)
     sync_vault_state(loaded, repository, clock=CLOCK)

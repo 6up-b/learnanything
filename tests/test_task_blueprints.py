@@ -7,7 +7,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import task_blueprints as TB
+from learnloop.curriculum import task_blueprints as TB
 
 from tests.helpers import NOW
 

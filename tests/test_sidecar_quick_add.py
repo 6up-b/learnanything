@@ -13,7 +13,7 @@ from learnloop.ingest.extractors.normalizers import markdown_to_ir
 from learnloop.ingest.hashing import extraction_request_hash, extraction_result_hash
 from learnloop.ingest.ir import IR_SCHEMA_VERSION
 from learnloop.ingest.resolution import resolve_source
-from learnloop.ingest.source_library import register_source_revision
+from learnloop.content.sources.source_library import register_source_revision
 from learnloop_sidecar.server import serve
 
 from tests.helpers import create_basic_vault
@@ -78,6 +78,37 @@ def test_plan_quick_add_registered_and_single_confirmation(tmp_path):
     # The state machine surfaces exactly one confirmation checkpoint.
     assert plan["confirmation"]["id"] == "quick_add_confirm"  # a value, not camelized
     assert plan["confirmation"]["requiresExternalAi"] is True
+
+
+def test_plan_quick_add_enrichment_preset_normalizes_at_rpc_boundary(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    md = tmp_path / "interesting-adjunct.md"
+    md.write_text(_MD)
+    _seed_extraction(paths.sqlite_path, str(md))
+
+    results = _rpc(
+        [
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(vault_root)}},
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "plan_quick_add",
+                "params": {
+                    "source": str(md),
+                    "subjectId": "linear-algebra",
+                    "brief": {"authoringPreset": "narrow_adjunct"},
+                },
+            },
+        ]
+    )
+
+    plan = results[1]["result"]["plan"]
+    assert plan["suggestedRole"] == "reference"
+    assert plan["roleAmbiguous"] is False
+    assert plan["brief"]["authoringPreset"] == "narrow_adjunct"
+    assert plan["brief"]["practiceItems"] == "upfront"
+    assert "at most one focused learning object" in plan["brief"]["scope"]
 
 
 def test_plan_quick_add_requires_import_when_not_extracted(tmp_path):

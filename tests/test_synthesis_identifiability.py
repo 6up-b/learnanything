@@ -7,12 +7,12 @@ assessment exists AND the instructional repairs are identical.
 
 from __future__ import annotations
 
-from learnloop.services.identifiability import (
+from learnloop.learner.identifiability import (
     ProposalView,
     analyze_identifiability,
     build_proposal_view,
 )
-from learnloop.services.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
 
 from tests.test_source_set_synthesis import FakeSynthesisClient, _default_payload, _setup
 

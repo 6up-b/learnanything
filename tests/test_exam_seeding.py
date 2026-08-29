@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import shutil
 
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import CanonicalIngestContext
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, discover_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.exam_seeding import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.goals.exam_seeding import (
     EXAM_ATTEMPT_TYPE,
     ExamSeedingError,
     exam_ingest_instructions,
@@ -19,8 +21,8 @@ from learnloop.services.exam_seeding import (
     parse_exam_outcomes,
     seed_exam_attempts,
 )
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.source_ingestion import ingest_canonical_source
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.content.pipeline.source_ingestion import ingest_canonical_source
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -348,7 +350,7 @@ def test_ingest_exam_instructions_reach_context_and_tags_apply(tmp_path):
     assert find_exam_items(loaded)["1"].id == "pi_exam_ingested_q1_001"
 
 
-class _FakeExamCanonicalClient:
+class _FakeExamCanonicalClient(StructuredClientFake):
     provider_name = "codex"
     provider_type = "codex_sdk"
     model = None

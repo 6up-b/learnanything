@@ -12,9 +12,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services import pattern_ladder as PL
-from learnloop.services import surface_pool as SP
-from learnloop.services.activities import resolve_legacy_item
+from learnloop.curriculum import pattern_ladder as PL
+from learnloop.substrate import surface_pool as SP
+from learnloop.substrate.activities import resolve_legacy_item
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError

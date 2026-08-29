@@ -7,10 +7,10 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import administration_adapters as AA
-from learnloop.services import card_lineage as CL
-from learnloop.services import activities as A
-from learnloop.services.fsrs import Rating
+from learnloop.substrate import administration_adapters as AA
+from learnloop.substrate import card_lineage as CL
+from learnloop.substrate import activities as A
+from learnloop.scheduling.fsrs import Rating
 
 from tests.helpers import NOW
 
@@ -32,8 +32,8 @@ def _administration(repo, purpose):
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
     contract = {"target": "svd", "capability": "retrieval"}
     cv = repo.ensure_activity_card_version(
-        card_id=card_id, version=1, card_contract_hash=A._canonical_hash(contract),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_id=card_id, version=1, card_contract_hash=A.canonical_hash(contract),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
     surface = repo.ensure_activity_surface(
         card_version_id=cv, surface_hash=f"sh-{purpose}", fingerprint=None,

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-import learnloop.services.attempts as attempt_service
+import learnloop.attempts.attempts as attempt_service
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -16,8 +16,8 @@ from learnloop.services.attempts import (
     compute_attempt_application,
     load_attempt_prior_state,
 )
-from learnloop.services.replay import rebuild_derived_state, replay_learning_object
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.replay import rebuild_derived_state, replay_learning_object
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 

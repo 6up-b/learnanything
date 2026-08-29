@@ -1,0 +1,1203 @@
+---
+title: "learnloop.clock"
+type: "module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+source_path: "src/learnloop/clock.py"
+source_paths:
+  - "src/learnloop/clock.py"
+source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
+source_commit_timestamp: "2026-05-19T19:15:00-04:00"
+source_worktree_state: "clean"
+generated: true
+generated_at: "2026-08-18"
+package: "learnloop"
+layer: "primitive"
+concepts:
+  - "Architecture Overview"
+workflows:
+  - "Initialize a Vault"
+  - "Start a Learning Cycle"
+aliases:
+  - "learnloop.clock module"
+  - "src/learnloop/clock.py"
+tags:
+  - "docs/module"
+  - "architecture/reference"
+  - "refactor/active"
+  - "layer/primitive"
+  - "package/learnloop"
+---
+
+# `learnloop.clock`
+
+> [!info] Generated source reference
+> Facts in this note are generated from the Python AST, repository tests, and Git. Purpose and change guidance are conservative inferences from those facts. Regenerate with `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_generate.py`; do not hand-edit generated sections.
+
+Up: [[Reference/Modules/learnloop/_package|learnloop]] · Root: [[Module Catalog]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+This module keeps clock behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `Clock`, `SystemClock`, `FrozenClock`, `utc_now_iso`, `parse_utc`.
+
+The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
+
+^module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [src/learnloop/clock.py](../../../../../src/learnloop/clock.py) |
+| Source lines | 41 |
+| Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
+| Architecture layer | `primitive` |
+| Refactor status | `ACTIVE` |
+| Worktree state | `clean` |
+| Source commit | `4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7` |
+| Commit timestamp | `2026-05-19T19:15:00-04:00` |
+
+## Public API
+
+- `class Clock(Protocol)` ([source](../../../../../src/learnloop/clock.py), line 8)
+  - `now(self) -> datetime` (line 9; public) — Return an aware UTC datetime.
+- `class SystemClock` ([source](../../../../../src/learnloop/clock.py), line 14)
+  - `now(self) -> datetime` (line 15; public)
+- `class FrozenClock` ([source](../../../../../src/learnloop/clock.py), line 20)
+  - `now(self) -> datetime` (line 23; public)
+- `utc_now_iso(clock: Clock | None=None) -> str` ([source](../../../../../src/learnloop/clock.py), line 29)
+- `parse_utc(value: str | None) -> datetime | None` ([source](../../../../../src/learnloop/clock.py), line 34)
+
+## Internal implementation anchors
+
+No private top-level function or class definition is declared in this file.
+
+## Who imports or calls it
+
+> [!note] Static evidence boundary
+> “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
+
+- [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/outcome_schemas|learnloop.attempts.outcome_schemas]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `Clock`
+- [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `Clock`
+- [[Reference/Modules/learnloop/cli/clarification|learnloop.cli.clarification]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/conflict_resolution|learnloop.content.proposals.conflict_resolution]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/sources/source_deletion|learnloop.content.sources.source_deletion]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/sources/source_library|learnloop.content.sources.source_library]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] — imports `Clock`
+- [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] — imports `Clock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/golden_path_compose|learnloop.curriculum.golden_path_compose]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] — imports `Clock`, `FrozenClock`, `utc_now_iso`; statically calls `FrozenClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/golden_path_restoration|learnloop.curriculum.golden_path_restoration]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/curriculum/pattern_ladder|learnloop.curriculum.pattern_ladder]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/rung_backfill|learnloop.curriculum.rung_backfill]] — imports `Clock`
+- [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `Clock`
+- [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/causal_diagnostic_selector|learnloop.diagnosis.causal_diagnostic_selector]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/causal_factor_deferral|learnloop.diagnosis.causal_factor_deferral]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/causal_migration|learnloop.diagnosis.causal_migration]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/causal_probe_commissioning|learnloop.diagnosis.causal_probe_commissioning]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_gate|learnloop.diagnosis.diagnostic_gate]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_pack|learnloop.diagnosis.diagnostic_pack]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/error_hunt|learnloop.diagnosis.error_hunt]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/failure_triage|learnloop.diagnosis.failure_triage]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/misconceptions|learnloop.diagnosis.misconceptions]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/missing_vocabulary|learnloop.diagnosis.missing_vocabulary]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]] — imports `Clock`, `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `Clock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/probe_hypotheses|learnloop.diagnosis.probe_hypotheses]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/probe_instance_generation|learnloop.diagnosis.probe_instance_generation]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/probe_lifecycle|learnloop.diagnosis.probe_lifecycle]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `Clock`
+- [[Reference/Modules/learnloop/diagnosis/probes|learnloop.diagnosis.probes]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
+- [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `FrozenClock`; statically calls `FrozenClock`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `Clock`
+- [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`; statically calls `FrozenClock`, `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `Clock`
+- [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/learner/familiarity|learnloop.learner.familiarity]] — imports `Clock`
+- [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/learner/independence_audit|learnloop.learner.independence_audit]] — imports `Clock`
+- [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] — imports `Clock`
+- [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `FrozenClock`; statically calls `FrozenClock`
+- [[Reference/Modules/learnloop/learner/session_learning_diff|learnloop.learner.session_learning_diff]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] — imports `Clock`
+- [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `Clock`
+- [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] — imports `Clock`
+- [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `Clock`
+- [[Reference/Modules/learnloop/ops/vault_upgrade|learnloop.ops.vault_upgrade]] — imports `Clock`
+- [[Reference/Modules/learnloop/params/parameter_registry|learnloop.params.parameter_registry]] — imports `Clock`
+- [[Reference/Modules/learnloop/params/sensitivity_certificates|learnloop.params.sensitivity_certificates]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/reader/reader_requests|learnloop.reader.reader_requests]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/reader/reader_restoration|learnloop.reader.reader_restoration]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] — imports `Clock`
+- [[Reference/Modules/learnloop/reader/span_view|learnloop.reader.span_view]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/constraint_engine|learnloop.scheduling.constraint_engine]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/controller_cutover|learnloop.scheduling.controller_cutover]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/controller_snapshot|learnloop.scheduling.controller_snapshot]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/controller_store|learnloop.scheduling.controller_store]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/decay_pressure|learnloop.scheduling.decay_pressure]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
+- [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/kinship_feature|learnloop.scheduling.kinship_feature]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/prequential|learnloop.scheduling.prequential]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/progression|learnloop.scheduling.progression]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/progression_policy|learnloop.scheduling.progression_policy]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/randomization_layer|learnloop.scheduling.randomization_layer]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/reentry_adapter|learnloop.scheduling.reentry_adapter]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/reentry_summary|learnloop.scheduling.reentry_summary]] — imports `Clock`, `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/review_log|learnloop.scheduling.review_log]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/scheduling/short_session|learnloop.scheduling.short_session]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `Clock`
+- [[Reference/Modules/learnloop/scheduling/state_signals|learnloop.scheduling.state_signals]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `FrozenClock`; statically calls `FrozenClock`
+- [[Reference/Modules/learnloop/sim/offline_benchmarks|learnloop.sim.offline_benchmarks]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/activity_patterns|learnloop.substrate.activity_patterns]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/administration_adapters|learnloop.substrate.administration_adapters]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/canonical_projection_rollout|learnloop.substrate.canonical_projection_rollout]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
+- [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/substrate/surface_pool|learnloop.substrate.surface_pool]] — imports `Clock`
+- [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] — imports `Clock`
+- [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `Clock`
+- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] — imports `parse_utc`; statically calls `parse_utc`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `SystemClock`, `parse_utc`; statically calls `SystemClock`, `parse_utc`
+
+## Dependencies
+
+### LearnLoop dependencies
+
+No internal Python dependency was found by static analysis.
+
+### Platform and third-party dependencies
+
+- Standard library: `__future__`, `dataclasses`, `datetime`, `typing`
+- Third party: none imported directly
+
+## Larger workflow participation
+
+Use this module in context through:
+
+- [[Initialize a Vault]]
+- [[Start a Learning Cycle]]
+
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] and 176 more.
+
+The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
+
+## Tests that define behavior
+
+- [tests/helpers.py](../../../../../tests/helpers.py) — direct import
+- [tests/test_action_loss.py](../../../../../tests/test_action_loss.py) — direct import
+- [tests/test_activity_backfill.py](../../../../../tests/test_activity_backfill.py) — direct import
+- [tests/test_activity_contract_extensions.py](../../../../../tests/test_activity_contract_extensions.py) — direct import
+- [tests/test_activity_patterns.py](../../../../../tests/test_activity_patterns.py) — direct import
+- [tests/test_activity_substrate.py](../../../../../tests/test_activity_substrate.py) — direct import
+- [tests/test_administration_adapters.py](../../../../../tests/test_administration_adapters.py) — direct import
+- [tests/test_agent_run_tokens.py](../../../../../tests/test_agent_run_tokens.py) — direct import
+  - `test_complete_agent_run_records_actual_usage`
+  - `test_finish_agent_run_without_a_client_leaves_cost_untouched`
+- [tests/test_agent_runs.py](../../../../../tests/test_agent_runs.py) — direct import
+  - `test_generate_authoring_proposal_with_fake_client_has_lineage`
+  - `test_insert_and_complete_agent_run`
+  - `test_persist_authoring_proposal_records_agent_run`
+- [tests/test_answer_calibration_duel.py](../../../../../tests/test_answer_calibration_duel.py) — direct import
+  - `test_answer_confidence_must_be_a_1_to_5_committed_tap`
+  - `test_post_reveal_confidence_tap_cannot_land_on_a_graded_attempt`
+- [tests/test_anti_double_count.py](../../../../../tests/test_anti_double_count.py) — direct import
+  - `test_anti_double_count_claim_seeds_prior_but_earns_no_mass`
+  - `test_anti_double_count_projection_signal_earns_zero_certification`
+  - `test_anti_double_count_replay_reproduces_identical_state`
+- [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import
+  - `test_legacy_attempt_records_no_observation_lineage`
+  - `test_mvp07_attempt_stamps_observation_lineage`
+- [tests/test_assessment_enforcement.py](../../../../../tests/test_assessment_enforcement.py) — direct import
+- [tests/test_attempt_ai_flow.py](../../../../../tests/test_attempt_ai_flow.py) — direct import
+  - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_write_order.py](../../../../../tests/test_attempt_write_order.py) — direct import
+  - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
+- [tests/test_attempts.py](../../../../../tests/test_attempts.py) — direct import
+  - `test_attempt_links_to_scheduler_slate_and_later_retention_label`
+  - `test_hinted_attempt_caps_fsrs_rating`
+  - `test_self_graded_attempt_updates_attempt_evidence_state_and_surprise`
+  - `test_unknown_attempt_type_fails_before_sqlite_insert`
+- [tests/test_authoring_context.py](../../../../../tests/test_authoring_context.py) — direct import
+  - `test_authoring_context_filters_by_subject`
+  - `test_authoring_context_is_deterministic_and_hashable`
+- [tests/test_build_study_map_routing.py](../../../../../tests/test_build_study_map_routing.py) — direct import
+- [tests/test_calibration.py](../../../../../tests/test_calibration.py) — direct import
+- [tests/test_calibration_sessions.py](../../../../../tests/test_calibration_sessions.py) — direct import
+  - `test_calibration_session_stop_and_budget_expiry`
+- [tests/test_canonical_projection_rollout.py](../../../../../tests/test_canonical_projection_rollout.py) — direct import
+  - `test_projection_upgrade_stays_silent_while_vault_has_no_attempts`
+  - `test_startup_records_one_recalibration_for_an_unstamped_practised_vault`
+- [tests/test_capability_residual.py](../../../../../tests/test_capability_residual.py) — direct import
+  - `test_residual_activation_replay_deterministic`
+- [tests/test_card_lineage.py](../../../../../tests/test_card_lineage.py) — direct import
+- [tests/test_causal_activity_policy.py](../../../../../tests/test_causal_activity_policy.py) — direct import
+  - `test_canonical_projection_version_change_is_a_recalibration_boundary`
+- [tests/test_causal_attribution_exhibit.py](../../../../../tests/test_causal_attribution_exhibit.py) — direct import
+  - `test_exhibit_positive_control_preserves_genuine_multiplication_failure`
+  - `test_exhibit_replay_blocks_false_targets_promotion_and_retry`
+- [tests/test_causal_attribution_p0.py](../../../../../tests/test_causal_attribution_p0.py) — direct import
+  - `test_learner_confirmation_resolves_factor_to_provisional_belief`
+  - `test_machine_review_scope_blocks_negative_observation_attribution`
+  - `test_nonconfirming_self_report_is_recorded_once_without_reprompt`
+  - `test_provisional_belief_can_open_remediation`
+  - `test_write_boundary_persists_firewall_telemetry`
+- [tests/test_causal_attribution_p1.py](../../../../../tests/test_causal_attribution_p1.py) — direct import
+  - `test_attempt_materializes_append_only_hypothesis_and_receipt`
+  - `test_candidate_reordering_does_not_change_episode_identity`
+  - `test_distinct_measurement_need_splits_a_shared_repair`
+  - `test_distinct_repair_splits_one_operation_string_into_two_mechanisms`
+  - `test_feedback_overlay_and_cli_are_receipt_checked`
+  - `test_lexical_operation_synonyms_collapse_into_one_mechanism`
+  - `test_mechanism_taxonomy_is_earned_from_recurring_operations`
+  - `test_repair_class_definitions_are_durable_and_content_addressed`
+  - `test_replay_preserves_immutable_receipt_chain`
+  - `test_retired_taxonomy_is_never_adopted_by_a_new_receipt`
+  - `test_unmapped_repair_class_abstains_with_a_typed_reason`
+- [tests/test_causal_attribution_p2.py](../../../../../tests/test_causal_attribution_p2.py) — direct import
+  - `test_blind_bundles_diff_audit_and_review_ladder`
+  - `test_classification_is_pinned_and_survives_a_newer_bundle`
+  - `test_cold_success_updates_repair_effect_not_diagnosis`
+  - `test_empty_feature_row_is_rejected_at_generation_and_skipped_at_read`
+  - `test_repair_class_divergence_locks_existing_hypothesis_set_with_other`
+- [tests/test_causal_cold_outcomes.py](../../../../../tests/test_causal_cold_outcomes.py) — direct import
+  - `test_clean_consume_records_cold_success_row_idempotently`
+  - `test_contaminated_consume_records_typed_row`
+  - `test_expired_inactive_surface_is_unmeasurable_not_censored`
+  - `test_expired_servable_task_right_censors`
+  - `test_missing_chain_records_typed_row`
+  - `test_no_independent_surface_records_unmeasurable_and_schedules_nothing`
+  - `test_same_surface_consume_records_typed_row`
+- [tests/test_causal_factor_deferral.py](../../../../../tests/test_causal_factor_deferral.py) — direct import
+  - `test_diagnosis_case_ranks_checkpoint_covering_item_first`
+  - `test_diagnosis_case_without_repair_class_falls_back_to_facets`
+  - `test_expiry_retires_unengaged_factor_and_sweep_is_idempotent`
+- [tests/test_causal_orchestrator.py](../../../../../tests/test_causal_orchestrator.py) — direct import
+  - `test_accepting_the_offer_enters_a_factor_aware_episode_with_pinned_bundles`
+  - `test_cold_verification_is_carried_through_the_followup_task`
+  - `test_relocking_an_open_episode_does_not_inherit_its_evidence`
+- [tests/test_causal_p2_acceptance.py](../../../../../tests/test_causal_p2_acceptance.py) — direct import
+  - `test_a_probe_answered_after_a_reveal_is_not_independent_evidence`
+  - `test_causal_disambiguation_end_to_end_acceptance`
+  - `test_diagnosis_support_moves_only_on_independent_discriminating_evidence`
+  - `test_projection_version_names_the_open_cause_union`
+- [tests/test_causal_probe_commissioning.py](../../../../../tests/test_causal_probe_commissioning.py) — direct import
+  - `test_action_equivalent_causes_buy_nothing`
+  - `test_causes_predicting_the_same_observation_do_not_discriminate`
+  - `test_claims_the_item_cannot_observe_yield_no_derivable_predictions`
+  - `test_commissioning_lights_the_lane_end_to_end`
+  - `test_commissioning_makes_the_orchestrator_see_an_instrument`
+  - `test_no_candidate_item_is_an_authoring_obligation`
+  - `test_obsolete_observation_exposed_candidate_cannot_advance`
+  - `test_pending_adversarial_review_is_a_state_not_a_failure`
+  - `test_self_reviewed_manipulation_is_rejected`
+  - `test_sweep_commissions_open_factors_and_reports_each_outcome`
+  - `test_sweep_machine_checks_queues_the_instrument_debt`
+- [tests/test_causal_repair_mapping_p2.py](../../../../../tests/test_causal_repair_mapping_p2.py) — direct import
+  - `test_cold_verification_records_its_near_clone_basis`
+  - `test_open_set_cause_id_and_probe_label_are_distinct_namespaces`
+  - `test_self_graded_attempt_records_no_repair_authored_not_a_silent_null`
+- [tests/test_causal_repair_sidecar_rpcs.py](../../../../../tests/test_causal_repair_sidecar_rpcs.py) — direct import
+  - `test_serving_the_pinned_probe_reuses_its_presentation`
+- [tests/test_causal_shadow_selection.py](../../../../../tests/test_causal_shadow_selection.py) — direct import
+- [tests/test_causal_trace_consistency_p2.py](../../../../../tests/test_causal_trace_consistency_p2.py) — direct import
+- [tests/test_certification_cold_probe.py](../../../../../tests/test_certification_cold_probe.py) — direct import
+  - `test_a_fresh_diagnostic_surface_remains_selectable_for_the_probe`
+  - `test_a_queued_probe_refuses_an_assisted_attempt`
+  - `test_a_superseded_certificate_has_its_probe_cancelled_and_a_fresh_one_queued`
+  - `test_abstained_probes_are_not_training_labels`
+  - `test_an_uncertified_lo_schedules_nothing`
+  - `test_cli_schedules_and_reports_the_unavailable_arm`
+  - `test_cold_outcome_labels_expose_the_causal_p4_shape`
+  - `test_new_inventory_creates_a_fresh_opportunity_after_structural_refusal`
+  - `test_one_probe_per_certified_lo_idempotently`
+  - `test_only_administered_diagnostic_candidates_means_no_held_out_surface`
+  - `test_outcome_rows_are_append_only`
+  - `test_probe_against_a_withdrawn_certificate_abstains_rather_than_failing`
+  - `test_probe_is_due_at_the_horizon_and_invisible_before_it`
+  - `test_probe_prefers_the_whole_task_item_that_covers_integration`
+  - `test_probe_records_a_durable_versioned_label`
+  - `test_rate_is_correct_over_a_mix_of_held_and_failed_certificates`
+  - `test_rate_over_zero_probes_is_unavailable_not_zero`
+  - `test_selected_surface_is_never_one_the_certificate_used`
+  - `test_selection_never_picks_an_administered_diagnostic_surface`
+  - `test_shared_surface_group_makes_the_certificate_unmeasurable`
+  - `test_withdrawn_certificate_schedules_nothing_and_cancels_a_queued_probe`
+- [tests/test_characterization_assessment_exam.py](../../../../../tests/test_characterization_assessment_exam.py) — direct import
+  - `test_finish_releases_pool_and_reservation_is_blocked_only_by_attempt_history`
+  - `test_predictions_are_not_refrozen_on_restart`
+  - `test_predictions_frozen_at_start_with_snapshot_fields`
+  - `test_release_alone_makes_an_unattempted_item_reservable_again`
+  - `test_reservation_row_shape_keyed_by_goal_no_contract_version`
+- [tests/test_characterization_certification_ledger.py](../../../../../tests/test_characterization_certification_ledger.py) — direct import
+  - `test_regrade_of_grading_evidence_changes_projection`
+- [tests/test_characterization_probe_family_em.py](../../../../../tests/test_characterization_probe_family_em.py) — direct import
+- [tests/test_characterization_probe_regrade.py](../../../../../tests/test_characterization_probe_regrade.py) — direct import
+- [tests/test_characterization_probe_replay.py](../../../../../tests/test_characterization_probe_replay.py) — direct import
+- [tests/test_characterization_probe_submission.py](../../../../../tests/test_characterization_probe_submission.py) — direct import
+- [tests/test_cli_generate_practice.py](../../../../../tests/test_cli_generate_practice.py) — direct import
+  - `test_accepting_diagnostic_proposal_queues_today_followup`
+- [tests/test_codex_attempt_flow.py](../../../../../tests/test_codex_attempt_flow.py) — direct import
+  - `test_attempt_orchestration_falls_back_and_marks_agent_run_failed`
+  - `test_attempt_orchestration_falls_back_when_runtime_not_ready`
+  - `test_attempt_orchestration_uses_codex_when_runtime_ready`
+  - `test_codex_attempt_uses_highest_severity_error_for_observed_joint`
+  - `test_codex_blank_attempt_is_flagged_for_manual_review`
+  - `test_codex_graded_attempt_proposes_unknown_error_type`
+  - `test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence`
+  - `test_codex_recall_wording_uses_recall_failure_not_new_error_type`
+- [tests/test_coldness_receipt.py](../../../../../tests/test_coldness_receipt.py) — direct import
+  - `test_coldness_receipts_are_append_only`
+  - `test_delivered_passage_on_the_cold_items_own_source_span_is_hard`
+  - `test_delivered_passages_in_interval_are_typed_exposure_not_indeterminate`
+  - `test_delivery_outside_the_interval_is_observed_silence_not_indeterminate`
+  - `test_detail_serve_writes_one_snapshot_for_an_active_cold_task`
+  - `test_expired_task_gets_a_partial_final_receipt`
+  - `test_feedback_reopen_on_the_cold_item_is_a_hard_answer_reveal`
+  - `test_feedback_reopen_on_the_source_attempt_is_a_soft_exposure`
+  - `test_happy_path_snapshot_verification_and_final_receipt`
+  - `test_hard_same_surface_exposure_yields_disposition_not_verification`
+  - `test_no_reveal_rows_is_a_scoped_absence_claim_not_a_bare_pass`
+  - `test_over_budget_episode_downgrades_the_repair_effect_claim`
+  - `test_prescribe_handler_records_the_delivery`
+  - `test_prescription_without_a_delivery_record_is_unknown_not_pass`
+  - `test_recent_retrieval_resets_the_cold_delay_anchor`
+  - `test_retrieval_cointervention_demotes_attribution_not_the_verification`
+  - `test_reveal_elsewhere_in_the_learning_object_is_soft_not_a_failure`
+  - `test_reveal_on_the_cold_item_fails_leakage_and_unassisted`
+  - `test_unrelated_remediation_is_counted_but_does_not_change_coldness`
+  - `test_verification_blinding_is_unknown_without_a_grading_context_receipt`
+  - `test_within_budget_episode_records_the_spend_without_downgrading`
+- [tests/test_commitment_arcs.py](../../../../../tests/test_commitment_arcs.py) — direct import
+- [tests/test_commitments.py](../../../../../tests/test_commitments.py) — direct import
+- [tests/test_common_repair_delivery.py](../../../../../tests/test_common_repair_delivery.py) — direct import
+- [tests/test_concept_animation_service.py](../../../../../tests/test_concept_animation_service.py) — direct import
+  - `test_runner_handler_drives_generation_through_the_queue`
+- [tests/test_concept_animation_store.py](../../../../../tests/test_concept_animation_store.py) — direct import
+  - `test_animations_listing_orders_newest_first`
+- [tests/test_conjunctive_instruments.py](../../../../../tests/test_conjunctive_instruments.py) — direct import
+  - `test_a_merged_facet_does_not_desynchronise_the_two_folds`
+  - `test_a_trace_row_for_a_different_facet_does_not_license_the_supporting_target`
+  - `test_an_exercised_supporting_target_does_make_the_failure_ambiguous`
+  - `test_an_unexercised_supporting_target_costs_its_criterion_no_measurement`
+  - `test_an_unexercised_supporting_target_takes_no_blame_when_its_own_step_fails`
+  - `test_failure_at_step_one_leaves_later_steps_unassessed_not_failed`
+  - `test_failure_at_step_three_indicts_only_the_diverged_facet`
+  - `test_full_pass_credits_every_primary_cell_and_banks_unexercised_supporting_mass`
+  - `test_guard_1_holds_in_the_receipt_fold_as_well_as_the_projection`
+  - `test_insert_trace_exercised_facets_is_idempotent_on_attempt_facet_source`
+  - `test_the_configured_share_is_the_ledgers_cap_and_one_point_zero_disables_it`
+  - `test_trace_evidence_report_surfaces_unexercised_cells_and_abstains_on_concentration`
+  - `test_trace_evidence_turns_the_supporting_target_into_embedded_credit`
+- [tests/test_constraint_engine.py](../../../../../tests/test_constraint_engine.py) — direct import
+- [tests/test_contract_frontier_coverage.py](../../../../../tests/test_contract_frontier_coverage.py) — direct import
+  - `test_capability_axis_distinguishes_the_cells`
+  - `test_the_denominator_change_is_narrated_as_one_recalibration`
+- [tests/test_contrast_pairs.py](../../../../../tests/test_contrast_pairs.py) — direct import
+- [tests/test_controller_cutover.py](../../../../../tests/test_controller_cutover.py) — direct import
+- [tests/test_controller_ownership.py](../../../../../tests/test_controller_ownership.py) — direct import
+- [tests/test_controller_snapshot.py](../../../../../tests/test_controller_snapshot.py) — direct import
+- [tests/test_coverage_denominator_boundary.py](../../../../../tests/test_coverage_denominator_boundary.py) — direct import
+  - `test_a_null_version_is_not_reported_not_a_rollback`
+  - `test_apply_writes_one_boundary_and_a_rerun_writes_none`
+  - `test_dry_run_writes_no_boundary`
+- [tests/test_cross_seam_exposure.py](../../../../../tests/test_cross_seam_exposure.py) — direct import
+- [tests/test_curriculum_locks.py](../../../../../tests/test_curriculum_locks.py) — direct import
+  - `test_deactivate_locked_learning_object_is_invalid`
+  - `test_locked_semantic_merge_is_invalid`
+- [tests/test_debug_advance.py](../../../../../tests/test_debug_advance.py) — direct import
+  - `test_debug_advance_shifts_practice_item_state_timestamps`
+- [tests/test_deferred_regrade.py](../../../../../tests/test_deferred_regrade.py) — direct import
+  - `test_deferred_ai_regrade_records_provider_and_ai_origin`
+  - `test_deferred_regrade_failure_leaves_self_grade_current_and_agent_failed`
+  - `test_deferred_regrade_preserves_blank_answer_manual_review`
+  - `test_deferred_regrade_recomputes_downstream_attempts_for_learning_object`
+  - `test_deferred_regrade_records_disagreement_event`
+  - `test_deferred_regrade_replays_attempt_derived_state`
+  - `test_deferred_regrade_replays_targeted_error_attribution_facets`
+  - `test_deferred_regrade_skips_when_runtime_not_ready`
+  - `test_deferred_regrade_supersedes_self_grade_and_updates_mastery`
+  - `test_deferred_regrade_validates_repaired_trace_against_learner_answer`
+  - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
+- [tests/test_depth_transition.py](../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_diagnosis_adjudication.py](../../../../../tests/test_diagnosis_adjudication.py) — direct import
+  - `test_contest_leads_the_queue_and_is_provenance_never_the_verdict`
+  - `test_queue_reason_is_persisted_so_selection_bias_is_auditable`
+- [tests/test_diagnostic_gate.py](../../../../../tests/test_diagnostic_gate.py) — direct import
+- [tests/test_diagnostic_probe_freshness.py](../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
+- [tests/test_diagnostic_probe_single_use.py](../../../../../tests/test_diagnostic_probe_single_use.py) — direct import
+- [tests/test_dialogue_causal_join.py](../../../../../tests/test_dialogue_causal_join.py) — direct import
+  - `test_a_nonsense_candidate_statement_is_never_rejected`
+  - `test_a_production_after_a_reveal_is_not_independent`
+  - `test_a_reveal_on_a_sibling_item_of_the_same_lo_still_contaminates`
+  - `test_an_eliciting_response_after_a_reveal_is_recorded_but_not_independent`
+  - `test_an_embedded_prediction_stays_admissible_after_a_reveal`
+  - `test_an_empty_eliciting_response_is_refused`
+  - `test_embedded_prediction_is_idempotent_per_question`
+  - `test_submit_eliciting_response_records_a_factor_response`
+- [tests/test_discrimination_profiles.py](../../../../../tests/test_discrimination_profiles.py) — direct import
+- [tests/test_doctor.py](../../../../../tests/test_doctor.py) — direct import
+  - `test_doctor_warns_on_duplicate_diagnostic_practice_proposals`
+  - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`
+- [tests/test_dual_authority_administration.py](../../../../../tests/test_dual_authority_administration.py) — direct import
+- [tests/test_durable_promotion_arms.py](../../../../../tests/test_durable_promotion_arms.py) — direct import
+- [tests/test_e2e_codex_mock.py](../../../../../tests/test_e2e_codex_mock.py) — direct import
+  - `test_codex_mocked_end_to_end`
+- [tests/test_effective_observation.py](../../../../../tests/test_effective_observation.py) — direct import
+- [tests/test_error_hunt_items.py](../../../../../tests/test_error_hunt_items.py) — direct import
+- [tests/test_evaluation.py](../../../../../tests/test_evaluation.py) — direct import
+  - `test_gate_section_counts_manual_false_negatives`
+  - `test_report_on_real_session_flow`
+- [tests/test_event_sufficiency.py](../../../../../tests/test_event_sufficiency.py) — direct import
+- [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
+  - `test_item_in_at_most_one_unreleased_pool`
+  - `test_only_never_attempted_items_are_reservable`
+  - `test_release_frees_items`
+  - `test_reservation_covers_scope_facets_and_strata`
+  - `test_reservation_is_idempotent_per_goal`
+  - `test_scheduler_skips_reserved_items`
+  - `test_uncovered_facets_reported_when_no_item_tests_a_facet`
+- [tests/test_exam_readiness_and_conflict.py](../../../../../tests/test_exam_readiness_and_conflict.py) — direct import
+- [tests/test_exam_seeding.py](../../../../../tests/test_exam_seeding.py) — direct import
+  - `test_ingest_exam_instructions_reach_context_and_tags_apply`
+  - `test_seeded_exam_interleaves_before_later_live_attempt`
+- [tests/test_exam_session.py](../../../../../tests/test_exam_session.py) — direct import
+  - `test_availability_in_window_near_due_date`
+  - `test_availability_open_ended_goal_never_in_window_but_startable`
+  - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
+  - `test_finish_is_idempotent_by_session_id`
+  - `test_finish_lands_exam_attempt_evidence_with_full_mass`
+  - `test_finish_releases_the_exam_pool`
+  - `test_report_has_per_facet_predicted_vs_actual`
+  - `test_start_is_idempotent`
+  - `test_ungraded_answer_is_durable_and_blocks_finish`
+- [tests/test_facet_diagnostics_v03.py](../../../../../tests/test_facet_diagnostics_v03.py) — direct import
+  - `test_facet_uncertainty_rebuilds_from_attempts_and_grading_evidence`
+  - `test_hedged_learner_confidence_opens_uncertainty_even_with_partial_credit`
+  - `test_open_facet_restriction_makes_disjoint_correct_attempt_zero_weight`
+  - `test_tiny_authored_facet_share_does_not_earn_per_facet_coverage`
+  - `test_variance_floor_blocks_confidence_before_required_facet_breadth`
+- [tests/test_facet_evidence_timeline.py](../../../../../tests/test_facet_evidence_timeline.py) — direct import
+- [tests/test_failure_triage_causal_gate.py](../../../../../tests/test_failure_triage_causal_gate.py) — direct import
+  - `test_real_receipt_from_apply_attempt_does_not_force_tier_two`
+- [tests/test_familiarity.py](../../../../../tests/test_familiarity.py) — direct import
+- [tests/test_followup_diagnostic_selection.py](../../../../../tests/test_followup_diagnostic_selection.py) — direct import
+- [tests/test_followups.py](../../../../../tests/test_followups.py) — direct import
+  - `test_manual_override_forces_followup_when_gate_silent`
+  - `test_negative_surprise_followup_stops_forcing_after_followup_attempt`
+  - `test_negative_surprise_inserts_followup_when_item_exists`
+- [tests/test_forecast_ledger.py](../../../../../tests/test_forecast_ledger.py) — direct import
+  - `test_do_nothing_forecast_is_censored_when_scope_was_practiced`
+  - `test_pace_forecast_resolves_on_first_pass_beyond_horizon`
+  - `test_unpracticed_decay_forecast_resolves_against_cold_outcomes_only`
+- [tests/test_gate_score.py](../../../../../tests/test_gate_score.py) — direct import
+- [tests/test_goal_certification_any_of.py](../../../../../tests/test_goal_certification_any_of.py) — direct import
+- [tests/test_goal_contracts.py](../../../../../tests/test_goal_contracts.py) — direct import
+- [tests/test_goal_decay_projection.py](../../../../../tests/test_goal_decay_projection.py) — direct import
+  - `test_do_nothing_projection_is_monotone_non_increasing_for_decay_facets`
+  - `test_goal_with_zero_decay_estimated_facets_reports_suppressible_coverage`
+  - `test_held_flat_facets_are_excluded_from_the_curve_but_counted`
+  - `test_linear_algebra_fixture_golden_projection`
+- [tests/test_goal_frontier.py](../../../../../tests/test_goal_frontier.py) — direct import
+  - `test_cold_start_lo_on_frontier_is_schedulable`
+  - `test_goal_quota_guarantees_floor_share_at_top_of_queue`
+  - `test_known_gap_and_uncertain_facets_are_both_on_frontier`
+  - `test_no_active_goals_means_no_goal_frontier`
+  - `test_unexamined_facet_on_goal_frontier_scales_by_goal_priority`
+- [tests/test_goal_pace.py](../../../../../tests/test_goal_pace.py) — direct import
+  - `test_compute_goal_pace_open_ended`
+  - `test_compute_goal_pace_with_due_date`
+  - `test_daily_attempt_counts_is_zero_filled_and_buckets_by_day`
+  - `test_pace_as_dict_shape`
+  - `test_unknowable_remaining_surfaces_as_none`
+- [tests/test_goal_projection.py](../../../../../tests/test_goal_projection.py) — direct import
+  - `test_attainment_aggregates`
+  - `test_attempts_to_certify_inverts_the_mass_equation`
+  - `test_decayed_certified_facet_reports_a_floor_not_zero`
+  - `test_fully_reachable_contract_keeps_the_legacy_estimate`
+  - `test_high_mastery_low_mass_is_on_track_but_uncertified_and_at_risk`
+  - `test_known_gap_facet_is_never_on_track`
+  - `test_legacy_lo_without_a_contract_is_untouched`
+  - `test_mismatch_above_is_not_treated_as_unreachable`
+  - `test_one_uncloseable_rung_abstains_for_the_whole_facet`
+  - `test_projection_is_monotonically_non_increasing_with_horizon`
+  - `test_quota_floor_interpolates_within_ramp_window`
+  - `test_quota_floor_open_ended_goal_uses_floor_min`
+  - `test_quota_floor_past_due_uses_floor_max`
+  - `test_quota_floor_zero_when_no_active_frontier`
+  - `test_solid_facet_above_target_no_decay_info_is_on_track`
+  - `test_solid_facet_decays_below_target_lands_on_frontier`
+  - `test_unexamined_facet_is_on_frontier_and_not_on_track`
+  - `test_unreachable_contract_cell_makes_attempts_unknowable`
+- [tests/test_goal_series.py](../../../../../tests/test_goal_series.py) — direct import
+  - `test_series_caps_points_and_keeps_recent_window`
+  - `test_series_reflects_evidence_arriving_over_time`
+  - `test_series_replays_past_non_cascading_attempt_references`
+  - `test_series_scratch_copy_attaches_without_migrating`
+  - `test_series_shares_one_replay_across_unchanged_checkpoints`
+- [tests/test_golden_path_assessment.py](../../../../../tests/test_golden_path_assessment.py) — direct import
+- [tests/test_golden_path_confirm.py](../../../../../tests/test_golden_path_confirm.py) — direct import
+- [tests/test_golden_path_run.py](../../../../../tests/test_golden_path_run.py) — direct import
+- [tests/test_grade_resolution_pipeline.py](../../../../../tests/test_grade_resolution_pipeline.py) — direct import
+- [tests/test_grader_channel_prior_knobs.py](../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
+- [tests/test_grading_cli.py](../../../../../tests/test_grading_cli.py) — direct import
+- [tests/test_graph_correction.py](../../../../../tests/test_graph_correction.py) — direct import
+  - `test_calibration_ordering_reverts_to_plain_rate`
+- [tests/test_graph_edit_proposals.py](../../../../../tests/test_graph_edit_proposals.py) — direct import
+- [tests/test_graph_editor_reads.py](../../../../../tests/test_graph_editor_reads.py) — direct import
+- [tests/test_guided_redo.py](../../../../../tests/test_guided_redo.py) — direct import
+  - `test_clean_primed_attempt_without_receipt_records_nothing`
+  - `test_feedback_reports_guided_redo_availability`
+  - `test_guided_redo_binds_open_episode_and_closes_the_funnel`
+  - `test_guided_redo_establishes_episode_without_overlay`
+  - `test_guided_redo_never_steals_a_sibling_committed_episode`
+  - `test_guided_redo_reports_case_unresolvable`
+  - `test_guided_redo_requires_a_repair_selection`
+  - `test_rank_items_deprioritizes_recently_attempted_item`
+  - `test_rank_items_prefers_checkpoint_covering_item`
+- [tests/test_hot_path_eligibility_cutover.py](../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
+  - `test_ineligible_observation_leaves_mvp08_scheduling_untouched_but_legacy_writes`
+- [tests/test_hypothesis_claim_dispatcher.py](../../../../../tests/test_hypothesis_claim_dispatcher.py) — direct import
+  - `test_at_most_one_cold_reask_per_log_visit`
+  - `test_cold_claims_never_take_the_reserved_hot_slot`
+  - `test_debounce_same_version_and_re_presentation_of_changed_version`
+  - `test_hot_claim_lands_after_cold_budget_is_exhausted`
+  - `test_hot_claims_win_priority_within_one_dispatch`
+  - `test_responded_claim_cools_down_for_seven_days`
+  - `test_suppressed_presentation_rejects_responses`
+- [tests/test_hypothesis_sets.py](../../../../../tests/test_hypothesis_sets.py) — direct import
+  - `test_hypothesis_set_adds_active_misconception`
+  - `test_hypothesis_set_always_has_mastered_and_unfamiliar`
+  - `test_hypothesis_set_caps_and_drops_lowest_severity`
+- [tests/test_identifiability_doctor.py](../../../../../tests/test_identifiability_doctor.py) — direct import
+  - `test_graph_identifiability_report_and_probe_scheduling`
+  - `test_pre_first_practice_doctor_watermark`
+- [tests/test_ingest_instrument_gates.py](../../../../../tests/test_ingest_instrument_gates.py) — direct import
+  - `test_apply_stamps_coverage_boundary_and_later_rebuilds_add_nothing`
+  - `test_canonical_lane_does_not_auto_apply_gated_items`
+  - `test_record_content_recalibration_ignores_unknown_los`
+- [tests/test_ingest_m3.py](../../../../../tests/test_ingest_m3.py) — direct import
+- [tests/test_ingest_runner.py](../../../../../tests/test_ingest_runner.py) — direct import
+  - `test_goal_population_handler_generates_and_applies_practice`
+- [tests/test_init.py](../../../../../tests/test_init.py) — direct import
+- [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
+- [tests/test_intent_planner.py](../../../../../tests/test_intent_planner.py) — direct import
+- [tests/test_irt_difficulty.py](../../../../../tests/test_irt_difficulty.py) — direct import
+  - `test_difficulty_source_round_trips_through_the_writer`
+- [tests/test_irt_end_to_end.py](../../../../../tests/test_irt_end_to_end.py) — direct import
+  - `test_decisive_hard_correct_concentrates_posterior_more_than_trivial`
+  - `test_hard_correct_completes_probe_on_hypothesis_convergence`
+- [tests/test_item_authoring.py](../../../../../tests/test_item_authoring.py) — direct import
+- [tests/test_item_parameters.py](../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_journey6.py](../../../../../tests/test_journey6.py) — direct import
+- [tests/test_kinship_feature.py](../../../../../tests/test_kinship_feature.py) — direct import
+- [tests/test_km2_activation.py](../../../../../tests/test_km2_activation.py) — direct import
+  - `test_app_load_repairs_vault_activated_by_old_upgrade`
+  - `test_upgrade_projects_existing_attempts_into_canonical_facet_state`
+- [tests/test_km2_sim_gates.py](../../../../../tests/test_km2_sim_gates.py) — direct import
+  - `test_no_capability_inflation_sim`
+  - `test_shared_facet_belief_mae_beats_per_lo`
+  - `test_shared_facet_certifies_with_fewer_attempts`
+- [tests/test_km2_write_path.py](../../../../../tests/test_km2_write_path.py) — direct import
+  - `test_certification_credit_zero_when_assisted`
+  - `test_explicit_failure_attribution_penalizes_only_selected_target`
+  - `test_golden_replay_identity_mvp07`
+  - `test_near_clones_globally_discounted`
+  - `test_open_set_arm_survives_apply_attempt_into_the_probe_path`
+  - `test_rebuild_uses_presented_contract_after_live_target_change`
+  - `test_retrieval_evidence_cannot_certify_method_selection`
+  - `test_two_los_share_one_facet_parent`
+  - `test_wrong_answer_no_work_creates_unresolved_cause_set`
+- [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
+  - `test_exam_attempt_moves_shared_parent_across_los`
+  - `test_goal_projection_reads_canonical_state`
+  - `test_mvp07_vault_refuses_legacy_facet_state_write`
+  - `test_replay_identity_after_bridge_removal`
+  - `test_two_los_share_one_facet_parent_in_scheduler_view`
+- [tests/test_km3_projections.py](../../../../../tests/test_km3_projections.py) — direct import
+  - `test_blueprint_readiness_wired_into_goal_report`
+  - `test_goal_report_exposes_dual_axis_fields`
+- [tests/test_km4_taxonomy.py](../../../../../tests/test_km4_taxonomy.py) — direct import
+  - `test_compositional_record_parameterizes_contrast_probe`
+  - `test_legacy_vault_still_mints_immediately`
+  - `test_probe_cannot_preregister_its_signature_after_seeing_response`
+  - `test_promotion_on_independent_surface`
+  - `test_promotion_requires_independent_surface_or_probe_reproduction`
+  - `test_unresolved_cause_set_does_not_mint_misconception`
+- [tests/test_km5_sim_gates.py](../../../../../tests/test_km5_sim_gates.py) — direct import
+  - `test_residual_activation_improves_capability_mae_without_parent_inflation`
+  - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
+- [tests/test_laddered_stems.py](../../../../../tests/test_laddered_stems.py) — direct import
+- [tests/test_large_practice_flow.py](../../../../../tests/test_large_practice_flow.py) — direct import
+  - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_learner_review_system_entries.py](../../../../../tests/test_learner_review_system_entries.py) — direct import
+  - `test_algorithm_version_bump_yields_exactly_one_recalibration_entry`
+  - `test_entries_are_interleaved_reverse_chronologically`
+  - `test_in_session_regrade_is_not_double_listed`
+  - `test_no_recalibration_without_version_change`
+  - `test_review_feed_bulk_loads_timeline_history_once`
+- [tests/test_maintenance_feed.py](../../../../../tests/test_maintenance_feed.py) — direct import
+- [tests/test_measurement_corrections.py](../../../../../tests/test_measurement_corrections.py) — direct import
+  - `test_attempted_item_correction_is_append_only_and_projection_versioned`
+  - `test_historical_reinterpretation_rejects_a_changed_task`
+- [tests/test_measurement_rank.py](../../../../../tests/test_measurement_rank.py) — direct import
+  - `test_computing_the_rank_triggers_no_merge`
+  - `test_graph_identifiability_report_publishes_the_rank`
+- [tests/test_measurement_state_labels.py](../../../../../tests/test_measurement_state_labels.py) — direct import
+  - `test_claimed_label_when_only_a_learner_claim_covers_the_cell`
+  - `test_label_does_not_move_a_threshold_a_number_or_a_certification`
+  - `test_measured_label_on_a_facet_with_evidence_over_the_gate`
+  - `test_pooled_prediction_that_rendered_unlabelled_now_carries_inferred`
+  - `test_sub_threshold_direct_mass_is_inferred_not_measured`
+  - `test_unknown_label_when_there_is_nothing_at_all`
+- [tests/test_minimal_repair_selection_a1.py](../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
+  - `test_the_persisted_repair_class_is_the_structurally_selected_one`
+- [tests/test_misconception_registry.py](../../../../../tests/test_misconception_registry.py) — direct import
+  - `test_build_hypothesis_set_registry_and_legacy_coexist`
+  - `test_build_hypothesis_set_skips_linked_legacy_event`
+  - `test_clean_discriminating_attempts_resolve`
+  - `test_clean_non_discriminating_attempts_do_not_resolve`
+  - `test_fired_keyed_fatal_raises_posterior`
+  - `test_llm_match_new_inserts_over_text_match`
+  - `test_llm_match_same_merges`
+  - `test_normalization_creates_row_with_provenance`
+  - `test_normalization_dedupes_by_normalized_statement`
+  - `test_normalization_is_idempotent`
+  - `test_normalization_reactivates_resolved_row`
+  - `test_primed_attempts_do_not_resolve_a_misconception`
+  - `test_resolution_reactivates_when_posterior_climbs`
+  - `test_statementless_events_create_nothing`
+- [tests/test_misconception_resolution.py](../../../../../tests/test_misconception_resolution.py) — direct import
+  - `test_low_correctness_attempt_does_not_count_as_clean`
+- [tests/test_misconception_routing.py](../../../../../tests/test_misconception_routing.py) — direct import
+- [tests/test_misconception_transitions_intake.py](../../../../../tests/test_misconception_transitions_intake.py) — direct import
+  - `test_reactivation_wipes_resolved_at_but_returned_stays_derivable`
+  - `test_status_noop_update_emits_no_transition_event`
+- [tests/test_missing_vocabulary_notes.py](../../../../../tests/test_missing_vocabulary_notes.py) — direct import
+  - `test_a_resolved_diagnosis_writes_no_note`
+  - `test_note_capture_is_idempotent_across_rematerialization`
+  - `test_notes_are_append_only_and_reject_untyped_refusals`
+- [tests/test_mvp09_upgrade.py](../../../../../tests/test_mvp09_upgrade.py) — direct import
+  - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
+  - `test_upgrade_to_mvp09_is_immediate_successor_only`
+- [tests/test_observation_ledger_bulk.py](../../../../../tests/test_observation_ledger_bulk.py) — direct import
+  - `test_canonical_projection_bulk_loads_historical_contracts_once`
+  - `test_p0_replays_bulk_load_calibration_references_once`
+  - `test_primed_provenance_reaches_projection_and_blocks_certification`
+  - `test_pure_diagnostic_is_unassisted_but_cannot_bank_certification`
+  - `test_recorded_near_clone_disqualification_survives_both_replays`
+- [tests/test_observation_templates.py](../../../../../tests/test_observation_templates.py) — direct import
+  - `test_ambiguous_emitting_binding_lands_pending`
+  - `test_emitting_template_creates_attempt_through_attempt_service`
+  - `test_register_rejects_invalid_template`
+  - `test_valid_template_registers_and_loads`
+- [tests/test_open_world_gate.py](../../../../../tests/test_open_world_gate.py) — direct import
+- [tests/test_originals_store.py](../../../../../tests/test_originals_store.py) — direct import
+- [tests/test_p0_cutover_mvp08.py](../../../../../tests/test_p0_cutover_mvp08.py) — direct import
+- [tests/test_p0_projection_cutover.py](../../../../../tests/test_p0_projection_cutover.py) — direct import
+- [tests/test_p2_acceptance.py](../../../../../tests/test_p2_acceptance.py) — direct import
+- [tests/test_p2_leakage_suite.py](../../../../../tests/test_p2_leakage_suite.py) — direct import
+- [tests/test_p3_journeys.py](../../../../../tests/test_p3_journeys.py) — direct import
+- [tests/test_post_attempt_pipeline.py](../../../../../tests/test_post_attempt_pipeline.py) — direct import
+  - `test_finish_exam_failure_reaches_needs_metadata_and_hypotheses`
+  - `test_finish_exam_passing_answers_do_not_mint_followup_noise`
+  - `test_finish_exam_remains_idempotent_with_pipeline`
+- [tests/test_practice_leakage.py](../../../../../tests/test_practice_leakage.py) — direct import
+- [tests/test_predictive_eig.py](../../../../../tests/test_predictive_eig.py) — direct import
+  - `test_followup_slate_logs_predictive_fields_and_ranking_unchanged_at_weight_zero`
+- [tests/test_prequential.py](../../../../../tests/test_prequential.py) — direct import
+- [tests/test_probe_attempt_updates.py](../../../../../tests/test_probe_attempt_updates.py) — direct import
+  - `test_attempt_service_never_writes_legacy_probe_state`
+  - `test_record_probe_attempt_completes_on_convergence`
+  - `test_record_probe_attempt_does_not_converge_on_uninformative_prior`
+  - `test_record_probe_attempt_increments_until_target`
+  - `test_record_probe_attempt_is_noop_when_not_probing`
+- [tests/test_probe_audit.py](../../../../../tests/test_probe_audit.py) — direct import
+- [tests/test_probe_belief_posterior.py](../../../../../tests/test_probe_belief_posterior.py) — direct import
+  - `test_decisive_high_score_converges_early_on_hypothesis_family`
+  - `test_dont_know_outcome_does_not_break_posterior`
+  - `test_low_score_with_misconception_shifts_posterior_and_persists_belief`
+  - `test_mid_scores_run_probe_to_target_not_one`
+  - `test_no_misconception_writes_no_belief_rows_but_updates_base_posterior`
+  - `test_probe_posterior_is_idempotent`
+  - `test_realized_information_gain_is_positive_for_informative_attempt`
+  - `test_scheduler_eig_uses_live_posterior`
+- [tests/test_probe_block_end.py](../../../../../tests/test_probe_block_end.py) — direct import
+- [tests/test_probe_coverage.py](../../../../../tests/test_probe_coverage.py) — direct import
+- [tests/test_probe_dialogue.py](../../../../../tests/test_probe_dialogue.py) — direct import
+- [tests/test_probe_eig.py](../../../../../tests/test_probe_eig.py) — direct import
+  - `test_probe_eig_higher_when_item_probes_active_misconception`
+  - `test_probe_hypothesis_set_ignores_transient_errors`
+- [tests/test_probe_entry.py](../../../../../tests/test_probe_entry.py) — direct import
+  - `test_enter_probe_creates_in_progress_state_and_locked_hypothesis_set`
+  - `test_enter_probe_is_deterministic`
+  - `test_enter_probe_reduces_target_with_strong_claim`
+- [tests/test_probe_episodes.py](../../../../../tests/test_probe_episodes.py) — direct import
+  - `test_stop_and_teach_ends_measurement_and_segments_evidence`
+- [tests/test_probe_hierarchy.py](../../../../../tests/test_probe_hierarchy.py) — direct import
+- [tests/test_probe_instance_generation.py](../../../../../tests/test_probe_instance_generation.py) — direct import
+- [tests/test_probe_lifecycle.py](../../../../../tests/test_probe_lifecycle.py) — direct import
+- [tests/test_probe_llm_instances.py](../../../../../tests/test_probe_llm_instances.py) — direct import
+- [tests/test_probe_longform_families.py](../../../../../tests/test_probe_longform_families.py) — direct import
+- [tests/test_probe_migration.py](../../../../../tests/test_probe_migration.py) — direct import
+  - `test_legacy_probe_history_replays_identically_after_migration`
+  - `test_migration_closes_in_progress_phases_as_superseded`
+- [tests/test_probe_orchestration_remainder.py](../../../../../tests/test_probe_orchestration_remainder.py) — direct import
+  - `test_stale_uncertainty_reprobe_after_configured_days`
+  - `test_stale_uncertainty_respects_variance_floor`
+- [tests/test_probe_policy.py](../../../../../tests/test_probe_policy.py) — direct import
+- [tests/test_probe_pool_empty.py](../../../../../tests/test_probe_pool_empty.py) — direct import
+- [tests/test_probe_predictive_eig.py](../../../../../tests/test_probe_predictive_eig.py) — direct import
+- [tests/test_probe_remint.py](../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_robust_cutover.py](../../../../../tests/test_probe_robust_cutover.py) — direct import
+- [tests/test_probe_surface_mint.py](../../../../../tests/test_probe_surface_mint.py) — direct import
+- [tests/test_probe_targeting.py](../../../../../tests/test_probe_targeting.py) — direct import
+  - `test_cause_set_diagnostic_selects_discriminating_instrument`
+  - `test_embedded_evidence_suppresses_redundant_probe`
+  - `test_incomplete_mapping_surfaces_as_a_machine_check_never_as_a_probe`
+  - `test_integration_condition_probes_coordination_not_components`
+- [tests/test_progression.py](../../../../../tests/test_progression.py) — direct import
+- [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
+- [tests/test_proposal_persistence.py](../../../../../tests/test_proposal_persistence.py) — direct import
+  - `test_accept_learning_object_create_adds_missing_concept_for_graph`
+  - `test_ai_proposal_acceptance_records_ai_origin`
+  - `test_auto_apply_batches_dependency_order_for_new_lo_and_practice_item`
+  - `test_canonical_source_refs_flow_into_learning_object_provenance`
+  - `test_create_payload_missing_required_fields_is_invalid`
+  - `test_edit_proposal_item_updates_payload_and_refreshes_duplicate_validation`
+  - `test_failed_repair_call_keeps_original_invalid_item`
+  - `test_generate_persists_one_item_per_proposal_item`
+  - `test_generated_item_local_criterion_may_honestly_omit_facets`
+  - `test_generated_practice_missing_evidence_facets_is_invalid`
+  - `test_generated_practice_missing_evidence_weights_is_not_smeared`
+  - `test_generated_practice_missing_reward_metadata_is_invalid`
+  - `test_generated_practice_rejects_unknown_metadata_keys`
+  - `test_generated_practice_rubric_criterion_total_defines_grading_scale`
+  - `test_generated_practice_single_facet_backfills_criterion_facet_weights`
+  - `test_invalid_concept_edge_proposal_is_persisted_invalid`
+  - `test_invalid_generated_item_gets_one_repair_round_trip`
+  - `test_manual_practice_missing_evidence_weights_is_warning`
+  - `test_practice_item_without_resolved_rubric_is_invalid_until_edited`
+  - `test_registry_backed_vault_rejects_unknown_evidence_facet`
+  - `test_reject_route_item_is_persisted_invalid_and_not_applied`
+  - `test_source_grounded_auto_apply_accepts_low_risk_create`
+  - `test_source_linked_generated_practice_missing_audit_is_invalid`
+  - `test_source_linked_generated_practice_with_passed_audit_auto_applies`
+  - `test_timed_out_repair_fails_without_persisting_first_pass`
+  - `test_unresolved_source_ref_is_persisted_invalid`
+  - `test_update_learning_object_proposal_preserves_existing_required_fields`
+  - `test_update_practice_item_proposal_preserves_existing_learning_object`
+  - `test_valid_proposal_skips_repair_round_trip`
+- [tests/test_question_context.py](../../../../../tests/test_question_context.py) — direct import
+- [tests/test_question_promotions.py](../../../../../tests/test_question_promotions.py) — direct import
+  - `test_attempt_before_promotion_does_not_consume_practice_again_request`
+  - `test_build_tutor_qa_note_raises_without_subject`
+  - `test_requested_practice_item_ids_orders_oldest_first_and_excludes_attempted`
+- [tests/test_question_signal.py](../../../../../tests/test_question_signal.py) — direct import
+  - `test_adjustment_disabled_by_config`
+  - `test_failed_attempt_does_not_resolve_question`
+  - `test_failed_provider_keeps_question_row_without_charging_budget`
+  - `test_non_substantive_and_unanswered_questions_are_ignored`
+  - `test_successful_ask_records_answered_event_and_agent_run`
+  - `test_successful_attempt_resolves_question`
+  - `test_triggering_attempt_cannot_resolve_its_own_questions`
+  - `test_virtual_open_state_for_questioned_facet_without_row`
+- [tests/test_quick_add.py](../../../../../tests/test_quick_add.py) — direct import
+- [tests/test_randomization_layer.py](../../../../../tests/test_randomization_layer.py) — direct import
+- [tests/test_reader_authoring.py](../../../../../tests/test_reader_authoring.py) — direct import
+- [tests/test_reader_dialogue.py](../../../../../tests/test_reader_dialogue.py) — direct import
+- [tests/test_rebuild_orchestrator.py](../../../../../tests/test_rebuild_orchestrator.py) — direct import
+- [tests/test_recall_coverage_interventions.py](../../../../../tests/test_recall_coverage_interventions.py) — direct import
+  - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
+  - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
+  - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
+  - `test_dont_know_keeps_full_coverage_and_updates_facet_recall`
+  - `test_error_attribution_target_facets_are_canonicalized_before_facet_outcomes`
+  - `test_error_attribution_targets_unmapped_facet_before_whole_item_fallback`
+  - `test_facet_aliases_are_canonicalized_before_recall_updates`
+  - `test_facet_recall_alias_merge_sums_beta_state`
+  - `test_high_unfamiliar_probe_posterior_records_intervention_need`
+  - `test_hinted_dont_know_is_scaffold_failure_and_dampens_coverage_only_from_surface_policy`
+  - `test_intervention_need_targets_failed_facet_not_whole_item`
+  - `test_intervention_needs_canonicalize_target_facets_for_dedup`
+  - `test_repeated_failure_triggers_intervention_need_without_surprise`
+  - `test_rubric_criterion_names_infer_targeted_facet_outcomes`
+  - `test_second_same_facet_failure_counts_across_different_items`
+  - `test_success_breaks_item_streak_before_a_later_failure`
+  - `test_success_resets_repeat_failure_gate_and_coverage_is_not_failed`
+  - `test_zero_score_independent_attempt_uses_rubric_coverage_and_confidence_as_reliability`
+- [tests/test_receipt_derivation.py](../../../../../tests/test_receipt_derivation.py) — direct import
+  - `test_ready_derivation_matches_canonical_recall_slices`
+- [tests/test_reentry_short_session.py](../../../../../tests/test_reentry_short_session.py) — direct import
+- [tests/test_registry_audit.py](../../../../../tests/test_registry_audit.py) — direct import
+- [tests/test_remediation_cold_retry.py](../../../../../tests/test_remediation_cold_retry.py) — direct import
+  - `test_a_deferred_cold_retry_still_expires_on_its_original_window`
+  - `test_an_attempt_during_the_deferral_cannot_burn_the_measurement`
+  - `test_an_episode_within_budget_says_so`
+  - `test_cold_retry_is_consumed_exactly_once`
+  - `test_cold_retry_is_not_schedulable_until_not_before`
+  - `test_episode_links_prescription_primed_and_cold_end_to_end`
+  - `test_exam_attempt_does_not_consume_the_cold_retry`
+  - `test_misconception_cold_context_carries_repair_class_from_fresh_receipt`
+  - `test_only_the_cold_lane_is_deferred_by_a_reveal`
+  - `test_over_budget_episode_stamps_the_fact_on_the_cold_context`
+  - `test_repair_status_reports_episode_reveal_spend_against_the_budget`
+  - `test_reveal_after_scheduling_defers_the_cold_retry_instead_of_burning_it`
+  - `test_served_cold_attempt_is_enforced_unassisted_and_unprimed`
+  - `test_starting_the_same_repair_twice_reuses_one_episode`
+- [tests/test_repair_splice.py](../../../../../tests/test_repair_splice.py) — direct import
+- [tests/test_replay.py](../../../../../tests/test_replay.py) — direct import
+  - `test_compute_attempt_application_materializes_outputs_without_persisting`
+  - `test_compute_attempt_application_uses_explicit_prior_snapshot`
+  - `test_learning_object_replay_matches_live_state_and_is_idempotent`
+  - `test_live_and_replay_drive_shared_apply_attempt_step`
+  - `test_rebuild_derived_state_replays_attempt_logs`
+  - `test_replay_preserves_targeted_error_attribution_facets`
+- [tests/test_repositories.py](../../../../../tests/test_repositories.py) — direct import
+  - `test_agent_run_and_proposal_status_derivation`
+  - `test_error_event_misconception_backfill`
+  - `test_misconception_registry_round_trip_and_status_transitions`
+  - `test_session_checkpoint_round_trip`
+  - `test_session_day_streak_counts_active_and_alive_streaks`
+- [tests/test_residual_diagnostics.py](../../../../../tests/test_residual_diagnostics.py) — direct import
+  - `test_positive_residual_dependence_flags_missing_factor`
+- [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — direct import
+  - `test_a_reveal_inside_a_live_repair_is_attributed_to_its_episode`
+  - `test_a_revealed_cold_item_cannot_burn_its_cold_measurement`
+  - `test_a_tutor_answer_that_gives_the_solution_primes_the_next_attempt`
+  - `test_an_auto_primed_attempt_replays_as_primed`
+  - `test_feedback_question_is_hint_equivalent_and_writes_a_reveal_event`
+  - `test_feedback_questions_count_as_hints_for_the_next_attempt`
+  - `test_hint_window_still_starts_at_the_previous_attempt`
+  - `test_reader_questions_bind_no_item_so_they_debit_nothing`
+  - `test_reveal_events_are_append_only`
+  - `test_reveal_over_threshold_forces_primed_and_records_why`
+  - `test_reveal_under_threshold_leaves_the_attempt_unprimed`
+  - `test_reveals_accumulate_across_channels`
+  - `test_reveals_before_the_last_attempt_do_not_prime_the_next_one`
+- [tests/test_review_log.py](../../../../../tests/test_review_log.py) — direct import
+- [tests/test_revision_refresh.py](../../../../../tests/test_revision_refresh.py) — direct import
+- [tests/test_scheduler.py](../../../../../tests/test_scheduler.py) — direct import
+  - `test_a_clean_cold_task_is_served_as_the_cold_lane`
+  - `test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate`
+  - `test_a_side_effect_free_build_withholds_without_rescheduling`
+  - `test_ordinary_due_pick_carries_no_followup_kind`
+  - `test_scheduler_bulk_loads_item_quality_once`
+  - `test_scheduler_candidate_logs_are_retained_per_configured_limit`
+  - `test_scheduler_orders_eligible_items_by_selection_reward_before_id`
+  - `test_scheduler_persists_bounded_reward_debug_and_rejected_candidates`
+  - `test_scheduler_persists_selection_propensity_and_exploration_flag`
+  - `test_scheduler_scores_due_goal_item`
+  - `test_scheduler_selects_item_on_weak_canonical_facet_boundary`
+- [tests/test_scheduler_golden.py](../../../../../tests/test_scheduler_golden.py) — direct import
+  - `test_scheduler_forgetting_risk_zero_before_due_date`
+  - `test_scheduler_goal_frontier_follows_explicit_scope_only`
+  - `test_scheduler_recent_error_decays_by_exp_days_over_seven`
+  - `test_scheduler_ties_by_lowest_practice_item_id_and_filters_inactive`
+- [tests/test_scheduler_probe_eig.py](../../../../../tests/test_scheduler_probe_eig.py) — direct import
+  - `test_probe_eig_included_only_for_in_progress_probe`
+  - `test_probe_eig_persisted_in_scheduler_explanation`
+  - `test_probe_eig_uses_prospective_familiarity_discount`
+  - `test_readiness_factor_is_persisted_without_changing_priority`
+  - `test_scheduler_explanations_persist_only_for_named_sessions`
+  - `test_short_session_keeps_probe_eig_when_probe_is_only_reason`
+  - `test_short_session_suppresses_probe_eig`
+- [tests/test_scheduler_requested_floor.py](../../../../../tests/test_scheduler_requested_floor.py) — direct import
+  - `test_stateless_requested_item_survives_eligibility`
+- [tests/test_scoreboard.py](../../../../../tests/test_scoreboard.py) — direct import
+  - `test_a_belief_never_surfaced_is_not_a_harmful_write`
+  - `test_cells_cleared_per_question_divides_by_questions_served`
+  - `test_censored_learning_objects_are_reported_and_excluded_from_the_mean`
+  - `test_harmful_write_rate_counts_a_surfaced_then_withdrawn_belief`
+  - `test_supersession_is_not_harm_and_is_reported_separately`
+- [tests/test_self_attributed_misconceptions.py](../../../../../tests/test_self_attributed_misconceptions.py) — direct import
+  - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
+  - `test_no_promotion_when_label_already_rubric_fatal`
+  - `test_self_tag_on_non_probing_item_credits_misconception`
+  - `test_self_tag_replay_is_idempotent`
+- [tests/test_self_grade.py](../../../../../tests/test_self_grade.py) — direct import
+  - `test_dont_know_allowed_when_not_in_attempt_types`
+  - `test_self_grade_attribution_rejects_unknown_criterion`
+  - `test_self_grade_per_criterion_attribution_writes_error_event`
+  - `test_self_grade_uses_criterion_total_as_item_scale`
+  - `test_self_grade_uses_default_rubric_when_inline_rubric_is_omitted`
+- [tests/test_sensitivity_certificates.py](../../../../../tests/test_sensitivity_certificates.py) — direct import
+- [tests/test_shadow_components.py](../../../../../tests/test_shadow_components.py) — direct import
+- [tests/test_show.py](../../../../../tests/test_show.py) — direct import
+  - `test_show_attempt_includes_grading_and_surprise`
+  - `test_show_inspects_every_deterministic_id`
+- [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — direct import
+  - `test_list_source_conflicts_enriches_extraction_ids`
+- [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
+  - `test_inspector_opens_probe_episode_drilldown`
+  - `test_knowledge_field_is_recipe_topological_and_uses_pooled_ready`
+- [tests/test_sidecar_golden_path_assessment.py](../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
+- [tests/test_sidecar_ingest_m3.py](../../../../../tests/test_sidecar_ingest_m3.py) — direct import
+- [tests/test_sidecar_knowledge_model.py](../../../../../tests/test_sidecar_knowledge_model.py) — direct import
+- [tests/test_sidecar_probe.py](../../../../../tests/test_sidecar_probe.py) — direct import
+  - `test_get_next_probe_item_reflects_the_open_episode`
+  - `test_probe_contract_requires_grading_provider_and_parks_episode`
+  - `test_stop_probe_diagnosing_converts_episode`
+- [tests/test_sidecar_quick_add.py](../../../../../tests/test_sidecar_quick_add.py) — direct import
+- [tests/test_sidecar_reader.py](../../../../../tests/test_sidecar_reader.py) — direct import
+- [tests/test_sidecar_remediation_surfaces.py](../../../../../tests/test_sidecar_remediation_surfaces.py) — direct import
+  - `test_auto_primed_is_absent_when_the_ledger_did_not_force_it`
+  - `test_auto_primed_reports_the_reveal_total_behind_the_reclassification`
+  - `test_cold_check_pending_learning_objects_clear_once_the_check_is_answered`
+  - `test_cold_check_result_is_null_on_an_ordinary_attempt`
+  - `test_cold_check_result_reports_the_span_and_the_claim`
+  - `test_session_counts_cold_checks_answered_and_confirmed_separately`
+  - `test_the_primed_repair_attempt_gets_no_cold_check_result`
+- [tests/test_sidecar_span_view.py](../../../../../tests/test_sidecar_span_view.py) — direct import
+- [tests/test_sidecar_teach_back.py](../../../../../tests/test_sidecar_teach_back.py) — direct import
+- [tests/test_sidecar_trace_and_clarification.py](../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
+  - `test_an_answer_recorded_without_a_grader_is_awaiting_regrade_not_answered`
+- [tests/test_sidecar_tutor_qa.py](../../../../../tests/test_sidecar_tutor_qa.py) — direct import
+  - `test_preview_tutor_opening_after_stop_diagnosing`
+  - `test_sidecar_ask_is_rejected_during_teach_back`
+  - `test_sidecar_promote_tutor_question_gap_rejected_in_library_context`
+  - `test_sidecar_save_tutor_answer_note_and_facet_question_counts`
+- [tests/test_sim_probe_validation.py](../../../../../tests/test_sim_probe_validation.py) — direct import
+- [tests/test_simulation.py](../../../../../tests/test_simulation.py) — direct import
+- [tests/test_source_append.py](../../../../../tests/test_source_append.py) — direct import
+- [tests/test_source_deletion.py](../../../../../tests/test_source_deletion.py) — direct import
+- [tests/test_source_ingestion.py](../../../../../tests/test_source_ingestion.py) — direct import
+  - `test_composite_note_id_locator_source_ref_resolves`
+  - `test_ingest_does_not_link_goal_to_pending_proposed_concept`
+  - `test_ingest_invalid_returned_locator_blocks_auto_apply`
+  - `test_ingest_local_html_registers_source_and_auto_applies`
+  - `test_ingest_local_markdown_runs_the_canonical_proposal_pipeline`
+  - `test_ingest_reports_user_visible_pipeline_phases`
+  - `test_ingest_retries_with_stronger_ai_provider_on_validation_failure`
+  - `test_ingest_same_canonical_source_is_noop_after_completed_run`
+  - `test_regrounded_update_clears_active_source_span_events`
+  - `test_reingest_changed_source_records_stale_source_events`
+  - `test_reject_auto_applied_ingest_items_deactivates_created_entities`
+  - `test_section_level_source_ref_resolves_to_child_chunks`
+  - `test_youtube_missing_source_ref_accepts_registered_note_timecoded_id`
+  - `test_youtube_missing_source_ref_is_reconstructed_from_timecoded_id`
+  - `test_youtube_missing_source_ref_without_timecoded_id_stays_invalid`
+  - `test_youtube_time_range_source_refs_can_span_caption_cues`
+- [tests/test_source_ingestion_adapters.py](../../../../../tests/test_source_ingestion_adapters.py) — direct import
+  - `test_textbook_ingest_requires_existing_anchor_and_passes_constraints`
+  - `test_youtube_fetcher_supports_current_transcript_api`
+- [tests/test_source_ingestion_v2lite.py](../../../../../tests/test_source_ingestion_v2lite.py) — direct import
+  - `test_legacy_path_without_ir_unchanged`
+  - `test_v2lite_batch_persists_ir_and_synthesizes_over_its_rendering`
+  - `test_v2lite_synthesis_respects_persisted_unit_selection`
+- [tests/test_source_inventory.py](../../../../../tests/test_source_inventory.py) — direct import
+- [tests/test_source_layer.py](../../../../../tests/test_source_layer.py) — direct import
+- [tests/test_source_outcome_analytics.py](../../../../../tests/test_source_outcome_analytics.py) — direct import
+- [tests/test_source_set_synthesis.py](../../../../../tests/test_source_set_synthesis.py) — direct import
+- [tests/test_source_sets.py](../../../../../tests/test_source_sets.py) — direct import
+- [tests/test_span_reanchor.py](../../../../../tests/test_span_reanchor.py) — direct import
+- [tests/test_span_view.py](../../../../../tests/test_span_view.py) — direct import
+- [tests/test_staged_policy.py](../../../../../tests/test_staged_policy.py) — direct import
+- [tests/test_staged_policy_evsi.py](../../../../../tests/test_staged_policy_evsi.py) — direct import
+- [tests/test_state_signals.py](../../../../../tests/test_state_signals.py) — direct import
+- [tests/test_state_sync.py](../../../../../tests/test_state_sync.py) — direct import
+  - `test_state_sync_enters_probe_for_new_active_goal_learning_object`
+  - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`
+  - `test_state_sync_enters_probe_when_practice_item_arrives_after_learning_object`
+  - `test_state_sync_initializes_and_deactivates_missing_yaml`
+  - `test_state_sync_no_probe_gap_for_item_less_goal_lo`
+  - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
+  - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`
+- [tests/test_subject_registry.py](../../../../../tests/test_subject_registry.py) — direct import
+- [tests/test_substrate_cutover.py](../../../../../tests/test_substrate_cutover.py) — direct import
+- [tests/test_surface_mint.py](../../../../../tests/test_surface_mint.py) — direct import
+- [tests/test_surfaced_belief_corrections.py](../../../../../tests/test_surfaced_belief_corrections.py) — direct import
+  - `test_a_second_disposition_is_a_second_fact_not_a_re_narration`
+  - `test_each_reason_maps_to_its_own_stated_wording`
+  - `test_legacy_free_text_reason_is_not_read_as_a_trace_contradiction`
+  - `test_mark_belief_surfaced_is_idempotent_on_a_read_path`
+  - `test_never_surfaced_belief_yields_no_correction`
+  - `test_non_belief_claims_never_record_a_belief_reference`
+  - `test_presented_but_never_visible_is_not_surfaced`
+  - `test_repeated_presentation_keeps_the_first_wording_and_exposure`
+  - `test_replacement_belief_is_not_itself_withdrawn`
+  - `test_rereading_the_feed_never_duplicates_the_correction`
+  - `test_structured_claim_ref_from_the_feedback_surface_still_joins`
+  - `test_supersession_with_a_replacement_still_narrates_the_withdrawal`
+  - `test_suppressed_card_was_authored_not_shown`
+  - `test_surfaced_then_retired_yields_one_correction_in_the_shown_words`
+  - `test_surfacing_after_the_withdrawal_does_not_retroactively_owe_an_apology`
+  - `test_withdrawal_drops_the_belief_from_working_hypotheses`
+  - `test_withdrawals_interleave_reverse_chronologically`
+- [tests/test_synthesis_runs_repo.py](../../../../../tests/test_synthesis_runs_repo.py) — direct import
+  - `test_finalize_stale_synthesis_runs_spares_recent_rows`
+- [tests/test_task_blueprints.py](../../../../../tests/test_task_blueprints.py) — direct import
+- [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
+  - `test_ai_question_control_sequences_are_removed_from_live_and_restored_state`
+  - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
+  - `test_ensure_teach_back_item_mints_transfer_criterion`
+  - `test_finish_and_rebuild_replay_reproduce_derived_state`
+  - `test_finish_partial_grading_only_asked_criteria_produce_evidence`
+  - `test_finish_with_no_answered_followup_grades_opening_against_core`
+  - `test_fractional_asked_subset_is_a_view_not_an_authored_rubric`
+  - `test_low_scoring_answers_are_just_low_scores`
+  - `test_next_question_conditions_on_transcript_and_exhausts`
+  - `test_plan_escalates_to_transfer_when_everything_is_solid`
+  - `test_plan_followups_keeps_declared_item_local_criteria_targetless`
+  - `test_plan_is_deterministic_and_capped`
+  - `test_plan_orders_uncertain_core_first_then_escalates`
+  - `test_plan_reserves_final_slot_for_transfer_when_core_would_crowd_it_out`
+  - `test_regrade_teach_back_attempt_restricts_to_graded_criteria`
+  - `test_regrade_teach_back_attempt_without_evidence_falls_back_to_core`
+  - `test_replay_teach_back_attempt_survives_practice_mode_change`
+  - `test_scheduler_caps_teach_back_items_per_queue`
+  - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
+  - `test_state_json_round_trip`
+  - `test_teach_back_stays_weakly_schedulable_on_solid_knowledge`
+  - `test_transfer_tier_evidence_mass_is_discounted_symmetrically`
+- [tests/test_teach_back_generation.py](../../../../../tests/test_teach_back_generation.py) — direct import
+  - `test_teach_back_item_missing_core_criterion_for_facet_is_invalid`
+  - `test_teach_back_item_with_unmapped_criterion_is_invalid`
+  - `test_teach_back_item_without_rubric_is_invalid_despite_default_rubrics`
+  - `test_well_formed_teach_back_item_is_valid`
+- [tests/test_today_surfaces.py](../../../../../tests/test_today_surfaces.py) — direct import
+  - `test_decay_pressure_already_below_target_crosses_at_zero`
+  - `test_decay_pressure_crossing_day_math`
+  - `test_reentry_below_threshold_does_not_show`
+  - `test_reentry_splits_solid_slipped_and_excludes_held_flat`
+- [tests/test_tutor_citations.py](../../../../../tests/test_tutor_citations.py) — direct import
+- [tests/test_tutor_promotion_service.py](../../../../../tests/test_tutor_promotion_service.py) — direct import
+- [tests/test_tutor_promotion_w2.py](../../../../../tests/test_tutor_promotion_w2.py) — direct import
+  - `test_core_recall_gap_on_solid_facet_still_applies`
+  - `test_failed_attempt_does_not_resolve_gap_declaration`
+  - `test_gap_declaration_bumps_facet_independent_of_question_type`
+  - `test_gap_declaration_resolved_by_later_success`
+  - `test_gap_need_goes_stale_after_ttl`
+  - `test_gap_need_goes_stale_when_facets_succeed`
+  - `test_gap_need_survives_before_ttl_without_success`
+  - `test_non_gap_need_unaffected_by_gap_staleness`
+  - `test_transfer_gap_on_solid_facet_is_skipped`
+- [tests/test_tutor_qa.py](../../../../../tests/test_tutor_qa.py) — direct import
+  - `test_ask_question_classifies_and_marks_hint_equivalents`
+  - `test_ask_question_drops_facets_outside_candidates`
+  - `test_ask_question_enforces_practice_limit`
+  - `test_ask_question_feedback_limit_and_intervention_wiring`
+  - `test_ask_question_leak_check_flags_expected_answer`
+  - `test_ask_question_library_context_and_daily_limit`
+  - `test_diagnostic_decision_attaches_after_probe_transition`
+  - `test_practice_prompt_context_carries_guardrail_grounding`
+  - `test_question_event_repository_round_trip`
+  - `test_question_raises_diagnostic_uncertainty_read_side`
+- [tests/test_unresolved_cause_gate.py](../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_vault_writer.py](../../../../../tests/test_vault_writer.py) — direct import
+  - `test_writer_preserves_unknown_keys_and_timestamps`
+  - `test_writer_refuses_implicit_entity_moves`
+  - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`
+  - `test_writer_upserts_graph_error_lo_and_practice_item`
+
+## Modification guidance
+
+- Make changes here when the responsibility remains clock within learnloop; otherwise move the behavior to its owning boundary.
+- Run the directly importing tests below, then the architecture/import-linter checks when imports or public ownership change.
+
+### Regeneration and review checklist
+
+1. Modify [src/learnloop/clock.py](../../../../../src/learnloop/clock.py) and its owning tests.
+2. Regenerate [[Module Catalog]] so imports, symbols, source provenance, and test anchors remain current.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py`.
+4. If ownership or workflow behavior changed, update the linked canonical concept or workflow note—not a duplicate explanation here.

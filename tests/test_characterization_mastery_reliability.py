@@ -3,7 +3,7 @@ these tests document reality, not desired behavior. When P0.x intentionally chan
 update these tests in the same commit and note the change.
 
 Target: the ALREADY-CORRECT mastery reliability path exercised by
-``learnloop.services.attempts._apply_attempt`` (see ``resolve_reliability`` ->
+``learnloop.attempts.attempts._apply_attempt`` (see ``resolve_reliability`` ->
 ``resolve_error_impact`` -> ``MasteryObservation.observation_weight_override`` ->
 ``update_mastery_traced``). The P0 spec requires characterizing this working path so the
 refactor preserves it.
@@ -26,8 +26,8 @@ import pytest
 
 from learnloop.config import LearnLoopConfig, MasteryConfig
 from learnloop.db.repositories import MasteryState
-from learnloop.services.mastery import MasteryObservation, update_mastery_traced
-from learnloop.services.recall_coverage import resolve_error_impact, resolve_reliability
+from learnloop.learner.mastery import MasteryObservation, update_mastery_traced
+from learnloop.learner.recall_coverage import resolve_error_impact, resolve_reliability
 from learnloop.vault.models import HintPolicy, PracticeItem, Rubric
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)

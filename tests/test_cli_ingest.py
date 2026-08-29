@@ -11,7 +11,7 @@ from typer.testing import CliRunner
 from learnloop.cli import _AsciiSpinner, app
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import create_basic_vault
+from tests.helpers import configure_codex_http, create_basic_vault
 
 
 def test_cli_ingest_runs_canonical_endpoint_and_reports_json(tmp_path):
@@ -62,8 +62,10 @@ def test_cli_ingest_reports_windows_path_escape_hint(tmp_path):
     config_path = vault_root / "learnloop.toml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            'checkout_path = ""',
-            r'checkout_path = "C:\Users\banan\OneDrive\Documents\thinking\learnloop\codex"',
+            "[ai.providers.codex]\n",
+            "[ai.providers.codex]\n"
+            + r'checkout_path = "C:\Users\banan\OneDrive\Documents\thinking\learnloop\codex"'
+            + "\n",
             1,
         ),
         encoding="utf-8",
@@ -128,13 +130,7 @@ def _source_file(tmp_path):
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 class _TtyBuffer(io.StringIO):

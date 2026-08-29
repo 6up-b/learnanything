@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from learnloop.services.vault_lock import (
+from learnloop.ops.vault_lock import (
     VaultLockTimeout,
     read_lock_holder,
     vault_lock_path,
@@ -51,6 +51,20 @@ def test_contended_lock_times_out(tmp_path):
             os.close(fd)
 
 
+def test_timeout_diagnostic_names_the_current_holder(tmp_path):
+    root = tmp_path / "vault"
+    root.mkdir()
+
+    with vault_mutation_lock(root, purpose="holder-purpose"):
+        with pytest.raises(VaultLockTimeout) as caught:
+            with vault_mutation_lock(root, purpose="waiter", timeout_s=0):
+                pass
+
+    message = str(caught.value)
+    assert f"held by pid {os.getpid()}" in message
+    assert "holder-purpose" in message
+
+
 def test_cross_process_serialization(tmp_path):
     """A forked child holding the lock forces the parent's timed acquire to fail."""
 
@@ -62,7 +76,7 @@ def test_cross_process_serialization(tmp_path):
     release = multiprocessing.get_context("fork").Event()
 
     def _hold(root_str, ready_ev, release_ev):
-        from learnloop.services.vault_lock import vault_mutation_lock as lock
+        from learnloop.ops.vault_lock import vault_mutation_lock as lock
 
         with lock(root_str, purpose="child"):
             ready_ev.set()

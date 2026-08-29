@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.synthesis_manifests import (
+from learnloop.content.synthesis.synthesis_manifests import (
     agent_run_input_context_hash,
     build_manifest,
     persist_manifest,

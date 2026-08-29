@@ -28,7 +28,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from learnloop.services import familiarity
+from learnloop.learner import familiarity
 
 # Planted P1 soft-kinship feature vectors (the same feature keys P1 mints, migration
 # 077 / familiarity.V1_COEFFICIENTS). "repeat" = strong shared kinship; "fresh" =

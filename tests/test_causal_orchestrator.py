@@ -15,12 +15,12 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_orchestrator import (
     CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
     EVSI_PROVENANCE,
     NEEDS_DISAMBIGUATION_MESSAGE,
@@ -35,22 +35,22 @@ from learnloop.services.causal_orchestrator import (
     request_teaching_now,
     sweep_machine_checks,
 )
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_probe_coherence import (
     audit_manipulation_contract,
     create_probe_candidate,
     generate_blind_prediction_bundle,
     lock_causal_hypothesis_set,
     transition_probe_candidate,
 )
-from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.probe_episodes import enter_episode, episode_posterior
-from learnloop.services.remediation import (
+from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+from learnloop.diagnosis.probe_episodes import enter_episode, episode_posterior
+from learnloop.diagnosis.remediation import (
     RemediationBlocked,
     prescribe_remediation,
     start_remediation_episode,
     start_remediation_treatment,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 

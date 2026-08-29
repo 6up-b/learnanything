@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 from learnloop.db.repositories import Repository
-from learnloop.services.item_authoring import author_item
+from learnloop.content.authoring.item_authoring import author_item
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 

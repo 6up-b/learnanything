@@ -8,8 +8,8 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import commitments as C
-from learnloop.services import depth_transition as DT
+from learnloop.curriculum import commitments as C
+from learnloop.curriculum import depth_transition as DT
 
 from tests.helpers import NOW
 
@@ -142,11 +142,11 @@ def test_achieved_milestone_stays_when_a_deeper_one_activates(repo, live):
 # --- §9.2 fork on capability/regime change; surface-only does not fork --------
 
 def _card_version(repo, *, contract, title="fam"):
-    from learnloop.services import activities as A
+    from learnloop.substrate import activities as A
     family_id = repo.ensure_activity_family(purpose="practice", legacy_kind=None, title=title, clock=CLOCK)
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
     cv = repo.ensure_activity_card_version(card_id=card_id, version=1,
-        card_contract_hash=A._canonical_hash(contract), contract_json=A._json(contract),
+        card_contract_hash=A.canonical_hash(contract), contract_json=A.canonical_json(contract),
         schema_version=1, clock=CLOCK)
     return family_id, card_id, cv
 

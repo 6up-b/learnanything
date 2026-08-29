@@ -3,9 +3,9 @@ from __future__ import annotations
 import threading
 from types import SimpleNamespace
 
-from learnloop.services.attempts import ResolvedGrade
-from learnloop.services.exam_pool import reserve_exam_pool
-from learnloop.services.exam_session import record_exam_answer
+from learnloop.attempts.attempts import ResolvedGrade
+from learnloop.goals.exam_pool import reserve_exam_pool
+from learnloop.goals.exam_session import record_exam_answer
 from learnloop_sidecar.context import SidecarContext
 
 from tests.helpers import create_basic_vault

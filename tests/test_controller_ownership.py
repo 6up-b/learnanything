@@ -12,10 +12,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import commitments as C
-from learnloop.services import controller_ownership as own
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.curriculum import commitments as C
+from learnloop.scheduling import controller_ownership as own
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item

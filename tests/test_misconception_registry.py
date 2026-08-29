@@ -6,6 +6,8 @@ set / discrimination-aware EIG), and §7 (posterior update & resolution rekeying
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import timedelta
 
 import pytest
@@ -13,11 +15,12 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import ItemMisconceptionDiscrimination, Repository
 from learnloop.ids import new_ulid
-from learnloop.services.misconceptions import (
+from learnloop.diagnosis.misconceptions import (
+    misconception_posterior,
     normalize_attempt_misconceptions,
     update_misconception_posteriors_and_resolve,
 )
-from learnloop.services.probes import (
+from learnloop.diagnosis.probes import (
     Hypothesis,
     HypothesisSet,
     build_hypothesis_set,
@@ -82,6 +85,7 @@ def _insert_attempt(
     item_id: str = ITEM_ID,
     correctness: float = 1.0,
     fired_mc_id: str | None = None,
+    primed: bool = False,
 ) -> None:
     repository.insert_practice_attempt(
         {
@@ -93,6 +97,7 @@ def _insert_attempt(
             "rubric_score": 4 if correctness >= 1.0 else 1,
             "correctness": correctness,
             "error_type": "conceptual_slip" if fired_mc_id else None,
+            "primed": primed,
             "created_at": _iso(minutes),
             "updated_at": _iso(minutes),
         }
@@ -240,7 +245,7 @@ class _FakeMatch:
         self.misconception_id = misconception_id
 
 
-class _FakeClient:
+class _FakeClient(StructuredClientFake):
     def __init__(self, result: _FakeMatch):
         self._result = result
         self.calls = 0
@@ -430,6 +435,60 @@ def test_clean_non_discriminating_attempts_do_not_resolve(tmp_path):
 
     assert resolved == []
     assert repository.misconception(mc_id).status == "active"
+
+
+def test_primed_attempts_do_not_resolve_a_misconception(tmp_path):
+    """mvp-0.9 admissibility. A primed non-firing attempt is not evidence.
+
+    The learner was shown the repair and then retried. Not firing is what the
+    priming was FOR; reading it as evidence the belief is gone lets a single
+    primed redo close a durable misconception. Two of them used to be enough.
+    """
+
+    vault, repository = _setup(tmp_path)
+    mc_id = _registry_row(repository, "belief A", severity=0.7)
+    repository.upsert_item_misconception_discrimination(_discrimination(mc_id))
+    _insert_attempt(repository, attempt_id="primed1", minutes=1, primed=True)
+    _insert_attempt(repository, attempt_id="primed2", minutes=2, primed=True)
+
+    before = misconception_posterior(vault, repository, repository.misconception(mc_id))
+    assert before == pytest.approx(0.7)
+
+    resolved = update_misconception_posteriors_and_resolve(
+        vault,
+        repository,
+        learning_object_id=LO_ID,
+        clock=FrozenClock(NOW + timedelta(minutes=3)),
+    )
+    assert resolved == []
+    assert repository.misconception(mc_id).status == "active"
+
+
+def test_a_primed_attempt_that_fires_anyway_still_counts_against_the_learner(
+    tmp_path,
+):
+    """The exclusion is one-directional, and deliberately so.
+
+    A belief that asserts itself DESPITE the correction is stronger evidence
+    than an unprimed firing, not weaker — so the firing branch is untouched.
+    """
+
+    vault, repository = _setup(tmp_path)
+    mc_id = _registry_row(repository, "belief A", severity=0.3)
+    repository.upsert_item_misconception_discrimination(_discrimination(mc_id))
+    _insert_attempt(
+        repository,
+        attempt_id="primed_fire",
+        minutes=1,
+        correctness=0.0,
+        fired_mc_id=mc_id,
+        primed=True,
+    )
+
+    posterior = misconception_posterior(
+        vault, repository, repository.misconception(mc_id)
+    )
+    assert posterior > 0.3
 
 
 def test_fired_keyed_fatal_raises_posterior(tmp_path):

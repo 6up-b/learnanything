@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.facet_diagnostics import mastery_diagnostic_view
-from learnloop.services.facet_state_reader import is_canonical_state_vault
-from learnloop.services.scheduler import build_due_queue
+from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
+from learnloop.learner.facet_state_reader import is_canonical_state_vault
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import versioned
 from learnloop_sidecar.registry import method

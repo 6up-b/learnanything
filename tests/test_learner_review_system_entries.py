@@ -15,24 +15,26 @@ All deterministic under FrozenClock.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import timedelta
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import GradingContext
-from learnloop.codex.runtime import CodexRuntimeReport
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.learner_review_feed import build_learner_review_feed
-from learnloop.services.regrade import run_deferred_regrades
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.learner.learner_review_feed import build_learner_review_feed
+from learnloop.attempts.regrade import run_deferred_regrades
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers.serializers import feedback_bundle
 
 from tests.helpers import NOW, create_basic_vault
 
 
-class _RegradeClient:
+class _RegradeClient(StructuredClientFake):
     def __init__(self, *, score: int, points: float):
         self.score = score
         self.points = points

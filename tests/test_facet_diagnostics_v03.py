@@ -4,7 +4,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
@@ -12,12 +12,12 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.facet_diagnostics import lo_relative_coverage, mastery_diagnostic_view
-from learnloop.services.followups import evaluate_intervention_followup
-from learnloop.services.practice_generation import build_diagnostic_practice_plan
-from learnloop.services.probes import facet_expected_information_gain
-from learnloop.services.recall_coverage import resolve_coverage
-from learnloop.services.replay import rebuild_derived_state
+from learnloop.learner.facet_diagnostics import lo_relative_coverage, mastery_diagnostic_view
+from learnloop.diagnosis.followups import evaluate_intervention_followup
+from learnloop.content.authoring.practice_generation import build_diagnostic_practice_plan
+from learnloop.diagnosis.probes import facet_expected_information_gain
+from learnloop.learner.recall_coverage import resolve_coverage
+from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 

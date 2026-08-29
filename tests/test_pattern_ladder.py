@@ -6,10 +6,10 @@ from __future__ import annotations
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services import failure_triage as FT
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import pattern_ladder as PL
-from learnloop.services.golden_path_fixture import build_golden_path_fixture
+from learnloop.diagnosis import failure_triage as FT
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import pattern_ladder as PL
+from learnloop.curriculum.golden_path_fixture import build_golden_path_fixture
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 

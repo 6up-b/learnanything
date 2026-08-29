@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 import sqlite3
 import threading
@@ -8,18 +10,18 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import GradingContext
-from learnloop.codex.runtime import CodexRuntimeReport
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.regrade import run_deferred_ai_regrades, run_deferred_regrades
-from learnloop.services.startup import run_startup_maintenance
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.regrade import run_deferred_ai_regrades, run_deferred_regrades
+from learnloop.ops.startup import run_startup_maintenance
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, configure_codex_http, create_basic_vault
 
 
 def test_deferred_regrade_supersedes_self_grade_and_updates_mastery(tmp_path):
@@ -60,6 +62,41 @@ def test_deferred_regrade_supersedes_self_grade_and_updates_mastery(tmp_path):
     assert regraded_attempt["rubric_score"] == 4
     assert after_mastery.evidence_count == before_mastery.evidence_count
     assert after_mastery.logit_mean > before_mastery.logit_mean
+
+
+def test_deferred_regrade_validates_repaired_trace_against_learner_answer(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    clock = FrozenClock(NOW)
+    sync_vault_state(vault, repository, clock=clock)
+    attempt = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id="pi_svd_define_001",
+            learner_answer_md="SVD uses U, Sigma, and V transpose.",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 2}, confidence=3),
+        clock=clock,
+    )
+
+    result = run_deferred_regrades(
+        vault,
+        repository,
+        runtime=_ready_runtime(),
+        codex_client=_RepairingRegradeClient(score=4, points=4),
+        clock=clock,
+    )
+
+    assert result.as_dict() == {
+        "attempted": 1,
+        "regraded": 1,
+        "failed": 0,
+        "skipped_reason": None,
+    }
+    assert repository.fetch_practice_attempt(attempt.attempt_id)["rubric_score"] == 4
 
 
 def test_deferred_regrade_replays_attempt_derived_state(tmp_path):
@@ -386,7 +423,7 @@ def test_startup_maintenance_regrades_pending_self_grade_when_codex_ready(tmp_pa
     assert repository.fetch_grading_evidence(attempt.attempt_id)[0].grader_tier == 3
 
 
-class _RegradeClient:
+class _RegradeClient(StructuredClientFake):
     def __init__(self, *, score: int, points: float, error_attributions: list[ErrorAttribution] | None = None):
         self.score = score
         self.points = points
@@ -415,7 +452,33 @@ class _AIRegradeClient(_RegradeClient):
     model = "deepseek-v4-flash"
 
 
-class _InvalidRegradeClient:
+class _RepairingRegradeClient(_RegradeClient):
+    def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
+        proposal = super().run_grading_proposal(context)
+        suffix = "\n\nThis completes the requested definition."
+        return GradingProposal.model_validate(
+            {
+                **proposal.model_dump(mode="json"),
+                "repair_suggestions": [
+                    {
+                        "practice_mode": "targeted_repair",
+                        "rationale": "Append the missing conclusion.",
+                        "operator": "append_conclusion",
+                        "repaired_trace": {
+                            "learner_work_prefix": context.learner_answer_md,
+                            "minimal_edit": "Append the missing conclusion.",
+                            "regenerated_work": suffix,
+                            "repaired_answer_md": context.learner_answer_md + suffix,
+                            "changed_latent_claims": ["The definition is complete."],
+                            "changed_checkpoint_ids": [],
+                        },
+                    }
+                ],
+            }
+        )
+
+
+class _InvalidRegradeClient(StructuredClientFake):
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
         return GradingProposal(
             attempt_id=context.attempt_id,
@@ -442,13 +505,7 @@ def _ready_runtime() -> CodexRuntimeReport:
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 class _HttpRegradeServer:

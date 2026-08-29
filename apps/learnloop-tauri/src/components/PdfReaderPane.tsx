@@ -27,6 +27,7 @@ import "pdfjs-dist/web/pdf_viewer.css";
 import type { ReaderPdfBlockDto } from "../api/dto";
 import type { AnnotationTrail } from "../screens/ReaderScreen";
 import { COLOR, Faint, FONT_MONO } from "./term";
+import { RectUnionOverlay } from "./RectUnionOverlay";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -80,6 +81,10 @@ export interface TagMenuRequest {
   y: number;
   spanId: string;
   quote: string | null;
+  /** Ordered source-block fragments for a committed multi-block selection.
+   *  Carry these through the menu; a marquee has no native DOM Selection to
+   *  reconstruct after the fact. */
+  nodes?: Array<{ spanId: string; quote: string; prefix?: string; suffix?: string }>;
 }
 
 /** Imperative surface for the screen: jump to an annotation's page/block. */
@@ -563,6 +568,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     // The marquee owns this drag — no native selection underneath.
     event.preventDefault();
     window.getSelection()?.removeAllRanges();
+    setMarqueeArmed(true);
     const page = Number(pageEl.dataset.pdfPage);
     marqueeDragRef.current = { pageEl, page, x0: point[0], y0: point[1] };
     setMarqueeDraft({ page, rect: [point[0], point[1], point[0], point[1]] });
@@ -902,17 +908,52 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
       const resolved = resolveSelection();
       if (resolved) {
         event.preventDefault();
-        onTagMenu({ x: event.clientX, y: event.clientY, spanId: resolved.spanId, quote: resolved.quote });
+        onTagMenu({
+          x: event.clientX,
+          y: event.clientY,
+          spanId: resolved.spanId,
+          quote: resolved.quote,
+          nodes: resolved.nodes,
+        });
         return;
       }
+      // A committed ctrl-marquee intentionally has no browser Selection. When
+      // the context click lands in one of its boxes, resolve the retained union
+      // and pass its exact per-block nodes through to the capture transaction.
       const pageEl = pageElFor(event.target as Node);
+      const point = pageEl
+        ? pdfPointFromClient(pageEl, event.clientX, event.clientY)
+        : null;
+      const page = pageEl ? Number(pageEl.dataset.pdfPage) : null;
+      const onCommittedBox = point !== null && page !== null && marqueeBoxesRef.current.some(
+        (box) =>
+          box.page === page &&
+          point[0] >= box.rect[0] &&
+          point[0] <= box.rect[2] &&
+          point[1] >= box.rect[1] &&
+          point[1] <= box.rect[3],
+      );
+      if (onCommittedBox) {
+        const nodes = resolveMarquee(marqueeBoxesRef.current);
+        if (nodes.length) {
+          event.preventDefault();
+          onTagMenu({
+            x: event.clientX,
+            y: event.clientY,
+            spanId: nodes[0].spanId,
+            quote: nodes.map((node) => node.quote.replace(/\s+/g, " ").trim()).join(" "),
+            nodes,
+          });
+          return;
+        }
+      }
       if (!pageEl) return;
       const block = blockAtPoint(pageEl, event.clientX, event.clientY);
       if (!block) return;
       event.preventDefault();
       onTagMenu({ x: event.clientX, y: event.clientY, spanId: block.spanId, quote: null });
     },
-    [resolveSelection, blockAtPoint, onTagMenu],
+    [resolveSelection, resolveMarquee, blockAtPoint, onTagMenu],
   );
 
   if (!doc) {
@@ -1009,6 +1050,7 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
               sweepSpans={sweepSpans}
               marqueeRects={marqueeByPage.get(page) ?? []}
               marqueeDraftRect={marqueeDraft && marqueeDraft.page === page ? marqueeDraft.rect : null}
+              marqueeCommitted={!marqueeArmed && !marqueeDrafting}
               activeSpan={activeSpan}
               findQuery={findOpen ? findQuery.trim() : ""}
             />
@@ -1055,6 +1097,7 @@ function PdfPage({
   sweepSpans,
   marqueeRects,
   marqueeDraftRect,
+  marqueeCommitted,
   activeSpan,
   findQuery,
 }: {
@@ -1068,6 +1111,7 @@ function PdfPage({
   sweepSpans: Set<string> | null;
   marqueeRects: number[][];
   marqueeDraftRect: number[] | null;
+  marqueeCommitted: boolean;
   activeSpan: string | null;
   findQuery: string;
 }) {
@@ -1239,25 +1283,27 @@ function PdfPage({
               );
             })
         : null}
-      {geometry
-        ? marqueeRects.map((r, i) => (
-            <div
-              key={`marquee-${i}`}
-              style={{
-                position: "absolute",
-                left: r[0] * scale - 2,
-                top: r[1] * scale - 1.5,
-                width: (r[2] - r[0]) * scale + 4,
-                height: (r[3] - r[1]) * scale + 3,
-                pointerEvents: "none",
-                background: "rgba(245, 166, 35, 0.18)",
-                border: "1.5px solid rgba(215, 135, 15, 0.9)",
-                borderRadius: 3,
-                mixBlendMode: "multiply",
-              }}
-            />
-          ))
-        : null}
+      {geometry && marqueeCommitted && marqueeRects.length ? (
+        <RectUnionOverlay rects={marqueeRects} scale={scale} />
+      ) : geometry ? (
+        marqueeRects.map((r, i) => (
+          <div
+            key={`marquee-${i}`}
+            style={{
+              position: "absolute",
+              left: r[0] * scale - 2,
+              top: r[1] * scale - 1.5,
+              width: (r[2] - r[0]) * scale + 4,
+              height: (r[3] - r[1]) * scale + 3,
+              pointerEvents: "none",
+              background: "rgba(245, 166, 35, 0.18)",
+              border: "1.5px solid rgba(215, 135, 15, 0.9)",
+              borderRadius: 3,
+              mixBlendMode: "multiply",
+            }}
+          />
+        ))
+      ) : null}
       {geometry && marqueeDraftRect ? (
         <div
           style={{

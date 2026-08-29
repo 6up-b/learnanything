@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import textwrap
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -186,6 +188,59 @@ def create_basic_vault(root: Path) -> VaultPaths:
     return paths
 
 
+def append_config_toml(vault_root: Path, fragment: str) -> None:
+    """Append an explicit, valid fragment to the schema-v2 minimal template.
+
+    The generated template intentionally omits policy settings that equal their
+    modeled defaults. Tests exercising a non-default must therefore add the
+    canonical table/key instead of replacing a line that may not be rendered.
+    Duplicate table headers fail loudly so this helper cannot silently create
+    ambiguous TOML.
+    """
+
+    config_path = vault_root / "learnloop.toml"
+    current = config_path.read_text(encoding="utf-8")
+    normalized = textwrap.dedent(fragment).strip()
+    if not normalized:
+        raise AssertionError("config fragment must not be empty")
+    for table in re.findall(r"(?m)^\[([^]]+)\]\s*$", normalized):
+        if re.search(rf"(?m)^\[{re.escape(table)}\]\s*$", current):
+            raise AssertionError(f"learnloop.toml already has [{table}]")
+    updated = f"{current.rstrip()}\n\n{normalized}\n"
+    tomllib.loads(updated)
+    config_path.write_text(updated, encoding="utf-8")
+
+
+def configure_codex_http(vault_root: Path, checkout: Path, base_url: str) -> None:
+    """Configure the canonical Codex profile for an in-process HTTP test server.
+
+    The schema-v2 template deliberately omits machine-local Codex fields, so
+    tests must replace the provider table rather than mutate legacy template
+    lines that are no longer generated.
+    """
+
+    config_path = vault_root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    replacement = (
+        "[ai.providers.codex]\n"
+        'type = "http"\n'
+        'model = "gpt-5.6-sol"\n'
+        'reasoning_effort = "low"\n'
+        f'checkout_path = "{checkout.as_posix()}"\n'
+        'revision = "abc123"\n'
+        f'base_url = "{base_url}"\n\n'
+    )
+    updated, count = re.subn(
+        r"(?ms)^\[ai\.providers\.codex\]\n.*?(?=^\[|\Z)",
+        replacement,
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise AssertionError("learnloop.toml has no [ai.providers.codex] table")
+    config_path.write_text(updated, encoding="utf-8")
+
+
 def admit_probe_instrument_card(
     repository: Repository,
     *,
@@ -201,7 +256,7 @@ def admit_probe_instrument_card(
     probe candidates, so episode tests admit one card against the basic vault.
     """
 
-    from learnloop.services.probe_families import (
+    from learnloop.diagnosis.probe_families import (
         CONTRAST_CONFUSABLE_DEFAULT_ROWS,
         CONTRAST_CONFUSABLE_V1,
         InstrumentCard,

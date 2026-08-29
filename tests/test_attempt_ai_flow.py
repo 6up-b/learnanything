@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import GradingContext
-from learnloop.codex.schemas import CriterionEvidence, GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_ai_fallback
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_ai_fallback
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -44,7 +46,7 @@ def test_attempt_ai_flow_records_provider_model_and_ai_source(tmp_path):
     assert agent_run["model"] == "deepseek-v4-flash"
 
 
-class _FakeAIClient:
+class _FakeAIClient(StructuredClientFake):
     provider_name = "deepseek_flash"
     provider_type = "openai_chat"
     model = "deepseek-v4-flash"

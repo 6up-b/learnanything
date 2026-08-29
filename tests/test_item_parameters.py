@@ -10,17 +10,17 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ItemParameterState, MasteryState, Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.mastery import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.learner.mastery import (
     MasteryObservation,
     item_irt_params,
     resolve_item_irt_params,
     update_item_difficulty,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, create_basic_vault
+from tests.helpers import NOW, append_config_toml, create_basic_vault
 
 CONFIG = LearnLoopConfig().mastery
 
@@ -104,12 +104,12 @@ def _vault_with_flag(tmp_path, enabled: bool):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
     if enabled:
-        toml_path = vault_root / "learnloop.toml"
-        toml_path.write_text(
-            toml_path.read_text(encoding="utf-8").replace(
-                "eb_difficulty_enabled = false", "eb_difficulty_enabled = true"
-            ),
-            encoding="utf-8",
+        append_config_toml(
+            vault_root,
+            """
+            [mastery.irt]
+            eb_difficulty_enabled = true
+            """,
         )
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)

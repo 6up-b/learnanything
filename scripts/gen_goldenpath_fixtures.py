@@ -18,10 +18,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import surface_pool as SP
-from learnloop.services.activities import resolve_legacy_item
-from learnloop.services.golden_path_fixture import (
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum.golden_path_fixture import (
     EXEMPLAR_A,
     EXEMPLAR_B,
     build_golden_path_fixture,
@@ -29,6 +27,8 @@ from learnloop.services.golden_path_fixture import (
     stub_diagnostic_pack,
     stub_pool_surfaces,
 )
+from learnloop.substrate import surface_pool as SP
+from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths

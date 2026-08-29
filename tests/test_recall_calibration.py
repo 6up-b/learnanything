@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.config import LearnLoopConfig
-from learnloop.services.recall_calibration import (
+from learnloop.learner.recall_calibration import (
     SEVERITY_EXAMPLES,
     assert_recall_calibration_bands,
     format_recall_calibration_table,

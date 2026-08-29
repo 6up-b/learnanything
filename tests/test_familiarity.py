@@ -10,8 +10,8 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import familiarity as F
+from learnloop.substrate import activities as A
+from learnloop.learner import familiarity as F
 
 from tests.helpers import NOW
 
@@ -30,8 +30,8 @@ def _surface(repo, *, hash_suffix, purpose="practice"):
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
     contract = {"target": "svd", "capability": "retrieval"}
     cv = repo.ensure_activity_card_version(
-        card_id=card_id, version=1, card_contract_hash=A._canonical_hash({**contract, "s": hash_suffix}),
-        contract_json=A._json(contract), schema_version=1, clock=CLOCK,
+        card_id=card_id, version=1, card_contract_hash=A.canonical_hash({**contract, "s": hash_suffix}),
+        contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK,
     )
     return repo.ensure_activity_surface(
         card_version_id=cv, surface_hash=f"sh-{hash_suffix}", fingerprint=None, surface_json="{}", clock=CLOCK,
@@ -188,10 +188,15 @@ def test_belief_update_modules_do_not_consume_familiarity_warmth():
     beyond mastery.py to every belief module (evidence, certification, mastery,
     canonical_projection) -- warmth is exposure salience, never evidence of knowledge."""
 
-    src = Path(__file__).resolve().parents[1] / "src" / "learnloop" / "services"
-    belief_modules = ("evidence.py", "certification.py", "mastery.py", "canonical_projection.py")
+    src = Path(__file__).resolve().parents[1] / "src" / "learnloop"
+    belief_modules = (
+        "attempts/evidence.py",
+        "goals/certification.py",
+        "learner/mastery.py",
+        "substrate/canonical_projection.py",
+    )
     for module in belief_modules:
         text = (src / module).read_text(encoding="utf-8")
         assert "familiarity_projection_v1" not in text, module
-        assert "from learnloop.services.familiarity" not in text, module
+        assert "from learnloop.learner.familiarity" not in text, module
         assert "import familiarity" not in text, module

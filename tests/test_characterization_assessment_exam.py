@@ -16,17 +16,17 @@ Pins the current assessment-contract and exam behavior:
 from __future__ import annotations
 
 from learnloop.clock import FrozenClock
-from learnloop.services.assessment_contracts import (
+from learnloop.learner.assessment_contracts import (
     compile_assessment_contract,
     contract_hash,
 )
-from learnloop.services.attempts import ResolvedGrade
-from learnloop.services.exam_pool import (
+from learnloop.attempts.attempts import ResolvedGrade
+from learnloop.goals.exam_pool import (
     release_exam_pool,
     reserve_exam_pool,
     reserved_item_ids,
 )
-from learnloop.services.exam_session import (
+from learnloop.goals.exam_session import (
     finish_exam,
     record_exam_answer,
     start_exam,
@@ -70,7 +70,7 @@ def test_contract_hash_is_single_monolithic_content_hash(tmp_path):
     dict, and the module exposes no card/surface/administration hash function.
     """
 
-    import learnloop.services.assessment_contracts as ac
+    import learnloop.learner.assessment_contracts as ac
 
     hash_fns = [
         name

@@ -12,7 +12,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.goal_projection import goal_report, projected_ready_mean_at
+from learnloop.goals.goal_projection import goal_report, projected_ready_mean_at
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 

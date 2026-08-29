@@ -8,9 +8,9 @@ import json
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import task_blueprints as TB
-from learnloop.services.activities import resolve_legacy_item
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
@@ -67,7 +67,7 @@ def _setup_run(vault_root):
         depth_preset="master_tasks_like_these", source_rev="rev-1", unit_id="unit-a",
         assessment_surface_id=held.surface_id, clock=CLOCK,
     )
-    from learnloop.services import golden_path_run as GPR
+    from learnloop.curriculum import golden_path_run as GPR
     GPR.advance(repo, receipt.run_id, to_state="ready_to_assess", reason="rta", idempotency_key="rta", clock=CLOCK)
     return receipt.run_id, held.surface_id
 

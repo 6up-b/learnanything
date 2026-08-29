@@ -1,0 +1,301 @@
+schema_version: 1
+id: pi_method_reusable_access_code
+learning_object_id: lo_count_compound_and_ordered_outcomes
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_if_each_complete_outcome_is_specified_by_success
+  - facet_for_k_ordered_choices_from_n_distinguishable_obj
+evidence_weights:
+  facet_for_k_ordered_choices_from_n_distinguishable_obj: 0.3
+  facet_if_each_complete_outcome_is_specified_by_success: 0.7
+criterion_facet_weights:
+  c_ordered_expression:
+    facet_for_k_ordered_choices_from_n_distinguishable_obj: 0.7
+    facet_if_each_complete_outcome_is_specified_by_success: 0.3
+  c_select_replacement_product:
+    facet_if_each_complete_outcome_is_specified_by_success: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: bp_01KYMWND_6_recipe_count_ordered_outcomes
+      checkpoints:
+        - identify_successive_positions
+        - determine_available_choices
+        - select_product_expression
+      dependencies:
+        determine_available_choices:
+          - identify_successive_positions
+        identify_successive_positions: []
+        select_product_expression:
+          - determine_available_choices
+variant_contract:
+teach_back_source:
+prompt: A museum stores an ordered three-symbol access code using six distinct 
+  symbols. A symbol may be reused. State the counting method and the expression 
+  for the number of possible codes; justify the factors in one sentence.
+expected_answer: Use the multiplication rule with replacement. Each of the three
+  successive positions has six choices, so the count is 6·6·6=6^3=216.
+difficulty: 0.2
+difficulty_source: llm_estimate
+tags:
+  - reader_section_u6
+  - commissioned_cell
+  - contrast_pair
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.6
+scaffold_level: 0.05
+capability: method_selection
+task_features:
+  complexity: 3
+  response: short_constructed
+  scaffolding: none
+  span: single_step
+  transfer: far
+task_feature_schema: p1_launch@1
+surface_family: reusable_code_method
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of: pi_method_nonreusable_access_code
+differing_component:
+  facet: facet_if_each_complete_outcome_is_specified_by_success
+  capability: method_selection
+  structural_change: Reuse is allowed, so the number of choices remains constant
+    across the successive positions.
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_if_each_complete_outcome_is_specified_by_success
+  - facet_for_k_ordered_choices_from_n_distinguishable_obj
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c_select_replacement_product
+      points: 2.0
+      description: Selects the multiplication rule with a constant six choices 
+        at every position.
+      tier: core
+      targets:
+        - facet: facet_if_each_complete_outcome_is_specified_by_success
+          capability: method_selection
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c_ordered_expression
+      points: 2.0
+      description: Writes 6^3 and identifies the three factors with the ordered 
+        positions.
+      tier: core
+      targets:
+        - facet: facet_for_k_ordered_choices_from_n_distinguishable_obj
+          capability: method_selection
+          role: primary
+        - facet: facet_if_each_complete_outcome_is_specified_by_success
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - c_select_replacement_product
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_count_compound_and_ordered_outcomes:s73-s85
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s73
+      quote: "• when the naive definition serves as a useful null model . In this
+        setting, we assume that the naive definition applies just to see what predictions
+        it would yield, and then we can compare observed data with predicted values
+        to assess whether the hypothesis of equally likely outcomes is tenable.\n\
+        1.4 How to count\nCalculating the naive probability of an event A involves
+        counting the number of pebbles in A and the number of pebbles in the sample
+        space S. Often the sets we need to count are extremely large. This section
+        introduces some fundamental methods for counting; further methods can be found
+        in books on combinatorics , the branch of mathematics that studies counting.\n\
+        1.4.1 Multiplication rule\nIn some problems, we can directly count the number
+        of possibilities using a basic but versatile principle called the multiplication
+        rule . We'll see that the multiplication rule leads naturally to counting
+        rules for sampling with replacement and sampling without replacement , two
+        scenarios that often arise in probability and statistics.\nTheorem 1.4.1 (Multiplication
+        rule). Consider a compound experiment consisting of two sub-experiments, Experiment
+        A and Experiment B. Suppose that Experiment A has a possible outcomes, and
+        for each of those outcomes Experiment B has b possible outcomes. Then the
+        compound experiment has ab possible outcomes.\nTo see why the multiplication
+        rule is true, imagine a tree diagram as in Figure 1.2. Let the tree branch
+        a ways according to the possibilities for Experiment A, and for each of those
+        branches create b further branches for Experiment B. Overall, there are $b
+        + b + \\cdots + b = ab$ possibilities.\n$\\Re$ 1.4.2. It is often easier to
+        think about the experiments as being in chronological order, but there is
+        no requirement in the multiplication rule that Experiment A has to be performed
+        before Experiment B.\nExample 1.4.3 (Runners). Suppose that 10 people are
+        running a race. Assume that ties are not possible and that all 10 will complete
+        the race, so there will be well-defined first place, second place, and third
+        place winners. How many possibilities are there for the first, second, and
+        third place winners?\nSolution: There are 10 possibilities for who gets first
+        place, then once that is fixed there are 9 possibilities for who gets second
+        place, and once these are both fixed\n"
+      quote_hash: 
+        sha256:b92bde07262c5ddbcca2858fe7fc97b3fe494d550760b36319888691a89a4b22
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s73
+        - s74
+        - s75
+        - s76
+        - s77
+        - s78
+        - s79
+        - s80
+        - s81
+        - s82
+        - s85
+      span_hash: 
+        sha256:423c39806a21827f17b197b0901494f5752afd1c31c437caa03d985ade15758d
+      section_id: u6
+      learning_object_ids:
+        - lo_count_compound_and_ordered_outcomes
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_count_compound_and_ordered_outcomes:s98-s119
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s98
+      quote: "Example 1.4.5 (Ice cream cones). Suppose you are buying an ice cream
+        cone. You can choose whether to have a cake cone or a waffle cone, and whether
+        to have chocolate, vanilla, or strawberry as your flavor. This decision process
+        can be visualized with a tree diagram, as in Figure 1.4.\n\nFIGURE 1.4\nTree
+        diagram for choosing an ice cream cone. Regardless of whether the type of
+        cone or the flavor is chosen first, there are $2 \\cdot 3 = 3 \\cdot 2 = 6$
+        possibilities.\nBy the multiplication rule, there are 2 · 3 = 6 possibilities.
+        This is a very simple example, but is worth thinking through in detail as
+        a foundation for thinking about and visualizing more complicated examples.
+        Soon we will encounter examples where drawing the tree in a legible size would
+        take up more space than exists in the known universe, yet where conceptually
+        we can still think in terms of the ice cream example. Some things to note:\n\
+        1. It doesn't matter whether you choose the type of cone first (\"I'd like
+        a waffle cone with chocolate ice cream\") or the flavor first (\"I'd like
+        chocolate ice cream on a waffle cone\"). Either way, there are 2 · 3 = 3 ·
+        2 = 6 possibilities. 2. It doesn't matter whether the same flavors are available
+        on a cake cone as on a waffle cone. What matters is that there are exactly
+        3 flavor choices for each cone choice. If for some strange reason it were
+        forbidden to have chocolate ice cream on a waffle cone, with no substitute
+        flavor available (aside from vanilla and strawberry), there would be 3 + 2
+        = 5 possibilities and the multiplication rule wouldn't apply. In larger examples,
+        such complications could make counting the number of possibilities vastly
+        more difficult.\nNow suppose you buy two ice cream cones on a certain day,
+        one in the afternoon and the other in the evening. Write, for example, (cakeC,
+        waffleV) to mean a cake cone with chocolate in the afternoon, followed by
+        a waffle cone with vanilla in the evening. By the multiplication rule, there
+        are 6 2 = 36 possibilities in your delicious compound experiment.\nBut what
+        if you're only interested in what kinds of ice cream cones you had that day,
+        not the order in which you had them, so you don't want to distinguish, for
+        example, between (cakeC, waffleV) and (waffleV, cakeC)? Are there now 36/2
+        = 18 possibilities? No, since possibilities like (cakeC, cakeC) were already
+        only listed once each. There are 6 · 5 = 30 ordered possibilities (x, y) with
+        x 6= y, which turn into 15 possibilities if we treat (x, y) as equivalent
+        to (y, x), plus 6 possibilities of the form (x, x), giving a total of 21 possibilities.
+        Note that if the 36 original ordered pairs (x, y) are equally likely, then
+        the 21 possibilities here are not equally likely.\nExample 1.4.6 (Subsets).
+        A set with n elements has 2 n subsets, including the empty set ∅ and the set
+        itself. This follows from the multiplication rule since for each element,
+        we can choose whether to include it or exclude it. For example, the set {1,
+        2, 3} has the 8 subsets ∅, {1}, {2}, {3}, {1, 2}, {1, 3}, {2, 3}, {1, 2, 3}.
+        This result explains why in Example 1.2.3 there are 2 52 events that can be
+        defined.\nWe can use the multiplication rule to arrive at formulas for sampling
+        with and without replacement. Many experiments in probability and statistics
+        can be interpreted in one of these two contexts, so it is appealing that both
+        formulas follow directly from the same basic counting principle.\nTheorem
+        1.4.7 (Sampling with replacement). Consider n objects and making k choices
+        from them, one at a time with replacement (i.e., choosing a certain object
+        does not preclude it from being chosen again). Then there are n k possible
+        outcomes\n(where order matters, in the sense that, e.g., choosing object 3
+        and then object 7 is counted as a different outcome than choosing object 7
+        and then object 3.)\nFor example, imagine a jar with n balls, labeled from
+        1 to n. We sample balls one at a time with replacement, meaning that each
+        time a ball is chosen, it is returned to the jar. Each sampled ball is a sub-experiment
+        with n possible outcomes, and there are k sub-experiments. Thus, by the multiplication
+        rule there are $n^k$ ways to obtain a sample of size k.\nTheorem 1.4.8 (Sampling
+        without replacement). Consider n objects and making k choices from them, one
+        at a time without replacement (i.e., choosing a certain object precludes it
+        from being chosen again). Then there are $n(n-1)\\cdots(n-k+1)$ possible outcomes
+        for $1 \\le k \\le n$, and 0 possibilities for k > n (where order matters).
+        By convention, $n(n-1)\\cdots(n-k+1) = n$ for k = 1.\nThis result also follows
+        directly from the multiplication rule: each sampled ball is again a sub-experiment,
+        and the number of possible outcomes decreases by 1 each time. Note that for
+        sampling k out of n objects without replacement, we need $k \\leq n$, whereas
+        in sampling with replacement the objects are inexhaustible.\nExample 1.4.9
+        (Permutations and factorials). A permutation of 1, 2, ..., n is an arrangement
+        of them in some order, e.g., 3, 5, 1, 2, 4 is a permutation of 1, 2, 3, 4,
+        5. By Theorem 1.4.8 with k = n, there are n! permutations of 1, 2, ..., n.
+        For example, there are n! ways in which n people can line up for ice cream.
+        (Recall that n! is $n(n-1)(n-2)\\cdots 1$ for any positive integer n, and
+        0! = 1.)\nTheorems 1.4.7 and 1.4.8 are theorems about counting , but when
+        the naive definition applies, we can use them to calculate probabilities .
+        This brings us to our next example, a famous problem in probability called
+        the birthday problem . The solution incorporates both sampling with replacement
+        and sampling without replacement.\nExample 1.4.10 (Birthday problem). There
+        are k people in a room. Assume each person's birthday is equally likely to
+        be any of the 365 days of the year (we exclude February 29), and that people's
+        birthdays are independent (we will define independence formally later, but
+        intuitively it means that knowing some people's birthdays gives us no information
+        about other people's birthdays; this would not hold if, e.g., we knew that
+        two of the people were twins). What is the probability that at least one pair
+        of people in the group have the same birthday?\nSolution:"
+      quote_hash: 
+        sha256:042d8562f8cc3fafceedccc2773e4576aa8cef66108c197359d450cc613601d9
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s98
+        - s99
+        - s100
+        - s101
+        - s104
+        - s105
+        - s106
+        - s107
+        - s108
+        - s109
+        - s110
+        - s112
+        - s113
+        - s114
+        - s115
+        - s116
+        - s117
+        - s118
+        - s119
+      span_hash: 
+        sha256:14346ce67c527b1ce85dbe0158b8cab85f788acf6af62a5bfc39cc62fa096810
+      section_id: u6
+      learning_object_ids:
+        - lo_count_compound_and_ordered_outcomes
+created_at: '2026-07-28T20:08:06Z'
+updated_at: '2026-07-28T20:08:06Z'

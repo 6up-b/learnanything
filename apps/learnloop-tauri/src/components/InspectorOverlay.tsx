@@ -371,7 +371,7 @@ function PracticeItemBody({
       <SectionHeader>Why this is in the queue · scheduler_explanations</SectionHeader>
       {detail.scheduler ? <SchedulerWhy scheduler={detail.scheduler} /> : <Faint>no scheduler explanation available</Faint>}
 
-      <SectionHeader>Mastery · learning_object_mastery</SectionHeader>
+      <SectionHeader>Mastery estimate · learning_object_mastery</SectionHeader>
       {mastery ? (
         <MasteryPosteriorBar mastery={mastery} />
       ) : (
@@ -501,7 +501,7 @@ function PracticeItemBody({
         <>
           <div style={{ fontSize: 11, color: COLOR.textFaint, margin: "12px 0 6px" }}>source refs</div>
           {detail.sourceRefs.map((ref, index) => (
-            <InspectorRow key={`${ref.refId}:${index}`} label={ref.refId}>
+            <InspectorRow key={`${ref.refId}:${index}`} label={ref.displayName}>
               <Dim>{ref.locator ?? ref.path ?? ref.refType}</Dim>
             </InspectorRow>
           ))}
@@ -552,7 +552,7 @@ function LearningObjectBody({
         </>
       ) : null}
 
-      <SectionHeader>Mastery · learning_object_mastery</SectionHeader>
+      <SectionHeader>Mastery estimate · learning_object_mastery</SectionHeader>
       {detail.mastery ? (
         <MasteryPosteriorBar mastery={detail.mastery} showLastEvidence />
       ) : (
@@ -1317,7 +1317,7 @@ function MasteryPosteriorBar({ mastery, showLastEvidence = false }: { mastery: M
   const upper = Math.min(1, Math.max(mean, mastery.plausibleUpper ?? mean + fallbackSd));
   const mass = mastery.plausibleMass ?? 0.8;
   const tone = masteryColor(mean);
-  const intervalLabel = `${Math.round(mass * 100)}% plausible range · ${lower.toFixed(2)}–${upper.toFixed(2)}; likely mastery ${mean.toFixed(2)}`;
+  const intervalLabel = `${Math.round(mass * 100)}% plausible range · ${lower.toFixed(2)}–${upper.toFixed(2)}; mastery estimate ${mean.toFixed(2)}`;
 
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap", fontSize: 12 }}>

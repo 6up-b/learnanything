@@ -8,19 +8,21 @@ per-item cross-source grounding context is bounded (KM §12.9).
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.prompts import PRACTICE_GENERATION_PROMPT_VERSION
-from learnloop.codex.schemas import AuthoringProposal
-from learnloop.services.practice_generation import generate_cross_source_practice_proposal
-from learnloop.services.practice_leakage import (
+from learnloop.content.proposals.ai_contracts import PRACTICE_GENERATION_PROMPT_VERSION
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
+from learnloop.content.authoring.practice_generation import generate_cross_source_practice_proposal
+from learnloop.content.authoring.practice_leakage import (
     build_cross_source_spans,
     build_held_out_inventory,
     check_leakage,
     screen_practice_payload,
 )
-from learnloop.services.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_set_synthesis import FakeSynthesisClient, _EXAM_QUESTION_WORDING, _setup
@@ -50,7 +52,7 @@ def _mark_probe_complete(repo):
     )
 
 
-class _FakeAuthoringClient:
+class _FakeAuthoringClient(StructuredClientFake):
     provider_name = "codex"
     provider_type = "test"
     model = "test-model"

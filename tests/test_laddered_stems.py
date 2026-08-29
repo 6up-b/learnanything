@@ -20,10 +20,10 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import familiarity as F
-from learnloop.services import progression as P
-from learnloop.services.laddered_stems import (
+from learnloop.substrate import activities as A
+from learnloop.learner import familiarity as F
+from learnloop.scheduling import progression as P
+from learnloop.content.authoring.laddered_stems import (
     MIN_PAIRS_PER_ARM,
     STEM_INDEPENDENCE_METRIC,
     stem_column_for_item,
@@ -31,7 +31,7 @@ from learnloop.services.laddered_stems import (
     stem_independence_signal,
     stem_shapes,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import EvidenceFingerprint, LadderedStemContract, PracticeItem
 from learnloop.vault.yaml_io import write_yaml
@@ -66,7 +66,7 @@ def _surface(repo, *, suffix, features):
     cv = repo.ensure_activity_card_version(
         card_id=card_id,
         version=1,
-        card_contract_hash=A._canonical_hash({"s": suffix}),
+        card_contract_hash=A.canonical_hash({"s": suffix}),
         contract_json="{}",
         schema_version=1,
         clock=CLOCK,
@@ -397,7 +397,7 @@ def test_the_doctor_warns_when_a_stem_fills_only_one_column(tmp_path):
     enforce that. But it has to be said out loud or nobody sees it.
     """
 
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     _paths, vault, _repo = _stem_vault(
         tmp_path,
@@ -412,7 +412,7 @@ def test_the_doctor_warns_when_a_stem_fills_only_one_column(tmp_path):
 
 
 def test_the_doctor_is_silent_on_a_real_ladder(tmp_path):
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     _paths, vault, _repo = _stem_vault(
         tmp_path,

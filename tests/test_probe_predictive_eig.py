@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_DEFAULT_ROWS,
     CONTRAST_CONFUSABLE_V1,
     InstrumentCard,

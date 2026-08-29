@@ -12,9 +12,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import kinship_feature as kf
-from learnloop.services import open_world_gate as owg
-from learnloop.services import parameter_registry as pr
+from learnloop.scheduling import kinship_feature as kf
+from learnloop.scheduling import open_world_gate as owg
+from learnloop.params import parameter_registry as pr
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

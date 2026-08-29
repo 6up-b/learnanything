@@ -1,0 +1,81 @@
+schema_version: 1
+id: lo_analyze_and_optimize_nonuniform_collision_probab
+title: Analyze and Optimize Nonuniform Collision Probability
+subjects:
+  - counting
+concept: concept_nonuniform_birthday_collisions
+knowledge_type: procedure and proof
+status: active
+contradicts:
+summary: Derive the elementary-symmetric-polynomial expression for no matches 
+  and use pairwise averaging to compare collision probabilities.
+prerequisites: []
+confusables: []
+blueprints:
+  - id: bp_01KYMWND_17
+    weight: 1.0
+    recipes:
+      - id: recipe_nonuniform_birthday
+        composition: conjunctive
+        all_of:
+          - facet: facet_for_independent_birthdays_with_category_probabil
+            capability: procedure_execution
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s507
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s510
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s518
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:38Z'
+updated_at: '2026-07-28T17:34:43Z'

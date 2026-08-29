@@ -1,0 +1,140 @@
+schema_version: 1
+id: pi_derive_p_a_b_p_a_p_b
+learning_object_id: lo_derive_and_use_basic_probability_rules
+subjects:
+practice_mode: axiomatic derivation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_a_probability_function_assigns_events_values_in_
+  - facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Derive P(A∪B)=P(A)+P(B)-P(A∩B) using only disjoint decompositions and 
+  probability additivity. Identify each disjoint decomposition explicitly.
+expected_answer: First decompose A∪B as the disjoint union A and B∩A^c, so 
+  P(A∪B)=P(A)+P(B∩A^c). Next decompose B as the disjoint union A∩B and B∩A^c, so
+  P(B)=P(A∩B)+P(B∩A^c). Thus P(B∩A^c)=P(B)-P(A∩B); substitution yields the 
+  addition rule.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.2
+scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
+surface_family: axiom-derived-rule
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-two-event-union-proof
+  representation: set notation and equations
+  solution_recipe_family: disjoint-decomposition-proof
+  answer_structure: two decompositions and substitution
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_probability_function_assigns_events_values_in_
+  - facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-union-decompositions
+      points: 3.0
+      description: States both required disjoint decompositions and applies 
+        additivity only after identifying disjointness.
+      tier: core
+      targets:
+        - facet: facet_a_probability_function_assigns_events_values_in_
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet-probability-axioms
+      correlation_group: union-derivation
+      recipe_ids:
+        - recipe-use-probability-rules
+      measurement_status:
+    - id: criterion-union-substitution
+      points: 2.0
+      description: Solves for the nonoverlapping part of B and substitutes to 
+        obtain the two-event union rule.
+      tier: core
+      targets:
+        - facet: facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet-derived-probability-rules
+      correlation_group: union-derivation
+      recipe_ids:
+        - recipe-use-probability-rules
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s269
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s270
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s275
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+created_at: '2026-07-28T17:34:45Z'
+updated_at: '2026-07-28T17:34:45Z'

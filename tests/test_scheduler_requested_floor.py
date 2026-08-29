@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.scheduler import ScheduledItem, build_due_queue, _apply_requested_floor
+from learnloop.scheduling.scheduler import ScheduledItem, build_due_queue, _apply_requested_floor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 from tests.helpers import create_basic_vault

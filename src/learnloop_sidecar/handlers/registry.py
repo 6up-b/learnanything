@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.subject_registry import (
+from learnloop.curriculum.subject_registry import (
     RegistryReviewError,
     build_subject_registry,
     propose_facet_merge,

@@ -7,7 +7,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState, PracticeItemState, Repository
-from learnloop.services.scheduler import (
+from learnloop.scheduling.scheduler import (
     ScheduledItem,
     SchedulerSession,
     _insert_pending_followups,
@@ -15,7 +15,7 @@ from learnloop.services.scheduler import (
     _selection_propensities,
     build_due_queue,
 )
-from learnloop.services.selection_rewards import SchedulerIntent
+from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
@@ -24,6 +24,56 @@ from tests.helpers import create_basic_vault, seed_due_item
 
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
 NOW_ISO = "2026-05-19T12:00:00Z"
+
+
+def test_scheduler_bulk_loads_item_quality_once(tmp_path, monkeypatch):
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = seed_due_item(paths)
+    quality_calls = 0
+    recent_calls = 0
+    original_quality = repository.practice_item_quality_states
+    original_recent = repository.list_recent_attempts_by_learning_objects
+
+    def states_once():
+        nonlocal quality_calls
+        quality_calls += 1
+        return original_quality()
+
+    def recent_once(learning_object_ids, *, limit=10):
+        nonlocal recent_calls
+        recent_calls += 1
+        return original_recent(learning_object_ids, limit=limit)
+
+    monkeypatch.setattr(repository, "practice_item_quality_states", states_once)
+    monkeypatch.setattr(
+        repository, "list_recent_attempts_by_learning_objects", recent_once
+    )
+    monkeypatch.setattr(
+        repository,
+        "practice_item_quality_state",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("scheduler must not query item quality per candidate")
+        ),
+    )
+    monkeypatch.setattr(
+        repository,
+        "list_recent_attempts_by_learning_object",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("scheduler must not query recent attempts per learning object")
+        ),
+    )
+
+    queue = build_due_queue(
+        vault,
+        repository,
+        clock=FrozenClock(NOW),
+        persist_explanations=False,
+    )
+
+    assert queue
+    assert quality_calls == 1
+    assert recent_calls == 1
 
 
 def test_scheduler_scores_due_goal_item(tmp_path):
@@ -561,6 +611,112 @@ def test_unrecognised_followup_action_reports_the_lane_it_lands_on(tmp_path):
 
     assert queue[0].followup_kind == "negative_surprise_followup"
     assert queue[0].components["negative_surprise_followup"] == 1.0
+
+
+def _cold_task_vault(tmp_path, *, item_id="pi_svd_define_001"):
+    """A vault with one due item and a cold_retry task already due on it."""
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    task = repository.create_followup_task(
+        kind="cold_retry",
+        case_kind="misconception",
+        case_ref="mc_cold",
+        not_before=NOW_ISO,
+        selected_item_id=item_id,
+        expires_at="2026-06-19T12:00:00Z",
+        context={"kind": "causal_cold_verification", "source_attempt_id": "att_src"},
+        clock=FrozenClock(NOW),
+    )
+    return loaded, repository, task
+
+
+def _seed_reveal(repository, item_id, amount, *, clock):
+    return repository.insert_reveal_event(
+        {
+            "practice_item_id": item_id,
+            "learning_object_id": "lo_svd_definition",
+            "source_kind": "tutor_answer",
+            "amount": amount,
+            "basis": "test",
+        },
+        clock=clock,
+    )
+
+
+def test_a_revealed_cold_task_is_withheld_and_says_so_in_the_slate(tmp_path):
+    """"No silent caps" for the cold lane: a single-use measurement held back
+    because its answer was shown is logged as an unselected candidate, so the
+    deferral is visible rather than looking like the task vanishing for a day."""
+
+    from datetime import timedelta
+
+    loaded, repository, task = _cold_task_vault(tmp_path)
+    _seed_reveal(
+        repository,
+        "pi_svd_define_001",
+        0.2,
+        clock=FrozenClock(NOW + timedelta(hours=1)),
+    )
+    at = FrozenClock(NOW + timedelta(hours=2))
+
+    queue = build_due_queue(
+        loaded, repository, clock=at, session=SchedulerSession(session_id="s_defer")
+    )
+    assert all(item.followup_kind != "cold_retry" for item in queue)
+
+    deferred = repository.followup_task(task["id"])
+    assert deferred["not_before"] == "2026-05-20T13:00:00Z"
+    assert deferred["expires_at"] == task["expires_at"]
+
+    explanations = repository.latest_scheduler_explanations_by_session("s_defer")
+    annotation = next(
+        row
+        for row in explanations
+        if row["components"].get("cold_followup_deferred_reveal") == 1.0
+    )
+    assert annotation["practice_item_id"] == "pi_svd_define_001"
+    assert annotation["components"]["cold_followup_reveal_amount"] == 0.2
+    # The CARD is still ordinary practice — what was withheld is the cold LANE,
+    # so the row carries no intervention-followup component this build.
+    assert annotation["components"].get("intervention_followup", 0.0) == 0.0
+    assert (
+        "cold check held back: its answer was shown since it was scheduled"
+        in annotation["plain_english"]["reasons"]
+    )
+
+
+def test_a_side_effect_free_build_withholds_without_rescheduling(tmp_path):
+    """`persist_explanations=False` means exactly that: the task is still
+    withheld (never served on contaminated evidence), but the queue writes
+    nothing — the same decision is simply recomputed next build."""
+
+    from datetime import timedelta
+
+    loaded, repository, task = _cold_task_vault(tmp_path)
+    _seed_reveal(
+        repository, "pi_svd_define_001", 0.2, clock=FrozenClock(NOW + timedelta(hours=1))
+    )
+    queue = build_due_queue(
+        loaded,
+        repository,
+        clock=FrozenClock(NOW + timedelta(hours=2)),
+        persist_explanations=False,
+    )
+    assert all(item.followup_kind != "cold_retry" for item in queue)
+    assert repository.followup_task(task["id"])["not_before"] == task["not_before"]
+
+
+def test_a_clean_cold_task_is_served_as_the_cold_lane(tmp_path):
+    loaded, repository, _task = _cold_task_vault(tmp_path)
+    queue = build_due_queue(
+        loaded, repository, clock=FrozenClock(NOW), persist_explanations=False
+    )
+    assert queue[0].practice_item_id == "pi_svd_define_001"
+    assert queue[0].followup_kind == "cold_retry"
 
 
 def test_ordinary_due_pick_carries_no_followup_kind(tmp_path):

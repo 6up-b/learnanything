@@ -13,10 +13,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import controller_store as store
-from learnloop.services import prequential
-from learnloop.services import shadow_components as sc
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import controller_store as store
+from learnloop.scheduling import prequential
+from learnloop.scheduling import shadow_components as sc
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -171,7 +171,7 @@ def test_state_sync_retires_expired_telemetry_horizon(tmp_path):
     # Audit L4/D8: the time-box only fires if a runtime path checks it. State sync is the
     # per-decision maintenance hook, so an expired horizon retires when sync runs. Pre-fix
     # nothing at runtime called retire_expired_telemetry, so retirement never fired.
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.substrate.state_sync import sync_vault_state
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)

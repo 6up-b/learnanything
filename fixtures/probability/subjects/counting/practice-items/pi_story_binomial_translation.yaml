@@ -1,0 +1,180 @@
+schema_version: 1
+id: pi_story_binomial_translation
+learning_object_id: lo_construct_a_combinatorial_proof_of_an_identity
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights:
+  facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+criterion_facet_weights:
+  story_translate_captain_first:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  story_translate_committee_first:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: marked_committee_count
+      checkpoints:
+        - count_committee_then_captain
+        - count_captain_then_members
+        - compare_counts
+      dependencies:
+        compare_counts:
+          - count_committee_then_captain
+          - count_captain_then_members
+        count_captain_then_members: []
+        count_committee_then_captain: []
+variant_contract:
+teach_back_source:
+prompt: 'From 10 people, form a 4-person committee and designate one committee member
+  as captain. Write and evaluate two counts: first choose the committee and then its
+  captain; then choose the captain and the remaining members. For every binomial coefficient,
+  state exactly which subset it counts.'
+expected_answer: 'Choosing the committee first gives C(10,4)·4=210·4=840: C(10,4)
+  counts the 4-person subset, and 4 chooses its captain. Choosing the captain first
+  gives 10·C(9,3)=10·84=840: 10 chooses the captain, and C(9,3) counts the 3-person
+  subset of noncaptains selected from the remaining nine.'
+difficulty: 0.18
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed
+  - binomial_interpretation
+  - decomposed
+hints:
+  - In the second count, remove the chosen captain from the pool before choosing
+    the other committee members.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.65
+transfer_distance: 0.22
+scaffold_level: 0.08
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: marked_committee_double_count
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: story_translate_committee_first
+      points: 2.0
+      description: Constructs and explains C(10,4)·4 as a subset choice followed
+        by a captain choice.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: story_translate_captain_first
+      points: 2.0
+      description: Constructs and explains 10·C(9,3), then verifies that both 
+        procedures give 840.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_construct_a_combinatorial_proof_of_an_identity:s229-s238
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s229
+      quote: "Story proof: Consider a group of n people, from which a team of k will
+        be chosen, one of whom will be the team captain. To specify a possibility,
+        we could first choose the team captain and then choose the remaining k-1 team
+        members; this gives the left-hand side. Equivalently, we could first choose
+        the k team members and then choose one of them to be captain; this gives the
+        right-hand side.\nExample 1.5.3 (Vandermonde's identity). A famous relationship
+        between binomial coefficients, called Vandermonde's identity , <sup>2</sup>
+        says that\n$$\\binom{m+n}{k} = \\sum_{j=0}^{k} \\binom{m}{j} \\binom{n}{k-j}.$$\n\
+        This identity will come up several times in this book. Trying to prove it
+        with a brute force expansion of all the binomial coefficients would be a nightmare.
+        But a story proves the result elegantly and makes it clear why the identity
+        holds.\nStory proof: Consider a student organization consisting of m juniors
+        and n seniors, from which a committee of size k will be chosen. There are
+        $\\binom{m+n}{k}$ possibilities. If there are j juniors in the committee,
+        then there must be k-j seniors in the committee. The right-hand side of the
+        identity sums up the cases for j.\nExample 1.5.4 (Partnerships). Let's use
+        a story proof to show that\n$$\\frac{(2n)!}{2^n \\cdot n!} = (2n-1)(2n-3)\\
+        cdots 3\\cdot 1.$$\nStory proof: We will show that both sides count the number
+        of ways to break 2n people into n partnerships. Take 2n people, and give them
+        ID numbers from 1 to 2n. We can form partnerships by lining up the people
+        in some order and then saying the first two are a pair, the next two are a
+        pair, etc. This overcounts by a factor of $n! \\cdot 2^n$ since the order
+        of pairs doesn't matter, nor does the order within each pair. Alternatively,
+        count the number of possibilities by noting that there are 2n-1 choices for
+        the partner of person 1, then 2n-3 choices for person 2 (or person 3, if person
+        2 was already paired to person 1), and so on.\n1.6 Non-naive definition of
+        probability\nWe have now seen several methods for counting outcomes in a sample
+        space, allowing us to calculate probabilities if the naive definition applies.
+        But the naive definition can only take us so far, since it requires equally
+        likely outcomes and can't handle"
+      quote_hash: 
+        sha256:0671df1ac608fbabb07565686ac8a1f3baf367e07b532ef51d7a246ef610ef11
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s229
+        - s230
+        - s231
+        - s232
+        - s233
+        - s234
+        - s235
+        - s236
+        - s237
+        - s238
+      span_hash: 
+        sha256:a0c30635f9e97dfd4f3546fbc52503fcfaff12550a003688cf2621f33b8e592c
+      section_id: u8
+      learning_object_ids:
+        - lo_construct_a_combinatorial_proof_of_an_identity
+created_at: '2026-07-28T20:07:43Z'
+updated_at: '2026-07-28T20:07:43Z'

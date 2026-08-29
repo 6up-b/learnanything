@@ -1,0 +1,67 @@
+schema_version: 1
+id: lo_represent_events_as_subsets
+title: Represent Events as Subsets
+subjects:
+  - counting
+concept: concept_event
+knowledge_type: conceptual-procedural
+status: active
+contradicts:
+summary: Distinguish an individual outcome from an event and express a verbal 
+  condition as a subset of a specified sample space.
+prerequisites:
+  - concept_sample_space
+confusables:
+  - concept_sample_space
+blueprints:
+  - id: bp_01KYMWND_2
+    weight: 1.0
+    recipes:
+      - id: recipe_identify_events
+        composition: conjunctive
+        all_of:
+          - facet: facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+            capability: schema_interpretation
+            modality: hard
+        any_of: []
+        integration:
+difficulty_prior:
+difficulty_source:
+tags: []
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s17
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s33
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:35Z'
+updated_at: '2026-07-28T17:34:40Z'

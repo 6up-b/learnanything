@@ -3,7 +3,7 @@ these tests document reality, not desired behavior. When P0.x intentionally chan
 update these tests in the same commit and note the change.
 
 Target: probe-family real-learner calibration in
-``learnloop.services.probe_families.record_real_observation_counts`` and its readers
+``learnloop.diagnosis.probe_families.record_real_observation_counts`` and its readers
 ``real_calibration_counts`` / ``shrunk_item_calibration_counts``.
 
 What this pins (current EM-style fractional-count behavior):
@@ -24,7 +24,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_V1,
     real_calibration_counts,
     record_real_observation_counts,

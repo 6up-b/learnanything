@@ -26,30 +26,30 @@ import json
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.canonical_projection import surface_group_id
-from learnloop.services.diagnostic_surface_supply import (
+from learnloop.substrate.canonical_projection import surface_group_id
+from learnloop.diagnosis.diagnostic_surface_supply import (
     probe_pool_empty_conditions,
     reconcile_diagnostic_surface_needs,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     administered_surface_exclusions,
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
 )
-from learnloop.services.probe_remint import (
+from learnloop.diagnosis.probe_remint import (
     ProbeRemintError,
     remint_probe_as_practice_item,
 )
-from learnloop.services.recall_coverage import familiarity_discount_from_attempts
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.learner.recall_coverage import familiarity_discount_from_attempts
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -449,7 +449,7 @@ def test_remint_first_attempt_carries_familiarity_discount(tmp_path):
 
 
 def test_remediation_cold_pick_rejects_remint_as_same_surface_as_probe_group(tmp_path):
-    from learnloop.services.remediation import (
+    from learnloop.diagnosis.remediation import (
         prescribe_remediation,
         start_remediation_episode,
         start_remediation_treatment,

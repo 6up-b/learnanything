@@ -119,8 +119,14 @@ export function ProbeBlockResult({
               style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 8, fontSize: 13 }}
             >
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <Pill tone={(feedback.rubricScore ?? 0) >= 3 ? "green" : "amber"}>
-                  {feedback.rubricScore ?? "—"}/4
+                <Pill
+                  tone={
+                    (feedback.rubricScore ?? 0) / Math.max(feedback.maxPoints, 1) >= 0.75
+                      ? "green"
+                      : "amber"
+                  }
+                >
+                  {feedback.rubricScore ?? "—"}/{feedback.maxPoints}
                 </Pill>
                 <Faint>{labelForIndex ? labelForIndex(index) : `observation ${index + 1}`}</Faint>
                 {feedback.fatalErrors.length > 0 ? (
@@ -171,7 +177,9 @@ export function ProbeBlockResult({
               ) : null}
               {/* Server-gated exactly like FeedbackScreen: the SELECTED repair
                   preserves a prefix, and the attempt lost points. */}
-              {onGuidedRedo && feedback.guidedRedoAvailable && (feedback.rubricScore ?? 0) < 4 ? (
+              {onGuidedRedo &&
+              feedback.guidedRedoAvailable &&
+              (feedback.rubricScore ?? 0) < feedback.maxPoints ? (
                 <GuidedRedoAffordance
                   starting={redoAttemptId === feedback.attemptId}
                   onStart={() => void startGuidedRedo(feedback.attemptId)}

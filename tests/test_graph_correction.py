@@ -14,12 +14,12 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.calibration_sessions import (
+from learnloop.diagnosis.calibration_sessions import (
     episode_priority_disagreement,
     graph_propagated_prior,
     start_calibration_session,
 )
-from learnloop.services.doctor import run_doctor
+from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -218,7 +218,7 @@ def test_calibration_ordering_reverts_to_plain_rate(tmp_path):
     paths = _two_lo_vault(tmp_path / "vault")
     loaded = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
-    from learnloop.services.probe_families import builtin_family_templates
+    from learnloop.diagnosis.probe_families import builtin_family_templates
 
     for template in builtin_family_templates():
         repository.upsert_probe_family_template(
@@ -251,7 +251,7 @@ def test_calibration_ordering_reverts_to_plain_rate(tmp_path):
         },
         clock=clock,
     )
-    from learnloop.services.attempts import (
+    from learnloop.attempts.attempts import (
         AttemptDraft,
         SelfGradeInput,
         complete_self_graded_attempt,

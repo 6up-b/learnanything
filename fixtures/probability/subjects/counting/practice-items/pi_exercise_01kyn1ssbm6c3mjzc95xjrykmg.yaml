@@ -1,0 +1,213 @@
+schema_version: 1
+id: pi_exercise_01kyn1ssbm6c3mjzc95xjrykmg
+learning_object_id: lo_count_unordered_selections_with_repetition
+subjects:
+practice_mode: source_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_unordered_selection_of_k_objects_with_replacemen
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights:
+  facet_unordered_selection_of_k_objects_with_replacemen: 0.55
+  facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.45
+criterion_facet_weights:
+  strict_count:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  weak_count:
+    facet_unordered_selection_of_k_objects_with_replacemen: 1.0
+  probabilities:
+    facet_unordered_selection_of_k_objects_with_replacemen: 0.55
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.45
+trace_contract:
+  status: available
+  recipes:
+    - id: count_then_divide
+      checkpoints:
+        - sample_space
+        - strict_count
+        - weak_count
+        - probabilities
+      dependencies:
+        sample_space: []
+        strict_count:
+          - sample_space
+        weak_count:
+          - sample_space
+        probabilities:
+          - strict_count
+          - weak_count
+variant_contract:
+teach_back_source:
+prompt: There are n balls in a jar, labeled with the numbers 1, 2, . . . , n. A 
+  total of k balls are drawn, one by one with replacement, to obtain a sequence 
+  of numbers. (a) What is the probability that the sequence obtained is strictly
+  increasing? (b) What is the probability that the sequence obtained is 
+  increasing (but not necessarily strictly increasing, i.e., there can be 
+  repetitions)?
+expected_answer: "Each of the $k$ draws has $n$ possible results, and the draws are
+  ordered, so there are $n^k$ equally likely sequences in total.\n\nFor (a), a strictly
+  increasing sequence cannot repeat a label, so it exists only when $k\\le n$. Choose
+  the $k$ distinct labels that appear. Once they are chosen, there is exactly one
+  ordering of them that is strictly increasing. Hence there are $\\binom{n}{k}$ favorable
+  sequences when $k\\le n$, and none when $k>n$. Therefore\n$$P(\\text{strictly increasing})=\\
+  begin{cases}\\dfrac{\\binom{n}{k}}{n^k},&k\\le n,\\\\[4pt]0,&k>n.\\end{cases}$$\n\
+  \nFor (b), every weakly increasing sequence is uniquely determined by the multiplicities
+  $x_1,\\ldots,x_n$ of the labels $1,\\ldots,n$. These multiplicities satisfy\n$$x_1+\\
+  cdots+x_n=k,\\qquad x_i\\ge 0.$$\nBy stars and bars, the number of such multiplicity
+  vectors, and therefore the number of weakly increasing sequences, is\n$$\\binom{n+k-1}{k}.$$\n\
+  Thus\n$$P(\\text{increasing})=\\frac{\\binom{n+k-1}{k}}{n^k}.$$"
+difficulty: 0.6
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Start by counting all possible ordered sequences of $k$ draws.
+  - For strict increase, first choose which distinct labels occur; ask how many 
+    increasing orders those chosen labels have.
+  - For weak increase, record how many times each of the $n$ labels occurs and 
+    translate the condition into a nonnegative integer equation.
+  - After counting the favorable sequences in each part, divide by the number of
+    equally likely ordered sequences.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.3
+scaffold_level: 0.0
+capability: method_selection
+task_features:
+  complexity: 3
+  transfer: near
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: sample_space
+      points: 1.0
+      description: Identifies the n^k equally likely ordered draw sequences that
+        form the denominator.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+    - id: strict_count
+      points: 1.0
+      description: Counts strictly increasing sequences as binom(n,k) when k≤n, 
+        explains the unique increasing order, and handles k>n as probability 
+        zero.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: weak_count
+      points: 1.0
+      description: Represents weakly increasing sequences by nonnegative 
+        multiplicities summing to k and counts them as binom(n+k-1,k).
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: probabilities
+      points: 1.0
+      description: Divides both favorable counts by n^k and states the two 
+        resulting probabilities correctly.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s406
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s407
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s408
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s455
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:04:07Z'
+updated_at: '2026-07-28T19:04:08Z'

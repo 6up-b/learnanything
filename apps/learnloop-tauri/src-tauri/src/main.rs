@@ -5,9 +5,9 @@ mod vault_watcher;
 
 use commands::*;
 use sidecar::SidecarManager;
-use vault_watcher::VaultWatcher;
 use std::borrow::Cow;
 use tauri::Manager;
+use vault_watcher::VaultWatcher;
 
 const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM";
 
@@ -64,7 +64,9 @@ fn llmedia_response(
     if let Some((name, value)) = extra {
         builder = builder.header(name, value);
     }
-    builder.body(Cow::Owned(body)).expect("static llmedia response")
+    builder
+        .body(Cow::Owned(body))
+        .expect("static llmedia response")
 }
 
 /// Parse a `bytes=start-end` Range header against a body of `len` bytes.
@@ -123,13 +125,20 @@ fn serve_llmedia(
     let total = bytes.len() as u64;
     match slice_range(total, range_header) {
         None => llmedia_response(200, bytes, None),
-        Some(Err(())) => llmedia_response(416, Vec::new(), Some(("Content-Range".into(), format!("bytes */{total}")))),
+        Some(Err(())) => llmedia_response(
+            416,
+            Vec::new(),
+            Some(("Content-Range".into(), format!("bytes */{total}"))),
+        ),
         Some(Ok((start, end))) => {
             let body = bytes[start as usize..=(end as usize)].to_vec();
             llmedia_response(
                 206,
                 body,
-                Some(("Content-Range".into(), format!("bytes {start}-{end}/{total}"))),
+                Some((
+                    "Content-Range".into(),
+                    format!("bytes {start}-{end}/{total}"),
+                )),
             )
         }
     }
@@ -215,6 +224,8 @@ fn main() {
             stop_probe_diagnosing,
             get_next_probe_item,
             save_practice_draft,
+            recover_practice_submission,
+            acknowledge_practice_submission,
             submit_attempt,
             submit_dont_know,
             skip_practice_item,
@@ -228,6 +239,7 @@ fn main() {
             trigger_followup,
             rate_followup,
             report_unresolved_cause,
+            submit_eliciting_response,
             contest_causal_diagnosis,
             causal_repair_status,
             causal_probe_offer_action,
@@ -531,7 +543,10 @@ mod tests {
     #[test]
     fn llmedia_404s_for_absent_animation() {
         let manager = SidecarManager::new();
-        assert_eq!(serve_llmedia(&manager, "/sha256-deadbeef.mp4", None).status(), 404);
+        assert_eq!(
+            serve_llmedia(&manager, "/sha256-deadbeef.mp4", None).status(),
+            404
+        );
     }
 
     #[test]

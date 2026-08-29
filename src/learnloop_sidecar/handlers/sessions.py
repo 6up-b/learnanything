@@ -25,6 +25,7 @@ class SessionCheckpointInput(ParamsModel):
     current_practice_item_id: str | None = None
     current_answer: str | None = None
     hints_used: int | None = None
+    submission_id: str | None = None
     focus_block_state: dict[str, Any] | None = None
     pending_grading_proposal: dict[str, Any] | None = None
     readiness: dict[str, Any] | None = None
@@ -33,7 +34,7 @@ class SessionCheckpointInput(ParamsModel):
 @method("start_session", SessionStartInput)
 def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    from learnloop.services.forecast_ledger import issue_goal_forecasts, resolve_due_forecasts
+    from learnloop.goals.forecast_ledger import issue_goal_forecasts, resolve_due_forecasts
 
     resolve_due_forecasts(repository)
     issue_goal_forecasts(vault, repository)
@@ -81,9 +82,10 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
         raise SidecarError("not_found", f"Session {params.session_id} was not found.")
     repository.clear_session_checkpoint(params.session_id)
     counts = repository.session_attempt_counts(params.session_id) or {"attempts_recorded": 0, "items_reviewed": 0}
-    from learnloop.services.session_learning_diff import session_learning_diff
+    from learnloop.learner.session_learning_diff import session_learning_diff
 
     learning_diff = session_learning_diff(vault, repository, params.session_id)
+    cold_checks = _session_cold_checks(repository, params.session_id)
     return versioned(
         {
             "session_id": row["id"],
@@ -92,6 +94,11 @@ def end_session(ctx: SidecarContext, params: SessionIdInput) -> dict[str, Any]:
             "attempts_recorded": counts["attempts_recorded"],
             "items_reviewed": counts["items_reviewed"],
             "followups_queued": _session_followups_queued(repository, params.session_id),
+            # Cold checks are the session's only unassisted repair evidence, and
+            # they are counted SEPARATELY from what passed: "2 answered, 1 held"
+            # is the honest shape, "1 repair confirmed" alone hides the other.
+            "cold_checks_completed": cold_checks["completed"],
+            "cold_checks_passed": cold_checks["passed"],
             "streak": repository.session_day_streak(),
             **learning_diff,
         }
@@ -111,6 +118,9 @@ def patch_checkpoint(repository, params: SessionCheckpointInput) -> None:
         if hints_used < 0:
             raise SidecarError("validation_error", "hintsUsed must be non-negative.", details={"field": "hintsUsed"})
         focus = _with_hints_used(focus, hints_used)
+
+    if "submission_id" in fields:
+        focus = _with_submission_id(focus, params.submission_id)
 
     repository.update_session_checkpoint(
         params.session_id,
@@ -151,6 +161,72 @@ def _with_hints_used(focus: dict[str, Any] | None, hints_used: int) -> dict[str,
     practice["hintsUsed"] = hints_used
     payload["practice"] = practice
     return payload
+
+
+def _with_submission_id(focus: dict[str, Any] | None, submission_id: str | None) -> dict[str, Any]:
+    """Store the current attempt's stable retry key in the practice envelope.
+
+    The checkpoint already has a JSON focus-block field, so this is additive
+    and needs no schema migration.  Clearing or switching a legacy client must
+    not leave a previous item's key behind.
+    """
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    if not isinstance(practice, dict):
+        practice = {}
+    else:
+        practice = dict(practice)
+    if submission_id is None:
+        practice.pop("submissionId", None)
+        practice.pop("submission_id", None)
+    else:
+        stable_id = submission_id.strip()
+        if not stable_id:
+            raise SidecarError(
+                "validation_error",
+                "submissionId must not be blank.",
+                details={"field": "submissionId"},
+            )
+        practice["submissionId"] = stable_id
+        practice.pop("submission_id", None)
+    payload["practice"] = practice
+    return payload
+
+
+def _session_cold_checks(repository, session_id: str) -> dict[str, int]:
+    """Repair cold checks this session spent, and how many of them passed.
+
+    Same window convention as ``_session_followups_queued`` (attempt timestamps
+    between the session's start and end). A cold task is joined to the attempt
+    that CONSUMED it, so a check scheduled long ago counts for the session that
+    actually answered it. ``passed`` reads the recorded outcome, not the grade:
+    an outcome row is written by the cold verification lane, and its absence
+    means the check produced no verdict rather than a failure.
+    """
+
+    session = repository.fetch_session(session_id)
+    if session is None:
+        return {"completed": 0, "passed": 0}
+    started_at = session["started_at"]
+    ended_at = session["ended_at"] or started_at
+    with repository.connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT o.outcome AS outcome
+            FROM followup_tasks t
+            JOIN practice_attempts a ON a.id = t.consumed_attempt_id
+            LEFT JOIN causal_cold_outcomes o ON o.followup_task_id = t.id
+            WHERE t.kind = 'cold_retry'
+              AND t.status = 'consumed'
+              AND a.created_at >= ? AND a.created_at <= ?
+            """,
+            (started_at, ended_at),
+        ).fetchall()
+    return {
+        "completed": len(rows),
+        "passed": sum(1 for row in rows if row["outcome"] == "cold_success"),
+    }
 
 
 def _session_followups_queued(repository, session_id: str) -> int:

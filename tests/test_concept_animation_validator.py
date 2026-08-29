@@ -4,7 +4,7 @@ import subprocess
 import types
 from pathlib import Path
 
-from learnloop.services.concept_animation import (
+from learnloop.content.authoring.concept_animation import (
     RenderResult,
     manim_runtime,
     render_scene,
@@ -142,7 +142,7 @@ def _spy_run_factory(captured):
 
 
 def test_render_scene_sandboxes_with_bwrap(monkeypatch):
-    import learnloop.services.concept_animation as ca
+    import learnloop.content.authoring.concept_animation as ca
 
     monkeypatch.setattr(ca.sys, "platform", "linux")
     monkeypatch.setattr(ca.shutil, "which", lambda name: "/usr/bin/bwrap")
@@ -163,7 +163,7 @@ def test_render_scene_sandboxes_with_bwrap(monkeypatch):
 
 
 def test_render_scene_requires_bwrap_on_linux(monkeypatch):
-    import learnloop.services.concept_animation as ca
+    import learnloop.content.authoring.concept_animation as ca
 
     monkeypatch.setattr(ca.sys, "platform", "linux")
     monkeypatch.setattr(ca.shutil, "which", lambda name: None)
@@ -178,7 +178,7 @@ def test_render_scene_requires_bwrap_on_linux(monkeypatch):
 
 
 def test_render_scene_off_linux_runs_direct_without_bwrap(monkeypatch):
-    import learnloop.services.concept_animation as ca
+    import learnloop.content.authoring.concept_animation as ca
 
     monkeypatch.setattr(ca.sys, "platform", "darwin")
     captured = {}

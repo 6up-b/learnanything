@@ -10,11 +10,11 @@ from typing import Any
 
 from pydantic import Field
 
-from learnloop.services.curriculum_locks import identity_locks
-from learnloop.services.mastery import display_mastery, sigmoid
-from learnloop.services.probes import resolve_item_irt
-from learnloop.services.recall_coverage import predicted_correctness
-from learnloop.services.scheduler import build_due_queue
+from learnloop.curriculum.curriculum_locks import identity_locks
+from learnloop.learner.mastery import display_mastery, sigmoid
+from learnloop.diagnosis.probes import resolve_item_irt
+from learnloop.learner.recall_coverage import predicted_correctness
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -230,9 +230,9 @@ def _facet_field(vault, repository) -> dict[str, Any]:
     invents evidence adjacency.
     """
 
-    from learnloop.services.capability_mapping import CAPABILITY_VOCABULARY
-    from learnloop.services.certification import is_demonstrated_credit
-    from learnloop.services.facet_evidence_timeline import facet_evidence_timelines
+    from learnloop.learner.capability_mapping import CAPABILITY_VOCABULARY
+    from learnloop.goals.certification import is_demonstrated_credit
+    from learnloop.learner.facet_evidence_timeline import facet_evidence_timelines
 
     facet_ids = {
         vault.canonical_facet_id(facet_id)
@@ -328,6 +328,13 @@ def _facet_field(vault, repository) -> dict[str, Any]:
             reason.source for reason in reasons
         )
 
+    # Facets whose repair is instructed-but-unverified: somewhere in their
+    # learning objects a cold check is scheduled and has not been spent yet.
+    # Reading the TASK (not the episode) is both the cheapest query and the
+    # honest one — consuming the check flips the task to `consumed`, so the
+    # pending state clears exactly when the unassisted measurement happens.
+    cold_check_pending_los = _cold_check_pending_learning_objects(vault, repository)
+
     # Correction badges need the same immutable evidence replay as Review.
     # Build every facet timeline in one bulk pass rather than replaying the
     # complete grading history independently for each point.
@@ -391,6 +398,15 @@ def _facet_field(vault, repository) -> dict[str, Any]:
                 "has_blueprints": bool(requirement),
                 "capability_arcs": capabilities,
                 "learning_object_ids": sorted(lo_ids.get(facet_id, set())),
+                # Instructed, not yet verified: a repair on this facet's
+                # material was done with assistance and the single unassisted
+                # check it scheduled is still outstanding. Deliberately a
+                # SEPARATE flag from `demonstrated_mass` — an assisted repair
+                # is not evidence, and folding it into the demonstrated channel
+                # is precisely the blend the well contract forbids.
+                "cold_check_pending": bool(
+                    lo_ids.get(facet_id, set()) & cold_check_pending_los
+                ),
                 "ambiguity_candidates": sorted(ambiguity.get(facet_id, set())),
                 "ambiguity_attempt_id": ambiguity_target.get(facet_id),
                 "correction": (
@@ -432,6 +448,34 @@ def _facet_field(vault, repository) -> dict[str, Any]:
     }
 
 
+def _cold_check_pending_learning_objects(vault, repository) -> set[str]:
+    """Learning objects carrying a live, unspent repair cold check.
+
+    The repair lane leaves ``followup_tasks.learning_object_id`` NULL and names
+    the surface instead, so the LO is resolved through the selected item first
+    and only falls back to the column. Consumed and expired tasks are already
+    excluded by ``open_followup_tasks_of_kind`` (pending/served only), which is
+    what makes "pending" clear itself the moment the check is answered.
+    """
+
+    pending: set[str] = set()
+    try:
+        tasks = repository.open_followup_tasks_of_kind("cold_retry")
+    except Exception:  # pragma: no cover - a map read must not fail on this
+        return pending
+    for task in tasks:
+        item_id = str(task.get("selected_item_id") or "")
+        item = vault.practice_items.get(item_id) if item_id else None
+        learning_object_id = (
+            str(getattr(item, "learning_object_id", "") or "")
+            if item is not None
+            else str(task.get("learning_object_id") or "")
+        )
+        if learning_object_id:
+            pending.add(learning_object_id)
+    return pending
+
+
 def _facet_current_retentions(vault, repository) -> dict[str, float]:
     """Evidence-weighted present-day FSRS retention by facet item family.
 
@@ -444,8 +488,8 @@ def _facet_current_retentions(vault, repository) -> dict[str, float]:
     from datetime import UTC, datetime
 
     from learnloop.clock import parse_utc
-    from learnloop.services.fitted_params import resolve_fsrs_weights
-    from learnloop.services.fsrs import forgetting_curve
+    from learnloop.params.fitted_params import resolve_fsrs_weights
+    from learnloop.scheduling.fsrs import forgetting_curve
 
     now = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     states = repository.practice_item_states()
@@ -516,9 +560,9 @@ def _facet_graph_distances(facets: list[str], adjacency) -> list[list[float]]:
 def _next_gap(vault, repository, points, adjacency) -> dict[str, Any] | None:
     """One model-selected gap pin, routed to its native drill-down."""
 
-    from learnloop.services.capability_grid import lo_blueprint_readiness
-    from learnloop.services.goal_certification import lo_certification
-    from learnloop.services.goal_projection import resolve_goal_scope
+    from learnloop.learner.capability_grid import lo_blueprint_readiness
+    from learnloop.goals.goal_certification import lo_certification
+    from learnloop.goals.goal_projection import resolve_goal_scope
 
     point_by_id = {point["id"]: point for point in points}
     goals = sorted(

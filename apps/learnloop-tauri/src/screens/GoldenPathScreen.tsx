@@ -16,7 +16,6 @@ import { api } from "../api/client";
 import type {
   AssessOpenDto,
   AssessResultDto,
-  CommandError,
   DepthInvitationResultDto,
   LadderAdvanceResultDto,
   LadderPolicyDto,
@@ -46,6 +45,7 @@ import {
 import { ItemPresentation } from "../components/ItemPresentation";
 import { TriageDecisionAid } from "../components/goldenpath/TriageDecisionAid";
 import { goldenPathFixtures } from "../fixtures/goldenpath";
+import { errorMessage, getCommandError } from "../errors";
 
 // Canonical display order for the run-state checkpoint ladder (§4 launch states).
 const RUN_STAGES: Array<{ key: string; label: string }> = [
@@ -100,6 +100,25 @@ interface RunBundle {
   poolForRun: PoolForRunDto | null;
 }
 
+interface RunSurfaceResult<T> {
+  value: T | null;
+  warning: string | null;
+}
+
+async function readRunSurface<T>(
+  label: string,
+  request: Promise<T>,
+  absentCodes: string[] = [],
+): Promise<RunSurfaceResult<T>> {
+  try {
+    return { value: await request, warning: null };
+  } catch (error) {
+    const command = getCommandError(error);
+    if (command && absentCodes.includes(command.code)) return { value: null, warning: null };
+    return { value: null, warning: `${label}: ${errorMessage(error)}` };
+  }
+}
+
 function fixtureBundle(): RunBundle {
   return {
     run: goldenPathFixtures.runStatusAssessed,
@@ -133,39 +152,60 @@ export function GoldenPathScreen({
   const offline = !runId;
   const [bundle, setBundle] = useState<RunBundle | null>(offline ? fixtureBundle() : null);
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [surfaceWarnings, setSurfaceWarnings] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     if (!runId) {
       setBundle(fixtureBundle());
+      setLoadError(null);
+      setSurfaceWarnings([]);
       return;
     }
     try {
-      const run = await api.goldenPathRunStatus(runId);
-      // Optional surfaces — available only at the relevant states; ignore misses.
-      const [ladder, assess, restore, depth, triageStatus, ladderStatus, poolForRun] = await Promise.all([
-        api.ladderPolicy().catch(() => null),
-        api.goldenPathAssessResult(runId).catch(() => null),
-        api.goldenPathRestore(runId).catch(() => null),
-        api.goldenPathDepthInvitation(runId).catch(() => null),
-        api.diagnosticTriageStatus(runId).catch(() => null),
-        api.ladderStatus(runId).catch(() => null),
-        api.practicePoolForRun(runId).catch(() => null),
+      setLoadError(null);
+      // Restoration is an idempotent transition, not a read. Resolve it before
+      // taking the screen snapshot so the remaining reads cannot race across
+      // the assessing -> restoring boundary and render a mixed-stage bundle.
+      const restore = await readRunSurface(
+        "restoration",
+        api.goldenPathRestore(runId),
+        ["restore_unavailable"]
+      );
+      // Some surfaces genuinely do not exist before their stage. Only those
+      // typed absence codes collapse to null; transport/schema/backend failures
+      // remain visible instead of masquerading as an empty successful result.
+      const [run, ladder, assess, depth, triageStatus, ladderStatus, poolForRun] = await Promise.all([
+        api.goldenPathRunStatus(runId),
+        readRunSurface("ladder policy", api.ladderPolicy()),
+        readRunSurface("assessment result", api.goldenPathAssessResult(runId), ["no_assessment_result"]),
+        readRunSurface("depth invitation", api.goldenPathDepthInvitation(runId)),
+        readRunSurface("triage status", api.diagnosticTriageStatus(runId), ["run_not_found"]),
+        readRunSurface("ladder status", api.ladderStatus(runId), ["run_not_found"]),
+        readRunSurface("practice pool", api.practicePoolForRun(runId)),
       ]);
+      setSurfaceWarnings(
+        [ladder, assess, restore, depth, triageStatus, ladderStatus, poolForRun]
+          .map((result) => result.warning)
+          .filter((warning): warning is string => warning !== null)
+      );
       setBundle({
         run,
-        ladder,
+        ladder: ladder.value,
         triage: null,
-        assess,
-        restore,
-        depth,
+        assess: assess.value,
+        restore: restore.value,
+        depth: depth.value,
         pool: null,
         nextSurface: null,
-        triageStatus,
-        ladderStatus,
-        poolForRun,
+        triageStatus: triageStatus.value,
+        ladderStatus: ladderStatus.value,
+        poolForRun: poolForRun.value,
       });
     } catch (error) {
-      onError((error as CommandError).message);
+      const message = errorMessage(error, "Could not load this Golden Path run.");
+      setLoadError(message);
+      onError(message);
     }
   }, [runId, onError]);
 
@@ -190,7 +230,7 @@ export function GoldenPathScreen({
       });
       await load();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -203,7 +243,7 @@ export function GoldenPathScreen({
       await api.goldenPathAcceptEdge(runId);
       await load();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -216,7 +256,7 @@ export function GoldenPathScreen({
       await api.goldenPathDeclineEdge(runId);
       await load();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -236,6 +276,16 @@ export function GoldenPathScreen({
   const checkpoints = useMemo(() => (bundle ? runCheckpoints(bundle.run) : []), [bundle]);
 
   if (!bundle) {
+    if (loadError) {
+      return (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} role="alert">
+          <Card status="error" style={{ maxWidth: 680 }}>
+            <div>{loadError}</div>
+            <PrimaryButton onClick={() => void load()}>retry run load</PrimaryButton>
+          </Card>
+        </div>
+      );
+    }
     return (
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: FONT_MONO, color: COLOR.textDim }}>
         loading run…
@@ -278,6 +328,16 @@ export function GoldenPathScreen({
 
       {/* scroll body */}
       <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "18px 32px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {loadError || surfaceWarnings.length > 0 ? (
+          <Card status="error" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div role="alert" style={{ color: COLOR.red, fontFamily: FONT_MONO, fontSize: 12 }}>
+              Some run data is unavailable; actions that depend on it may be disabled.
+            </div>
+            {loadError ? <Faint>{loadError}</Faint> : null}
+            {surfaceWarnings.map((warning) => <Faint key={warning}>{warning}</Faint>)}
+            <div><SecondaryButton onClick={() => void load()}>retry unavailable data</SecondaryButton></div>
+          </Card>
+        ) : null}
         {/* current stage — answers the four §9 questions */}
         <SectionHeader style={{ marginTop: 0 }}>Current Stage — {run.currentState}</SectionHeader>
         <Card status="running" style={{ background: COLOR.washCyan, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -566,7 +626,7 @@ function AssessmentWorkspace({
     try {
       setOpened(await api.goldenPathAssessOpen(runId));
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -598,7 +658,7 @@ function AssessmentWorkspace({
       });
       onSubmitted();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -761,7 +821,7 @@ function TriageWorkspace({
       setResult(res);
       onChanged();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -779,7 +839,7 @@ function TriageWorkspace({
       setResult(res);
       onChanged();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -903,7 +963,7 @@ function LadderWorkspace({
       }
       onChanged();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -923,7 +983,7 @@ function LadderWorkspace({
       setLastAdvance(res);
       onChanged();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1032,7 +1092,7 @@ function PoolWorkspace({
         `authoring an ${direction} sibling of ${ref} (${result.sourceWaypoint} → ${result.targetWaypoint}) — it lands in your queue when ready`
       );
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1044,7 +1104,7 @@ function PoolWorkspace({
       await fn();
       onChanged();
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -1056,7 +1116,7 @@ function PoolWorkspace({
     try {
       setNext(await api.practicePoolNextSurface(pool.poolId));
     } catch (error) {
-      onError((error as CommandError).message);
+      onError(errorMessage(error));
     } finally {
       setBusy(false);
     }

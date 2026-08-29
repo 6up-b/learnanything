@@ -2,9 +2,9 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
+  AttemptResultDto,
   AttemptType,
   CandidateErrorTypeDto,
-  CommandError,
   GuidedRedoDto,
   PracticeItemDetail,
   ProbeBlockEndDto,
@@ -24,6 +24,69 @@ import { masteryTone } from "../app/algoConfig";
 import { isTypingTarget } from "../app/keyboard";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { MathLiveEditor } from "../render/MathLiveEditor";
+import { errorMessage, getCommandError } from "../errors";
+
+type CommittedAttemptRecovery = {
+  attemptId: string;
+  attemptType: string | null;
+  message: string;
+};
+
+type PracticeCheckpointIdentity = {
+  practiceItemId: string;
+  submissionId: string;
+};
+
+function committedAttemptRecovery(error: unknown): CommittedAttemptRecovery | null {
+  const command = getCommandError(error);
+  if (command?.code !== "submission_committed" || !command.details || typeof command.details !== "object") {
+    return null;
+  }
+  const details = command.details as {
+    attempt_id?: unknown;
+    attemptId?: unknown;
+    attempt_type?: unknown;
+    attemptType?: unknown;
+  };
+  const attemptId = details.attempt_id ?? details.attemptId;
+  if (typeof attemptId !== "string" || !attemptId.trim()) return null;
+  const attemptType = details.attempt_type ?? details.attemptType;
+  return {
+    attemptId: attemptId.trim(),
+    attemptType: typeof attemptType === "string" ? attemptType : null,
+    message: command.message
+  };
+}
+
+/** Runtime guard for the measurement contract. TypeScript only checks compile
+ * time; a stale/malformed sidecar response must never silently enable hints or
+ * ordinary submission during a diagnostic serve. */
+function activeProbeContract(contract: ProbeContractDto): ProbeContractDto | null {
+  if (
+    !contract ||
+    typeof contract !== "object" ||
+    !Number.isInteger(contract.version) ||
+    typeof contract.active !== "boolean"
+  ) {
+    throw new Error("The diagnostic safety contract was malformed. Retry before answering.");
+  }
+  if (!contract.active) return null;
+  const restrictions = contract.restrictions;
+  if (
+    typeof contract.presentationId !== "string" ||
+    !contract.presentationId.trim() ||
+    contract.forcedAttemptType !== "diagnostic_probe" ||
+    !restrictions ||
+    restrictions.hintsDisabled !== true ||
+    restrictions.askTutorDisabled !== true ||
+    restrictions.workedExampleDisabled !== true ||
+    restrictions.answerRevealDisabled !== true ||
+    restrictions.feedbackDeferred !== true
+  ) {
+    throw new Error("The diagnostic safety contract was incomplete. Retry before answering.");
+  }
+  return contract;
+}
 
 export function PracticeScreen({
   session,
@@ -32,6 +95,7 @@ export function PracticeScreen({
   gradingProvider,
   restoredAnswer,
   restoredHints,
+  restoredSubmissionId,
   restoredTeachBack,
   onFeedback,
   onBlockEnd,
@@ -40,6 +104,7 @@ export function PracticeScreen({
   onCheckpointCleared,
   onDraftSaved,
   onTeachBackActive,
+  onAskAvailabilityChange,
   onInspect,
   onAsk,
   onError,
@@ -58,6 +123,7 @@ export function PracticeScreen({
   gradingProvider: string;
   restoredAnswer?: string;
   restoredHints?: number;
+  restoredSubmissionId?: string | null;
   restoredTeachBack?: TeachBackStateDto | null;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
@@ -67,11 +133,13 @@ export function PracticeScreen({
    *  episode with no visible queue round-trip. */
   onContinueDiagnostic: (practiceItemId: string) => void;
   onBack: () => void;
-  onCheckpointCleared: () => void;
+  onCheckpointCleared: (identity?: PracticeCheckpointIdentity) => void;
   /** Mirror of the last flushed draft, so App can restore it if this item is
    *  re-opened before the backend checkpoint is reloaded. */
-  onDraftSaved: (draft: { practiceItemId: string; answerMd: string; hintsUsed: number }) => void;
+  onDraftSaved: (draft: { practiceItemId: string; answerMd: string; hintsUsed: number; submissionId: string }) => void;
   onTeachBackActive: (active: boolean) => void;
+  /** Gate App-level Ask commands while the probe contract is loading or active. */
+  onAskAvailabilityChange: (allowed: boolean) => void;
   onInspect: (id: string) => void;
   onAsk: (target: {
     context: "practice";
@@ -96,6 +164,11 @@ export function PracticeScreen({
   // conditions — forced diagnostic_probe, no hints, no ask-tutor, deferred
   // feedback, and a "stop diagnosing" escape into tutoring.
   const [probe, setProbe] = useState<ProbeContractDto | null>(null);
+  const [probeLoadState, setProbeLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [itemLoadError, setItemLoadError] = useState<string | null>(null);
+  const [probeLoadError, setProbeLoadError] = useState<string | null>(null);
+  const [loadRevision, setLoadRevision] = useState(0);
+  const [committedRecovery, setCommittedRecovery] = useState<CommittedAttemptRecovery | null>(null);
   // §7.1: the learner's committed answer confidence (1–5) during a diagnostic
   // block. Logged-only — it never changes grading or scheduling.
   const [answerConfidence, setAnswerConfidence] = useState<number | null>(null);
@@ -111,19 +184,22 @@ export function PracticeScreen({
     errorAttributions: []
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const mountedRef = useRef(true);
+  const submissionId = useRef(restoredSubmissionId?.trim() || crypto.randomUUID());
   const latestDraft = useRef({
     sessionId: session.sessionId,
     practiceItemId,
     answerMd: answer,
-    hintsUsed
+    hintsUsed,
+    submissionId: submissionId.current
   });
   const suppressDraftFlush = useRef(false);
   const isTeachBack = item?.practiceMode === "teach_back";
   // Teach-back conversations own the checkpoint (the sidecar stores the
   // conversation envelope in current_answer); the plain draft flush must never
-  // overwrite it. Seeded from the restored checkpoint so a resumed conversation
-  // is safe even before the item detail loads.
-  const teachBackRef = useRef(Boolean(restoredTeachBack));
+  // overwrite it. Start closed until item detail proves this is ordinary
+  // practice; this also protects a new teach-back whose mode call is slow.
+  const teachBackRef = useRef(true);
   // Report the mode upward: App's command-palette ask path must refuse to open
   // the tutor during a teach-back conversation. Until the item detail loads,
   // fall back to the restored checkpoint (a resumed conversation is already
@@ -146,12 +222,15 @@ export function PracticeScreen({
   // recorded NULL and the metric was permanently uncomputable.
   const elapsedSeconds = () =>
     Math.max(0, Math.round((Date.now() - openedAtMs.current) / 1000));
-  const submissionId = useRef(crypto.randomUUID());
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   useEffect(() => {
     openedAtMs.current = Date.now();
-    submissionId.current = crypto.randomUUID();
+    submissionId.current = restoredSubmissionId?.trim() || crypto.randomUUID();
     setAnswerConfidence(null);
-  }, [practiceItemId]);
+  }, [practiceItemId, restoredSubmissionId]);
   const openAsk = (options?: { proactiveOpen?: boolean }) =>
     onAsk({
       context: "practice",
@@ -185,10 +264,11 @@ export function PracticeScreen({
       sessionId: session.sessionId,
       practiceItemId,
       answerMd: answer,
-      hintsUsed
+      hintsUsed,
+      submissionId: submissionId.current
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, practiceItemId, session.sessionId]);
+  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, session.sessionId]);
 
   const flushDraft = useCallback(async () => {
     if (suppressDraftFlush.current || teachBackRef.current) return;
@@ -200,52 +280,114 @@ export function PracticeScreen({
     setHintsUsed(restoredHints ?? 0);
     setFallbackRequired(!gradingReady);
     setSelfGradeVisible(false);
+    setFieldErrors({});
+    setSubmitting(false);
     setWhyLine("");
   }, [gradingReady, practiceItemId, restoredAnswer, restoredHints]);
 
   useEffect(() => {
     let cancelled = false;
-    // The session id makes this a *serve*: it is what lets the sidecar decide
-    // (and bound) the §3.A6 elicitation for this open rather than for the item.
-    api.getPracticeItem(practiceItemId, session.sessionId)
-      .then((detail) => {
-        if (cancelled) return;
-        teachBackRef.current = detail.practiceMode === "teach_back";
-        setItem(detail);
-        setSelfGrade((current) => ({
-          ...current,
-          criterionPoints: Object.fromEntries((detail.rubric?.criteria ?? []).map((criterion) => [criterion.id, 0])),
-          errorAttributions: []
-        }));
-      })
-      .catch((error) => { if (!cancelled) onError(error.message); });
-    // Ask the sidecar for the probe measurement contract; committing the
-    // presentation is the serve event (§5.1). A failure here (older sidecar,
-    // parked episode) just means ordinary practice.
+    setItem(null);
+    setItemLoadError(null);
     setProbe(null);
-    api.getProbeContract(practiceItemId, session.sessionId)
-      .then((contract) => {
-        if (!cancelled) setProbe(contract.active ? contract : null);
-      })
-      .catch(() => { if (!cancelled) setProbe(null); });
+    setProbeLoadState("loading");
+    setProbeLoadError(null);
+    setCommittedRecovery(null);
+    teachBackRef.current = true;
+
+    const recoverOrLoad = async () => {
+      const retryKey = restoredSubmissionId?.trim();
+      if (retryKey) {
+        try {
+          const recovery = await api.recoverPracticeSubmission({
+            sessionId: session.sessionId,
+            practiceItemId,
+            submissionId: retryKey
+          });
+          if (cancelled) return;
+          if (recovery.status === "recovered" && recovery.result) {
+            // The exact original payload carries deferred/block-end routing and
+            // does not require the now-single-use item to still be active.
+            suppressDraftFlush.current = true;
+            const recoveredItem = await api.getPracticeItem(practiceItemId).catch(() => null);
+            // The screen may have unmounted while the optional title lookup was
+            // in flight. Never route a stale result; retain its retry key so the
+            // still-current surface can recover it authoritatively.
+            if (cancelled) return;
+            const routed = await routeAfterAttempt(
+              recovery.result,
+              recoveredItem,
+              () => cancelled,
+            );
+            if (!routed) return;
+            // Route first, then acknowledge. If routing mounts a new item and
+            // it saves before this call lands, the sidecar's atomic key compare
+            // preserves that newer checkpoint instead of deleting by session.
+            await acknowledgeCheckpoint(practiceItemId, retryKey);
+            return;
+          }
+          if (recovery.status !== "pending" || recovery.result !== null) {
+            throw new Error("The saved submission recovery response was malformed.");
+          }
+        } catch (error) {
+          if (cancelled) return;
+          const recovery = committedAttemptRecovery(error);
+          if (recovery) setCommittedRecovery(recovery);
+          else setItemLoadError(errorMessage(error, "Could not verify the saved submission before reopening practice."));
+          return;
+        }
+      }
+
+      // No committed result exists, so this really is an item serve. The
+      // session id lets the sidecar decide (and bound) the §3.A6 elicitation.
+      api.getPracticeItem(practiceItemId, session.sessionId)
+        .then((detail) => {
+          if (cancelled) return;
+          teachBackRef.current = detail.practiceMode === "teach_back";
+          setItem(detail);
+          setSelfGrade((current) => ({
+            ...current,
+            criterionPoints: Object.fromEntries((detail.rubric?.criteria ?? []).map((criterion) => [criterion.id, 0])),
+            errorAttributions: []
+          }));
+        })
+        .catch((error) => {
+          if (!cancelled) setItemLoadError(errorMessage(error, "Could not load this practice item."));
+        });
+      // Committing the presentation is the serve event (§5.1). Only a
+      // successful `active:false` response means ordinary practice.
+      api.getProbeContract(practiceItemId, session.sessionId)
+        .then((contract) => {
+          if (cancelled) return;
+          setProbe(activeProbeContract(contract));
+          setProbeLoadState("ready");
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setProbe(null);
+          setProbeLoadError(errorMessage(error, "Could not verify whether this is a diagnostic item."));
+          setProbeLoadState("error");
+        });
+    };
+    void recoverOrLoad();
     return () => { cancelled = true; };
-  }, [practiceItemId, session.sessionId, onError]);
+  }, [loadRevision, practiceItemId, restoredSubmissionId, session.sessionId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      void flushDraft().catch((error) => onError(error.message));
+      void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
     }, 350);
     return () => clearTimeout(timer);
   }, [answer, flushDraft, hintsUsed, onError, practiceItemId, session.sessionId]);
 
   useEffect(() => {
     return () => {
-      void flushDraft().catch((error) => onError(error.message));
+      void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
       // Reported only on unmount — reporting on every debounced flush would
       // loop the draft back through restoredAnswer while the user is typing.
       if (!suppressDraftFlush.current && !teachBackRef.current) {
-        const { practiceItemId: id, answerMd, hintsUsed: hints } = latestDraft.current;
-        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints });
+        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey } = latestDraft.current;
+        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
@@ -261,18 +403,42 @@ export function PracticeScreen({
       try {
         await flushDraft();
       } catch (error) {
-        onError((error as Error).message);
+        onError(errorMessage(error, "Could not save the practice draft before closing."));
       } finally {
         await appWindow.destroy();
       }
     }).then((listener) => {
       unlisten = listener;
-    }).catch((error) => onError((error as Error).message));
+    }).catch((error) => onError(errorMessage(error, "Could not register the close handler.")));
     return () => unlisten?.();
   }, [flushDraft, onError]);
 
+  const practiceReady = item !== null && probeLoadState === "ready";
+  const probeActive = Boolean(probe?.active && probe.presentationId);
+  const interactionReady = practiceReady && committedRecovery === null;
+
+  useEffect(() => {
+    onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);
+    return () => onAskAvailabilityChange(false);
+  }, [interactionReady, isTeachBack, onAskAvailabilityChange, probeActive]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (committedRecovery) {
+        if (event.key.toLowerCase() === "r") {
+          event.preventDefault();
+          setLoadRevision((value) => value + 1);
+        }
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onBack();
+        return;
+      }
+      // Until both the item and its diagnostic contract are verified, all
+      // actions except leaving the screen remain closed.
+      if (!interactionReady) return;
       const ctrl = event.ctrlKey || event.metaKey;
       if (ctrl && event.key === "Enter") {
         // Teach-back conversations handle ^enter themselves (send turn).
@@ -302,9 +468,6 @@ export function PracticeScreen({
         } else {
           openAsk();
         }
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        onBack();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -332,7 +495,7 @@ export function PracticeScreen({
   const scorePreview = useMemo(() => {
     if (!item?.rubric) return 0;
     let score = Math.round(Object.values(selfGrade.criterionPoints).reduce((sum, value) => sum + Number(value || 0), 0));
-    score = Math.max(0, Math.min(item.rubric.maxPoints, score, 4));
+    score = Math.max(0, Math.min(item.rubric.maxPoints, score));
     for (const fatalId of selfGrade.fatalErrors ?? []) {
       const fatal = item.rubric.fatalErrors.find((candidate) => candidate.id === fatalId);
       if (fatal) score = Math.min(score, fatal.maxGrade);
@@ -340,9 +503,8 @@ export function PracticeScreen({
     return score;
   }, [item, selfGrade]);
 
-  const probeActive = Boolean(probe?.active && probe.presentationId);
-
   function revealHint() {
+    if (!practiceReady) return;
     if (probeActive) {
       // §5.5: authored hints are disabled during a diagnostic block.
       onError("hints are disabled during a diagnostic check — answer with what you know, or stop diagnosing.");
@@ -360,43 +522,52 @@ export function PracticeScreen({
       // decision is already persisted, so the tutor opens proactively.
       openAsk({ proactiveOpen: true });
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error, "Could not stop the diagnostic check."));
     }
   }
 
-  async function routeAfterAttempt(result: {
-    attemptId: string;
-    probeEpisode?: { feedbackDeferred: boolean } | null;
-    probeBlockEnd?: ProbeBlockEndDto | null;
-  }) {
-    if (!item) return;
+  async function routeAfterAttempt(
+    result: AttemptResultDto,
+    recoveredItem: PracticeItemDetail | null = item,
+    cancelled: () => boolean = () => false,
+  ): Promise<boolean> {
+    if (cancelled()) return false;
+    const learningObjectId = recoveredItem?.learningObjectId ?? result.learningObjectId;
+    const learningObjectTitle = recoveredItem?.learningObjectTitle ?? result.learningObjectId;
     // §5.7: the block just closed — the unified review covers every attempt
     // in it (releasedFeedback), not just the one that closed it.
     if (result.probeBlockEnd) {
-      onBlockEnd(result.probeBlockEnd, item.learningObjectId, item.learningObjectTitle);
-      return;
+      onBlockEnd(result.probeBlockEnd, learningObjectId, learningObjectTitle);
+      return true;
     }
     // §5.6: feedback stays deferred while the diagnostic block is still
     // measuring — stay inside the block by jumping straight to whatever the
     // episode serves next, instead of round-tripping through the queue.
-    if (probeActive && result.probeEpisode?.feedbackDeferred) {
+    if (result.probeEpisode?.feedbackDeferred) {
       try {
-        const next = await api.getNextProbeItem(item.learningObjectId);
+        const next = await api.getNextProbeItem(learningObjectId);
+        if (cancelled()) return false;
         if (next.active && next.practiceItemId) {
           onContinueDiagnostic(next.practiceItemId);
-          return;
+          return true;
         }
       } catch (error) {
-        onError((error as Error).message);
+        if (cancelled()) return false;
+        onError(errorMessage(error, "Could not open the next diagnostic item."));
       }
+      if (cancelled()) return false;
       onBack();
-      return;
+      return true;
     }
+    if (cancelled()) return false;
     onFeedback(result.attemptId);
+    return true;
   }
 
   async function submit() {
-    if (!item || submitting) return;
+    if (!item || !interactionReady || submitting) return;
+    const submittedItemId = item.id;
+    const submittedKey = submissionId.current;
     // First Submit click when a self-grade is required only reveals the panel;
     // the actual attempt is submitted on the next click once it's been graded.
     if (fallbackRequired && !selfGradeVisible) {
@@ -408,9 +579,14 @@ export function PracticeScreen({
     if (Object.keys(validation).length) return;
     setSubmitting(true);
     try {
+      // The retry key must be durable before grading begins. If the app or
+      // sidecar disappears after the attempt commits but before the response,
+      // the restarted screen reuses this exact key and recovers the attempt.
+      await flushDraft();
+      if (!mountedRef.current) return;
       const result = await api.submitAttempt({
         sessionId: session.sessionId,
-        practiceItemId: item.id,
+        practiceItemId: submittedItemId,
         // A guided redo submits the COMPOSED answer: the preserved (locked)
         // prefix plus the learner's rewritten portion, separated by a paragraph
         // break — mirroring repair_splice's end-append join. The grader sees
@@ -434,22 +610,32 @@ export function PracticeScreen({
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
-        submissionId: submissionId.current,
+        submissionId: submittedKey,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
         selfGrade: fallbackRequired ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) } : null
       });
       suppressDraftFlush.current = true;
-      await clearCheckpoint();
-      await routeAfterAttempt(result);
+      if (!mountedRef.current) return;
+      const routed = await routeAfterAttempt(result, item, () => !mountedRef.current);
+      if (routed) await acknowledgeCheckpoint(submittedItemId, submittedKey);
     } catch (error) {
-      const command = error as CommandError;
-      if (command.code === "grading_fallback_required") {
+      const recovery = committedAttemptRecovery(error);
+      if (recovery) {
+        // An attempt id does not carry the authoritative post-submit route. In
+        // particular, a diagnostic may still defer feedback or may have closed
+        // a block. Keep the checkpoint/key and fail closed rather than opening
+        // feedback or advancing from incomplete information.
+        setCommittedRecovery(recovery);
+        return;
+      }
+      const command = getCommandError(error);
+      if (command?.code === "grading_fallback_required") {
         setFallbackRequired(true);
         setSelfGradeVisible(true);
         onError(command.message);
       } else {
-        onError(command.message);
+        onError(errorMessage(error, "Could not submit this attempt."));
       }
     } finally {
       setSubmitting(false);
@@ -457,52 +643,135 @@ export function PracticeScreen({
   }
 
   async function dontKnow() {
-    if (!item || submitting) return;
+    if (!item || !interactionReady || submitting) return;
+    const submittedItemId = item.id;
+    const submittedKey = submissionId.current;
     setSubmitting(true);
     try {
+      await flushDraft();
+      if (!mountedRef.current) return;
       const result = await api.submitDontKnow({
         sessionId: session.sessionId,
-        practiceItemId: item.id,
+        practiceItemId: submittedItemId,
         hintsUsed,
         latencySeconds: elapsedSeconds(),
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
-        submissionId: submissionId.current
+        submissionId: submittedKey
       });
       suppressDraftFlush.current = true;
-      await clearCheckpoint();
-      await routeAfterAttempt(result);
+      if (!mountedRef.current) return;
+      const routed = await routeAfterAttempt(result, item, () => !mountedRef.current);
+      if (routed) await acknowledgeCheckpoint(submittedItemId, submittedKey);
     } catch (error) {
-      onError((error as Error).message);
+      const recovery = committedAttemptRecovery(error);
+      if (recovery) {
+        setCommittedRecovery(recovery);
+      } else {
+        onError(errorMessage(error, "Could not record “I don't know”."));
+      }
     } finally {
       setSubmitting(false);
     }
   }
 
   async function skip() {
-    if (!item) return;
+    if (!item || !interactionReady) return;
+    const skippedIdentity = { practiceItemId: item.id, submissionId: submissionId.current };
     try {
       await api.skipPracticeItem({ sessionId: session.sessionId, practiceItemId: item.id });
+      if (!mountedRef.current) return;
       suppressDraftFlush.current = true;
-      await clearCheckpoint();
+      // skip_practice_item owns its checkpoint delete; only mirror that clear
+      // locally when this is still the item/key App knows about.
+      onCheckpointCleared(skippedIdentity);
       onBack();
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error, "Could not skip this practice item."));
     }
   }
 
-  async function clearCheckpoint() {
+  async function acknowledgeCheckpoint(practiceItemId: string, expectedSubmissionId: string): Promise<boolean> {
     try {
-      await api.clearSessionCheckpoint(session.sessionId);
-      onCheckpointCleared();
+      const result = await api.acknowledgePracticeSubmission({
+        sessionId: session.sessionId,
+        practiceItemId,
+        submissionId: expectedSubmissionId,
+      });
+      if (!result.acknowledged || result.status === "checkpoint_mismatch") return false;
+      onCheckpointCleared({ practiceItemId, submissionId: expectedSubmissionId });
+      return true;
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error, "Could not acknowledge the saved practice result."));
+      return false;
     }
   }
 
-  if (!item) {
-    return <div className="screen-scroll"><Card>Loading practice item...</Card></div>;
+  const loadError = itemLoadError ?? probeLoadError;
+  if (committedRecovery) {
+    const diagnostic = committedRecovery.attemptType === "diagnostic_probe" || probeActive;
+    return (
+      <div className="screen">
+        <div className="screen-scroll">
+          <SectionHeader>Attempt recorded · route recovery required</SectionHeader>
+          <Card focused>
+            <div style={{ color: COLOR.amber, lineHeight: 1.6 }}>
+              Your answer was recorded once. LearnLoop kept its saved submission key and will not grade it again.
+            </div>
+            <div style={{ color: COLOR.textDim, lineHeight: 1.6, marginTop: 8 }}>
+              {diagnostic
+                ? "The diagnostic result did not include enough durable routing information to decide whether feedback is still deferred or the block ended. Feedback and block advancement remain locked."
+                : "The full completion route could not be recovered, so LearnLoop has not opened feedback or advanced the session."}
+            </div>
+            <div style={{ color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 11, marginTop: 8 }}>
+              attempt {committedRecovery.attemptId} · {committedRecovery.message}
+            </div>
+            <div className="form-row" style={{ marginTop: 14 }}>
+              <button
+                className="queue-row focused"
+                type="button"
+                disabled={submitting}
+                onClick={() => setLoadRevision((value) => value + 1)}
+              >
+                <span className="queue-title">{submitting ? "Recovering..." : "Retry safe recovery"}</span>
+              </button>
+            </div>
+          </Card>
+        </div>
+        <KeyBar keys={[{ key: "r", label: "retry same saved submission" }]} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="screen">
+        <div className="screen-scroll">
+          <SectionHeader>Practice item unavailable</SectionHeader>
+          <Card focused>
+            <div style={{ color: COLOR.red, lineHeight: 1.6 }}>{loadError}</div>
+            <div className="form-row" style={{ marginTop: 14 }}>
+              <button className="queue-row focused" type="button" onClick={() => setLoadRevision((value) => value + 1)}>
+                <span className="queue-title">Retry loading</span>
+              </button>
+              <button className="queue-row" type="button" onClick={onBack}>
+                <span className="queue-title">Back to Today</span>
+              </button>
+            </div>
+          </Card>
+        </div>
+        <KeyBar keys={[{ key: "esc", label: "today" }]} />
+      </div>
+    );
+  }
+
+  if (!practiceReady || !item) {
+    return (
+      <div className="screen-scroll">
+        <Card>{item ? "Verifying diagnostic safeguards..." : "Loading practice item..."}</Card>
+      </div>
+    );
   }
 
   return (
@@ -553,18 +822,23 @@ export function PracticeScreen({
               probe) is one delayed unassisted measurement. apply_attempt hard-
               rejects it hinted or primed ("a cold retry must be unassisted and
               unprimed"), so say that HERE, next to where the hint key lives,
-              before the learner voids it. */}
+              before the learner voids it.
+
+              The marker is deliberately PROVENANCE-FREE: naming the repair (or
+              the factor) this check verifies would point the learner straight at
+              the material the check exists to measure them retrieving unaided.
+              What it verifies is said afterwards, in the feedback banner. */}
           {item.activeFollowupKind === "cold_retry" || item.activeFollowupKind === "certification_cold_probe" ? (
             <div className="hint-banner" style={{ borderColor: COLOR.amber }}>
-              <Pill tone="amber">{item.activeFollowupKind === "cold_retry" ? "cold retry" : "cold probe"}</Pill>{" "}
+              <Pill tone="amber">unassisted check</Pill>{" "}
               {primed
-                ? "this question is due as an unassisted cold check, but it was opened primed — the attempt will be rejected. Go back and open it from the queue instead."
-                : "this is an unassisted check — using a hint voids it and the attempt will be rejected. Answer with what you can retrieve on your own."}
+                ? "this question is due as an unassisted check, but it was opened primed — the attempt will be rejected. Go back and open it from the queue instead."
+                : "hints will void this measurement and the attempt will be rejected. Answer with what you can retrieve on your own."}
             </div>
           ) : null}
           {item.mastery != null ? (
             <div className="queue-meta" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-              <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery</Faint>
+              <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery estimate</Faint>
               <BlockBar value={item.mastery.mean} width={10} color={masteryTone(item.mastery.mean, COLOR)} />
               <span style={{ fontFamily: FONT_MONO, color: COLOR.text }}>{item.mastery.mean.toFixed(2)}</span>
               <Faint>±{Math.sqrt(item.mastery.variance).toFixed(2)}</Faint>
@@ -584,7 +858,9 @@ export function PracticeScreen({
               expectedAnswer={null}
               onError={onError}
               onChanged={() => {
-                api.getPracticeItem(item.id, session.sessionId).then(setItem).catch(() => {});
+                api.getPracticeItem(item.id, session.sessionId)
+                  .then(setItem)
+                  .catch((error) => onError(errorMessage(error, "The card changed, but its updated practice view could not be loaded.")));
               }}
               onRetired={() => {
                 // Retirement already clears the durable checkpoint server-side.
@@ -600,9 +876,15 @@ export function PracticeScreen({
           {item.sourceRefs.length > 0 ? (
             <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, lineHeight: 1.6 }}>
               {item.sourceRefs.map((ref, index) => (
-                <div key={`${ref.refId}:${index}`} title={ref.quote ?? undefined} style={{ display: "flex", gap: 8 }}>
-                  <span style={{ fontFamily: FONT_MONO }}>{ref.refId}</span>
-                  <span style={{ color: COLOR.textDim }}>{ref.locator ?? ref.path ?? ref.refType}</span>
+                <div
+                  key={`${ref.refId}:${index}`}
+                  title={[ref.refId, ref.quote].filter(Boolean).join("\n\n")}
+                  style={{ display: "flex", gap: 8, alignItems: "baseline" }}
+                >
+                  <span style={{ color: COLOR.textDim }}>{ref.displayName}</span>
+                  <span style={{ fontFamily: FONT_MONO }}>
+                    {ref.locator ?? ref.path ?? ref.refType}
+                  </span>
                 </div>
               ))}
             </div>
@@ -787,10 +1069,12 @@ export function PracticeScreen({
               />
             ) : null}
             <div className="form-row" style={{ marginTop: 16 }}>
-              <button className="queue-row focused" type="button" onClick={submit} disabled={submitting}>
+              <button className="queue-row focused" type="button" onClick={() => void submit()} disabled={submitting}>
                 <span className="queue-hotkey">^↵</span>
                 <span className="queue-title">Submit</span>
-                <span className="queue-score">{selfGradeVisible ? `${scorePreview}/4` : ""}</span>
+                <span className="queue-score">
+                  {selfGradeVisible ? `${scorePreview}/${item.rubric?.maxPoints ?? 4}` : ""}
+                </span>
               </button>
             </div>
           </div>
@@ -874,9 +1158,8 @@ function TeachBackConversation({
         setAsked(result.state.askedCount);
       })
       .catch((error) => {
-        const command = error as CommandError;
         setStartFailed(true);
-        setInlineError(command.message);
+        setInlineError(errorMessage(error, "Could not start the teach-back conversation."));
       });
   }, [session.sessionId, item.id]);
 
@@ -919,7 +1202,7 @@ function TeachBackConversation({
         setInput("");
       }
     } catch (error) {
-      setInlineError((error as CommandError).message);
+      setInlineError(errorMessage(error, "Could not send this teach-back turn."));
     } finally {
       setPending(false);
       setFinishing(false);
@@ -1069,7 +1352,10 @@ function SelfGradePanel({
 }) {
   return (
     <div className="self-grade-panel">
-      <div><b>AI grading is unavailable</b> · grade your answer to continue · live score {scorePreview}/4</div>
+      <div>
+        <b>AI grading is unavailable</b> · grade your answer to continue · live score{" "}
+        {scorePreview}/{item.rubric?.maxPoints ?? 4}
+      </div>
       <div className="self-grade-grid">
         {item.rubric?.criteria.map((criterion) => {
           const awarded = value.criterionPoints[criterion.id] ?? 0;

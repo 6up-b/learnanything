@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services import diagnostic_pack as DP
-from learnloop.services import golden_path_run as GPR
-from learnloop.services.golden_path_fixture import (
+from learnloop.diagnosis import diagnostic_pack as DP
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum.golden_path_fixture import (
     LO_ID,
     build_golden_path_fixture,
     stub_diagnostic_pack,

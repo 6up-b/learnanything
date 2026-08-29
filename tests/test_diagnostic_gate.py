@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from learnloop.codex.client import CodexUnavailable
-from learnloop.codex.schemas import DiagnosticTrialResult, DiagnosticTrials
+from tests.structured_ai import StructuredClientFake
+
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.diagnosis.ai_contracts import DiagnosticTrialResult, DiagnosticTrials
 from learnloop.db.repositories import MisconceptionRecord, Repository
-from learnloop.services.diagnostic_gate import (
+from learnloop.diagnosis.diagnostic_gate import (
     BACKFILL_SKIPPED_EXISTING,
     BACKFILL_SKIPPED_UNREGISTERED,
     backfill_discrimination_rows,
@@ -214,7 +216,7 @@ def test_backfill_skips_unregistered_misconception(tmp_path):
 # -- Feature 2: codex answers-under-belief (LLM trials) -------------------------
 
 
-class _StubTrialsClient:
+class _StubTrialsClient(StructuredClientFake):
     def __init__(self, *, planted_fires: int, clean_fires: int, n: int, raises: bool = False):
         self._planted_fires = planted_fires
         self._clean_fires = clean_fires

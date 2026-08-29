@@ -10,6 +10,7 @@ import { OutlinePlanFlow } from "../components/OutlineAndPlan";
 import { PageRangeSelector, pageSelectionError } from "../components/PageRangeSelector";
 import { useSourceFileDrop } from "../components/useSourceFileDrop";
 import { AsciiLoadingBar } from "../components/AsciiLoadingBar";
+import { errorMessage } from "../errors";
 
 // Ingest screen — single merged surface over durable ingest v2 (§5.7/§6).
 // One entry point: paste a source, canonical imports go through the durable
@@ -111,29 +112,38 @@ function LearnerLevelChip() {
   const [level, setLevel] = useState<StartingLevel | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileLoadRevision, setProfileLoadRevision] = useState(0);
 
   useEffect(() => {
     let alive = true;
     api
       .getLearnerProfile()
       .then((profile) => {
-        if (alive) setLevel(profile.startingLevel);
+        if (alive) {
+          setLevel(profile.startingLevel);
+          setProfileError(null);
+        }
       })
-      .catch(() => undefined);
+      .catch((error) => {
+        if (alive) setProfileError(errorMessage(error, "Could not load your learner level."));
+      });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [profileLoadRevision]);
 
   const pick = async (next: StartingLevel) => {
     if (saving) return;
     setSaving(true);
+    setProfileError(null);
     try {
       const profile = await api.setLearnerProfile({ startingLevel: next });
       setLevel(profile.startingLevel);
       setOpen(false);
-    } catch {
-      // non-fatal; chip keeps its previous value
+    } catch (error) {
+      // Keep the last confirmed value and make the failed write explicit.
+      setProfileError(errorMessage(error, "Could not save your learner level."));
     } finally {
       setSaving(false);
     }
@@ -189,6 +199,24 @@ function LearnerLevelChip() {
             </span>
           ))}
         </span>
+      ) : null}
+      {profileError ? (
+        <button
+          type="button"
+          onClick={() => setProfileLoadRevision((value) => value + 1)}
+          title={profileError}
+          style={{
+            border: 0,
+            background: "transparent",
+            color: COLOR.red,
+            cursor: "pointer",
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            padding: "4px 2px"
+          }}
+        >
+          level unavailable · retry
+        </button>
       ) : null}
     </span>
   );
@@ -1341,7 +1369,7 @@ function IngestHome({
               {"  "}
               creates one tagged practice item per exam question (<Dim>exam_q:&lt;n&gt;</Dim>), each with a rubric and evidence
               facets. After accepting the proposal, seed your per-question outcomes with{" "}
-              <Dim>learnloop seed-exam-attempts --outcomes &lt;file&gt;</Dim> so mastery replays from the exam date.
+              <Dim>learnloop seed-exam-attempts --outcomes &lt;file&gt;</Dim> so mastery estimates replay from the exam date.
             </div>
           )}
 

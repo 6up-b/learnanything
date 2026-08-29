@@ -25,24 +25,24 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services import card_outcome_replay as COR
-from learnloop.services import diagnostic_pack as DP
-from learnloop.services import failure_triage as FT
-from learnloop.services import familiarity as F
-from learnloop.services import goal_contracts as GC
-from learnloop.services import golden_path_assessment as GA
-from learnloop.services import golden_path_restoration as GRstr
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import pattern_ladder as PL
-from learnloop.services import surface_pool as SP
-from learnloop.services.activities import resolve_legacy_item
-from learnloop.services.attempts import (
+from learnloop.substrate.compat import card_outcome_replay as COR
+from learnloop.diagnosis import diagnostic_pack as DP
+from learnloop.diagnosis import failure_triage as FT
+from learnloop.learner import familiarity as F
+from learnloop.goals import goal_contracts as GC
+from learnloop.curriculum import golden_path_assessment as GA
+from learnloop.curriculum import golden_path_restoration as GRstr
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import pattern_ladder as PL
+from learnloop.substrate import surface_pool as SP
+from learnloop.substrate.activities import resolve_legacy_item
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.golden_path_fixture import (
+from learnloop.curriculum.golden_path_fixture import (
     EXEMPLAR_A,
     EXEMPLAR_B,
     FIX_NOW,
@@ -51,15 +51,15 @@ from learnloop.services.golden_path_fixture import (
     LO_ID,
     build_golden_path_fixture,
 )
-from learnloop.services import probe_episodes as PE
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis import probe_episodes as PE
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     episode_hypothesis_set,
     episode_posterior,
     serve_presentation,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     CONTRAST_CONFUSABLE_DEFAULT_ROWS,
     CONTRAST_CONFUSABLE_V1,
     InstrumentCard,
@@ -86,7 +86,6 @@ def no_live_llm(monkeypatch):
         raise AssertionError("golden path made a live-LLM client on the hot path")
 
     monkeypatch.setattr("learnloop.ai.client.make_ai_provider_client", _boom)
-    monkeypatch.setattr("learnloop.codex.client.make_codex_client", _boom)
     return _boom
 
 

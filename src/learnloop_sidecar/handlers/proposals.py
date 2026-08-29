@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-from learnloop.services.proposals import (
+from learnloop.content.proposals.proposals import (
     accept_items,
     delete_proposal_item as service_delete_proposal_item,
     edit_proposal_item as service_edit_proposal_item,
@@ -12,8 +12,8 @@ from learnloop.services.proposals import (
     reject_items,
     reset_items,
 )
-from learnloop.services.patches import PatchApplicationError
-from learnloop.services.promotions import (
+from learnloop.content.proposals.patches import PatchApplicationError
+from learnloop.tutor.promotions import (
     reconcile_accepted_question_promotion_patch,
     reconcile_rejected_question_promotion_patch,
     reconcile_reset_question_promotion_patch,
@@ -260,7 +260,8 @@ def edit_proposal_item(ctx: SidecarContext, params: EditProposalItemInput) -> di
     """Replace a pending proposal item's payload with edited JSON, then refresh.
 
     Re-runs the edited-payload validation server-side (see
-    ``services.proposals.edit_proposal_item``) so the inbox reflects whether the
+    ``learnloop.content.proposals.proposals.edit_proposal_item``) so the inbox
+    reflects whether the
     hand-edited payload still resolves.
     """
 

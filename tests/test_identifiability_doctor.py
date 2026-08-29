@@ -12,14 +12,14 @@ from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.doctor import run_doctor
-from learnloop.services.identifiability import (
+from learnloop.ops.doctor import run_doctor
+from learnloop.learner.identifiability import (
     ProposalView,
     analyze_identifiability,
     build_registry_view,
     graph_identifiability_report,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 

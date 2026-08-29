@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_store as store
-from learnloop.services import randomization_layer as RL
+from learnloop.scheduling import controller_store as store
+from learnloop.scheduling import randomization_layer as RL
 
 from tests.helpers import NOW
 

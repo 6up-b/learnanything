@@ -4,7 +4,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeErrorAttribution,
@@ -12,6 +13,7 @@ from learnloop.services.attempts import (
     complete_self_graded_attempt,
 )
 from learnloop.vault.loader import load_vault
+from learnloop.vault.models import SourceRef
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 from learnloop_sidecar.handlers.serializers import practice_item_detail
 
@@ -43,6 +45,39 @@ def test_self_grade_writes_tier_one_evidence(tmp_path):
     assert all(row.grader_tier == 1 for row in evidence)
     assert all(row.local_grader_id == "self" for row in evidence)
     assert all(row.agent_run_id is None for row in evidence)
+
+
+def test_self_grade_uses_criterion_total_as_item_scale(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    item_payload = read_yaml(item_path)
+    item_payload["grading_rubric"] = {
+        "max_points": 4,
+        "criteria": [
+            {"id": "formula", "points": 2, "description": "Formula."},
+            {"id": "explanation", "points": 3, "description": "Explanation."},
+        ],
+        "fatal_errors": [],
+    }
+    write_yaml(item_path, item_payload)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+
+    result = complete_self_graded_attempt(
+        loaded,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="complete"),
+        SelfGradeInput(
+            criterion_points={"formula": 2, "explanation": 3},
+            confidence=5,
+        ),
+        clock=FrozenClock(NOW),
+    )
+
+    assert loaded.practice_items["pi_svd_define_001"].grading_rubric.max_points == 5
+    assert result.rubric_score == 5
+    assert repository.fetch_practice_attempt(result.attempt_id)["correctness"] == 1.0
 
 
 def test_confidence_maps_to_grader_confidence(tmp_path):
@@ -172,6 +207,33 @@ def test_practice_item_detail_lists_candidate_error_types(tmp_path):
     assert slip["relevant"] is True
     assert slip["isMisconception"] is True
     assert slip["severityDefault"] == 0.7
+
+
+def test_practice_item_detail_displays_source_name_instead_of_id(tmp_path):
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    loaded = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    registered = register_source_revision(
+        repository,
+        acquisition_kind="pdf",
+        canonical_uri="file:///home/learner/problem-set.pdf",
+        raw_bytes=b"%PDF-problem-set",
+        original_uri="file:///home/learner/problem-set.pdf",
+    )
+    loaded.practice_items["pi_svd_define_001"].provenance.source_refs = [
+        SourceRef(
+            ref_type="canonical_source",
+            ref_id=registered.source_id,
+            revision_id=registered.revision_id,
+            locator="span:ext_1/block_1",
+        )
+    ]
+
+    detail = practice_item_detail(loaded, repository, "pi_svd_define_001")
+
+    assert detail["sourceRefs"][0]["displayName"] == "problem-set.pdf"
+    assert detail["sourceRefs"][0]["refId"] == registered.source_id
 
 
 def test_self_grade_uses_default_rubric_when_inline_rubric_is_omitted(tmp_path):

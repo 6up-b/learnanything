@@ -12,18 +12,18 @@ from __future__ import annotations
 import dataclasses
 
 from learnloop.clock import FrozenClock
-from learnloop.services import post_attempt
-from learnloop.services.attempts import GradeAttribution, ResolvedGrade
-from learnloop.services.exam_pool import reserve_exam_pool
-from learnloop.services.exam_session import (
+from learnloop.attempts import post_attempt
+from learnloop.attempts.attempts import GradeAttribution, ResolvedGrade
+from learnloop.goals.exam_pool import reserve_exam_pool
+from learnloop.goals.exam_session import (
     _grade_from_dict,
     _grade_to_dict,
     finish_exam,
     record_exam_answer,
     start_exam,
 )
-from learnloop.services.followups import FollowupDecision
-from learnloop.services.post_attempt import (
+from learnloop.diagnosis.followups import FollowupDecision
+from learnloop.attempts.post_attempt import (
     EXAM_SITTING_CAP_REASON,
     PostAttemptOutcome,
     run_exam_sitting_pipeline,

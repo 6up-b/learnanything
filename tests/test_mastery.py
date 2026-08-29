@@ -6,7 +6,7 @@ import pytest
 
 from learnloop.config import MasteryConfig
 from learnloop.db.repositories import MasteryState
-from learnloop.services.mastery import (
+from learnloop.learner.mastery import (
     MasteryObservation,
     display_mastery,
     initial_mastery_state,

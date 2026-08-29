@@ -5,20 +5,20 @@ import json
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import _codex_output_schema
-from learnloop.codex.schemas import (
+from learnloop.ai.strict_schema import strict_output_schema
+from learnloop.attempts.ai_contracts import (
     CriterionEvidence,
     ErrorAttribution,
     GradingProposal,
     RepairSuggestion,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.grading import (
+from learnloop.attempts.grading import (
     GradingValidationError,
     validate_codex_grading_proposal,
 )
-from learnloop.services.causal_attribution import record_unresolved_cause_self_report
-from learnloop.services.attempts import (
+from learnloop.diagnosis.causal_attribution import record_unresolved_cause_self_report
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -27,10 +27,10 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.misconceptions import _event_facet_ids
-from learnloop.services.remediation import start_remediation_episode
-from learnloop.services.rung_variants import audit_variant_direction
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.diagnosis.misconceptions import _event_facet_ids
+from learnloop.diagnosis.remediation import start_remediation_episode
+from learnloop.content.authoring.rung_variants import audit_variant_direction
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import (
     Rubric,
@@ -45,7 +45,7 @@ from tests.test_km2_write_path import build_mvp07_vault
 
 
 def test_grading_schema_is_prose_first():
-    schema = _codex_output_schema(GradingProposal)
+    schema = strict_output_schema(GradingProposal)
     assert next(iter(schema["properties"])) == "diagnosis_md"
 
 

@@ -24,7 +24,7 @@ from learnloop.ingest.ir import (
     DocumentUnit,
     ExtractionHealth,
 )
-from learnloop.services.source_deletion import (
+from learnloop.content.sources.source_deletion import (
     SourceDeletionError,
     delete_source,
     plan_source_deletion,

@@ -12,11 +12,17 @@ from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.proposals import queue_accepted_diagnostic_followups
-from learnloop.services.scheduler import build_due_queue
+from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, create_basic_vault
+from tests.helpers import (
+    ALGORITHM_VERSION,
+    NOW,
+    NOW_ISO,
+    configure_codex_http,
+    create_basic_vault,
+)
 
 
 def test_generate_practice_dry_run_targets_completed_probe(tmp_path):
@@ -504,13 +510,7 @@ def _diagnostic_proposal_payload() -> dict:
 
 
 def _configure_codex(vault_root, checkout, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 class _ProposalServer:
@@ -601,7 +601,7 @@ def test_generate_practice_from_goal_merges_concept_anchors(tmp_path):
 
 
 def _reserve_goal_exam_pool(vault_root, sqlite_path) -> list[str]:
-    from learnloop.services.exam_pool import reserve_exam_pool
+    from learnloop.goals.exam_pool import reserve_exam_pool
 
     vault = load_vault(vault_root)
     repository = Repository(sqlite_path)

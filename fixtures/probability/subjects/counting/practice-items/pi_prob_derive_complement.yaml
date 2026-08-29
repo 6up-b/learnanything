@@ -1,0 +1,268 @@
+schema_version: 1
+id: pi_prob_derive_complement
+learning_object_id: lo_derive_and_use_basic_probability_rules
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_probability_function_assigns_events_values_in_
+  - facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+evidence_weights:
+  facet_a_probability_function_assigns_events_values_in_: 0.45
+  facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl: 0.55
+criterion_facet_weights:
+  prob_complement_decomposition:
+    facet_a_probability_function_assigns_events_values_in_: 1.0
+  prob_complement_derivation:
+    facet_a_probability_function_assigns_events_values_in_: 0.3
+    facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl: 0.7
+trace_contract:
+  status: available
+  recipes:
+    - id: derive_complement_rule
+      checkpoints:
+        - identify_complement_partition
+        - apply_additivity
+        - substitute_normalization
+        - solve_complement
+      dependencies:
+        apply_additivity:
+          - identify_complement_partition
+        identify_complement_partition: []
+        solve_complement:
+          - substitute_normalization
+        substitute_normalization:
+          - apply_additivity
+variant_contract:
+teach_back_source:
+prompt: Events A and A^c partition a sample space S. A probability function 
+  gives P(A)=0.35, but P(A^c) is not supplied. Starting from normalization and 
+  disjoint additivity, derive P(A^c). Write the event decomposition, the 
+  probability equation, and the solved value.
+expected_answer: Because A∩A^c=∅ and A∪A^c=S, disjoint additivity gives 
+  P(S)=P(A)+P(A^c). Normalization gives 1=0.35+P(A^c), hence P(A^c)=1-0.35=0.65.
+difficulty: 0.22
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed
+  - contrast_pair
+  - derived_probability_rule
+  - capstone
+hints:
+  - Write S as the disjoint union A∪A^c before substituting probabilities.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.72
+transfer_distance: 0.25
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - verbal
+    - symbolic
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: complement_from_mass_balance
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_complement_unconstrained
+    hypothesis: Believes the complement is merely another event whose 
+      probability cannot be determined from P(A), even though A and A^c form a 
+      disjoint partition of the normalized sample space.
+    observable_signature: Writes “P(A^c) cannot be determined from P(A)=0.35 
+      without more information” and supplies no equation P(A)+P(A^c)=1.
+    misconception_id:
+    facet_id: facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+    fails_criteria:
+      - prob_complement_derivation
+    distinguishing_features:
+      - claims underdetermination
+      - omits the complement identity
+      - does not use total mass one
+    source: authored
+contrast_of: pi_prob_verify_partition
+differing_component:
+  facet: facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+  capability: procedure_execution
+  structural_change: P(A^c) is withheld and must be derived from the axioms; the
+    counterpart supplies it and asks only for direct validation.
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_probability_function_assigns_events_values_in_
+  - facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: prob_complement_decomposition
+      points: 2.0
+      description: States that A and A^c are disjoint and have union S, then 
+        invokes normalization and additivity.
+      tier: core
+      targets:
+        - facet: facet_a_probability_function_assigns_events_values_in_
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: prob_complement_derivation
+      points: 2.0
+      description: Forms 1=0.35+P(A^c) and solves P(A^c)=0.65.
+      tier: core
+      targets:
+        - facet: facet_from_the_probability_axioms_p_a_c_1_p_a_a_b_impl
+          capability: procedure_execution
+          role: primary
+        - facet: facet_a_probability_function_assigns_events_values_in_
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - prob_complement_decomposition
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_derive_and_use_basic_probability_rules:s237-s254
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s237
+      quote: "1.6 Non-naive definition of probability\nWe have now seen several methods
+        for counting outcomes in a sample space, allowing us to calculate probabilities
+        if the naive definition applies. But the naive definition can only take us
+        so far, since it requires equally likely outcomes and can't handle\n& lt;sup>2</sup>Vandermonde's
+        identity is named after the 18th century French mathematician Alexandre-Théophile
+        Vandermonde, but it was discovered much earlier, and stated in 1303 by the
+        Chinese mathematician Zhu Shijie.\nan infinite sample space. To generalize
+        the notion of probability, we'll write down a short wish list of how we want
+        probability to behave (in math, the items on the wish list are called axioms),
+        and then define a probability function to be something that satisfies the
+        properties we want!\nHere is the general definition of probability that we'll
+        use for the rest of this book. It requires just two axioms, but from these
+        axioms it is possible to prove a vast array of results about probability.\n\
+        Definition 1.6.1 (General definition of probability). A probability space
+        consists of a sample space S and a probability function P which takes an event
+        A ⊆ S as input and returns P(A), a real number between 0 and 1, as output.
+        The function P must satisfy the following axioms:\n1. P(∅) = 0, P(S) = 1.
+        2. If A1, A2, . . . are disjoint events, then\n$$P\\left(\\bigcup_{j=1}^{\\
+        infty} A_j\\right) = \\sum_{j=1}^{\\infty} P(A_j).$$\n(Saying that these events
+        are disjoint means that they are mutually exclusive: A i ∩ A j = ∅ for i 6=
+        j.)\nIn Pebble World, the definition says that probability behaves like mass:
+        the mass of an empty pile of pebbles is 0, the total mass of all the pebbles
+        is 1, and if we have non-overlapping piles of pebbles, we can get their combined
+        mass by adding the masses of the individual piles. Unlike in the naive case,
+        we can now have pebbles of differing masses, and we can also have a countably
+        infinite number of pebbles as long as their total mass is 1.\nWe can even
+        have uncountable sample spaces, such as having S be an area in the plane.
+        In this case, instead of pebbles, we can visualize mud spread out over a region,
+        where the total mass of the mud is 1.\nAny function P (mapping events to numbers
+        in the interval [0, 1]) that satisfies the two axioms is considered a valid
+        probability function. However, the axioms don't tell us how probability should
+        be interpreted; different schools of thought exist.\nThe frequentist view
+        of probability is that it represents a long-run frequency over a large number
+        of repetitions of an experiment: if we say a coin has probability 1/2 of Heads,
+        that means the coin would land Heads 50% of the time if we tossed it over
+        and over and over.\nThe Bayesian view of probability is that it represents
+        a degree of belief about the event in question, so we can assign probabilities
+        to hypotheses like \"candidate A will win the election\" or \"the defendant
+        is guilty\" even if it isn't possible to repeat the same election or the same
+        crime over and over again.\nThe Bayesian and frequentist perspectives are
+        complementary, and both will be helpful for developing intuition in later
+        chapters. Regardless of how we choose to interpret probability, we can use
+        the two axioms to derive other properties of probability, and these results
+        will hold for any valid probability function."
+      quote_hash: 
+        sha256:343aa577594d393acd4f160c0ed93cd373b6edddd999fea4e0d9b905a81d3d8a
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s237
+        - s238
+        - s239
+        - s241
+        - s242
+        - s243
+        - s244
+        - s245
+        - s246
+        - s247
+        - s248
+        - s249
+        - s250
+        - s251
+        - s254
+      span_hash: 
+        sha256:e6ada78b9a424d72abcc9cd1c37926469a3fc54485de57b79b2d6650d5c690bb
+      section_id: u8
+      learning_object_ids:
+        - lo_derive_and_use_basic_probability_rules
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_derive_and_use_basic_probability_rules:s270-s280
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s270
+      quote: "For a proof using the axioms of probability, we can write $A \\cup B$
+        as the union of the disjoint events A and $B \\cap A^c$. Then by the second
+        axiom,\n$$P(A \\cup B) = P(A \\cup (B \\cap A^c)) = P(A) + P(B \\cap A^c).$$\n\
+        So it suffices to show that $P(B \\cap A^c) = P(B) - P(A \\cap B)$. Since
+        $A \\cap B$ and $B \\cap A^c$ are disjoint and their union is B, another application
+        of the second axiom gives us\n$$P(A \\cap B) + P(B \\cap A^c) = P(B).$$\n\n\
+        So $$P(B \\cap A^c) = P(B) - P(A \\cap B)$$, as desired.\nThe third property
+        is a special case of inclusion-exclusion, a formula for finding the probability
+        of a union of events when the events are not necessarily disjoint. We showed
+        above that for two events A and B,\n$$P(A \\cup B) = P(A) + P(B) - P(A \\\
+        cap B).$$\nFor three events, inclusion-exclusion says\n$$P(A \\cup B \\cup
+        C) = P(A) + P(B) + P(C)$$$$-P(A \\cap B) - P(A \\cap C) - P(B \\cap C)$$$$+
+        P(A \\cap B \\cap C).$$\nFor intuition, consider a triple Venn diagram like
+        the one below."
+      quote_hash: 
+        sha256:800307eb1ddf1ae5e0850b73fe7acb55165b6b1ae90bec17452a6dba4b629e39
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s270
+        - s271
+        - s272
+        - s273
+        - s274
+        - s275
+        - s276
+        - s277
+        - s278
+        - s279
+        - s280
+      span_hash: 
+        sha256:888828496042810ea1adcf9ede838b8505e57c9c9004588e80af85619ee73356
+      section_id: u8
+      learning_object_ids:
+        - lo_derive_and_use_basic_probability_rules
+created_at: '2026-07-28T20:07:41Z'
+updated_at: '2026-07-28T20:07:41Z'

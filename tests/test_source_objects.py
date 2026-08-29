@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from learnloop.db.repositories import Repository
-from learnloop.services import source_objects as SO
+from learnloop.reader import source_objects as SO
 from tests.test_source_inventory import _register_revision
 
 

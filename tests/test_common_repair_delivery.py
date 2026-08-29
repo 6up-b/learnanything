@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.followups import _consult_common_repair
+from learnloop.diagnosis.followups import _consult_common_repair
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.handlers.feedback import _attach_common_repair
 
@@ -190,12 +190,12 @@ def test_divergent_causes_get_no_common_repair_card(tmp_path):
 
 
 def test_receipted_divergence_skips_the_consultation_entirely(tmp_path):
-    from learnloop.services.attempts import (
+    from learnloop.attempts.attempts import (
         AttemptDraft,
         SelfGradeInput,
         complete_self_graded_attempt,
     )
-    from learnloop.services.state_sync import sync_vault_state
+    from learnloop.substrate.state_sync import sync_vault_state
 
     vault, repository = _vault(tmp_path)
     sync_vault_state(vault, repository, clock=CLOCK)
@@ -327,7 +327,7 @@ def _diagnostic_attempt(
     rubric_score: int = 2,
     with_diagnosis: bool = True,
 ):
-    from learnloop.services.attempts import (
+    from learnloop.attempts.attempts import (
         ApplyAttemptInput,
         AttemptDraft,
         GradeAttribution,
@@ -416,7 +416,7 @@ def _all_status_factors(repository, attempt_id: str) -> list[dict]:
 
 
 def test_failed_diagnostic_attempt_opens_the_repair_lane(tmp_path):
-    from learnloop.services.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     vault, repository = _diagnostic_vault(tmp_path)
     result = _diagnostic_attempt(
@@ -458,7 +458,7 @@ def test_failed_diagnostic_attempt_opens_the_repair_lane(tmp_path):
 
 
 def test_diagnostic_factor_is_not_reopened_by_rematerialization(tmp_path):
-    from learnloop.services.causal_attribution import materialize_causal_episode
+    from learnloop.diagnosis.causal_attribution import materialize_causal_episode
 
     vault, repository = _diagnostic_vault(tmp_path)
     result = _diagnostic_attempt(
@@ -502,14 +502,14 @@ def test_learner_derived_hypothesis_defaults_learner_state_and_offer_survives(
     candidate projection (learner_state heads only) silently dropped it, and
     ``causal_repair_status`` raised — the repair offer died without a trace."""
 
-    from learnloop.services.attempts import (
+    from learnloop.attempts.attempts import (
         ApplyAttemptInput,
         AttemptDraft,
         GradeAttribution,
         ResolvedGrade,
         apply_attempt,
     )
-    from learnloop.services.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     vault, repository = _vault(tmp_path)
     statement = "The learner does not recall which factor is transposed."
@@ -603,7 +603,7 @@ def test_learner_derived_hypothesis_defaults_learner_state_and_offer_survives(
 
 
 def test_durable_case_records_receipt_readable_by_feedback_attach(tmp_path):
-    from learnloop.services.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     vault, repository = _vault(tmp_path)
     factor_id, first_id, _second = _seed_factor(
@@ -667,7 +667,7 @@ def test_durable_case_records_receipt_readable_by_feedback_attach(tmp_path):
 
 
 def test_unmapped_diagnosis_case_defers_machine_checks(tmp_path):
-    from learnloop.services.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     vault, repository = _vault(tmp_path)
     hypothesis = repository.append_causal_hypothesis(
@@ -710,7 +710,7 @@ def test_unmapped_diagnosis_case_defers_machine_checks(tmp_path):
 
 
 def test_mapped_factorless_diagnosis_case_still_starts(tmp_path):
-    from learnloop.services.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
     vault, repository = _vault(tmp_path)
     hypothesis = repository.append_causal_hypothesis(

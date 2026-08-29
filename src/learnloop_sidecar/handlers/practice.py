@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.codex.client import CodexUnavailable
+from learnloop.clock import utc_now_iso
+from learnloop.ai.errors import CodexUnavailable
 from learnloop.config import CODEX_PROVIDER_NAMES
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     AttemptValidationError,
     SelfGradeErrorAttribution,
@@ -15,9 +16,9 @@ from learnloop.services.attempts import (
     complete_attempt_with_codex_required,
     complete_self_graded_attempt,
 )
-from learnloop.services.post_attempt import run_post_attempt_pipeline
-from learnloop.services.tutor_qa import hint_equivalents_for_submission
-from learnloop.services.probe_episodes import (
+from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
+from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
     enter_episode,
     episode_contract,
@@ -28,9 +29,9 @@ from learnloop.services.probe_episodes import (
     stop_diagnosing_and_teach,
     validate_presentation_for_submission,
 )
-from learnloop.services.probes import probe_posterior
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.trace_evidence import (
+from learnloop.diagnosis.probes import probe_posterior
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.attempts.trace_evidence import (
     compose_learner_trace,
     decide_elicitation,
     elicited_explanations_in,
@@ -40,7 +41,7 @@ from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
 from learnloop_sidecar.handlers.queue import PracticeItemInput, _sections
-from learnloop_sidecar.handlers.serializers import practice_item_detail, scheduled_item_dto
+from learnloop_sidecar.handlers.serializers import practice_item_detail, scheduled_item_dtos
 from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
 from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
 from learnloop_sidecar.logging import debug_enabled, log_event
@@ -52,6 +53,21 @@ class PracticeDraftCheckpoint(ParamsModel):
     practice_item_id: str
     answer_md: str
     hints_used: int = 0
+    # Stable client retry key for the attempt being composed. Optional only for
+    # compatibility with older clients; the desktop persists it before submit.
+    submission_id: str | None = None
+
+
+class PracticeSubmissionRecoveryInput(ParamsModel):
+    session_id: str
+    practice_item_id: str
+    submission_id: str
+
+
+class PracticeSubmissionAcknowledgementInput(ParamsModel):
+    session_id: str
+    practice_item_id: str
+    submission_id: str
 
 
 class SelfGradeErrorAttributionDto(ParamsModel):
@@ -235,7 +251,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # per-session qualifying-observation cap and the fresh-vault onboarding
     # ceiling. An active, in-budget calibration session lifts both — it is an
     # explicit learner opt-in.
-    from learnloop.services.calibration_sessions import calibration_cap_lifted
+    from learnloop.diagnosis.calibration_sessions import calibration_cap_lifted
 
     cap_lifted = params.session_id is not None and calibration_cap_lifted(
         repository, params.session_id
@@ -286,7 +302,7 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     # rate. Log-only until held-out predictive gains justify promotion.
     extra_components = None
     if vault.config.probe.shadow.enabled:
-        from learnloop.services.calibration_sessions import routine_planner_shadow
+        from learnloop.diagnosis.calibration_sessions import routine_planner_shadow
 
         planner = routine_planner_shadow(vault, repository, episode.id)
         if planner is not None:
@@ -380,9 +396,72 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             current_practice_item_id=params.practice_item_id,
             current_answer=params.answer_md,
             hints_used=params.hints_used,
+            submission_id=params.submission_id,
         ),
     )
     return {"ok": True}
+
+
+@method("recover_practice_submission", PracticeSubmissionRecoveryInput)
+def recover_practice_submission(
+    ctx: SidecarContext,
+    params: PracticeSubmissionRecoveryInput,
+) -> dict[str, Any]:
+    """Recover a completed submit before trying to serve the item again.
+
+    A diagnostic surface may become inactive as part of its attempt commit, so
+    restart recovery cannot require ``get_practice_item`` to succeed first. A
+    successful receipt is the exact response the original call produced;
+    absence is typed pending state. ``_cached_submission`` preserves the
+    fail-closed route-unknown error for the rare attempt-without-receipt gap.
+    """
+
+    vault, repository = ctx.require_vault()
+    submission_id = _submission_id(params.submission_id, None)
+    if submission_id is None:
+        raise SidecarError(
+            "validation_error",
+            "submissionId must not be blank.",
+            details={"field": "submissionId"},
+        )
+    # Exact receipts are durable completion facts. Read them before checking
+    # mutable session/item state: the session may have ended or a single-use
+    # item may have disappeared after the original response was produced.
+    cached = _cached_submission(repository, submission_id, params.practice_item_id)
+    if cached is not None:
+        return versioned({"status": "recovered", "result": cached})
+    _require_open_session(repository, params.session_id)
+    if params.practice_item_id not in vault.practice_items:
+        raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.")
+    return versioned({"status": "pending", "result": None})
+
+
+@method("acknowledge_practice_submission", PracticeSubmissionAcknowledgementInput)
+def acknowledge_practice_submission(
+    ctx: SidecarContext,
+    params: PracticeSubmissionAcknowledgementInput,
+) -> dict[str, Any]:
+    """Clear only the checkpoint whose authoritative result was received.
+
+    The compare and delete are one repository transaction. A delayed client
+    completion can therefore never erase a newer item's draft in the same
+    session, even when navigation and the new save race this acknowledgement.
+    """
+
+    _vault, repository = ctx.require_vault()
+    submission_id = _submission_id(params.submission_id, None)
+    if submission_id is None:
+        raise SidecarError(
+            "validation_error",
+            "submissionId must not be blank.",
+            details={"field": "submissionId"},
+        )
+    status = repository.acknowledge_practice_checkpoint(
+        params.session_id,
+        practice_item_id=params.practice_item_id,
+        submission_id=submission_id,
+    )
+    return versioned({"status": status, "acknowledged": status != "checkpoint_mismatch"})
 
 
 @method("submit_attempt", SubmitAttemptInput)
@@ -487,9 +566,10 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         self_grade=self_grade,
         ai_client=client if runtime.ready else None,
     )
-    # Clear the checkpoint in the same call that records the attempt, so a lost
-    # client-side clear can never leave a submitted draft to replay on restart.
-    repository.clear_session_checkpoint(params.session_id)
+    # Keep the checkpoint (including its stable submission id) until the client
+    # explicitly acknowledges this full result with clear_session_checkpoint.
+    # If the response is lost, a restarted client can resend the durable key and
+    # recover this exact route from the receipt instead of minting a new grade.
     _log_attempt_recorded(repository, params.session_id, learner_answer_md, result)
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
     payload = _attempt_result(result, repository)
@@ -531,7 +611,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         result=result,
         session_id=params.session_id,
     )
-    repository.clear_session_checkpoint(params.session_id)
+    # Client acknowledgment owns checkpoint removal; see submit_attempt.
     _log_attempt_recorded(repository, params.session_id, "", result)
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
     payload = _attempt_result(result, repository)
@@ -558,16 +638,23 @@ def _cached_submission(repository, submission_id: str | None, practice_item_id: 
             raise SidecarError("validation_error", "submission id was already used for another item")
         return receipt["result"]
     # A process can stop in the tiny interval after the attempt transaction and
-    # before its response receipt. Never grade or write the same submission a
-    # second time; the original response can be recovered by reopening feedback.
+    # before its full response receipt. Never grade or write the same submission
+    # a second time. Crucially, an attempt id alone is not an authoritative UI
+    # route: a diagnostic response may have deferred feedback or closed a block.
+    # Tell the client to hold the checkpoint and fail closed.
     existing = repository.practice_attempt_by_submission_id(submission_id)
     if existing is not None:
         if existing["practice_item_id"] != practice_item_id:
             raise SidecarError("validation_error", "submission id was already used for another item")
         raise SidecarError(
             "submission_committed",
-            f"Attempt {existing['id']} was recorded; reopen its feedback to continue.",
+            f"Attempt {existing['id']} was recorded, but its completion route is unavailable. Retry recovery without changing the submission id.",
             retryable=False,
+            details={
+                "attempt_id": existing["id"],
+                "attempt_type": existing.get("attempt_type"),
+                "route_status": "unknown",
+            },
         )
     return None
 
@@ -605,11 +692,15 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
     queue = filter_unready_teach_back_items(
         vault, queue, grading_provider_override=ctx.grading_provider_override
     )
-    dtos = [scheduled_item_dto(vault, repository, item) for item in queue if item.practice_item_id != params.practice_item_id]
+    dtos = scheduled_item_dtos(
+        vault,
+        repository,
+        [item for item in queue if item.practice_item_id != params.practice_item_id],
+    )
     repository.clear_session_checkpoint(params.session_id)
     return versioned(
         {
-            "generated_at": _nowish(),
+            "generated_at": utc_now_iso(),
             "session_id": params.session_id,
             "sections": _sections(dtos),
             "total_items": len(dtos),
@@ -785,7 +876,7 @@ def _log_state_update(vault, repository, method_name: str, session_id: str, befo
 def _display_mean(mastery) -> float | None:
     if mastery is None:
         return None
-    from learnloop.services.mastery import display_mastery
+    from learnloop.learner.mastery import display_mastery
 
     return display_mastery(mastery).mastery_mean
 
@@ -793,7 +884,7 @@ def _display_mean(mastery) -> float | None:
 def _display_variance(mastery) -> float | None:
     if mastery is None:
         return None
-    from learnloop.services.mastery import display_mastery
+    from learnloop.learner.mastery import display_mastery
 
     return display_mastery(mastery).mastery_variance
 
@@ -805,9 +896,3 @@ def _require_open_session(repository, session_id: str) -> dict[str, Any]:
     if session["ended_at"] is not None:
         raise SidecarError("validation_error", f"Session {session_id} has ended.")
     return session
-
-
-def _nowish() -> str:
-    from datetime import UTC, datetime
-
-    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")

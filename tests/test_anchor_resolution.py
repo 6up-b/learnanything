@@ -9,8 +9,8 @@ offsets used to reject the entire exam grade.
 
 from __future__ import annotations
 
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal
-from learnloop.services.grading import (
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.grading import (
     ANCHOR_BASES,
     resolve_quote_anchor,
     validate_codex_grading_proposal,

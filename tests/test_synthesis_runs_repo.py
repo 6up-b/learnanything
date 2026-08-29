@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.patches import apply_accepted_items
-from learnloop.services.synthesis_manifests import build_manifest
-from learnloop.services.synthesis_manifests import persist_manifest
+from learnloop.content.proposals.patches import apply_accepted_items
+from learnloop.content.synthesis.synthesis_manifests import build_manifest
+from learnloop.content.synthesis.synthesis_manifests import persist_manifest
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW_ISO, create_basic_vault

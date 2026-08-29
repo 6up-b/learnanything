@@ -9,9 +9,13 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.config import MasteryConfig
-from learnloop.db.repositories import MasteryState
-from learnloop.services.mastery import MasteryObservation, update_mastery
-from learnloop.services.source_review import resolve_source_refs
+from learnloop.db.repositories import MasteryState, Repository
+from learnloop.ingest.extractors.normalizers import markdown_to_ir
+from learnloop.ingest.hashing import extraction_request_hash
+from learnloop.ingest.ir import IR_SCHEMA_VERSION
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.learner.mastery import MasteryObservation, update_mastery
+from learnloop.reader.source_review import resolve_source_refs
 from learnloop.sim.student import Misconception, StudentProfile, SyntheticStudent
 from learnloop.vault.models import Note, PracticeItem, Provenance, SourceRef
 
@@ -188,6 +192,78 @@ def test_missing_note_falls_back_to_quote():
     assert resolved["locator_resolved"] is False
     assert resolved["source_changed"] is True
     assert resolved["section_md"] == "Lost excerpt."
+
+
+def test_missing_note_resolves_youtube_ingest_identity(tmp_path):
+    repository = Repository(tmp_path / "state.sqlite")
+    registered = register_source_revision(
+        repository,
+        acquisition_kind="youtube",
+        canonical_uri="https://www.youtube.com/watch?v=abc123",
+        raw_bytes=b"captions",
+        original_uri="https://www.youtube.com/watch?v=abc123",
+        display_title="Derivatives from First Principles — Math Channel",
+    )
+    ref = SourceRef(
+        ref_type="canonical_source",
+        ref_id=registered.source_id,
+        revision_id=registered.revision_id,
+        locator="t=15.5-21.0",
+        quote="The derivative is a limit of secant slopes.",
+    )
+
+    [resolved] = resolve_source_refs(_vault(), _item([ref]), repository)
+
+    assert resolved["title"] == "Derivatives from First Principles — Math Channel"
+    assert resolved["external_url"] == "https://www.youtube.com/watch?v=abc123"
+    assert resolved["video"] == {
+        "video_id": "abc123",
+        "start_seconds": 15.5,
+        "end_seconds": 21.0,
+    }
+
+
+def test_feedback_resolves_current_ingest_span_and_filename(tmp_path):
+    repository = Repository(tmp_path / "state.sqlite")
+    registered = register_source_revision(
+        repository,
+        acquisition_kind="pdf",
+        canonical_uri="file:///home/learner/problem-set.pdf",
+        raw_bytes=b"%PDF-problem-set",
+        original_uri="file:///home/learner/problem-set.pdf",
+    )
+    ir = markdown_to_ir(
+        "# Exercises\nUse the singular-value decomposition to solve this problem.",
+        title="Problem set",
+        extractor_name="marker",
+    )
+    request_hash = extraction_request_hash(
+        revision_id=registered.revision_id,
+        extractor=ir.extractor,
+        extractor_version=ir.extractor_version,
+        ir_schema_version=IR_SCHEMA_VERSION,
+    )
+    repository.insert_extraction_run(
+        id="ext_feedback",
+        revision_id=registered.revision_id,
+        extractor=ir.extractor,
+        extractor_version=ir.extractor_version,
+        extraction_request_hash=request_hash,
+        ir_schema_version=IR_SCHEMA_VERSION,
+    )
+    repository.persist_document_ir("ext_feedback", ir)
+    span = next(block for block in ir.blocks if "singular-value" in block.text)
+    ref = SourceRef(
+        ref_type="canonical_source",
+        ref_id=registered.source_id,
+        locator=f"span:ext_feedback/{span.span_id}",
+    )
+
+    [resolved] = resolve_source_refs(_vault(), _item([ref]), repository)
+
+    assert resolved["title"] == "problem-set.pdf"
+    assert resolved["locator_resolved"] is True
+    assert "singular-value decomposition" in resolved["section_md"]
 
 
 def test_non_displayable_ref_types_skipped():

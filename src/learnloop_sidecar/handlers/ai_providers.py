@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.ai.client import make_ai_provider_client
-from learnloop.ai.routing import fallback_provider_for, provider_for_task
-from learnloop.ai.runtime import AIRuntimeReport, check_ai_runtime
-from learnloop.codex.client import CodexUnavailable, make_codex_client
-from learnloop.codex.runtime import check_codex_runtime
+from learnloop.ai.errors import AIProviderUnavailable
+from learnloop.ai.routing import (
+    MANUAL_PROVIDER,
+    client_for_provider as resolve_client_for_provider,
+    ready_client_for_task,
+    runtime_for_provider as resolve_runtime_for_provider,
+)
 from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop_sidecar.context import SidecarContext, available_grading_providers
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
-
-MANUAL_PROVIDER = "manual"
-
 
 def ready_grading_provider(vault, override: str | None = None) -> tuple[str, Any, Any | None]:
     """Resolve the grading backend, honoring the runtime override.
@@ -25,24 +24,14 @@ def ready_grading_provider(vault, override: str | None = None) -> tuple[str, Any
     selection (no silent fallback provider).
     """
 
-    if override == MANUAL_PROVIDER:
-        runtime = AIRuntimeReport(
-            status="provider_unavailable",
-            active_provider=MANUAL_PROVIDER,
-            message="Manual grading selected; AI grading is disabled.",
+    return tuple(
+        ready_client_for_task(
+            vault.root,
+            vault.config,
+            "grading",
+            explicit=override,
         )
-        return MANUAL_PROVIDER, runtime, None
-    selection = provider_for_task(vault.config, "grading", explicit_provider=override)
-    provider_name = selection.provider_name
-    runtime = runtime_for_provider(vault, provider_name)
-    if runtime.ready:
-        return provider_name, runtime, client_for_provider(vault, provider_name)
-    fallback = fallback_provider_for(vault.config, selection)
-    if fallback:
-        fallback_runtime = runtime_for_provider(vault, fallback)
-        if fallback_runtime.ready:
-            return fallback, fallback_runtime, client_for_provider(vault, fallback)
-    return provider_name, runtime, None
+    )
 
 
 def ready_tutor_qa_provider(vault) -> tuple[str, Any, Any | None]:
@@ -72,33 +61,18 @@ def ready_canonical_ingest_provider(vault) -> tuple[str, Any, Any | None]:
 
 
 def _ready_routed_provider(vault, task: str) -> tuple[str, Any, Any | None]:
-    selection = provider_for_task(vault.config, task)
-    provider_name = selection.provider_name
-    runtime = runtime_for_provider(vault, provider_name)
-    if runtime.ready:
-        return provider_name, runtime, client_for_provider(vault, provider_name)
-    fallback = fallback_provider_for(vault.config, selection)
-    if fallback:
-        fallback_runtime = runtime_for_provider(vault, fallback)
-        if fallback_runtime.ready:
-            return fallback, fallback_runtime, client_for_provider(vault, fallback)
-    return provider_name, runtime, None
+    return tuple(ready_client_for_task(vault.root, vault.config, task))
 
 
 def runtime_for_provider(vault, provider_name: str):
-    if provider_name in vault.config.ai.providers:
-        return check_ai_runtime(vault.root, vault.config, provider_name=provider_name)
-    if provider_name == "codex":
-        return check_codex_runtime(vault.root, vault.config.codex)
-    return check_ai_runtime(vault.root, vault.config, provider_name=provider_name)
+    return resolve_runtime_for_provider(vault.root, vault.config, provider_name)
 
 
 def client_for_provider(vault, provider_name: str):
-    if provider_name in vault.config.ai.providers:
-        return _ai_client(vault, provider_name)
-    if provider_name == "codex":
-        return _codex_client(vault)
-    return _ai_client(vault, provider_name)
+    try:
+        return resolve_client_for_provider(vault.root, vault.config, provider_name)
+    except AIProviderUnavailable:
+        return None
 
 
 def grading_source_for_provider(provider_name: str) -> str:
@@ -115,20 +89,6 @@ def provider_label(provider_name: str) -> str:
         if provider_name in CODEX_PROVIDER_NAMES
         else f"AI provider {provider_name}"
     )
-
-
-def _codex_client(vault):
-    try:
-        return make_codex_client(vault.config.codex, vault.root)
-    except CodexUnavailable:
-        return None
-
-
-def _ai_client(vault, provider_name: str):
-    try:
-        return make_ai_provider_client(vault.config, vault.root, provider_name=provider_name)
-    except CodexUnavailable:
-        return None
 
 
 class SetGradingProviderParams(ParamsModel):

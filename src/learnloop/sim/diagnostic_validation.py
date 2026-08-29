@@ -29,28 +29,28 @@ from typing import Any, Mapping
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.grading import resolved_rubric
-from learnloop.services.probe_episodes import (
+from learnloop.attempts.grading import resolved_rubric
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     episode_posterior,
     serve_presentation,
 )
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_families import (
     DEFAULT_INSTRUCTIONAL_ACTIONS,
     CompiledInstrument,
     builtin_family_templates,
 )
-from learnloop.services.probe_hypotheses import CONFUSES_PREFIX
-from learnloop.services.probe_instance_generation import generate_instances_for_episode
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.diagnosis.probe_hypotheses import CONFUSES_PREFIX
+from learnloop.diagnosis.probe_instance_generation import generate_instances_for_episode
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.sim.runner import apply_config_overrides, prepare_run_vault
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths

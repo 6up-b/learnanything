@@ -10,7 +10,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.services.activity_backfill import backfill_activity_substrate
+from learnloop.substrate.compat.activity_backfill import backfill_activity_substrate
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW
@@ -67,10 +67,29 @@ def test_backfill_populates_substrate_from_fixture(tmp_path):
     report = backfill_activity_substrate(vault, repo, clock=CLOCK)
 
     assert report.practice_items == len(vault.practice_items)
-    assert report.attempts_replayed == len(repo.list_all_attempts())
+    # The fixture is intentionally a partially upgraded vault: projection
+    # rollout has already materialized some observations while the remainder
+    # still need the compatibility backfill. Completeness is the sum of rows
+    # replayed now and rows found from an earlier replay, not just new writes.
+    assert report.attempts_replayed + report.attempts_skipped_existing == len(
+        repo.list_all_attempts()
+    )
     counts = _table_counts(repo)
-    assert counts["activity_administrations"] == report.attempts_replayed
-    assert counts["activity_observations"] == report.attempts_replayed
+    # The substrate also contains probe-presentation administrations and
+    # non-attempt observations. Assert attempt coverage directly rather than
+    # equating whole-table row counts with the legacy-attempt count.
+    with connect(repo.sqlite_path) as connection:
+        missing = connection.execute(
+            """
+            SELECT a.id
+              FROM practice_attempts a
+              LEFT JOIN activity_observations o ON o.attempt_id = a.id
+             WHERE o.id IS NULL
+            """
+        ).fetchall()
+    assert missing == []
+    assert counts["activity_administrations"] >= len(repo.list_all_attempts())
+    assert counts["activity_observations"] >= len(repo.list_all_attempts())
     # Every attempt gets a synthetic administration + observation.
     assert counts["activity_families"] >= report.practice_items
 
@@ -185,7 +204,15 @@ def test_backfill_logs_attempt_duration_interaction_events(tmp_path):
     repo = Repository(vault_root / "state.sqlite")
     # Give one attempt a recorded latency so the duration path is exercised.
     with connect(repo.sqlite_path) as connection:
-        target = connection.execute("SELECT id FROM practice_attempts LIMIT 1").fetchone()["id"]
+        target = connection.execute(
+            """
+            SELECT a.id
+              FROM practice_attempts a
+              LEFT JOIN activity_observations o ON o.attempt_id = a.id
+             WHERE o.id IS NULL
+             LIMIT 1
+            """
+        ).fetchone()["id"]
         connection.execute(
             "UPDATE practice_attempts SET latency_seconds = 37 WHERE id = ?", (target,)
         )

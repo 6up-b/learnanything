@@ -4,12 +4,12 @@ from datetime import timedelta
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.followups import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.diagnosis.followups import (
     evaluate_intervention_followup,
     evaluate_negative_surprise_followup,
 )
-from learnloop.services.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault

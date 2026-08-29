@@ -13,15 +13,15 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services import probe_robust as pr
-from learnloop.services import robust_composition as rc
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis import probe_robust as pr
+from learnloop.diagnosis import robust_composition as rc
+from learnloop.diagnosis.probe_episodes import (
     _evaluate_completion,
     commit_presentation,
     eligible_instruments,
@@ -30,8 +30,8 @@ from learnloop.services.probe_episodes import (
     episode_posterior,
     serve_presentation,
 )
-from learnloop.services.probe_families import CompiledInstrument, validate_and_compile_card
-from learnloop.services.probe_outcome_mapping import (
+from learnloop.diagnosis.probe_families import CompiledInstrument, validate_and_compile_card
+from learnloop.diagnosis.probe_outcome_mapping import (
     PROBE_COARSE_MAPPING_VERSION,
     coarse_class_for_outcome,
     coarse_schema_slug,
@@ -102,7 +102,7 @@ def _record_full_score_probe(loaded, repository, episode, item_id=ITEM_ID):
 
 
 def _contrast_instrument():
-    from learnloop.services.probe_families import (
+    from learnloop.diagnosis.probe_families import (
         CONTRAST_CONFUSABLE_DEFAULT_ROWS,
         CONTRAST_CONFUSABLE_V1,
         InstrumentCard,
@@ -250,7 +250,7 @@ def test_evaluate_completion_abstains_on_planted_indistinguishable_case(tmp_path
     # observations, and make the robust selector abstain by planting a fragile
     # (non-robust-advantage) decision. We drive _robust_completion_override with a
     # patched robust_selection to assert the override wiring returns the outcome.
-    from learnloop.services import probe_episodes as pe
+    from learnloop.diagnosis import probe_episodes as pe
 
     monkeypatch.setattr(
         pe,
@@ -290,7 +290,7 @@ def test_decision_snapshot_byte_stable_after_model_activation_with_receipt(tmp_p
     activity_obs = repository.observation_by_attempt(attempt_id)
     head = repository.active_interpretation_for_observation(activity_obs["id"])
 
-    from learnloop.services import grader_calibration as gc
+    from learnloop.attempts import grader_calibration as gc
 
     gc.seed_heuristic_priors(repository, clock=CLOCK)  # idempotent; no head flip
     observation_after = repository.probe_observation_for_attempt(attempt_id)
@@ -299,7 +299,7 @@ def test_decision_snapshot_byte_stable_after_model_activation_with_receipt(tmp_p
 
     # A reinterpretation whose leading conclusion changed records a receipt; an
     # unchanged one records nothing (append-only, never rewrites the snapshot).
-    from learnloop.services.p0_projection import record_reinterpretation_if_changed
+    from learnloop.substrate.p0_projection import record_reinterpretation_if_changed
 
     changed = {"response_posterior_json": json.dumps({"other": 0.9, "success": 0.1}),
                "calibration_model_hash": "new_head_hash"}

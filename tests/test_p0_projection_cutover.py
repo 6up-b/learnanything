@@ -14,19 +14,22 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.canonical_projection import project_canonical_facet_state
-from learnloop.services.effective_observation import effective_observation_from_posterior
-from learnloop.services.grade_resolution import append_adjudication
-from learnloop.services.p0_projection import (
+from learnloop.substrate.canonical_projection import (
+    CANONICAL_PROJECTION_VERSION,
+    project_canonical_facet_state,
+)
+from learnloop.attempts.effective_observation import effective_observation_from_posterior
+from learnloop.attempts.grade_resolution import append_adjudication
+from learnloop.substrate.p0_projection import (
     activate_p0_projection,
     record_reinterpretation_if_changed,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
@@ -218,7 +221,7 @@ def test_adjudication_reverses_projection_and_preserves_history(tmp_path):
 
     # Both folds agree on the corrected direction (ruling A keeps one tape):
     # the learner-facing timeline's final banked value equals the ledger cell.
-    from learnloop.services.facet_evidence_timeline import facet_evidence_timeline
+    from learnloop.learner.facet_evidence_timeline import facet_evidence_timeline
 
     banked_by_facet: dict[str, float] = {}
     for cell in repo.facet_capability_evidence_all():
@@ -381,6 +384,8 @@ def test_activation_records_derived_state_rebuild(tmp_path):
     latest = repo.latest_derived_state_rebuild()
     assert latest is not None
     assert latest["algorithm_version"] == "mvp-0.8"
+    assert latest["canonical_projection_version"] == CANONICAL_PROJECTION_VERSION
+    assert latest["coverage_denominator_version"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +438,7 @@ def test_narrowing_model_monotonically_increases_effective_mass():
 
 
 def test_mvp08_mastery_reliability_sources_certainty_lcb(tmp_path):
-    from learnloop.services.grade_resolution import response_certainty_lcb
+    from learnloop.attempts.grade_resolution import response_certainty_lcb
 
     vault, repo = _p0_vault(tmp_path)
     item = vault.practice_items[ITEM]
@@ -450,7 +455,7 @@ def test_mvp08_mastery_reliability_sources_certainty_lcb(tmp_path):
 
     # A uniform channel drives the certainty LCB toward zero -> a low-reliability,
     # small mastery step (a uniform interpretation is uninformative, §4.3).
-    from learnloop.services import robust_composition as rc
+    from learnloop.diagnosis import robust_composition as rc
 
     uniform_alpha = {
         z: {f"{g}|high": 1.0 for g in ("success", "partial_success", "other")}

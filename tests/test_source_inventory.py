@@ -8,13 +8,15 @@ cache identity is exercised directly.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import (
+from learnloop.content.synthesis.ai_contracts import (
     InventoryAssessmentSignal,
     InventoryClaim,
     InventoryConceptMention,
@@ -31,13 +33,13 @@ from learnloop.ingest.ir import (
     DocumentUnit,
     ExtractionHealth,
 )
-from learnloop.services.exam_profile import ExamUnitEntry, aggregate_exam_profile, exam_family_key
-from learnloop.services.role_authority import (
+from learnloop.content.synthesis.exam_profile import ExamUnitEntry, aggregate_exam_profile, exam_family_key
+from learnloop.content.sources.role_authority import (
     ManualAuthorityGrant,
     can_authorize_semantic,
     role_authority,
 )
-from learnloop.services.source_unit_inventory import (
+from learnloop.content.synthesis.source_unit_inventory import (
     INVENTORY_SCHEMA_VERSION,
     InventoryValidationError,
     build_inventory_windows,
@@ -134,7 +136,7 @@ def _register_revision(repo: Repository, source_id="src1", revision_id="rev1") -
         connection.commit()
 
 
-class FakeInventoryClient:
+class FakeInventoryClient(StructuredClientFake):
     """AI double exposing run_source_unit_inventory (house fake-client pattern).
 
     Emits role/profile-appropriate canned signals, always citing span ids drawn
@@ -611,7 +613,7 @@ def test_exam_family_key_ignores_year():
 
 
 def test_inventory_job_caches_zero_tokens_on_hit(tmp_path):
-    from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 
     repo = _repo(tmp_path)
     _register_revision(repo)
@@ -641,7 +643,7 @@ def test_inventory_job_caches_zero_tokens_on_hit(tmp_path):
 
 
 def test_inventory_job_blocks_when_extraction_dependency_fails(tmp_path):
-    from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 
     repo = _repo(tmp_path)
     client = FakeInventoryClient()

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.codex.client import CodexUnavailable
-from learnloop.services import question_queue as QQ
-from learnloop.services.question_queue import QuestionQueueError
-from learnloop.services.teach_back import TEACH_BACK_PRACTICE_MODE
-from learnloop.services.tutor_qa import (
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.tutor import question_queue as QQ
+from learnloop.tutor.question_queue import QuestionQueueError
+from learnloop.tutor.teach_back import TEACH_BACK_PRACTICE_MODE
+from learnloop.tutor.tutor_qa import (
     QuestionLimitReached,
     TutorQAError,
     ask_question,

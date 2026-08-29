@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.facet_diagnostics import (
+from learnloop.learner.facet_diagnostics import (
     COVERAGE_DENOMINATOR_SEMANTICS,
     coverage_denominator_version,
 )
@@ -154,7 +154,7 @@ def test_a_null_version_is_not_reported_not_a_rollback(tmp_path):
 
 
 def test_dry_run_writes_no_boundary(tmp_path):
-    from learnloop.services.integration_backfill import (
+    from learnloop.curriculum.integration_backfill import (
         COORDINATION,
         apply_integration_backfill_and_recalibrate,
         plan_integration_backfill,
@@ -180,18 +180,18 @@ def test_dry_run_writes_no_boundary(tmp_path):
 
 
 def test_apply_writes_one_boundary_and_a_rerun_writes_none(tmp_path):
-    from learnloop.services.integration_backfill import (
+    from learnloop.curriculum.integration_backfill import (
         COORDINATION,
         apply_integration_backfill_and_recalibrate,
         plan_integration_backfill,
     )
-    from learnloop.services.attempts import (
+    from learnloop.attempts.attempts import (
         AttemptDraft,
         SelfGradeInput,
         complete_self_graded_attempt,
     )
-    from learnloop.services.learner_review_feed import build_learner_review_feed
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.learner.learner_review_feed import build_learner_review_feed
+    from learnloop.substrate.replay import rebuild_derived_state
 
     paths = _canonical_vault(tmp_path)
     _declare_integration(

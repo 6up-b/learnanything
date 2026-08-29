@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.mastery_step_attribution import WEIGHT_FLOOR, explain_mastery_step
+from learnloop.learner.mastery_step_attribution import WEIGHT_FLOOR, explain_mastery_step
 
 
 def _payload(**overrides):

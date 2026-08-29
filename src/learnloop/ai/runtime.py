@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Protocol
 
-from learnloop.ai.codex_sdk import codex_config_from_ai_profile
+from learnloop.ai.providers.codex import check_codex_runtime, codex_config_from_ai_profile
 from learnloop.config import AIProviderConfig, LearnLoopConfig
-from learnloop.codex.runtime import check_codex_runtime
 
 AIRuntimeState = Literal[
     "provider_missing_config",
@@ -16,6 +15,24 @@ AIRuntimeState = Literal[
     "provider_revision_mismatch",
     "ready",
 ]
+
+_CODEX_COMPAT_STATUS: dict[str, str] = {
+    "provider_missing_config": "codex_missing",
+    "provider_auth_required": "codex_auth_required",
+    "provider_unavailable": "codex_unavailable",
+    "provider_revision_mismatch": "codex_revision_mismatch",
+}
+
+
+def legacy_codex_status(status: str) -> str:
+    """Translate a neutral runtime state at a legacy Codex-facing boundary.
+
+    Internal routing and new provider-generic APIs use ``provider_*`` states.
+    Existing CLI result/error fields predate that vocabulary and remain stable
+    unless a separately versioned protocol change is declared.
+    """
+
+    return _CODEX_COMPAT_STATUS.get(status, status)
 
 
 class OpenAIChatHealthcheck(Protocol):

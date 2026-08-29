@@ -8,7 +8,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import goal_contracts as gc
+from learnloop.goals import goal_contracts as gc
 
 from tests.helpers import NOW
 
@@ -223,7 +223,7 @@ def test_certification_non_terminal_when_feedback_before_response(repo):
     v1 = _confirm(repo)
     admin_id = _fake_administration(repo, target_version_id=v1.id, support_hash=v1.support_hash)
     surface_id = repo.fetch_administration(admin_id)["surface_id"]
-    from learnloop.services.activities import evidence_eligibility_for
+    from learnloop.substrate.activities import evidence_eligibility_for
 
     eligibility, reason = evidence_eligibility_for(
         purpose="assessment", feedback_condition="before_response"

@@ -7,12 +7,14 @@ the feature degrades to no citations when no links exist.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import TutorAnswer, TutorCitation
-from learnloop.services.source_set_synthesis import create_study_map
-from learnloop.services.tutor_qa import ask_question
+from learnloop.tutor.ai_contracts import TutorAnswer, TutorCitation
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
@@ -21,7 +23,7 @@ _CLOCK = FrozenClock(datetime(2026, 7, 14, 12, 0, 0, tzinfo=UTC))
 _ITEM_ID = "pi_identify_symmetry"
 
 
-class _CitingTutorClient:
+class _CitingTutorClient(StructuredClientFake):
     provider_name = "fake_tutor"
     provider_type = "fake"
     model = "fake-model"
@@ -85,7 +87,7 @@ def test_no_links_degrades_to_no_citations(tmp_path):
     # Point at an item but strip provided spans by asking with a bogus item?  Instead
     # assert the contract directly: model cites, but with zero provided spans nothing
     # survives validation.
-    from learnloop.services.tutor_qa import _validated_citations
+    from learnloop.tutor.tutor_qa import _validated_citations
 
     class _Ans:
         citations = [TutorCitation(extraction_id="x", span_id="y")]

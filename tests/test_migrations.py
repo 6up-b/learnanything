@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -47,8 +48,142 @@ def test_fresh_db_applies_all_migrations(tmp_path):
         "misconception_disposition_events",
         "question_promotion_requests",
         "queue_state",
+        "cold_measurement_opportunities",
+        "cold_measurement_opportunity_decisions",
     }:
         assert required in tables
+
+
+def test_real_migration_chain_applies_incrementally_after_initial_schema(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    initial_only = tmp_path / "initial_only"
+    initial_only.mkdir()
+    first = discover_migrations()[0]
+    shutil.copy2(first.path, initial_only / first.path.name)
+    apply_migrations(sqlite_path, migrations_dir=initial_only)
+
+    applied = apply_migrations(sqlite_path)
+
+    assert [migration.version for migration in applied] == [
+        migration.version for migration in discover_migrations()[1:]
+    ]
+    with connect(sqlite_path) as connection:
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_repository_carries_a_fixture_at_the_current_migration_head():
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "fixtures"
+        / "migration_head_156"
+        / "state.sqlite"
+    )
+
+    assert max(applied_versions(fixture)) == max(
+        migration.version for migration in discover_migrations()
+    )
+
+
+_FIXTURE_DATABASES = sorted(
+    (Path(__file__).resolve().parents[1] / "fixtures").glob("*/state.sqlite")
+)
+
+
+@pytest.mark.parametrize(
+    "source",
+    _FIXTURE_DATABASES,
+    ids=lambda source: source.parent.name,
+)
+def test_every_fixture_upgrades_with_clean_foreign_keys(tmp_path, source):
+    sqlite_path = tmp_path / "state.sqlite"
+    shutil.copy2(source, sqlite_path)
+
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_repair_opportunity_bridge_applies_after_opportunity_substrate(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    through_151 = tmp_path / "through_151"
+    through_151.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 151:
+            shutil.copy2(migration.path, through_151 / migration.path.name)
+    apply_migrations(sqlite_path, migrations_dir=through_151)
+    with connect(sqlite_path) as connection:
+        before = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(remediation_episodes)")
+        }
+    assert "cold_measurement_opportunity_id" not in before
+
+    applied = apply_migrations(sqlite_path)
+    assert 152 in [migration.version for migration in applied]
+    with connect(sqlite_path) as connection:
+        after = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(remediation_episodes)")
+        }
+    assert "cold_measurement_opportunity_id" in after
+
+
+def test_variable_rubric_scale_migration_allows_scores_above_four(tmp_path):
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path)
+
+    with connect(sqlite_path) as connection:
+        _insert_attempt(
+            connection,
+            attempt_id="attempt_five_point_source",
+            attempt_type="independent_attempt",
+        )
+        _insert_attempt(
+            connection,
+            attempt_id="attempt_five_point_outcome",
+            attempt_type="independent_attempt",
+        )
+        connection.execute(
+            "UPDATE practice_attempts SET rubric_score = 5 WHERE id = ?",
+            ("attempt_five_point_outcome",),
+        )
+        connection.execute(
+            """
+            INSERT INTO learning_outcome_labels(
+              id, source_attempt_id, outcome_attempt_id, label_type,
+              practice_item_id, learning_object_id, label_value,
+              outcome_correctness, outcome_rubric_score, metadata_json,
+              algorithm_version, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "label_five_point",
+                "attempt_five_point_source",
+                "attempt_five_point_outcome",
+                "same_item_retention",
+                "pi_svd",
+                "lo_svd",
+                1.0,
+                1.0,
+                5,
+                "{}",
+                "test",
+                "2026-05-19T12:00:00Z",
+            ),
+        )
+        connection.commit()
+
+    with connect(sqlite_path) as connection:
+        assert connection.execute(
+            "SELECT rubric_score FROM practice_attempts WHERE id = ?",
+            ("attempt_five_point_outcome",),
+        ).fetchone()["rubric_score"] == 5
+        assert connection.execute(
+            "SELECT outcome_rubric_score FROM learning_outcome_labels WHERE id = ?",
+            ("label_five_point",),
+        ).fetchone()["outcome_rubric_score"] == 5
 
 
 def test_first_error_cleanup_is_semantically_demoted_not_learned(tmp_path):

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import AuthoringContext, CodexTurnTimeout
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.proposals.ai_contracts import AuthoringContext
+from learnloop.ai.errors import CodexTurnTimeout
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.patches import PatchApplicationError
-from learnloop.services.proposals import (
+from learnloop.content.proposals.patches import PatchApplicationError
+from learnloop.content.proposals.proposals import (
     accept_items,
     edit_proposal_item,
     generate_authoring_proposal,
@@ -19,7 +22,7 @@ from learnloop.vault.yaml_io import write_yaml
 from tests.helpers import NOW, create_basic_vault
 
 
-class _FakeAuthoringClient:
+class _FakeAuthoringClient(StructuredClientFake):
     def __init__(self, proposal: AuthoringProposal):
         self.proposal = proposal
 
@@ -507,7 +510,7 @@ def test_generated_practice_missing_reward_metadata_is_invalid(tmp_path):
     ]
 
 
-def test_generated_practice_rubric_points_cannot_exceed_grading_scale(tmp_path):
+def test_generated_practice_rubric_criterion_total_defines_grading_scale(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
     proposal = AuthoringProposal.model_validate(
@@ -534,8 +537,9 @@ def test_generated_practice_rubric_points_cannot_exceed_grading_scale(tmp_path):
     patch_id = persist_authoring_proposal(vault_root, proposal, provider="codex", clock=FrozenClock(NOW))
     item = Repository(vault_root / "state.sqlite").proposal_items(patch_id)[0]
 
-    assert item["validation_status"] == "invalid"
-    assert item["validation_errors"] == ["invalid_grading_rubric:criteria_points_exceed_max_points"]
+    assert item["validation_status"] == "valid"
+    assert item["validation_errors"] == []
+    assert item["payload"]["grading_rubric"]["max_points"] == 6
 
 
 def test_generated_practice_rejects_unknown_metadata_keys(tmp_path):
@@ -1105,7 +1109,7 @@ def _reject_payload() -> dict:
     }
 
 
-class _QueueAuthoringClient:
+class _QueueAuthoringClient(StructuredClientFake):
     def __init__(self, proposals: list[AuthoringProposal]):
         self.proposals = list(proposals)
         self.contexts: list[AuthoringContext] = []
@@ -1202,7 +1206,7 @@ def test_timed_out_repair_fails_without_persisting_first_pass(tmp_path):
         "summary": "Conceptual item; no numeric validation.",
     }
 
-    class TimeoutOnRepairClient:
+    class TimeoutOnRepairClient(StructuredClientFake):
         def __init__(self):
             self.calls = 0
 

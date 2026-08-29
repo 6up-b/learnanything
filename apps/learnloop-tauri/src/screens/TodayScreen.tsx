@@ -31,6 +31,16 @@ import type { AskTarget } from "../components/AskOverlay";
 
 const HOTKEYS = "123456789abcdef";
 
+// Day-granular: the deferral is a "come back tomorrow" fact, and a timestamp
+// would suggest the queue reopens at a minute it does not promise.
+function fmtDeferredUntil(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
 function masteryColor(mastery: number): string {
   return masteryTone(mastery, COLOR);
 }
@@ -669,6 +679,34 @@ export function TodayScreen({
             />
           ))}
 
+          {/* Cold checks the scheduler is holding back. They are not offered —
+              they were removed before ranking — but a queue that silently drops
+              a scheduled measurement is indistinguishable from one that lost
+              it, so it says so, calmly, and says why. */}
+          {queue?.deferredColdChecks?.length ? (
+            <div
+              style={{
+                margin: "10px 24px 0",
+                padding: "8px 12px",
+                borderLeft: `2px solid ${COLOR.border}`,
+                fontSize: 11,
+                lineHeight: 1.7,
+                color: COLOR.textFaint
+              }}
+            >
+              {queue.deferredColdChecks.map((row) => (
+                <div key={row.followupTaskId}>
+                  unassisted check on{" "}
+                  <span style={{ color: COLOR.textDim }}>
+                    {row.learningObjectTitle ?? row.learningObjectId ?? "a repaired idea"}
+                  </span>{" "}
+                  waiting until {fmtDeferredUntil(row.deferredTo)} — recent tutor help covered this
+                  answer.
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {queue && queue.totalItems === 0 ? (
             readerSeedingActive ? (
               <div style={{ padding: 30, fontSize: 13, lineHeight: 1.7 }}>
@@ -1037,7 +1075,7 @@ function QueueRow({
       </div>
 
       <span style={{ display: "inline-flex", gap: 10, alignItems: "center", fontSize: 12 }}>
-        <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery</Faint>
+        <Faint style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>mastery estimate</Faint>
         {mastery == null ? (
           <Faint>—</Faint>
         ) : (
@@ -1078,14 +1116,17 @@ function SurpriseInsertionBanner({
   const coldProbe = followup.followupKind === "certification_cold_probe";
   // A repair cold retry is the delayed unassisted measurement of an earlier
   // repair — not a diagnostic insertion, and calling it one hid the one rule
-  // that matters here: hints or a primed open void the retry.
+  // that matters here: hints or a primed open void the retry. What it does NOT
+  // say is which repair it verifies: the check measures unaided retrieval, and
+  // naming the episode here would hand the learner the very material under
+  // test. That belongs after the attempt, on the feedback banner.
   const coldRetry = followup.followupKind === "cold_retry";
   const heading = coldProbe
     ? "validity check - held-out cold probe inserted"
     : coldRetry
-      ? "cold retry - unassisted check on a repaired idea"
+      ? "unassisted check - answer this one cold"
       : "intervention gate - diagnostic follow-up inserted";
-  const noun = coldProbe ? "cold probe" : coldRetry ? "cold retry" : "follow-up";
+  const noun = coldProbe ? "cold probe" : coldRetry ? "unassisted check" : "follow-up";
   return (
     <div
       style={{
@@ -1133,14 +1174,14 @@ function SurpriseInsertionBanner({
             </>
           ) : coldRetry ? (
             <>
-              You repaired an idea on{" "}
+              An unassisted check on{" "}
               <EntityLink id={followup.practiceItemId} onInspect={onInspect}>
                 {followup.learningObjectTitle}
-              </EntityLink>{" "}
-              recently — this is the delayed check that the repair stuck. Answer it cold:{" "}
-              <span style={{ color: COLOR.amber }}>using a hint (or opening it primed) voids the retry</span>{" "}
-              and the attempt will be rejected, because only an unassisted answer converts the repair to
-              Demonstrated credit.
+              </EntityLink>
+              . Answer it cold:{" "}
+              <span style={{ color: COLOR.amber }}>using a hint (or opening it primed) voids the measurement</span>{" "}
+              and the attempt will be rejected, because only an unassisted answer earns Demonstrated
+              credit. What it confirms is reported once you have answered.
             </>
           ) : (
             <>
@@ -1305,7 +1346,7 @@ function QueueDetail({
         </span>
       </div>
 
-      <SectionHeader>Mastery posterior</SectionHeader>
+      <SectionHeader>Mastery estimate</SectionHeader>
       <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12 }}>
         {mastery == null ? (
           <Faint>no evidence yet</Faint>

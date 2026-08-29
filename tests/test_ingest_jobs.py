@@ -12,8 +12,8 @@ import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit
-from learnloop.services.ingest_runner import FetchedBytes, JobSpec, RunnerServices
-from learnloop_sidecar.ingest_jobs import ActiveIngestJobError, DurableIngestJobs, IngestJobManager
+from learnloop.content.pipeline.runner import FetchedBytes, JobSpec, RunnerServices
+from learnloop.content.pipeline.jobs import ActiveIngestJobError, DurableIngestJobs, IngestJobManager
 
 
 class _FakeResult:
@@ -311,6 +311,124 @@ def test_list_returns_recent_legacy_jobs(tmp_path):
     assert all(entry["status"] == "completed" for entry in listed)
 
 
+def test_list_batches_bulk_loads_jobs_and_dependencies(tmp_path, monkeypatch):
+    """The UI polls this path; reads stay constant as batch/job counts grow."""
+
+    jobs = _bind(tmp_path, lambda **_: _FakeResult())
+    runner = jobs._require_runner()
+    for index in range(4):
+        runner.enqueue_batch(
+            f"bulk_{index}",
+            [
+                JobSpec("import", {"source": f"source_{index}"}),
+                JobSpec("inventory", {"source": f"source_{index}"}, depends_on=(0,)),
+            ],
+        )
+
+    calls = {"jobs": 0, "dependencies": 0}
+    original_jobs = runner.repo.ingest_jobs_for_batches
+    original_dependencies = runner.repo.ingest_job_dependencies_for_jobs
+
+    def jobs_once(batch_ids):
+        calls["jobs"] += 1
+        return original_jobs(batch_ids)
+
+    def dependencies_once(job_ids):
+        calls["dependencies"] += 1
+        return original_dependencies(job_ids)
+
+    monkeypatch.setattr(runner.repo, "ingest_jobs_for_batches", jobs_once)
+    monkeypatch.setattr(
+        runner.repo, "ingest_job_dependencies_for_jobs", dependencies_once
+    )
+    monkeypatch.setattr(
+        runner.repo,
+        "ingest_jobs_for_batch",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("batch polling must not query jobs per batch")
+        ),
+    )
+    monkeypatch.setattr(
+        runner.repo,
+        "ingest_job_dependency_ids",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("batch polling must not query dependencies per job")
+        ),
+    )
+
+    views = jobs.list_batches()
+
+    assert len(views) == 4
+    assert all(len(view["jobs"]) == 2 for view in views)
+    assert all(view["jobs"][1]["depends_on"] for view in views)
+    assert calls == {"jobs": 1, "dependencies": 1}
+
+
+def test_list_batches_bulk_loads_failed_rung_requests(tmp_path, monkeypatch):
+    """Legacy false-green rung jobs must not reintroduce one read per job."""
+
+    jobs = DurableIngestJobs()
+    jobs.bind(Repository(tmp_path / "state.sqlite"), tmp_path, background=False)
+    runner = jobs._require_runner()
+
+    def legacy_failure(ctx):
+        request_id = str(ctx.payload["request_id"])
+        runner.repo.update_rung_variant_request(
+            request_id,
+            status="failed",
+            failure_reason=f"failed {request_id}",
+        )
+        return {"request_id": request_id, "status": "failed", "deduplicated": True}
+
+    runner.handlers["rung_variant"] = legacy_failure
+    request_ids: list[str] = []
+    for index in range(4):
+        request_id = runner.repo.insert_rung_variant_request(
+            {
+                "source_practice_item_id": f"pi_{index}",
+                "learning_object_id": f"lo_{index}",
+                "direction": "harder",
+                "source_waypoint_slug": "execute",
+                "target_waypoint_slug": "select_method",
+                "target_rung_json": "{}",
+                "status": "pending",
+            }
+        )
+        request_ids.append(request_id)
+        batch_id = runner.enqueue_batch(
+            "rung_variant",
+            [JobSpec("rung_variant", {"request_id": request_id})],
+        )
+        runner.repo.update_rung_variant_request(request_id, batch_id=batch_id)
+    runner.drain()
+
+    calls = 0
+    original_bulk = runner.repo.rung_variant_requests
+
+    def requests_once(ids):
+        nonlocal calls
+        calls += 1
+        return original_bulk(ids)
+
+    monkeypatch.setattr(runner.repo, "rung_variant_requests", requests_once)
+    monkeypatch.setattr(
+        runner.repo,
+        "rung_variant_request",
+        lambda *_args: (_ for _ in ()).throw(
+            AssertionError("batch polling must not query a rung request per job")
+        ),
+    )
+
+    views = jobs.list_batches()
+
+    assert calls == 1
+    assert len(views) == 4
+    assert {
+        view["jobs"][0]["message"]
+        for view in views
+    } == {f"failed {request_id}" for request_id in request_ids}
+
+
 def test_batch_completion_triggers_one_vault_reload(tmp_path):
     """A durable synthesis batch that applies content in the background must
     refresh the sidecar's in-memory vault exactly once via the batch-polling
@@ -367,7 +485,7 @@ def test_bind_premarks_previously_completed_apply_jobs(tmp_path):
 
 
 def _failed_synthesis_batch(jobs: DurableIngestJobs, *, details: dict) -> str:
-    from learnloop.services.ingest_runner import IngestRunnerError
+    from learnloop.content.pipeline.runner import IngestRunnerError
 
     runner = jobs._require_runner()
     runner.handlers["inventory"] = lambda _ctx: {"inventoried": True}
@@ -459,7 +577,7 @@ def test_plain_retry_clears_candidate_recovery_flags(tmp_path):
     )
     runner.repo.synthesis_run = lambda run_id: {"id": run_id, "candidate_output": {"summary": "s"}}
 
-    from learnloop.services.ingest_runner import IngestRunnerError
+    from learnloop.content.pipeline.runner import IngestRunnerError
 
     def fail_again(_ctx):
         raise IngestRunnerError("still failing", code="synthesis_gate_failed",
@@ -485,7 +603,7 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
     """The sidecar worker (foreground in tests) drains queued demand-paged reader
     requests with the injected client — the loop that previously never ran."""
 
-    from learnloop.services import reader_requests as RR
+    from learnloop.reader import reader_requests as RR
     from tests.test_reader_requests import _FakePresetClient, _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
@@ -507,7 +625,7 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
 
 
 def test_kick_reader_drain_leaves_requests_queued_without_provider(tmp_path):
-    from learnloop.services import reader_requests as RR
+    from learnloop.reader import reader_requests as RR
     from tests.test_reader_requests import _ingest
 
     repo = Repository(tmp_path / "state.sqlite")
@@ -552,7 +670,9 @@ def test_reader_drain_client_routes_via_canonical_ingest(tmp_path, monkeypatch):
 
     assert client is not None
     assert client.provider_type == "openrouter"
-    assert callable(getattr(client, "run_reader_preset_synthesis", None))
+    from learnloop.ai.transport import STRUCTURED_COMPLETION
+
+    assert client.supports(STRUCTURED_COMPLETION)
 
 
 def test_import_batch_is_not_a_build_and_its_ladder_says_so(tmp_path):

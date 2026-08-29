@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import AuthoringContext
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.proposals.ai_contracts import AuthoringContext
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.proposals import generate_authoring_proposal, persist_authoring_proposal
+from learnloop.content.proposals.proposals import generate_authoring_proposal, persist_authoring_proposal
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
 
-class _FakeAuthoringClient:
+class _FakeAuthoringClient(StructuredClientFake):
     def __init__(self, proposal: AuthoringProposal):
         self.proposal = proposal
         self.calls = 0

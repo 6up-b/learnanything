@@ -1,0 +1,126 @@
+schema_version: 1
+id: pi_a_sample_space_has_four
+learning_object_id: lo_count_structured_outcomes_and_event_subsets
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+  - facet_because_every_event_is_a_subset_of_the_sample_sp
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: 'A sample space has four distinct outcomes: S = {a, b, c, d}. How many different
+  events are possible? Explain the count in terms of the choice made for each outcome,
+  and include the two extreme events in your explanation.'
+expected_answer: There are 2^4 = 16 events. For each of the four outcomes there 
+  are two independent choices—include it in the subset or exclude it. The count 
+  includes the empty event and the full event S.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.3
+scaffold_level: 0.15
+capability:
+task_features:
+task_feature_schema:
+surface_family: finite_event_power_set_count
+evidence_fingerprint:
+  source_family: primary-textbook
+  shared_stimulus_id: four_outcome_finite_space
+  representation: explicit finite set and subset-choice argument
+  solution_recipe_family: binary inclusion choices
+  answer_structure: numerical count plus justification
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+  - facet_because_every_event_is_a_subset_of_the_sample_sp
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_event_count
+      points: 2.0
+      description: Reports 16 events by applying the 2^n subset count with n = 
+        4.
+      tier: core
+      targets:
+        - facet: facet_because_every_event_is_a_subset_of_the_sample_sp
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: power_set_counting
+      recipe_ids:
+        - recipe_count_finite_outcomes_and_events
+      measurement_status:
+    - id: criterion_inclusion_choice_reasoning
+      points: 2.0
+      description: Explains the two include-or-exclude choices per outcome and 
+        explicitly includes the empty and full events.
+      tier: transfer
+      targets:
+        - facet: facet_because_every_event_is_a_subset_of_the_sample_sp
+          capability: schema_interpretation
+          role: primary
+        - facet: facet_an_event_a_is_a_subset_of_the_sample_space_s_and
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - criterion_event_count
+      correlation_group: power_set_counting
+      recipe_ids:
+        - recipe_count_finite_outcomes_and_events
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s17
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s50
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: primary_textbook
+created_at: '2026-07-28T17:34:44Z'
+updated_at: '2026-07-28T17:34:44Z'

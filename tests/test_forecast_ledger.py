@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.forecast_ledger import issue_forecast, resolve_due_forecasts
+from learnloop.goals.forecast_ledger import issue_forecast, resolve_due_forecasts
 
 from tests.helpers import NOW, create_basic_vault
 

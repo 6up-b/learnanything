@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 
 from learnloop.db.repositories import Repository
-from learnloop.services.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.tui.app import LearnLoopApp
 from learnloop.tui.screens.practice import PracticeScreen
 from learnloop.tui.screens.today import TodayScreen

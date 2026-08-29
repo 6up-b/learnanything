@@ -11,8 +11,8 @@ from math import log
 from typing import TYPE_CHECKING, Any, Iterable
 
 from learnloop.db.repositories import Repository
-from learnloop.services.facet_diagnostics import mastery_diagnostic_view
-from learnloop.services.mastery import display_mastery
+from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
+from learnloop.learner.mastery import display_mastery
 from learnloop.vault.models import LoadedVault
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard (runner imports metrics)

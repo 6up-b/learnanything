@@ -7,8 +7,8 @@ from __future__ import annotations
 from learnloop.clock import FrozenClock
 from learnloop.config import SchedulerFollowupConfig
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.followups import evaluate_intervention_followup
-from learnloop.services.gate_score import (
+from learnloop.diagnosis.followups import evaluate_intervention_followup
+from learnloop.diagnosis.gate_score import (
     DEFAULT_GATE_BIAS,
     DEFAULT_GATE_WEIGHTS,
     GATE_FEATURE_VERSION,
@@ -17,7 +17,7 @@ from learnloop.services.gate_score import (
     resolve_gate_weights,
     subscores_from_diagnostics,
 )
-from learnloop.services.signal_quantiles import resolve_followup_thresholds
+from learnloop.diagnosis.signal_quantiles import resolve_followup_thresholds
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import ALGORITHM_VERSION, NOW, NOW_ISO, add_followup_item, create_basic_vault
@@ -251,7 +251,7 @@ def _score_mode_vault(tmp_path):
 
 
 def _surprising_attempt(loaded, repository):
-    from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 
     repository.upsert_mastery_state(
         MasteryState("lo_svd_definition", 2.0, 1.0, 3, NOW_ISO, ALGORITHM_VERSION, NOW_ISO)

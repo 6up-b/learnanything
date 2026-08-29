@@ -1,6 +1,6 @@
 """Diagnosis adjudication over the sidecar (spec_diagnostic_augmentation_v1 §2 A4).
 
-The store (``services/diagnosis_adjudication``) and the CLI
+The store (``learnloop.diagnosis.diagnosis_adjudication``) and the CLI
 (``learnloop diagnosis queue|adjudicate|scoreboard``) already exist; this module
 is the desktop supply step for the same three operations, and nothing more. All
 verdict semantics — the abstention/filled partition, anchor inheritance, version
@@ -21,7 +21,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any, Mapping
 
-from learnloop.services.diagnosis_adjudication import (
+from learnloop.diagnosis.diagnosis_adjudication import (
     ABSTENTION_VERDICTS,
     ADJUDICATOR_SOURCES,
     ANCHOR_KINDS,
@@ -118,7 +118,7 @@ def _learner_facing(vault, repository, attempt_id: str) -> dict[str, Any] | None
     learner saw no causal overlay here".
     """
 
-    from learnloop.services.causal_attribution import claim_checked_feedback
+    from learnloop.diagnosis.causal_attribution import claim_checked_feedback
 
     try:
         return claim_checked_feedback(vault, repository, attempt_id)
@@ -134,7 +134,7 @@ def _repair_class_options(repository, attempt_id: str) -> list[dict[str, Any]]:
     choose from exactly these or record prose instead.
     """
 
-    from learnloop.services.causal_attribution import causal_episode_for_attempt
+    from learnloop.diagnosis.causal_attribution import causal_episode_for_attempt
 
     episode = causal_episode_for_attempt(repository, attempt_id) or {}
     receipt = episode.get("receipt")
@@ -271,7 +271,7 @@ def _outcome(repository, effect) -> dict[str, Any]:
     feed will never render.
     """
 
-    from learnloop.services.surfaced_beliefs import surfaced_belief_corrections
+    from learnloop.learner.surfaced_beliefs import surfaced_belief_corrections
 
     declined = [_declined_wording(reason) for reason in effect.declined]
     if effect.promoted:
@@ -416,7 +416,7 @@ def adjudication_record_handler(
     except ValueError as exc:
         raise SidecarError("invalid_adjudication", str(exc)) from exc
 
-    from learnloop.services.durable_promotion import apply_adjudicated_belief_effects
+    from learnloop.tutor.durable_promotion import apply_adjudicated_belief_effects
 
     try:
         effect = apply_adjudicated_belief_effects(

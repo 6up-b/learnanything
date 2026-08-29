@@ -14,20 +14,21 @@ invariant: no path hands the authoring model a zero-width band.
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.practice_generation import (
-    _ability_logit,
+from learnloop.content.authoring.practice_generation import (
+    ability_logit,
     _guard_degenerate_band,
-    _success_band_difficulty,
+    success_band_difficulty,
     build_diagnostic_practice_plan,
 )
-from learnloop.services.promotions import _recommended_difficulty_band
+from learnloop.tutor.promotions import _recommended_difficulty_band
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import ALGORITHM_VERSION, NOW_ISO, create_basic_vault
 
 LO_ID = "lo_svd_definition"
 
-# config defaults the production call sites pass (config.py PracticeGenerationConfig).
+# config defaults the production call sites pass
+# (``learnloop.config.schema.PracticeGenerationConfig``).
 PRACTICE_BAND = (0.70, 0.85)
 PROBE_BAND = (0.45, 0.55)
 FLOOR = 0.15
@@ -65,14 +66,14 @@ def test_probe_band_collapses_unguarded_and_stays_boundary_centred_guarded():
     boundary and measures the wrong place.
     """
 
-    pessimistic = _ability_logit(0.02)
-    raw = _success_band_difficulty(
+    pessimistic = ability_logit(0.02)
+    raw = success_band_difficulty(
         pessimistic, PROBE_BAND, discrimination=1.0, difficulty_scale=2.5
     )
     assert raw == (0.0, 0.0)
 
     guarded = _guard_degenerate_band(raw, min_band_width=MIN_WIDTH)
-    practice = _success_band_difficulty(
+    practice = success_band_difficulty(
         pessimistic,
         PRACTICE_BAND,
         discrimination=1.0,
@@ -159,7 +160,7 @@ def test_promotion_band_unchanged_at_ordinary_mastery(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
     band = _recommended_difficulty_band(vault, 0.5)
-    raw = _success_band_difficulty(
-        _ability_logit(0.5), PRACTICE_BAND, discrimination=1.0, difficulty_scale=2.5
+    raw = success_band_difficulty(
+        ability_logit(0.5), PRACTICE_BAND, discrimination=1.0, difficulty_scale=2.5
     )
     assert band == raw

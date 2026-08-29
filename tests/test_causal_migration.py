@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.causal_migration import migrate_legacy_causal_basis
+from learnloop.diagnosis.causal_migration import migrate_legacy_causal_basis
 
 from tests.helpers import NOW_ISO, create_basic_vault
 

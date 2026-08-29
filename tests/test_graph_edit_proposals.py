@@ -4,14 +4,14 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.graph_edit_proposals import (
+from learnloop.curriculum.graph_edit_proposals import (
     GraphEditError,
     propose_graph_edits,
     queue_restructure_request,
     resolve_edge_direction,
 )
-from learnloop.services.maintenance_feed import generate_maintenance_feed
-from learnloop.services.patches import apply_accepted_items, reject_applied_items
+from learnloop.ops.maintenance_feed import generate_maintenance_feed
+from learnloop.content.proposals.patches import apply_accepted_items, reject_applied_items
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import (
     upsert_concept,

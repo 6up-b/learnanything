@@ -5,8 +5,12 @@ import json
 import pytest
 
 from learnloop.ai.client import make_ai_provider_client_from_profile
-from learnloop.ai.openrouter import OpenRouterProviderClient
-from learnloop.codex.client import CodexUnavailable, ExerciseAuthoringContext, GradingContext
+from learnloop.ai.providers.openrouter import OpenRouterProviderClient
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.content.authoring.ai_contracts import ExerciseAuthoringContext
+from learnloop.attempts.grading import request_grading_proposal
+from learnloop.content.authoring.exercise_authoring import request_exercise_authoring
 from learnloop.config import AIProviderConfig
 
 from tests.openai_fakes import grading_json, install_fake_openai
@@ -38,7 +42,7 @@ def test_openrouter_defaults_base_url_key_env_and_title_header(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
     client = OpenRouterProviderClient("openrouter", _openrouter_profile())
 
-    proposal = client.run_grading_proposal(_grading_context())
+    proposal = request_grading_proposal(client, _grading_context())
 
     assert proposal.rubric_score == 4
     kwargs = fake_openai.instances[0].kwargs
@@ -51,9 +55,9 @@ def test_openrouter_defaults_base_url_key_env_and_title_header(monkeypatch):
 
 
 def test_openrouter_supports_exercise_authoring(monkeypatch):
-    # Reader exercise imports getattr-discover run_exercise_authoring on the
-    # routed client; the chat client must expose it so OpenRouter vaults can
-    # import end-of-chapter exercises.
+    # The feature-owned operation runs over the same structured transport, so
+    # OpenRouter vaults can import end-of-chapter exercises without a provider
+    # method dedicated to that feature.
     response = json.dumps(
         {
             "items": [
@@ -69,7 +73,8 @@ def test_openrouter_supports_exercise_authoring(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
     client = OpenRouterProviderClient("openrouter", _openrouter_profile())
 
-    authored = client.run_exercise_authoring(
+    authored = request_exercise_authoring(
+        client,
         ExerciseAuthoringContext(
             extraction_id="ext_1",
             exercise_text="Compute the SVD of A.",
@@ -86,7 +91,7 @@ def test_openrouter_profile_base_url_overrides_default(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
     client = OpenRouterProviderClient("openrouter", _openrouter_profile(base_url="https://proxy.example/v1"))
 
-    client.run_grading_proposal(_grading_context())
+    request_grading_proposal(client, _grading_context())
 
     assert fake_openai.instances[0].kwargs["base_url"] == "https://proxy.example/v1"
 
@@ -99,7 +104,7 @@ def test_openrouter_attribution_headers_configurable(monkeypatch):
         _openrouter_profile(http_referer="https://example.com/app", x_title="My App"),
     )
 
-    client.run_grading_proposal(_grading_context())
+    request_grading_proposal(client, _grading_context())
 
     assert fake_openai.instances[0].kwargs["default_headers"] == {
         "X-Title": "My App",
@@ -112,7 +117,7 @@ def test_openrouter_reasoning_effort_maps_to_unified_body(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
     client = OpenRouterProviderClient("openrouter", _openrouter_profile(reasoning_effort="high"))
 
-    client.run_grading_proposal(_grading_context())
+    request_grading_proposal(client, _grading_context())
 
     request = fake_openai.instances[0].requests[0]
     assert request["extra_body"] == {"reasoning": {"effort": "high"}}
@@ -127,7 +132,7 @@ def test_openrouter_thinking_disabled_sends_no_reasoning(monkeypatch):
         _openrouter_profile(thinking="disabled", reasoning_effort="high"),
     )
 
-    client.run_grading_proposal(_grading_context())
+    request_grading_proposal(client, _grading_context())
 
     request = fake_openai.instances[0].requests[0]
     assert "extra_body" not in request

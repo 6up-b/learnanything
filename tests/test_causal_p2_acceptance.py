@@ -55,11 +55,11 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import failure_triage as FT
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import task_blueprints as TB
-from learnloop.services.attempts import (
+from learnloop.diagnosis import failure_triage as FT
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
@@ -68,12 +68,12 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_attribution import (
+from learnloop.diagnosis.causal_attribution import (
     APPROVED_SUPPORT_AUTHORITIES,
     record_unresolved_cause_self_report,
 )
-from learnloop.services.causal_health import ChannelHealth, causal_lane_health
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_health import ChannelHealth, causal_lane_health
+from learnloop.diagnosis.causal_orchestrator import (
     accept_probe_offer,
     auto_classify_pinned_probe,
     causal_repair_status,
@@ -82,7 +82,7 @@ from learnloop.services.causal_orchestrator import (
     pinned_causal_probe,
     record_probe_classification,
 )
-from learnloop.services.causal_probe_coherence import (
+from learnloop.diagnosis.causal_probe_coherence import (
     audit_manipulation_contract,
     build_causal_hypothesis_set,
     create_probe_candidate,
@@ -91,15 +91,15 @@ from learnloop.services.causal_probe_coherence import (
     record_delayed_cold_verification,
     transition_probe_candidate,
 )
-from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.golden_path_fixture import stub_blueprint
-from learnloop.services.probe_hypotheses import H_OTHER
-from learnloop.services.probe_targeting import CAUSE_SET_DIVERGENT, classify_cause_set
-from learnloop.services.remediation import (
+from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+from learnloop.curriculum.golden_path_fixture import stub_blueprint
+from learnloop.diagnosis.probe_hypotheses import H_OTHER
+from learnloop.diagnosis.probe_targeting import CAUSE_SET_DIVERGENT, classify_cause_set
+from learnloop.diagnosis.remediation import (
     prescribe_remediation,
     start_remediation_treatment,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -863,6 +863,74 @@ def test_no_bundle_matched_supports_the_open_set_but_closes_nothing(tmp_path):
     assert observation.support_scores == {first_id: 0.0, second_id: 0.0}
 
 
+def test_a_probe_answered_after_a_reveal_is_not_independent_evidence(tmp_path):
+    """Migration 155. Independence is a separate question from discrimination.
+
+    The instrument worked perfectly: the answer matched exactly one pinned
+    prediction over fully measured features. But the learner had been shown the
+    answer first, so what the observation measures is reading comprehension.
+    Admitting it would let a revealed solution CLOSE the factor its own reveal
+    contaminated, which is the loop the reveal ledger exists to break.
+    """
+
+    from learnloop.attempts.reveal_ledger import record_reveal
+
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    result, factor_id, first_id, _second, offer = _offered_probe(vault, repository)
+    probe_attempt = repository.fetch_practice_attempt(result.attempt_id)
+    record_reveal(
+        repository,
+        practice_item_id=str(probe_attempt["practice_item_id"]),
+        learning_object_id=str(probe_attempt["learning_object_id"]),
+        source_kind="repair_display",
+        amount=0.8,
+        # Strictly before the attempt, so the attempt is downstream of it.
+        clock=FrozenClock(NOW - timedelta(hours=1)),
+    )
+
+    observation = record_probe_classification(
+        repository,
+        presentation_id=offer.presentation_id,
+        observed_features={"names_transpose": False},
+        feature_source="deterministic",
+        probe_attempt_id=result.attempt_id,
+        clock=CLOCK,
+    )
+
+    # The verdict itself is unchanged -- the instrument is not at fault.
+    assert observation.outcome == "matched_single"
+    # ...but it earns nothing and closes nothing.
+    assert observation.admitted is False
+    assert observation.admission_reason == "post_reveal_not_independent"
+    assert observation.resolved_factor is False
+    assert observation.support_authority is None
+    assert repository.unresolved_cause_factor(factor_id)["status"] == "open"
+
+    receipt = repository.causal_discriminating_observation(observation.observation_id)
+    assert receipt["admissible_as_independent"] is False
+    assert receipt["inadmissibility_reason"] == "post_reveal_not_independent"
+    assert receipt["contaminating_reveal_event_id"]
+    assert receipt["channel"] == "blind_probe"
+
+
+def test_a_probe_answered_with_no_reveal_is_marked_independent(tmp_path):
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    result, factor_id, first_id, _second, offer = _offered_probe(vault, repository)
+
+    observation = record_probe_classification(
+        repository,
+        presentation_id=offer.presentation_id,
+        observed_features={"names_transpose": False},
+        feature_source="deterministic",
+        probe_attempt_id=result.attempt_id,
+        clock=CLOCK,
+    )
+    assert observation.admitted is True
+    receipt = repository.causal_discriminating_observation(observation.observation_id)
+    assert receipt["admissible_as_independent"] is True
+    assert receipt["inadmissibility_reason"] is None
+
+
 def test_a_verdict_over_unmeasured_features_is_inadmissible(tmp_path):
     """The exact-key matcher cannot tell "measured and different" from "not measured".
 
@@ -1208,6 +1276,38 @@ def test_one_authored_cause_is_unioned_with_the_synthesized_arms(tmp_path):
     }
 
 
+def test_projection_bulk_loads_candidate_cause_error_events_once(
+    tmp_path, monkeypatch
+):
+    """Unresolved failures do not issue one error-event read per criterion."""
+
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
+
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    _single_cause_failure(vault, repository)
+    calls = 0
+    original_bulk = repository.all_error_events_by_attempt
+
+    def bulk_once():
+        nonlocal calls
+        calls += 1
+        return original_bulk()
+
+    monkeypatch.setattr(repository, "all_error_events_by_attempt", bulk_once)
+    monkeypatch.setattr(
+        repository,
+        "error_events_for_attempt",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("canonical replay must not query errors per attempt")
+        ),
+    )
+
+    project_canonical_facet_state(vault, repository, clock=CLOCK)
+
+    assert calls == 1
+    assert repository.open_unresolved_cause_factors(learning_object_id=LO_ID)
+
+
 def test_projection_version_names_the_open_cause_union(tmp_path):
     """The version bump is the replay boundary; a rebuild records it.
 
@@ -1221,19 +1321,20 @@ def test_projection_version_names_the_open_cause_union(tmp_path):
     was wrong), and skipping the first row unconditionally is what made it one.
     """
 
-    from learnloop.services.canonical_projection import CANONICAL_PROJECTION_VERSION
-    from learnloop.services.learner_review_feed import build_learner_review_feed
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
+    from learnloop.learner.learner_review_feed import build_learner_review_feed
+    from learnloop.substrate.replay import rebuild_derived_state
 
     # Pinned deliberately so changing what the fold derives is always a conscious
     # bump. Each version supersedes without replacing: the open-cause UNION
     # semantics (v3), item-declared capability for compiled criterion targets
     # (v4), and v5's Meas §3.A1 guards (supporting credit requires A6 trace
-    # evidence; per-cell embedded-share cap) all remain in force, and v6 makes
-    # absent grading evidence inert — a criterion with no evidence row produces
-    # NO outcome instead of banking a phantom failure. Update this literal
+    # evidence; per-cell embedded-share cap) all remain in force, v6 makes
+    # absent grading evidence inert, v7 carries priming provenance into replay,
+    # and v8 separates certification eligibility from the assistance display so
+    # pure diagnostics / recorded near clones cannot certify. Update this literal
     # whenever the projection semantics move.
-    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v6_absent_evidence_confers_nothing"
+    assert CANONICAL_PROJECTION_VERSION == "canonical_projection_v8_activity_eligibility"
 
     vault, repository, _paths = _acceptance_vault(tmp_path)
     _single_cause_failure(vault, repository)

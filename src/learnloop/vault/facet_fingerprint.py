@@ -35,7 +35,7 @@ _WHITESPACE = re.compile(r"\s+")
 FINGERPRINT_PREFIX = "sf_"
 
 
-def _normalize_text(value: Any) -> str:
+def normalize_text(value: Any) -> str:
     """Lowercase, strip, and collapse internal whitespace."""
 
     if value is None:
@@ -54,7 +54,7 @@ def _normalize_list(values: Any) -> list[str]:
         items = values
     else:
         items = [values]
-    normalized = [_normalize_text(item) for item in items]
+    normalized = [normalize_text(item) for item in items]
     return sorted(text for text in normalized if text)
 
 
@@ -73,7 +73,7 @@ def normalized_contract(facet: Any) -> dict[str, Any]:
 
     contract: dict[str, Any] = {}
     for field in _CONTRACT_SCALAR_FIELDS:
-        contract[field] = _normalize_text(_get(field))
+        contract[field] = normalize_text(_get(field))
     for field in _CONTRACT_LIST_FIELDS:
         contract[field] = _normalize_list(_get(field))
     return contract

@@ -16,16 +16,16 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import commitments as C
-from learnloop.services import controller_ownership as own
-from learnloop.services.exam_pool import reserve_exam_pool
-from learnloop.services.probe_episodes import (
+from learnloop.curriculum import commitments as C
+from learnloop.scheduling import controller_ownership as own
+from learnloop.goals.exam_pool import reserve_exam_pool
+from learnloop.diagnosis.probe_episodes import (
     eligible_instruments,
     enter_episode,
     episode_hypothesis_set,
     next_probe_item,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -199,7 +199,7 @@ def test_staged_owned_item_not_reservable_into_exam_pool(tmp_path):
     assert baseline.reserved_item_ids, "sanity: some items reservable before ownership"
     target = baseline.reserved_item_ids[0]
     # Release so the second reserve is a fresh selection (not the idempotent branch).
-    from learnloop.services.exam_pool import release_exam_pool
+    from learnloop.goals.exam_pool import release_exam_pool
 
     release_exam_pool(repo, goal.id, clock=CLOCK)
 

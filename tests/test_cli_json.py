@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.db.repositories import Repository
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
@@ -27,6 +27,8 @@ def test_doctor_json_contract(tmp_path):
         "clean",
         "ai_runtime",
         "codex_runtime",
+        "contract_reachability",
+        "deprecated_table_row_counts",
         "error_count",
         "issues",
         "root",
@@ -36,7 +38,7 @@ def test_doctor_json_contract(tmp_path):
     }
     assert payload["version"] == 1
     assert payload["ai_runtime"] is None
-    assert payload["codex_runtime"]["status"] == "codex_missing"
+    assert payload["codex_runtime"] is None
     assert payload["state_sync"]["practice_item_states_created"] == 1
 
 

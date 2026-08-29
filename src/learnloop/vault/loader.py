@@ -274,7 +274,8 @@ def load_practice_item_file(
 
 # Error types seeded into every new vault's errors/error_types.yaml.
 # `recall_failure` is the deterministic attribution for `dont_know` attempts
-# (see services/attempts.py and spec §"Attempt-type handling"); seeding it means
+# (see ``learnloop.attempts.attempts`` and spec §"Attempt-type handling");
+# seeding it means
 # its severity and misconception flag are defined rather than falling back to
 # the loader defaults when a don't-know writes an error event.
 DEFAULT_ERROR_TYPE_SEEDS: tuple[dict[str, object], ...] = (
@@ -355,9 +356,9 @@ def init_vault(root: Path, clock: Clock | None = None) -> Path:
     if not paths.facets_path.exists():
         write_yaml(paths.facets_path, {"schema_version": 1, "facets": []})
 
-    from learnloop.db.migrate import apply_migrations
+    from learnloop.migration_coordinator import migrate_vault
 
-    apply_migrations(paths.sqlite_path)
+    migrate_vault(vault_root, paths.sqlite_path)
     return vault_root
 
 

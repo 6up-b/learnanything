@@ -12,7 +12,11 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.config import IngestProviderLimits, LearnLoopConfig
+from learnloop.config import (
+    OPENROUTER_TRANSCRIPTION_PROVIDER,
+    IngestProviderLimits,
+    LearnLoopConfig,
+)
 from learnloop.db.repositories import Repository
 from learnloop.ingest.extractors.normalizers import markdown_to_ir
 from learnloop.ingest.hashing import (
@@ -21,18 +25,18 @@ from learnloop.ingest.hashing import (
     semantic_hash,
 )
 from learnloop.ingest.ir import IR_SCHEMA_VERSION, DocumentBlock, DocumentIR, DocumentUnit, PageHealth, ExtractionHealth
-from learnloop.ingest.source_library import register_source_revision
-from learnloop.services.acquisition_preview import build_acquisition_preview
-from learnloop.services.build_plan import build_build_plan, route_create_or_update
-from learnloop.services.extraction_health import analyze_extraction_health
-from learnloop.services.ingest_runner import (
+from learnloop.content.sources.source_library import register_source_revision
+from learnloop.content.pipeline.acquisition_preview import build_acquisition_preview
+from learnloop.content.pipeline.build_plan import build_build_plan, route_create_or_update
+from learnloop.content.sources.extraction_health import analyze_extraction_health
+from learnloop.content.pipeline.runner import (
     FetchedBytes,
     IngestRunner,
     JobSpec,
     RunnerServices,
 )
-from learnloop.services.source_outline import approx_token_count, build_source_outline
-from learnloop.services.source_unit_selection import (
+from learnloop.content.sources.source_outline import approx_token_count, build_source_outline
+from learnloop.content.synthesis.source_unit_selection import (
     SelectionValidationError,
     reanchor_selection,
     save_unit_selection,
@@ -261,6 +265,30 @@ def test_acquisition_preview_audio_is_always_external(tmp_path):
     assert external["kind"] == "audio_transcription"
     assert external["model"] == "whisper-1"
     assert preview.needs_consent_count == 1
+
+
+def test_legacy_openrouter_audio_translation_preserves_consent_surface(tmp_path):
+    repo = _repo(tmp_path)
+    audio = tmp_path / "lecture.mp3"
+    audio.write_bytes(b"\x00fake-mp3")
+    config = LearnLoopConfig.model_validate(
+        {
+            "ingest": {
+                "audio": {
+                    "provider": "openrouter",
+                    "transcription_model": "vendor/audio-model",
+                }
+            }
+        }
+    )
+
+    preview = build_acquisition_preview(repo, config, [str(audio)])
+
+    assert config.ai.routing.transcription == OPENROUTER_TRANSCRIPTION_PROVIDER
+    assert preview.needs_consent_count == 1
+    external = preview.items[0].potential_external[0]
+    assert external["kind"] == "audio_transcription"
+    assert external["model"] == "vendor/audio-model"
 
 
 # --------------------------------------------------------------------------
@@ -545,7 +573,7 @@ def test_plain_import_performs_no_external_egress(tmp_path):
 def test_import_snapshots_build_plan_estimate_into_payload(tmp_path):
     # When a batch is started from a plan, the estimate snapshots into the job
     # payload (§8.6.2 / §6.2). Exercised via the durable-jobs wrapper.
-    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
 
     repo = _repo(tmp_path)
     (tmp_path / "notes.md").write_text("# N\nbody text\n")
@@ -566,7 +594,7 @@ def test_import_snapshots_build_plan_estimate_into_payload(tmp_path):
 
 
 def test_import_snapshots_pdf_page_selection_into_payload(tmp_path):
-    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
 
     repo = _repo(tmp_path)
     jobs = DurableIngestJobs()
@@ -581,7 +609,7 @@ def test_import_snapshots_pdf_engine_choice_into_payload(tmp_path):
     """An explicit marker/pypdf choice rides the import payload; "auto" (or
     None) stays implicit so unchanged sources keep their extraction identity."""
 
-    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
 
     repo = _repo(tmp_path)
     jobs = DurableIngestJobs()
@@ -595,7 +623,7 @@ def test_import_snapshots_pdf_engine_choice_into_payload(tmp_path):
 
 
 def test_multi_source_import_assigns_page_selection_per_source(tmp_path):
-    from learnloop_sidecar.ingest_jobs import DurableIngestJobs
+    from learnloop.content.pipeline.jobs import DurableIngestJobs
 
     repo = _repo(tmp_path)
     jobs = DurableIngestJobs()

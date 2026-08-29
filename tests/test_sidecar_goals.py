@@ -145,7 +145,7 @@ def test_create_goal_rejects_empty_scope(ctx):
 
 
 def test_create_goal_enqueues_durable_population_batch(ctx):
-    from learnloop.services.ingest_runner import RunnerServices
+    from learnloop.content.pipeline.runner import RunnerServices
 
     vault, repository = ctx.require_vault()
     ctx.ingest_jobs.bind(
@@ -253,7 +253,7 @@ def test_goal_feasibility_transient_probe(ctx):
 
 
 def _issue(repository, goal_id, *, kind, snapshot):
-    from learnloop.services.forecast_ledger import issue_forecast
+    from learnloop.goals.forecast_ledger import issue_forecast
 
     return issue_forecast(
         repository,

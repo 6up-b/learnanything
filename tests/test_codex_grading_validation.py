@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal, RepairSuggestion
-from learnloop.services.grading import GradingValidationError, validate_codex_grading_proposal
+from learnloop.attempts.ai_contracts import (
+    CriterionEvidence,
+    ErrorAttribution,
+    GradingProposal,
+    RepairSuggestion,
+)
+from learnloop.attempts.grading import GradingValidationError, validate_codex_grading_proposal
 from learnloop.vault.loader import load_vault
+from learnloop.vault.models import Rubric, RubricCriterion
 
 from tests.helpers import create_basic_vault
 
@@ -243,7 +249,7 @@ def test_codex_grade_rejects_mismatched_attempt_and_item(tmp_path):
         validate_codex_grading_proposal(_proposal(practice_item_id="other"), attempt_id="attempt_1", item=item, vault=vault)
 
 
-def test_codex_grade_rejects_unknown_or_excess_criterion_and_bad_fatal_cap(tmp_path):
+def test_codex_grade_rejects_unknown_or_excess_criterion_and_derives_fatal_cap(tmp_path):
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
     vault = load_vault(vault_root)
@@ -263,13 +269,88 @@ def test_codex_grade_rejects_unknown_or_excess_criterion_and_bad_fatal_cap(tmp_p
             item=item,
             vault=vault,
         )
-    with pytest.raises(GradingValidationError, match="Fatal errors must cap"):
-        validate_codex_grading_proposal(
-            _proposal(rubric_score=4, fatal_errors=["conceptual_slip"]),
-            attempt_id="attempt_1",
-            item=item,
-            vault=vault,
-        )
+    validated = validate_codex_grading_proposal(
+        _proposal(rubric_score=4, fatal_errors=["conceptual_slip"]),
+        attempt_id="attempt_1",
+        item=item,
+        vault=vault,
+    )
+    assert validated.rubric_score == 1
+
+
+def test_codex_score_and_max_are_derived_from_criterion_points(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    item = vault.practice_items["pi_svd_define_001"]
+    rubric = Rubric(
+        max_points=4,
+        criteria=[
+            RubricCriterion(id="formula", points=2, description="Formula."),
+            RubricCriterion(id="smoothing", points=3, description="Smoothing."),
+        ],
+    )
+    proposal = GradingProposal(
+        attempt_id="attempt_1",
+        practice_item_id=item.id,
+        rubric_score=4,
+        criterion_evidence=[
+            CriterionEvidence(criterion_id="formula", points_awarded=2, evidence="Correct."),
+            CriterionEvidence(criterion_id="smoothing", points_awarded=3, evidence="Correct."),
+        ],
+        grader_confidence=0.9,
+    )
+
+    validated = validate_codex_grading_proposal(
+        proposal,
+        attempt_id="attempt_1",
+        item=item,
+        vault=vault,
+        rubric=rubric,
+    )
+
+    assert rubric.max_points == 5
+    assert validated.rubric_score == 5
+
+
+def test_recall_normalization_does_not_scan_unrelated_answer_text(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    item = vault.practice_items["pi_svd_define_001"]
+
+    validated = validate_codex_grading_proposal(
+        _proposal(
+            error_type="incomplete_answer",
+            is_misconception=False,
+            evidence="The final requested conclusion is omitted.",
+        ),
+        attempt_id="attempt_1",
+        item=item,
+        vault=vault,
+        learner_answer_md="I am not sure how to count one earlier case. The later calculation is correct.",
+    )
+
+    assert validated.error_attributions[0].error_type == "incomplete_answer"
+
+
+def test_unanchored_known_facet_requests_review_instead_of_failing_grade(tmp_path):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    vault = load_vault(vault_root)
+    item = vault.practice_items["pi_svd_define_001"]
+
+    validated = validate_codex_grading_proposal(
+        _proposal(target_evidence_families=["recall"]).model_copy(
+            update={"diagnosis_md": "The final explanation is incomplete."}
+        ),
+        attempt_id="attempt_1",
+        item=item,
+        vault=vault,
+    )
+
+    assert validated.error_attributions[0].target_evidence_families == ["recall"]
+    assert validated.manual_review_reason == "unanchored_diagnosis_facet:recall"
 
 
 def test_unknown_codex_error_type_routes_to_manual_review(tmp_path):

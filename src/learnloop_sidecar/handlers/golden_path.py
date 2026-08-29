@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services import golden_path_compose as GPX
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import task_blueprints as TB
-from learnloop.services.activities import resolve_legacy_item
+from learnloop.curriculum import golden_path_compose as GPX
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.substrate.activities import resolve_legacy_item
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError

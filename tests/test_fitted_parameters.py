@@ -4,8 +4,8 @@ rollback, and the hard-validated FSRS weights resolution fallback."""
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.fitted_params import FSRS_WEIGHTS_SCOPE, resolve_fsrs_weights
-from learnloop.services.fsrs import FSRS6_DEFAULT_WEIGHTS
+from learnloop.params.fitted_params import FSRS_WEIGHTS_SCOPE, resolve_fsrs_weights
+from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
 
 from tests.helpers import create_basic_vault
 

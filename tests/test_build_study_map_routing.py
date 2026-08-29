@@ -19,8 +19,8 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.source_append import subject_has_applied_study_map
-from learnloop.services.source_unit_inventory import run_unit_inventory
+from learnloop.content.synthesis.source_append import subject_has_applied_study_map
+from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.writer import upsert_source_set
 from learnloop_sidecar.errors import SidecarError
@@ -148,7 +148,7 @@ def test_existing_map_routes_to_append_over_new_members_only(tmp_path: Path, mon
     root, repo = _seed(tmp_path)
     # The subject already carries a study map -> auto routes to append.
     monkeypatch.setattr(
-        "learnloop.services.source_append.subject_has_applied_study_map",
+        "learnloop.content.synthesis.source_append.subject_has_applied_study_map",
         lambda vault, subject_id: True,
     )
     jobs = _RecordingJobs()

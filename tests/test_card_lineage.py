@@ -7,8 +7,8 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import card_lineage as CL
-from learnloop.services.fsrs import Rating
+from learnloop.substrate import card_lineage as CL
+from learnloop.scheduling.fsrs import Rating
 
 from tests.helpers import NOW
 
@@ -24,7 +24,7 @@ def repo(tmp_path):
 
 
 def _card_version(repo, *, family_title="fam", contract=None, purpose="practice"):
-    from learnloop.services import activities as A
+    from learnloop.substrate import activities as A
 
     family_id = repo.ensure_activity_family(purpose=purpose, legacy_kind=None, title=family_title, clock=CLOCK)
     card_id = repo.ensure_activity_card(family_id=family_id, clock=CLOCK)
@@ -32,8 +32,8 @@ def _card_version(repo, *, family_title="fam", contract=None, purpose="practice"
     version_id = repo.ensure_activity_card_version(
         card_id=card_id,
         version=1,
-        card_contract_hash=A._canonical_hash(contract),
-        contract_json=A._json(contract),
+        card_contract_hash=A.canonical_hash(contract),
+        contract_json=A.canonical_json(contract),
         schema_version=1,
         clock=CLOCK,
     )

@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.instrument_serving import (
+from learnloop.substrate.instrument_serving import (
     UNSERVABLE_ERROR_CODE,
     UNSERVABLE_REMEDIES,
     UnservableReason,

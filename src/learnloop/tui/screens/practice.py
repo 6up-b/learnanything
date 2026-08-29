@@ -11,16 +11,16 @@ from textual.screen import Screen
 from textual.widgets import Button, Rule, TextArea
 
 from learnloop.attempt_types import default_attempt_type
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.probe_episodes import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
     episode_contract,
     episode_hypothesis_set,
     probe_serving_block_reason,
     stop_diagnosing_and_teach,
 )
-from learnloop.services.mastery import sigmoid
-from learnloop.services.scheduler import ScheduledItem
+from learnloop.learner.mastery import sigmoid
+from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import (
     KeyBar,
@@ -91,9 +91,10 @@ class PracticeScreen(Screen):
         # fallback provider) decides whether an approved diagnostic grading
         # provider exists — without one no qualifying observation may be
         # served; the episode parks and the item runs as belief-only practice.
-        from learnloop_sidecar.handlers.ai_providers import ready_grading_provider
+        from learnloop.ai.routing import ready_client_for_task
 
-        _provider, runtime, client = ready_grading_provider(vault)
+        resolved = ready_client_for_task(vault.root, vault.config, "grading")
+        runtime, client = resolved.runtime, resolved.client
         if not runtime.ready or client is None:
             repository.update_probe_episode_status(episode.id, status="pending_items")
             return
@@ -200,6 +201,16 @@ class PracticeScreen(Screen):
             self.state.repository,
             self._draft("dont_know"),
             SelfGradeInput(criterion_points={}, confidence=3),
+        )
+        # Keep every learner-facing attempt door on the same post-attempt
+        # composition.  This path used to bypass feedback metadata, causal
+        # follow-ups, and certification cold-probe scheduling entirely.
+        from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+
+        run_post_attempt_pipeline(
+            self.state.vault,
+            self.state.repository,
+            result=result,
         )
         self.app.last_attempt_result = result
         self.state.refresh()

@@ -28,10 +28,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.hypothesis_claims import present_claims
-from learnloop.services.learner_review_feed import build_learner_review_feed
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.services.surfaced_beliefs import (
+from learnloop.learner.hypothesis_claims import present_claims
+from learnloop.learner.learner_review_feed import build_learner_review_feed
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.learner.surfaced_beliefs import (
     WITHDRAWAL_REASONS,
     BeliefReference,
     SurfacedBeliefError,

@@ -10,13 +10,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.attempt_trace import build_attempt_trace
-from learnloop.services.capability_grid import capability_grid, lo_blueprint_readiness
-from learnloop.services.facet_evidence_timeline import (
+from learnloop.attempts.attempt_trace import build_attempt_trace
+from learnloop.learner.capability_grid import capability_grid, lo_blueprint_readiness
+from learnloop.learner.facet_evidence_timeline import (
     facet_evidence_timeline,
     facet_ready_derivation,
 )
-from learnloop.services.facet_state_reader import is_canonical_state_vault
+from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError

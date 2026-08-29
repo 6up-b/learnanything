@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.patches import PatchApplicationError, compile_proposal_item
+from learnloop.content.proposals.patches import PatchApplicationError, compile_proposal_item
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_concept_edge
 

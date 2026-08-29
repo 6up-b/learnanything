@@ -10,13 +10,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import depth_transition as DT
-from learnloop.services import golden_path_assessment as GA
-from learnloop.services import golden_path_confirm as GPC
-from learnloop.services import golden_path_restoration as GRstr
-from learnloop.services import golden_path_run as GPR
-from learnloop.services import task_blueprints as TB
-from learnloop.services.activities import resolve_legacy_item
+from learnloop.curriculum import depth_transition as DT
+from learnloop.curriculum import golden_path_assessment as GA
+from learnloop.curriculum import golden_path_confirm as GPC
+from learnloop.curriculum import golden_path_restoration as GRstr
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.curriculum import task_blueprints as TB
+from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, add_followup_item, create_basic_vault
@@ -149,7 +149,7 @@ def test_burned_surface_refuses_and_run_degrades(tmp_path):
     _to_ready_to_assess(repo, receipt.run_id)
     # Burn the reserved assessment surface via a practice render on the SAME item
     # (exact surface_hash collision in the shared exposure ledger).
-    from learnloop.services.activities import open_administration
+    from learnloop.substrate.activities import open_administration
     practice = resolve_legacy_item(vault, repo, vault.practice_items[HELD_OUT], purpose="practice", clock=CLOCK)
     open_administration(repo, resolved=practice, clock=CLOCK)
 
@@ -293,7 +293,7 @@ def test_harness_activation_activates_exactly_one_edge(tmp_path, monkeypatch):
     vault, repo, receipt = _build_run(tmp_path)
     # Give the commitment an auto_within_envelope policy so the (harness-gated)
     # activation path is reachable; and flip the U-018 structural gate ON.
-    from learnloop.services import commitments as C
+    from learnloop.curriculum import commitments as C
     C.change_depth_policy(
         repo, commitment_id=receipt.commitment_id, policy="auto_within_envelope", clock=CLOCK,
     )

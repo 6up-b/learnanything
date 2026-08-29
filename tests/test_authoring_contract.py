@@ -20,20 +20,22 @@ from __future__ import annotations
 import copy
 from pathlib import Path
 
-from learnloop.codex.prompts import (
+from learnloop.content.authoring.ai_contracts import (
     BANNED_RESPONSE_MODES,
     LOW_MASTERY_RESPONSE_MODES,
+)
+from learnloop.tutor.ai_contracts import (
     TUTOR_PROMOTION_PROMPT,
     TUTOR_PROMOTION_PROMPT_VERSION,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.authoring_gates import (
+from learnloop.content.authoring.authoring_gates import (
     GATE_REMEDIATION_AUDIT_KEY,
     SelectedResponseGate,
     build_instrument_gates,
     selected_response_reasons,
 )
-from learnloop.services.proposals import (
+from learnloop.content.proposals.proposals import (
     _edited_payload_validation_errors,
     _instrument_gate_errors,
     _practice_item_metadata_errors,

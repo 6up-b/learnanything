@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import pytest
 
+from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import AuthoringProposal, PromotionAnalysis
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
+from learnloop.tutor.ai_contracts import PromotionAnalysis
 from learnloop.db.repositories import Repository
-from learnloop.services.promotions import (
+from learnloop.tutor.promotions import (
     PromotionError,
     PromotionNoItemError,
     promote_tutor_question,
@@ -15,7 +19,7 @@ from learnloop.services.promotions import (
     reconcile_rejected_question_promotion_patch,
     reconcile_reset_question_promotion_patch,
 )
-from learnloop.services.proposals import accept_items, reject_items, reset_items
+from learnloop.content.proposals.proposals import accept_items, reject_items, reset_items
 from learnloop.vault.loader import add_note, load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -24,7 +28,7 @@ from tests.helpers import NOW, create_basic_vault
 # --- fake clients ----------------------------------------------------------
 
 
-class _AnalysisClient:
+class _AnalysisClient(StructuredClientFake):
     """Provides Step-0 analysis only (no authoring provider available)."""
 
     provider_name = "codex"
@@ -38,6 +42,9 @@ class _AnalysisClient:
     def run_promotion_analysis(self, context) -> PromotionAnalysis:
         self.analysis_contexts.append(context)
         return self._analysis
+
+    def run_authoring_proposal(self, context) -> AuthoringProposal:
+        raise AIProviderUnavailable("analysis-only test transport has no authoring backend")
 
 
 class _FullClient(_AnalysisClient):

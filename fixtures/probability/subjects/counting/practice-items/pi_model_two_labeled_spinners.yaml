@@ -1,0 +1,196 @@
+schema_version: 1
+id: pi_model_two_labeled_spinners
+learning_object_id: lo_build_a_valid_counting_based_probability_model
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+evidence_weights:
+  facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+criterion_facet_weights:
+  c_sample_space:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: ordered_outcome_model
+      checkpoints:
+        - enumerate_labeled_pairs
+        - filter_event
+        - form_ratio
+      dependencies:
+        enumerate_labeled_pairs: []
+        filter_event:
+          - enumerate_labeled_pairs
+        form_ratio:
+          - filter_event
+variant_contract:
+teach_back_source:
+prompt: Two independent fair spinners are labeled A and B, and each shows 1, 2, 
+  or 3. Build a counting-based probability model for the event that their 
+  numbers differ by exactly 1. Write the elementary outcomes, identify the 
+  favorable outcomes, and compute the probability.
+expected_answer: Use the nine equally likely ordered outcomes (A,B) in 
+  {1,2,3}×{1,2,3}. The favorable outcomes are (1,2), (2,1), (2,3), and (3,2), so
+  the probability is 4/9.
+difficulty: 0.22
+difficulty_source: llm_estimate
+tags:
+  - reader_section_u6
+  - counting_model
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.3
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: labeled_spinner_event_model
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_unlabeled_spinner_pairs
+    hypothesis: Believes swapping results from two labeled random devices does 
+      not create a distinct elementary outcome.
+    observable_signature: Writes only the six pairs with A≤B and treats them as 
+      equally likely.
+    misconception_id:
+    facet_id: facet_for_a_finite_sample_space_s_whose_elementary_out
+    fails_criteria:
+      - c_sample_space
+      - c_event_probability
+    distinguishing_features:
+      - omits reversed ordered pairs
+      - uses a six-outcome denominator
+    source: facet_error_signature
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c_sample_space
+      points: 2.0
+      description: Represents the elementary outcomes as nine labeled ordered 
+        pairs and explains why they are equally likely.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c_event_probability
+      points: 2.0
+      description: Identifies the four favorable pairs and computes 4/9.
+      tier: core
+      targets: []
+      depends_on:
+        - c_sample_space
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_build_a_valid_counting_based_probability_model:s135-s149
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s135
+      quote: "Problems 26 and 27 show that the birthday problem is much more than
+        a fun party game, and much more than a way to build intuition about coincidences;
+        there are also important applications in statistics and computer science.
+        Problem 62 explores the more general setting in which the probability is not
+        necessarily 1/365 for each day. It turns out that in the non-equal probability
+        case, having at least one match becomes even more likely.\n* 1.4.11 (Labeling
+        objects). Drawing a sample from a population is a very fundamental concept
+        in statistics. It is important to think of the objects or people in the population
+        as named or labeled . For example, if there are n balls in a jar, we can imagine
+        that they have labels from 1 to n, even if the balls look the same to the
+        human eye. In the birthday problem, we can give each person an ID (identification)
+        number, rather than thinking of the people as indistinguishable particles
+        or a faceless mob.\nA related example is an instructive blunder made by Leibniz
+        in a seemingly simple problem (see Gorroochurn [14] for discussion of this
+        and a variety of other probability problems from a historical perspective).\n\
+        Example 1.4.12 (Leibniz's mistake). If we roll two fair dice, which is more
+        likely: a sum of 11 or a sum of 12?\nSolution:\nLabel the dice A and B, and
+        consider each die to be a sub-experiment. By the multiplication rule, there
+        are 36 possible outcomes for ordered pairs of the form (value of A, value
+        of B), and they are equally likely by symmetry. Of these, (5,6) and (6,5)
+        are favorable to a sum of 11, while only (6,6) is favorable to a sum of 12.
+        Therefore a sum of 11 is twice as likely as a sum of 12; the probability is
+        1/18 for the former, and 1/36 for the latter.\nHowever, Leibniz wrongly argued
+        that a sum of 11 and a sum of 12 are equally likely, claiming that each of
+        these sums can be attained in only one way. Here Leibniz was making the mistake
+        of treating the two dice as indistinguishable objects, viewing (5,6) and (6,5)
+        as the same outcome.\nWhat are the antidotes to Leibniz's mistake? First,
+        as explained in 2 1.4.11, we should label the objects in question instead
+        of treating them as indistinguishable. If Leibniz had labeled his dice A and
+        B, or green and orange, or left and right, he would not have made this mistake.
+        Second, before we use counting for probability, we should ask ourselves whether
+        the naive definition applies (see 2 1.4.23 for another example showing that
+        caution is needed before applying the naive definition).\n1.4.2 Adjusting
+        for overcounting\nIn many counting problems, it is not easy to directly count
+        each possibility once and only once. If, however, we are able to count each
+        possibility exactly c times\nfor some c, then we can adjust by dividing by
+        c. For example, if we have exactly double-counted each possibility, we can
+        divide by 2 to get the correct count. We call this adjusting for overcounting
+        .\nExample 1.4.13 (Committees and teams). Consider a group of four people.\n\
+        (a) How many ways are there to choose a two-person committee? (b) How many
+        ways are there to break the people into two teams of two? Solution: (a) One
+        way to count the possibilities is by listing them out: labeling the people
+        as 1, 2, 3, 4, the possibilities are 12, 13, 14, 23, 24, 34."
+      quote_hash: 
+        sha256:80ffce74c2e5c24a0275b6e580fe26d5e8d18a7351ba78af70b1ef8b507dfbf4
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s135
+        - s136
+        - s137
+        - s138
+        - s139
+        - s140
+        - s141
+        - s142
+        - s143
+        - s144
+        - s147
+        - s148
+        - s149
+      span_hash: 
+        sha256:e25f7932488e6de2f40d3cd0ceaaaeea5dd3d140c397663856de10ae6419aa00
+      section_id: u6
+      learning_object_ids:
+        - lo_build_a_valid_counting_based_probability_model
+created_at: '2026-07-28T20:08:07Z'
+updated_at: '2026-07-28T20:08:07Z'

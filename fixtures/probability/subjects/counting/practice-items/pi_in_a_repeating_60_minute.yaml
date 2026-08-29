@@ -1,0 +1,111 @@
+schema_version: 1
+id: pi_in_a_repeating_60_minute
+learning_object_id: lo_interpret_and_calculate_random_time_first_arriva
+subjects:
+practice_mode: calculation
+attempt_types_allowed: []
+evidence_facets:
+  - facet_when_an_observer_arrives_at_a_random_time_in_a_r
+  - facet_equal_long_run_counts_of_two_event_types_do_not_
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: In a repeating 60-minute elevator cycle, an upward elevator would be the
+  next arrival during exactly 2 minutes of the cycle. During the other 58 
+  minutes, a downward elevator would be next. If an observer arrives uniformly 
+  at random during the cycle, find the probability that the next elevator is 
+  upward and explain why counting one upward and one downward stop would give 
+  the wrong answer.
+expected_answer: The probability is 2/60 = 1/30. Random-time sampling weights 
+  each outcome by the duration of the interval during which it would be next. 
+  Counting one stop in each direction ignores the unequal 2-minute and 58-minute
+  exposure intervals.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.1
+scaffold_level: 0.3
+capability:
+task_features:
+task_feature_schema:
+surface_family: elevator-time-window-calculation
+evidence_fingerprint:
+  source_family: elevator-paradox
+  shared_stimulus_id: sixty-minute-first-floor-cycle
+  representation: numeric time partition
+  solution_recipe_family: favorable time divided by cycle time
+  answer_structure: probability plus justification
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_when_an_observer_arrives_at_a_random_time_in_a_r
+  - facet_equal_long_run_counts_of_two_event_types_do_not_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_compute_time_fraction
+      points: 1.0
+      description: Computes the favorable-time fraction as 2/60 and simplifies 
+        it to 1/30.
+      tier: core
+      targets:
+        - facet: facet_when_an_observer_arrives_at_a_random_time_in_a_r
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group: first-arrival-calculation
+      recipe_ids:
+        - recipe_first_arrival_time_exposure
+      measurement_status:
+    - id: criterion_reject_count_ratio
+      points: 1.0
+      description: Explains that equal directional stop counts do not determine 
+        the random-time next-arrival probability when exposure intervals differ.
+      tier: transfer
+      targets:
+        - facet: facet_equal_long_run_counts_of_two_event_types_do_not_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - criterion_compute_time_fraction
+      correlation_group: first-arrival-calculation
+      recipe_ids:
+        - recipe_first_arrival_time_exposure
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYN4HB91X51NHX29NPHH7MNV
+      path:
+      locator: span:ext_01KYN4HC1X5J9ZPM8RR7MD5NGT/s8
+      quote:
+      quote_hash:
+      source_id: src_01KYN4HB91X51NHX29NPHH7MNV
+      revision_id: rev_01KYN4HBAG5T2Q7GX4EH7C3W4P
+      extraction_id: ext_01KYN4HC1X5J9ZPM8RR7MD5NGT
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: primary
+      role: reference
+created_at: '2026-07-28T20:07:11Z'
+updated_at: '2026-07-28T20:07:11Z'

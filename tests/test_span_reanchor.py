@@ -8,7 +8,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import IR_SCHEMA_VERSION, DocumentBlock, DocumentIR
 from learnloop.ingest.reanchor import EXACT_HASH, GEOMETRY_SECTION, reanchor_spans
-from learnloop.ingest.source_library import register_source_revision
+from learnloop.content.sources.source_library import register_source_revision
 
 _CLOCK = FrozenClock(datetime(2026, 7, 13, 12, 0, 0, tzinfo=UTC))
 

@@ -2,25 +2,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_orchestrator import (
     CausalRepairError,
     accept_probe_offer,
     causal_repair_status,
     defer_probe_offer,
     request_teaching_now,
 )
-from learnloop.services.remediation import (
+from learnloop.diagnosis.remediation import (
     RemediationBlocked,
     RemediationError,
-    _case_value,
-    _episode_case,
+    case_value,
+    episode_case,
     misconception_status_history,
     prescribe_remediation,
     record_prescription_delivery,
     start_remediation_episode,
     start_remediation_treatment,
 )
-from learnloop.services.surfaced_beliefs import mark_belief_surfaced
+from learnloop.learner.surfaced_beliefs import mark_belief_surfaced
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -71,22 +71,22 @@ def _case_dto(repository, case: Any, *, durable: bool) -> dict[str, Any]:
     no disposition lifecycle to ever be withdrawn from.
     """
 
-    case_id = str(_case_value(case, "id", ""))
+    case_id = str(case_value(case, "id", ""))
     if durable:
         mark_belief_surfaced(
             repository,
             belief_id=case_id,
-            claim_text=_case_value(case, "statement"),
+            claim_text=case_value(case, "statement"),
             surface="repair_case",
         )
     return {
         "id": case_id,
-        "statement": _case_value(case, "statement"),
-        "correction_statement": _case_value(case, "correction_statement"),
-        "mechanism": _case_value(case, "mechanism"),
-        "target_facet": _case_value(case, "target_facet"),
-        "confused_with_facet": _case_value(case, "confused_with_facet"),
-        "status": _case_value(case, "status"),
+        "statement": case_value(case, "statement"),
+        "correction_statement": case_value(case, "correction_statement"),
+        "mechanism": case_value(case, "mechanism"),
+        "target_facet": case_value(case, "target_facet"),
+        "confused_with_facet": case_value(case, "confused_with_facet"),
+        "status": case_value(case, "status"),
         "history": misconception_status_history(repository, case_id) if durable else [],
     }
 
@@ -98,11 +98,11 @@ def _episode_case_payload(repository, episode: dict[str, Any]) -> dict[str, Any]
     P2 orchestrator opens diagnosis-kind episodes whose `case_ref` is a causal
     hypothesis id with no `misconceptions` row. Looking that id up as a durable
     misconception raised `not_found`, so every causal repair episode 404'd the
-    moment the surface tried to read it. `remediation._episode_case` already
+    moment the surface tried to read it. `remediation.episode_case` already
     resolves both kinds — this is the same resolution, shaped for the wire.
     """
 
-    case = _episode_case(repository, episode)
+    case = episode_case(repository, episode)
     if case is None:
         raise SidecarError("not_found", "Remediation case was not found.")
     return _case_dto(

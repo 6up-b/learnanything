@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_give_a_story_proof_of_bi_2
+learning_object_id: lo_construct_and_diagnose_story_proofs
+subjects:
+practice_mode: upfront
+attempt_types_allowed: []
+evidence_facets:
+  - facet_to_construct_a_story_proof_specify_one_collectio
+  - facet_pascal_s_identity_follows_by_counting_k_element_
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Give a story proof of binom(n,k)+binom(n,k-1)=binom(n+1,k). Name one 
+  collection being counted, identify the distinguishing feature used to form the
+  two cases, and explain why every object is counted exactly once.
+expected_answer: Count k-person committees from n+1 people with one person 
+  distinguished. If the distinguished person is absent, choose all k members 
+  from the other n, giving binom(n,k). If present, choose the remaining k-1 
+  members from the other n, giving binom(n,k-1). These cases are disjoint and 
+  exhaustive, so their sum is binom(n+1,k).
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.2
+transfer_distance: 0.25
+scaffold_level: 0.25
+capability:
+task_features:
+task_feature_schema:
+surface_family: binomial_story_proof
+evidence_fingerprint:
+  source_family: primary_textbook_exercise
+  shared_stimulus_id: pascal_identity
+  representation: symbolic identity with committee story
+  solution_recipe_family: common-object case partition
+  answer_structure: explanatory proof
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_to_construct_a_story_proof_specify_one_collectio
+  - facet_pascal_s_identity_follows_by_counting_k_element_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion_story_common_object
+      points: 2.0
+      description: Specifies one collection of k-element selections from n+1 
+        objects and interprets both sides as counts of that collection.
+      tier: core
+      targets:
+        - facet: facet_to_construct_a_story_proof_specify_one_collectio
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet_story_proof_contract
+        - bp_construct_story_proofs
+      correlation_group: story_pascal
+      recipe_ids:
+        - recipe_story_proof
+      measurement_status:
+    - id: criterion_story_partition
+      points: 2.0
+      description: Partitions selections by presence of a distinguished object, 
+        obtains the two correct binomial counts, and states that the cases are 
+        disjoint and exhaustive.
+      tier: core
+      targets:
+        - facet: facet_pascal_s_identity_follows_by_counting_k_element_
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet_pascal_story_partition
+        - bp_construct_story_proofs
+      correlation_group: story_pascal
+      recipe_ids:
+        - recipe_story_proof
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s402
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s404
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+created_at: '2026-07-28T17:34:51Z'
+updated_at: '2026-07-28T17:34:51Z'

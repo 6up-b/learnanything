@@ -1,4 +1,5 @@
-"""Learner-owned item authoring (services.item_authoring): create, edit,
+"""Learner-owned item authoring
+(``learnloop.content.authoring.item_authoring``): create, edit,
 retire (typed reasons), split -- and the serving-path consequences (state_sync
 deactivation, scheduler/exam/probe exclusion)."""
 
@@ -10,15 +11,15 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.item_authoring import (
+from learnloop.content.authoring.item_authoring import (
     ItemAuthoringError,
     author_item,
     edit_item,
     retire_item,
     split_item,
 )
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
@@ -128,7 +129,7 @@ def test_retire_item_reuses_loaded_vault_and_clears_serving_backdoors(
 
     # The latency seam is contractual: an interactive caller that already owns
     # a validated snapshot must not reparse the vault in either service layer.
-    import learnloop.services.item_authoring as authoring_module
+    import learnloop.content.authoring.item_authoring as authoring_module
     import learnloop.vault.writer as writer_module
 
     monkeypatch.setattr(

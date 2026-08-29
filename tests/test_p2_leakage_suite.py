@@ -22,26 +22,26 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services import diagnostic_pack as DP
-from learnloop.services import golden_path_run as GPR
-from learnloop.services.activities import (
+from learnloop.diagnosis import diagnostic_pack as DP
+from learnloop.curriculum import golden_path_run as GPR
+from learnloop.substrate.activities import (
     evaluate_held_out_eligibility,
     reserve_surface,
     resolve_legacy_item,
 )
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.golden_path_fixture import (
+from learnloop.curriculum.golden_path_fixture import (
     EXEMPLAR_A,
     FIX_NOW,
     LO_ID,
     build_golden_path_fixture,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     episode_hypothesis_set,
@@ -129,7 +129,7 @@ class TestP2LeakageSuite:
 # ---------------------------------------------------------------------------
 
 def _admit_probe_card(repo: Repository) -> None:
-    from learnloop.services.probe_families import (
+    from learnloop.diagnosis.probe_families import (
         CONTRAST_CONFUSABLE_DEFAULT_ROWS,
         CONTRAST_CONFUSABLE_V1,
         InstrumentCard,

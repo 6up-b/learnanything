@@ -6,9 +6,9 @@ from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth, PageHealth
-from learnloop.services import block_health as BH
-from learnloop.services import source_render_views as RV
-from learnloop.services import span_view as SV
+from learnloop.content.sources import block_health as BH
+from learnloop.reader import source_render_views as RV
+from learnloop.reader import span_view as SV
 from tests.test_source_inventory import _persist, _register_revision
 
 

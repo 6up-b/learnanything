@@ -2,22 +2,24 @@
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import CodexUnavailable
-from learnloop.codex.schemas import (
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.diagnosis.ai_contracts import (
     ProbeFamilyTrial,
     ProbeFamilyTrials,
     ProbeInstanceSurface,
     ProbeInstanceSurfaces,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.probe_episodes import enter_episode
-from learnloop.services.probe_families import (
+from learnloop.diagnosis.probe_episodes import enter_episode
+from learnloop.diagnosis.probe_families import (
     MINIMAL_RECALL_V1,
     builtin_family_templates,
     validate_and_compile_card,
 )
-from learnloop.services.probe_instance_generation import (
+from learnloop.diagnosis.probe_instance_generation import (
     GENERATOR_ID,
     LLM_GENERATOR_ID,
     LLM_GENERATOR_VERSION,
@@ -25,7 +27,7 @@ from learnloop.services.probe_instance_generation import (
     generate_instances_for_episode,
     run_llm_family_gate,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_learning_object
 
@@ -35,7 +37,7 @@ LO_ID = "lo_svd_definition"
 CLOCK = FrozenClock(NOW)
 
 
-class FakeSurfacesClient:
+class FakeSurfacesClient(StructuredClientFake):
     """AI provider double exposing run_probe_instance_surfaces."""
 
     model = "fake-model-1"
@@ -236,7 +238,14 @@ def test_llm_family_gate_rejects_indistinct_signatures(tmp_path):
 
 def test_llm_family_gate_requires_capable_provider(tmp_path):
     _vault_root, loaded, repository = _setup(tmp_path)
-    client = FakeSurfacesClient()  # no run_probe_family_trials
+
+    class UnsupportedClient:
+        provider_name = "manual"
+
+        def supports(self, _capability):
+            return False
+
+    client = UnsupportedClient()
 
     gate = run_llm_family_gate(
         loaded, repository, LO_ID, MINIMAL_RECALL_V1, client, clock=CLOCK

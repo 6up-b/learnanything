@@ -18,7 +18,7 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.contrast_pairs import (
+from learnloop.diagnosis.contrast_pairs import (
     MAX_WITHIN_PAIR_DIFFICULTY_GAP,
     MIN_COMPLETED_PAIRS,
     ORDER_DOMINANCE_CEILING,
@@ -37,9 +37,9 @@ from learnloop.services.contrast_pairs import (
     randomization_draw,
     record_contrast_pair_servings,
 )
-from learnloop.services.persona_gate import InstrumentClass, classify_instrument, contrast_pair_key
-from learnloop.services.scheduler import build_due_queue, SchedulerSession
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.content.authoring.persona_gate import InstrumentClass, classify_instrument, contrast_pair_key
+from learnloop.scheduling.scheduler import build_due_queue, SchedulerSession
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -314,9 +314,9 @@ def test_commissioning_turns_identifiability_findings_into_requests(tmp_path):
     whether a particular fixture happens to trip a particular check.
     """
 
-    from learnloop.services.identifiability import IdentifiabilityFinding
+    from learnloop.learner.identifiability import IdentifiabilityFinding
 
-    from learnloop.services import contrast_pairs as CP
+    from learnloop.diagnosis import contrast_pairs as CP
 
     findings = [
         IdentifiabilityFinding(
@@ -673,7 +673,7 @@ def test_the_doctor_catches_a_one_sided_pair_binding(tmp_path):
     asked of it.
     """
 
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     paths, vault, _repo = _pair_vault(tmp_path)
     write_yaml(
@@ -694,7 +694,7 @@ def test_the_doctor_catches_a_one_sided_pair_binding(tmp_path):
 
 
 def test_the_doctor_is_silent_on_a_well_formed_pair(tmp_path):
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     _paths, vault, _repo = _pair_vault(tmp_path)
 
@@ -719,7 +719,7 @@ def test_a_pair_must_satisfy_both_the_persona_gate_and_the_pair_gate(tmp_path):
     be able to PLANT the learner the pair is meant to catch.
     """
 
-    from learnloop.services.persona_gate import GateDecision, PersonaGate, PersonaGateReason
+    from learnloop.content.authoring.persona_gate import GateDecision, PersonaGate, PersonaGateReason
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
@@ -759,7 +759,7 @@ def test_a_pair_the_persona_gate_cannot_plant_does_not_ship(tmp_path):
     model to give the pair a profile.
     """
 
-    from learnloop.services.persona_gate import GateDecision, PersonaGate, PersonaGateReason
+    from learnloop.content.authoring.persona_gate import GateDecision, PersonaGate, PersonaGateReason
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)

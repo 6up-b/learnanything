@@ -6,9 +6,12 @@ import type {
   CandidateErrorTypeDto,
   CausalRepairStatusDto,
   ClaimCandidateDto,
+  ColdCheckResultDto,
   CriterionEvidenceRowDto,
+  ElicitingResponseResultDto,
   ErrorEventDto,
   FeedbackBundle,
+  RepairSuggestionDto,
   GradingClarificationDto,
   FollowupGateDiagnosticsDto,
   FollowupGateSignalDto,
@@ -36,6 +39,7 @@ import {
   useCausalRepairActions,
 } from "../components/CausalAttribution";
 import { CommonRepairCard, GuidedRedoAffordance } from "../components/RepairAffordances";
+import { errorMessage } from "../errors";
 
 // ── Palette ──────────────────────────────────────────────────────────────────
 const C = {
@@ -139,6 +143,208 @@ function fmtDue(iso: string | null): string {
   } catch {
     return iso;
   }
+}
+
+// Day-only rendering for the repair date in the cold-check banner: the learner
+// remembers "Tuesday", not a timestamp, and a precise time here would imply the
+// span is more exact than the claim it supports.
+function fmtDay(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+
+// ── ColdCheckBanner ──────────────────────────────────────────────────────────
+// The post-completion announcement. It is the FIRST time this attempt is told
+// what it was for: before the attempt the surface says only "unassisted check",
+// because naming the repair would hand over the material under test.
+function ColdCheckBanner({ result }: { result: ColdCheckResultDto }) {
+  const confirmed = result.claim === "repair_confirmed";
+  const failed = result.claim === "escalated_unrepaired";
+  const tone = confirmed ? C.green : failed ? C.amber : C.textDim;
+  const heading = confirmed
+    ? "unassisted check · passed"
+    : failed
+      ? "unassisted check · did not hold"
+      : result.claim === "downgraded"
+        ? "unassisted check · recorded, not counted"
+        : "unassisted check · no verdict";
+  const when = fmtDay(result.instructedAt);
+  const body = confirmed
+    ? `This was the unassisted check for the repair you did on ${when} — you answered it without help, so the repair is confirmed and the factor is closed.`
+    : failed
+      ? `This was the unassisted check for the repair you did on ${when}. It did not hold on your own, so the case stays open and comes back with more support — nothing you did on ${when} is lost.`
+      : result.claim === "downgraded"
+        ? `This was the unassisted check for the repair you did on ${when}. Your answer is recorded, but that repair had already shown more of the solution than this check can hold constant, so it does not count as independent confirmation. Another check will be scheduled.`
+        : `This was the unassisted check for the repair you did on ${when}. It did not produce a verdict${result.outcome ? ` (${result.outcome.replace(/_/g, " ")})` : ""}, so the repair stays unconfirmed.`;
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        padding: "11px 14px",
+        background: C.bgElev,
+        borderLeft: `3px solid ${tone}`,
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: C.text,
+      }}
+    >
+      <div style={{ color: tone, fontFamily: MONO, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        {heading}
+      </div>
+      <div style={{ marginTop: 5 }}>{body}</div>
+      <div style={{ marginTop: 6, fontSize: 12 }}>
+        <Faint>what it checked</Faint>{"  "}
+        <Dim>{result.caseSummary}</Dim>
+      </div>
+      {result.claimDowngradedReason ? (
+        <div style={{ marginTop: 4, fontFamily: MONO, fontSize: 11 }}>
+          <Faint>downgraded · {result.claimDowngradedReason.replace(/_/g, " ")}</Faint>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ── AutoPrimedNote ───────────────────────────────────────────────────────────
+// The learner submitted this as an ordinary attempt and the reveal ledger
+// reclassified it. Saying so is the whole point: an assisted attempt scored as
+// unassisted evidence is exactly the dishonesty the ledger exists to prevent.
+function AutoPrimedNote({ f }: { f: FeedbackBundle }) {
+  return (
+    <div
+      style={{
+        marginTop: 14,
+        padding: "9px 12px",
+        background: C.bgElev,
+        borderLeft: `3px solid ${C.amber}`,
+        fontSize: 12,
+        lineHeight: 1.6,
+        color: C.text,
+      }}
+    >
+      Counted as assisted — tutor answers before this attempt covered part of the solution. An
+      unassisted check will confirm the repair.
+      {f.autoPrimedRevealTotal != null ? (
+        <span style={{ marginLeft: 6 }}>
+          <Faint>({(f.autoPrimedRevealTotal * 100).toFixed(0)}% of the answer already shown)</Faint>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+// ── ElicitingRepairCard ──────────────────────────────────────────────────────
+// An eliciting repair asks ONE question at the divergence instead of showing
+// corrected work. The corrected work is therefore not rendered here at any
+// point: showing it would answer the question the card is asking, which is the
+// entire operator. `expectedResponseContract` is likewise never displayed
+// before submitting — it says what a right answer would demonstrate, which is
+// a hint dressed as metadata.
+function ElicitingRepairCard({
+  suggestion,
+  submitting,
+  outcome,
+  onSubmit,
+}: {
+  suggestion: RepairSuggestionDto;
+  submitting: boolean;
+  outcome: ElicitingResponseResultDto | null;
+  onSubmit: (responseMd: string) => void;
+}) {
+  const [response, setResponse] = useState("");
+  const anchor = suggestion.targetRefs?.[0] ?? null;
+  const answered = outcome != null;
+  return (
+    <div
+      style={{
+        border: `1px solid ${C.borderStrong}`,
+        borderLeft: `3px solid ${C.cyan}`,
+        background: C.bgElev,
+        padding: "14px 18px",
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: C.text,
+      }}
+    >
+      {anchor ? (
+        <div style={{ fontSize: 12, marginBottom: 8 }}>
+          <Faint>where it turned · </Faint>
+          <Dim>{formatCausalTarget(anchor)}</Dim>
+        </div>
+      ) : null}
+      <div className="markdown">
+        <MarkdownMath value={suggestion.elicitingQuestion ?? ""} />
+      </div>
+      {answered ? (
+        <>
+          <div style={{ marginTop: 10, fontFamily: MONO, fontSize: 12, color: C.green }}>
+            recorded
+          </div>
+          {outcome.admissibleAsIndependent ? null : (
+            <div style={{ marginTop: 4, fontSize: 12, color: C.textDim }}>
+              recorded — you&apos;d already seen this answer, so it won&apos;t count as independent
+              evidence.
+              {outcome.inadmissibilityReason ? (
+                <>
+                  {" "}
+                  <Faint>({outcome.inadmissibilityReason.replace(/_/g, " ")})</Faint>
+                </>
+              ) : null}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <textarea
+            value={response}
+            onChange={(event) => setResponse(event.target.value)}
+            disabled={submitting}
+            rows={4}
+            placeholder="answer in your own words"
+            style={{
+              marginTop: 10,
+              width: "100%",
+              background: C.bg,
+              border: `1px solid ${C.border}`,
+              color: C.text,
+              fontFamily: MONO,
+              fontSize: 12,
+              padding: "8px 10px",
+              resize: "vertical",
+            }}
+          />
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              disabled={submitting || !response.trim()}
+              onClick={() => onSubmit(response.trim())}
+              style={{
+                border: `1px solid ${submitting || !response.trim() ? C.border : C.cyan}`,
+                background: "transparent",
+                color: submitting || !response.trim() ? C.textFaint : C.cyan,
+                cursor: submitting || !response.trim() ? "default" : "pointer",
+                fontFamily: MONO,
+                fontSize: 11,
+                padding: "5px 12px",
+              }}
+            >
+              {submitting ? "…" : "submit"}
+            </button>
+            <span style={{ fontSize: 11 }}>
+              <Faint>
+                your own words are the point — this is not graded, it is recorded as your account of
+                what happened.
+              </Faint>
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function ratingPill(r: string): string {
@@ -558,7 +764,7 @@ function MasteryDelta({ f }: { f: FeedbackBundle }) {
         display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap",
       }}>
         <span>
-          <span style={{ color: C.amber, fontWeight: 600 }}>mastery posterior · </span>
+          <span style={{ color: C.amber, fontWeight: 600 }}>mastery estimate · posterior update · </span>
           <Meta>logit-space Kalman update</Meta>
         </span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.textFaint, display: "inline-flex", gap: 14, alignItems: "center" }}>
@@ -793,7 +999,7 @@ function SourceRefCard({ sourceRef, onOpenLibraryFile, onError }: {
       const { openUrl } = await import("@tauri-apps/plugin-opener");
       await openUrl(url);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     }
   };
 
@@ -1206,6 +1412,8 @@ export function FeedbackScreen({
   const [feedback, setFeedback] = useState<FeedbackBundle | null>(null);
   const [item, setItem] = useState<PracticeItemDetail | null>(null);
   const [trace, setTrace] = useState<AttemptTraceDto | null>(null);
+  const [feedbackLoadError, setFeedbackLoadError] = useState<string | null>(null);
+  const [feedbackLoadRevision, setFeedbackLoadRevision] = useState(0);
   // Meas §3.A6/§3.A8. `traceEvidence` carries the reward sentence a volunteered
   // explanation earned; `clarification` is the one question that can still move
   // a provisional grade. `clarificationNote` is what came back afterwards —
@@ -1258,6 +1466,10 @@ export function FeedbackScreen({
   useEffect(() => {
     let cancelled = false;
     setCommonRepairDismissed(false);
+    setFeedback(null);
+    setItem(null);
+    setTrace(null);
+    setFeedbackLoadError(null);
     api
       .getFeedback(attemptId)
       .then((bundle) => {
@@ -1266,7 +1478,11 @@ export function FeedbackScreen({
         api
           .getPracticeItem(bundle.practiceItemId)
           .then((detail) => { if (!cancelled) setItem(detail); })
-          .catch(() => {});
+          .catch((error) => {
+            if (!cancelled) {
+              onError(errorMessage(error, "Feedback loaded, but its practice item details could not be loaded."));
+            }
+          });
         // KM3b §9.6 attempt trace: the criterion DAG for this attempt. Best
         // effort — a stale sidecar simply omits the trace section.
         api
@@ -1274,15 +1490,19 @@ export function FeedbackScreen({
           .then((t) => { if (!cancelled) setTrace(t); })
           .catch(() => { if (!cancelled) setTrace(null); });
       })
-      .catch((error) => { if (!cancelled) onError(error.message); });
+      .catch((error) => {
+        if (!cancelled) setFeedbackLoadError(errorMessage(error, "Feedback could not be loaded."));
+      });
     return () => { cancelled = true; };
-  }, [attemptId, onError]);
+  }, [attemptId, feedbackLoadRevision, onError]);
 
   // Meas §3.A6/§3.A8 post-grade reads. Both are best-effort and neither is ever
   // raised as a toast: a missing reward line means the grader saw nothing extra,
   // and a missing question means there was nothing it could not settle itself.
   useEffect(() => {
     let cancelled = false;
+    setTraceEvidence(null);
+    setClarification(null);
     setClarificationAnswer("");
     setClarificationNote(null);
     api
@@ -1294,7 +1514,7 @@ export function FeedbackScreen({
       .then((result) => { if (!cancelled) setClarification(result.clarification); })
       .catch(() => { if (!cancelled) setClarification(null); });
     return () => { cancelled = true; };
-  }, [attemptId]);
+  }, [attemptId, feedbackLoadRevision]);
 
   // Answering re-grades with the learner's words in hand. The refreshed bundle
   // comes back on the same call, so the resolved grade is on screen before the
@@ -1313,9 +1533,9 @@ export function FeedbackScreen({
       api
         .getAttemptTraceEvidence(feedback.attemptId)
         .then(setTraceEvidence)
-        .catch(() => {});
+        .catch(() => setTraceEvidence(null));
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setAnsweringClarification(false);
     }
@@ -1435,7 +1655,7 @@ export function FeedbackScreen({
       setFeedback(updated);
       setRegradeReceipt({ before, after: { score: updated.rubricScore, max: updated.maxPoints } });
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setRegrading(false);
     }
@@ -1453,7 +1673,7 @@ export function FeedbackScreen({
       const updated = await api.triggerFollowup(feedback.attemptId);
       setFeedback(updated);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setTriggeringFollowup(false);
     }
@@ -1474,7 +1694,7 @@ export function FeedbackScreen({
       }
       onPrimedRetry(result.practiceItem.id);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setStartingRetry(false);
     }
@@ -1492,7 +1712,7 @@ export function FeedbackScreen({
       const redo = await api.startGuidedRedo(feedback.attemptId);
       onGuidedRedo(redo);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setStartingRedo(false);
     }
@@ -1508,9 +1728,36 @@ export function FeedbackScreen({
       const updated = await api.rateFollowup(feedback.attemptId, useful);
       setFeedback(updated);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setRatingFollowup(false);
+    }
+  };
+
+  // Eliciting repair: the learner's unaided answer to the one question the
+  // suggestion asks. Deliberately NOT a grade — the response is recorded as
+  // evidence about the factor, and the cold lane remains the only thing that
+  // converts evidence into a repair verdict.
+  const [elicitingSubmitting, setElicitingSubmitting] = useState(false);
+  const [elicitingOutcome, setElicitingOutcome] = useState<ElicitingResponseResultDto | null>(null);
+  const handleElicitingResponse = async (suggestionIndex: number, responseMd: string) => {
+    if (!feedback || elicitingSubmitting) return;
+    setElicitingSubmitting(true);
+    try {
+      const result = await api.submitElicitingResponse({
+        attemptId: feedback.attemptId,
+        suggestionIndex,
+        responseMd,
+      });
+      setElicitingOutcome(result);
+      // Re-render from the bundle the call returned rather than refetching:
+      // it is the state the server just wrote, and a second read could race a
+      // concurrent regrade into the screen.
+      setFeedback(result.feedback);
+    } catch (error) {
+      onError(errorMessage(error));
+    } finally {
+      setElicitingSubmitting(false);
     }
   };
 
@@ -1525,7 +1772,7 @@ export function FeedbackScreen({
       const updated = await api.addErrorEvent(feedback.attemptId, errorType.trim(), severity);
       setFeedback(updated);
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setAddingError(false);
       setErrorTypeInput("");
@@ -1549,7 +1796,7 @@ export function FeedbackScreen({
       await api.reportUnresolvedCause({ factorId, response, candidateIndex });
       setFeedback(await api.getFeedback(feedback.attemptId));
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setReportingFactorId(null);
     }
@@ -1596,7 +1843,7 @@ export function FeedbackScreen({
       }
       resetNote();
     } catch (error) {
-      onError((error as Error).message);
+      onError(errorMessage(error));
     } finally {
       setSavingNote(false);
     }
@@ -1606,6 +1853,13 @@ export function FeedbackScreen({
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
+      if (!feedback) {
+        if (event.key === "Escape" || event.key === "b") {
+          event.preventDefault();
+          onBack();
+        }
+        return;
+      }
       if (event.key === "n" || event.key === "Enter") { event.preventDefault(); onNext(); }
       else if (event.key === "Escape" || event.key === "b") { event.preventDefault(); onBack(); }
       else if (event.key === "r") { event.preventDefault(); void handleRegrade(); }
@@ -1626,6 +1880,31 @@ export function FeedbackScreen({
   }, [onNext, onBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry]);
 
   if (!feedback) {
+    if (feedbackLoadError) {
+      return (
+        <div className="screen">
+          <div className="screen-scroll" style={{ padding: "18px 24px", fontFamily: MONO, fontSize: 13 }}>
+            <div style={{ border: `1px solid ${C.border}`, padding: "16px 18px", maxWidth: 720 }}>
+              <div style={{ color: C.red, marginBottom: 8 }}>Feedback could not be loaded.</div>
+              <div style={{ color: C.textDim, lineHeight: 1.6 }}>{feedbackLoadError}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="queue-row focused"
+                  onClick={() => setFeedbackLoadRevision((value) => value + 1)}
+                >
+                  <span className="queue-title">Retry loading</span>
+                </button>
+                <button type="button" className="queue-row" onClick={onBack}>
+                  <span className="queue-title">Back to Today</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <KeyBar keys={[{ key: "esc", label: "today" }]} />
+        </div>
+      );
+    }
     return (
       <div className="screen">
         <div className="screen-scroll" style={{ fontFamily: MONO, fontSize: 13, color: C.textDim }}>
@@ -1640,6 +1919,11 @@ export function FeedbackScreen({
   // Surprise threshold from the bundle; config-level τ for legacy bundles.
   const tau = f.surprise.followupThresholdNats ?? algoConfig().tauFollowupNats;
   const interventionNeed = f.interventionNeed;
+  // First eliciting suggestion, by index into `repairSuggestions` — the index
+  // IS the submit contract (`submitElicitingResponse` takes it), so it is read
+  // off the array rather than carried separately.
+  const elicitingIndex = f.repairSuggestions.findIndex((s) => !!s.elicitingQuestion?.trim());
+  const elicitingSuggestion = elicitingIndex >= 0 ? f.repairSuggestions[elicitingIndex] : null;
   // §4.7: only render the statement-pair card when the matched row carries an
   // authored correction (never show a misconception naked). Without it, fall
   // back to the unresolved-cause card.
@@ -1727,7 +2011,9 @@ export function FeedbackScreen({
               expectedAnswer={typeof item.expectedAnswer === "string" ? item.expectedAnswer : null}
               onError={onError}
               onChanged={() => {
-                api.getPracticeItem(item.id).then(setItem).catch(() => {});
+                api.getPracticeItem(item.id).then(setItem).catch((error) => {
+                  onError(errorMessage(error, "The card changed, but its updated feedback view could not be loaded."));
+                });
               }}
               // CardControls keeps the historical feedback visible while
               // removing all mutation actions after the durable retirement.
@@ -1761,6 +2047,13 @@ export function FeedbackScreen({
           </div>
 
           <ScoreBlock f={f} />
+
+          {/* AFTER the grade, never before: this is the first place the surface
+              is allowed to say which repair the check was verifying. */}
+          {f.coldCheckResult ? <ColdCheckBanner result={f.coldCheckResult} /> : null}
+
+          {/* Auto-priming transparency: sits next to the grade it qualifies. */}
+          {f.autoPrimed ? <AutoPrimedNote f={f} /> : null}
 
           {/* Meas §3.A6 — the visible half of "voluntary and visibly rewarded":
               what the extra line actually bought, named facet by facet. Absent
@@ -1881,6 +2174,9 @@ export function FeedbackScreen({
             <FbHeader>Causal feedback</FbHeader>
             <CausalFeedbackPanel
               feedback={f.causalFeedback}
+              // Held back only until the question is answered — after that the
+              // elicitation has already happened and the work can be read.
+              suppressRepairedTrace={elicitingSuggestion != null && elicitingOutcome == null}
               contestPending={reportingFactorId != null}
               repairStatus={repairStatus}
               repairPendingActionId={repairPendingActionId}
@@ -1899,7 +2195,7 @@ export function FeedbackScreen({
                   )
                   .then(() => api.getFeedback(f.attemptId))
                   .then(setFeedback)
-                  .catch((error) => onError((error as Error).message))
+                  .catch((error) => onError(errorMessage(error)))
                   .finally(() => setReportingFactorId(null));
               }}
             />
@@ -1972,6 +2268,22 @@ export function FeedbackScreen({
             />
           ) : null;
         })()}
+
+        {/* ── eliciting repair ──
+            The suggestion asks instead of showing. Rendered as its own section
+            so the corrected work cannot leak in beside it from the "what's
+            next" card, which suppresses its trace for the same suggestion. */}
+        {elicitingSuggestion ? (
+          <>
+            <FbHeader>One question, unaided</FbHeader>
+            <ElicitingRepairCard
+              suggestion={elicitingSuggestion}
+              submitting={elicitingSubmitting}
+              outcome={elicitingOutcome}
+              onSubmit={(responseMd) => void handleElicitingResponse(elicitingIndex, responseMd)}
+            />
+          </>
+        ) : null}
 
         {/* ── error attribution ── */}
         {f.errorAttributions.length > 0 && (
@@ -2101,7 +2413,11 @@ export function FeedbackScreen({
                     continuation; showing only the fused string made a splice
                     that landed mid-sentence read as the learner's own writing.
                     Same blocks the exam per-item review mounts. */}
-                {f.repairSuggestions[0].repairedTrace && (
+                {/* An eliciting suggestion's corrected work is withheld on
+                    purpose: it is the answer to the question the eliciting card
+                    is asking, and rendering it here would defeat the operator
+                    from the other side of the screen. */}
+                {f.repairSuggestions[0].repairedTrace && !f.repairSuggestions[0].elicitingQuestion?.trim() && (
                   <RepairTraceBlocks trace={f.repairSuggestions[0].repairedTrace} />
                 )}
               </>

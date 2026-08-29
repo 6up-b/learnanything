@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.services.capability_mapping import (
+from learnloop.learner.capability_mapping import (
     allocate_success_mass,
     compile_criterion_targets,
     criterion_pseudo_mass,

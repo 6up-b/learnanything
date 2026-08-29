@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_two_fair_six_sided_dice
+learning_object_id: lo_build_a_valid_counting_based_probability_model
+subjects:
+practice_mode: contrastive diagnosis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+  - facet_counting_each_aggregate_outcome_once_establishes
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: Two fair six-sided dice are rolled. A learner proposes the unordered 
+  sums {2,3,…,12} as 11 equally likely outcomes and concludes 
+  P(sum=11)=P(sum=12)=1/11. Diagnose the model and compute both probabilities 
+  using an appropriate elementary sample space.
+expected_answer: The sums are not equally likely. Label the dice and use the 36 
+  equally likely ordered pairs. Sum 11 has (5,6) and (6,5), so its probability 
+  is 2/36=1/18. Sum 12 has only (6,6), so its probability is 1/36.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.4
+scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
+surface_family: dice-outcome-model
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-two-fair-dice
+  representation: verbal model plus ordered pairs
+  solution_recipe_family: equal-likelihood-model-check
+  answer_structure: diagnosis and two fractions
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+  - facet_counting_each_aggregate_outcome_once_establishes
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-dice-representation
+      points: 2.0
+      description: Rejects the equal-likelihood claim for aggregate sums and 
+        selects labeled ordered pairs as elementary outcomes.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: method_selection
+          role: primary
+        - facet: facet_counting_each_aggregate_outcome_once_establishes
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - facet-naive-probability-contract
+        - facet-equal-counts-misconception
+      correlation_group: dice-model
+      recipe_ids:
+        - recipe-model-counting-probability
+      measurement_status:
+    - id: criterion-dice-counts
+      points: 2.0
+      description: Counts two favorable ordered pairs for sum 11 and one for sum
+        12, with denominator 36.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - facet-naive-probability-contract
+      correlation_group: dice-model
+      recipe_ids:
+        - recipe-model-counting-probability
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s140
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s142
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: assessment_alignment
+      role: primary_textbook
+created_at: '2026-07-28T17:34:46Z'
+updated_at: '2026-07-28T17:34:46Z'

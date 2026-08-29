@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 from learnloop.clock import FrozenClock
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
@@ -28,12 +28,12 @@ from learnloop.services.attempts import (
     apply_attempt,
     complete_self_graded_attempt,
 )
-from learnloop.services.causal_orchestrator import (
+from learnloop.diagnosis.causal_orchestrator import (
     classify_probe_response,
     pinned_causal_probe,
 )
-from learnloop.services.causal_probe_coherence import generate_blind_prediction_bundle
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.causal_probe_coherence import generate_blind_prediction_bundle
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     episode_hypothesis_set,

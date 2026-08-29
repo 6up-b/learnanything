@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import TutorAnswer
+from learnloop.tutor.ai_contracts import TutorAnswer
 from learnloop.db.repositories import Repository
-from learnloop.services.facet_diagnostics import mastery_diagnostic_view
-from learnloop.services.tutor_qa import (
+from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
+from learnloop.tutor.tutor_qa import (
     QuestionLimitReached,
     TutorQAError,
     answer_leaks_expected,
@@ -20,7 +22,7 @@ from tests.helpers import NOW, NOW_ISO, create_basic_vault
 YESTERDAY_ISO = "2026-05-18T12:00:00Z"
 
 
-class FakeTutorClient:
+class FakeTutorClient(StructuredClientFake):
     provider_name = "fake_tutor"
     provider_type = "fake"
     model = "fake-model"
@@ -327,8 +329,10 @@ def test_ask_question_feedback_limit_and_intervention_wiring(tmp_path):
         attempt_id="att_1",
         clock=clock,
     )
-    # Feedback questions never count as hints and derive the item from the attempt.
-    assert result["hint_equivalent"] is False
+    # A feedback question derives the item from the attempt AND counts as a hint
+    # for the NEXT attempt on it: the graded solution is already on screen, so a
+    # substantive question here helps at least as much as a mid-attempt one.
+    assert result["hint_equivalent"] is True
     assert result["remaining"] == 4
     # The graded attempt is threaded into the AI context.
     assert client.contexts[0].learner_answer_md == "my answer"

@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.causal_attribution import record_causal_diagnosis_contest
-from learnloop.services.diagnosis_adjudication import (
+from learnloop.diagnosis.causal_attribution import record_causal_diagnosis_contest
+from learnloop.diagnosis.diagnosis_adjudication import (
     ABSTENTION_VERDICTS,
     FILLED_VERDICTS,
     QUEUE_REASONS,
@@ -170,7 +170,7 @@ def test_record_refuses_a_verdict_the_partition_forbids(ctx):
 
 
 def test_record_reports_the_belief_effect_the_backend_confirms(ctx):
-    from learnloop.services.misconceptions import _normalize_text
+    from learnloop.diagnosis.misconceptions import normalize_text
 
     _failure(ctx.vault, ctx.repository, attempt_id="att_correct")
     assert ctx.repository.misconceptions_for_learning_object(LO_ID) == []
@@ -188,7 +188,7 @@ def test_record_reports_the_belief_effect_the_backend_confirms(ctx):
 
     durable = ctx.repository.misconceptions_for_learning_object(LO_ID)
     assert len(durable) == 1
-    assert _normalize_text(durable[0].statement) == _normalize_text(STATEMENT)
+    assert normalize_text(durable[0].statement) == normalize_text(STATEMENT)
     # The line the overlay shows is the arm's own report, not an inference from
     # the verdict.
     assert result["effect"]["promoted"] == [durable[0].id]

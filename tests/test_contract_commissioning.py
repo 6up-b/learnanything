@@ -18,18 +18,18 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.contract_commissioning import (
+from learnloop.content.authoring.contract_commissioning import (
     CommissionDisposition,
     commission_plan,
     contract_cell_hit_rate,
     item_observed_cells,
 )
-from learnloop.services.contract_reachability import (
+from learnloop.learner.contract_reachability import (
     ReachabilityVerdict,
     analyze_contract_reachability,
 )
-from learnloop.services.depth_rungs import capability_rung, select_rung, waypoint_slug_for_capability
-from learnloop.services.practice_generation import (
+from learnloop.curriculum.depth_rungs import capability_rung, select_rung, waypoint_slug_for_capability
+from learnloop.content.authoring.practice_generation import (
     PracticeExpansionError,
     _RungGate,
     build_practice_expansion_plan,

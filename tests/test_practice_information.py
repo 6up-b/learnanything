@@ -14,10 +14,10 @@ from pathlib import Path
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.services.golden_path_fixture import build_golden_path_fixture
-from learnloop.services.mastery import initial_mastery_state
-from learnloop.services.scheduler import _practice_information, _priority
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.curriculum.golden_path_fixture import build_golden_path_fixture
+from learnloop.learner.mastery import initial_mastery_state
+from learnloop.scheduling.scheduler import _practice_information, _priority
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 

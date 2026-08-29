@@ -1,0 +1,220 @@
+schema_version: 1
+id: pi_captained_committee_double_count
+learning_object_id: lo_construct_a_combinatorial_proof_of_an_identity
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_a_combinatorial_story_proof_establishes_an_ident
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights:
+  facet_a_combinatorial_story_proof_establishes_an_ident: 0.55
+  facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.45
+criterion_facet_weights:
+  captain_first_count:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  committee_first_count:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  common_collection:
+    facet_a_combinatorial_story_proof_establishes_an_ident: 1.0
+  equal_count_conclusion:
+    facet_a_combinatorial_story_proof_establishes_an_ident: 0.7
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.3
+trace_contract:
+  status: available
+  recipes:
+    - id: double_count_story_proof
+      checkpoints:
+        - define_common_collection
+        - count_committee_first
+        - count_captain_first
+        - equate_counts
+      dependencies:
+        count_captain_first:
+          - define_common_collection
+        count_committee_first:
+          - define_common_collection
+        define_common_collection: []
+        equate_counts:
+          - count_committee_first
+          - count_captain_first
+variant_contract:
+teach_back_source:
+prompt: Construct a story proof of k·C(n,k)=n·C(n-1,k-1) for 1≤k≤n. Name one 
+  collection of objects with enough detail that both sides count exactly that 
+  collection. Then describe the two counting procedures factor by factor and 
+  state why their equality follows.
+expected_answer: Count pairs (K,c) where K is a k-person committee chosen from n
+  people and c is a designated captain belonging to K. First choose K in C(n,k) 
+  ways and then its captain in k ways, giving kC(n,k). Alternatively, choose the
+  captain first in n ways and then choose the other k-1 committee members from 
+  the remaining n-1 people in C(n-1,k-1) ways, giving nC(n-1,k-1). Both 
+  expressions count every captained committee exactly once, so they are equal.
+difficulty: 0.23
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u7
+  - story_proof
+  - double_counting
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.76
+transfer_distance: 0.38
+scaffold_level: 0.04
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: captained_committee_double_count
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_a_combinatorial_story_proof_establishes_an_ident
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: common_collection
+      points: 1.0
+      description: Defines the common collection as k-person committees with one
+        member distinguished as captain.
+      tier: core
+      targets:
+        - facet: facet_a_combinatorial_story_proof_establishes_an_ident
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: committee_first_count
+      points: 1.0
+      description: Explains C(n,k) choices for the committee followed by k 
+        choices for its captain.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - common_collection
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: captain_first_count
+      points: 1.0
+      description: Explains n choices for the captain followed by C(n-1,k-1) 
+        choices for the remaining members.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - common_collection
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: equal_count_conclusion
+      points: 1.0
+      description: States that both procedures count each object in the common 
+        collection exactly once and therefore establish the identity.
+      tier: core
+      targets:
+        - facet: facet_a_combinatorial_story_proof_establishes_an_ident
+          capability: procedure_execution
+          role: primary
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - committee_first_count
+        - captain_first_count
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_construct_a_combinatorial_proof_of_an_identity:s216-s224
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s216
+      quote: "one at a time, with replacement and with equal probabilities. Then the
+        $n^k$ ordered samples are equally likely, making the naive definition applicable,
+        but the $\\binom{n+k-1}{k}$ unordered samples (where all that matters is how
+        many times each person was sampled) are not equally likely.\nAs another example,
+        with n=365 days in a year and k people, how many possible unordered birthday
+        lists are there? For example, for k=3, we want to count lists like (May 1,
+        March 31, April 11), where all permutations are considered equivalent. We
+        can't do a simple adjustment for overcounting such as $n^k/3!$ since, e.g.,
+        there are 6 permutations of (May 1, March 31, April 11) but only 3 permutations
+        of (March 31, March 31, April 11). By Bose-Einstein, the number of lists is
+        $\\binom{n+k-1}{k}$. But the ordered birthday lists are equally likely, not
+        the unordered lists, so the Bose-Einstein value should not be used in calculating
+        birthday probabilities.\n1.5 Story proofs\nA story proof is a proof by interpretation.
+        For counting problems, this often means counting the same thing in two different
+        ways, rather than doing tedious algebra. A story proof often avoids messy
+        calculations and goes further than an algebraic proof toward explaining why
+        the result is true. The word \"story\" has several meanings, some more mathematical
+        than others, but a story proof (in the sense in which we're using the term)
+        is a fully valid mathematical proof. Here are some examples of story proofs,
+        which also serve as further examples of counting.\nExample 1.5.1 (Choosing
+        the complement). For any nonnegative integers n and k with $k \\leq n$, we
+        have\n$$\\binom{n}{k} = \\binom{n}{n-k}.$$\nThis is easy to check algebraically
+        (by writing the binomial coefficients in terms of factorials), but a story
+        proof makes the result easier to understand intuitively.\nStory proof: Consider
+        choosing a committee of size k in a group of n people. We know that there
+        are $\\binom{n}{k}$ possibilities. But another way to choose the committee
+        is to specify which n-k people are not on the committee; specifying who is
+        on the committee determines who is not on the committee, and vice versa. So
+        the two sides are equal, as they are two ways of counting the same thing.\n\
+        Example 1.5.2 (The team captain). For any positive integers n and k with $k
+        \\leq n$,"
+      quote_hash: 
+        sha256:6ecfacf5225b1af018e29c3bc762dc5031d3fde286fdf846fc685d61e82f04fd
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s216
+        - s217
+        - s218
+        - s219
+        - s220
+        - s221
+        - s222
+        - s223
+        - s224
+      span_hash: 
+        sha256:ff3377b8bb67885eb79765933795c59cd3f5b40b214c8eb470332973e64c4af2
+      section_id: u7
+      learning_object_ids:
+        - lo_construct_a_combinatorial_proof_of_an_identity
+created_at: '2026-07-28T20:07:55Z'
+updated_at: '2026-07-28T20:07:55Z'

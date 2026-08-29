@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 from learnloop.ai.client import make_ai_provider_client
-from learnloop.ai.codex_sdk import codex_config_from_ai_profile
+from learnloop.ai.providers.codex import codex_config_from_ai_profile
 from learnloop.config import (
     CODEX_CHECKOUT_ENV,
     AIProviderConfig,
@@ -18,8 +18,10 @@ def test_default_config_contains_ai_codex_profile(tmp_path):
 
     config = load_config(tmp_path / "learnloop.toml")
 
-    # P0.5 cutover: new vaults default to mvp-0.8 (spec §7.2).
-    assert config.algorithms.algorithm_version == "mvp-0.8"
+    # P0.5 cutover: new vaults default to the current tag (spec §7.2). mvp-0.9
+    # adds cross-channel reveal accounting (migration 154) on the unchanged
+    # mvp-0.8 projection namespace.
+    assert config.algorithms.algorithm_version == "mvp-0.9"
     assert config.ai.active_provider == "codex"
     assert config.ai.providers["codex"].type == "codex_sdk"
     assert config.ai.providers["codex"].model == "gpt-5.6-sol"
@@ -166,15 +168,18 @@ def test_in_memory_defaults_match_persisted_algorithm_and_codex_profile(tmp_path
     loaded = load_config(tmp_path / "learnloop.toml")
     in_memory = LearnLoopConfig()
 
-    # P0.5 cutover: new vaults are written as mvp-0.8; the in-memory default stays
-    # mvp-0.6 because it is the fallback for configs that predate the field and must
-    # never silently activate the new knowledge model over legacy content.
-    assert loaded.algorithms.algorithm_version == "mvp-0.8"
+    # P0.5 cutover: new vaults are written as the current tag (mvp-0.9); the
+    # in-memory default stays mvp-0.6 because it is the fallback for configs that
+    # predate the field and must never silently activate the new knowledge model
+    # over legacy content.
+    assert loaded.algorithms.algorithm_version == "mvp-0.9"
     assert in_memory.algorithms.algorithm_version == "mvp-0.6"
 
     for config in (loaded, in_memory):
+        assert config.ai.timeout_seconds == 180
         assert config.codex.model == "gpt-5.6-sol"
         assert config.codex.reasoning_effort == "low"
+        assert config.codex.timeout_seconds == 180
         assert config.ai.providers["codex"].model == "gpt-5.6-sol"
         assert config.ai.providers["codex"].reasoning_effort == "low"
         assert config.ai.providers["codex_low"].reasoning_effort == "low"
@@ -304,9 +309,9 @@ def test_default_config_contains_recall_error_impacts(tmp_path):
         assert scaffold.families["recall"] < recall.families["recall"]
         assert slip.families["numeric"] < 0.0
 
-        # cross_lo_propagation.error_gates is retired (knowledge-model §8.3): the
-        # default config no longer seeds it.
-        assert config.cross_lo_propagation.error_gates == {}
+        # The retired cross-LO subsystem is accepted as legacy input but has no
+        # effective typed representation.
+        assert "cross_lo_propagation" not in config.model_dump()
 
 
 def test_error_impacts_max_sharpening_maps_to_recall_coverage_runtime_field():
@@ -337,7 +342,7 @@ def test_legacy_codex_config_maps_to_ai_profile():
 
     profile = config.ai.providers["codex"]
 
-    assert profile.type == "http_adapter"
+    assert profile.type == "http"
     assert profile.model == "gpt-5.4-mini"
     assert profile.checkout_path == "codex-checkout"
     assert profile.base_url == "http://127.0.0.1:9999"

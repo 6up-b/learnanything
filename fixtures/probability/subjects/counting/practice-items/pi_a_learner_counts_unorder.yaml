@@ -1,0 +1,129 @@
+schema_version: 1
+id: pi_a_learner_counts_unorder
+learning_object_id: lo_count_unordered_selections_without_replacement
+subjects:
+practice_mode: error analysis
+attempt_types_allowed: []
+evidence_facets:
+  - facet_if_an_auxiliary_counting_method_represents_every
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights: {}
+criterion_facet_weights: {}
+trace_contract:
+variant_contract:
+teach_back_source:
+prompt: A learner counts unordered pairs chosen with replacement from 8 types by
+  computing 8^2/2. Explain why this division is invalid. Then state the correct 
+  count and justify it.
+expected_answer: Distinct pairs have two ordered representations, but repeated 
+  pairs have only one, so the overcounting factor is not uniformly 2. The 
+  correct multiset count is binom(8+2-1,2)=binom(9,2)=36; equivalently, count 8 
+  repeated pairs and binom(8,2)=28 distinct pairs.
+difficulty:
+difficulty_source:
+tags: []
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.1
+transfer_distance: 0.5
+scaffold_level: 0.2
+capability:
+task_features:
+task_feature_schema:
+surface_family: nonuniform-overcounting
+evidence_fingerprint:
+  source_family: primary-textbook-derived
+  shared_stimulus_id: stimulus-unordered-pairs-repetition
+  representation: incorrect formula and verbal model
+  solution_recipe_family: uniform-multiplicity-check
+  answer_structure: diagnosis plus corrected count
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_if_an_auxiliary_counting_method_represents_every
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: criterion-overcount-diagnosis
+      points: 2.0
+      description: Distinguishes the multiplicities of repeated and distinct 
+        pairs and rejects division by a common factor of two.
+      tier: core
+      targets:
+        - facet: facet_if_an_auxiliary_counting_method_represents_every
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - facet-uniform-overcounting
+      correlation_group: overcount-check
+      recipe_ids:
+        - recipe-count-unordered-selections
+      measurement_status:
+    - id: criterion-overcount-correction
+      points: 2.0
+      description: Obtains 36 by a valid case split or multiset formula and 
+        explains why the method counts each pair once.
+      tier: transfer
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+        - facet: facet_if_an_auxiliary_counting_method_represents_every
+          capability: method_selection
+          role: supporting
+      depends_on:
+        - facet-binomial-coefficient
+        - facet-uniform-overcounting
+      correlation_group: overcount-check
+      recipe_ids:
+        - recipe-count-unordered-selections
+      measurement_status:
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: codex_proposal
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s107
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: exercise
+      role: primary_textbook
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s147
+      quote:
+      quote_hash:
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+      relation: support
+      role: primary_textbook
+created_at: '2026-07-28T17:34:48Z'
+updated_at: '2026-07-28T17:34:48Z'

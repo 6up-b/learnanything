@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from learnloop.clock import utc_now_iso
-from learnloop.services.instrument_serving import unservable_refusal
+from learnloop.substrate.instrument_serving import unservable_refusal
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -51,6 +52,12 @@ class ContestCausalDiagnosisInput(ParamsModel):
     response: str
 
 
+class SubmitElicitingResponseInput(ParamsModel):
+    attempt_id: str
+    suggestion_index: int
+    response_md: str
+
+
 def _attach_common_repair(
     repository: Any, attempt_id: str, bundle: dict[str, Any]
 ) -> None:
@@ -65,7 +72,7 @@ def _attach_common_repair(
     learner-initiated ``causal_repair_status`` flow untouched.
     """
 
-    from learnloop.services.followups import common_repair_recommendation
+    from learnloop.diagnosis.followups import common_repair_recommendation
 
     causal = bundle.get("causalFeedback")
     if not isinstance(causal, dict):
@@ -84,12 +91,53 @@ def _attach_common_repair(
         causal["commonRepair"] = to_camel(recommendation)
 
 
+def _debit_repair_display_reveals(
+    vault: Any, repository: Any, attempt: dict[str, Any], stored_feedback: dict[str, Any]
+) -> None:
+    """Charge the reveal ledger for the repair suggestions this screen shows.
+
+    A repair suggestion declares an ``answer_reveal_budget`` — the fraction of
+    the solution its lane is licensed to show — and until now that budget
+    debited nothing anywhere. Showing the suggestion is when it is spent, so the
+    first open of an attempt's feedback appends it to the ledger; the next
+    attempt on the item then sees the exposure it was given.
+
+    Best-effort: a bookkeeping failure must never cost the learner their
+    feedback screen."""
+
+    from learnloop.attempts.reveal_ledger import record_repair_display_reveals
+
+    try:
+        practice_item_id = str(attempt.get("practice_item_id") or "") or None
+        item = vault.practice_items.get(practice_item_id) if practice_item_id else None
+        record_repair_display_reveals(
+            repository,
+            attempt_id=str(attempt["id"]),
+            practice_item_id=practice_item_id,
+            learning_object_id=item.learning_object_id if item is not None else None,
+            repair_suggestions=stored_feedback.get("repair_suggestions") or [],
+        )
+    except Exception:  # pragma: no cover - defensive
+        logging.getLogger(__name__).warning(
+            "failed to debit repair-display reveals for attempt %s",
+            attempt.get("id"),
+            exc_info=True,
+        )
+
+
 @method("get_feedback", AttemptInput)
 def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     session_id = attempt.get("session_id") if attempt is not None else None
+    # Read the metadata BEFORE recording the open: `record_feedback_shown` sets
+    # `first_shown_at`, so afterwards there is no way left to tell a first open
+    # from a reopen.
+    stored_feedback = repository.fetch_attempt_feedback_metadata(params.attempt_id) or {}
+    first_show = not stored_feedback.get("first_shown_at")
     repository.record_feedback_shown(params.attempt_id, session_id=session_id)
+    if first_show and attempt is not None:
+        _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
     _attach_common_repair(repository, params.attempt_id, bundle)
     log_event(
@@ -129,7 +177,7 @@ def get_attempt_trace_evidence(ctx: SidecarContext, params: AttemptInput) -> dic
     incentive rule 3 exists to protect against.
     """
 
-    from learnloop.services.trace_evidence import elicitation_reward
+    from learnloop.attempts.trace_evidence import elicitation_reward
 
     _vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
@@ -174,7 +222,7 @@ def get_grading_clarification(ctx: SidecarContext, params: AttemptInput) -> dict
     asking, since the learner would have spent the effort for nothing.
     """
 
-    from learnloop.services.clarification import pending_clarification
+    from learnloop.attempts.clarification import pending_clarification
 
     _vault, repository = ctx.require_vault()
     if repository.fetch_practice_attempt(params.attempt_id) is None:
@@ -211,7 +259,7 @@ def answer_grading_clarification(
     exchange.
     """
 
-    from learnloop.services.clarification import answer_clarification
+    from learnloop.attempts.clarification import answer_clarification
     from learnloop_sidecar.handlers.ai_providers import (
         grading_source_for_provider,
         provider_label,
@@ -276,7 +324,7 @@ def answer_grading_clarification(
 def report_unresolved_cause(
     ctx: SidecarContext, params: ReportUnresolvedCauseInput
 ) -> dict[str, Any]:
-    from learnloop.services.causal_attribution import (
+    from learnloop.diagnosis.causal_attribution import (
         record_unresolved_cause_self_report,
     )
 
@@ -298,7 +346,7 @@ def report_unresolved_cause(
     # Run here rather than inside the recorder because the confirmation must be
     # persisted first — a promotion is downstream of the evidence, never a
     # precondition for storing it.
-    from learnloop.services.durable_promotion import (
+    from learnloop.tutor.durable_promotion import (
         apply_proved_and_confirmed_promotion,
     )
 
@@ -311,11 +359,60 @@ def report_unresolved_cause(
     return result
 
 
+@method("submit_eliciting_response", SubmitElicitingResponseInput)
+def submit_eliciting_response(
+    ctx: SidecarContext, params: SubmitElicitingResponseInput
+) -> dict[str, Any]:
+    """The learner's unaided answer to an eliciting repair's question.
+
+    An eliciting suggestion withholds the corrected work and asks one question
+    instead; this is where the answer lands. It is recorded as a factor-response
+    engagement signal on the same ``causal_attribution_reports`` seam as
+    ``report_unresolved_cause`` — the learner's own account, attached to the open
+    factor.
+
+    Deliberately NOT a grade. Nothing here scores the response, resolves the
+    factor, or confirms a candidate: an unaided response is evidence about the
+    factor, and the only machinery licensed to convert evidence into a repair
+    verdict is the cold verification lane. The response's independence is
+    checked against the reveal ledger and stamped on the record, so a response
+    typed after the answer was on screen is stored as what it is.
+    """
+
+    from learnloop.diagnosis.causal_attribution import record_eliciting_response
+
+    vault, repository = ctx.require_vault()
+    if repository.fetch_practice_attempt(params.attempt_id) is None:
+        raise SidecarError("not_found", f"Attempt {params.attempt_id} not found.")
+    try:
+        result = record_eliciting_response(
+            vault,
+            repository,
+            attempt_id=params.attempt_id,
+            suggestion_index=params.suggestion_index,
+            response_md=params.response_md,
+        )
+    except ValueError as exc:
+        raise SidecarError("invalid_eliciting_response", str(exc)) from exc
+    log_event(
+        "eliciting_response_recorded",
+        attempt_id=params.attempt_id,
+        factor_id=result.get("factor_id"),
+        admissible=result.get("admissible_as_independent"),
+    )
+    return versioned(
+        {
+            **result,
+            "feedback": feedback_bundle(vault, repository, params.attempt_id),
+        }
+    )
+
+
 @method("contest_causal_diagnosis", ContestCausalDiagnosisInput)
 def contest_causal_diagnosis(
     ctx: SidecarContext, params: ContestCausalDiagnosisInput
 ) -> dict[str, Any]:
-    from learnloop.services.causal_attribution import (
+    from learnloop.diagnosis.causal_attribution import (
         record_causal_diagnosis_contest,
     )
 
@@ -333,7 +430,7 @@ def contest_causal_diagnosis(
 
 @method("trigger_regrade", TriggerRegradeInput)
 def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[str, Any]:
-    from learnloop.services.regrade import _regrade_attempt
+    from learnloop.attempts.regrade import regrade_attempt
     from learnloop_sidecar.handlers.ai_providers import (
         client_for_provider,
         grading_source_for_provider,
@@ -353,7 +450,7 @@ def trigger_regrade(ctx: SidecarContext, params: TriggerRegradeInput) -> dict[st
     if client is None:
         label = provider_label(provider_name)
         raise SidecarError("ai_unavailable", f"{label} client is unavailable; regrade requires an AI provider.")
-    _regrade_attempt(
+    regrade_attempt(
         vault,
         repository,
         attempt,
@@ -378,7 +475,7 @@ def trigger_followup(ctx: SidecarContext, params: TriggerFollowupInput) -> dict[
 
     from types import SimpleNamespace
 
-    from learnloop.services.followups import evaluate_attempt_intervention_followup
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
 
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
@@ -453,14 +550,14 @@ def start_primed_retry(ctx: SidecarContext, params: StartPrimedRetryInput) -> di
     resulting attempt with primed=true.
     """
 
-    from learnloop.services.practice_generation import (
+    from learnloop.content.authoring.practice_generation import (
         PracticeExpansionError,
         generate_diagnostic_practice_proposal,
         generate_post_probe_practice_proposal,
     )
-    from learnloop.codex.client import CodexUnavailable
-    from learnloop.services.patches import PatchApplicationError
-    from learnloop.services.proposals import accept_items
+    from learnloop.ai.errors import CodexUnavailable
+    from learnloop.content.proposals.patches import PatchApplicationError
+    from learnloop.content.proposals.proposals import accept_items
     from learnloop_sidecar.handlers.ai_providers import provider_label, ready_grading_provider
 
     vault, repository = ctx.require_vault()
@@ -538,7 +635,7 @@ def _pick_primed_sibling(
     """Sibling items on the same LO, best-first.
 
     Ordering (deterministic, lowest key first): not attempted within the repair
-    lane's :data:`~learnloop.services.remediation.RECENT_ATTEMPT_WINDOW` (an
+    lane's :data:`~learnloop.diagnosis.remediation.RECENT_ATTEMPT_WINDOW` (an
     item answered minutes ago re-measures short-term memory, not the retry);
     covers a checkpoint the attempt's own repair selection targets (the
     checkpoint-precise signal the facet ranking used to ignore); covers the
@@ -558,19 +655,19 @@ def _pick_primed_sibling(
     """
 
     from learnloop.clock import SystemClock, parse_utc
-    from learnloop.services.guided_redo import (
-        _diagnosis_receipt,
-        _item_step_checkpoint_ids,
-        _selected_repair,
+    from learnloop.diagnosis.guided_redo import (
+        diagnosis_receipt,
+        item_step_checkpoint_ids,
+        selected_repair,
     )
-    from learnloop.services.remediation import RECENT_ATTEMPT_WINDOW, _item_checkpoints
+    from learnloop.diagnosis.remediation import RECENT_ATTEMPT_WINDOW, item_checkpoints
 
     target_facets = {
         vault.canonical_facet_id(facet) for facet in ((need or {}).get("target_facets") or [])
     }
-    selected = _selected_repair(_diagnosis_receipt(repository, str(attempt["id"])))
+    selected = selected_repair(diagnosis_receipt(repository, str(attempt["id"])))
     targeted_checkpoints = set(
-        _item_step_checkpoint_ids(
+        item_step_checkpoint_ids(
             (selected or {}).get("repair_class")
             if isinstance((selected or {}).get("repair_class"), dict)
             else None
@@ -591,7 +688,7 @@ def _pick_primed_sibling(
             continue
         covers = bool(target_facets & {vault.canonical_facet_id(facet) for facet in item.evidence_facets})
         covers_checkpoint = (
-            bool(targeted_checkpoints & _item_checkpoints(item))
+            bool(targeted_checkpoints & item_checkpoints(item))
             if targeted_checkpoints
             else False
         )
@@ -665,7 +762,7 @@ def start_guided_redo_handler(
     binding null and the redo serves as a plain primed attempt.
     """
 
-    from learnloop.services.guided_redo import GuidedRedoUnavailable, start_guided_redo
+    from learnloop.diagnosis.guided_redo import GuidedRedoUnavailable, start_guided_redo
 
     vault, repository = ctx.require_vault()
     try:

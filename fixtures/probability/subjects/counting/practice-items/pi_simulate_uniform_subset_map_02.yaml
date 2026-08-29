@@ -1,0 +1,240 @@
+schema_version: 1
+id: pi_simulate_uniform_subset_map_02
+learning_object_id: lo_simulate_a_counting_probability_model
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+evidence_weights:
+  facet_for_a_finite_sample_space_s_whose_elementary_out: 0.6
+  facet_to_estimate_an_event_probability_by_monte_carlo_: 0.4
+criterion_facet_weights:
+  c1_construct_complete_mapping:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+  c2_justify_uniform_generator:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 1.0
+  c3_execute_hit_count:
+    facet_for_a_finite_sample_space_s_whose_elementary_out: 0.3
+    facet_to_estimate_an_event_probability_by_monte_carlo_: 0.7
+trace_contract:
+  status: available
+  recipes:
+    - id: uniform_subset_simulation
+      checkpoints:
+        - enumerate_subsets
+        - map_uniform_integers
+        - justify_uniformity
+        - classify_event_hits
+        - form_estimate
+      dependencies:
+        classify_event_hits:
+          - map_uniform_integers
+        enumerate_subsets: []
+        form_estimate:
+          - classify_event_hits
+        justify_uniformity:
+          - map_uniform_integers
+        map_uniform_integers:
+          - enumerate_subsets
+variant_contract:
+teach_back_source:
+prompt: 'A simple random sample selects two people from {A,B,C,D}, so all two-person
+  subsets must be equally likely. Build a simulation using a uniform random integer
+  from 1 through 6: give a one-to-one mapping from the six integers to the six subsets,
+  explain why this represents the intended sample space, and write the hit-count procedure
+  for estimating the probability that A is selected. Apply your mapping to the integer
+  stream 1, 6, 2, 3, 6, 5 and report the estimate.'
+expected_answer: One valid map is 1→{A,B}, 2→{A,C}, 3→{A,D}, 4→{B,C}, 5→{B,D}, 
+  6→{C,D}. Each subset receives exactly one of six equally likely integers, so 
+  the simulated subsets are equally likely as required. Set hits=0; for each 
+  generated integer, map it to a subset and increment hits if that subset 
+  contains A; return hits/N. In the stream, 1, 2, and 3 are hits, so the 
+  estimate is 3/6=1/2.
+difficulty: 0.25
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u5
+  - simple-random-sample
+  - uniform-generator
+  - capstone
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.7
+transfer_distance: 0.4
+scaffold_level: 0.06
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+    - code
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: uniform_subset_integer_map
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_for_a_finite_sample_space_s_whose_elementary_out
+  - facet_to_estimate_an_event_probability_by_monte_carlo_
+  - fatal_nonuniform_subset_mapping
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1_construct_complete_mapping
+      points: 1.0
+      description: Maps the six integers one-to-one onto all six two-person 
+        subsets.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: schema_interpretation
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c2_justify_uniform_generator
+      points: 1.0
+      description: Explains that one equally likely integer per subset makes the
+        represented elementary outcomes equally likely.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: schema_interpretation
+          role: primary
+      depends_on:
+        - c1_construct_complete_mapping
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c3_execute_hit_count
+      points: 1.0
+      description: Defines and executes the event-counter procedure using the 
+        constructed mapping.
+      tier: core
+      targets:
+        - facet: facet_to_estimate_an_event_probability_by_monte_carlo_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_for_a_finite_sample_space_s_whose_elementary_out
+          capability: schema_interpretation
+          role: supporting
+      depends_on:
+        - c1_construct_complete_mapping
+        - c2_justify_uniform_generator
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c4_compute_estimate
+      points: 1.0
+      description: Finds three hits in six trials and reports 1/2.
+      tier: core
+      targets: []
+      depends_on:
+        - c3_execute_hit_count
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+  fatal_errors:
+    - id: fatal_nonuniform_subset_mapping
+      description: Uses a mapping in which some two-person subsets receive more 
+        random-integer values than others.
+      max_grade: 2
+      misconception_id:
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_simulate_a_counting_probability_model:s64-s71
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s64
+      quote: "For the complements of the events just considered,\n$$P_{\\text{naive}}(A^c)
+        = \\frac{4}{9}, \\ P_{\\text{naive}}(B^c) = \\frac{5}{9}, \\ P_{\\text{naive}}((A
+        \\cup B)^c) = \\frac{1}{9}, \\ P_{\\text{naive}}((A \\cap B)^c) = \\frac{8}{9}.$$\n\
+        In general,\n$$P_{\\text{naive}}(A^c) = \\frac{|A^c|}{|S|} = \\frac{|S| -
+        |A|}{|S|} = 1 - \\frac{|A|}{|S|} = 1 - P_{\\text{naive}}(A).$$\nIn Section
+        1.6, we will see that this result about complements always holds for probability,
+        even when we go beyond the naive definition. A good strategy when trying to
+        find the probability of an event is to start by thinking about whether it
+        will be easier to find the probability of the event or the probability of
+        its complement. De Morgan's laws are especially useful in this context, since
+        it may be easier to work with an intersection than a union, or vice versa.\n\
+        The naive definition is very restrictive in that it requires S to be finite,
+        with equal mass for each pebble. It has often been misapplied by people who
+        assume equally likely outcomes without justification and make arguments to
+        the effect of \"either it will happen or it won't, and we don't know which,
+        so it's 50-50\". In addition to sometimes giving absurd probabilities, this
+        type of reasoning isn't even internally consistent. For example, it would
+        say that the probability of life on Mars is 1/2 (\"either there is or there
+        isn't life there\"), but it would also say that the probability of intelligent
+        life on Mars is 1/2, and it is clear intuitively—and by the properties of
+        probability developed in Section 1.6— that the latter should have strictly
+        lower probability than the former. But there are several important types of
+        problems where the naive definition is applicable:\nwhen there is symmetry
+        in the problem that makes outcomes equally likely. It is common to assume
+        that a coin has a 50% chance of landing Heads when tossed, due to the physical
+        symmetry of the coin. 1 For a standard, well-shuffled deck of cards, it is
+        reasonable to assume that all orders are equally likely. There aren't certain
+        overeager cards that especially like to be near the top of the deck; any particular
+        location in the deck is equally likely to house any of the 52 cards. when
+        the outcomes are equally likely by design. For example, consider conducting
+        a survey of n people in a population of N people. A common goal is to obtain
+        a simple random sample, which means that the n people are chosen randomly
+        with all subsets of size n being equally likely. If successful, this ensures
+        that the naive definition is applicable, but in practice this may be hard
+        to accomplish because of various complications, such as not having a complete,
+        accurate list of contact information for everyone in the population.\n1 See
+        Diaconis, Holmes, and Montgomery [7] for a physical argument that the chance
+        of a tossed coin coming up the way it started is about 0.51 (close to but
+        slightly more than 1/2), and Gelman and Nolan [11] for an explanation of why
+        the probability of Heads is close to 1/2 even for a coin that is manufactured
+        to have different weights on the two sides (for standard coin-tossing; allowing
+        the coin to spin is a different matter)."
+      quote_hash: 
+        sha256:dedc7694901e9d318e4b875ab2dec17e85b53c72d58e62aeeff1bbfc01af4ae3
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s64
+        - s65
+        - s66
+        - s67
+        - s68
+        - s69
+        - s70
+        - s71
+      span_hash: 
+        sha256:7fd5a104ce9d63f48cd303ca7dc8044f7a4892ee2258d3cdfe2ac6ababbe0076
+      section_id: u5
+      learning_object_ids:
+        - lo_simulate_a_counting_probability_model
+created_at: '2026-07-28T20:08:27Z'
+updated_at: '2026-07-28T20:08:27Z'

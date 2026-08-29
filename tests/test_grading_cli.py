@@ -14,13 +14,13 @@ from typer.testing import CliRunner
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_self_graded_attempt,
 )
-from learnloop.services.grade_resolution import quarantine_observation
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.grade_resolution import quarantine_observation
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
@@ -93,7 +93,7 @@ def test_reviews_lists_quarantined_then_adjudicate_clears_and_receipt(tmp_path):
     assert json.loads(reviews_after.output)["reviews"] == []
 
     # Resolve the decision-parameter registry projection so the receipt can trace it.
-    from learnloop.services import parameter_registry as pr
+    from learnloop.params import parameter_registry as pr
 
     pr.refresh(vault, repo, clock=CLOCK)
 
@@ -125,7 +125,7 @@ def test_retire_surface_from_cli_preserves_evidence_and_logs_reason(tmp_path):
     ``interaction_events``."""
 
     from learnloop.db.connection import connect
-    from learnloop.services.canonical_projection import project_canonical_facet_state
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
 
     paths, vault, repo = _p0_vault(tmp_path)
     result = _attempt(vault, repo)

@@ -1,18 +1,32 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sqlite3
 import threading
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, date, timedelta
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
+from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
+from learnloop.causal_activity_policy import (
+    CAUSAL_ACTIVITY_POLICY_VERSION,
+    CONTAMINATION_PRECEDENCE,
+    policy_for_class,
+)
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
+from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
+from learnloop.db.stores.observation_ledger import (
+    load_authoritative_observation_ledger,
+    load_canonical_observation_ledger,
+    load_effective_assessment_contracts,
+)
 from learnloop.ids import new_ulid
 from learnloop.ingest.ir import (
     DocumentAsset,
@@ -22,10 +36,16 @@ from learnloop.ingest.ir import (
 )
 from learnloop.ingest.locators import detect_locator_scheme
 from learnloop.numeric import beta_mean, beta_quantile
-from learnloop.token_usage import TokenUsage
+from learnloop.ai.usage import TokenUsage
 
 
 _UNSET: Any = object()  # sentinel: "argument not supplied" vs an explicit None
+
+#: `causal_discriminating_observations.channel` (migration 155). NULL is the
+#: legacy encoding of this same value, so readers accept either.
+OBSERVATION_CHANNEL_BLIND_PROBE = "blind_probe"
+#: A falsifiable expectation extracted from the learner's own tutor question.
+OBSERVATION_CHANNEL_LEARNER_QUESTION = "learner_question_embedded"
 
 
 class StaleContractHead(Exception):
@@ -77,6 +97,13 @@ def _loads(value: str | None, default: Any) -> Any:
     if value is None:
         return default
     return json.loads(value)
+
+
+def _projection_id(prefix: str, *identity: object) -> str:
+    """Content-addressed identity for a row recreated by deterministic replay."""
+
+    encoded = _json(identity).encode("utf-8")
+    return f"{prefix}_{hashlib.sha256(encoded).hexdigest()[:26]}"
 
 
 def _non_negative_tokens(value: Any) -> int:
@@ -680,17 +707,40 @@ class _PinnedConnection:
         self._connection.isolation_level = ""
 
 
-class Repository:
+class Repository(IngestQueueStoreMixin):
     def __init__(self, sqlite_path: Path):
-        self.sqlite_path = sqlite_path
-        self._pin = threading.local()
+        self._initialize(sqlite_path, read_only=False)
         apply_migrations(sqlite_path)
+
+    @classmethod
+    def attach(
+        cls,
+        sqlite_path: Path,
+        *,
+        read_only: bool = False,
+    ) -> Repository:
+        """Attach to an existing database without applying migrations.
+
+        ``read_only`` is independent from migration policy.  Doctor attaches
+        read-only to make accidental writes physically impossible, while replay
+        code attaches writable scratch copies whose historical schema must not
+        be upgraded as a side effect of opening them.
+        """
+
+        repository = cls.__new__(cls)
+        repository._initialize(sqlite_path, read_only=read_only)
+        return repository
+
+    def _initialize(self, sqlite_path: Path, *, read_only: bool) -> None:
+        self.sqlite_path = Path(sqlite_path)
+        self._read_only = bool(read_only)
+        self._pin = threading.local()
 
     def connection(self) -> sqlite3.Connection:
         pinned = getattr(self._pin, "connection", None)
         if pinned is not None:
             return pinned
-        return connect(self.sqlite_path)
+        return connect(self.sqlite_path, read_only=self._read_only)
 
     @contextmanager
     def pinned(self) -> Iterator[None]:
@@ -704,7 +754,7 @@ class Repository:
         if getattr(self._pin, "connection", None) is not None:
             yield
             return
-        raw = connect(self.sqlite_path)
+        raw = connect(self.sqlite_path, read_only=self._read_only)
         self._pin.connection = _PinnedConnection(raw)
         try:
             yield
@@ -1071,18 +1121,63 @@ class Repository:
             ).fetchall()
         return [_decode_attempt(row) for row in rows]
 
-    def list_recent_attempts_by_learning_object(self, learning_object_id: str, limit: int = 10) -> list[dict[str, Any]]:
+    def list_recent_attempts_by_learning_object(
+        self, learning_object_id: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        return self.list_recent_attempts_by_learning_objects(
+            (learning_object_id,), limit=limit
+        ).get(learning_object_id, [])
+
+    def list_recent_attempts_by_learning_objects(
+        self,
+        learning_object_ids: Iterable[str],
+        *,
+        limit: int = 10,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Load the latest ``limit`` attempts for each requested LO at once.
+
+        The scheduler evaluates an entire goal frontier in one pass.  A
+        partitioned rank keeps that pass to one database query instead of one
+        query per learning object, while the ``id`` tie-break makes replay
+        order deterministic for attempts sharing a timestamp.
+        """
+
+        ids = sorted(
+            {
+                str(learning_object_id)
+                for learning_object_id in learning_object_ids
+                if learning_object_id
+            }
+        )
+        grouped: dict[str, list[dict[str, Any]]] = {
+            learning_object_id: [] for learning_object_id in ids
+        }
+        if not ids or limit <= 0:
+            return grouped
+        placeholders = ",".join("?" for _ in ids)
         with self.connection() as connection:
             rows = connection.execute(
-                """
-                SELECT * FROM practice_attempts
-                WHERE learning_object_id = ?
-                ORDER BY created_at DESC
-                LIMIT ?
+                f"""
+                WITH ranked AS (
+                    SELECT attempts.*,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY learning_object_id
+                               ORDER BY created_at DESC, id DESC
+                           ) AS recency_rank
+                    FROM practice_attempts AS attempts
+                    WHERE learning_object_id IN ({placeholders})
+                )
+                SELECT * FROM ranked
+                WHERE recency_rank <= ?
+                ORDER BY learning_object_id, recency_rank
                 """,
-                (learning_object_id, limit),
+                (*ids, int(limit)),
             ).fetchall()
-        return [_decode_attempt(row) for row in rows]
+        for row in rows:
+            attempt = _decode_attempt(row)
+            attempt.pop("recency_rank", None)
+            grouped[str(row["learning_object_id"])].append(attempt)
+        return grouped
 
     def list_attempts_by_learning_object(self, learning_object_id: str) -> list[dict[str, Any]]:
         with self.connection() as connection:
@@ -1127,6 +1222,7 @@ class Repository:
                        a.correctness AS correctness,
                        a.rubric_score AS rubric_score,
                        a.hints_used AS hints_used,
+                       a.primed AS primed,
                        a.created_at AS created_at,
                        s.posterior_delta_json AS posterior_delta_json
                 FROM practice_attempts a
@@ -1138,6 +1234,7 @@ class Repository:
         for row in rows:
             payload = dict(row)
             payload["posterior_delta"] = _loads(payload.pop("posterior_delta_json"), None)
+            payload["primed"] = bool(payload["primed"])
             history.append(payload)
         return history
 
@@ -1710,6 +1807,27 @@ class Repository:
                 (attempt_id,),
             ).fetchall()
         return [_decode_error_event(row) for row in rows]
+
+    def all_error_events_by_attempt(self) -> dict[str, list[dict[str, Any]]]:
+        """Decode the complete error-event ledger in one ordered scan.
+
+        Whole-vault projections already replay every attempt, so issuing one
+        indexed lookup from inside that fold turns a rebuild into an N+1 query
+        path. This bulk shape preserves the per-attempt ordering of
+        :meth:`error_events_for_attempt` while making the read cost constant.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM error_events
+                ORDER BY attempt_id, created_at, id
+                """
+            ).fetchall()
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            grouped[str(row["attempt_id"])].append(_decode_error_event(row))
+        return dict(grouped)
 
     def attempt_ids_for_misconception(
         self,
@@ -2890,6 +3008,7 @@ class Repository:
         allowed = {
             "state", "passages_shown", "primed_item_id", "cold_item_id",
             "primed_attempt_id", "cold_attempt_id", "completed_at",
+            "cold_measurement_opportunity_id",
         }
         values = {key: value for key, value in changes.items() if key in allowed}
         if not values:
@@ -2946,6 +3065,30 @@ class Repository:
             ).fetchone()
         return _decode_remediation_episode(row) if row is not None else None
 
+    def open_remediation_episodes_for_item(
+        self, practice_item_id: str
+    ) -> list[dict[str, Any]]:
+        """Live episodes that bound this item as their primed or cold surface.
+
+        Reveal attribution (migration 154) needs the reverse of
+        ``open_remediation_episode_for_primed_item``: given an item the learner
+        was just shown something about, which repair — if any — does that
+        exposure belong to? The cold surface is included because a reveal on a
+        *scheduled but not yet due* cold item is precisely the contamination the
+        ledger exists to catch. Newest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM remediation_episodes
+                WHERE (primed_item_id = ? OR cold_item_id = ?)
+                  AND state NOT IN ('completed', 'abandoned')
+                ORDER BY created_at DESC, id DESC
+                """,
+                (practice_item_id, practice_item_id),
+            ).fetchall()
+        return [_decode_remediation_episode(row) for row in rows]
+
     def create_followup_task(
         self,
         *,
@@ -2959,6 +3102,9 @@ class Repository:
         expires_at: str | None = None,
         context: Mapping[str, Any] | None = None,
         learning_object_id: str | None = None,
+        measurement_opportunity_id: str | None = None,
+        measurement_decision_reason: str | None = None,
+        measurement_candidate_summary: Mapping[str, Any] | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Schedule one delayed follow-up.
@@ -2984,8 +3130,8 @@ class Repository:
                   id, kind, case_kind, case_ref, source_attempt_id,
                   remediation_episode_id, not_before, expires_at, status,
                   selected_item_id, context_json, learning_object_id,
-                  created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+                  measurement_opportunity_id, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     task_id, kind, case_kind, case_ref, source_attempt_id,
@@ -2993,18 +3139,213 @@ class Repository:
                     selected_item_id,
                     _json(dict(context)) if context is not None else None,
                     learning_object_id,
+                    measurement_opportunity_id,
                     now, now,
                 ),
             )
+            if (
+                measurement_opportunity_id is not None
+                and measurement_decision_reason is not None
+            ):
+                # The queue row and the opportunity's scheduled decision are
+                # one transaction. A crash cannot leave a schedulable task
+                # whose denominator row still says "undecided".
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO cold_measurement_opportunity_decisions(
+                      id, measurement_opportunity_id, decision, reason,
+                      followup_task_id, selected_item_id,
+                      candidate_summary_json, scheduled_not_before,
+                      scheduled_expires_at, created_at
+                    ) VALUES (?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        new_ulid(),
+                        measurement_opportunity_id,
+                        measurement_decision_reason,
+                        task_id,
+                        selected_item_id,
+                        _json(dict(measurement_candidate_summary or {})),
+                        not_before,
+                        expires_at,
+                        now,
+                    ),
+                )
             connection.commit()
         task = self.followup_task(task_id)
         assert task is not None
         return task
 
+    # -- Cold-measurement opportunities (migration 151) -------------------
+
+    def get_or_create_cold_measurement_opportunity(
+        self,
+        *,
+        lane: str,
+        trigger_kind: str,
+        trigger_ref: str,
+        policy_version: str,
+        learning_object_id: str | None = None,
+        case_kind: str | None = None,
+        case_ref: str | None = None,
+        remediation_episode_id: str | None = None,
+        source_attempt_id: str | None = None,
+        certificate_id: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Create the denominator row before candidate selection.
+
+        The unique ``(lane, trigger_kind, trigger_ref)`` key makes scheduler
+        replay idempotent.  The row is append-only: a later scheduling decision
+        is a child record rather than a mutation of the opportunity.
+        """
+
+        opportunity_id = new_ulid()
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            if not connection.in_transaction:
+                connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO cold_measurement_opportunities(
+                  id, lane, trigger_kind, trigger_ref, learning_object_id,
+                  case_kind, case_ref, remediation_episode_id,
+                  source_attempt_id, certificate_id, policy_version, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    opportunity_id,
+                    lane,
+                    trigger_kind,
+                    trigger_ref,
+                    learning_object_id,
+                    case_kind,
+                    case_ref,
+                    remediation_episode_id,
+                    source_attempt_id,
+                    certificate_id,
+                    policy_version,
+                    now,
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunities
+                 WHERE lane = ? AND trigger_kind = ? AND trigger_ref = ?
+                """,
+                (lane, trigger_kind, trigger_ref),
+            ).fetchone()
+            connection.commit()
+        assert row is not None
+        return dict(row)
+
+    def cold_measurement_opportunity(
+        self, opportunity_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM cold_measurement_opportunities WHERE id = ?",
+                (opportunity_id,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def record_cold_measurement_opportunity_decision(
+        self,
+        *,
+        measurement_opportunity_id: str,
+        decision: str,
+        reason: str,
+        followup_task_id: str | None = None,
+        selected_item_id: str | None = None,
+        candidate_summary: Mapping[str, Any] | None = None,
+        scheduled_not_before: str | None = None,
+        scheduled_expires_at: str | None = None,
+        clock: Clock | None = None,
+    ) -> dict[str, Any]:
+        """Settle an opportunity once, preserving the first terminal decision."""
+
+        decision_id = new_ulid()
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO cold_measurement_opportunity_decisions(
+                  id, measurement_opportunity_id, decision, reason,
+                  followup_task_id, selected_item_id, candidate_summary_json,
+                  scheduled_not_before, scheduled_expires_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    decision_id,
+                    measurement_opportunity_id,
+                    decision,
+                    reason,
+                    followup_task_id,
+                    selected_item_id,
+                    _json(dict(candidate_summary or {})),
+                    scheduled_not_before,
+                    scheduled_expires_at,
+                    utc_now_iso(clock),
+                ),
+            )
+            row = connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunity_decisions
+                 WHERE measurement_opportunity_id = ?
+                """,
+                (measurement_opportunity_id,),
+            ).fetchone()
+            connection.commit()
+        assert row is not None
+        return self._decode_cold_measurement_opportunity_decision(row)
+
+    @staticmethod
+    def _decode_cold_measurement_opportunity_decision(
+        row: Any,
+    ) -> dict[str, Any]:
+        payload = dict(row)
+        payload["candidate_summary"] = _loads(
+            payload.pop("candidate_summary_json"), {}
+        )
+        return payload
+
+    def cold_measurement_opportunity_decision(
+        self, measurement_opportunity_id: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM cold_measurement_opportunity_decisions
+                 WHERE measurement_opportunity_id = ?
+                """,
+                (measurement_opportunity_id,),
+            ).fetchone()
+        return (
+            self._decode_cold_measurement_opportunity_decision(row)
+            if row is not None
+            else None
+        )
+
     def followup_task(self, task_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute("SELECT * FROM followup_tasks WHERE id = ?", (task_id,)).fetchone()
         return _decode_followup_task(row) if row is not None else None
+
+    def attach_followup_task_measurement_opportunity(
+        self, task_id: str, measurement_opportunity_id: str, *, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        """Prospectively attach lineage to a pre-151 task, without replacing it."""
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks
+                   SET measurement_opportunity_id = ?, updated_at = ?
+                 WHERE id = ? AND measurement_opportunity_id IS NULL
+                """,
+                (measurement_opportunity_id, utc_now_iso(clock), task_id),
+            )
+            connection.commit()
+        return self.followup_task(task_id)
 
     def due_followup_tasks(self, *, clock: Clock | None = None) -> list[dict[str, Any]]:
         now = utc_now_iso(clock)
@@ -3137,6 +3478,33 @@ class Repository:
                 WHERE id = ? AND status IN ('pending', 'served')
                 """,
                 (now, task_id),
+            )
+            connection.commit()
+        return self.followup_task(task_id)
+
+    def defer_followup_task(
+        self, task_id: str, *, not_before: str, clock: Clock | None = None
+    ) -> dict[str, Any] | None:
+        """Push an un-taken task's ``not_before`` later. Never touches expiry.
+
+        The single-use cold measurement is worth more than its promptness: when
+        the answer has been shown since the task was created, serving it now
+        would burn the one measurement on contaminated evidence. Deferral is a
+        push of the earliest serve time only — ``expires_at`` is deliberately
+        untouched, so an episode that keeps being revealed runs out its original
+        window and censors as ``right_censored_expired`` through the existing
+        sweep, which is the honest ending. Monotone (never pulls a task
+        earlier) and inert on a consumed or expired row.
+        """
+
+        with self.connection() as connection:
+            connection.execute(
+                """
+                UPDATE followup_tasks SET not_before = ?, updated_at = ?
+                WHERE id = ? AND status IN ('pending', 'served')
+                  AND not_before < ?
+                """,
+                (not_before, utc_now_iso(clock), task_id, not_before),
             )
             connection.commit()
         return self.followup_task(task_id)
@@ -3367,6 +3735,8 @@ class Repository:
         span_id: str | None = None,
         entity_type: str | None = None,
         entity_id: str | None = None,
+        after: str | None = None,
+        before: str | None = None,
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         clauses: list[str] = []
@@ -3383,6 +3753,12 @@ class Repository:
         if entity_id is not None:
             clauses.append("entity_id = ?")
             params.append(entity_id)
+        if after is not None:
+            clauses.append("created_at > ?")
+            params.append(after)
+        if before is not None:
+            clauses.append("created_at < ?")
+            params.append(before)
         query = "SELECT * FROM source_exposure_events"
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
@@ -3412,6 +3788,8 @@ class Repository:
         answer_status: str,
         signal_channel: str | None = None,
         source_context: Mapping[str, Any] | None = None,
+        leak_overlap: float | None = None,
+        remediation_episode_id: str | None = None,
     ) -> bool:
         """Complete (or fail) a pending question event after the provider call.
 
@@ -3428,7 +3806,9 @@ class Repository:
                 SET answer_md = ?, question_type = ?, facets_json = ?,
                     hint_equivalent = ?, leak_suspected = ?, answer_status = ?,
                     signal_channel = COALESCE(?, signal_channel),
-                    source_context_json = COALESCE(?, source_context_json)
+                    source_context_json = COALESCE(?, source_context_json),
+                    leak_overlap = COALESCE(?, leak_overlap),
+                    remediation_episode_id = COALESCE(?, remediation_episode_id)
                 WHERE id = ?
                 """,
                 (
@@ -3440,6 +3820,8 @@ class Repository:
                     answer_status,
                     signal_channel,
                     _json(dict(source_context)) if source_context is not None else None,
+                    leak_overlap,
+                    remediation_episode_id,
                     event_id,
                 ),
             )
@@ -3455,6 +3837,7 @@ class Repository:
         attempt_id: str | None = None,
         session_id: str | None = None,
         since: str | None = None,
+        until: str | None = None,
         answer_status: str | None = None,
         resolution: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -3476,6 +3859,9 @@ class Repository:
         if since is not None:
             clauses.append("created_at >= ?")
             parameters.append(since)
+        if until is not None:
+            clauses.append("created_at < ?")
+            parameters.append(until)
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY created_at, id"
@@ -3543,15 +3929,23 @@ class Repository:
         since: str | None = None,
         until: str | None = None,
     ) -> int:
-        """Substantive mid-attempt questions in the hint-equivalence window.
+        """Substantive questions on this item in the hint-equivalence window.
 
-        Practice-context questions on this (item, session) newer than ``since``
-        (typically the previous attempt on the item) and, when ``until`` is
-        given, at or before it (for reconstructing the count post hoc)."""
+        Questions on this (item, session) newer than ``since`` (typically the
+        previous attempt on the item) and, when ``until`` is given, at or before
+        it (for reconstructing the count post hoc).
+
+        Deliberately NOT filtered by context. A mechanism question asked from
+        the *feedback* screen — where the graded solution is already on screen —
+        helps the next attempt on the same item at least as much as the same
+        question asked mid-attempt; gating on ``context = 'practice'`` let that
+        help land as clean unassisted evidence. ``hint_equivalent`` is set by
+        ``tutor_qa.ask_question`` for every context where a practice item is
+        bound, so the flag alone carries the policy now."""
 
         query = (
             "SELECT COUNT(*) AS n FROM question_events "
-            "WHERE context = 'practice' AND hint_equivalent = 1 AND practice_item_id = ?"
+            "WHERE hint_equivalent = 1 AND practice_item_id = ?"
         )
         parameters: list[Any] = [practice_item_id]
         if session_id is not None:
@@ -3566,6 +3960,152 @@ class Repository:
         with self.connection() as connection:
             row = connection.execute(query, parameters).fetchone()
         return int(row["n"]) if row is not None else 0
+
+    # ── Reveal ledger (migration 154) ─────────────────────────────────────
+
+    def insert_reveal_event(
+        self, event: Mapping[str, Any], *, clock: Clock | None = None
+    ) -> str:
+        """Append one answer-exposure entry to the cross-channel reveal ledger.
+
+        Every surface that can hand a learner part of a graded solution writes
+        here — tutor answers, repair-suggestion displays, guided redos, source
+        review — so the submit path can ask one question ("how much of this
+        item's answer has been exposed since the last attempt?") instead of
+        re-deriving it per channel."""
+
+        event_id = str(event.get("id") or new_ulid())
+        amount = max(0.0, min(1.0, float(event.get("amount") or 0.0)))
+        with self.connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO reveal_events(
+                  id, practice_item_id, learning_object_id, remediation_episode_id,
+                  source_kind, amount, basis, question_event_id, attempt_id, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    str(event["practice_item_id"]),
+                    event.get("learning_object_id"),
+                    event.get("remediation_episode_id"),
+                    str(event["source_kind"]),
+                    amount,
+                    event.get("basis"),
+                    event.get("question_event_id"),
+                    event.get("attempt_id"),
+                    event.get("created_at") or utc_now_iso(clock),
+                ),
+            )
+            connection.commit()
+        return event_id
+
+    def reveal_events(
+        self,
+        *,
+        practice_item_id: str | None = None,
+        remediation_episode_id: str | None = None,
+        source_kind: str | None = None,
+        attempt_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        for column, value in (
+            ("practice_item_id", practice_item_id),
+            ("remediation_episode_id", remediation_episode_id),
+            ("source_kind", source_kind),
+            ("attempt_id", attempt_id),
+        ):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        if since is not None:
+            clauses.append("created_at > ?")
+            parameters.append(since)
+        if until is not None:
+            clauses.append("created_at <= ?")
+            parameters.append(until)
+        query = "SELECT * FROM reveal_events"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY created_at, id"
+        with self.connection() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [dict(row) for row in rows]
+
+    def reveal_events_for_target(
+        self,
+        *,
+        practice_item_id: str | None = None,
+        learning_object_id: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Reveals on this item OR anywhere in this learning object (OR, not AND).
+
+        The cold lane's question is wider than one item: a reveal on the cold
+        item is an answer leak, and a reveal elsewhere in the same learning
+        object is material exposure the receipt has to see before it can claim
+        isolation. Both arrive in one time-bounded, index-backed read so a
+        caller cannot accidentally scan only half of it. Window convention
+        matches ``total_reveal_amount``: ``since`` exclusive, ``until``
+        inclusive. Ordered oldest first."""
+
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        targets: list[str] = []
+        if practice_item_id is not None:
+            targets.append("practice_item_id = ?")
+            parameters.append(practice_item_id)
+        if learning_object_id is not None:
+            targets.append("learning_object_id = ?")
+            parameters.append(learning_object_id)
+        if not targets:
+            return []
+        clauses.append("(" + " OR ".join(targets) + ")")
+        if since is not None:
+            clauses.append("created_at > ?")
+            parameters.append(since)
+        if until is not None:
+            clauses.append("created_at <= ?")
+            parameters.append(until)
+        query = (
+            "SELECT * FROM reveal_events WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY created_at, id"
+        )
+        with self.connection() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [dict(row) for row in rows]
+
+    def total_reveal_amount(
+        self,
+        practice_item_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> float:
+        """Summed reveal amount for one item in a window.
+
+        Same window convention as
+        ``count_hint_equivalent_question_events``: ``since`` is exclusive (the
+        previous attempt's timestamp, whose evidence already absorbed anything
+        before it) and ``until`` is inclusive."""
+
+        query = "SELECT COALESCE(SUM(amount), 0.0) AS total FROM reveal_events WHERE practice_item_id = ?"
+        parameters: list[Any] = [practice_item_id]
+        if since is not None:
+            query += " AND created_at > ?"
+            parameters.append(since)
+        if until is not None:
+            query += " AND created_at <= ?"
+            parameters.append(until)
+        with self.connection() as connection:
+            row = connection.execute(query, parameters).fetchone()
+        return float(row["total"]) if row is not None else 0.0
 
     def question_counts_by_facet(self) -> dict[str, int]:
         """Total question_events touching each classified facet."""
@@ -4036,6 +4576,22 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def rung_variant_requests(
+        self, request_ids: Iterable[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk-load rung requests used by ingest progress views."""
+
+        ids = sorted({str(request_id) for request_id in request_ids if request_id})
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM rung_variant_requests WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        return {str(row["id"]): dict(row) for row in rows}
+
     def update_rung_variant_request(
         self, request_id: str, *, clock: Clock | None = None, **fields: Any
     ) -> bool:
@@ -4094,23 +4650,6 @@ class Repository:
                 (source_practice_item_id,),
             ).fetchall()
         return [dict(row) for row in rows]
-
-    def rung_variant_batch_dead(self, batch_id: str | None) -> bool:
-        """True when a request's generation batch can no longer complete it:
-        the batch id is unset/unknown or every rung_variant job in it is
-        terminal without the service having updated the request row (job
-        crashed, was cancelled, or predates a restart)."""
-
-        if not batch_id:
-            return True
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT status FROM ingest_jobs WHERE batch_id = ? AND job_type = 'rung_variant'",
-                (batch_id,),
-            ).fetchall()
-        if not rows:
-            return True
-        return all(row["status"] in ("failed", "cancelled", "completed") for row in rows)
 
     # ------------------------------------------------------------------
     # Concept animations (spec_fork_features §2)
@@ -4215,45 +4754,6 @@ class Repository:
                 (concept_id,),
             ).fetchall()
         return [dict(row) for row in rows]
-
-    def concept_animation_batch_dead(self, batch_id: str | None) -> bool:
-        """True when an animation's generation batch can no longer complete it
-        (unset/unknown batch, or every concept_animation job in it is terminal
-        without the service having updated the row)."""
-
-        if not batch_id:
-            return True
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT status FROM ingest_jobs WHERE batch_id = ? AND job_type = 'concept_animation'",
-                (batch_id,),
-            ).fetchall()
-        if not rows:
-            return True
-        return all(row["status"] in ("failed", "cancelled", "completed") for row in rows)
-
-    def rung_variant_pending_source_ids(self) -> set[str]:
-        """Source items with a LIVE non-terminal variant request — the
-        scheduler's pending-variant hold: never re-serve the exact card the
-        learner just asked to step away from while its variant is still being
-        authored. Requests whose generation batch is dead (job failed/cancelled
-        without the service updating the row) do NOT hold — a crashed job must
-        never hide a card indefinitely."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT DISTINCT r.source_practice_item_id
-                FROM rung_variant_requests r
-                WHERE r.status IN ('pending', 'generating')
-                  AND EXISTS (
-                    SELECT 1 FROM ingest_jobs j
-                    WHERE j.batch_id = r.batch_id AND j.job_type = 'rung_variant'
-                      AND j.status NOT IN ('failed', 'cancelled', 'completed')
-                  )
-                """
-            ).fetchall()
-        return {row["source_practice_item_id"] for row in rows}
 
     def pending_gap_need_for_facets(self, facet_ids: Iterable[str]) -> dict[str, Any] | None:
         """A pending tutor-gap need already targeting any of ``facet_ids``.
@@ -4593,6 +5093,36 @@ class Repository:
                 )
             connection.commit()
 
+    def clear_derived_projection_tables(
+        self, table_names: Iterable[str]
+    ) -> dict[str, int]:
+        """Atomically clear explicitly registered DERIVED projection tables.
+
+        Dynamic table names are accepted only after exact membership validation
+        against the table-role registry.  This keeps SQL ownership in the
+        persistence layer while letting the rebuild registry declare families.
+        """
+
+        from learnloop.db.table_roles import TableRole, tables_for_role
+
+        requested = tuple(sorted(set(str(table) for table in table_names)))
+        unexpected = sorted(set(requested) - set(tables_for_role(TableRole.DERIVED)))
+        if unexpected:
+            raise ValueError(
+                "cannot clear non-DERIVED tables: " + ", ".join(unexpected)
+            )
+        counts: dict[str, int] = {}
+        with self.connection() as connection:
+            for table in requested:
+                counts[table] = int(
+                    connection.execute(
+                        f'SELECT COUNT(*) FROM "{table}"'
+                    ).fetchone()[0]
+                )
+                connection.execute(f'DELETE FROM "{table}"')
+            connection.commit()
+        return counts
+
     def replace_attempt_derived_outcome(
         self,
         *,
@@ -4839,50 +5369,19 @@ class Repository:
 
         Chronological across LOs so the derived canonical belief state is
         deterministic regardless of per-LO replay order; beta masses accumulate
-        additively so only timestamps/consecutive-failures depend on order.
+        additively so only timestamps/consecutive-failures depend on order.  The
+        read model is assembled in two bulk queries by ``db.observation_ledger``;
+        no query is issued from inside the attempt loop.
         """
 
         with self.connection() as connection:
-            attempts = connection.execute(
-                """
-                SELECT id, practice_item_id, learning_object_id, attempt_type,
-                       practice_mode, hints_used, created_at
-                FROM practice_attempts
-                ORDER BY created_at ASC, id ASC
-                """
-            ).fetchall()
-            ledger: list[dict[str, Any]] = []
-            for attempt in attempts:
-                evidence = connection.execute(
-                    """
-                    SELECT criterion_id, points_awarded, attribution_json,
-                           correlation_group, recipe_id, observation_id,
-                           grading_revision, assessment_contract_version_id
-                    FROM grading_evidence
-                    WHERE attempt_id = ? AND superseded_at IS NULL
-                    ORDER BY created_at, criterion_id
-                    """,
-                    (attempt["id"],),
-                ).fetchall()
-                ledger.append(
-                    {
-                        "attempt_id": attempt["id"],
-                        "practice_item_id": attempt["practice_item_id"],
-                        "learning_object_id": attempt["learning_object_id"],
-                        "attempt_type": attempt["attempt_type"],
-                        "practice_mode": attempt["practice_mode"],
-                        "hints_used": attempt["hints_used"] or 0,
-                        "created_at": attempt["created_at"],
-                        "evidence": [
-                            {
-                                **dict(row),
-                                "attribution_json": _loads(row["attribution_json"], None),
-                            }
-                            for row in evidence
-                        ],
-                    }
-                )
-        return ledger
+            # Hold one read transaction across both scans.  A concurrent grade
+            # supersession must be observed wholly before or wholly after the
+            # replay snapshot, never as an attempt row from one epoch and
+            # evidence rows from another.
+            if not connection.in_transaction:
+                connection.execute("BEGIN")
+            return load_canonical_observation_ledger(connection)
 
     def canonical_observation_ledger_v2(self) -> list[dict[str, Any]]:
         """P0.3 (§4.3) authoritative-events ledger. Extends the mvp-0.7 row with the
@@ -4895,68 +5394,10 @@ class Repository:
         lineage fields are ADDED (never removed) -- projector tests fail if a variant
         omits them (§9.2 bullet 3)."""
 
-        ledger = self.canonical_observation_ledger()
         with self.connection() as connection:
-            for attempt in ledger:
-                observation = connection.execute(
-                    "SELECT * FROM activity_observations WHERE attempt_id = ? LIMIT 1",
-                    (attempt["attempt_id"],),
-                ).fetchone()
-                interpretation = None
-                adjudication = None
-                administration = None
-                if observation is not None:
-                    observation = dict(observation)
-                    if observation.get("active_interpretation_id"):
-                        interp_row = connection.execute(
-                            "SELECT * FROM grade_interpretations WHERE id = ?",
-                            (observation["active_interpretation_id"],),
-                        ).fetchone()
-                        interpretation = dict(interp_row) if interp_row is not None else None
-                    adj_row = connection.execute(
-                        """
-                        SELECT * FROM grade_adjudications
-                         WHERE observation_id = ? ORDER BY created_at DESC, id DESC LIMIT 1
-                        """,
-                        (observation["id"],),
-                    ).fetchone()
-                    adjudication = dict(adj_row) if adj_row is not None else None
-                    admin_row = connection.execute(
-                        "SELECT * FROM activity_administrations WHERE id = ?",
-                        (observation["administration_id"],),
-                    ).fetchone()
-                    administration = dict(admin_row) if admin_row is not None else None
-
-                lineage: list[str] = []
-                if interpretation is not None and interpretation.get("reference_prior_ids_json"):
-                    lineage = _loads(interpretation["reference_prior_ids_json"], [])
-                attempt["administration_id"] = (
-                    observation["administration_id"] if observation is not None else None
-                )
-                attempt["target_contract_version_id"] = (
-                    administration.get("target_contract_version_id")
-                    if administration is not None else None
-                )
-                attempt["active_interpretation"] = interpretation
-                attempt["active_adjudication"] = adjudication
-                attempt["adjudication_trust_weight"] = (
-                    adjudication.get("bounded_trust_weight") if adjudication is not None else None
-                )
-                attempt["calibration_lineage"] = lineage
-                attempt["calibration_model_id"] = (
-                    interpretation.get("calibration_model_id") if interpretation is not None else None
-                )
-                attempt["calibration_model_hash"] = (
-                    interpretation.get("calibration_model_hash") if interpretation is not None else None
-                )
-                attempt["quarantine_state"] = (
-                    interpretation.get("quarantine_state") if interpretation is not None else None
-                )
-                attempt["projection_algorithm_version"] = (
-                    interpretation.get("projection_algorithm_version")
-                    if interpretation is not None else None
-                )
-        return ledger
+            if not connection.in_transaction:
+                connection.execute("BEGIN")
+            return load_authoritative_observation_ledger(connection)
 
     def replace_canonical_facet_state(
         self,
@@ -4990,7 +5431,15 @@ class Repository:
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        str(state.get("id") or new_ulid()),
+                        str(
+                            state.get("id")
+                            or _projection_id(
+                                "frs",
+                                state["facet_id"],
+                                state.get("capability_key", "shared"),
+                                state.get("practice_item_id"),
+                            )
+                        ),
                         state["facet_id"],
                         state.get("capability_key", "shared"),
                         state.get("practice_item_id"),
@@ -5071,7 +5520,12 @@ class Repository:
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        str(row.get("id") or new_ulid()),
+                        str(
+                            row.get("id")
+                            or _projection_id(
+                                "crs", row["facet_id"], row["capability"]
+                            )
+                        ),
                         row["facet_id"],
                         row["capability"],
                         1 if row.get("active") else 0,
@@ -5329,6 +5783,18 @@ class Repository:
             ).fetchone()
         return _practice_item_quality_state(row) if row is not None else None
 
+    def practice_item_quality_states(self) -> dict[str, PracticeItemQualityState]:
+        """All item-quality projections keyed for a scheduler vault sweep."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM practice_item_quality_state ORDER BY practice_item_id"
+            ).fetchall()
+        return {
+            str(row["practice_item_id"]): _practice_item_quality_state(row)
+            for row in rows
+        }
+
     def upsert_practice_item_quality_state(self, state: Mapping[str, Any]) -> None:
         with self.connection() as connection:
             self._upsert_practice_item_quality_state(connection, state)
@@ -5473,7 +5939,7 @@ class Repository:
 
     # ------------------------------------------------------------------
     # P0.5 parameter registry (migration 069). SQL-only; the definition and
-    # projection logic live in services/parameter_registry.py.
+    # projection logic live in ``learnloop.params.parameter_registry``.
     # ------------------------------------------------------------------
 
     def upsert_parameter_registry_entry(self, *, entry: dict[str, Any], clock: Clock | None = None) -> None:
@@ -5902,6 +6368,28 @@ class Repository:
             row = connection.execute(
                 """
                 SELECT * FROM derived_state_rebuilds
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        return _decode_derived_state_rebuild(row) if row is not None else None
+
+    def latest_canonical_projection_rebuild(self) -> dict[str, Any] | None:
+        """Latest rebuild that explicitly names its projection semantics.
+
+        ``derived_state_rebuilds`` also carries narrow scheduler/substrate
+        recovery markers written by services that do not rebuild canonical
+        facet state.  Their NULL projection field means "not reported", not a
+        rollback.  Startup rollout checks must therefore read the latest
+        explicit projection baseline rather than whichever unrelated marker
+        happened to be written last.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM derived_state_rebuilds
+                WHERE canonical_projection_version IS NOT NULL
                 ORDER BY created_at DESC, id DESC
                 LIMIT 1
                 """
@@ -8833,7 +9321,8 @@ class Repository:
         Migration 116 created the store and backfilled it, but nothing has ever
         WRITTEN to it from service code, so every demotion since has been
         invisible to the semantic authority. This is that writer. The typed
-        withdrawal vocabulary lives in ``services/surfaced_beliefs.py``; this
+        withdrawal vocabulary lives in ``learnloop.learner.surfaced_beliefs``;
+        this
         method stores what it is given and never invents a reason.
         """
 
@@ -9176,6 +9665,50 @@ class Repository:
             )
             connection.commit()
             return cursor.rowcount > 0
+
+    def acknowledge_practice_checkpoint(
+        self,
+        session_id: str,
+        *,
+        practice_item_id: str,
+        submission_id: str,
+    ) -> str:
+        """Atomically clear only the practice checkpoint the client received.
+
+        A post-submit route can unmount its Practice screen while a new item is
+        already saving a draft in the same session.  A session-id-only DELETE
+        lets the stale completion erase that newer checkpoint.  Holding an
+        immediate SQLite write lock across compare + delete makes the expected
+        item/retry key an acknowledgement token rather than a best-effort read.
+        """
+
+        with self.connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                """
+                SELECT current_practice_item_id, focus_block_state_json
+                FROM session_checkpoints
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                return "already_absent"
+            focus = _loads(row["focus_block_state_json"], None)
+            practice = focus.get("practice") if isinstance(focus, dict) else None
+            saved_submission_id = None
+            if isinstance(practice, dict):
+                saved_submission_id = practice.get("submissionId") or practice.get("submission_id")
+            if (
+                row["current_practice_item_id"] != practice_item_id
+                or saved_submission_id != submission_id
+            ):
+                return "checkpoint_mismatch"
+            cursor = connection.execute(
+                "DELETE FROM session_checkpoints WHERE session_id = ?",
+                (session_id,),
+            )
+            return "cleared" if cursor.rowcount > 0 else "checkpoint_mismatch"
 
     def insert_agent_run(self, run: Mapping[str, Any]) -> str:
         run_id = str(run.get("id") or new_ulid())
@@ -9710,6 +10243,29 @@ class Repository:
         )
         return self.fetch_assessment_contract_version(effective_id)
 
+    def effective_assessment_contract_versions(
+        self,
+        source_version_ids: Iterable[str],
+        *,
+        projection_version: str,
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk form of :meth:`effective_assessment_contract_version`.
+
+        The mapping stays keyed by the source contract id written on grading
+        evidence.  Values are the contract snapshots the named projection is
+        authorized to consume after applying any explicit reinterpretation
+        edge.  Canonical replay uses this method once before its attempt loop.
+        """
+
+        with self.connection() as connection:
+            if not connection.in_transaction:
+                connection.execute("BEGIN")
+            return load_effective_assessment_contracts(
+                connection,
+                source_version_ids,
+                projection_version=projection_version,
+            )
+
     def superseded_measurement_item_ids(self) -> set[str]:
         """Attempted item files superseded by an accepted correction set."""
 
@@ -9725,7 +10281,8 @@ class Repository:
     # ------------------------------------------------------------------
     # Activity lineage substrate (P0.1; migration 065;
     # spec_p0_measurement_correctness §3.5-§3.8). SQL only; business logic
-    # lives in services/activities.py and services/activity_backfill.py.
+    # lives in ``learnloop.substrate.activities`` and
+    # ``learnloop.substrate.compat.activity_backfill``.
     # ------------------------------------------------------------------
 
     def ensure_activity_family(
@@ -9752,7 +10309,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(select_sql, key).fetchone()
             if existing is not None:
@@ -9822,7 +10378,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(select_sql, (family_id,)).fetchone()
             if existing is not None:
@@ -9990,7 +10545,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
@@ -10094,7 +10648,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing_render = connection.execute(
                 """
@@ -10300,7 +10853,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing_render = connection.execute(
                 """
@@ -10591,7 +11143,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
                 "SELECT * FROM goal_contract_versions WHERE goal_id = ? AND content_hash = ?",
@@ -12430,6 +12981,25 @@ class Repository:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def calibration_models_by_hashes(
+        self, content_hashes: Iterable[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk calibration-model lookup for a whole projection replay."""
+
+        hashes = sorted({str(value) for value in content_hashes if value})
+        if not hashes:
+            return {}
+        placeholders = ",".join("?" for _ in hashes)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM grader_calibration_models
+                 WHERE content_hash IN ({placeholders})
+                """,
+                hashes,
+            ).fetchall()
+        return {str(row["content_hash"]): dict(row) for row in rows}
+
     def insert_calibration_model(
         self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]],
         clock: Clock | None = None,
@@ -12522,6 +13092,34 @@ class Repository:
                 (model_id,),
             ).fetchall()
         return {row["true_class"]: _loads(row["alpha_json"], {}) for row in rows}
+
+    def calibration_alphas_by_model_ids(
+        self, model_ids: Iterable[str]
+    ) -> dict[str, dict[str, dict[str, float]]]:
+        """Bulk Dirichlet rows keyed by model id, preserving empty models."""
+
+        ids = sorted({str(value) for value in model_ids if value})
+        grouped: dict[str, dict[str, dict[str, float]]] = {
+            model_id: {} for model_id in ids
+        }
+        if not ids:
+            return grouped
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT model_id, true_class, alpha_json
+                  FROM grader_calibration_alphas
+                 WHERE model_id IN ({placeholders})
+                 ORDER BY model_id, true_class
+                """,
+                ids,
+            ).fetchall()
+        for row in rows:
+            grouped[str(row["model_id"])][str(row["true_class"])] = _loads(
+                row["alpha_json"], {}
+            )
+        return grouped
 
     def find_calibration_models(
         self,
@@ -12627,6 +13225,22 @@ class Repository:
                 "SELECT * FROM raw_grade_events WHERE id = ?", (event_id,)
             ).fetchone()
         return dict(row) if row is not None else None
+
+    def raw_grade_events_by_ids(
+        self, event_ids: Iterable[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Bulk raw-grade lookup for legacy certainty-LCB reconstruction."""
+
+        ids = sorted({str(value) for value in event_ids if value})
+        if not ids:
+            return {}
+        placeholders = ",".join("?" for _ in ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM raw_grade_events WHERE id IN ({placeholders})",
+                ids,
+            ).fetchall()
+        return {str(row["id"]): dict(row) for row in rows}
 
     def insert_grade_interpretation(self, *, values: Mapping[str, Any], clock: Clock | None = None) -> str:
         interpretation_id = new_ulid()
@@ -14198,13 +14812,39 @@ class Repository:
         accepted for backwards compatibility but are not the authority.
         """
 
-        from learnloop.services.causal_activity_policy import (
-            CAUSAL_ACTIVITY_POLICY_VERSION,
-            policy_for_class,
-        )
-
         policy = policy_for_class(contamination_class, near_clone=bool(near_clone))
         with self.connection() as connection:
+            # Serialize the read-next-sequence/write pair. A deferred SELECT
+            # allowed two connections to observe the same MAX(seq); the later
+            # ``INSERT OR IGNORE`` then silently discarded one honest writer on
+            # the sequence uniqueness conflict. BEGIN IMMEDIATE acquires the
+            # reserved writer lock before reading MAX. If a caller already owns
+            # this connection's transaction (the pinned case), its transaction
+            # is the serialization boundary and a real uniqueness error remains
+            # visible because the INSERT below is deliberately not OR IGNORE.
+            if not connection.in_transaction:
+                connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute(
+                """
+                SELECT id
+                  FROM causal_activity_classification_events
+                 WHERE attempt_id = ?
+                   AND source = ?
+                   AND contamination_class = ?
+                   AND near_clone = ?
+                """,
+                (
+                    attempt_id,
+                    source,
+                    policy.contamination_class,
+                    int(policy.near_clone),
+                ),
+            ).fetchone()
+            if existing is not None:
+                connection.commit()
+                result = self.causal_activity_classification(attempt_id)
+                assert result is not None
+                return result
             next_seq = connection.execute(
                 """
                 SELECT COALESCE(MAX(seq), 0) + 1 AS next_seq
@@ -14215,7 +14855,7 @@ class Repository:
             ).fetchone()["next_seq"]
             connection.execute(
                 """
-                INSERT OR IGNORE INTO causal_activity_classification_events(
+                INSERT INTO causal_activity_classification_events(
                   id, attempt_id, seq, contamination_class, near_clone,
                   near_clone_basis, closes_pre_intervention_segment,
                   eligible_for_fsrs, eligible_for_certification, source,
@@ -14258,17 +14898,7 @@ class Repository:
             ).fetchall()
         events: list[dict[str, Any]] = []
         for row in rows:
-            payload = dict(row)
-            payload["near_clone"] = bool(payload["near_clone"])
-            payload["closes_pre_intervention_segment"] = bool(
-                payload["closes_pre_intervention_segment"]
-            )
-            payload["eligible_for_fsrs"] = bool(payload["eligible_for_fsrs"])
-            payload["eligible_for_certification"] = bool(
-                payload["eligible_for_certification"]
-            )
-            payload["detail"] = _loads(payload.pop("detail_json"), {})
-            events.append(payload)
+            events.append(_decode_causal_activity_event(row))
         return events
 
     def causal_activity_classification(
@@ -14282,44 +14912,35 @@ class Repository:
         with the single authority.
         """
 
-        from learnloop.services.causal_activity_policy import (
-            CONTAMINATION_PRECEDENCE,
-            policy_for_class,
-        )
-
         events = self.causal_activity_classification_events(attempt_id)
         if not events:
             return None
-        winning_class = min(
-            (str(event["contamination_class"]) for event in events),
-            key=CONTAMINATION_PRECEDENCE.index,
-        )
-        winners = [
-            event
-            for event in events
-            if str(event["contamination_class"]) == winning_class
-        ]
-        near_clone = any(bool(event["near_clone"]) for event in winners)
-        primary = next(
-            (event for event in winners if bool(event["near_clone"]) == near_clone),
-            winners[0],
-        )
-        policy = policy_for_class(winning_class, near_clone=near_clone)
-        detail: dict[str, Any] = {}
-        for event in events:
-            detail.update(event.get("detail") or {})
+        return _resolve_causal_activity_classification(attempt_id, events)
+
+    def all_causal_activity_classifications(self) -> dict[str, dict[str, Any]]:
+        """Resolve every attempt's current activity policy in one DB read.
+
+        Canonical projection and the learner-facing Demonstrated timeline both
+        replay the whole attempt ledger. Supplying their policy inputs in the
+        same bulk snapshot prevents their eligibility check from reintroducing
+        a per-attempt query and guarantees both folds resolve conflicting event
+        histories identically.
+        """
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM causal_activity_classification_events
+                ORDER BY attempt_id, seq
+                """
+            ).fetchall()
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            event = _decode_causal_activity_event(row)
+            grouped[str(event["attempt_id"])].append(event)
         return {
-            "attempt_id": attempt_id,
-            **policy.as_dict(),
-            "near_clone_basis": primary.get("near_clone_basis"),
-            "source": primary.get("source"),
-            "detail": detail,
-            "created_at": primary.get("created_at"),
-            "recorded_classes": sorted(
-                {str(event["contamination_class"]) for event in events},
-                key=CONTAMINATION_PRECEDENCE.index,
-            ),
-            "event_count": len(events),
+            attempt_id: _resolve_causal_activity_classification(attempt_id, events)
+            for attempt_id, events in grouped.items()
         }
 
     def insert_causal_cold_verification(
@@ -14560,6 +15181,7 @@ class Repository:
         receipt_id: str,
         lane: str,
         stage: str,
+        measurement_opportunity_id: str | None = None,
         followup_task_id: str | None,
         remediation_episode_id: str | None,
         source_attempt_id: str | None,
@@ -14575,17 +15197,19 @@ class Repository:
             connection.execute(
                 """
                 INSERT OR IGNORE INTO coldness_receipts(
-                  id, lane, stage, followup_task_id, remediation_episode_id,
-                  source_attempt_id, cold_attempt_id, cold_verification_id,
-                  dimensions_json, derived_json, telemetry_coverage_json,
-                  receipt_version, created_at
+                  id, lane, stage, measurement_opportunity_id,
+                  followup_task_id, remediation_episode_id, source_attempt_id,
+                  cold_attempt_id, cold_verification_id, dimensions_json,
+                  derived_json, telemetry_coverage_json, receipt_version,
+                  created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     receipt_id,
                     lane,
                     stage,
+                    measurement_opportunity_id,
                     followup_task_id,
                     remediation_episode_id,
                     source_attempt_id,
@@ -14603,6 +15227,10 @@ class Repository:
         # of this id; return whichever row holds the slot.
         if followup_task_id is not None:
             return self.coldness_receipt_for_task_stage(followup_task_id, stage)
+        if measurement_opportunity_id is not None:
+            return self.coldness_receipt_for_opportunity_stage(
+                measurement_opportunity_id, stage
+            )
         return self.coldness_receipt(receipt_id)
 
     @staticmethod
@@ -14632,6 +15260,19 @@ class Repository:
                  WHERE followup_task_id = ? AND stage = ?
                 """,
                 (followup_task_id, stage),
+            ).fetchone()
+        return self._decode_coldness_receipt(row) if row is not None else None
+
+    def coldness_receipt_for_opportunity_stage(
+        self, measurement_opportunity_id: str, stage: str
+    ) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT * FROM coldness_receipts
+                 WHERE measurement_opportunity_id = ? AND stage = ?
+                """,
+                (measurement_opportunity_id, stage),
             ).fetchone()
         return self._decode_coldness_receipt(row) if row is not None else None
 
@@ -14686,6 +15327,35 @@ class Repository:
                 ORDER BY created_at, id
                 """,
                 params,
+            ).fetchall()
+        return [_decode_attempt(row) for row in rows]
+
+    def practice_attempts_for_items_before(
+        self,
+        practice_item_ids: Sequence[str],
+        *,
+        before: str,
+    ) -> list[dict[str, Any]]:
+        """Prior administrations for a bounded candidate surface family.
+
+        Receipt novelty checks know the finite set of item ids that resolve to
+        the candidate's canonical surface group. Querying only those ids avoids
+        replaying the learner's complete attempt history in a large vault.
+        """
+
+        item_ids = sorted({str(value) for value in practice_item_ids if value})
+        if not item_ids:
+            return []
+        placeholders = ",".join("?" for _ in item_ids)
+        with self.connection() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM practice_attempts
+                 WHERE practice_item_id IN ({placeholders})
+                   AND created_at < ?
+                 ORDER BY created_at, id
+                """,
+                (*item_ids, before),
             ).fetchall()
         return [_decode_attempt(row) for row in rows]
 
@@ -14871,6 +15541,10 @@ class Repository:
         probe_attempt_id: str | None = None,
         candidate_id: str | None = None,
         support_authority: str | None = None,
+        channel: str | None = None,
+        admissible_as_independent: bool | None = None,
+        inadmissibility_reason: str | None = None,
+        contaminating_reveal_event_id: str | None = None,
         clock: Clock | None = None,
     ) -> dict[str, Any]:
         """Append one discriminating-observation receipt (idempotent on id).
@@ -14892,10 +15566,11 @@ class Repository:
                   declared_keys_observed, admitted, admission_reason,
                   support_authority, support_scores_json, resolved_factor,
                   detail_json, decision_policy_version, formula_version,
-                  created_at
+                  created_at, channel, admissible_as_independent,
+                  inadmissibility_reason, contaminating_reveal_event_id
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?)
+                        ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     observation_id,
@@ -14921,6 +15596,14 @@ class Repository:
                     decision_policy_version,
                     formula_version,
                     utc_now_iso(clock),
+                    channel,
+                    (
+                        None
+                        if admissible_as_independent is None
+                        else int(bool(admissible_as_independent))
+                    ),
+                    inadmissibility_reason,
+                    contaminating_reveal_event_id,
                 ),
             )
             connection.commit()
@@ -14949,11 +15632,22 @@ class Repository:
         attempt_id: str | None = None,
         presentation_id: str | None = None,
         admitted_only: bool = False,
+        probe_channel_only: bool = False,
     ) -> list[dict[str, Any]]:
-        """Observation receipts, oldest first."""
+        """Observation receipts, oldest first.
+
+        ``probe_channel_only`` restricts to rows produced by a blind-bundle
+        classification of an administered probe — ``channel IS NULL`` (every
+        row written before migration 155) or the explicit probe channel. Any
+        consumer whose denominator is "probes administered" must pass it, or a
+        learner-question-embedded prediction inflates a probe metric.
+        """
 
         clauses: list[str] = []
         values: list[Any] = []
+        if probe_channel_only:
+            clauses.append("(channel IS NULL OR channel = ?)")
+            values.append(OBSERVATION_CHANNEL_BLIND_PROBE)
         if factor_id is not None:
             clauses.append("factor_id = ?")
             values.append(factor_id)
@@ -15953,7 +16647,6 @@ class Repository:
             ("practice_item_state", "practice_item_state", "practice_item_id", dict),
             ("learning_object_mastery", "learning_object_mastery", "learning_object_id", dict),
             ("facet_uncertainty", "facet_uncertainty", "id", _facet_uncertainty_state),
-            ("learner_theta", "learner_theta", "id", dict),
             ("learner_claim", "learner_claims", "id", dict),
             ("lo_probe_state", "lo_probe_state", "learning_object_id", _probe_state_record),
             ("hypothesis_set", "hypothesis_sets", "id", _decode_hypothesis_set),
@@ -16521,41 +17214,38 @@ class Repository:
             return
         sources = connection.execute(
             """
-            SELECT * FROM practice_attempts
-            WHERE learning_object_id = ?
-              AND id != ?
-              AND created_at <= ?
-            ORDER BY created_at DESC, id DESC
-            LIMIT ?
+            WITH sources AS (
+                SELECT * FROM practice_attempts
+                WHERE learning_object_id = ?
+                  AND id != ?
+                  AND created_at <= ?
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+            )
+            SELECT sources.*, COUNT(intervening.id) AS intervening_attempt_count
+            FROM sources
+            LEFT JOIN practice_attempts AS intervening
+              ON intervening.learning_object_id = ?
+             AND intervening.id NOT IN (sources.id, ?)
+             AND intervening.created_at > sources.created_at
+             AND intervening.created_at < ?
+            GROUP BY sources.id
+            ORDER BY sources.created_at DESC, sources.id DESC
             """,
             (
                 current["learning_object_id"],
                 current["id"],
                 current["created_at"],
                 max_sources,
+                current["learning_object_id"],
+                current["id"],
+                current["created_at"],
             ),
         ).fetchall()
         for source in sources:
             same_item = source["practice_item_id"] == current["practice_item_id"]
             label_type = "same_item_retention" if same_item else "same_learning_object_transfer"
             elapsed_seconds = _elapsed_seconds_between(source["created_at"], current["created_at"])
-            intervening = connection.execute(
-                """
-                SELECT COUNT(*) AS n
-                FROM practice_attempts
-                WHERE learning_object_id = ?
-                  AND id NOT IN (?, ?)
-                  AND created_at > ?
-                  AND created_at < ?
-                """,
-                (
-                    current["learning_object_id"],
-                    source["id"],
-                    current["id"],
-                    source["created_at"],
-                    current["created_at"],
-                ),
-            ).fetchone()
             metadata = {
                 "source": _attempt_label_snapshot(source),
                 "outcome": _attempt_label_snapshot(current),
@@ -16572,7 +17262,12 @@ class Repository:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    new_ulid(),
+                    _projection_id(
+                        "lol",
+                        source["id"],
+                        current["id"],
+                        label_type,
+                    ),
                     source["id"],
                     current["id"],
                     label_type,
@@ -16585,7 +17280,7 @@ class Repository:
                     current["hints_used"],
                     current["latency_seconds"],
                     elapsed_seconds,
-                    int(intervening["n"] if intervening is not None else 0),
+                    int(source["intervening_attempt_count"]),
                     _json(metadata),
                     algorithm_version,
                     current["created_at"],
@@ -17022,7 +17717,7 @@ class Repository:
 
         Returns per-table row counts. Callers are responsible for the vault-side
         cleanup (collection membership, stored original bytes) — see
-        ``services.source_deletion``.
+        ``learnloop.content.sources.source_deletion``.
         """
 
         counts: dict[str, int] = {}
@@ -17422,18 +18117,15 @@ class Repository:
     def backfill_locator_schemes(
         self, locators: Iterable[str], *, clock: Clock | None = None
     ) -> dict[str, str]:
-        """Shape-detect and stamp a declared scheme onto each existing ref (§2.4).
-
-        Already-declared refs are never re-detected/converted. Returns the
-        locator -> scheme map for every ref with a recognized shape.
-        """
+        """Shape-detect and stamp a declared scheme onto each existing ref."""
 
         now = utc_now_iso(clock)
         stamped: dict[str, str] = {}
         with self.connection() as connection:
             for locator in locators:
                 existing = connection.execute(
-                    "SELECT scheme FROM source_locator_schemes WHERE locator = ?", (locator,)
+                    "SELECT scheme FROM source_locator_schemes WHERE locator = ?",
+                    (locator,),
                 ).fetchone()
                 if existing is not None:
                     stamped[locator] = existing["scheme"]
@@ -17442,7 +18134,8 @@ class Repository:
                 if scheme is None:
                     continue
                 connection.execute(
-                    "INSERT INTO source_locator_schemes(locator, scheme, detected_at) VALUES (?, ?, ?)",
+                    "INSERT INTO source_locator_schemes"
+                    "(locator, scheme, detected_at) VALUES (?, ?, ?)",
                     (locator, scheme, now),
                 )
                 stamped[locator] = scheme
@@ -17452,7 +18145,8 @@ class Repository:
     def locator_scheme(self, locator: str) -> str | None:
         with self.connection() as connection:
             row = connection.execute(
-                "SELECT scheme FROM source_locator_schemes WHERE locator = ?", (locator,)
+                "SELECT scheme FROM source_locator_schemes WHERE locator = ?",
+                (locator,),
             ).fetchone()
         if row is not None:
             return row["scheme"]
@@ -17681,7 +18375,8 @@ class Repository:
         return candidates
 
     # ------------------------------------------------------------------
-    # Deterministic exam profiles (spec_source_ingestion_v2 §7, §4.2)
+    # Contested legacy state.  Keep these APIs attached until owner-vault
+    # telemetry has proved the tables empty (S6.1a must precede S6.1c).
     # ------------------------------------------------------------------
 
     def upsert_exam_profile(
@@ -17709,7 +18404,9 @@ class Repository:
             )
             connection.commit()
 
-    def get_exam_profile(self, scope_kind: str, scope_id: str) -> dict[str, Any] | None:
+    def get_exam_profile(
+        self, scope_kind: str, scope_id: str
+    ) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
                 """
@@ -17722,501 +18419,6 @@ class Repository:
         return _decode_exam_profile(row) if row is not None else None
 
     # ------------------------------------------------------------------
-    # Durable ingest batches/jobs (spec_source_ingestion_v2 §6.2)
-    # ------------------------------------------------------------------
-
-    def insert_ingest_batch(
-        self,
-        *,
-        id: str,
-        workflow_type: str,
-        subject_id: str | None = None,
-        source_set_id: str | None = None,
-        payload_schema_version: int = 1,
-        status: str = "queued",
-        priority: int = 0,
-        clock: Clock | None = None,
-    ) -> None:
-        now = utc_now_iso(clock)
-        with self.connection() as connection:
-            connection.execute(
-                """
-                INSERT INTO ingest_batches(
-                  id, workflow_type, payload_schema_version, subject_id,
-                  source_set_id, status, priority, created_at, cancel_requested
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
-                """,
-                (id, workflow_type, payload_schema_version, subject_id, source_set_id, status, priority, now),
-            )
-            connection.commit()
-
-    def get_ingest_batch(self, batch_id: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM ingest_batches WHERE id = ?", (batch_id,)
-            ).fetchone()
-        return _decode_ingest_batch(row) if row is not None else None
-
-    def list_ingest_batches(self, limit: int | None = None) -> list[dict[str, Any]]:
-        query = "SELECT * FROM ingest_batches ORDER BY created_at DESC, id DESC"
-        params: tuple[Any, ...] = ()
-        if limit is not None:
-            query += " LIMIT ?"
-            params = (limit,)
-        with self.connection() as connection:
-            rows = connection.execute(query, params).fetchall()
-        return [_decode_ingest_batch(row) for row in rows]
-
-    def update_ingest_batch_status(
-        self,
-        batch_id: str,
-        status: str,
-        *,
-        mark_started: bool = False,
-        mark_finished: bool = False,
-        clear_finished: bool = False,
-        clock: Clock | None = None,
-    ) -> None:
-        """``clear_finished`` nulls a stale terminal timestamp when a batch
-        returns to a non-terminal status (resume/retry) — a running batch must
-        not keep reporting the prior failure's finished_at."""
-
-        now = utc_now_iso(clock)
-        with self.connection() as connection:
-            connection.execute(
-                """
-                UPDATE ingest_batches
-                   SET status = ?,
-                       started_at = CASE WHEN ? AND started_at IS NULL THEN ? ELSE started_at END,
-                       finished_at = CASE WHEN ? THEN ? WHEN ? THEN NULL ELSE finished_at END
-                 WHERE id = ?
-                """,
-                (
-                    status,
-                    1 if mark_started else 0,
-                    now,
-                    1 if mark_finished else 0,
-                    now,
-                    1 if clear_finished else 0,
-                    batch_id,
-                ),
-            )
-            connection.commit()
-
-    def request_ingest_batch_cancel(self, batch_id: str) -> None:
-        """Flag the batch and every not-yet-terminal job for cancellation."""
-
-        with self.connection() as connection:
-            connection.execute(
-                "UPDATE ingest_batches SET cancel_requested = 1 WHERE id = ?", (batch_id,)
-            )
-            connection.execute(
-                """
-                UPDATE ingest_jobs
-                   SET cancel_requested = 1
-                 WHERE batch_id = ?
-                   AND status IN ('queued', 'running', 'waiting_for_input', 'blocked')
-                """,
-                (batch_id,),
-            )
-            connection.commit()
-
-    def insert_ingest_job(
-        self,
-        *,
-        id: str,
-        batch_id: str,
-        ordinal: int,
-        job_type: str,
-        payload: Mapping[str, Any] | None = None,
-        payload_schema_version: int = 1,
-        clock: Clock | None = None,
-    ) -> None:
-        with self.connection() as connection:
-            connection.execute(
-                """
-                INSERT INTO ingest_jobs(
-                  id, batch_id, ordinal, job_type, payload_schema_version,
-                  payload_json, status, phase, message, attempt_count,
-                  cancel_requested, created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, 'queued', 'queued', 'Waiting to start', 0, 0, ?)
-                """,
-                (
-                    id,
-                    batch_id,
-                    ordinal,
-                    job_type,
-                    payload_schema_version,
-                    _json(dict(payload)) if payload is not None else None,
-                    utc_now_iso(clock),
-                ),
-            )
-            connection.commit()
-
-    def add_ingest_job_dependency(self, job_id: str, depends_on_job_id: str) -> None:
-        with self.connection() as connection:
-            connection.execute(
-                """
-                INSERT OR IGNORE INTO ingest_job_dependencies(job_id, depends_on_job_id)
-                VALUES (?, ?)
-                """,
-                (job_id, depends_on_job_id),
-            )
-            connection.commit()
-
-    def get_ingest_job(self, job_id: str) -> dict[str, Any] | None:
-        with self.connection() as connection:
-            row = connection.execute(
-                "SELECT * FROM ingest_jobs WHERE id = ?", (job_id,)
-            ).fetchone()
-        return _decode_ingest_job(row) if row is not None else None
-
-    def ingest_jobs_for_batch(self, batch_id: str) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT * FROM ingest_jobs WHERE batch_id = ? ORDER BY ordinal, id",
-                (batch_id,),
-            ).fetchall()
-        return [_decode_ingest_job(row) for row in rows]
-
-    def ingest_job_dependency_ids(self, job_id: str) -> list[str]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT depends_on_job_id FROM ingest_job_dependencies WHERE job_id = ? ORDER BY depends_on_job_id",
-                (job_id,),
-            ).fetchall()
-        return [row["depends_on_job_id"] for row in rows]
-
-    def ingest_job_dependents(self, job_id: str) -> list[str]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                "SELECT job_id FROM ingest_job_dependencies WHERE depends_on_job_id = ? ORDER BY job_id",
-                (job_id,),
-            ).fetchall()
-        return [row["job_id"] for row in rows]
-
-    def claim_next_ingest_job(
-        self,
-        *,
-        worker_id: str,
-        now_iso: str,
-        lease_cutoff_iso: str,
-        eligible_job_types: Sequence[str] | None = None,
-        compatible_running_job_types: Sequence[str] = (),
-        allow_parallel: bool = False,
-        max_parallel: int | None = None,
-    ) -> dict[str, Any] | None:
-        """Atomically claim the next eligible queued job for ``worker_id``.
-
-        The default preserves the single-writer ingest lease. Callers may opt a
-        read/DB-only job lane into bounded parallelism and identify job types
-        that are safe to coexist with the single vault-writing lane. A
-        ``running`` job whose heartbeat predates ``lease_cutoff_iso`` is treated
-        as dead; startup recovery converts it to failed(interrupted).
-        """
-
-        eligible = tuple(dict.fromkeys(str(job_type) for job_type in (eligible_job_types or ())))
-        compatible = tuple(
-            dict.fromkeys(str(job_type) for job_type in compatible_running_job_types)
-        )
-        connection = self.connection()
-        connection.isolation_level = None
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            if not allow_parallel:
-                compatible_clause = ""
-                live_params: list[Any] = [lease_cutoff_iso]
-                if compatible:
-                    placeholders = ",".join("?" for _ in compatible)
-                    compatible_clause = f" AND job_type NOT IN ({placeholders})"
-                    live_params.extend(compatible)
-                live = connection.execute(
-                    f"""
-                    SELECT 1 FROM ingest_jobs
-                     WHERE status = 'running'
-                       AND heartbeat_at IS NOT NULL
-                       AND heartbeat_at >= ?{compatible_clause}
-                     LIMIT 1
-                    """,
-                    live_params,
-                ).fetchone()
-                if live is not None:
-                    connection.execute("ROLLBACK")
-                    return None
-            if max_parallel is not None and eligible:
-                placeholders = ",".join("?" for _ in eligible)
-                live_count = connection.execute(
-                    f"""
-                    SELECT COUNT(*) AS count FROM ingest_jobs
-                     WHERE status = 'running'
-                       AND heartbeat_at IS NOT NULL
-                       AND heartbeat_at >= ?
-                       AND job_type IN ({placeholders})
-                    """,
-                    (lease_cutoff_iso, *eligible),
-                ).fetchone()["count"]
-                if int(live_count) >= max(1, int(max_parallel)):
-                    connection.execute("ROLLBACK")
-                    return None
-            eligible_clause = ""
-            candidate_params: list[Any] = []
-            if eligible:
-                placeholders = ",".join("?" for _ in eligible)
-                eligible_clause = f" AND j.job_type IN ({placeholders})"
-                candidate_params.extend(eligible)
-            candidate = connection.execute(
-                f"""
-                SELECT j.* FROM ingest_jobs j
-                 JOIN ingest_batches b ON b.id = j.batch_id
-                 WHERE j.status = 'queued'
-                   AND b.cancel_requested = 0
-                   {eligible_clause}
-                   AND NOT EXISTS (
-                     SELECT 1 FROM ingest_job_dependencies d
-                      JOIN ingest_jobs dep ON dep.id = d.depends_on_job_id
-                      WHERE d.job_id = j.id AND dep.status != 'completed'
-                   )
-                 ORDER BY b.priority DESC, b.created_at, j.ordinal, j.id
-                 LIMIT 1
-                """,
-                candidate_params,
-            ).fetchone()
-            if candidate is None:
-                connection.execute("ROLLBACK")
-                return None
-            connection.execute(
-                """
-                UPDATE ingest_jobs
-                   SET status = 'running',
-                       worker_id = ?,
-                       heartbeat_at = ?,
-                       started_at = COALESCE(started_at, ?),
-                       attempt_count = attempt_count + 1,
-                       phase = COALESCE(phase, 'acquired'),
-                       error_json = NULL
-                 WHERE id = ? AND status = 'queued'
-                """,
-                (worker_id, now_iso, now_iso, candidate["id"]),
-            )
-            claimed = connection.execute(
-                "SELECT * FROM ingest_jobs WHERE id = ?", (candidate["id"],)
-            ).fetchone()
-            connection.execute("COMMIT")
-            return _decode_ingest_job(claimed) if claimed is not None else None
-        finally:
-            connection.close()
-
-    def heartbeat_ingest_job(
-        self,
-        job_id: str,
-        *,
-        worker_id: str,
-        phase: str | None = None,
-        message: str | None = None,
-        current_window: int | None = None,
-        total_windows: int | None = None,
-        clock: Clock | None = None,
-    ) -> None:
-        now = utc_now_iso(clock)
-        with self.connection() as connection:
-            connection.execute(
-                """
-                UPDATE ingest_jobs
-                   SET heartbeat_at = ?,
-                       phase = COALESCE(?, phase),
-                       message = COALESCE(?, message),
-                       current_window = COALESCE(?, current_window),
-                       total_windows = COALESCE(?, total_windows)
-                 WHERE id = ? AND worker_id = ?
-                """,
-                (now, phase, message, current_window, total_windows, job_id, worker_id),
-            )
-            connection.commit()
-
-    def finish_ingest_job(
-        self,
-        job_id: str,
-        *,
-        status: str,
-        phase: str | None = None,
-        message: str | None = None,
-        result: Mapping[str, Any] | None = None,
-        error: Mapping[str, Any] | None = None,
-        usage: Mapping[str, Any] | None = None,
-        release_lease: bool = True,
-        clear_finished: bool = False,
-        current_window: int | None = None,
-        total_windows: int | None = None,
-        clock: Clock | None = None,
-    ) -> None:
-        """Move a job to a new state and (optionally) release its lease.
-
-        ``waiting_for_input`` and ``queued`` (resume/requeue) release the lease
-        but leave ``finished_at`` NULL (``clear_finished=True``); terminal states
-        stamp ``finished_at``.
-        """
-
-        now = utc_now_iso(clock)
-        finished_at = None if clear_finished else now
-        with self.connection() as connection:
-            connection.execute(
-                """
-                UPDATE ingest_jobs
-                   SET status = ?,
-                       phase = COALESCE(?, phase),
-                       message = COALESCE(?, message),
-                       result_json = COALESCE(?, result_json),
-                       error_json = ?,
-                       usage_json = COALESCE(?, usage_json),
-                       current_window = COALESCE(?, current_window),
-                       total_windows = COALESCE(?, total_windows),
-                       worker_id = CASE WHEN ? THEN NULL ELSE worker_id END,
-                       heartbeat_at = CASE WHEN ? THEN NULL ELSE heartbeat_at END,
-                       finished_at = ?
-                 WHERE id = ?
-                """,
-                (
-                    status,
-                    phase,
-                    message,
-                    _json(dict(result)) if result is not None else None,
-                    _json(dict(error)) if error is not None else None,
-                    _json(dict(usage)) if usage is not None else None,
-                    current_window,
-                    total_windows,
-                    1 if release_lease else 0,
-                    1 if release_lease else 0,
-                    finished_at,
-                    job_id,
-                ),
-            )
-            connection.commit()
-
-    def requeue_ingest_job(
-        self, job_id: str, *, message: str = "Waiting to start", clock: Clock | None = None
-    ) -> None:
-        with self.connection() as connection:
-            connection.execute(
-                """
-                UPDATE ingest_jobs
-                   SET status = 'queued', phase = 'queued', message = ?,
-                       worker_id = NULL, heartbeat_at = NULL,
-                       error_json = NULL, finished_at = NULL,
-                       cancel_requested = 0
-                 WHERE id = ?
-                """,
-                (message, job_id),
-            )
-            connection.commit()
-
-    def delete_finished_ingest_batches(self, batch_ids: Sequence[str]) -> dict[str, int]:
-        """Delete finished queue history without touching source-layer artifacts.
-
-        Active batches are rejected. Job dependency edges must be removed before
-        jobs because the queue schema intentionally uses restrictive foreign keys.
-        """
-
-        ids = list(dict.fromkeys(str(batch_id) for batch_id in batch_ids if batch_id))
-        if not ids:
-            return {"batches": 0, "jobs": 0, "dependencies": 0}
-        placeholders = ",".join("?" for _ in ids)
-        with self.connection() as connection:
-            active = connection.execute(
-                f"SELECT id FROM ingest_batches WHERE id IN ({placeholders}) AND status IN ('queued','running','waiting_for_input')",
-                ids,
-            ).fetchall()
-            if active:
-                raise ValueError("active ingest batches cannot be deleted")
-            job_rows = connection.execute(
-                f"SELECT id FROM ingest_jobs WHERE batch_id IN ({placeholders})", ids
-            ).fetchall()
-            job_ids = [row["id"] for row in job_rows]
-            dependencies = 0
-            if job_ids:
-                job_placeholders = ",".join("?" for _ in job_ids)
-                cursor = connection.execute(
-                    f"DELETE FROM ingest_job_dependencies WHERE job_id IN ({job_placeholders}) OR depends_on_job_id IN ({job_placeholders})",
-                    [*job_ids, *job_ids],
-                )
-                dependencies = cursor.rowcount
-                connection.execute(
-                    f"DELETE FROM ingest_jobs WHERE id IN ({job_placeholders})", job_ids
-                )
-            cursor = connection.execute(
-                f"DELETE FROM ingest_batches WHERE id IN ({placeholders})", ids
-            )
-            batches = cursor.rowcount
-            connection.commit()
-        return {"batches": batches, "jobs": len(job_ids), "dependencies": dependencies}
-
-    def update_ingest_job_payload(self, job_id: str, payload: Mapping[str, Any]) -> None:
-        """Replace a durable job payload before an explicit retry.
-
-        Completed dependency jobs are never touched; this is used to adjust a
-        failed stage's execution ceilings without replaying earlier work.
-        """
-
-        with self.connection() as connection:
-            connection.execute(
-                "UPDATE ingest_jobs SET payload_json = ? WHERE id = ?",
-                (_json(dict(payload)), job_id),
-            )
-            connection.commit()
-
-    def set_ingest_job_cancel_requested(self, job_id: str) -> None:
-        with self.connection() as connection:
-            connection.execute(
-                "UPDATE ingest_jobs SET cancel_requested = 1 WHERE id = ?", (job_id,)
-            )
-            connection.commit()
-
-    def ingest_jobs_by_types(
-        self, job_types: Sequence[str], *, limit: int | None = None
-    ) -> list[dict[str, Any]]:
-        placeholders = ",".join("?" for _ in job_types)
-        query = (
-            f"SELECT * FROM ingest_jobs WHERE job_type IN ({placeholders}) "
-            "ORDER BY created_at DESC, id DESC"
-        )
-        params: list[Any] = list(job_types)
-        if limit is not None:
-            query += " LIMIT ?"
-            params.append(limit)
-        with self.connection() as connection:
-            rows = connection.execute(query, params).fetchall()
-        return [_decode_ingest_job(row) for row in rows]
-
-    def active_ingest_jobs(self) -> list[dict[str, Any]]:
-        """Every job that has not reached a terminal state.
-
-        Used to refuse destructive source edits while a worker could still be
-        writing rows for that source."""
-
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM ingest_jobs
-                 WHERE status IN ('queued', 'running', 'waiting_for_input')
-                 ORDER BY created_at, id
-                """
-            ).fetchall()
-        return [_decode_ingest_job(row) for row in rows]
-
-    def expired_running_ingest_jobs(self, lease_cutoff_iso: str) -> list[dict[str, Any]]:
-        with self.connection() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM ingest_jobs
-                 WHERE status = 'running'
-                   AND (heartbeat_at IS NULL OR heartbeat_at < ?)
-                 ORDER BY ordinal, id
-                """,
-                (lease_cutoff_iso,),
-            ).fetchall()
-        return [_decode_ingest_job(row) for row in rows]
-
     # --- ING M5: provenance, manifests, write-ahead apply intents -----------
 
     def insert_entity_source_link(
@@ -19147,7 +19349,9 @@ class Repository:
         So the first row emits a boundary exactly when it recomputed prior
         learner evidence (``replayed_attempts > 0``) under a recorded projection
         version.  A first rebuild on a vault with nothing to replay narrates
-        housekeeping the learner never saw, and stays silent.
+        housekeeping the learner never saw, and stays silent. The dedicated
+        startup projection scope stays silent on later zero-replay baselines as
+        well, while still advancing the version used for future comparisons.
         ``previous_*`` is ``None`` on that entry, which is the truthful statement
         that no earlier version was on record.
         """
@@ -19155,7 +19359,7 @@ class Repository:
         with self.connection() as connection:
             rows = connection.execute(
                 """
-                SELECT id, algorithm_version, canonical_projection_version,
+                SELECT id, scope, algorithm_version, canonical_projection_version,
                        coverage_denominator_version, replayed_attempts, created_at
                 FROM derived_state_rebuilds
                 ORDER BY created_at, id
@@ -19168,22 +19372,26 @@ class Repository:
         first = True
         for row in rows:
             version = str(row["algorithm_version"])
-            projection = row["canonical_projection_version"]
-            projection = str(projection) if projection is not None else None
+            raw_projection = row["canonical_projection_version"]
+            projection = (
+                str(raw_projection)
+                if raw_projection is not None
+                else previous_projection
+            )
             # Measurement §5.2 (migration 138): a third, independent boundary.
             # The contract-frontier denominator moves DISPLAYED mastery with no
             # change to the evidence or the projection, so it needs its own
             # version — attributing the entry to either existing one would name a
             # cause that was not the cause.
             #
-            # A NULL means "this writer did not report a coverage version", not
-            # "the version was rolled back to nothing". Historical rows predate
-            # the column, and not every rebuild path stamps it. Comparing NULL as
-            # a real value would mint a phantom boundary on the next stamped
-            # rebuild and then another on the one after — narrating
-            # recalibrations that never happened. So an unreported version
-            # carries the last reported one forward and can never itself be a
-            # boundary.
+            # A NULL projection or coverage value means "this writer did not
+            # report that dimension", not "the version was rolled back to
+            # nothing". Historical rows predate the columns, and narrow rebuild
+            # writers need not stamp either. Comparing NULL as a real value
+            # would mint a phantom boundary on the next stamped rebuild and then
+            # another on the one after — narrating recalibrations that never
+            # happened. Unreported versions therefore carry forward and can
+            # never themselves be a boundary.
             raw_coverage = row["coverage_denominator_version"]
             coverage = (
                 str(raw_coverage) if raw_coverage is not None else previous_coverage
@@ -19193,12 +19401,25 @@ class Repository:
                 and (projection is not None or coverage is not None)
                 and int(row["replayed_attempts"] or 0) > 0
             )
-            if first_recalibrates_seen_evidence or (
-                not first
-                and (
-                    version != previous_version
-                    or projection != previous_projection
-                    or coverage != previous_coverage
+            # Startup also stamps the current projection on an empty fresh
+            # vault.  That is a baseline for future comparisons, not a change
+            # to anything the learner demonstrated, so even a later software
+            # upgrade while the vault is still empty remains silent.  The row
+            # still advances ``previous_projection`` below, preventing a false
+            # cutover after the learner's first attempt.
+            silent_empty_projection_baseline = (
+                str(row["scope"]) == "canonical_projection_startup"
+                and int(row["replayed_attempts"] or 0) == 0
+            )
+            if not silent_empty_projection_baseline and (
+                first_recalibrates_seen_evidence
+                or (
+                    not first
+                    and (
+                        version != previous_version
+                        or projection != previous_projection
+                        or coverage != previous_coverage
+                    )
                 )
             ):
                 changes.append(
@@ -19458,7 +19679,7 @@ class Repository:
         self, envelope_version_id: str, milestone_slug: str
     ) -> dict[str, Any] | None:
         """Latest milestone version for (envelope version, slug) — the rung
-        projection seam (services/depth_rungs)."""
+        projection seam (``learnloop.curriculum.depth_rungs``)."""
 
         with self.connection() as connection:
             row = connection.execute(
@@ -19597,7 +19818,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             commitment_id = new_ulid()
             try:
@@ -19665,7 +19885,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             version_id = self._insert_commitment_version_rows(
                 connection,
@@ -19734,7 +19953,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             prior = connection.execute(
                 """
@@ -20064,7 +20282,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing = _existing(connection)
             if existing is not None:
@@ -20812,7 +21029,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing = _existing(connection)
             if existing is not None:
@@ -20886,7 +21102,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             live = connection.execute(
                 """
@@ -21244,7 +21459,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
                 "SELECT * FROM task_blueprint_versions WHERE blueprint_id = ? AND content_hash = ?",
@@ -21511,7 +21725,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
 
             existing_run = connection.execute(
@@ -21804,7 +22017,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             if idempotency_key is not None:
                 prior = connection.execute(
@@ -22139,7 +22351,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             if idempotency_key is not None:
                 existing = connection.execute(
@@ -22574,7 +22785,6 @@ class Repository:
         connection = self.connection()
         connection.isolation_level = None
         try:
-            connection.execute("PRAGMA busy_timeout = 5000")
             connection.execute("BEGIN IMMEDIATE")
             if idempotency_key is not None:
                 prior = connection.execute(
@@ -22646,7 +22856,8 @@ class Repository:
 
     # --- Causal repair orchestration (P2 §6, migration 124) ------------------
     #
-    # Owned by `services/causal_orchestrator.py`.  Three stores: the append-only
+    # Owned by ``learnloop.diagnosis.causal_orchestrator``. Three stores: the
+    # append-only
     # probe DECISION ledger (every decision, including the negative majority
     # class), the append-only learner PREFERENCE log that makes "Not now"
     # survive the attempt, and the mutable machine-check QUEUE that gives the
@@ -24110,21 +24321,6 @@ def _decode_apply_intent(row: sqlite3.Row) -> dict[str, Any]:
     return data
 
 
-def _decode_ingest_batch(row: sqlite3.Row) -> dict[str, Any]:
-    data = dict(row)
-    data["cancel_requested"] = bool(data.get("cancel_requested"))
-    return data
-
-
-def _decode_ingest_job(row: sqlite3.Row) -> dict[str, Any]:
-    data = dict(row)
-    data["cancel_requested"] = bool(data.get("cancel_requested"))
-    for key in ("payload", "result", "error", "usage"):
-        raw = data.pop(f"{key}_json", None)
-        data[key] = json.loads(raw) if raw else None
-    return data
-
-
 def _practice_item_state(row: sqlite3.Row) -> PracticeItemState:
     return PracticeItemState(
         practice_item_id=row["practice_item_id"],
@@ -24156,11 +24352,9 @@ def _guard_legacy_facet_write(state: Mapping[str, Any]) -> None:
     facet state. The canonical projection is the single mvp-0.7 write mechanism;
     reaching this legacy upsert with an mvp-0.7 row is a re-key regression.
 
-    Lazy import: repositories sits below the services layer, so importing the
-    version constant at module scope would cycle back through grading/recall.
+    The version vocabulary lives below both persistence and services so this
+    guard does not import the domain layer.
     """
-
-    from learnloop.services.assessment_contracts import CANONICAL_STATE_VERSIONS
 
     if state.get("algorithm_version") in CANONICAL_STATE_VERSIONS:
         raise AssertionError(
@@ -24585,6 +24779,10 @@ def _decode_question_event(row: sqlite3.Row) -> dict[str, Any]:
     # §13.4 context columns (migration 030) ride along in dict(row); default
     # them for rows read before the migration applied.
     payload.setdefault("signal_channel", None)
+    # Reveal quantification (migration 154); absent on rows read from a DB that
+    # predates the ledger.
+    payload.setdefault("leak_overlap", None)
+    payload.setdefault("remediation_episode_id", None)
     if payload.get("direct_explanation_request") is not None:
         payload["direct_explanation_request"] = bool(payload["direct_explanation_request"])
     return payload
@@ -24755,6 +24953,58 @@ def _decode_attempt_feedback_metadata(row: sqlite3.Row) -> dict[str, Any]:
     return payload
 
 
+def _resolve_causal_activity_classification(
+    attempt_id: str, events: Sequence[Mapping[str, Any]]
+) -> dict[str, Any]:
+    """Fold one decoded activity-event history through the policy authority."""
+
+    winning_class = min(
+        (str(event["contamination_class"]) for event in events),
+        key=CONTAMINATION_PRECEDENCE.index,
+    )
+    winners = [
+        event
+        for event in events
+        if str(event["contamination_class"]) == winning_class
+    ]
+    near_clone = any(bool(event["near_clone"]) for event in winners)
+    primary = next(
+        (event for event in winners if bool(event["near_clone"]) == near_clone),
+        winners[0],
+    )
+    policy = policy_for_class(winning_class, near_clone=near_clone)
+    detail: dict[str, Any] = {}
+    for event in events:
+        detail.update(event.get("detail") or {})
+    return {
+        "attempt_id": attempt_id,
+        **policy.as_dict(),
+        "near_clone_basis": primary.get("near_clone_basis"),
+        "source": primary.get("source"),
+        "detail": detail,
+        "created_at": primary.get("created_at"),
+        "recorded_classes": sorted(
+            {str(event["contamination_class"]) for event in events},
+            key=CONTAMINATION_PRECEDENCE.index,
+        ),
+        "event_count": len(events),
+    }
+
+
+def _decode_causal_activity_event(row: sqlite3.Row) -> dict[str, Any]:
+    payload = dict(row)
+    payload["near_clone"] = bool(payload["near_clone"])
+    payload["closes_pre_intervention_segment"] = bool(
+        payload["closes_pre_intervention_segment"]
+    )
+    payload["eligible_for_fsrs"] = bool(payload["eligible_for_fsrs"])
+    payload["eligible_for_certification"] = bool(
+        payload["eligible_for_certification"]
+    )
+    payload["detail"] = _loads(payload.pop("detail_json"), {})
+    return payload
+
+
 def _decode_error_event(row: sqlite3.Row) -> dict[str, Any]:
     payload = dict(row)
     payload["is_misconception"] = bool(payload["is_misconception"])
@@ -24791,6 +25041,13 @@ def _decode_causal_discriminating_observation(row: sqlite3.Row) -> dict[str, Any
         "resolved_factor",
     ):
         payload[field] = bool(payload[field])
+    # Tri-state (migration 155): NULL means "independence was never assessed"
+    # (every pre-155 row), which is not the same claim as "assessed and
+    # contaminated". Coercing it to False would rewrite silence as a finding.
+    raw_admissible = payload.get("admissible_as_independent")
+    payload["admissible_as_independent"] = (
+        None if raw_admissible is None else bool(raw_admissible)
+    )
     return payload
 
 

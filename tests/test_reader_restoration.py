@@ -8,9 +8,9 @@ import pytest
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import annotations as ANN
-from learnloop.services import reader_restoration as REST
-from learnloop.services.salience_firewall import SalienceEvidenceRejected, reject_salience
+from learnloop.reader import annotations as ANN
+from learnloop.reader import reader_restoration as REST
+from learnloop.attempts.salience_firewall import SalienceEvidenceRejected, reject_salience
 from tests.test_source_inventory import _persist, _register_revision
 
 

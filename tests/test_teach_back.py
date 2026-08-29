@@ -1,23 +1,26 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import shutil
 
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import GradingProposal, TeachBackAuthoring, TeachBackQuestion
+from learnloop.attempts.ai_contracts import GradingProposal
+from learnloop.tutor.ai_contracts import TeachBackAuthoring, TeachBackQuestion
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations, discover_migrations
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.grading import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.attempts.grading import (
     GradingValidationError,
     validate_codex_grading_proposal,
 )
-from learnloop.services.recall_coverage import derive_facet_outcomes
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.teach_back import (
+from learnloop.learner.recall_coverage import derive_facet_outcomes
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.tutor.teach_back import (
     TeachBackState,
     TeachBackTurn,
     asked_criterion_ids,
@@ -40,7 +43,7 @@ LO_ID = "lo_svd_definition"
 TEACH_ITEM_ID = "pi_svd_teach_001"
 
 
-class FakeTeachBackClient:
+class FakeTeachBackClient(StructuredClientFake):
     """AI double: canned naive-student questions + full-points grading.
 
     ``points_by_criterion`` overrides awarded points per criterion; anything
@@ -92,7 +95,7 @@ class FakeTeachBackClient:
         )
 
 
-class FakeTeachBackAuthoringClient:
+class FakeTeachBackAuthoringClient(StructuredClientFake):
     provider_name = "fake_author"
     provider_type = "fake"
     model = "fake-model"
@@ -576,6 +579,45 @@ def test_finish_partial_grading_only_asked_criteria_produce_evidence(tmp_path):
     assert sorted(row.criterion_id for row in evidence) == ["core_definition", "core_geometry"]
 
 
+def test_fractional_asked_subset_is_a_view_not_an_authored_rubric(tmp_path):
+    _root, vault, repository = _setup(tmp_path)
+    clock = FrozenClock(NOW)
+    client = FakeTeachBackClient()
+    item = vault.practice_items[TEACH_ITEM_ID]
+    # The planned four-question subset is three 1-point core criteria plus one
+    # 0.5-point transfer criterion.  The complete authored rubric remains a
+    # valid integral 4-point instrument; only this transient grading view sums
+    # to 3.5.
+    state = _run_conversation(
+        vault,
+        repository,
+        item,
+        client,
+        answers=["answer one", "answer two", "answer three", "answer four"],
+        clock=clock,
+    )
+
+    result = finish_teach_back(vault, repository, state, client, clock=clock)
+
+    restricted = client.grading_contexts[0].rubric
+    assert sum(float(criterion["points"]) for criterion in restricted["criteria"]) == 3.5
+    assert restricted["max_points"] == item.grading_rubric.max_points == 4
+    assert result.attempt.rubric_score == 4
+    with pytest.raises(
+        ValueError,
+        match="rubric criterion points must sum to a positive integer",
+    ):
+        Rubric(
+            max_points=item.grading_rubric.max_points,
+            criteria=[
+                criterion
+                for criterion in item.grading_rubric.criteria
+                if criterion.id in result.asked_criterion_ids
+            ],
+            fatal_errors=item.grading_rubric.fatal_errors,
+        )
+
+
 def test_ai_question_control_sequences_are_removed_from_live_and_restored_state(tmp_path):
     _root, vault, repository = _setup(tmp_path)
     item = vault.practice_items[TEACH_ITEM_ID]
@@ -587,7 +629,7 @@ def test_ai_question_control_sequences_are_removed_from_live_and_restored_state(
         clock=FrozenClock(NOW),
     )
 
-    class ANSIQuestionClient:
+    class ANSIQuestionClient(StructuredClientFake):
         def run_teach_back_question(self, _context):
             return TeachBackQuestion(
                 question_md="What changes on \x1b[1mR\x1b[22m²?"
@@ -863,7 +905,7 @@ def test_finish_and_rebuild_replay_reproduce_derived_state(tmp_path):
 
 
 def _regrade_runtime():
-    from learnloop.codex.runtime import CodexRuntimeReport
+    from learnloop.ai.providers.codex import CodexRuntimeReport
 
     return CodexRuntimeReport(
         status="ready",
@@ -874,7 +916,7 @@ def _regrade_runtime():
 
 
 def test_regrade_teach_back_attempt_restricts_to_graded_criteria(tmp_path):
-    from learnloop.services.regrade import _regrade_attempt
+    from learnloop.attempts.regrade import regrade_attempt
 
     _root, vault, repository = _setup(tmp_path)
     clock = FrozenClock(NOW)
@@ -887,7 +929,7 @@ def test_regrade_teach_back_attempt_restricts_to_graded_criteria(tmp_path):
     assert result.graded_criterion_ids == ["core_definition", "core_geometry"]
 
     regrade_client = FakeTeachBackClient(points_by_criterion={"core_geometry": 0.0})
-    _regrade_attempt(
+    regrade_attempt(
         vault,
         repository,
         repository.fetch_practice_attempt(attempt_id),
@@ -941,7 +983,7 @@ def test_regrade_teach_back_attempt_restricts_to_graded_criteria(tmp_path):
 
 def test_regrade_teach_back_attempt_without_evidence_falls_back_to_core(tmp_path):
     from learnloop.db.connection import connect
-    from learnloop.services.regrade import _regrade_attempt
+    from learnloop.attempts.regrade import regrade_attempt
 
     _root, vault, repository = _setup(tmp_path)
     clock = FrozenClock(NOW)
@@ -955,7 +997,7 @@ def test_regrade_teach_back_attempt_without_evidence_falls_back_to_core(tmp_path
         connection.commit()
 
     regrade_client = FakeTeachBackClient()
-    _regrade_attempt(
+    regrade_attempt(
         vault,
         repository,
         repository.fetch_practice_attempt(attempt_id),

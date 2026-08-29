@@ -3,11 +3,13 @@ fenced-lease drain, cache reuse, cancellation, and token caps."""
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from pathlib import Path
 
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import reader_requests as RR
+from learnloop.reader import reader_requests as RR
 from tests.test_source_inventory import _persist, _register_revision
 
 
@@ -35,6 +37,25 @@ def test_neighborhood_is_bounded_to_smallest_window(tmp_path: Path) -> None:
     # target + up to MAX_ADJACENT_BLOCKS per side, never the whole chapter.
     assert "s5" in window["span_ids"]
     assert len(window["span_ids"]) <= (2 * RR.MAX_ADJACENT_BLOCKS + 1)
+
+
+def test_neighborhood_merges_bounded_context_around_every_selected_span(tmp_path: Path) -> None:
+    repo = Repository(tmp_path / "s.sqlite")
+    _ingest(repo, n_blocks=9)
+
+    window = RR.neighborhood(
+        repo,
+        extraction_id="ext1",
+        span_id="s2",
+        selected_span_ids=["s2", "s8"],
+    )
+
+    assert window["selected_span_ids"] == ["s2", "s8"]
+    assert {"s2", "s8"}.issubset(window["span_ids"])
+    # The distant gap is not filled merely because two selected neighborhoods
+    # are merged.
+    assert "s5" not in window["span_ids"]
+    assert len(window["span_ids"]) <= 2 * (2 * RR.MAX_ADJACENT_BLOCKS + 1)
 
 
 def test_enqueue_is_idempotent_on_contract_and_versions_change_identity(tmp_path: Path) -> None:
@@ -128,7 +149,7 @@ def test_cancel_request_never_cancels_the_local_capture(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-class _FakePresetClient:
+class _FakePresetClient(StructuredClientFake):
     def __init__(self, content_md: str = "A worked example: diagonalize A.",
                  span_ids: list[str] | None = None) -> None:
         self.calls: list = []
@@ -136,7 +157,7 @@ class _FakePresetClient:
         self._span_ids = span_ids
 
     def run_reader_preset_synthesis(self, context):
-        from learnloop.codex.schemas import ReaderPresetSynthesis
+        from learnloop.reader.ai_contracts import ReaderPresetSynthesis
 
         self.calls.append(context)
         span_ids = self._span_ids
@@ -195,6 +216,30 @@ def test_model_synthesis_focuses_edited_latex_selection(tmp_path: Path) -> None:
     content = json_mod.loads(version["content_json"])
     assert content["selected_text"] == selected
     assert content["selection_edited"] is True
+
+
+def test_model_synthesis_receives_every_selected_span_and_its_context(tmp_path: Path) -> None:
+    repo = Repository(tmp_path / "s.sqlite")
+    _ingest(repo, n_blocks=9)
+    RR.enqueue_request(
+        repo,
+        source_id="src1",
+        revision_id="rev1",
+        extraction_id="ext1",
+        span_id="s2",
+        selected_span_ids=["s2", "s8"],
+        preset="worked_example",
+        selected_text="block two\n\nblock eight",
+    )
+    client = _FakePresetClient(span_ids=["s2", "s8"])
+
+    result = RR.drain_requests(repo, synthesize=RR.model_synthesis(client))
+
+    assert len(result["completed"]) == 1
+    context = client.calls[0]
+    assert context.selected_span_ids == ["s2", "s8"]
+    assert {"s2", "s8"}.issubset({block["span_id"] for block in context.blocks})
+    assert len(context.section_paths) == 1
 
 
 def test_model_synthesis_rejects_invented_spans(tmp_path: Path) -> None:

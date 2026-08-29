@@ -1,0 +1,128 @@
+---
+title: "source_locator_schemes"
+status: "current"
+doc_version: "1.0"
+architecture_version: "post-refactor"
+source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
+source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_verified: "2026-08-18"
+aliases:
+  - "state.sqlite source_locator_schemes"
+  - "table source_locator_schemes"
+schema_head: 156
+table_name: "source_locator_schemes"
+table_role: "compat"
+functionality_status: "dormant-owner-gated"
+domain_family: "sources-and-ingest"
+introduced_in: "032_source_layer.sql"
+generated: true
+source_paths:
+  - "src/learnloop/db/table_roles.py"
+  - "migrations/032_source_layer.sql"
+  - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/doctor.py"
+tags:
+  - "learnloop/database/table"
+  - "learnloop/database/role/compat"
+  - "learnloop/status/dormant-owner-gated"
+  - "learnloop/domain/sources-and-ingest"
+---
+
+# `source_locator_schemes`
+
+> [!warning] Dormant Owner Gated
+> No live caller was established; telemetry and owner review gate any retirement.
+
+## Why it exists
+
+Retains dormant locator-to-scheme detection state; retirement remains owner-gated. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `locator`, `scheme`, `detected_at`, making the operational relationship explicit. ^table-purpose
+
+> [!quote] Migration design note
+> Locator-scheme backfill (§2.4): shape-detected schemes stamped onto existing provenance refs without rewriting user files. Scheme is declared per ref and never silently converted.
+
+It belongs to the **sources and ingest** navigation family. The family context lives in [[Database Catalog#Sources And Ingest]]. Its persistence behavior follows [[Table Roles#Compat]].
+
+## Persistence and lifecycle contract
+
+- **Role:** `compat` — Frozen compatibility state retained for old vaults or an incomplete replacement seam.
+- **Functionality status:** `dormant-owner-gated`.
+- **Introduced by:** `migrations/032_source_layer.sql`.
+- **Schema touched by:** `032_source_layer.sql`.
+- **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
+
+For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
+
+## Columns
+
+| Column | SQLite type | Required | Default | Key | Operational reading |
+|---|---|---:|---|---|---|
+| `locator` | `TEXT` | no | — | PRIMARY KEY | Stored value |
+| `scheme` | `TEXT` | yes | — | — | Stored value |
+| `detected_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+
+## Relationships and access paths
+
+No SQLite foreign key is declared. Identifier-looking columns are application-validated soft references where applicable; this is common for YAML-owned entities and cross-generation compatibility seams.
+
+Indexes and uniqueness:
+
+- `sqlite_autoindex_source_locator_schemes_1` on `locator` (unique).
+
+## Who calls it
+
+### Repository access surface
+
+- `Repository.backfill_locator_schemes()`
+- `Repository.locator_scheme()`
+
+### Direct SQL readers
+
+- `src/learnloop/db/repositories.py`
+
+### Direct SQL writers
+
+- `src/learnloop/db/repositories.py`
+
+### Upstream callers of the repository access surface
+
+None found by exact static reference scan.
+
+> [!note] Static-reference boundary
+> These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
+
+## Tests that define behavior
+
+- `tests/test_doctor.py`
+- `tests/test_migrations.py`
+- `tests/test_source_layer.py`
+
+Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
+
+## Extension and modification guidance
+
+1. Put schema evolution in a new numbered file under `migrations/`; never edit the meaning of an already-applied migration for existing vaults.
+2. Update `src/learnloop/db/table_roles.py` in the same change. A new table without a role fails the migration-head registry test.
+3. Keep SQL access at the repository/store boundary; put policy in the domain callers listed above.
+4. Preserve append-only triggers and historical rows. Do not infer that an empty fixture table is safe to drop.
+5. Compatibility retirement requires production-vault telemetry and an explicit owner decision; code detachment and schema changes are separate gates.
+
+## Live schema DDL
+
+> [!tip] Why keep the DDL here?
+> It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
+
+```sql
+CREATE TABLE source_locator_schemes (
+  locator TEXT PRIMARY KEY,
+  scheme TEXT NOT NULL,
+  detected_at TEXT NOT NULL
+);
+```
+
+## Related notes
+
+- [[Database Catalog#Sources And Ingest|Sibling tables in this family]]
+- [[Table Roles#Compat|compat policy]]
+- [[Rebuild Ownership]]
+- [[State and Persistence]]
+- [[Vault Lifecycle]]

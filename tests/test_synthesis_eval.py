@@ -6,13 +6,13 @@ against the hand-authored gold registry for the symmetric-matrices chapter.
 
 from __future__ import annotations
 
-from learnloop.services.synthesis_eval import (
+from learnloop.content.synthesis.synthesis_eval import (
     default_gold_path,
     evaluate,
     extract_candidate_from_vault,
     load_gold,
 )
-from learnloop.services.source_set_synthesis import create_study_map
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
 from learnloop.vault.loader import load_vault
 
 from tests.test_source_set_synthesis import FakeSynthesisClient, _default_payload, _setup

@@ -4,9 +4,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.selection_rewards import SchedulerIntent, score_selection_reward
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.scheduling.selection_rewards import SchedulerIntent, score_selection_reward
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_concept, upsert_learning_object, upsert_practice_item
 from learnloop.vault.yaml_io import write_yaml

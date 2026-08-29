@@ -3,11 +3,13 @@ and escalation into a real PracticeItem (spec_reader_quick_check_producer.md).""
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 
-from learnloop.codex.schemas import ReadingQuickCheck
-from learnloop.services import reader_quick_check as RQC
-from learnloop.services.reader_guidance import build_guide_plan
+from learnloop.reader.ai_contracts import ReadingQuickCheck
+from learnloop.reader import reader_quick_check as RQC
+from learnloop.reader.reader_guidance import build_guide_plan
 from learnloop.vault.loader import load_vault
 
 import pytest
@@ -15,7 +17,7 @@ import pytest
 from tests.test_reader_guidance import _place_question, _setup
 
 
-class FakeClient:
+class FakeClient(StructuredClientFake):
     def __init__(self, result: ReadingQuickCheck | None = None) -> None:
         self.calls: list = []
         self.result = result or ReadingQuickCheck(

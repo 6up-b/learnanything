@@ -10,17 +10,17 @@ from datetime import timedelta
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.calibration_sessions import (
+from learnloop.diagnosis.calibration_sessions import (
     episode_priority_disagreement,
     graph_propagated_prior,
 )
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     enter_episode,
@@ -29,11 +29,17 @@ from learnloop.services.probe_episodes import (
     maybe_reprobe_for_predictive_failure,
     serve_presentation,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.server import serve
 
-from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card, create_basic_vault
+from tests.helpers import (
+    NOW,
+    NOW_ISO,
+    admit_probe_instrument_card,
+    append_config_toml,
+    create_basic_vault,
+)
 
 LO_ID = "lo_svd_definition"
 ITEM_ID = "pi_svd_define_001"
@@ -244,12 +250,12 @@ def _probe_contract(vault_root) -> dict:
 
 def test_onboarding_ceiling_deactivates_probes_until_practice_starts(tmp_path):
     vault_root, loaded, repository = _setup(tmp_path)
-    config_path = vault_root / "learnloop.toml"
-    config_path.write_text(
-        config_path.read_text().replace(
-            "onboarding_practice_ceiling_observations = 4",
-            "onboarding_practice_ceiling_observations = 1",
-        )
+    append_config_toml(
+        vault_root,
+        """
+        [probe.episode]
+        onboarding_practice_ceiling_observations = 1
+        """,
     )
 
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
@@ -287,7 +293,7 @@ def test_session_cap_blocks_further_probe_serving(tmp_path):
     session has spent its qualifying observations, the shared gate returns
     session_cap_reached; other sessions and capless callers are unaffected."""
 
-    from learnloop.services.probe_episodes import probe_serving_block_reason
+    from learnloop.diagnosis.probe_episodes import probe_serving_block_reason
     from learnloop.vault.writer import upsert_practice_item
 
     vault_root, loaded, repository = _setup(tmp_path)
@@ -411,7 +417,7 @@ def _add_second_lo(vault_root):
 
 
 def test_routine_planner_shadow_ranks_open_episodes(tmp_path):
-    from learnloop.services.calibration_sessions import routine_planner_shadow
+    from learnloop.diagnosis.calibration_sessions import routine_planner_shadow
     from tests.helpers import admit_probe_instrument_card
 
     vault_root, loaded, repository = _setup(tmp_path)
@@ -438,8 +444,8 @@ def test_routine_planner_shadow_ranks_open_episodes(tmp_path):
 
 
 def test_planner_shadow_report_summarizes_logged_components(tmp_path):
-    from learnloop.services.probe_audit import planner_shadow_report
-    from learnloop.services.probe_episodes import commit_item_presentation
+    from learnloop.diagnosis.probe_audit import planner_shadow_report
+    from learnloop.diagnosis.probe_episodes import commit_item_presentation
 
     _, loaded, repository = _setup(tmp_path)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
@@ -503,7 +509,7 @@ def test_answer_confidence_is_logged_on_attempt_and_observation(tmp_path):
 def test_answer_confidence_out_of_range_is_rejected(tmp_path):
     _, loaded, repository = _setup(tmp_path)
     import pytest
-    from learnloop.services.attempts import AttemptValidationError
+    from learnloop.attempts.attempts import AttemptValidationError
 
     with pytest.raises(AttemptValidationError):
         apply_attempt(

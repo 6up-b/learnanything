@@ -1,0 +1,244 @@
+schema_version: 1
+id: pi_incl_derive_intersections
+learning_object_id: lo_apply_inclusion_exclusion_to_overlapping_events
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_in_the_uniform_n_card_matching_problem_intersect
+  - facet_for_a_finite_family_of_events_compute_the_union_
+evidence_weights:
+  facet_for_a_finite_family_of_events_compute_the_union_: 0.5
+  facet_in_the_uniform_n_card_matching_problem_intersect: 0.5
+criterion_facet_weights:
+  incl_derive_intersections:
+    facet_in_the_uniform_n_card_matching_problem_intersect: 1.0
+  incl_derive_union:
+    facet_for_a_finite_family_of_events_compute_the_union_: 0.7
+    facet_in_the_uniform_n_card_matching_problem_intersect: 0.3
+trace_contract:
+  status: available
+  recipes:
+    - id: incl_matching_trace
+      checkpoints:
+        - count_total_permutations
+        - derive_intersection_probabilities
+        - write_ie3
+        - simplify_probability
+      dependencies:
+        count_total_permutations: []
+        derive_intersection_probabilities:
+          - count_total_permutations
+        simplify_probability:
+          - write_ie3
+        write_ie3:
+          - derive_intersection_probabilities
+variant_contract:
+teach_back_source:
+prompt: A random permutation of four labeled cards is placed in four labeled 
+  positions. For i=1,2,3, let A_i mean that card i is in position i. Compute 
+  P(A_1∪A_2∪A_3). Before applying inclusion-exclusion, derive the singleton, 
+  pairwise-intersection, and triple-intersection probabilities by counting 
+  permutations that satisfy the simultaneous fixed-position constraints. Show 
+  all stages.
+expected_answer: There are 4! permutations. Fixing one named card leaves 3!, so 
+  P(A_i)=3!/4!=1/4. Fixing two named cards leaves 2!, so P(A_i∩A_j)=2!/4!=1/12. 
+  Fixing cards 1,2,3 leaves 1!, so P(A_1∩A_2∩A_3)=1!/4!=1/24. Therefore 
+  P(A_1∪A_2∪A_3)=3(1/4)-3(1/12)+1/24=13/24.
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed
+  - contrast_pair
+  - matching_constraints
+  - capstone
+hints:
+  - When r specified cards are fixed, count how many ways the remaining 4-r 
+    cards can be arranged.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.78
+transfer_distance: 0.3
+scaffold_level: 0.03
+capability: procedure_execution
+task_features:
+  complexity: 2
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  tools:
+    - closed_book
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: fixed_position_constraint_count
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_matching_intersections_as_independent
+    hypothesis: Believes simultaneous fixed-position events in a random 
+      permutation are independent, so their intersection probabilities are 
+      products of the singleton probabilities.
+    observable_signature: Writes P(A_i∩A_j)=1/16 and P(A_1∩A_2∩A_3)=1/64, then 
+      reports 3/4-3/16+1/64=37/64.
+    misconception_id:
+    facet_id: facet_in_the_uniform_n_card_matching_problem_intersect
+    fails_criteria:
+      - incl_derive_intersections
+      - incl_derive_union
+    distinguishing_features:
+      - uses powers of 1/4
+      - does not reduce the number of free permutation positions
+    source: authored
+contrast_of: pi_incl_given_intersections
+differing_component:
+  facet: facet_in_the_uniform_n_card_matching_problem_intersect
+  capability: procedure_execution
+  structural_change: The learner must construct intersection probabilities from 
+    simultaneous fixed-position constraints; the counterpart supplies those 
+    probabilities.
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_in_the_uniform_n_card_matching_problem_intersect
+  - facet_for_a_finite_family_of_events_compute_the_union_
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: incl_derive_intersections
+      points: 2.0
+      description: Counts permutations satisfying one, two, and three 
+        simultaneous fixed-position constraints and obtains 1/4, 1/12, and 1/24.
+      tier: core
+      targets:
+        - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: incl_derive_union
+      points: 2.0
+      description: Uses the derived intersection probabilities with the correct 
+        inclusion-exclusion signs and obtains 13/24.
+      tier: core
+      targets:
+        - facet: facet_for_a_finite_family_of_events_compute_the_union_
+          capability: procedure_execution
+          role: primary
+        - facet: facet_in_the_uniform_n_card_matching_problem_intersect
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - incl_derive_intersections
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_apply_inclusion_exclusion_to_overlapping_events:s274-s297
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s274
+      quote: "\nSo $$P(B \\cap A^c) = P(B) - P(A \\cap B)$$, as desired.\nThe third
+        property is a special case of inclusion-exclusion, a formula for finding the
+        probability of a union of events when the events are not necessarily disjoint.
+        We showed above that for two events A and B,\n$$P(A \\cup B) = P(A) + P(B)
+        - P(A \\cap B).$$\nFor three events, inclusion-exclusion says\n$$P(A \\cup
+        B \\cup C) = P(A) + P(B) + P(C)$$$$-P(A \\cap B) - P(A \\cap C) - P(B \\cap
+        C)$$$$+ P(A \\cap B \\cap C).$$\nFor intuition, consider a triple Venn diagram
+        like the one below.\n\nTo get the total area of the shaded region $A \\cup
+        B \\cup C$, we start by adding the areas of the three circles, P(A) + P(B)
+        + P(C). The three football-shaped regions have each been counted twice, so
+        we then subtract $P(A \\cap B) + P(A \\cap C) + P(B \\cap C)$. Finally, the
+        region in the center has been added three times and subtracted three times,
+        so in order to count it exactly once, we must add it back again. This ensures
+        that each region of the diagram has been counted once and exactly once.\n\
+        Now we can write inclusion-exclusion for n events.\nTheorem 1.6.3 (Inclusion-exclusion).
+        For any events $A_1, \\ldots, A_n$,\n$$P\\left(\\bigcup_{i=1}^{n} A_{i}\\\
+        right) = \\sum_{i} P(A_{i}) - \\sum_{i < j} P(A_{i} \\cap A_{j}) + \\sum_{i
+        < j < k} P(A_{i} \\cap A_{j} \\cap A_{k}) - \\dots + (-1)^{n+1} P(A_{1} \\
+        cap \\dots \\cap A_{n}).$$\nThis formula can be proven by induction using
+        just the axioms, but instead we'll present a shorter proof in Chapter 4 after
+        introducing some additional tools. The rationale behind the alternating addition
+        and subtraction in the general formula is analogous to the special cases we've
+        already considered.\nThe next example, de Montmort's matching problem, is
+        a famous application of inclusion-exclusion. Pierre Rémond de Montmort was
+        a French mathematician who studied probability in the context of gambling
+        and wrote a treatise [19] devoted to the analysis of various card games. He
+        posed the following problem in 1708, based on a card game called Treize.\n\
+        Example 1.6.4 (de Montmort's matching problem). Consider a well-shuffled deck
+        of n cards, labeled 1 through n. You flip over the cards one by one, saying
+        the numbers 1 through n as you do so. You win the game if, at some point,
+        the number you say aloud is the same as the number on the card being flipped
+        over (for example, if the 7th card in the deck has the label 7). What is the
+        probability of winning?\nSolution:\nLet $A_i$ be the event that the i th card
+        in the deck has the number i written on it. We are interested in the probability
+        of the union $A_1 \\cup \\cdots \\cup A_n$: as long as at least one of the
+        cards has a number matching its position in the deck, you will win the game.
+        (An ordering for which you lose is called a derangement , though hopefully
+        no one has ever become deranged due to losing at this game.)\nTo find the
+        probability of the union, we'll use inclusion-exclusion. First,\n$$P(A_i)
+        = \\frac{1}{n}$$\nfor all i. One way to see this is with the naive definition
+        of probability, using the full sample space: there are n! possible orderings
+        of the deck, all equally likely, and (n-1)! of these are favorable to $A_i$
+        (fix the card numbered i to be in the ith position in the deck, and then the
+        remaining n-1 cards can be in any order). Another way to see this is by symmetry:
+        the card numbered i is equally likely to be in any of the n positions in the
+        deck, so it has probability 1/n of being in the ith spot. Second,\n$$P(A_i
+        \\cap A_j) = \\frac{(n-2)!}{n!} = \\frac{1}{n(n-1)},$$\nsince we require the
+        cards numbered i and j to be in the ith and jth spots in the"
+      quote_hash: 
+        sha256:6c5e4a2079570226b81359cb5ea7053233563c92734bbe2a00054dae7524e9ba
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s274
+        - s275
+        - s276
+        - s277
+        - s278
+        - s279
+        - s280
+        - s281
+        - s282
+        - s283
+        - s286
+        - s287
+        - s288
+        - s289
+        - s290
+        - s291
+        - s292
+        - s293
+        - s294
+        - s295
+        - s296
+        - s297
+      span_hash: 
+        sha256:f18f2f67920cb15d3ece772a61f28b82fac985682c91b3d7625f84b2e3bd49c8
+      section_id: u8
+      learning_object_ids:
+        - lo_apply_inclusion_exclusion_to_overlapping_events
+created_at: '2026-07-28T20:07:39Z'
+updated_at: '2026-07-28T20:07:39Z'

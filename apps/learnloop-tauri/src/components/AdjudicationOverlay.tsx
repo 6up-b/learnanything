@@ -28,6 +28,7 @@ import type {
 import { CommandOverlayFrame, commandOverlayActionStyle } from "./CommandOverlayFrame";
 import { isTypingTarget } from "../app/keyboard";
 import { Card, COLOR, Dim, Divider, Faint, FONT_MONO, Pill, SectionHeader } from "./term";
+import { errorMessage } from "../errors";
 
 const STRATUM_LABEL: Record<string, string> = {
   learner_contest: "from a learner contest",
@@ -98,13 +99,6 @@ function newDraft(verdict: AdjudicationVerdict, kase: AdjudicationCaseDto): Draf
   };
 }
 
-function messageOf(error: unknown): string {
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
-}
-
 function rate(value: number | null | undefined): string {
   return value == null ? "—" : value.toFixed(2);
 }
@@ -143,8 +137,9 @@ export function AdjudicationOverlay({
       })
       .catch((error: unknown) => {
         if (!alive) return;
-        setLoadError(messageOf(error));
-        onError(messageOf(error));
+        const message = errorMessage(error, "Could not load the adjudication queue.");
+        setLoadError(message);
+        onError(message);
       });
     refreshBoard();
     return () => {
@@ -198,7 +193,7 @@ export function AdjudicationOverlay({
           advance(true);
         })
         .catch((error: unknown) => {
-          const message = messageOf(error);
+          const message = errorMessage(error, "Could not record this adjudication.");
           setFormError(message);
           onError(message);
         })

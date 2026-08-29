@@ -11,7 +11,7 @@ from textual.reactive import reactive
 from textual.screen import Screen
 from textual.widgets import Button, Static
 
-from learnloop.services.scheduler import SchedulerSession
+from learnloop.scheduling.scheduler import SchedulerSession
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import KeyBar, TextStatic, block_bar
 

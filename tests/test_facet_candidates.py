@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from learnloop.db.repositories import Repository
-from learnloop.services.facet_candidates import harvest_facet_candidates
+from learnloop.content.synthesis.facet_candidates import harvest_facet_candidates
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
@@ -58,7 +58,7 @@ def test_harvests_candidates_from_unit_inventories(tmp_path):
         _persist,
         _register_revision,
     )
-    from learnloop.services.source_unit_inventory import run_unit_inventory
+    from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)

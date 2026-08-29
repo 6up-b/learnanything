@@ -1,20 +1,24 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import AuthoringContext, GradingContext
-from learnloop.codex.runtime import CodexRuntimeReport
-from learnloop.codex.schemas import AuthoringProposal, CriterionEvidence, GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.content.proposals.ai_contracts import AuthoringContext
+from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_codex_fallback
-from learnloop.services.proposals import accept_items, generate_authoring_proposal
-from learnloop.services.scheduler import build_due_queue
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_codex_fallback
+from learnloop.content.proposals.proposals import accept_items, generate_authoring_proposal
+from learnloop.scheduling.scheduler import build_due_queue
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import add_note, load_vault
 
 from tests.helpers import NOW, create_basic_vault
 
 
-class _FakeAuthoringClient:
+class _FakeAuthoringClient(StructuredClientFake):
     def run_authoring_proposal(self, context: AuthoringContext) -> AuthoringProposal:
         return AuthoringProposal.model_validate(_authoring_payload())
 
@@ -22,7 +26,7 @@ class _FakeAuthoringClient:
         raise NotImplementedError
 
 
-class _FakeGradingClient:
+class _FakeGradingClient(StructuredClientFake):
     def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
         return GradingProposal(
             attempt_id=context.attempt_id,

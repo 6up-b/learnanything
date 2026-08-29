@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
+from learnloop.db.repositories import Repository
 from learnloop.tui.app import LearnLoopApp
 from learnloop.tui.screens.feedback import FeedbackScreen
 from learnloop.tui.screens.practice import PracticeScreen
@@ -123,3 +124,28 @@ def test_practice_screen_uses_item_allowed_attempt_type(tmp_path):
             assert feedback.draft.attempt_type == "open_text"
 
     asyncio.run(scenario())
+
+
+def test_practice_screen_dont_know_runs_shared_post_attempt_pipeline(tmp_path):
+    async def scenario() -> tuple[object, object]:
+        vault_root = tmp_path / "vault"
+        paths = create_basic_vault(vault_root)
+        seed_due_item(paths)
+
+        app = LearnLoopApp(vault_root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            await today.open_practice()
+            await pilot.pause()
+
+            practice = app.screen
+            assert isinstance(practice, PracticeScreen)
+            result = practice.dont_know()
+        return paths, result
+
+    paths, result = asyncio.run(scenario())
+    repository = Repository(paths.sqlite_path)
+    metadata = repository.fetch_attempt_feedback_metadata(result.attempt_id)
+    assert metadata is not None
+    assert metadata["grading_source"] == "self"

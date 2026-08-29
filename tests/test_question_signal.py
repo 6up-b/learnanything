@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import TutorAnswer
+from learnloop.tutor.ai_contracts import TutorAnswer
 from learnloop.db.repositories import Repository
-from learnloop.services.followups import evaluate_intervention_followup
-from learnloop.services.question_signal import (
+from learnloop.diagnosis.followups import evaluate_intervention_followup
+from learnloop.tutor.question_signal import (
     apply_question_observation,
     collect_question_signal,
     question_adjusted_uncertainty_states,
     resolve_question_likelihood,
 )
-from learnloop.services.tutor_qa import ask_question
+from learnloop.tutor.tutor_qa import ask_question
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, NOW_ISO, create_basic_vault
 
@@ -274,7 +276,7 @@ def test_focus_has_no_question_keys_without_questions(tmp_path):
 # ── two-phase persistence ─────────────────────────────────────────────────────
 
 
-class FailingTutorClient:
+class FailingTutorClient(StructuredClientFake):
     provider_name = "fake_tutor"
     provider_type = "fake"
     model = "fake-model"
@@ -283,7 +285,7 @@ class FailingTutorClient:
         raise TimeoutError("provider down")
 
 
-class WorkingTutorClient:
+class WorkingTutorClient(StructuredClientFake):
     provider_name = "fake_tutor"
     provider_type = "fake"
     model = "fake-model"

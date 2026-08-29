@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.residual_diagnostics import residual_dependence_report
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.learner.residual_diagnostics import residual_dependence_report
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW

@@ -9,8 +9,8 @@ from textual.message import Message
 from textual.reactive import var
 from textual.screen import Screen
 
-from learnloop.services.mastery import sigmoid
-from learnloop.services.scheduler import ScheduledItem
+from learnloop.learner.mastery import sigmoid
+from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import (
     KeyBar,

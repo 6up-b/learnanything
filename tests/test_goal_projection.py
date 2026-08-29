@@ -7,15 +7,15 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.goal_projection import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.goals.goal_projection import (
     _attempts_to_certify,
     build_goal_frontier,
     goal_report,
     resolve_goal_scope,
 )
-from learnloop.services.goal_pace import compute_goal_pace
-from learnloop.services.recall_coverage import expected_facet_mass_gain
+from learnloop.goals.goal_pace import compute_goal_pace
+from learnloop.learner.recall_coverage import expected_facet_mass_gain
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 

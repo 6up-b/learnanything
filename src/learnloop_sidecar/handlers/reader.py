@@ -4,7 +4,8 @@ The Python layer of the five-layer recipe for the minimal bidirectional reader
 dialogue: the learner->AI Ask, the per-ask answer-mode toggle, owner-placed
 reading questions (present/submit/skip), the four-disposition picker, source
 restoration, and the replay-derived routing-prior projection. Handlers compose
-``services.reader_dialogue`` (+ ``tutor_qa``) and never touch SQL directly.
+``learnloop.reader.reader_dialogue`` (+ ``learnloop.tutor.tutor_qa``) and never
+touch SQL directly.
 
 Method names are dotted (``reader.*``) so the Tauri client maps them 1:1. The
 reader ships enabled by default (``tutor_qa.reader_enabled``, owner-flippable), with
@@ -24,10 +25,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.codex.client import CodexUnavailable
-from learnloop.services import reader_dialogue as RD
-from learnloop.services import reader_guidance as RG
-from learnloop.services.tutor_qa import QuestionLimitReached, TutorQAError
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.reader import reader_dialogue as RD
+from learnloop.reader import reader_guidance as RG
+from learnloop.tutor.tutor_qa import QuestionLimitReached, TutorQAError
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
@@ -343,12 +344,12 @@ def reader_prompt_contract(ctx: SidecarContext, _params: ParamsModel) -> dict[st
 # for parity with the P2 dialogue; local capture never waits for a model job.
 # ---------------------------------------------------------------------------
 
-from learnloop.services import annotations as ANN  # noqa: E402
-from learnloop.services import block_health as BH  # noqa: E402
-from learnloop.services import reader_capture as RC  # noqa: E402
-from learnloop.services import source_render_views as RV  # noqa: E402
-from learnloop.services import span_view as SV  # noqa: E402
-from learnloop.services.source_outline import resolve_extraction_id  # noqa: E402
+from learnloop.reader import annotations as ANN  # noqa: E402
+from learnloop.content.sources import block_health as BH  # noqa: E402
+from learnloop.reader import reader_capture as RC  # noqa: E402
+from learnloop.reader import source_render_views as RV  # noqa: E402
+from learnloop.reader import span_view as SV  # noqa: E402
+from learnloop.content.sources.source_outline import resolve_extraction_id  # noqa: E402
 
 
 class ReaderRenderViewInput(ParamsModel):
@@ -696,8 +697,8 @@ def reader_drain_outbox(ctx: SidecarContext, _params: ParamsModel) -> dict[str, 
 # proposals, never auto-admitted into pools/evidence (§6.4).
 # ---------------------------------------------------------------------------
 
-from learnloop.services import reader_requests as RR  # noqa: E402
-from learnloop.services import source_objects as SO  # noqa: E402
+from learnloop.reader import reader_requests as RR  # noqa: E402
+from learnloop.reader import source_objects as SO  # noqa: E402
 
 
 class ReaderInvokePresetInput(ParamsModel):
@@ -935,10 +936,10 @@ def reader_reject_proposal(ctx: SidecarContext, params: ReaderDecideProposalInpu
 # events remain salience-only (firewall §C).
 # ---------------------------------------------------------------------------
 
-from learnloop.services import commitment_arcs as ARC  # noqa: E402
-from learnloop.services import commitments as CMT  # noqa: E402
-from learnloop.services import reader_authoring as AUTH  # noqa: E402
-from learnloop.services import reader_restoration as REST  # noqa: E402
+from learnloop.curriculum import commitment_arcs as ARC  # noqa: E402
+from learnloop.curriculum import commitments as CMT  # noqa: E402
+from learnloop.reader import reader_authoring as AUTH  # noqa: E402
+from learnloop.reader import reader_restoration as REST  # noqa: E402
 
 # Commitment-layer domain errors surfaced by authoring (§9): validation, not a crash.
 C_ERR = (CMT.InvalidTarget, CMT.PassiveActionCannotCommit, CMT.UnknownCommitment)
@@ -1252,7 +1253,7 @@ def reader_watch_plan(ctx: SidecarContext, params: ReaderWatchPlanInput) -> dict
 # blocks on a model — and the guide plan surfaces the authored question.
 # ---------------------------------------------------------------------------
 
-from learnloop.services import reader_quick_check as RQC  # noqa: E402
+from learnloop.reader import reader_quick_check as RQC  # noqa: E402
 
 
 def _authored_question_payload(row: dict[str, Any]) -> dict[str, Any]:
@@ -1284,7 +1285,7 @@ class ReaderAuthorSectionQuestionInput(ParamsModel):
 def reader_author_section_question(
     ctx: SidecarContext, params: ReaderAuthorSectionQuestionInput
 ) -> dict[str, Any]:
-    from learnloop.services.source_outline import resolve_extraction_id as _resolve
+    from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = _require_reader(ctx)
@@ -1339,7 +1340,7 @@ class ReaderGetProgressInput(ParamsModel):
 def reader_get_progress(ctx: SidecarContext, params: ReaderGetProgressInput) -> dict[str, Any]:
     """Durable per-section reading progress for one extraction (migration 106)."""
 
-    from learnloop.services.source_outline import resolve_extraction_id as _resolve
+    from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
 
     _vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
@@ -1367,11 +1368,11 @@ def reader_mark_section_progress(
     'none_needed' = mapped to zero targets, else the enqueued batch id) — a
     re-completed section never enqueues twice."""
 
-    from learnloop.services.reader_progression import (
+    from learnloop.reader.reader_progression import (
         section_generation_candidates,
         source_refs_for_section,
     )
-    from learnloop.services.source_outline import resolve_extraction_id as _resolve
+    from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
 
     vault, repository = _require_reader(ctx)
     resolved = _resolve(repository, params.extraction_id) or params.extraction_id
@@ -1473,7 +1474,7 @@ def reader_import_exercise(ctx: SidecarContext, params: ReaderImportExerciseInpu
     per-block nodes) becomes one background authoring job that writes complete,
     schedulable PracticeItems around the verbatim exercise text."""
 
-    from learnloop.services.source_outline import resolve_extraction_id as _resolve
+    from learnloop.content.sources.source_outline import resolve_extraction_id as _resolve
     from learnloop_sidecar.handlers.ai_providers import ready_canonical_ingest_provider
 
     vault, repository = _require_reader(ctx)
@@ -1570,7 +1571,7 @@ def reader_escalate_authored_question(
 # Both are deterministic and local — no model, no evidence.
 # ---------------------------------------------------------------------------
 
-from learnloop.services import source_search as SS  # noqa: E402
+from learnloop.reader import source_search as SS  # noqa: E402
 
 
 class ReaderSearchSourcesInput(ParamsModel):

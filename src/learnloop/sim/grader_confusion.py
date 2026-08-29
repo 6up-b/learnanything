@@ -19,7 +19,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Mapping, Sequence
 
-from learnloop.services import robust_composition as rc
+from learnloop.diagnosis import robust_composition as rc
 
 COARSE_CLASSES = ("success", "partial_success", "other")
 

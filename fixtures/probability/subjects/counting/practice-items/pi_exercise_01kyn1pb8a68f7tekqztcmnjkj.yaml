@@ -1,0 +1,167 @@
+schema_version: 1
+id: pi_exercise_01kyn1pb8a68f7tekqztcmnjkj
+learning_object_id: lo_count_unordered_selections_with_repetition
+subjects:
+practice_mode: source_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_unordered_selection_of_k_objects_with_replacemen
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights:
+  facet_unordered_selection_of_k_objects_with_replacemen: 0.6
+  facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.4
+criterion_facet_weights:
+  c2:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  c3:
+    facet_unordered_selection_of_k_objects_with_replacemen: 0.8
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.2
+trace_contract:
+  status: available
+  recipes:
+    - id: increasing_sequence_count
+      checkpoints:
+        - establish_sample_space
+        - count_strict_sequences
+        - compute_strict_probability
+        - encode_weak_sequences
+        - count_weak_sequences
+        - compute_weak_probability
+      dependencies:
+        establish_sample_space: []
+        count_strict_sequences: []
+        compute_strict_probability:
+          - establish_sample_space
+          - count_strict_sequences
+        encode_weak_sequences: []
+        count_weak_sequences:
+          - encode_weak_sequences
+        compute_weak_probability:
+          - establish_sample_space
+          - count_weak_sequences
+variant_contract:
+teach_back_source:
+prompt: There are n balls in a jar, labeled with the numbers $1 , 2 , \dots , n$
+  . A total of $k$ balls are drawn, one by one with replacement , to obtain a 
+  sequence of numbers. (a) What is the probability that the sequence obtained is
+  strictly increasing? (b) What is the probability that the sequence obtained is
+  increasing (but not necessarily strictly increasing, i.e., there can be 
+  repetitions)?
+expected_answer: "Each ordered sequence of $k$ draws is an element of $\\{1,2,\\dots,n\\
+  }^k$. Since the draws are independent and uniform, there are $n^k$ equally likely
+  sequences.\n\n(a) A strictly increasing sequence is determined uniquely by choosing
+  $k$ distinct labels from the $n$ labels: once the labels are chosen, they have only
+  one strictly increasing ordering. Thus there are $\\binom{n}{k}$ favorable sequences,
+  so\n\n$$P(\\text{strictly increasing})=\\frac{\\binom{n}{k}}{n^k}.$$\n\nThis is
+  $0$ when $k>n$, using the convention $\\binom{n}{k}=0$.\n\n(b) A weakly increasing
+  sequence is determined uniquely by the multiplicities $x_1,\\dots,x_n$ of the labels,
+  where\n\n$$x_1+\\cdots+x_n=k,\\qquad x_i\\ge 0.$$\n\nConversely, every solution
+  gives exactly one weakly increasing sequence containing $x_i$ copies of label $i$.
+  By stars and bars, the number of such solutions is\n\n$$\\binom{n+k-1}{k}.$$\n\n\
+  Therefore\n\n$$P(\\text{increasing})=\\frac{\\binom{n+k-1}{k}}{n^k}.$$\n\nHere “increasing”
+  in part (b) means nondecreasing."
+difficulty: 0.55
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Begin by identifying the equally likely complete outcomes of the $k$ 
+    successive draws and counting them.
+  - For part (a), ask how many choices of $k$ distinct labels can produce an 
+    increasing sequence once their order is fixed.
+  - For part (b), describe a nondecreasing sequence by recording how many times 
+    each of the $n$ labels occurs.
+  - Translate those multiplicities into a nonnegative integer equation and apply
+    stars and bars before dividing by the size of the ordered sample space.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.35
+transfer_distance: 0.2
+scaffold_level: 0.0
+capability: coordination
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - symbolic
+    - verbal
+  response: structured_steps
+  scaffolding: none
+  span: whole_task
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c1
+      points: 1.0
+      description: Identifies the equally likely ordered sample space and its 
+        size $n^k$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+    - id: c2
+      points: 1.5
+      description: Counts strictly increasing sequences as $\binom{n}{k}$ by 
+        choosing distinct labels and gives $\binom{n}{k}/n^k$, including the 
+        $k>n$ boundary case or an equivalent convention.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c3
+      points: 1.5
+      description: Establishes a bijection between weakly increasing sequences 
+        and nonnegative solutions to $x_1+\cdots+x_n=k$, counts them as 
+        $\binom{n+k-1}{k}$, and gives $\binom{n+k-1}{k}/n^k$.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s455
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:02:15Z'
+updated_at: '2026-07-28T19:02:15Z'

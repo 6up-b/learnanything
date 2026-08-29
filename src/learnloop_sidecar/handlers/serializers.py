@@ -5,19 +5,25 @@ from datetime import UTC
 from typing import Any
 
 from learnloop.clock import SystemClock, parse_utc
-from learnloop.db.repositories import GradingEvidenceRecord, Repository
-from learnloop.services.confusable_concepts import learner_observed_confusable_concepts
-from learnloop.services.grading import resolved_rubric
-from learnloop.services.mastery import display_mastery, sigmoid
-from learnloop.services.mastery_step_attribution import explain_mastery_step
-from learnloop.services.scheduler import (
-    _FOLLOWUP_REASONS,
+from learnloop.db.repositories import (
+    GradingEvidenceRecord,
+    MasteryState,
+    PracticeItemState,
+    Repository,
+)
+from learnloop.curriculum.confusable_concepts import learner_observed_confusable_concepts
+from learnloop.attempts.grading import resolved_rubric
+from learnloop.learner.mastery import display_mastery, sigmoid
+from learnloop.learner.mastery_step_attribution import explain_mastery_step
+from learnloop.scheduling.scheduler import (
+    FOLLOWUP_REASONS,
     ScheduledItem,
     dominant_scheduler_reason,
     explain_practice_item,
 )
-from learnloop.services.source_review import resolve_source_refs
-from learnloop.services.tutor_qa import hint_equivalents_for_attempt
+from learnloop.content.sources.source_refs import source_ref_display_dto
+from learnloop.reader.source_review import resolve_source_refs
+from learnloop.tutor.tutor_qa import hint_equivalents_for_attempt
 from learnloop.vault.models import ErrorType, LearningObject, LoadedVault, PracticeItem, Rubric
 from learnloop_sidecar.context import mastery_dto
 from learnloop_sidecar.dto import to_camel, versioned
@@ -35,7 +41,7 @@ from learnloop_sidecar.errors import SidecarError
 #: already certified, not a repair retry, and collapsing the two makes the UI
 #: narrate a validity check as an intervention.
 _FOLLOWUP_KIND_BY_REASON: dict[str, str] = {
-    reason: kind for kind, reason in _FOLLOWUP_REASONS.items()
+    reason: kind for kind, reason in FOLLOWUP_REASONS.items()
 }
 
 
@@ -52,11 +58,50 @@ def _followup_kind(scheduled: ScheduledItem) -> str:
     return "intervention_followup"
 
 
-def scheduled_item_dto(vault: LoadedVault, repository: Repository, scheduled: ScheduledItem) -> dict[str, Any]:
+def scheduled_item_dtos(
+    vault: LoadedVault,
+    repository: Repository,
+    scheduled_items: list[ScheduledItem],
+) -> list[dict[str, Any]]:
+    """Serialize a queue with two bulk state reads, independent of its size."""
+
+    item_states = repository.practice_item_states()
+    mastery_states = repository.mastery_states()
+    return [
+        _scheduled_item_dto(
+            vault,
+            scheduled,
+            state=item_states.get(scheduled.practice_item_id),
+            mastery=mastery_states.get(scheduled.learning_object_id),
+        )
+        for scheduled in scheduled_items
+    ]
+
+
+def scheduled_item_dto(
+    vault: LoadedVault,
+    repository: Repository,
+    scheduled: ScheduledItem,
+) -> dict[str, Any]:
+    """Serialize one item; queue callers should use :func:`scheduled_item_dtos`."""
+
+    return _scheduled_item_dto(
+        vault,
+        scheduled,
+        state=repository.practice_item_state(scheduled.practice_item_id),
+        mastery=repository.mastery_state(scheduled.learning_object_id),
+    )
+
+
+def _scheduled_item_dto(
+    vault: LoadedVault,
+    scheduled: ScheduledItem,
+    *,
+    state: PracticeItemState | None,
+    mastery: MasteryState | None,
+) -> dict[str, Any]:
     item = _require_item(vault, scheduled.practice_item_id)
     learning_object = vault.learning_objects.get(scheduled.learning_object_id)
-    state = repository.practice_item_state(scheduled.practice_item_id)
-    mastery = repository.mastery_state(scheduled.learning_object_id)
     mastery_display = display_mastery(mastery) if mastery is not None else None
     is_followup = (
         scheduled.components.get("negative_surprise_followup", 0.0) > 0.0
@@ -140,7 +185,8 @@ def item_presentation(item: PracticeItem) -> dict[str, Any]:
     vault, wire, service and persistence layers with no renderer at all.
 
     WHY THIS IS A LIST OF TYPED BLOCKS AND NOT THREE MORE DTO FIELDS. The defect
-    ``services/instrument_serving`` exists to contain is a *presentation* gap:
+    ``learnloop.substrate.instrument_serving`` exists to contain is a
+    *presentation* gap:
     ``prompt`` was the only thing any surface carried, so an error hunt served
     its instruction ("repair the worked solution below") with no solution beneath
     it and a laddered-stem part served a question about a setup the learner never
@@ -236,7 +282,7 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     rubric = _rubric_for_item(vault, item)
     max_points = rubric.max_points if rubric is not None else 4
     assessment_contract_version_id = None
-    from learnloop.services.assessment_contracts import (
+    from learnloop.learner.assessment_contracts import (
         KM_ALGORITHM_VERSION,
         snapshot_for_presentation,
     )
@@ -245,26 +291,48 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
         assessment_contract_version_id = snapshot_for_presentation(
             repository, vault, item, rubric=rubric
         )
-    active_followup = repository.active_followup_task_for_item(item.id)
-    if active_followup is not None and active_followup.get("kind") == "cold_retry":
+    active_cold_retry = repository.active_followup_task_for_item(
+        item.id, kind="cold_retry"
+    )
+    if active_cold_retry is not None:
         # Migration 149 stage 1: serving the detail for an item carrying an
         # active cold-retry task IS the administration open — record the
         # coldness snapshot (window state, surface eligibility, selection
         # basis, render-time exposure scan). Idempotent per task, and a
         # bookkeeping failure must never block the serve.
         try:
-            from learnloop.services.coldness_receipt import (
+            from learnloop.attempts.coldness_receipt import (
                 record_administration_snapshot,
             )
 
             record_administration_snapshot(
-                vault, repository, task=active_followup
+                vault, repository, task=active_cold_retry
             )
         except Exception:  # pragma: no cover - serve must not fail on receipts
             import logging
 
             logging.getLogger(__name__).warning(
                 "coldness administration snapshot failed for %s",
+                item.id,
+                exc_info=True,
+            )
+    active_certification_probe = repository.active_followup_task_for_item(
+        item.id, kind="certification_cold_probe"
+    )
+    if active_certification_probe is not None:
+        try:
+            from learnloop.attempts.coldness_receipt import (
+                record_certification_administration_snapshot,
+            )
+
+            record_certification_administration_snapshot(
+                vault, repository, task=active_certification_probe
+            )
+        except Exception:  # pragma: no cover - serve must not fail on receipts
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "certification coldness administration snapshot failed for %s",
                 item.id,
                 exc_info=True,
             )
@@ -304,7 +372,10 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             "rubric": rubric_dto(rubric),
             "candidate_error_types": _candidate_error_types(vault, learning_object.concept),
             "tags": item.tags,
-            "source_refs": [source_ref.model_dump() for source_ref in item.provenance.source_refs],
+            "source_refs": [
+                source_ref_display_dto(vault, repository, source_ref)
+                for source_ref in item.provenance.source_refs
+            ],
             "state": practice_item_state_dto(repository, item.id),
             "mastery": mastery_dto(repository, learning_object.id, vault),
             "scheduler": scheduler_explanation_dto(scheduler) if scheduler is not None else None,
@@ -316,7 +387,13 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
             # the practice surface needs to WARN before the learner burns the
             # one measurement on a hint.
             "active_followup_kind": (
-                active_followup.get("kind") if active_followup is not None else None
+                active_cold_retry.get("kind")
+                if active_cold_retry is not None
+                else (
+                    active_certification_probe.get("kind")
+                    if active_certification_probe is not None
+                    else None
+                )
             ),
         }
     )
@@ -497,7 +574,7 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {attempt_id} was not found.")
-    from learnloop.services.causal_attribution import causal_episode_for_attempt
+    from learnloop.diagnosis.causal_attribution import causal_episode_for_attempt
 
     return versioned(
         {
@@ -530,6 +607,102 @@ def attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) 
     )
 
 
+def _cold_check_result(
+    vault: LoadedVault, repository: Repository, attempt: dict[str, Any]
+) -> dict[str, Any] | None:
+    """What the cold check this attempt just spent turned out to say.
+
+    Non-null ONLY when the attempt consumed a ``cold_retry`` task — i.e. it was
+    the single unassisted measurement an earlier assisted repair scheduled.
+    Everything here is read back from records the submit path already wrote (the
+    consumed task, the episode it closed, the ``causal_cold_outcomes`` row and
+    the final coldness receipt); nothing is derived, decided or persisted, so
+    re-opening feedback cannot change a verdict.
+
+    The verdict is deliberately reported in TWO parts. ``passed`` says whether
+    the unassisted answer was right. ``claim`` says what the system is licensed
+    to conclude from it, which is not the same thing: a receipt whose episode
+    spent more of the answer than its budget has its repair claim downgraded, so
+    a correct answer can be recorded and still not confirm the repair. Collapsing
+    the two would let assistance quietly buy a confirmation.
+    """
+
+    attempt_id = str(attempt["id"])
+    try:
+        task = repository.consumed_followup_task_for_attempt(
+            attempt_id, kind="cold_retry"
+        )
+        if task is None:
+            return None
+        task_id = str(task["id"])
+        context = task.get("context") or {}
+        episode_id = str(task.get("remediation_episode_id") or "")
+        episode = repository.remediation_episode(episode_id) if episode_id else None
+        outcome_row = repository.causal_cold_outcome_for_task(task_id)
+        outcome = str((outcome_row or {}).get("outcome") or "") or None
+        receipt = repository.coldness_receipt_for_task_stage(task_id, "final")
+        derived = (receipt or {}).get("derived") or {}
+        downgraded_reason = derived.get("claim_downgraded_reason") or None
+        passed = outcome == "cold_success"
+        if outcome is None:
+            claim = "unmeasured"
+        elif downgraded_reason:
+            claim = "downgraded"
+        elif passed:
+            claim = "repair_confirmed"
+        elif outcome == "cold_failure":
+            claim = "escalated_unrepaired"
+        else:
+            # right_censored_expired, contaminated_or_assisted, missing_chain …
+            # — the check happened but produced no verdict about the repair.
+            claim = "unmeasured"
+        case_kind = str(task.get("case_kind") or "")
+        case_ref = str(task.get("case_ref") or "")
+        summary = None
+        if case_kind == "misconception" and case_ref:
+            record = repository.misconception(case_ref)
+            summary = getattr(record, "statement", None) if record is not None else None
+        if not summary:
+            learning_object = vault.learning_objects.get(
+                str(attempt.get("learning_object_id") or "")
+            )
+            summary = (
+                learning_object.title
+                if learning_object is not None
+                else (case_ref or "this idea")
+            )
+        return {
+            "passed": passed,
+            "outcome": outcome,
+            "claim": claim,
+            "claim_downgraded_reason": downgraded_reason,
+            "case_kind": case_kind or None,
+            "case_ref": case_ref or None,
+            "case_summary": summary,
+            "factor_id": (context.get("causal_factor_id") or None),
+            "episode_id": episode_id or None,
+            # The span the learner recognizes: the day the assisted repair
+            # happened, and the day this check answered for it.
+            "instructed_at": str(
+                (episode or {}).get("created_at") or task.get("created_at") or ""
+            )
+            or None,
+            "checked_at": str(
+                (episode or {}).get("completed_at") or attempt.get("created_at") or ""
+            )
+            or None,
+            "reveal_spend": context.get("reveal_spend"),
+            "reveal_budget": context.get("reveal_budget"),
+        }
+    except Exception:  # pragma: no cover - feedback must never fail on a receipt
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "cold check result unavailable for attempt %s", attempt_id, exc_info=True
+        )
+        return None
+
+
 def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]:
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
@@ -544,8 +717,8 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     gate_attempt_id = repository.followup_source_attempt(attempt_id)
     rating = repository.followup_rating(attempt_id)
     error_events = repository.error_events_for_attempt(attempt_id)
-    from learnloop.services.causal_attribution import claim_checked_feedback
-    from learnloop.services.guided_redo import guided_redo_available
+    from learnloop.diagnosis.causal_attribution import claim_checked_feedback
+    from learnloop.diagnosis.guided_redo import guided_redo_available
 
     causal_feedback = claim_checked_feedback(vault, repository, attempt_id)
     matched_misconception = None
@@ -575,6 +748,13 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
     # transiently after an in-screen trigger_regrade. Template-rendered fact.
     rubric = _rubric_for_item(vault, item)
     max_points = rubric.max_points if rubric is not None else 4
+    # Auto-priming (reveal ledger): recorded on the attempt's debug payload at
+    # submit time. Absent -- never zero -- when the ledger did not force it.
+    debug_payload = repository.attempt_debug_payload(attempt_id) or {}
+    raw_auto_primed = debug_payload.get("auto_primed_reveal_total")
+    auto_primed_total = (
+        float(raw_auto_primed) if isinstance(raw_auto_primed, (int, float)) else None
+    )
     regrade_marker = repository.attempt_regrade_marker(attempt_id)
     regrade = None
     if regrade_marker is not None:
@@ -633,9 +813,18 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "guided_redo_available": guided_redo_available(repository, attempt_id),
             "intervention_need": intervention_need_dto(intervention_need),
             "primed": bool(attempt.get("primed")),
+            # `primed` alone cannot tell the learner why: they submitted this as
+            # an ordinary attempt and the reveal ledger reclassified it, because
+            # tutor answers or repair displays had already covered part of the
+            # solution. The total is the audit trail for that reclassification.
+            "auto_primed": auto_primed_total is not None,
+            "auto_primed_reveal_total": auto_primed_total,
+            # Non-null only when this attempt WAS the unassisted check for an
+            # earlier assisted repair. Announced after the grade, never before.
+            "cold_check_result": _cold_check_result(vault, repository, attempt),
             # Canonical-source sections that spawned this item, for the
             # source-review panel (text section or video timestamp range).
-            "source_refs": resolve_source_refs(vault, item),
+            "source_refs": resolve_source_refs(vault, item, repository),
             # Non-null when this attempt is itself a follow-up: the rating
             # strip renders and rate_followup joins back to the gate decision.
             "followup_source": ({"gate_attempt_id": gate_attempt_id} if gate_attempt_id is not None else None),

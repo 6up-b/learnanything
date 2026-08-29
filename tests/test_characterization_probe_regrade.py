@@ -7,14 +7,14 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     ResolvedGrade,
     apply_attempt,
 )
-from learnloop.services.probe_audit import record_probe_regrade_check
-from learnloop.services.probe_episodes import (
+from learnloop.diagnosis.probe_audit import record_probe_regrade_check
+from learnloop.diagnosis.probe_episodes import (
     commit_presentation,
     eligible_instruments,
     enter_episode,

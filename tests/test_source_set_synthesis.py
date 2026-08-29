@@ -9,6 +9,8 @@ alignment + held-out wording absence. Canned codex payloads, zero network.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +18,7 @@ from pathlib import Path
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import (
+from learnloop.content.synthesis.ai_contracts import (
     SourceSetSynthesis,
     SynthBlueprint,
     SynthConcept,
@@ -31,14 +33,14 @@ from learnloop.codex.schemas import (
     SynthSpanRef,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.patches import PatchApplicationError, apply_accepted_items
-from learnloop.services.source_set_synthesis import (
+from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
+from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
     _namespace_synthesis_shard,
     create_study_map,
 )
-from learnloop.services.source_unit_inventory import run_unit_inventory
-from learnloop.services.source_unit_selection import save_unit_selection
+from learnloop.content.synthesis.source_unit_inventory import run_unit_inventory
+from learnloop.content.synthesis.source_unit_selection import save_unit_selection
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.writer import upsert_source_set
 
@@ -130,7 +132,7 @@ def _first_semantic_span(context) -> tuple[str, str, str]:
     return "", "", ""
 
 
-class FakeSynthesisClient:
+class FakeSynthesisClient(StructuredClientFake):
     """House fake-client: builds a dependency-closed, span-cited proposal from
     the shard context so gates pass. Records contexts so leakage can be
     grepped and cache reuse proven (zero new calls on a hit)."""
@@ -463,7 +465,7 @@ def test_locked_subject_bootstrap_refusal(tmp_path):
     # First bootstrap + apply mints facets.
     create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK, apply=True)
     # Force an identity lock by seeding recall evidence + an active goal scope.
-    from learnloop.services.curriculum_locks import identity_locks
+    from learnloop.curriculum.curriculum_locks import identity_locks
 
     # Simulate a lock by directly writing a goal that certifies the facet scope.
     from learnloop.vault.paths import VaultPaths
@@ -518,7 +520,7 @@ def test_legacy_vault_acceptance_refused(tmp_path):
 def test_replay_identical_after_apply(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False)
     create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK, apply=True)
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.replay import rebuild_derived_state
 
     # rebuild must not raise and must leave the applied facets intact.
     rebuild_derived_state(load_vault(root), repo, clock=_CLOCK)
@@ -531,7 +533,7 @@ def test_resolve_subject_id_prefers_source_set_over_vault(tmp_path):
     # "first subject in the vault" instead of the set's own subject.
     from types import SimpleNamespace
 
-    from learnloop.services.source_set_synthesis import StudyMapError, resolve_subject_id
+    from learnloop.content.synthesis.source_set_synthesis import StudyMapError, resolve_subject_id
 
     vault = SimpleNamespace(subjects={"other-subject": object()})
     assert resolve_subject_id(SimpleNamespace(subject_id="svd-pca"), vault) == "svd-pca"
@@ -686,7 +688,7 @@ def test_graph_structuring_merges_near_duplicates_and_authors_relations(tmp_path
 
         def run_concept_graph_structuring(self, context):
             self.structuring_contexts.append(context)
-            from learnloop.codex.schemas import (
+            from learnloop.content.synthesis.ai_contracts import (
                 ConceptGraphStructuring,
                 ConceptMergeGroup,
                 ConceptRelation,
@@ -735,7 +737,7 @@ def test_graph_structuring_relations_become_concept_edges(tmp_path):
             super().__init__(builder=_distinct_title_builder)
 
         def run_concept_graph_structuring(self, context):
-            from learnloop.codex.schemas import ConceptGraphStructuring, ConceptRelation
+            from learnloop.content.synthesis.ai_contracts import ConceptGraphStructuring, ConceptRelation
 
             ids = [c["client_item_id"] for c in context.concepts]
             return ConceptGraphStructuring(
@@ -776,7 +778,7 @@ def test_invalid_structuring_nomination_is_a_noop(tmp_path):
             super().__init__(builder=_distinct_title_builder)
 
         def run_concept_graph_structuring(self, context):
-            from learnloop.codex.schemas import ConceptGraphStructuring, ConceptMergeGroup
+            from learnloop.content.synthesis.ai_contracts import ConceptGraphStructuring, ConceptMergeGroup
 
             return ConceptGraphStructuring(merge_groups=[
                 ConceptMergeGroup(canonical_client_id="nope", duplicate_client_ids=["also_nope"]),
@@ -822,7 +824,7 @@ def test_revalidate_saved_candidate_completes_without_model(tmp_path, monkeypatc
     """A post-generation persistence failure preserves the candidate; a later
     revalidation finishes gates + persistence + apply with zero model calls."""
 
-    from learnloop.services.source_set_synthesis import revalidate_synthesis_candidate
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
 
     root, repo = _setup(tmp_path)
     client = FakeSynthesisClient()
@@ -858,7 +860,7 @@ def test_revalidate_saved_candidate_completes_without_model(tmp_path, monkeypatc
 
 
 def test_revalidate_requires_a_preserved_candidate(tmp_path):
-    from learnloop.services.source_set_synthesis import revalidate_synthesis_candidate
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
 
     root, repo = _setup(tmp_path)
     with pytest.raises(StudyMapError) as excinfo:
@@ -872,7 +874,7 @@ def test_auto_repair_drops_criterion_id_dependencies(tmp_path):
     bare), the closure gate hard-fails on the dangling refs, and a repairing
     revalidation finishes the run with zero model calls."""
 
-    from learnloop.services.source_set_synthesis import revalidate_synthesis_candidate
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
 
     def builder(context, _n):
         payload = _default_payload(context)
@@ -915,7 +917,7 @@ def test_derive_candidate_repairs_only_targets_criterion_refs():
     """Dangling deps that don't match an embedded criterion id are left for a
     human or agent: no judgment calls are derived mechanically."""
 
-    from learnloop.services.source_set_synthesis import derive_candidate_repairs
+    from learnloop.content.synthesis.source_set_synthesis import derive_candidate_repairs
 
     candidate = {
         "concepts": [{"client_item_id": "shard_1__c"}],
@@ -934,7 +936,7 @@ def test_derive_candidate_repairs_only_targets_criterion_refs():
 
 
 def test_apply_candidate_repairs_vocabulary():
-    from learnloop.services.source_set_synthesis import apply_candidate_repairs
+    from learnloop.content.synthesis.source_set_synthesis import apply_candidate_repairs
 
     candidate = {
         "concepts": [{"client_item_id": "c1"}],

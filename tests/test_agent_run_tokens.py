@@ -1,6 +1,6 @@
 """Agent-run token accounting (spec_diagnostic_augmentation_v1.md §2 A7).
 
-Migration 131 + the provider seam in `learnloop.token_usage`: `agent_runs` now
+Migration 131 + the provider seam in `learnloop.ai.usage`: `agent_runs` now
 carries est_/actual_ input_/output_tokens so §3 C3's
 `tokens_per_resolved_diagnostic_episode` has a numerator. The load-bearing case
 is the grading path — that is the run C3 measures — so it is asserted end to end
@@ -9,27 +9,31 @@ against a stub client, not just at the repository boundary.
 
 from __future__ import annotations
 
+import json
 import types
 
 import pytest
 
-from learnloop.ai.openai_chat import OpenAIChatProviderClient
+from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import CodexUnavailable, GradingContext
-from learnloop.codex.schemas import CriterionEvidence, GradingProposal
+from learnloop.ai.errors import CodexUnavailable
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.attempts.ai_contracts import CriterionEvidence, GradingProposal
+from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.attempts.grading import request_grading_proposal
 from learnloop.config import AIProviderConfig
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services.agent_runs import finish_agent_run
-from learnloop.services.attempts import (
+from learnloop.ai.runs import finish_agent_run
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_attempt_with_ai_fallback,
 )
-from learnloop.services.state_sync import sync_vault_state
-from learnloop.token_usage import (
+from learnloop.substrate.state_sync import sync_vault_state
+from learnloop.ai.usage import (
     TokenUsage,
     TokenUsageAccounting,
     consume_client_usage,
@@ -188,7 +192,7 @@ def test_chat_client_accumulates_usage_across_calls_and_resets_on_consume(monkey
     monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
     client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
 
-    client.run_grading_proposal(_grading_context())
+    request_grading_proposal(client, _grading_context())
     usage = client.consume_usage()
 
     assert usage == TokenUsage(input_tokens=1210, output_tokens=160, calls=2)
@@ -201,7 +205,7 @@ def test_chat_client_survives_a_response_with_no_usage(monkeypatch):
     monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
     client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
 
-    proposal = client.run_grading_proposal(_grading_context())
+    proposal = request_grading_proposal(client, _grading_context())
 
     assert proposal.rubric_score == 4
     # calls=1 with zero tokens is the distinguishable "provider reported
@@ -219,7 +223,7 @@ def test_chat_client_counts_tokens_of_a_call_whose_body_is_unusable(monkeypatch)
     client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
 
     with pytest.raises(CodexUnavailable):
-        client.run_grading_proposal(_grading_context())
+        request_grading_proposal(client, _grading_context())
 
     assert client.consume_usage().input_tokens == 700
 
@@ -286,13 +290,17 @@ class _MeteredGradingClient(TokenUsageAccounting):
     def __init__(self, *, fail: bool = False):
         self.fail = fail
 
-    def run_grading_proposal(self, context: GradingContext) -> GradingProposal:
+    def supports(self, capability: str) -> bool:
+        return capability == STRUCTURED_COMPLETION
+
+    def complete(self, request: StructuredRequest) -> GradingProposal:
         self.record_token_usage(2400, 310)
         if self.fail:
             raise CodexUnavailable("provider exploded after billing")
+        context = json.loads(request.prompt.rsplit("\n\n", 1)[1])["context"]
         return GradingProposal(
-            attempt_id=context.attempt_id,
-            practice_item_id=context.practice_item_id,
+            attempt_id=context["attempt_id"],
+            practice_item_id=context["practice_item_id"],
             rubric_score=4,
             criterion_evidence=[
                 CriterionEvidence(

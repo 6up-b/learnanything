@@ -7,7 +7,7 @@ capabilities; the target-set hash changes only with the pinned contract support.
 
 from __future__ import annotations
 
-from learnloop.services import predictive_targets as PT
+from learnloop.scheduling import predictive_targets as PT
 
 _CONTRACT = {
     "exemplars": [

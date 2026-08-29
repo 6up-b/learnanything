@@ -33,6 +33,7 @@ import type {
   GradingClarificationResultDto,
   AnswerGradingClarificationResultDto,
   UnresolvedCauseSelfReportResponse,
+  ElicitingResponseResultDto,
   UnresolvedCauseSelfReportResultDto,
   CausalProbeDeferResultDto,
   CausalProbeOfferResultDto,
@@ -53,6 +54,8 @@ import type {
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
   PracticeItemDetail,
+  PracticeSubmissionAcknowledgementDto,
+  PracticeSubmissionRecoveryDto,
   GetNextProbeItemDto,
   ProbeContractDto,
   ProposalsSnapshot,
@@ -312,7 +315,18 @@ export const api = {
     practiceItemId: string;
     answerMd: string;
     hintsUsed: number;
+    submissionId: string;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
+  recoverPracticeSubmission: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    submissionId: string;
+  }) => call<PracticeSubmissionRecoveryDto>("recover_practice_submission", { input }),
+  acknowledgePracticeSubmission: (input: {
+    sessionId: string;
+    practiceItemId: string;
+    submissionId: string;
+  }) => call<PracticeSubmissionAcknowledgementDto>("acknowledge_practice_submission", { input }),
   submitAttempt: (input: SubmitAttemptInput) => call<AttemptResultDto>("submit_attempt", { input }),
   submitDontKnow: (input: {
     sessionId: string;
@@ -354,6 +368,15 @@ export const api = {
     call<UnresolvedCauseSelfReportResultDto>("report_unresolved_cause", {
       input: { ...input, candidateIndex: input.candidateIndex ?? null }
     }),
+  /**
+   * The learner's unaided answer to an eliciting repair suggestion's question.
+   * `suggestionIndex` indexes `feedback.repairSuggestions`.
+   */
+  submitElicitingResponse: (input: {
+    attemptId: string;
+    suggestionIndex: number;
+    responseMd: string;
+  }) => call<ElicitingResponseResultDto>("submit_eliciting_response", { input }),
   contestCausalDiagnosis: (
     attemptId: string,
     response: Exclude<UnresolvedCauseSelfReportResponse, "believed_candidate">,

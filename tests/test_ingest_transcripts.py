@@ -13,8 +13,8 @@ from learnloop.ingest.transcripts import (
     detect_transcript_format,
     parse_transcript,
 )
-from learnloop.services.ingest_runner import (
-    FetchedBytes,
+from learnloop.content.pipeline.runner import FetchedBytes
+from learnloop.content.pipeline.jobs import (
     default_extract,
     default_extraction_identity,
 )

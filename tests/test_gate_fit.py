@@ -8,13 +8,13 @@ import pytest
 
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
-from learnloop.services.gate_fit import (
+from learnloop.diagnosis.gate_fit import (
     GateExample,
     GateFitError,
     assemble_gate_training_set,
     fit_gate_weights,
 )
-from learnloop.services.gate_score import GATE_FEATURES, GATE_FEATURE_VERSION
+from learnloop.diagnosis.gate_score import GATE_FEATURES, GATE_FEATURE_VERSION
 
 from tests.helpers import create_basic_vault
 

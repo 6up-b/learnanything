@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import GradingContext
-from learnloop.codex.runtime import CodexRuntimeReport
-from learnloop.codex.schemas import CriterionEvidence, ErrorAttribution, GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.ai.providers.codex import CodexRuntimeReport
+from learnloop.attempts.ai_contracts import CriterionEvidence, ErrorAttribution, GradingProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_codex_fallback, complete_codex_graded_attempt
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_attempt_with_codex_fallback, complete_codex_graded_attempt
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault
@@ -338,7 +340,7 @@ def test_attempt_orchestration_falls_back_and_marks_agent_run_failed(tmp_path):
     assert evidence[0].grader_tier == 1
 
 
-class _FakeCodexClient:
+class _FakeCodexClient(StructuredClientFake):
     def __init__(self, *, invalid: bool = False):
         self.invalid = invalid
         self.context: GradingContext | None = None

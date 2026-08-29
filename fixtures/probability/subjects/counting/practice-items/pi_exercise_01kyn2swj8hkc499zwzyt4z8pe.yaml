@@ -1,0 +1,218 @@
+schema_version: 1
+id: pi_exercise_01kyn2swj8hkc499zwzyt4z8pe
+learning_object_id: lo_construct_and_diagnose_story_proofs
+subjects:
+practice_mode: source_exercise
+attempt_types_allowed:
+  - independent_attempt
+evidence_facets:
+  - facet_to_construct_a_story_proof_specify_one_collectio
+  - facet_pascal_s_identity_follows_by_counting_k_element_
+evidence_weights:
+  facet_to_construct_a_story_proof_specify_one_collectio: 0.5
+  facet_pascal_s_identity_follows_by_counting_k_element_: 0.5
+criterion_facet_weights:
+  common_collection:
+    facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+  exhaustive_partition:
+    facet_pascal_s_identity_follows_by_counting_k_element_: 0.7
+    facet_to_construct_a_story_proof_specify_one_collectio: 0.3
+  double_counting_conclusion:
+    facet_to_construct_a_story_proof_specify_one_collectio: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: algebra_and_story
+      checkpoints:
+        - derive_identity_algebraically
+        - name_common_collection
+        - partition_by_president_membership
+        - interpret_both_terms
+        - conclude_equal_counts
+      dependencies:
+        derive_identity_algebraically: []
+        name_common_collection: []
+        partition_by_president_membership:
+          - name_common_collection
+        interpret_both_terms:
+          - partition_by_president_membership
+        conclude_equal_counts:
+          - derive_identity_algebraically
+          - name_common_collection
+          - interpret_both_terms
+variant_contract:
+teach_back_source:
+prompt: "Show that for all positive integers $n$ and $k$ with $n$ ≥ $k$ ,\n\n$$\\\
+  binom{n}{k} + \\binom{n}{k-1} = \\binom{n+1}{k},$$\n\ndoing this in two ways: (a)
+  algebraically and (b) with a story, giving an interpretation for why both sides
+  count the same thing.\n\nHint for the story proof: Imagine an organization consisting
+  of $n + 1$ people, with one of them pre-designated as the president of the organization."
+expected_answer: "Algebraically,\n\n$$\n\\begin{aligned}\n\\binom{n}{k}+\\binom{n}{k-1}\n\
+  &=\\frac{n!}{k!(n-k)!}+\\frac{n!}{(k-1)!(n-k+1)!}\\\\\n&=\\frac{n!(n-k+1)}{k!(n-k+1)!}+\\\
+  frac{n!k}{k!(n-k+1)!}\\\\\n&=\\frac{n!((n-k+1)+k)}{k!(n-k+1)!}\\\\\n&=\\frac{(n+1)!}{k!(n+1-k)!}\\\
+  \\\n&=\\binom{n+1}{k}.\n\\end{aligned}\n$$\n\nFor a story proof, consider an organization
+  of $n+1$ people, one of whom is the president. Count the possible committees of
+  exactly $k$ people.\n\nDirectly, there are $\\binom{n+1}{k}$ such committees. Alternatively,
+  divide the committees into two disjoint cases. If the president is not on the committee,
+  all $k$ members are chosen from the other $n$ people, giving $\\binom{n}{k}$ committees.
+  If the president is on the committee, the remaining $k-1$ members are chosen from
+  the other $n$ people, giving $\\binom{n}{k-1}$ committees.\n\nEvery $k$-person committee
+  belongs to exactly one of these two cases, so\n\n$$\\binom{n}{k}+\\binom{n}{k-1}=\\\
+  binom{n+1}{k}.$$"
+difficulty: 0.42
+difficulty_source: llm_estimate
+tags: []
+hints:
+  - Treat the algebraic and story arguments as two separate proofs of the same 
+    identity.
+  - For the algebraic proof, expand both terms on the left using factorials and 
+    rewrite them with a common denominator.
+  - For the story proof, count all k-person committees from the organization, 
+    separating them according to whether the president is a member.
+  - In the president-included case, only the other k−1 committee members remain 
+    to be chosen; in the excluded case, all k members come from the other n 
+    people.
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.25
+transfer_distance: 0.1
+scaffold_level: 0.25
+capability: coordination
+task_features:
+  complexity: 2
+  transfer: same_context
+  representation:
+    - symbolic
+    - verbal
+  response: long_constructed
+  scaffolding: cue
+  span: whole_task
+  tools:
+    - closed_book
+task_feature_schema: p1_launch@1
+surface_family:
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles: []
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets: []
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: algebraic_derivation
+      points: 1.0
+      description: Combines the two binomial coefficients using factorial 
+        definitions or an equivalent valid algebraic calculation and obtains the
+        right-hand side.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+    - id: common_collection
+      points: 1.0
+      description: Identifies one common collection—such as all k-person 
+        committees from n+1 people—that is counted by the right-hand side.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: exhaustive_partition
+      points: 1.0
+      description: Partitions the collection into the disjoint and exhaustive 
+        cases where the designated person is included or excluded, obtaining the
+        two left-hand terms with correct interpretations.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: composite
+    - id: double_counting_conclusion
+      points: 1.0
+      description: Explains that both methods count the same collection exactly 
+        once and therefore establish the identity.
+      tier: core
+      targets: []
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s402
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s403
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s404
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+    - ref_type: canonical_source
+      ref_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      path:
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s405
+      quote:
+      quote_hash:
+      source_id:
+      revision_id:
+      extraction_id:
+      span_ids: []
+      span_hash:
+      section_id:
+      learning_object_ids: []
+      locator_scheme: block_span_v1
+created_at: '2026-07-28T19:21:40Z'
+updated_at: '2026-07-28T19:21:40Z'

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from learnloop.clock import FrozenClock
-from learnloop.services.proposals import authoring_context_hash, authoring_context_stats, build_authoring_context
+from learnloop.content.proposals.proposals import authoring_context_hash, authoring_context_stats, build_authoring_context
 from learnloop.vault.loader import add_note, add_subject, load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 

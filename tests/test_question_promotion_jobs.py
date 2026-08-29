@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from learnloop.codex.schemas import AuthoringProposal, PromotionAnalysis
+from tests.structured_ai import StructuredClientFake
+
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
+from learnloop.tutor.ai_contracts import PromotionAnalysis
 from learnloop.db.repositories import Repository
-from learnloop.services.ingest_runner import IngestRunner, JobSpec, RunnerServices
+from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
 from learnloop.vault.loader import add_note
 
 from tests.helpers import create_basic_vault
 from tests.test_tutor_promotion_service import _attach_proposal
 
 
-class _AnalysisClient:
+class _AnalysisClient(StructuredClientFake):
     provider_name = "analysis"
     provider_type = "test"
     model = "analysis-model"
@@ -22,7 +25,7 @@ class _AnalysisClient:
         return PromotionAnalysis(attributed_facets=["recall"])
 
 
-class _AuthoringClient:
+class _AuthoringClient(StructuredClientFake):
     provider_name = "authoring"
     provider_type = "test"
     model = "authoring-model"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import json
 from types import SimpleNamespace
 
@@ -7,17 +9,17 @@ import pytest
 from typer.testing import CliRunner
 
 from learnloop.cli import app
-from learnloop.codex.client import GradingContext
-from learnloop.codex.schemas import GradingProposal
+from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.attempts.ai_contracts import GradingProposal
 from learnloop.db.repositories import Repository
 from learnloop.ai.runtime import AIRuntimeReport
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     AttemptDraft,
     SelfGradeInput,
     complete_attempt_with_ai_fallback,
 )
-from learnloop.services.causal_attribution import APPROVED_SUPPORT_AUTHORITIES
-from learnloop.services.diagnostic_augmentation import (
+from learnloop.diagnosis.causal_attribution import APPROVED_SUPPORT_AUTHORITIES
+from learnloop.diagnosis.diagnostic_augmentation import (
     DEFAULT_DIAGNOSIS_SAMPLES,
     PlantedDiagnosticCase,
     REGRESSION_SHAPES,
@@ -27,9 +29,9 @@ from learnloop.services.diagnostic_augmentation import (
     run_diagnosis_samples,
     run_planted_diagnostic_evaluation,
 )
-from learnloop.services.persona_realism import match_persona_realism
-from learnloop.services.scoreboard import planted_ground_truth
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.content.authoring.persona_realism import match_persona_realism
+from learnloop.diagnosis.scoreboard import planted_ground_truth
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import create_basic_vault
@@ -109,7 +111,7 @@ def _proposal(
     return proposal
 
 
-class _SequenceDiagnostician:
+class _SequenceDiagnostician(StructuredClientFake):
     provider_name = "diagnostician"
     model = "claude-4"
 
@@ -123,7 +125,7 @@ class _SequenceDiagnostician:
         return proposal(context) if callable(proposal) else proposal
 
 
-class _Generator:
+class _Generator(StructuredClientFake):
     provider_name = "generator"
     model = "gpt-5"
 

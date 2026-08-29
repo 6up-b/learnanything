@@ -14,7 +14,7 @@ from learnloop.ingest.originals import (
     store_original_bytes,
     stored_original_path,
 )
-from learnloop.ingest.source_library import register_source_revision
+from learnloop.content.sources.source_library import register_source_revision
 from learnloop.vault.paths import canonical_source_raw_path
 
 _CLOCK = FrozenClock(datetime(2026, 7, 21, 0, 0, 0, tzinfo=UTC))

@@ -22,14 +22,14 @@ from __future__ import annotations
 import pytest
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.schemas import (
+from learnloop.attempts.ai_contracts import (
     CriterionEvidence,
     DiscriminationProfileMatch,
     GradingProposal,
 )
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, complete_codex_graded_attempt
-from learnloop.services.discrimination_profiles import (
+from learnloop.attempts.attempts import AttemptDraft, complete_codex_graded_attempt
+from learnloop.diagnosis.discrimination_profiles import (
     NO_PROFILE_APPLIES_FLOOR,
     PROFILE_REJECTION_METRIC,
     PROFILE_SATURATION_CEILING,
@@ -43,8 +43,8 @@ from learnloop.services.discrimination_profiles import (
     profiles_by_facet,
     validate_profile_match,
 )
-from learnloop.services.grading import build_grading_context, causal_attribution_audit_report
-from learnloop.services.persona_gate import (
+from learnloop.attempts.grading import build_grading_context, causal_attribution_audit_report
+from learnloop.content.authoring.persona_gate import (
     GateDecision,
     GateTier,
     InstrumentClass,
@@ -52,7 +52,7 @@ from learnloop.services.persona_gate import (
     PersonaGateReason,
     classify_instrument,
 )
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
@@ -434,7 +434,7 @@ def test_the_telemetry_survives_a_derived_state_rebuild(tmp_path):
     readers to watch.
     """
 
-    from learnloop.services.replay import rebuild_derived_state
+    from learnloop.substrate.replay import rebuild_derived_state
 
     _paths, vault, repository = _vault(tmp_path)
     _graded_attempt(
@@ -664,7 +664,7 @@ def test_profiles_group_by_facet_for_a4_commissioning(tmp_path):
 def test_the_doctor_catches_a_blind_profile_on_a_hand_authored_item(tmp_path):
     """The persona gate runs on proposals; a hand-edited YAML item skips it."""
 
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     _paths, vault, _repo = _vault(
         tmp_path,
@@ -684,7 +684,7 @@ def test_the_doctor_catches_a_blind_profile_on_a_hand_authored_item(tmp_path):
 
 
 def test_the_doctor_is_silent_on_a_well_formed_profile(tmp_path):
-    from learnloop.services.doctor import _check_blueprints_and_criteria
+    from learnloop.ops.doctor import _check_blueprints_and_criteria
 
     _paths, vault, _repo = _vault(tmp_path)
 

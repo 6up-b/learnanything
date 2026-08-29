@@ -1,0 +1,326 @@
+schema_version: 1
+id: pi_partition_six_into_unlabeled_teams
+learning_object_id: lo_count_unordered_selections_without_replacement
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_if_an_auxiliary_counting_method_represents_every
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+evidence_weights:
+  facet_if_an_auxiliary_counting_method_represents_every: 0.6
+  facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.4
+criterion_facet_weights:
+  c_choose_team:
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 1.0
+  c_uniform_team_overcount:
+    facet_if_an_auxiliary_counting_method_represents_every: 0.7
+    facet_the_binomial_coefficient_binom_n_k_counts_size_k: 0.3
+trace_contract:
+  status: available
+  recipes:
+    - id: unlabeled_team_partition
+      checkpoints:
+        - choose_one_team
+        - identify_duplicate_representations
+        - divide_uniform_factor
+      dependencies:
+        choose_one_team: []
+        divide_uniform_factor:
+          - identify_duplicate_representations
+        identify_duplicate_representations:
+          - choose_one_team
+variant_contract:
+teach_back_source:
+prompt: Six labeled people are split into two unlabeled teams of three. Count by
+  first choosing one team. Explain precisely why this auxiliary count represents
+  every final split the same number of times, then compute the final count.
+expected_answer: There are C(6,3)=20 choices for a first team, after which its 
+  complement is fixed. Each unlabeled split appears twice because either of its 
+  two teams can be chosen as the 'first' team. The overcount is uniformly two, 
+  so the answer is C(6,3)/2=10.
+difficulty: 0.24
+difficulty_source: llm_estimate
+tags:
+  - reader_section_u6
+  - uniform_overcount
+  - capstone
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.8
+transfer_distance: 0.35
+scaffold_level: 0.05
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: unlabeled_team_partition
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: dp_named_first_team
+    hypothesis: Believes an auxiliary label such as 'first team' remains part of
+      an outcome even when the final teams are unlabeled.
+    observable_signature: Reports C(6,3)=20 and does not divide by two.
+    misconception_id:
+    facet_id: facet_if_an_auxiliary_counting_method_represents_every
+    fails_criteria:
+      - c_uniform_team_overcount
+    distinguishing_features:
+      - answer 20
+      - treats swapped teams as distinct
+    source: facet_error_signature
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_if_an_auxiliary_counting_method_represents_every
+  - facet_the_binomial_coefficient_binom_n_k_counts_size_k
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: c_choose_team
+      points: 2.0
+      description: Uses C(6,3) to choose one three-person subset and recognizes 
+        that the complement is determined.
+      tier: core
+      targets:
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: c_uniform_team_overcount
+      points: 2.0
+      description: Proves each unlabeled partition is represented twice and 
+        obtains 10.
+      tier: core
+      targets:
+        - facet: facet_if_an_auxiliary_counting_method_represents_every
+          capability: procedure_execution
+          role: primary
+        - facet: facet_the_binomial_coefficient_binom_n_k_counts_size_k
+          capability: procedure_execution
+          role: supporting
+      depends_on:
+        - c_choose_team
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_count_unordered_selections_without_replacement:s100-s113
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s100
+      quote: "FIGURE 1.4\nTree diagram for choosing an ice cream cone. Regardless
+        of whether the type of cone or the flavor is chosen first, there are $2 \\
+        cdot 3 = 3 \\cdot 2 = 6$ possibilities.\nBy the multiplication rule, there
+        are 2 · 3 = 6 possibilities. This is a very simple example, but is worth thinking
+        through in detail as a foundation for thinking about and visualizing more
+        complicated examples. Soon we will encounter examples where drawing the tree
+        in a legible size would take up more space than exists in the known universe,
+        yet where conceptually we can still think in terms of the ice cream example.
+        Some things to note:\n1. It doesn't matter whether you choose the type of
+        cone first (\"I'd like a waffle cone with chocolate ice cream\") or the flavor
+        first (\"I'd like chocolate ice cream on a waffle cone\"). Either way, there
+        are 2 · 3 = 3 · 2 = 6 possibilities. 2. It doesn't matter whether the same
+        flavors are available on a cake cone as on a waffle cone. What matters is
+        that there are exactly 3 flavor choices for each cone choice. If for some
+        strange reason it were forbidden to have chocolate ice cream on a waffle cone,
+        with no substitute flavor available (aside from vanilla and strawberry), there
+        would be 3 + 2 = 5 possibilities and the multiplication rule wouldn't apply.
+        In larger examples, such complications could make counting the number of possibilities
+        vastly more difficult.\nNow suppose you buy two ice cream cones on a certain
+        day, one in the afternoon and the other in the evening. Write, for example,
+        (cakeC, waffleV) to mean a cake cone with chocolate in the afternoon, followed
+        by a waffle cone with vanilla in the evening. By the multiplication rule,
+        there are 6 2 = 36 possibilities in your delicious compound experiment.\n\
+        But what if you're only interested in what kinds of ice cream cones you had
+        that day, not the order in which you had them, so you don't want to distinguish,
+        for example, between (cakeC, waffleV) and (waffleV, cakeC)? Are there now
+        36/2 = 18 possibilities? No, since possibilities like (cakeC, cakeC) were
+        already only listed once each. There are 6 · 5 = 30 ordered possibilities
+        (x, y) with x 6= y, which turn into 15 possibilities if we treat (x, y) as
+        equivalent to (y, x), plus 6 possibilities of the form (x, x), giving a total
+        of 21 possibilities. Note that if the 36 original ordered pairs (x, y) are
+        equally likely, then the 21 possibilities here are not equally likely.\nExample
+        1.4.6 (Subsets). A set with n elements has 2 n subsets, including the empty
+        set ∅ and the set itself. This follows from the multiplication rule since
+        for each element, we can choose whether to include it or exclude it. For example,
+        the set {1, 2, 3} has the 8 subsets ∅, {1}, {2}, {3}, {1, 2}, {1, 3}, {2,
+        3}, {1, 2, 3}. This result explains why in Example 1.2.3 there are 2 52 events
+        that can be defined.\nWe can use the multiplication rule to arrive at formulas
+        for sampling with and without replacement. Many experiments in probability
+        and statistics can be interpreted in one of these two contexts, so it is appealing
+        that both formulas follow directly from the same basic counting principle.\n\
+        Theorem 1.4.7 (Sampling with replacement). Consider n objects and making k
+        choices from them, one at a time with replacement (i.e., choosing a certain
+        object does not preclude it from being chosen again). Then there are n k possible
+        outcomes\n(where order matters, in the sense that, e.g., choosing object 3
+        and then object 7 is counted as a different outcome than choosing object 7
+        and then object 3.)\nFor example, imagine a jar with n balls, labeled from
+        1 to n. We sample balls one at a time with replacement, meaning that each
+        time a ball is chosen, it is returned to the jar. Each sampled ball is a sub-experiment
+        with n possible outcomes, and there are k sub-experiments. Thus, by the multiplication
+        rule there are $n^k$ ways to obtain a sample of size k."
+      quote_hash: 
+        sha256:d700320d087609c9866b6d229266f1453938651d88e580ae1d1998ba7083f477
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s100
+        - s101
+        - s104
+        - s105
+        - s106
+        - s107
+        - s108
+        - s109
+        - s110
+        - s112
+        - s113
+      span_hash: 
+        sha256:ad2f301518b22d2e8b0d16dfd51955acb233fae57e94c0c3f897ff36d6d0921e
+      section_id: u6
+      learning_object_ids:
+        - lo_count_unordered_selections_without_replacement
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_count_unordered_selections_without_replacement:s139-s164
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s139
+      quote: "Solution:\nLabel the dice A and B, and consider each die to be a sub-experiment.
+        By the multiplication rule, there are 36 possible outcomes for ordered pairs
+        of the form (value of A, value of B), and they are equally likely by symmetry.
+        Of these, (5,6) and (6,5) are favorable to a sum of 11, while only (6,6) is
+        favorable to a sum of 12. Therefore a sum of 11 is twice as likely as a sum
+        of 12; the probability is 1/18 for the former, and 1/36 for the latter.\n\
+        However, Leibniz wrongly argued that a sum of 11 and a sum of 12 are equally
+        likely, claiming that each of these sums can be attained in only one way.
+        Here Leibniz was making the mistake of treating the two dice as indistinguishable
+        objects, viewing (5,6) and (6,5) as the same outcome.\nWhat are the antidotes
+        to Leibniz's mistake? First, as explained in 2 1.4.11, we should label the
+        objects in question instead of treating them as indistinguishable. If Leibniz
+        had labeled his dice A and B, or green and orange, or left and right, he would
+        not have made this mistake. Second, before we use counting for probability,
+        we should ask ourselves whether the naive definition applies (see 2 1.4.23
+        for another example showing that caution is needed before applying the naive
+        definition).\n1.4.2 Adjusting for overcounting\nIn many counting problems,
+        it is not easy to directly count each possibility once and only once. If,
+        however, we are able to count each possibility exactly c times\nfor some c,
+        then we can adjust by dividing by c. For example, if we have exactly double-counted
+        each possibility, we can divide by 2 to get the correct count. We call this
+        adjusting for overcounting .\nExample 1.4.13 (Committees and teams). Consider
+        a group of four people.\n(a) How many ways are there to choose a two-person
+        committee? (b) How many ways are there to break the people into two teams
+        of two? Solution: (a) One way to count the possibilities is by listing them
+        out: labeling the people as 1, 2, 3, 4, the possibilities are 12, 13, 14,
+        23, 24, 34.\nAnother approach is to use the multiplication rule with an adjustment
+        for overcounting. By the multiplication rule, there are 4 ways to choose the
+        first person on the committee and 3 ways to choose the second person on the
+        committee, but this counts each possibility twice, since picking 1 and 2 to
+        be on the committee is the same as picking 2 and 1 to be on the committee.
+        Since we have overcounted by a factor of 2, the number of possibilities is
+        $(4 \\cdot 3)/2 = 6$.\n(b) Here are 3 ways to see that there are 3 ways to
+        form the teams. Labeling the people as 1, 2, 3, 4, we can directly list out
+        the possibilities: 12 34, 13 24, and 14 23. Listing out all possibilities
+        would quickly become tedious or infeasible with more people though. Another
+        approach is to note that it suffices to specify person 1's teammate (and then
+        the other team is determined). A third way is to use (a) to see that there
+        are 6 ways to choose one team. This overcounts by a factor of 2, since picking
+        1 and 2 to be a team is equivalent to picking 3 and 4 to be a team. So again
+        the answer is 6/2 = 3.\nA binomial coefficient counts the number of subsets
+        of a certain size for a set, such as the number of ways to choose a committee
+        of size k from a set of n people. Sets and subsets are by definition unordered,
+        e.g., $\\{3,1,4\\} = \\{4,1,3\\}$, so we are counting the number of ways to
+        choose k objects out of n, without replacement and without distinguishing
+        between the different orders in which they could be chosen.\nDefinition 1.4.14
+        (Binomial coefficient). For any nonnegative integers k and n, the binomial
+        coefficient $\\binom{n}{k}$, read as \"n choose k\", is the number of subsets
+        of size k for a set of size n.\nFor example, $\\binom{4}{2} = 6$, as shown
+        in Example 1.4.13. The binomial coefficient $\\binom{n}{k}$ is sometimes called
+        a combination , but we do not use that terminology here since \"combination\"\
+        \ is such a useful general-purpose word. Algebraically, binomial coefficients
+        can be computed as follows.\nTheorem 1.4.15 (Binomial coefficient formula).
+        For $k \\leq n$, we have\n$$\\binom{n}{k} = \\frac{n(n-1)\\cdots(n-k+1)}{k!}
+        = \\frac{n!}{(n-k)!k!}.$$\nFor k > n, we have $\\binom{n}{k} = 0$.\nProof.
+        Let A be a set with |A| = n. Any subset of A has size at most n, so $\\binom{n}{k}
+        = 0$ for k > n. Now let $k \\le n$. By Theorem 1.4.8, there are $n(n-1)\\\
+        cdots(n-k+1)$ ways to make an ordered choice of k elements without replacement.
+        This overcounts each subset of interest by a factor of k! (since we don't
+        care how these elements are ordered), so we can get the correct count by dividing
+        by k!.\n4.4.16. The binomial coefficient $\\binom{n}{k}$ is often defined
+        in terms of factorials, but keep in mind that $\\binom{n}{k}$ is 0 if k >
+        n, even though the factorial of a negative number is undefined. Also, the
+        middle expression in Theorem 1.4.15 is often better for computation than the
+        expression with factorials, since factorials grow extremely fast. For example,\n\
+        $$\\binom{100}{2} = \\frac{100 \\cdot 99}{2} = 4950$$\ncan even be done by
+        hand, whereas computing $\\binom{100}{2} = 100!/(98! \\cdot 2!)$ by first
+        calculating 100! and 98! would be wasteful and possibly dangerous because
+        of the extremely large numbers involved $(100! \\approx 9.33 \\times 10^{157})$.\n\
+        Example 1.4.17 (Club officers). In a club with n people, there are n(n-1)(n-2)
+        ways to choose a president, vice president, and treasurer, and there are\n\
+        $$\\binom{n}{3} = \\frac{n(n-1)(n-2)}{3!}$$"
+      quote_hash: 
+        sha256:f168792a14b633ab6edf2421b0c59329244ee991324e3c9f170c8ca21b6ea82e
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s139
+        - s140
+        - s141
+        - s142
+        - s143
+        - s144
+        - s147
+        - s148
+        - s149
+        - s150
+        - s151
+        - s152
+        - s153
+        - s154
+        - s155
+        - s156
+        - s158
+        - s159
+        - s160
+        - s161
+        - s162
+        - s163
+        - s164
+      span_hash: 
+        sha256:7fa078de078a4db51079f0e09289b44d70ce681722ba9bd066064fc6ffcf1673
+      section_id: u6
+      learning_object_ids:
+        - lo_count_unordered_selections_without_replacement
+created_at: '2026-07-28T20:08:09Z'
+updated_at: '2026-07-28T20:08:09Z'

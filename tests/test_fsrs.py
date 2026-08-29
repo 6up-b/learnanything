@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.services.fsrs import (
+from learnloop.scheduling.fsrs import (
     FSRS6_DEFAULT_WEIGHTS,
     MemoryState,
     Rating,

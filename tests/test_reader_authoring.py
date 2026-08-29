@@ -6,9 +6,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import activities as A
-from learnloop.services import card_lineage as CL
-from learnloop.services import reader_authoring as AUTH
+from learnloop.substrate import activities as A
+from learnloop.substrate import card_lineage as CL
+from learnloop.reader import reader_authoring as AUTH
 
 from tests.helpers import NOW
 
@@ -68,7 +68,7 @@ def test_coach_response_is_corpus_only_salience(repo):
     out = AUTH.record_coach_response(repo, commitment_id="c1", level="expert", response="dismiss", clock=CLOCK)
     assert out["corpus_only"] is True
     # It is a salience-only event; the firewall rejects it as evidence.
-    from learnloop.services.salience_firewall import reject_salience, SalienceEvidenceRejected
+    from learnloop.attempts.salience_firewall import reject_salience, SalienceEvidenceRejected
     ev = repo.reader_interaction_events(kind="reader_action_invoked")[0]
     with pytest.raises(SalienceEvidenceRejected):
         reject_salience(ev)
@@ -93,8 +93,8 @@ def _cv(repo, contract, title):
     fam = repo.ensure_activity_family(purpose="practice", legacy_kind=None, title=title, clock=CLOCK)
     card = repo.ensure_activity_card(family_id=fam, clock=CLOCK)
     cv = repo.ensure_activity_card_version(card_id=card, version=1,
-                                           card_contract_hash=A._canonical_hash(contract),
-                                           contract_json=A._json(contract), schema_version=1, clock=CLOCK)
+                                           card_contract_hash=A.canonical_hash(contract),
+                                           contract_json=A.canonical_json(contract), schema_version=1, clock=CLOCK)
     return fam, card, cv
 
 
@@ -139,5 +139,5 @@ def test_retirement_preserves_commitment_and_evidence(repo):
     out = AUTH.maintain(repo, action="retire", commitment_id=authored["commitment_id"], clock=CLOCK)
     assert out["evidence_preserved"] is True
     # The commitment still exists (retirement is a disposition event, not a delete).
-    from learnloop.services import commitments as C
+    from learnloop.curriculum import commitments as C
     assert C.resolve_head(repo, authored["commitment_id"]) is not None

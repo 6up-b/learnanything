@@ -1,17 +1,18 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Commands
 
-Use `uv` for everything Python — never bare `python`, `pip`, or `pytest`.
+Use `uv` for everything Python.
 
 ```bash
 uv sync --extra dev                      # install (add --extra pdf for Marker, --extra animation for Manim)
 uv run pytest                            # full suite (~10 min)
 uv run pytest tests/test_scheduler.py::test_name -x   # single test
+uv run lint-imports --no-cache           # architectural dependency contracts
 uv run learnloop --help                  # CLI; most subcommands take --vault and --json
 uv run learnloop doctor --fix-state --vault <path>    # after manual vault edits
+uv run learnloop config effective --vault <path>      # normalized effective config
+uv run learnloop rebuild --shadow --json --vault <path> # isolated replay diff
 uv run python -m learnloop_sidecar       # sidecar directly (JSON-RPC over stdio)
 ```
 
@@ -28,31 +29,7 @@ Debug env vars: `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`, `LEARNLOOP_SIDECAR_TIMEOUT_
 
 ## Architecture
 
-Four layers, top to bottom. A user-visible feature usually touches all four:
-
-1. `apps/learnloop-tauri/src/` — React/TS. `api/client.ts` wraps `invoke()`, `api/dto.ts` holds hand-written types mirroring sidecar JSON (camelCase). Screens in `src/screens/`.
-2. `apps/learnloop-tauri/src-tauri/src/` — Rust shell. `commands.rs` `#[tauri::command]` fns are thin passthroughs via `blocking_sidecar_call(method, params)`; each must also be listed in `main.rs`'s `generate_handler![]`. `sidecar.rs` spawns/manages the Python process.
-3. `src/learnloop_sidecar/` — JSON-RPC bridge. Handlers register with `@method("name", ParamsModel)` (see `registry.py`); every module must be imported in `handlers/__init__.py` or the method won't exist. Handlers validate params, call services, and serialize — no domain logic. Raise `SidecarError` for stable, user-facing error codes; anything else becomes an opaque `internal`.
-4. `src/learnloop/` — the domain. `services/` (~240 modules) holds all algorithms; `db/repositories.py` is the SQLite access layer; `vault/` reads/writes Markdown+YAML; `ingest/` handles source import; `ai/` + `codex/` wrap providers with routed profiles; `cli.py` is a large Typer app that is a peer entry point to the sidecar, not a wrapper around it.
-
-The TUI (`src/learnloop/tui/`) is a legacy Textual frontend still exercised by tests.
-
-## Vault model
-
-A vault is a directory with two sources of truth that must stay consistent:
-
-- **Markdown/YAML** (`concepts/`, `subjects/`, `profile/`, `errors/`, `facets.yaml`, `canonical-sources/`) — human-editable learning content. Access paths through `vault/paths.py:VaultPaths`, never by string concatenation.
-- **`state.sqlite`** — attempts, events, scheduling, jobs, and *derived* state. Derived state is rebuildable: raw attempts are retained so `learnloop rebuild-derived-state` can replay them after an algorithm change.
-
-Schema changes go in `migrations/NNN_name.sql`, applied in numeric order and recorded in `schema_migrations`. **Always `ls migrations/` for the next free number** — numbering has gaps and parallel worktrees have collided here.
-
-## Conventions that matter
-
-- **Determinism.** Services take an injectable `Clock` (`learnloop/clock.py`); tests use `FrozenClock`. Don't call `datetime.now()` in service code. Timestamps are ISO-8601 UTC strings with `Z`.
-- **`algorithm_version`** (`config.py`, currently `mvp-0.8`) tags derived rows. Changing scoring/scheduling behavior means bumping it and making the change replayable.
-- **Evidence, not mastery.** The learner model deliberately keeps predicted ability, demonstrated evidence, claims, and readiness as separate quantities. Don't collapse them into one score, and don't present prediction as certification.
-- **Provenance.** Generated content carries source spans end to end; anything AI-authored that needs review lands in proposals or a maintenance queue rather than being applied silently.
-- **AI is optional and routed.** Per-workflow provider routing lives in the vault's `learnloop.toml` `[ai.routing]`. Scheduling, replay, and storage must work with no provider configured (`manual` grading).
+See `docs/learnloop-architecture-vault/Home.md` for information on architecture, examples of user journeys, and previous design decisions. 
 
 ## Tests
 

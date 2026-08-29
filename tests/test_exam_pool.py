@@ -4,13 +4,13 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.exam_pool import (
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.goals.exam_pool import (
     release_exam_pool,
     reserve_exam_pool,
     reserved_item_ids,
 )
-from learnloop.services.scheduler import build_due_queue
+from learnloop.scheduling.scheduler import build_due_queue
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 

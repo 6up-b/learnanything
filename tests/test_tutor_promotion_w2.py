@@ -11,9 +11,9 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.mastery import initial_mastery_state_for_learning_object, logit
-from learnloop.services.practice_generation import build_diagnostic_practice_plan
-from learnloop.services.question_signal import (
+from learnloop.learner.mastery import initial_mastery_state_for_learning_object, logit
+from learnloop.content.authoring.practice_generation import build_diagnostic_practice_plan
+from learnloop.tutor.question_signal import (
     collect_question_signal,
     question_adjusted_uncertainty_states,
     resolve_gap_declaration_likelihood,
@@ -146,17 +146,23 @@ def test_low_claim_now_seeds_prior(tmp_path):
     _insert_claim(repository, claimed_level=0.25, prior_pseudo_count=2.0)
     state = initial_mastery_state_for_learning_object(vault, repository, LO_ID, NOW_ISO)
     assert state.logit_mean == pytest.approx(logit(0.25))
-    assert state.logit_variance == pytest.approx(0.5)  # 1 / max(2.0, 0.25)
+    # A self-report may move the mean but cannot impersonate measured evidence;
+    # the configured claim floor dominates the raw 1/pseudo-count variance.
+    assert state.logit_variance == pytest.approx(
+        vault.config.mastery.claim_prior_min_variance
+    )
     assert state.evidence_count == 0
 
 
-def test_high_claim_seeds_identically_to_pre_change(tmp_path):
+def test_high_claim_preserves_mean_and_respects_claim_variance_floor(tmp_path):
     vault, repository = _setup(tmp_path)
     _insert_claim(repository, claimed_level=0.9, prior_pseudo_count=4.0, source="manual_cli")
     state = initial_mastery_state_for_learning_object(vault, repository, LO_ID, NOW_ISO)
-    # 0.9 is inside [0.05, 0.98] so the added clamp is a no-op: identical seeding.
+    # 0.9 is inside [0.05, 0.98], so the mean clamp is a no-op.
     assert state.logit_mean == pytest.approx(logit(0.9))
-    assert state.logit_variance == pytest.approx(0.25)
+    assert state.logit_variance == pytest.approx(
+        vault.config.mastery.claim_prior_min_variance
+    )
 
 
 def test_very_high_claim_matches_native_logit_clamp(tmp_path):
@@ -172,7 +178,9 @@ def test_no_claim_leaves_neutral_prior(tmp_path):
     vault, repository = _setup(tmp_path)
     state = initial_mastery_state_for_learning_object(vault, repository, LO_ID, NOW_ISO)
     assert state.logit_mean == 0.0
-    assert state.logit_variance == 1.0
+    assert state.logit_variance == pytest.approx(
+        vault.config.mastery.cold_start_prior_logit_variance
+    )
 
 
 # ── gap-declaration signal (spec §3 G2 + §4b) ────────────────────────────────

@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.services.confusable_concepts import learner_observed_confusable_concepts
-from learnloop.services.probes import Hypothesis
+from learnloop.curriculum.confusable_concepts import learner_observed_confusable_concepts
+from learnloop.diagnosis.probes import Hypothesis
 
 
 class _Repository:
@@ -35,7 +35,7 @@ def test_repeated_probe_evidence_promotes_learner_observed_confusable(monkeypatc
         qualifying_observations=3,
     )
     monkeypatch.setattr(
-        "learnloop.services.confusable_concepts.episode_posterior",
+        "learnloop.curriculum.confusable_concepts.episode_posterior",
         lambda _vault, _repository, _episode: posterior,
     )
 
@@ -64,7 +64,7 @@ def test_single_observation_does_not_promote_confusable(monkeypatch):
         qualifying_observations=1,
     )
     monkeypatch.setattr(
-        "learnloop.services.confusable_concepts.episode_posterior",
+        "learnloop.curriculum.confusable_concepts.episode_posterior",
         lambda _vault, _repository, _episode: posterior,
     )
 

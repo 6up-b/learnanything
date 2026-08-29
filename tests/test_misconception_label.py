@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from learnloop.services.probes import parse_misconception_label
+from learnloop.diagnosis.probes import parse_misconception_label
 
 
 def test_parse_misconception_label_registry_ulid():

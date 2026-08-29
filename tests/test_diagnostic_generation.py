@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from learnloop.codex.schemas import AuthoringProposal
+from tests.structured_ai import StructuredClientFake
+
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.proposals import generate_diagnostic_proposal
+from learnloop.content.proposals.proposals import generate_diagnostic_proposal
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.helpers import NOW_ISO, create_basic_vault
 
 
-class _FakeClient:
+class _FakeClient(StructuredClientFake):
     provider_name = "codex"
     provider_type = "test"
     model = "test-model"

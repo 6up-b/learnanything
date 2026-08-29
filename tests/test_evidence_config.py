@@ -5,7 +5,7 @@ two documented intentional behavior changes."""
 import pytest
 
 from learnloop.config import EvidenceConfig, LearnLoopConfig, load_config
-from learnloop.services.evidence import (
+from learnloop.attempts.evidence import (
     DEFAULT_EVIDENCE,
     attempt_evidence_mass,
     attempt_surface_exposure,
@@ -122,7 +122,7 @@ def test_partial_toml_override_keeps_other_types_at_defaults(tmp_path) -> None:
 
 
 def test_override_flows_through_resolvers(tmp_path) -> None:
-    from learnloop.services.mastery import MasteryObservation, observation_weight
+    from learnloop.learner.mastery import MasteryObservation, observation_weight
     from datetime import UTC, datetime
 
     evidence = EvidenceConfig.model_validate(

@@ -118,7 +118,7 @@ def _outcome_digest(report) -> str:
 
 def _lo_displays(root):
     from learnloop.db.repositories import Repository
-    from learnloop.services.mastery import display_mastery
+    from learnloop.learner.mastery import display_mastery
     from learnloop.vault.loader import load_vault
     from learnloop.vault.paths import VaultPaths
 

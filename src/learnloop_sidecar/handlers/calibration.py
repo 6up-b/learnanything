@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.services.calibration_sessions import (
+from learnloop.diagnosis.calibration_sessions import (
     CalibrationSessionError,
     calibration_session_progress,
     start_calibration_session,
     stop_calibration_session,
 )
-from learnloop.services.probe_dialogue import (
+from learnloop.diagnosis.probe_dialogue import (
     DialogueBlockError,
     DialogueBlockState,
     begin_dialogue_block,

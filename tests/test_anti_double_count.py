@@ -11,12 +11,12 @@ from __future__ import annotations
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.blueprint_projection import project_lo_readiness
-from learnloop.services.calibration_sessions import graph_propagated_prior
-from learnloop.services.canonical_projection import project_canonical_facet_state
-from learnloop.services.replay import rebuild_derived_state
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.learner.blueprint_projection import project_lo_readiness
+from learnloop.diagnosis.calibration_sessions import graph_propagated_prior
+from learnloop.substrate.canonical_projection import project_canonical_facet_state
+from learnloop.substrate.replay import rebuild_derived_state
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, NOW_ISO

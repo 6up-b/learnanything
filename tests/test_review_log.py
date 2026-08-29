@@ -10,10 +10,10 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-from learnloop.services.fsrs import MemoryState, Rating, apply_review
-from learnloop.services.review_log import reconstruct_review_log
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+from learnloop.scheduling.fsrs import MemoryState, Rating, apply_review
+from learnloop.scheduling.review_log import reconstruct_review_log
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault

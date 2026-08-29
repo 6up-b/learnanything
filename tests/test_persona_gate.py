@@ -10,13 +10,15 @@ they fail if the `row_transform` wiring is removed.
 
 from __future__ import annotations
 
+from tests.structured_ai import StructuredClientFake
+
 import sqlite3
 from pathlib import Path
 
-from learnloop.codex.schemas import AuthoringProposal
+from learnloop.content.proposals.ai_contracts import AuthoringProposal
 from learnloop.db.repositories import Repository
-from learnloop.services.diagnostic_augmentation import model_family
-from learnloop.services.persona_gate import (
+from learnloop.diagnosis.diagnostic_augmentation import model_family
+from learnloop.content.authoring.persona_gate import (
     CONTRAST_PAIR_TAG_PREFIX,
     GATE_PRECISION_METRIC,
     GateDecision,
@@ -29,8 +31,8 @@ from learnloop.services.persona_gate import (
     gate_precision,
     tier_for,
 )
-from learnloop.services.persona_realism import PERSONA_REALISM_MATCHER_VERSION
-from learnloop.services.practice_generation import generate_diagnostic_practice_proposal
+from learnloop.content.authoring.persona_realism import PERSONA_REALISM_MATCHER_VERSION
+from learnloop.content.authoring.practice_generation import generate_diagnostic_practice_proposal
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
@@ -38,7 +40,7 @@ from learnloop.vault.yaml_io import write_yaml
 from tests.helpers import NOW_ISO, create_basic_vault
 
 
-class _FakeClient:
+class _FakeClient(StructuredClientFake):
     provider_name = "codex"
     provider_type = "test"
     model = "test-model"
@@ -52,7 +54,7 @@ class _FakeClient:
         return self._proposal
 
 
-class _FiresEverything:
+class _FiresEverything(StructuredClientFake):
     """A provider whose semantic grader marks every answer wrong.
 
     The only way to reach ``FACET_HOLDER_FAILS``: the deterministic grader can
@@ -579,7 +581,7 @@ def test_contrast_pair_must_fail_exactly_one_member(tmp_path):
         belief="Q^T x is the coordinate vector",
     )
 
-    class _SemanticOracle:
+    class _SemanticOracle(StructuredClientFake):
         """Judges every member as failed — the real 'fails both' case."""
 
         @staticmethod

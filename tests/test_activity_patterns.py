@@ -10,7 +10,7 @@ import pytest
 from learnloop.clock import FrozenClock
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
-from learnloop.services import activity_patterns as AP
+from learnloop.substrate import activity_patterns as AP
 
 from tests.helpers import NOW
 
@@ -129,7 +129,7 @@ def test_learning_process_excluded_from_evidence_dto(repo):
 
 def test_no_projection_module_reads_learning_process():
     """Static ALLOWLIST guard (B7, U-035 / §3.5): the literal ``learning_process`` may
-    appear ONLY in ``services/activity_patterns.py`` and the pattern-registration/read
+    appear ONLY in ``substrate/activity_patterns.py`` and the pattern-registration/read
     methods of ``db/repositories.py``. ANY other occurrence anywhere under
     ``src/learnloop`` fails -- this is an allowlist, not the old filename-token denylist
     (which only inspected files whose NAME contained projection/evidence/scheduler and
@@ -137,7 +137,7 @@ def test_no_projection_module_reads_learning_process():
 
     src = Path(__file__).resolve().parents[1] / "src" / "learnloop"
     # The only module allowed to name the field outright.
-    allow_files = {"services/activity_patterns.py"}
+    allow_files = {"substrate/activity_patterns.py"}
     offenders: list[str] = []
     for path in src.rglob("*.py"):
         rel = path.relative_to(src).as_posix()

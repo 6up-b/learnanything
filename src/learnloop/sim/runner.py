@@ -15,6 +15,7 @@ The vault is loaded once and reused across the whole run; only the clock moves.
 
 from __future__ import annotations
 
+import json
 import random
 import re
 import shutil
@@ -24,27 +25,33 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from learnloop.clock import FrozenClock, parse_utc
-from learnloop.codex.schemas import CriterionEvidence, GradingProposal, TeachBackQuestion
+from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.attempts.ai_contracts import (
+    CriterionEvidence,
+    GradingContext,
+    GradingProposal,
+)
+from learnloop.tutor.ai_contracts import TeachBackQuestion, TeachBackQuestionContext
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-from learnloop.services.attempts import (
+from learnloop.attempts.attempts import (
     ApplyAttemptInput,
     AttemptDraft,
     GradeAttribution,
     ResolvedGrade,
-    _rubric_score,
+    calculate_rubric_score,
     apply_attempt,
 )
-from learnloop.services.facet_diagnostics import mastery_diagnostic_view
-from learnloop.services.followups import evaluate_attempt_intervention_followup
-from learnloop.services.goal_projection import goal_report, resolve_goal_scope
-from learnloop.services.fsrs import forgetting_curve
-from learnloop.services.grading import resolved_rubric
-from learnloop.services.mastery import display_mastery
-from learnloop.services.recall_coverage import criterion_facet_weights_for_item
-from learnloop.services.scheduler import SchedulerSession, build_due_queue
-from learnloop.services.teach_back import (
+from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
+from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+from learnloop.goals.goal_projection import goal_report, resolve_goal_scope
+from learnloop.scheduling.fsrs import forgetting_curve
+from learnloop.attempts.grading import resolved_rubric
+from learnloop.learner.mastery import display_mastery
+from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
+from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.tutor.teach_back import (
     TEACH_BACK_ATTEMPT_TYPE,
     TEACH_BACK_PRACTICE_MODE,
     begin_teach_back,
@@ -608,7 +615,7 @@ def _simulate_one_attempt(
         criterion_points = {cid: float(confused["criterion_points"].get(cid, criterion_points[cid])) for cid in criterion_points}
         grader_confidence = float(confused["grader_confidence"])
 
-    rubric_score = _rubric_score(rubric, criterion_points, [])
+    rubric_score = calculate_rubric_score(rubric, criterion_points, [])
     evidence_rows = [
         {
             "id": new_ulid(),
@@ -703,10 +710,10 @@ def _primed_retry_sibling(vault: LoadedVault, item: PracticeItem) -> PracticeIte
 class _SimTeachBackClient:
     """No-op question generator + synthesized grader for simulated teach-backs.
 
-    The sim never calls an AI provider: ``run_teach_back_question`` returns a
+    The sim never calls an AI provider: the ``teach_back`` operation returns a
     canned naive-student question (question *text* is not load-bearing for the
     core selection logic, which runs in ``plan_followups``), and
-    ``run_grading_proposal`` awards the criterion points the synthetic student
+    the ``grading`` operation awards the criterion points the synthetic student
     already earned while answering — mirroring how the runner synthesizes
     grades for every other attempt type.
     """
@@ -728,7 +735,18 @@ class _SimTeachBackClient:
         }
         self.criterion_points: dict[str, float] = {}
 
-    def run_teach_back_question(self, context: Any) -> TeachBackQuestion:
+    def supports(self, capability: str) -> bool:
+        return capability == STRUCTURED_COMPLETION
+
+    def complete(self, request: StructuredRequest[Any]) -> Any:
+        payload = json.loads(request.prompt.rsplit("\n\n", 1)[-1])
+        if request.purpose == "teach_back":
+            return self._teach_back_result(TeachBackQuestionContext(**payload["context"]))
+        if request.purpose == "grading":
+            return self._grading_result(GradingContext(**payload["context"]))
+        raise ValueError(f"unsupported simulation operation {request.purpose!r}")
+
+    def _teach_back_result(self, context: TeachBackQuestionContext) -> TeachBackQuestion:
         return TeachBackQuestion(
             question_md=(
                 f"I'm confused about {context.criterion_description} "
@@ -736,7 +754,7 @@ class _SimTeachBackClient:
             )
         )
 
-    def run_grading_proposal(self, context: Any) -> GradingProposal:
+    def _grading_result(self, context: GradingContext) -> GradingProposal:
         # ``context.rubric`` is already restricted to the asked criteria by
         # ``finish_teach_back``. Criteria without a recorded answer only appear
         # here in the zero-answered-follow-ups fallback (opening explanation

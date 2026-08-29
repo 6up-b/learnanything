@@ -12,12 +12,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from learnloop.clock import FrozenClock
-from learnloop.codex.client import TutorQAContext, _tutor_qa_prompt
+from learnloop.tutor.ai_contracts import TutorQAContext, tutor_qa_prompt
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
-from learnloop.services import reader_dialogue as RD
-from learnloop.services import tutor_qa
-from learnloop.services.activities import (
+from learnloop.reader import reader_dialogue as RD
+from learnloop.tutor import tutor_qa
+from learnloop.substrate.activities import (
     evaluate_held_out_eligibility,
     reserve_surface,
     resolve_legacy_item,
@@ -110,7 +110,7 @@ def test_answer_mode_is_honored_in_prompt_assembly():
         ("help_me_reason", "HELP ME REASON"),
         ("ask_me_first", "ASK ME FIRST"),
     ):
-        prompt = _tutor_qa_prompt(TutorQAContext(context="reader", question_md="q", answer_mode=mode))
+        prompt = tutor_qa_prompt(TutorQAContext(context="reader", question_md="q", answer_mode=mode))
         assert needle in prompt
 
 
@@ -174,7 +174,7 @@ def test_owner_placed_question_is_instructional_source_visible_reading_phase(tmp
 
 
 def test_instructional_administration_never_certifies(tmp_path):
-    from learnloop.services import administration_adapters
+    from learnloop.substrate import administration_adapters
     effects = administration_adapters.resolve_adapter("instructional").effects(eligible=True, failed=False)
     assert effects.mints_unassisted_certification is False
     assert effects.evidence_class == "no_unassisted_certification"
@@ -193,7 +193,7 @@ def test_real_reader_writes_carry_the_salience_firewall_stamp(tmp_path):
     # F1: the six formerly-unstamped reader writes are now stamped by construction
     # in log_interaction_event (READING_EVENT_KINDS is the single source of truth).
     # Drive the REAL services and inspect the persisted interaction_events rows.
-    from learnloop.services.salience_firewall import SALIENCE_ONLY
+    from learnloop.attempts.salience_firewall import SALIENCE_ONLY
 
     vault, repo = _setup(tmp_path)
     item = vault.practice_items["pi_svd_define_001"]
@@ -253,7 +253,7 @@ def test_each_disposition_produces_its_mechanism_and_nothing_else(tmp_path):
 # ── formative-answer consequences: routing prior (scope 5) ─────────────────────
 
 def _log_reading_answer(repo, *, target_key, outcome_class, created_at):
-    from learnloop.services.activities import log_interaction_event
+    from learnloop.substrate.activities import log_interaction_event
     return log_interaction_event(
         repo, kind="reader_answer_submitted", origin="learner",
         subject_type="administration", subject_id="a1",
@@ -447,7 +447,7 @@ def test_reader_enabled_by_default():
 def test_golden_path_completes_with_reader_never_invoked(tmp_path):
     from pathlib import Path
 
-    from learnloop.services.golden_path_fixture import build_golden_path_fixture
+    from learnloop.curriculum.golden_path_fixture import build_golden_path_fixture
     from learnloop.vault.paths import VaultPaths
 
     fixture = build_golden_path_fixture(tmp_path / "vault")
@@ -457,7 +457,8 @@ def test_golden_path_completes_with_reader_never_invoked(tmp_path):
     # neither needed nor produced any reader interaction.
     config_path = fixture.root / "learnloop.toml"
     config_path.write_text(
-        config_path.read_text(encoding="utf-8").replace("reader_enabled = true", "reader_enabled = false"),
+        config_path.read_text(encoding="utf-8")
+        + "\n[tutor_qa]\nreader_enabled = false\n",
         encoding="utf-8",
     )
     vault = load_vault(fixture.root)
@@ -467,6 +468,6 @@ def test_golden_path_completes_with_reader_never_invoked(tmp_path):
         assert repo.reader_interaction_events(kind=kind) == []
     # Static guard: the golden-path spine never imports the reader module, so the
     # canonical walk cannot invoke it (§12.3.2 disabled-completion requirement).
-    src = Path(__file__).resolve().parents[1] / "src" / "learnloop" / "services"
+    src = Path(__file__).resolve().parents[1] / "src" / "learnloop" / "curriculum"
     for module in ("golden_path_fixture.py", "golden_path_run.py", "golden_path_confirm.py"):
         assert "reader_dialogue" not in (src / module).read_text(encoding="utf-8")

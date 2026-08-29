@@ -19,7 +19,13 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.server import serve
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
+from tests.helpers import (
+    NOW,
+    NOW_ISO,
+    configure_codex_http,
+    create_basic_vault,
+    seed_due_item,
+)
 
 TEACH_ITEM_ID = "pi_svd_teach_001"
 LO_ID = "lo_svd_definition"
@@ -152,14 +158,7 @@ class _TeachBackServer:
 
 
 def _configure_http_provider(vault_root: Path, checkout: Path, base_url: str) -> None:
-    config_path = vault_root / "learnloop.toml"
-    text = config_path.read_text(encoding="utf-8")
-    text = text.replace('type = "codex_sdk"', 'type = "http_adapter"', 1)
-    text = text.replace('provider = "sdk"', 'provider = "http"')
-    text = text.replace('checkout_path = ""', f'checkout_path = "{checkout.as_posix()}"')
-    text = text.replace('revision = "<pinned-commit>"', 'revision = "abc123"')
-    text = text.replace('base_url = "http://127.0.0.1:8765"', f'base_url = "{base_url}"')
-    config_path.write_text(text, encoding="utf-8")
+    configure_codex_http(vault_root, checkout, base_url)
 
 
 def _teach_item_payload() -> dict:
@@ -530,7 +529,7 @@ def test_sidecar_teach_back_finish_survives_post_step_failure(tmp_path, monkeypa
         def boom(*_args, **_kwargs):
             raise RuntimeError("follow-up evaluation exploded")
 
-        monkeypatch.setattr("learnloop.services.post_attempt.run_post_attempt_pipeline", boom)
+        monkeypatch.setattr("learnloop.attempts.post_attempt.run_post_attempt_pipeline", boom)
         final = _call(
             vault_root,
             "submit_teach_back_turn",

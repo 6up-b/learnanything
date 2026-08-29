@@ -1,0 +1,193 @@
+schema_version: 1
+id: pi_unordered_draw_profile_weights
+learning_object_id: lo_build_a_valid_counting_based_probability_model
+subjects:
+  - counting
+practice_mode: constructed_response
+attempt_types_allowed:
+  - open_text
+evidence_facets:
+  - facet_counting_each_aggregate_outcome_once_establishes
+evidence_weights:
+  facet_counting_each_aggregate_outcome_once_establishes: 1.0
+criterion_facet_weights:
+  probability_table:
+    facet_counting_each_aggregate_outcome_once_establishes: 1.0
+  representative_counts:
+    facet_counting_each_aggregate_outcome_once_establishes: 1.0
+trace_contract:
+  status: available
+  recipes:
+    - id: aggregate_weight_table
+      checkpoints:
+        - count_ordered_representatives
+        - assign_probabilities
+        - check_normalization
+      dependencies:
+        assign_probabilities:
+          - count_ordered_representatives
+        check_normalization:
+          - assign_probabilities
+        count_ordered_representatives: []
+variant_contract:
+teach_back_source:
+prompt: Two labeled draws are made independently with replacement from {A,B,C}, 
+  each label having probability 1/3 on each draw. The order is then erased, 
+  leaving one of AA, BB, CC, AB, AC, or BC. Construct a probability table for 
+  these six recorded outcomes. For each probability, justify it by counting the 
+  equally likely ordered pairs that produce the recorded outcome, and verify 
+  that the table sums to 1.
+expected_answer: The equally likely elementary outcomes are the nine ordered 
+  pairs in {A,B,C}^2. AA, BB, and CC each have one ordered representative, so 
+  each has probability 1/9. AB has representatives AB and BA, and similarly AC 
+  and BC each have two representatives, so each distinct-label record has 
+  probability 2/9. The total is 3(1/9)+3(2/9)=1. Thus the six unordered records 
+  are not equally likely.
+difficulty: 0.2
+difficulty_source: llm_estimate
+tags:
+  - reader_section_completed:u7
+  - aggregate_outcomes
+  - probability_table
+hints: []
+hint_policy:
+  max_useful_hints: 0
+  fsrs_rating_cap_by_hint: {}
+  mastery_alpha_dampening_by_hint: {}
+  coverage_surface_dampening_by_hint: {}
+retrieval_demand: 0.68
+transfer_distance: 0.28
+scaffold_level: 0.08
+capability: procedure_execution
+task_features:
+  complexity: 2
+  response: structured_steps
+  scaffolding: none
+  span: multi_step
+  transfer: near
+task_feature_schema: p1_launch@1
+surface_family: unordered_profile_probability_table
+evidence_fingerprint:
+  source_family:
+  shared_stimulus_id:
+  representation:
+  solution_recipe_family:
+  answer_structure:
+misconception_consistent_answer:
+discrimination_profiles:
+  - id: profile_uniform_unordered_records
+    hypothesis: Believes that outcomes remaining after order is erased are 
+      automatically equally likely.
+    observable_signature: Assigns probability 1/6 to each of AA, BB, CC, AB, AC,
+      and BC.
+    misconception_id:
+    facet_id: facet_counting_each_aggregate_outcome_once_establishes
+    fails_criteria:
+      - representative_counts
+      - probability_table
+    distinguishing_features:
+      - uniform 1/6 entries
+      - does not use ordered-representative multiplicities
+    source: facet_error_signature
+contrast_of:
+differing_component:
+error_hunt:
+laddered_stem:
+repair_targets:
+  - facet_counting_each_aggregate_outcome_once_establishes
+grading_rubric:
+  max_points: 4
+  criteria:
+    - id: representative_counts
+      points: 2.0
+      description: Correctly counts one ordered representative for each 
+        repeated-label record and two for each distinct-label record.
+      tier: core
+      targets:
+        - facet: facet_counting_each_aggregate_outcome_once_establishes
+          capability: procedure_execution
+          role: primary
+      depends_on: []
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: probability_table
+      points: 1.5
+      description: Assigns probabilities 1/9 to AA, BB, CC and 2/9 to AB, AC, 
+        BC.
+      tier: core
+      targets:
+        - facet: facet_counting_each_aggregate_outcome_once_establishes
+          capability: procedure_execution
+          role: primary
+      depends_on:
+        - representative_counts
+      correlation_group:
+      recipe_ids: []
+      measurement_status: direct
+    - id: normalization
+      points: 0.5
+      description: Verifies that the six probabilities sum to 1.
+      tier: core
+      targets: []
+      depends_on:
+        - probability_table
+      correlation_group:
+      recipe_ids: []
+      measurement_status: item_local
+  fatal_errors: []
+status: active
+status_reason:
+provenance:
+  origin: canonical_extract
+  source_refs:
+    - ref_type: canonical_source
+      ref_id: 
+        reader_citation:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY:lo_build_a_valid_counting_based_probability_model:s216-s222
+      path: 
+        canonical-sources/raw/sha256-65d94135d05322b3892b49473a397998adf8a305de19844b5c8403f76f40d681
+      locator: span:ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY/s216
+      quote: "one at a time, with replacement and with equal probabilities. Then the
+        $n^k$ ordered samples are equally likely, making the naive definition applicable,
+        but the $\\binom{n+k-1}{k}$ unordered samples (where all that matters is how
+        many times each person was sampled) are not equally likely.\nAs another example,
+        with n=365 days in a year and k people, how many possible unordered birthday
+        lists are there? For example, for k=3, we want to count lists like (May 1,
+        March 31, April 11), where all permutations are considered equivalent. We
+        can't do a simple adjustment for overcounting such as $n^k/3!$ since, e.g.,
+        there are 6 permutations of (May 1, March 31, April 11) but only 3 permutations
+        of (March 31, March 31, April 11). By Bose-Einstein, the number of lists is
+        $\\binom{n+k-1}{k}$. But the ordered birthday lists are equally likely, not
+        the unordered lists, so the Bose-Einstein value should not be used in calculating
+        birthday probabilities.\n1.5 Story proofs\nA story proof is a proof by interpretation.
+        For counting problems, this often means counting the same thing in two different
+        ways, rather than doing tedious algebra. A story proof often avoids messy
+        calculations and goes further than an algebraic proof toward explaining why
+        the result is true. The word \"story\" has several meanings, some more mathematical
+        than others, but a story proof (in the sense in which we're using the term)
+        is a fully valid mathematical proof. Here are some examples of story proofs,
+        which also serve as further examples of counting.\nExample 1.5.1 (Choosing
+        the complement). For any nonnegative integers n and k with $k \\leq n$, we
+        have\n$$\\binom{n}{k} = \\binom{n}{n-k}.$$\nThis is easy to check algebraically
+        (by writing the binomial coefficients in terms of factorials), but a story
+        proof makes the result easier to understand intuitively."
+      quote_hash: 
+        sha256:867e47700c66186d19383482f9a9a3ea4ac927bb94df907bc48da39fc2a08a97
+      source_id: src_01KYMSH13FAGNWVPPHCQ2FY3B4
+      revision_id: rev_01KYMSH155R2YJW5ZSG6DYHHBQ
+      extraction_id: ext_01KYMSJJNJQ0W9QHZ9ZMFD88NY
+      span_ids:
+        - s216
+        - s217
+        - s218
+        - s219
+        - s220
+        - s221
+        - s222
+      span_hash: 
+        sha256:a23ffc42e78276fb76929efde7b2afc81cfb2c9a364ae850542a50d88c341342
+      section_id: u7
+      learning_object_ids:
+        - lo_build_a_valid_counting_based_probability_model
+created_at: '2026-07-28T20:07:52Z'
+updated_at: '2026-07-28T20:07:52Z'

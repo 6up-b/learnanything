@@ -21,14 +21,14 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
-from learnloop.services import controller_actions as A
-from learnloop.services import controller_snapshot as cs
-from learnloop.services import reentry_adapter as ra
-from learnloop.services import short_session as short
-from learnloop.services import staged_policy as sp
-from learnloop.services.goal_projection import FacetProjection, GoalReport
-from learnloop.services.scheduler import SchedulerSession
-from learnloop.services.state_sync import sync_vault_state
+from learnloop.scheduling import controller_actions as A
+from learnloop.scheduling import controller_snapshot as cs
+from learnloop.scheduling import reentry_adapter as ra
+from learnloop.scheduling import short_session as short
+from learnloop.scheduling import staged_policy as sp
+from learnloop.goals.goal_projection import FacetProjection, GoalReport
+from learnloop.scheduling.scheduler import SchedulerSession
+from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_basic_vault, seed_due_item
