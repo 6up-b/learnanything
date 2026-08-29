@@ -235,6 +235,12 @@ apps/*debug*.jsonl
 # Dev fixture vault runtime sidecar state
 fixtures/**/state.sqlite-*
 
+# Personal dev vaults (per-developer copies of fixture vaults; never tracked).
+# Kept outside fixtures/ so the fixture-discovery tests (test_receipt_exactness,
+# test_receipt_derivation) don't pick them up. Run the app against one with
+# LEARNLOOP_VAULT=$PWD/fixtures-local/<name> or --vault fixtures-local/<name>.
+/fixtures-local/
+
 # Local media scratch files
 *.mp3
 *.opus
