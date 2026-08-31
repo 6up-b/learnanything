@@ -1,6 +1,6 @@
 # Pipeline Augmentation Plan
 
-*Finalized 2026-08-24 from the dialogue trace over [[Diagnostic Pipeline Synthesis]], [[Capability Gated Planning, Cost to Goal Discovery]], [[Agent dialogue]], [[Agent dialogue on modeling incorrect student thinking]], [[Agent dialogue on EduEmbed]], the RSIR / RecHarness / Q-matrix / L-HAKT / RouterXBench reviews, and a code survey of the shipped substrate. Amended same day with six adoptions from the forked multi-view/alignment research review (decision-conditioned shared–private alignment, escalation rule, controlled-confound benchmark, ASNR/flip-rates, exposure density, action capability embeddings), the trace-record feature pass, the outcome/cost + embedding-authority decisions below, and the architecture review summarized in [[Learner Field and Directional Models Augmentation]]. Every workstream is coupled to its learner-journey justification — if an item's justification is weak, cut the item.*
+*Finalized 2026-08-24 from the dialogue trace over [[Diagnostic Pipeline Synthesis]], [[Capability Gated Planning, Cost to Goal Discovery]], [[Agent dialogue]], [[Agent dialogue on modeling incorrect student thinking]], [[Agent dialogue on EduEmbed]], the RSIR / RecHarness / Q-matrix / L-HAKT / RouterXBench reviews, and a code survey of the shipped substrate. Amended same day with six adoptions from the forked multi-view/alignment research review (decision-conditioned shared–private alignment, escalation rule, controlled-confound benchmark, ASNR/flip-rates, exposure density, action capability embeddings), the trace-record feature pass, the outcome/cost + embedding-authority decisions below, and the architecture review summarized in [[Learner Field and Directional Models Augmentation]]. Amended 2026-08-31 with the adopted subset of [[Agent dialogue on ACE-KT and domain transfer]]: foundation-model-first doctrine (invariants 8–10), censored delay-indexed outcomes, pre/post-action state separation in the event contract, single-owner sensor fusion, a flip-rate reliability head, content-facing critic telemetry + distilled probe/repair critics, the source-held-out transfer gate and LearnLoop Transfer Suite, a shadow-only B0.5 temporal-sensor contract, and a trimmed `a_D^content` source-adapter contract. Deliberately excluded from that dialogue's draft: the behavioral adapter `a_D^behavior`, the GEN-1.5-style meta-training program, behavioral item embeddings as a component, and any change to H's permanently-out verdicts. Amended a second time 2026-08-31 (active-measurement revision; the agent draft in "Pipeline Augmentation Plan - Active Measurement and Cross-Vault Revision.diff" was evaluated and folded organically rather than applied): a five-route comparator with a first-class learner-clarification instrument under claim-scoped self-report authority; typed compilation of every learner emission; an opt-in cross-vault prior store; new workstream J (goal-conditioned placement, active cold-audit scheduling, attention budget, strategic non-intervention); `K_useful` and six sibling headline benchmarks; continuous burden `B` beside `Q`; an operational measurement path for `F`; `DecisionContextSelectorV1` and a unified `InstrumentCriticV1`, unified the same day as the two heads of `EmissionValueModelV1`; and a resequenced build order that moves clarification, placement, and audit timing ahead of every deep latent-state model. Every workstream is coupled to its learner-journey justification — if an item's justification is weak, cut the item.*
 
 ---
 
@@ -9,29 +9,50 @@
 One stack, one division of labor. The backbone LLM keeps what it is good at — semantic compression (grader → canonical diagnostic text), zero-shot proposal (hypotheses, probes, response signatures on never-seen items), open-world expansion (new misconceptions without a fixed taxonomy). Everything else exists to supply what statelessness takes away: **memory**, **calibration**, **belief**, and **ground truth**.
 
 ```
-                    ┌─ blind grader (backbone) ─ canonicalized causes ─┐
-observed attempt ──►│                                                  ▼
-                    │                                    A. TRACE MEMORY (embedding index,
-                    │                                       factorized fields, MERIT payloads)
-                    │                                                  │
-                    │              B. LEARNER FIELD over shared content/capability topology
-                    │                 (temporal state; two projections:
-                    │                  typed vector → router, rendered card → backbone)
-                    │                                                  │
-                    │        E. BELIEF: RSIR-filtered trajectory ensemble = C_δ(b)
-                    │           (BEAGLE generator + typed validity + real-observation fidelity)
-                    │                                                  │
-                    │   C. CALIBRATION: pooled likelihoods over item-invariant keys ("arm A")
-                    │                                                  ▼
-                    └─────────► F. DETERMINISTIC ROUTER (staged_policy, live EVSI)
-                                  four-route comparator {repair / ask / construct / defer}
-                                  G. equipoise bandit inside near-tie slack
-                                     + plateau → jump-basin trigger (structural arms)
-                                                                       │
-                    D+E. EVALUATION: ConceptKT + Eedi benchmarks; W3 synthetic learner;
-                         diagnosis-ablation A/B                        ▼
-                                                              action served to learner
+learner emission (attempt / question-while-reading / self-report / edit /
+                  highlight / teach-back / skip)
+        │
+        ├─ assessment events ──► blind grader ──► ObservedResponseV1 ─────┐
+        └─ every emission ─────► typed emission compiler                  │
+                                 (LLM proposes; validators assign         │
+                                  authority)                              ▼
+                    A. TRACE MEMORY + decision-context retrieval
+                       (embedding index, factorized fields, MERIT payloads,
+                        contrast sets)
+                                        │
+                    B. LEARNER FIELD + opt-in cross-vault prior store
+                       (two projections: typed vector → router,
+                        rendered card → backbone)
+                                        │
+                    C. CALIBRATED OBSERVATION CHANNELS
+                       (performance + self-report; pooled likelihoods over
+                        item-invariant keys; single-owner fusion)
+                                        │
+                    E. ROBUST BELIEF: disagreement/trajectory envelope = C_δ(b)
+                       (BEAGLE generator + typed validity + real-observation
+                        fidelity)
+                                        │
+                    J. ACTIVE MEASUREMENT LIFECYCLE — item + timing + intent
+                       {placement / practice / transfer check / cold audit}
+                       + attention budget and strategic non-intervention
+                                        │
+                                        ▼
+                    F. DETERMINISTIC FIVE-ROUTE COMPARATOR (staged_policy, live EVSI)
+                       {repair / performance probe / learner clarification /
+                        construct / defer-or-continue}
+                       G. equipoise bandit inside certified near-tie slack
+                          + plateau → jump-basin trigger (structural arms)
+                                        │
+                                        ▼
+                              action served or scheduled
+
+                    D. EVALUATION: ConceptKT/Eedi + transfer ladder; K_useful,
+                       clarification substitution, audit efficiency,
+                       no-intervention precision; W3 planted learners;
+                       diagnosis-ablation A/B
 ```
+
+**Aug 31 amendment — foundation model first, small models second.** The frontier backbone plus the canonical source supplies cross-domain semantic competence: it compiles items, solutions, learner responses, hypotheses, probes, and repairs into typed, source-grounded contracts. Smaller learned components may then estimate bounded predictive residuals, reliability risks, retrieval/ranking scores, or proposal values over those contracts — they never have to infer linear algebra, an arXiv paper, or a programming API from question IDs learned on school-math platforms. Content-facing critics (retrieval, isomorphism, probe validity, grading risk) may train early from source-derived, mechanically verified examples; learner-facing temporal/effect models remain shadow-only until they pass source-held-out and local calibration gates.
 
 ### Formal state interpretation — shared topology, learner-specific belief
 
@@ -78,6 +99,16 @@ Standing invariants (violating any of these is a bug, not a tradeoff):
 5. **False remediation is a safety constraint, not an ordinary tradeable cost** — do not buy a higher success score by remediating more learners unnecessarily. Among policies below the false-remediation ceiling, prefer the one with better outcome and then fewer diagnostic questions.
 6. **Posterior synthetic trajectories are never recursive training data** (RSIR-collapse firewall). Separately generated planted benchmark examples may enter H's eventual training corpus only behind an independent future-behavior evaluation gate; simulation output and posterior samples are different artifacts with different authority.
 7. **Learner state remains plural, replayable, and provenance-bearing** — raw observations stay immutable; every inferred field/card/vector names its event horizon and algorithm version; an LLM output, embedding, recurrent hidden state, or simulated particle is never application-state authority by itself.
+8. **Cross-domain semantics come from the canonical source and frontier backbone, not a population KT model** — any learner-facing sequence model consumes typed, source-grounded item/response contracts rather than opaque question/KC ids. Public KT corpora (FoundationalASSIST, Eedi, EdNet) provide pretraining and regularization, never production truth about advanced technical learners.
+9. **Every learner-facing learned prediction is a bounded, support-gated residual** — outside validated source/capability/response-modality support, its contribution shrinks to zero and uncertainty widens back toward the explicit-ledger + frontier-LLM baseline. A learned model may add a sensor; it may not erase missingness.
+10. **Synthetic data has task-specific authority** — canonical-source examples whose labels are mechanically or formally verified (`SyntheticSourceVerified`) may train content-facing retrievers and critics. LLM-persona trajectories (`SyntheticPersonaTrajectory`) may propose hypotheses, populate stress tests, and pretrain proposal networks, but never calibrate human forgetting, misconception prevalence, cold retention, or repair effects.
+11. **Every learner emission is preserved, but not every emission is evidence** — spontaneous questions, requests, self-explanations, edits, highlights, skips, confidence, and affective reports may change retrieval, candidate generation, preferences, and priors. Only emissions that pass the relevant assessment contract can certify capability or misconception; asking about a facet is never evidence of failing it.
+12. **Learner self-report has claim-specific authority** — goals, preferences, and accessibility needs are user-authoritative in their own scope; reports of private process ("I guessed", "I looked it up") are strong context about otherwise hidden actions; hypothesis recognition and mastery/confidence judgments are calibrated observations, never truth labels. The eliciting prompt, option set, order, and timing are part of the observation channel *and* the write kernel.
+13. **Cross-vault transfer is opt-in, local, inspectable, and prior-only** — no content mastery, misconception identity, raw response, or source text crosses vaults by default. Shared priors carry uncertainty, provenance, source/capability scope, and a negative-transfer gate; they never increment `n_eff` in a new vault.
+14. **Learner benefit dominates data acquisition** — a placement item, audit, or clarification may be chosen partly for calibration value only after it is feasible, fresh, source-grounded, and expected to be useful or non-harmful to the learner. The system may spend machine compute freely to save learner questions; it may never spend learner attention merely to improve its own model.
+15. **No intervention is a first-class action** — letting the learner continue, waiting for natural evidence, or ending diagnosis may dominate another hint, question, or repair. Responsiveness is not itself pedagogical value.
+
+**n=1 volume arithmetic (standing feasibility check).** A single owner generates tens of gradeable events per day, so local behavioral corpora accrue at roughly 10³ per year per event type; any ladder assuming 5k–50k diagnostic or intervention episodes describes a fleet, not this product. Every proposal must name which label regime it draws from: machine-verifiable (unlimited now), deterministic bookkeeping (10³ scale), expert judgment (proposal-only), or counterfactual (randomization-gated). This arithmetic is why content-facing critics, Bayesian pooling over population priors, and LLM-first semantics get built before any learner-facing trained model.
 
 ### Outcome and cost contract
 
@@ -90,21 +121,32 @@ S = \alpha R_{\text{cold}} + (1-\alpha)R_{\text{next}},
 
 where `R_next` is success on the first fresh, unassisted, independently attempted item after the action, and `R_cold` is success on the next eligible delayed cold-retrieval attempt under the reveal ledger. `R_next` is available early and marks the receipt provisional; `R_cold` later finalizes it. The initial 0.75/0.25 weighting states the product preference for durable retrieval without discarding the value of immediate uptake; it is a declared policy parameter, not a fitted per-learner quantity.
 
-The primary learner-attention cost is
+**Auxiliary delay-indexed outcomes without redefining success (Aug 31).** To reduce seven-day label latency, log every eligible independent follow-up as `(R_Δ, Δ)` at its actual delay, with coarse reporting lanes (immediate, fresh-next, 1–3d, 4–10d, 11–30d). Pending outcomes are right-censored, never failures. These observations may train a time-conditioned hazard/retention head and provide provisional supervision, but only the declared eligible `R_cold` finalizes `S` or promotes durable learner state.
+
+The headline diagnostic cost remains
 
 \[
-Q = \text{number of diagnostic questions asked before repair or deferral}.
+Q = \text{number of learner questions asked before repair or deferral},
 \]
 
-Productive practice and scheduled audits remain logged but are not charged as diagnostic interrogation. `F` is a narrowly confirmed false-remediation indicator: the triggering grade was overturned, the response was a valid alternative, or later authoritative evidence established that the system repaired the wrong facet. Subsequent success alone never proves a repair was false, because the repair may have caused it.
+and a learner-clarification question **counts in `Q`** — otherwise the metric could be gamed by replacing one performance probe with a barrage of cheap yes/no prompts. Beside it, log a continuous attention burden
+
+\[
+B = \text{estimated learner seconds/effort, interruption cost, and response-mode cost},
+\]
+
+because a two-second recognition check and a five-minute derivation are not equivalent spends. Interactive waiting is burden too: latency the learner sits through on the serving path accrues to `B`, so "machine compute is cheap" licenses background generation, ranking, and verification — not long visible stalls. Productive practice and scheduled audits are not charged to `Q`, but they consume `B` and their own purpose-specific budgets.
+
+`F` is a narrowly confirmed false-remediation indicator: the triggering grade was overturned, the response was a valid alternative, or later authoritative evidence established that the system repaired the wrong facet. Subsequent success alone never proves a repair was false, because the repair may have caused it. **`F` must be operationally measurable or `τ_F` is decorative (Aug 31).** Three confirmation channels: (1) scheduled retrospective re-grade audits of a sample of remediation-triggering grades against a stronger evaluator or anchors; (2) learner contradiction through the clarification channel ("I actually knew this — the grade was wrong"), treated as a calibrated report, not automatic truth; (3) planted-simulator estimates as a proxy *bound*, labeled simulator-relative. Every `F` confirmation names its evidence ids.
 
 Policy comparison is lexicographic and intentionally simple:
 
 1. reject any policy whose confirmed false-remediation rate exceeds the declared ceiling `τ_F`;
 2. among admissible policies, maximize finalized `S` (using provisional `R_next` only while `R_cold` is pending);
-3. within an outcome near-tie, minimize `Q`.
+3. within an outcome near-tie, minimize `Q`;
+4. within a question-count near-tie, minimize `B` and avoid unnecessary interruption.
 
-For diagnostics that require a scalar receipt, log `J = S - βQ - γF`, with `γ` deliberately large and sensitivity reported over several declared values; the lexicographic rule, not an invented exchange rate, remains the live authority.
+For diagnostics that require a scalar receipt, log `J = S - β_Q Q - β_B B - γF`, with `γ` deliberately large and sensitivity reported over several declared values; the lexicographic rule, not an invented exchange rate, remains the live authority. Machine-side compute/token cost is logged in the same receipts — it is usually the right spend when it substitutes for learner burden, but it must be visible so the substitution can actually be measured.
 
 ---
 
@@ -122,6 +164,18 @@ Three consumers, implemented as separate namespaces with separate fields, thresh
 **Authority boundary.** Retrieval may identify related existing evidence; similarity is not itself learner evidence. The index may change candidate generation, record grouping, and prompt context, but cannot directly increment evidence counts, certify mastery/misconception, or write the learner field. Any downstream state change must name the underlying observed event ids so replay can detect double counting.
 
 **MVP boundary.** Ship the immutable event write path and shadow recurrence query first. Defer per-record embedding nudges, automatic consolidation/abstraction, predicted-signature embeddings, and any fine-tuned encoder until the frozen off-the-shelf index beats exact-id, BM25, recency, and no-memory baselines. Consolidation, when enabled, creates a derived abstraction over preserved leaf events; it never overwrites or deletes the evidence-bearing episodes.
+
+**Canonical-source self-supervision and three-view geometry (Aug 31).** Every ingested source supplies content-facing supervision before a learner arrives: source-span↔item retrieval, question↔verified-solution matching, same-operation/different-surface pairs, original↔paraphrase pairs, valid↔invalid applications, and deliberately isomorphic/non-isomorphic item pairs. Train or distill rerankers/critics only where the target can be checked against the canonical source, solver, type system, or mal-procedure executor. Keep three views separate: `z_semantic` from the frozen frontier embedder, `z_structural` from source/solution/graph contracts, and an initially missing/high-uncertainty `z_behavioral` learned only from real response outcomes — behavioral geometry refines the semantic/structural geometry, never replaces it, and is not built as a standalone component. A tiny source-scoped reranker adapter may specialize the frozen base representations; it is versioned, rollbackable, and cannot rewrite the underlying event or base embedding.
+
+**Verified contrast-set factory (Aug 31).** Every item family should be able to emit a `ContrastSetV1`: same capability/different surface; same capability/different representation; same surface/different required operation; a near-transfer variant; and a structurally isomorphic holdout. Store `surface_group_id`, `structural_isomorph_id`, capability signature, representation, solution route, and the verified answer. The frontier LLM generates candidates at scale; source/solver/type-system checks and the validity critic reject answer leakage, accidental isomorphism, and operation drift. These sets are the shared substrate for recurrence evaluation, placement, productive practice, transfer checks, uncontaminated cold audits, and hard negatives for every learned critic — one factory, many consumers.
+
+**`DecisionContextSelectorV1` — a higher-priority learned feature than a deeper recurrent core (Aug 31).** Given a target item, goal, or route decision, rank prior *real* events and emissions by expected contribution to prediction or action regret, not by generic semantic similarity. Inputs: exact graph relations, first divergence, source/representation, assistance/reveal status, validity intervals, and frozen embeddings; outputs: selected event ids plus scores — retrieval authority only, never storage, never field aggregation. It must beat exact-id filters, BM25, recency, and frozen-embedding kNN before any consumer trusts it, and off-support it fails open to *more* context, not less. Training labels are predictor-relative and version-stamped: leave-one-out and group-masked predictive gain computed against the current baseline stack, and action-level flip labels from router replay, prioritized near decision boundaries where masking actually changes something. This operationalizes ACE-KT's strongest transferable lesson — contextual structuring carried ~7.2% AUC in its ablations versus ≤0.8% for the SSM — without claiming attention weights discover causal relevance.
+
+**`EmissionValueModelV1` — one decision-conditioned valuation layer, two heads (Aug 31).** `DecisionContextSelectorV1` (retrospective: which past emissions matter for the current decision) and `InstrumentCriticV1`'s value heads in F (prospective: which candidate elicitation would matter most) are **one model** — a shared encoder over compiled `LearnerEmissionPacketV1`/typed events with consumer-conditioned value heads — because both estimate the same quantity: the marginal decision value of an observation, realized or candidate. Signal is not intrinsic to an emission: the same utterance can be useless for mastery, decisive for diagnostic localization, and strong for preference inference, so value is a vector conditioned on the consuming decision; the type contract still sets each channel's authority *ceiling* and the model only calibrates within it. It may also emit a soft emission→field address map `M_ij` (which regions an emission concerns) with `Δn_eff = 0` — addressing and hypothesis-space shaping, never evidence. This is the most transferable learner-facing learned target in the plan: the frontier LLM interprets what an emission *means*, and the small model learns only how useful that kind of information has historically been for that kind of decision — a regularity far more likely to survive domain shift than behavioral dynamics.
+
+*Label pipeline.* Retrospective labels come from **group-masked** replay — leave-one-out alone is broken by redundancy, since two emissions carrying the same repair-equivalence information each look individually worthless — version-stamped by the evaluator stack that produced them (a Δ against today's LLM+ledger baseline is stale once B0.5 wins its race) and prioritized near decision boundaries, because masking an emission in a landslide episode teaches nothing and every decision label costs a router replay. Prospective labels distill from the exact robust-EVSI teacher on `SyntheticSourceVerified` episodes as **rankings, not values** — rankings survive monotone recalibration, while value regression bakes tier-0/1 likelihood guesses into weights — with mandatory re-distillation when C's likelihood tiers upgrade.
+
+*Firewalls.* (1) It scores instruments *within* routes and supplies value estimates *to* F — it never chooses among routes or elicitation modalities; that is the deterministic comparator's authority, and the desirable "don't quiz me, your reading questions already told you" behavior falls out of the comparator choosing defer-or-continue on the strength of retrospective value, not out of a learned modality picker. (2) It never mediates storage or field aggregation — B0 aggregates from the *full* ledger by type rules, so a low-valued emission still updates state; a self-confirming attention loop must not be able to close at the state level. (3) No mixture of its belief proposals into `b_t` — as a proposal it may serve only as E2's particle proposal distribution, with calibrated real-observation likelihoods setting the weights. (4) Off-support it fails open: more context for the retrospective head, deference to exact EVSI for the prospective head. Standing checks: random audits of low-valued emissions, logged selection propensities, and periodic full-history comparator runs. The research framing — *learn the decision-sufficient information content of learner emissions* — is the amortized empirical companion of H's decision-observability paper: the theory defines when an observation is decision-sufficient; this model learns to predict it.
 
 **Trace-record schema (settle before the backfill — schema-then-backfill is cheap, re-backfill is not).** Three channels per record:
 
@@ -166,6 +220,31 @@ Three consumers, implemented as separate namespaces with separate fields, thresh
 
 **Authority and staging.** A's index does not imply this field and never writes it. First ship both projections from explicit ledger records, with event ids and no embedding propagation. `LearnerStateCardV1` is regenerated from the ledger rather than edited by an LLM. A cached GRU/SSM hidden state is likewise only a reproducible derived cache keyed by artifact hash, feature-schema version, and final consumed event id. Run the probabilistic field in shadow against the no-smoothing baseline; it earns router-sensor authority only if it improves finalized `S` or reduces `Q` without breaching `τ_F`, and if sparse/unvisited regions remain conservatively uncertain. Semantic proximity alone is not a pedagogical adjacency claim.
 
+**B0-era disagreement/surprise sensors (no trained model required, Aug 31).** The LLM+ledger baseline already yields probabilities, so `D_t = |p_explicit − p_LLM|`, predictive surprise `−log p(o_t)`, and confidence–prediction mismatch are available before any temporal model exists. They enter `RouterStateV1` as shadow sensors under the same acceptance gate as every `state_signals.py` upgrade, and they operationalize the semantic–behavioral disagreement alarm below for free.
+
+**B0.5 — source-conditioned temporal evidence sensor (shadow-only; sequencing rung 6).** The default predictor for a novel source is the explicit ledger plus a canonical-source-grounded frontier-LLM estimate. A population-pretrained GRU/SSM may add only a bounded residual
+
+\[
+\operatorname{logit}\hat p
+=
+\operatorname{logit}p_{\text{base}}
++
+g_{\text{support}}(x)\,
+\operatorname{clip}\!\left(r_\theta(H_t,x;a_D^{\text{content}}),-\rho,\rho\right),
+\]
+
+where `g_support→0` under source, capability, representation, or response-modality shift. Input is a target-conditioned selection over typed `ItemContractV1` / `ObservedResponseV1` / `LearnerEmissionPacketV1` / reveal-and-assistance events with real elapsed time and session boundaries — never question ids — with `DecisionContextSelectorV1` supplying the selection once it passes its retrieval gates (full typed history until then), and every prediction names its consumed event ids. Reported traits stay distinguishable from observed performance in the features, and cross-vault priors enter only as scoped prior features with uncertainty stamps. Output is a typed `TemporalEvidencePacketV1` (fresh-independent success, `p_cold(Δ)`, response-signature probabilities where the response space is defined, scaffold-dependence and recurrence proposals, predictive surprise, explicit-vs-LLM-vs-temporal disagreement, support/OOD, uncertainty, adapter/model/schema versions, final consumed event id); the recurrent hidden state stays a cache, starts at likelihood-authority tier 1, and cannot increment `n_eff`, certify a misconception, or narrow `u` without local calibration. Its clipped residual is an *input* to C's fusion calibrator, never a second calibrator. This entire item is shadow work: granting it any live sensor authority would put a population-pretrained model in the loop, which requires an explicit owner decision against H's standing permanently-out verdict, argued from D's held-out-source evidence.
+
+**Model race (ACE-KT read as an ablation ladder, not an architecture commitment).** [ACE-KT](https://openreview.net/pdf/fd2105d5d5780bc1f850a4b8d9f85b4b1c02e24e.pdf)'s ablations put nearly all the value in contextual structuring (removal costs up to 7.2% AUC) versus the selective SSM (≤0.8%) and local convolution/TeLU (~0.1–0.3%): relevant-history selection is the load-bearing component, and A's typed retrieval already *is* that component. Race order: (1) explicit ledger + frontier-LLM baseline; (2) bounded GRU residual; (3) A-retrieval-conditioned contextual attention + GRU; (4) matched-parameter selective SSM; (5) optional convolution / full cascade only if each rung adds source-held-out calibration or decision value. Name the modules `local deviation` / `context selection` / `temporal integration`; hidden activations are not human cognitive stages. Preserve pre-action `z_t^-` and post-action `z_t^+` per the step-0 contract: never let a response into the state that purportedly predicted it, and never model a probe as a passive sensor when it supplied practice, clues, or feedback.
+
+**Learner justification (B0.5).** Calibrated transient-vs-persistent separation means a slip stops opening a diagnostic episode and a genuinely recurring error stops being re-probed from scratch; in a new vault's first sessions the support gate keeps uncertainty honestly wide, so the learner gets a gentle common repair or one well-chosen question instead of a confidently wrong route.
+
+**`LearnerEmissionPacketV1` — compile every learner-produced signal once (Aug 31).** Preserve the raw emission immutably, then produce a versioned deterministic-schema proposal: `emission_type`, referenced source spans/facets, presupposed knowledge, stated uncertainty, strategy or analogy, self-correction, goal/navigation intent, desired assistance, affect *as reported by the learner*, exposure/reveal, and candidate assessment claims. Inputs include practice responses, tutor turns (within- and post-item), questions asked while reading the source, highlights and saved notes, answer edits, skips (items and always-skippable reading checks), teach-back transcripts, and repair reactions — plus the already-shipped typed channels the architecture vault documents: explicit self-grades (`grading_source = self`) and their later agreement with AI grades and cold outcomes; FSRS-facing memory ratings; learner claims (the vault-init starting-level claim and per-region "I know this", already seeded as weak priors); easier/harder rung-variant requests with their `self_report` evidence; reader answer-mode choices (direct / guided / ask-first — a per-interaction preference emission); tutor-answer usefulness ratings and save-as-note / promote-to-practice curation; adjudication, dispute, and regrade requests (appended as superseding events — also an `F`-confirmation lane); held-out exam answers (their sealed no-feedback semantics preserved); backdated historical imports (`seed-exam-attempts`, discounted); goal/exam declarations with deadlines; and quick-add versus deliberate-import curation choices. The frontier LLM performs semantic compilation; typed validators assign allowed consumers and authority per invariants 11–12; inferred affect or inability is never silently rewritten as reported fact. Compilation is cost-tiered: deterministic fields always; LLM compilation batched and lazy; and only emission types with a *named consumer* get compiled at all — no field without a consumer and a review date. The tutor-dialogue compiler below becomes one input lane of this contract rather than a separate mechanism.
+
+**Opt-in `CrossVaultPriorStoreV1` — priors and preferences, not a personality profile (Aug 31).** An app-global, local-first `profile.sqlite`, separate from every vault's evidence database, with two tables. `declared_preferences` (user-authoritative, zero inference): language, notation and register, explanation format, accessibility needs, interaction density, reminder constraints, explicit goals. `inferred_behavioral_priors` (uncertain, scoped): confidence calibration by response type, self-report calibration by claim class, help-seeking style, challenge tolerance, and — weakest, as source-conditioned hyperpriors only — forgetting strength, scaffold dependence, latency normalization. Each inferred row carries posterior and interval, claim class, support, contributing `(vault, event)` pointers, source-family/capability scope, validity interval, algorithm version, consent scope, last user review, and negative-transfer status. Never stored or transferred: content mastery, misconception identity, raw responses, source text, inferred affect, or any global intelligence/honesty/motivation/learner-quality score. For trait `τ` in new domain `D`, use a hierarchical prior on the link scale, `θ_{u,D,τ} ~ N(μ_{D,τ} + w_{D,τ} r_{u,τ}, σ²_{D,τ} + σ²_shift)`, with `w_{D,τ} → 0` under source/capability/modality mismatch or observed negative transfer; a new vault receives prior mass, never evidence — `n_eff` starts at zero. Promote one prior family at a time through leave-one-vault-out evaluation (needs three or more mature vaults; declared preferences don't wait for it): the gate is improved calibration or `K_useful` *and* a declared bound on per-vault harm — an average gain cannot hide a subset of vaults made confidently worse (cross-domain cognitive diagnosis warns exactly this — [Zero-1-to-3](https://arxiv.org/abs/2312.13434)). Ship a **"What LearnLoop remembers about how I learn"** panel: inspect, edit declared preferences, reset individual priors, disable inference or sync (sync off by default), per-prior provenance, plain-language uncertainty — never a moralized "reliability" framing.
+
+**Self-report calibration ledger (Aug 31).** Maintain separate calibration histories for confidence statements, private-process reports, hypothesis recognition, and mastery judgments; never collapse them into one truthfulness score. Each report is compared only against later independent observations suitable for that claim class — never against the LLM's own diagnosis, which shares a causal parent with the report it would be grading. Eedi-2020 confidence data may initialize the confidence stratum; it cannot calibrate acquiescence to a proposed misconception. Open-reflection work supports extracting perceived state and comparing it with assessed state ([Capture-Calibrate-Coach](https://arxiv.org/abs/2605.25419)), while its graph-inferred perceptions for unmentioned concepts remain model inference, not learner testimony.
+
 **Tutor-dialogue compiler and authority channels.** LLMKT-style turn annotation ([arXiv:2409.16490](https://arxiv.org/abs/2409.16490)) is an extraction proposal, not a mastery update. Classify each learner turn into one or more typed atoms:
 
 - **validated performance evidence** — answer, explanation, derivation, or teach-back that passed the shared attempt/assessment contract;
@@ -203,6 +282,18 @@ Two amendments from the fork review:
 
 Every likelihood carries an authority tier: `(0) ordinal LLM-authored separability`, `(1) externally trained population prior`, `(2) locally observed but sparse evidence`, `(3) calibrated empirical likelihood`. Robust EVSI must preserve that provenance and cannot silently turn tier 0/1 values into tier 3 arithmetic; below the declared completeness/calibration gate, the live router falls back to common-repair, direct-probe, or defer logic.
 
+**Fusion, not evidence multiplication (Aug 31).** The explicit ledger, frontier LLM, retrieval context, and any temporal residual consume overlapping events; never multiply their posteriors as if they were independent observations. C's out-of-fold stacking calibrator is the *single owner* of sensor fusion — over `(p_explicit, p_LLM, r_temporal, support, OOD, source family, response modality)` — with B0.5's clipped residual as one input. Before the calibrator has data, retain the estimators as an ambiguity envelope feeding `C_δ(b)`; when they disagree near an action boundary, widen uncertainty or escalate. Averaging away disagreement is not calibration.
+
+**Self-report is an observation channel, not a posterior assignment (Aug 31).** For a clarification instrument `q_sr`, model
+
+\[
+P(s \mid h, q_{\mathrm{sr}}, \kappa_{u,\mathrm{claim}}, \pi_{\mathrm{prompt}}),
+\]
+
+where `s` is the learner's report, `κ_{u,claim}` is their calibration for that claim class (from B's ledger), and `π_prompt` records wording, options, order, whether the system exposed its favored hypothesis, and whether feedback preceded the question. A recognition response ("yes, that sounds right") shares a causal parent with the system's proposed hypothesis and must never be multiplied into the posterior as independent evidence — the same no-double-counting rule as every other overlapping sensor, owned by the same fusion calibrator. Start from conservative population priors, update only from later independent discriminators and cold outcomes, and widen uncertainty under untested prompt forms. Goals and preferences remain user-authoritative in their scope; mechanism confirmations shift belief but cannot alone certify state.
+
+**Learned reliability head (high ROI, transferable target, Aug 31).** Before any mastery model, train a small source-aware predictor of `GradeFlip`, `RepairFlip`, and `StateWriteFlip` from canonical support, verifier availability, valid-alternative ambiguity, evaluator disagreement, retrieval distance, response structure, and prompt/model version. The target is *system failure*, not human cognition — far more plausibly transferable across canonical sources than absolute student mastery — and its labels come from D's perturbation flip audits plus the TutorMoments paired anchors already assigned in [[Datasets]]. Start as a logistic/gradient-boosted model; it is the first consumer of D's conformal abstention budget.
+
 Two amendments from the fork review:
 - **Action signal-to-noise ratio (ASNR) per probe family**, tracked in the instrument-family telemetry: signal = how much the observation separates downstream repairs; noise = sensitivity to wording, grader version, slips. A probe can be highly informative about the semantic hypothesis and still have poor *action* signal — ASNR is the family-level quality metric commissioning and retirement should key on.
 - **Machine-side escalation rule: Uncertainty × ActionSensitivity > τ.** For the evaluator cascade (deterministic verifier → cheap grader → strong diagnostician → learner clarification), escalate on decision impact, not raw uncertainty: a grader uncertain about a detail that changes no repair stays cheap; mild uncertainty at an action boundary escalates. Decision sufficiency applied to machine spend, via the AI-transport tiering.
@@ -222,6 +313,26 @@ Two amendments from the fork review:
 
 **What.** (1) **ConceptKT**: run the shipped candidate-cause pipeline against expert missing-concept labels and the slip-vs-conceptual distinction — first outside measurement of the layer everything depends on. (2) **Eedi Kaggle retrieval benchmark**: given a trace, rank misconception labels; compare off-the-shelf embeddings vs BM25 vs hybrid — this *arbitrates the EduEmbed-fork question with data* instead of vibes. (3) **Grader-invariance flip-rate audit** (fork review): vary surface paraphrase, rubric-criteria order, hypothesis presence, notation, register, and grader version; measure GradeFlipRate, RepairFlipRate, StateWriteFlipRate — the *action-level* flips are the metrics that matter (a grader may tolerate wording drift while still making stable intervention decisions), and the version axis comes from A's record stamps. (4) Later: the APIET **diagnosis-ablation A/B** (same tutor, diagnostic module removed, blind comparison) — the evaluation of the system's central value claim, never yet run.
 
+**Transfer gate (Aug 31).** Random learner/item splits establish only in-distribution utility; ACE-KT-class results on five school-platform datasets do not establish transfer to new canonical sources, advanced open-ended content, or delayed retention. Every learner-facing learned artifact reports a transfer ladder — (1) new learner, known source; (2) new item, known source; (3) entirely held-out canonical source; (4) held-out subject at similar level; (5) advanced/open-ended source absent from training; (6) held-out response modality (multiple choice → derivation/proof/code/diagram/explanation). **Levels 3, 5, and 6 are mandatory; 1, 2, and 4 are optional** — the full six-level × seven-comparator matrix is more cells than a one-person project should fill. Mandatory comparators: explicit ledger; frontier LLM with canonical context; calibrated LLM+ledger; the candidate artifact. Report NLL/Brier, calibration/coverage, cold-by-delay prediction, OOD abstention, `RepairFlipRate`, `StateWriteFlipRate`, downstream repair regret, `Q`, and `F`; AUC/ACC are secondary. No production credit for an in-domain KT gain unless the artifact also adds value over the frontier-LLM+ledger baseline on held-out sources or provably shrinks to zero there.
+
+**LearnLoop Transfer Suite.** A small, deliberately heterogeneous source suite: school math, undergraduate linear algebra/probability, one technical arXiv paper, one programming/API source, and one non-mathematical technical source. `fixtures/linear_algebra/` and `fixtures/arxiv/` already seed two of the five. The first version evaluates retrieval, contract extraction, grading, valid alternatives, first divergence, recurrence, and probe validity with zero delayed human outcomes; human cold outcomes layer onto the same frozen items as they accrue.
+
+**Headline product benchmarks for active measurement (Aug 31).** These define whether LearnLoop stops feeling generic and stops over-interrogating; they are acceptance gates, not secondary diagnostics:
+
+- **`K_useful(ε,η)` / time-to-useful-vault** — the smallest `K ∈ {0,1,4,16}` at which the policy's goal-conditioned plan/route regret is within `ε` of a mature-history reference with probability ≥ `1−η`, with calibration, coverage, and false-remediation constraints passing; report with and without self-report, cross-vault priors, emission channels, and learned context selection so each feature's contribution is visible.
+- **Questions-to-safe-repair** — `Q` and `B` from trigger to a repair that later passes fresh and cold checks, at a fixed false-remediation ceiling.
+- **Clarification substitution** — how often a clarification replaces one or more performance probes without worsening repair regret, `S`, or `F`; stratified by claim class, wording family, and learner calibration.
+- **Cross-vault prior gain and negative-transfer tail** — zero-shot and K-shot improvement over the population prior, plus the tail probability and magnitude of per-vault harm.
+- **Audit efficiency** — finalized cold success and calibrated `p_cold(Δ)` per learner minute; mature-label yield, censoring rates, scheduling regret, goal readiness, contamination.
+- **Emission ablation** — performance-only history versus adding questions, self-explanations, confidence, edits, and preferences; credit a channel only for unique predictive or decision gain. Replay-heavy offline job; budget it.
+- **No-intervention precision** — when continuing independently or waiting is optimal, the unnecessary-intervention rate. Honest caveat: real-world ground truth for "silence was optimal" barely exists; initially this is scored on E1's planted simulators and retrospective review only.
+
+Adaptive-testing research supplies selection/stopping/exposure machinery ([CAT survey](https://arxiv.org/abs/2404.00712)); [CodeGENCAT](https://arxiv.org/abs/2602.20020) motivates exploiting open-ended response structure in early testing (evidence limited to introductory programming); [MAML-KT](https://arxiv.org/abs/2603.00137) supports evaluating truly unseen learners at early interaction windows (ASSISTments-based).
+
+**UI capture dependencies (named so the schema fields don't stay null).** Clarification prompts with randomized options and `none/unsure/skip`; confidence-before-feedback capture; audit snooze/reschedule; learner-rated relevance/burden capture; and the cross-vault "What LearnLoop remembers" panel. Each is a build dependency of the metric or channel that consumes it.
+
+**Backbone-upgrade gate.** Every calibration in C — grading, likelihoods, self-report channels — shifts when the backbone model or prompt version changes. Before the live system switches, rerun the frozen Transfer Suite and flip-rate audits on the new backbone and compare against the stamped current-version baselines; the version stamps already exist on records, so this is a harness run, not new infrastructure.
+
 **Research-sweep adoptions (Aug 24, cited) — measurement hygiene:**
 - **Chance-corrected agreement only** for any LLM-judged metric: raw agreement inflates by 33–41pp over kappa across 21 judges; high test-retest reliability coexists with severe position bias ([arXiv:2606.19544](https://arxiv.org/abs/2606.19544)). Debiasing recipe: position swap + budget-constrained rationale, which lets a mid-tier judge beat frontier judges at a fraction of cost ([arXiv:2604.23178](https://arxiv.org/abs/2604.23178)).
 - **Do not count multiple LLM judges as independent evidence**: model errors remain highly correlated across model families ([ICML 2025](https://proceedings.mlr.press/v267/kim25e.html)). Use blinded human/expert anchors, model-family-aware uncertainty, and action-level flip rates; majority vote among similar judges is not a safety case. A separately trained response-bias detector is a useful evaluator-side sensor for verbosity, position, bandwagon, and sentiment effects, not a substitute for anchors ([RBD, NeurIPS 2025](https://proceedings.neurips.cc/paper_files/paper/2025/hash/095c7a06f229943c46bd0b519edf20f9-Abstract-Conference.html)).
@@ -231,7 +342,7 @@ Two amendments from the fork review:
 
 **Learner justification.** Direct: the slip-vs-misconception separation is what stands between a learner who mistyped and a learner sent to remediation for a typo. Measuring it externally is the cheapest protection against systematically mis-diagnosing the person. The ablation A/B answers whether the diagnostic machinery is actually buying the learner anything over a plain tutor — the honest question the whole product rests on.
 
-**Product acceptance layer.** Dataset metrics commission instruments; the outcome/cost contract decides whether they help the learner. For every promoted A–I change, compare against the frozen current policy on finalized `S`, diagnostic questions `Q`, and confirmed false-remediation rate. A change may ship for lower `Q` at outcome parity or higher `S` at question parity, but never by crossing `τ_F`. Report provisional next-attempt results separately from mature cold-window results.
+**Product acceptance layer.** Dataset metrics commission instruments; the outcome/cost contract decides whether they help the learner. For every promoted A–J change, compare against the frozen current policy on finalized `S`, diagnostic questions `Q`, and confirmed false-remediation rate. A change may ship for lower `Q` at outcome parity or higher `S` at question parity, but never by crossing `τ_F`. Report provisional next-attempt results separately from mature cold-window results.
 
 ### E. W3 enforcement + trajectory-ensemble belief (one build)
 
@@ -247,6 +358,10 @@ The *same generator* may then propose particles for the sparse-log belief estima
 
 The surviving ensemble **is** `C_δ(b)` feeding `shared_optimal_action` and robust EVSI; its spread across repair-equivalence classes drives probe-vs-repair. This is a **model-consistent ambiguity set / validity envelope**, not a discovered boundary of the learner's true cognitive manifold. RSIR supplies the generate–filter pattern ([arXiv:2602.15659](https://arxiv.org/abs/2602.15659)), but its rank-fidelity test depends on known real targets; without a real anchor, generator-on-generator scoring measures only self-consistency. Firewall: particles never become evidence, never certify mastery, never train the next simulator, and never narrow uncertainty merely because the generator agrees with itself (RSIR's own ablation: fidelity-ungated recursion collapses −27% by iteration 2).
 
+**Synthetic-data authority split (Aug 31, operationalizing invariant 10).** Maintain two physically separate corpora and schemas. `SyntheticSourceVerified`: generated items, paraphrases, distractors, counterexamples, mal-procedure traces, and probe candidates whose labels are checked against a canonical source, solver, compiler, rubric, or deterministic executor — may train content-facing retrieval/ranking/validity critics because the target is independently knowable. `SyntheticPersonaTrajectory`: simulated learner behavior and counterfactual trajectories — may stress-test filters, improve proposal coverage, and pretrain amortized proposal networks, but cannot calibrate human response probabilities, forgetting curves, cold outcomes, or repair effects; only real learner observations promote those quantities. Never merge the two tables or report their sample sizes as one training corpus.
+
+**Synthetic self-report and placement personas are adversarial fixtures, never calibration (Aug 31).** Generate planted personas that are truthful, uncertain, overconfident, underconfident, acquiescent to leading options, reconstructive after seeing the system's hypothesis, terse, or strategically help-seeking; use them to verify that the clarification route, stopping rules, and placement policy stay safe under misspecified reports and that `none/unsure` is respected. Their frequencies cannot calibrate human honesty, introspective access, or the effect of reflection — LLM "students" are systematically too coherent, verbose, and confident, and overestimate learner success ([arXiv:2602.01015](https://arxiv.org/abs/2602.01015)).
+
 **Amendment (fork review): the controlled-confound benchmark.** W3's flaw injection is exactly the machinery to build the Deep-Value-Benchmark analogue: plant mechanisms *correlated* with surface features in the training/eval distribution (branch-loss errors mostly in complex-number notation, method-selection errors mostly in word problems), then break the correlation at test — same surface different mechanism, same mechanism new surface, same answer signature different repair. The metric is **MechanismGeneralizationRate**: P(correct repair | surface correlation broken). This is the strongest available answer to the question next-response AUC never asks — did the system learn the mechanism or the surface cue — and it becomes the standing acceptance gate for A's recurrence detector and H's trained artifacts.
 
 **Research-sweep adoptions (Aug 24, cited):**
@@ -261,7 +376,7 @@ The surviving ensemble **is** `C_δ(b)` feeding `shared_optimal_action` and robu
 
 ### F. Route-comparator completion (small engineering delta)
 
-**What.** Most of synthesis-doc step 1 shipped (live EVSI ranking, propensity logging, decision receipts, shadow-parity gates). Remaining: (1) stamp the belief state `b_t` into `causal_probe_decision_receipts` alongside the already-logged candidates and propensities — the last sliver of the TSDR replay-conditioning discipline; (2) make the four-route race `{repair now / ask existing / construct / defer}` explicitly costed, now estimable because A turns "does a discriminator exist?" into a retrieval query and instrument-family telemetry prices construction; (3) make every route receipt outcome-contract complete: predicted `R_next`, predicted `R_cold`, predicted diagnostic-question count, chosen route and propensity, then realized `R_next`, matured `R_cold`, `Q`, confirmed `F`, provisional/final status, and the evidence ids supporting any false-remediation confirmation. Constructive route = inverse design in decision space: "generate an item where h_i and h_j produce divergent traces," mal-procedure-executed before any learner sees it.
+**What.** Most of synthesis-doc step 1 shipped (live EVSI ranking, propensity logging, decision receipts, shadow-parity gates). Remaining: (1) stamp the belief state `b_t` into `causal_probe_decision_receipts` alongside the already-logged candidates and propensities — the last sliver of the TSDR replay-conditioning discipline; (2) make the five-route race `{repair now / performance probe / learner clarification / construct / defer-or-continue}` explicitly costed — A turns "does a discriminator exist?" into a retrieval query, instrument-family telemetry prices construction, B's calibration ledger prices clarification, and defer-or-continue includes strategic silence, letting the attempt continue, or waiting for a scheduled cold observation; (3) make every route receipt outcome-contract complete: predicted `R_next`, predicted `R_cold`, predicted `Q` and `B`, chosen route/subtype and propensity, then realized `R_next`, matured `R_cold`, realized `Q` and `B`, confirmed `F`, provisional/final status, and the evidence ids supporting any false-remediation confirmation. Constructive route = inverse design in decision space: "generate an item where h_i and h_j produce divergent traces," mal-procedure-executed before any learner sees it.
 
 The stamped `b_t` is a versioned decision snapshot, not a free-form profile: include `as_of_event_id`, state hash, schema/algorithm/model versions, support and missingness, likelihood-authority tiers, active repair-equivalence classes, candidate routes, and the source event ids needed to replay the choice. The later outcome join never rewrites the decision-time snapshot.
 
@@ -271,9 +386,41 @@ The stamped `b_t` is a versioned decision snapshot, not a free-form profile: inc
 2. Lock the hypothesis set for the episode and retain `h_other`.
 3. Cluster hypotheses by repair equivalence before asking anything.
 4. If all plausible hypotheses share a safe repair, repair immediately.
-5. Otherwise construct probes specifically for repair-distinct pairs/classes.
-6. Reject any probe that is invalid, familiar/isomorphic, non-discriminating under mal-procedure execution, reveal-contaminated, ungradable, or too wording/grader sensitive (low ASNR).
-7. Ask only if an admissible observation can plausibly flip the selected repair; otherwise repair, construct a better instrument, or defer.
+5. Otherwise compare a performance probe, a learner clarification, construction, and defer-or-continue under their distinct likelihoods, burdens, and write effects.
+6. Reject any performance instrument that is invalid, familiar/isomorphic, non-discriminating under mal-procedure execution, reveal-contaminated, ungradable, or too wording/grader sensitive (low ASNR).
+7. Reject any clarification instrument that is leading without declared cause, lacks `none/unsure/skip`, exposes more of the diagnosis than its value warrants, or has no action-flipping report under the calibrated self-report channel.
+8. Ask only if an admissible observation can plausibly flip the selected repair; otherwise repair, spend machine compute constructing a better instrument, allow productive continuation, or defer.
+
+**Learner clarification as a first-class instrument (Aug 31).** At n=1 with a self-directed adult, a well-formed recognition or process question is often far cheaper than another generated performance item — but introspection is not demonstrated competence, and different claims carry different authority:
+
+| Claim class | Example | Authority and use |
+|---|---|---|
+| Goal / preference / accessibility | "I need proof fluency for an exam"; "geometric intuition first" | User-authoritative for planning and presentation; never ability evidence |
+| Private process report | "I guessed"; "I looked back at the theorem"; "I used the eigenvalue route" | Strong context about an otherwise unobservable action, discounted for retrospective reconstruction; updates reveal/strategy state |
+| Hypothesis recognition | "Yes — I treated sufficient as necessary" | Calibrated diagnostic observation; value depends on wording, alternatives, and the learner's recognition-calibration history |
+| Mastery / confidence judgment | "I know compactness"; "80% sure" | Weak prior plus metacognitive signal; never certification |
+
+Elicitation ladder: prefer an open localization prompt ("What part felt uncertain?") when it plausibly yields enough signal; otherwise a short neutral recognition set with randomized order and explicit `another issue` / `not sure` / `skip` options — skipping is never negative evidence; a binary confirmation of the system's favored hypothesis only when its lower burden clearly outweighs its acquiescence and priming risk, with the favored answer never visually privileged. Persist the exact prompt, options, order, response latency, and whether feedback preceded it — they are part of the observation model, per invariant 12.
+
+Reflection writes. Being asked "Were you assuming the converse?" can itself repair (or destabilize) the misconception, so the channel needs the joint kernel `K_{q_sr}(h', s | h)`, not just `P(s|h)`. When self-repair through reflection is the *intended* effect — the shipped eliciting-operators lane — that benefit belongs in the action's `gain(u)`; `C_write` prices unintended contamination only, so a deliberately therapeutic clarification is not charged for its own purpose.
+
+Clarification value uses the same decision target as every instrument:
+
+\[
+\operatorname{EVSI}_{\mathrm{clarify}}(q)
+=
+\mathcal R_{\mathrm{repair}}(b_t)
+-
+\mathbb E_s\!\left[\mathcal R_{\mathrm{repair}}(b_{t,q,s})\right]
+-
+C_{\mathrm{attention}}(q)
+-
+C_{\mathrm{write}}(q).
+\]
+
+Serve it only when a plausible report can change the safe repair or displace a more burdensome probe. A report may collapse repair-equivalence ambiguity; it cannot finalize mastery or cold repair. [MetaCLASS](https://arxiv.org/abs/2602.02457) is the standing warning: tested LLMs selected *no intervention* in ~4% of cases where it was the planned action in ~42% — clarification and restraint need explicit policy and benchmarks, not tutor helpfulness.
+
+**Unified `InstrumentCriticV1` — telemetry first, distillation second (Aug 31).** One critic framework with intent-specific heads, not parallel critics per product surface — and its value heads are the prospective half of A's `EmissionValueModelV1`, sharing that model's encoder, rank-distillation labels, and firewalls: it ranks diagnostic probes, learner clarifications, placement items, repair checks, practice items, transfer checks, and cold-audit candidates (the earlier `ProbeCriticV1`/`RepairCriticV1` are heads of this model, and J consumes the same critic for its lifecycle). From day one, persist every generated candidate with its source-grounding check, verifier result, mal-procedure separability, ASNR, wording/grader perturbation stability, familiarity/isomorphism status, burden estimate, and eventual decision flip — the free training-data flywheel. Only once that corpus exists and *measured* proposer LLM spend justifies amortization, train the cheap ranker: frontier LLM generates broadly → embedding/context retrieval → learned critic ranks → deterministic/source verifier checks the top few → F or J decides. Content-facing heads (answerability, grounding, operation preservation, structural novelty, isomorphism risk, separability, leakage, grader stability, goal/exam coverage) train at scale on `SyntheticSourceVerified` contrast sets; an expected-human-learning-gain head stays shadow-only until real next/cold outcomes exist. Intents need different difficulty objectives — placement wants decision separation, practice wants high-value challenge at the jagged boundary, repair checks isolate the repaired mechanism, cold audits maximize independent new-surface evidence — so "closest to 50% correct" is never a universal rule. The critic never certifies correctness or picks a route; it amortizes expensive proposal search.
 
 BED-LLM and related active-question systems validate LLM proposal plus information-gain scoring, but raw hypothesis entropy is the wrong live target: a question can identify the cause more precisely without changing the intervention. Define **decision-EVSI** over repair regret \(\mathcal R\):
 
@@ -291,19 +438,21 @@ C_{\text{write}}(q),
 
 where \(C_{\text{write}}\) prices retrieval practice, clues leaked by wording, induced strategy changes, familiarity/reveal contamination, and other contemporaneous state mutation. Evaluate the expectation with the joint \(K_q(h',o\mid h)\) and the recorded likelihood-authority tier; use robust/worst-case or lower-confidence value over \(\mathcal C_\delta(b)\) when likelihoods are incomplete. Stop on repair equivalence, non-positive robust decision-EVSI, an EVPI bound, no action-flipping observation, or learner-burden cap.
 
-All four routes use one action object:
+All five routes and J's scheduled actions use one action object:
 
 \[
 u=
 \bigl(
+\operatorname{intent}(u),
 \operatorname{req}(u),
 \operatorname{gain}(u),
 K_u(h',o\mid h),
-c(u)
+c(u),
+\operatorname{window}(u)
 \bigr),
 \]
 
-so constructive CG-Plan steps, probes, hints, repairs, practice, and audits differ by declared capability requirements/gains, read/write effects, and learner burden rather than by separate ad hoc policy machinery.
+so placement items, performance probes, learner clarifications, constructive CG-Plan steps, hints, repairs, practice, and audits differ by declared intent, capability requirements/gains, read/write effects, learner burden, and serving window rather than by separate ad hoc policy machinery.
 
 **Minimal repair and natural counterfactual contract.** A minimal repair is not the nearest explanation in embedding space. It is the smallest feasible causal intervention that covers the minimal unsatisfied prerequisite/mechanism cut, is acceptable across `C_δ(b)`, stays below `τ_F`, maximizes delayed cold success, and minimizes learner burden among outcome-equivalent actions. A natural counterfactual probe/repair keeps topic, difficulty, register, and irrelevant surface factors approximately fixed; intervenes on one suspected mechanism, representation, or prerequisite; stays inside the authored item contract; has a verified solution; and makes competing mal-procedures produce predictably divergent traces. This is causal backtracking/constrained recourse, not Euclidean nearest-neighbor generation ([Natural Counterfactuals, NeurIPS 2024](https://proceedings.neurips.cc/paper_files/paper/2024/file/1b10264c77a2a1e0ef8abfbd68d36583-Paper-Conference.pdf); [BRACE, ICML 2025](https://proceedings.mlr.press/v267/fatemi25a.html)).
 
@@ -325,7 +474,13 @@ Every repair receives a fresh immediate check, a new-surface near-transfer check
 
 **Learner justification.** Repairs *personalize*: the system learns that this learner's applicability-condition errors respond to counterexamples but not worked examples, and starts choosing accordingly — at provably bounded regret, because it only ever experiments among actions already certified near-optimal. And plateaus stop feeling like grinding: when more-of-the-same practice stalls, the learner gets a structural change — a new representation, a targeted prerequisite hop, a differently-shaped probe — instead of the local minimum served indefinitely.
 
-### H. Deferred trained artifacts (explicitly gated)
+### H. Deferred trained artifacts + source adaptation (explicitly gated)
+
+**Priority split (Aug 31).** The content-facing critics in A/C/F are not governed here — their labels are independently verified and they may train early. This section governs learner-facing temporal/response models, source adapters, trace-representation fine-tunes, and action-effect models: the artifacts most exposed to population/domain shift.
+
+**External KT data is pretraining, not production truth.** FoundationalASSIST, Eedi, and EdNet may initialize sequence encoders, exact-response heads, confidence calibration, and generic time-gap features. They establish nothing about absolute difficulty, forgetting, misconception prevalence, response-time meaning, or pedagogical effects for learners studying proofs, arXiv papers, or code. The frontier LLM + canonical contract + explicit ledger is the zero-shot baseline; a public-data temporal model contributes only through B0.5's bounded, support-gated, shadow-only residual.
+
+**Source-adapter contract (trimmed to `a_D^content`).** Preserve a frozen global backbone; train only small source-scoped support encoders, FiLM/LoRA input-output adapters, or calibration heads on canonical-source self-supervision (`SyntheticSourceVerified` labels). Three speeds: zero-gradient support-set conditioning at ingestion; 1–10 gradient steps on a tiny adapter after enough verified examples; slow offline consolidation only after leave-one-source-out regression testing. Report 0/1/4/16/64-shot adaptation curves for any adapter that ships. **Deferred**: the behavioral channel `a_D^behavior` (requires real target-source learner events that the n=1 arithmetic says do not exist at useful volume) and the GEN-1.5-style meta-training-for-adaptability program (its required domain-diversity pretraining corpus does not exist publicly; school-math KT data cannot teach adaptation to arbitrary technical sources). Learner-side fast adaptation uses Bayesian low-rank personalization (an `r_u`-style vector with exact conjugate/ridge updates over the frozen backbone), never per-learner SGD — same few-shot phenomenology, but reversible, replayable, and uncertainty-carrying. The shared backbone is never continually fine-tuned online from one learner or one source; no gradient ever originates from an LLM-authored hypothesis label (self-confirming-loop firewall); every adapter is versioned, held-out-anchor tested, and rollbackable.
 
 NTKT-style LoRA response prior (FoundationalASSIST + Eedi, math vaults only) and the trace-encoder fine-tune. Gate: D's Eedi benchmark shows off-the-shelf retrieval materially below ceiling, **and** E's controlled planted-example corpus provides in-domain labels with an evaluation target independent of the pseudo-labeler (future behavior, never label recovery). Posterior trajectory samples are excluded. Until both gates hold, the fork is low-ROI: canonicalization already delivers most of the invariance a contrastive fine-tune would learn, and pseudo-label training without independent evaluation is circular.
 
@@ -348,32 +503,70 @@ Also permanently out (unchanged verdicts): population KT models in the loop (PLK
 
 **Learner justification.** Minimal backtracking lives or dies on edge quality: a wrongly authored hard-prerequisite edge forces the learner back through material they know, and a missed conjunctive edge sends them into tasks that fail confusingly. Soft priors mean no authored arrow ever outranks the learner's own demonstrated evidence; the synergy test means "you need A *and* B together" is claimed only when the data can actually support it; PAG marks mean the system says "something unmodeled is going on" instead of forcing a wrong diagnosis through a closed graph.
 
+### J. Active measurement lifecycle — placement, practice, cold audits, attention budget (added Aug 31)
+
+**Why a separate layer.** B estimates `p_available` and `p_cold(Δ)`, F decides whether one more observation changes the immediate repair, and A can mint fresh contrastive items — but nothing yet decides *where a new learner starts*, *which productive item comes next*, or *when an independent cold observation should happen*. J is a deterministic, goal-conditioned horizon controller and candidate generator: it proposes `(item, timing, intent)` and hands the proposal to F's comparator, reusing F's action objects and safety gates. It is not another router and never becomes a learned policy without the same promotion gates as everything else.
+
+**Cold-start placement = decision-efficient frontier localization, not a miniature exam.** For a new source: elicit the goal and intended performance context; offer quick-start versus thorough placement; import consented cross-vault priors; use self-report to pick the likely starting region; then serve one or two broad high-discrimination anchors over goal-relevant prerequisite cuts before moving to local repair- or route-changing boundaries. Score candidates by
+
+\[
+V_{\mathrm{place}}(q;b,g)
+=
+\mathcal R_g(b)
+-
+\mathbb E_o\!\left[\mathcal R_g(b_{q,o})\right]
++
+\lambda_L\,\mathbb E[\Delta S_g\mid q]
+-
+C_{\mathrm{attention}}(q)
+-
+C_{\mathrm{write}}(q),
+\]
+
+where `R_g` is regret over the next feasible learning *plan*, not entropy over every latent concept — a placement item earns its place by potentially changing whether the system advances, revisits a prerequisite, switches representation, repairs, or defers. Open-ended placement responses are compiled for first divergence, strategy, and partial capability rather than collapsed to correctness. The learner can accept, revise, or skip the proposed starting region without that choice becoming ability evidence. Stop when the next plan is decision-stable, the burden budget binds, or no candidate has positive robust value — `K` is an evaluation index, never a quota.
+
+**`K_useful` — the headline onboarding metric.** Defined in D; evaluated offline by retrospectively masking mature vault histories to their first `K` events and comparing the resulting policy with the mature-history policy — both scored primarily against *later independent fresh/cold outcomes*, never merely agreement with the mature model's posterior. J0 ships the deterministic coarse-to-fine flow; the scored `V_place` version is J1.
+
+**Audit scheduling makes timing part of the action.** Day-one baseline, no learned policy required: schedule a cold audit before the first time a goal-relevant region's *lower confidence bound* on cold availability crosses its required threshold. Each audit carries an explicit intent — retention, repair verification, transfer, frontier exploration, or goal/exam assurance — because intents need different item forms and timing. The J1 scoring is two-stage, per invariant 14: first the admissible set (feasible, fresh, source-grounded, expected useful-or-non-harmful, within budget), ranked by learner value `E[ΔS_g]` net of `C_attention`, `C_write`, `C_interference`, `C_opportunity`; then, *within a declared near-tie band only*, `EVSI_D` and transfer-coverage break ties — information value never lifts an audit above a strictly more useful one, and no quiz is ever served solely because its label is statistically convenient. Inputs: predicted cold failure before the learner's actual deadline, uncertainty, `Uncertainty × ActionSensitivity`, prerequisite centrality, pending repair verification, representation coverage, isomorph/reveal risk, learner availability, interruption cost. An audit retrieves and therefore strengthens memory: store the pre-audit prediction and post-audit state separately (`b⁻`/`b⁺`), per the step-0 contract. Missed, snoozed, or not-yet-due audits stay censored; the UI explains audit intent in learner language, prefers natural task boundaries, and permits snooze/reschedule without penalty. Timing randomization only among pedagogically safe near-equivalent windows, propensities logged. A 2026 mixed-effects half-life-regression study supports contextual hazard baselines ([PMLR 339](https://proceedings.mlr.press/v339/ilidio26a.html)) — license for an interpretable contextual model, not evidence that Duolingo decay parameters transfer to technical study.
+
+**`AttentionBudgetV1` and strategic restraint.** Track diagnostics, clarifications, forced reflections, audits, and interruptions per session and day, conditioned on stated preference, task stakes, and *reported* fatigue or frustration — never affect inferred from silence. `defer-or-continue` includes letting the learner finish, serving nothing, and waiting for scheduled cold evidence. [MetaCLASS](https://arxiv.org/abs/2602.02457) documents severe over-intervention in tested LLM tutors; restraint is benchmarked (D's no-intervention precision), not assumed.
+
+**Receipts.** `MeasurementScheduleReceiptV1`: intent, goal/deadline, candidate and contrast-set ids, proposed/actual window, predicted `p_cold(Δ)` with interval, decision sensitivity, expected learner value and information value, predicted and realized `Q`/`B`, freshness/reveal checks, policy and propensity, cancellation/reschedule reason, actual delay, response, matured outcome. Joins the immutable ledger; never rewrites the scheduling-time snapshot.
+
+**Learner justification.** A new vault opens with a few responsive, goal-relevant items instead of a generic quiz; declared preferences and consented priors cut redundant placement; practice feels varied because structural duplicates are rejected; review arrives when predicted decay actually threatens a goal, in a window the learner can move; and sometimes the system deliberately leaves the learner alone. Every scarce cold label is collected where it helps the learner first and the model second.
+
 **Research-maturity rule.** The 2026 preprints in this plan are directional design evidence pending replication, not equivalent to accepted NeurIPS/ICML/JMLR results. No preprint-only claim can promote a state-writing or learner-facing policy without the same D/E/product acceptance gates as every other artifact.
 
 ---
 
 ## Sequencing
 
-Construction order and authority-promotion order are intentionally different: receipt columns and shadow sensors can land early, but no probabilistic field, trajectory ensemble, or learned selector receives learner-facing authority until its explicit-record baseline and product gates pass.
+Construction order and authority-promotion order are intentionally different: receipt columns and shadow sensors can land early, but no probabilistic field, trajectory ensemble, or learned selector receives learner-facing authority until its explicit-record baseline and product gates pass. The Aug 31 reprioritization is deliberate: clarification, emission compilation, placement, and audit timing — small engineering with clear labels and immediate learner-visible value — move ahead of graph smoothing, particle belief, the full ACE cascade, and the bandit.
 
 | Order | Item | Depends on | Scale |
 |---|---|---|---|
-| 0 | **Event/outcome contract + F receipt envelope** (`R_next`, `R_cold`, `Q`, `F`, provisional/final state, decision-time `b_t` hash/version/support fields) | — | smallest irreversible decision; instrument first |
-| 1 | **A** trace memory (write path + shadow recurrence first) | outcome/cost record fields from 0 | the foundation; start immediately |
-| 1′ | **D** ConceptKT + Eedi benchmarks | — | weekend-scale each; parallel with A |
-| 2 | **B0** `RouterStateV1` + no-smoothing deterministic `LearnerStateCardV1`; F decision-snapshot persistence | A, receipt schema from 0 | small, replayable state contract first |
-| 3 | **F** executable-hypothesis / repair-equivalence pipeline + four-route comparator + provisional/final outcome joins | B0, A (retrieval costing) | mostly shipped; complete receipts and construction route |
-| 4 | **C** arm A pooling + decision-EVSI likelihood authority | A, D verdicts, F contract | medium; the causal-lane unlock |
-| 5 | **E1** W3 enforcement + controlled-confound simulator suite | spec exists; A helps | large; ground-truth regression harness first |
-| 5′ | **I** hypergraph edge authority + elicitation hygiene | pairs with existing authoring; stress tests need E1 | small-medium; soft-prior semantics can start early |
-| 6 | **E2** particle/trajectory belief in shadow | E1, C calibration where available | large; model-relative ambiguity only |
-| 7 | **B1** graph-kernel learner-field smoothing in shadow | B0 baseline, A, E2 uncertainty checks | only if no-smoothing baseline leaves a measured gap |
-| 8 | **G** equipoise bandit + jump trigger | C, E evaluations, cold-outcome accrual; B0 sufficient initially | last learner-facing learned layer |
-| 9 | **H** trained trace/response/alignment artifacts | D + E gates pass; independent future-behavior target | deferred |
-| † | APIET diagnosis-ablation A/B | B (tutor lane stable) | run once E's harness can host it |
+| 0 | **Event/outcome contract + typed-contract envelope** (`ItemContractV1`, `ObservedResponseV1`, `LearnerEmissionPacketV1`, self-report prompt/response fields, `R_next`, censored delay-indexed `R_Δ`, `R_cold`, `Q`, `B`, `F`, pre/post-action `z⁻`/`z⁺` fields, provisional/final state, decision-time and scheduling-time `b_t` snapshots) | — | smallest irreversible decision; preserve all signal first |
+| 0′ | **`CrossVaultPriorStoreV1` shell** — declared preferences/accessibility/register only; inspect/edit/reset/disable UI; inferred priors stay off | — | tiny; immediate UX value |
+| 1 | **A** trace memory (write path + shadow recurrence) + `ContrastSetV1` factory | outcome/cost record fields from 0 | the foundation; start immediately |
+| 1′ | **D0** ConceptKT + Eedi + flip-rate audits; scaffold the Transfer Suite and the `K_useful` harness | — | weekend-scale each; measurement before model enthusiasm |
+| 2 | **B0** `RouterStateV1` + no-smoothing `LearnerStateCardV1` + emission compiler + B0-era disagreement/surprise sensors; F decision-snapshot persistence | A, receipt schema from 0 | small, replayable state contract first |
+| 2′ | **F0 learner-clarification route** + self-report calibration ledger + explicit defer-or-continue | B0, C tier semantics | highest expected `Q` reduction per unit engineering |
+| 2″ | **J0 placement + audit-scheduler baselines** (coarse-to-fine flow; LCB-crossing rule) + `AttentionBudgetV1` + schedule receipts | B0, A, outcome ledger | immediate consumer of goals, freshness, `p_cold`; no learned policy |
+| 3 | **Content-facing critic telemetry, then critics in shadow** (`EmissionValueModelV1` = `DecisionContextSelectorV1` + `InstrumentCriticV1` value heads on one encoder; source reranker; isomorph/freshness; grader-risk) | typed contracts, canonical verification, D0 harness, contrast sets | high ROI; waits on no cold human labels |
+| 4 | **F** full five-route executable-hypothesis comparator + provisional/final outcome joins | B0, A, F0 | mostly shipped; complete receipts and construction route |
+| 5 | **C** arm A pooling + self-report channel + fusion calibrator + reliability head + decision-EVSI likelihood authority | A, D0 verdicts, F contract | medium; the causal-lane unlock |
+| 6 | **E1** W3 enforcement + controlled-confound suite + split synthetic schemas + adversarial report/placement personas | spec exists; A helps | large; ground-truth regression harness first |
+| 6′ | **I** hypergraph edge authority + elicitation hygiene | pairs with existing authoring; stress tests need E1 | small-medium; soft-prior semantics can start early |
+| 7 | **B0.5** bounded temporal model race in shadow (LLM+ledger → GRU → contextual GRU → SSM → optional cascade) | B0, typed contracts, D transfer gate; public data as pretraining only | medium; shadow-only, no authority |
+| 8 | **Cross-vault inferred priors in shadow** — confidence/report calibration first; forgetting/scaffold last; leave-one-vault-out gate per family | ≥3 mature vaults, `K_useful` harness | promote trait-by-trait, never one profile vector |
+| 9 | **E2** particle/trajectory belief in shadow | E1, C calibration; B0.5 may propose but never weight its own particles | large; deferred behind the simpler measurement wins |
+| 10 | **B1/J1 promotion decision** among no smoothing / graph-kernel smoothing / temporal residual / learned schedule + item-gain heads / calibrated disagreement envelope | B0 and J0 baselines, D verdicts, E2 uncertainty checks | only a measured product-level gain earns authority |
+| 11 | **G** equipoise bandit + jump trigger | C, E evaluations, cold-outcome accrual; B0 sufficient initially | last learner-facing learned layer |
+| 12 | **H** `a_D^content` adapters, response/trace fine-tunes, shared–private alignment, later action-effect models | D + E gates pass; independent future-behavior target | deferred |
+| † | APIET diagnosis-ablation A/B | tutor/placement/audit lanes stable | the central product-value test |
 
-The through-line, stated once: **the outcome/cost contract says what improvement means; authored/reviewed `G` owns feasible topology; episodic memory (A) makes the stateless backbone longitudinal without becoming evidence; the explicit state projections and later field (B) make learner-specific `b_t` legible without becoming one mutable profile; calibration (C) makes decision-EVSI arithmetic only when its authority tier permits; benchmarks (D) keep diagnosis honest; the ensemble (E) makes sparse ambiguity explicit without turning simulation into evidence; the comparator (F) prices building against asking and stops at repair equivalence; the bandit (G) personalizes repair only inside proven-safe slack. Every layer must either raise finalized `S` or reduce diagnostic questions `Q` without crossing the false-remediation ceiling, so the learner spends reclaimed minutes at the frontier.**
+The through-line, stated once: **the outcome/cost contract says what improvement means; the frontier backbone plus canonical source supplies transferable semantics; immutable typed events preserve what the learner did *and said*, with reported, observed, and inferred kept distinct; the cross-vault store carries only consented, uncertain, scoped priors; authored/reviewed `G` owns feasible topology; episodic memory (A) retrieves decision-relevant history and mints verified contrast sets without creating evidence; the learner field and its projections (B) turn every emission into scoped, replayable state without one mutable profile; calibration (C) owns fusion across performance and self-report channels and never double-counts shared events; source-held-out benchmarks (D) keep diagnosis, transfer, onboarding speed, and restraint honest; the ensemble and planted suite (E) stress-test without turning personas into humans; the comparator (F) spends the cheapest action-flipping instrument — including asking the learner about themselves — and stops at repair equivalence; the lifecycle (J) chooses placement, practice, and audit timing with learner benefit ahead of label value, inside an attention budget that treats silence as an action; the bandit (G) personalizes only inside proven-safe slack. Machine computation is abundant — generate, retrieve, rank, simulate, verify broadly; learner attention and uncontaminated cold evidence are the scarce resources the whole stack optimizes. Every learned contribution shrinks to the LLM+ledger baseline off support, and every promoted layer must raise finalized `S` or reduce `Q`/`B` without crossing the false-remediation ceiling, so the learner spends reclaimed minutes at the frontier.**
 
 ---
 
-*Related: [[Diagnostic Pipeline Synthesis]] · [[Capability Gated Planning, Cost to Goal Discovery]] · [[Learner Field and Directional Models Augmentation]] · [[Agent dialogue]] · [[Agent dialogue on modeling incorrect student thinking]] · [[Agent dialogue on EduEmbed]] · [[Knowledge Tracing]] · [[Datasets]] · spec_causal_learner_model.md (W0–W4)*
+*Related: [[Diagnostic Pipeline Synthesis]] · [[Capability Gated Planning, Cost to Goal Discovery]] · [[Learner Field and Directional Models Augmentation]] · [[Agent dialogue]] · [[Agent dialogue on modeling incorrect student thinking]] · [[Agent dialogue on EduEmbed]] · [[Agent dialogue on ACE-KT and domain transfer]] · [[Knowledge Tracing]] · [[Datasets]] · spec_causal_learner_model.md (W0–W4)*
