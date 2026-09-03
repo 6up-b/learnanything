@@ -77,6 +77,19 @@ def test_openrouter_task_profile_values_round_trip(tmp_path):
     assert "max_tokens" not in path.read_text(encoding="utf-8").split(f"[ai.providers.{name}]", 1)[1].split("[", 1)[0]
 
 
+def test_openrouter_task_profile_values_prefers_explicit_modalities(tmp_path):
+    path = _config_path(tmp_path)
+    base = load_config(path).ai.providers["openrouter"]
+    base.input_modalities = ["audio", "pdf"]
+
+    values = openrouter_task_profile_values(base, "text-only/model", input_modalities=[])
+    assert values["input_modalities"] == []
+    values = openrouter_task_profile_values(base, "vision/model", input_modalities=["image", "pdf"])
+    assert values["input_modalities"] == ["image", "pdf"]
+    # None keeps the legacy copy from the base profile.
+    assert openrouter_task_profile_values(base, "x/y")["input_modalities"] == ["audio", "pdf"]
+
+
 def test_apply_config_updates_is_atomic_on_parse_failure(tmp_path):
     path = tmp_path / "learnloop.toml"
     path.write_text("[ai\nbroken", encoding="utf-8")

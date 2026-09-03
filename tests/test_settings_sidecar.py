@@ -414,3 +414,239 @@ def test_update_ai_settings_materializes_openrouter_video_profile(tmp_path, monk
     assert config.ai.providers["openrouter_video"].type == "openrouter"
     assert config.animation.renderer == "video_model"
     assert config.animation.video_max_shots == 3
+
+
+# ---------------------------------------------------------------------------
+# Native media ingestion: per-modality readiness, capability detection
+# ---------------------------------------------------------------------------
+
+_CATALOG_PAYLOAD = {
+    "data": [
+        {
+            "id": "google/gemini-2.5-pro",
+            "architecture": {"input_modalities": ["text", "image", "file", "audio"]},
+        },
+        {"id": "text-only/model", "architecture": {"input_modalities": ["text"]}},
+    ]
+}
+
+
+def _seed_catalog(monkeypatch, payload=_CATALOG_PAYLOAD, *, fail=False):
+    from learnloop.ai.providers import openrouter_catalog as catalog
+
+    def fake_fetch(timeout):
+        if fail:
+            raise OSError("offline")
+        return payload
+
+    monkeypatch.setattr(catalog, "_fetch_models_payload", fake_fetch)
+    return catalog
+
+
+def _route_ingest_to_openrouter(vault_root, model="google/gemini-2.5-pro", modalities=None):
+    from learnloop.ops.settings_store import apply_config_updates
+
+    updates = {
+        ("ai", "routing", "canonical_ingest"): "openrouter",
+        ("ai", "providers", "openrouter", "model"): model,
+    }
+    if modalities is not None:
+        updates[("ai", "providers", "openrouter", "input_modalities")] = list(modalities)
+    apply_config_updates(vault_root / "learnloop.toml", updates)
+
+
+def test_get_settings_reports_native_modality_readiness(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    settings = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]
+
+    ingest = settings["ingest"]
+    assert ingest["pdfEngine"] == "auto"
+    assert ingest["audioMode"] == "transcription"
+    assert ingest["nativeMultimodal"] is False
+    native = ingest["native"]
+    assert [entry["modality"] for entry in native["modalities"]] == ["pdf", "audio"]
+    # A Codex-routed ingest route cannot take media natively; the UI gets the reason.
+    for entry in native["modalities"]:
+        assert entry["requested"] is False
+        assert entry["ready"] is False
+        assert entry["reason"] == "provider_not_chat"
+        assert entry["providerName"] == "codex_medium"
+    assert native["fallbackWhenUnavailable"] is False
+    assert native["maxPdfMb"] == 32 and native["maxAudioMb"] == 20
+    assert native["knownModalities"] == ["audio", "pdf", "image", "video"]
+    assert native["catalog"]["cached"] is False
+    by_name = {provider["name"]: provider for provider in settings["ai"]["providers"]}
+    assert by_name["openrouter"]["inputModalities"] == []
+
+
+def test_update_ingest_settings_sets_per_modality_authorities(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        (
+            "update_ingest_settings",
+            {
+                "pdfEngine": "native",
+                "audioMode": "native",
+                "nativeFallbackWhenUnavailable": True,
+                "nativeMaxPdfMb": 10,
+            },
+        ),
+        ("update_ingest_settings", {"nativeMaxAudioMb": 0}),
+    )
+    result = responses[0]["result"]
+    assert result["ingest"]["pdfEngine"] == "native"
+    assert result["ingest"]["audioMode"] == "native"
+    assert result["ingest"]["nativeMultimodal"] is True
+    assert result["ingest"]["native"]["fallbackWhenUnavailable"] is True
+    assert result["ingest"]["native"]["maxPdfMb"] == 10
+    pdf_state = next(e for e in result["ingest"]["native"]["modalities"] if e["modality"] == "pdf")
+    assert pdf_state["requested"] is True and pdf_state["ready"] is False
+    assert responses[1]["error"]["data"]["code"] == "invalid_native_limit"
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ingest.pdf.engine == "native"
+    assert config.ingest.audio.mode == "native"
+    assert config.ingest.native.fallback_when_unavailable is True
+    assert config.ingest.native.max_pdf_mb == 10
+    assert config.ingest.native.max_audio_mb == 20
+
+
+def test_update_ingest_settings_native_adopts_cached_catalog_modalities(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    _route_ingest_to_openrouter(vault_root)
+    catalog = _seed_catalog(monkeypatch)
+    catalog.load_catalog()  # populate the on-disk cache
+    _seed_catalog(monkeypatch, fail=True)  # the save path must stay cache-only
+
+    result = _settings_rpc(vault_root, ("update_ingest_settings", {"pdfEngine": "native"}))[0]["result"]
+
+    pdf_state = next(e for e in result["ingest"]["native"]["modalities"] if e["modality"] == "pdf")
+    assert pdf_state["ready"] is True
+    assert pdf_state["providerName"] == "openrouter"
+    assert pdf_state["model"] == "google/gemini-2.5-pro"
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ai.providers["openrouter"].input_modalities == ["audio", "pdf", "image"]
+
+
+def test_detect_provider_capabilities_network_cache_and_unavailable(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    _route_ingest_to_openrouter(vault_root)
+    _seed_catalog(monkeypatch)
+
+    first = _settings_rpc(vault_root, ("detect_provider_capabilities", {"provider": "openrouter"}))[0]["result"]
+    assert first["source"] == "network"
+    assert first["modelKnown"] is True
+    assert first["detected"] == ["audio", "pdf", "image"]
+    assert first["declared"] == []
+    assert "accepts audio, pdf, image" in first["message"]
+    # Detection proposes; nothing is written until the learner applies it.
+    assert load_config(vault_root / "learnloop.toml").ai.providers["openrouter"].input_modalities == []
+
+    _seed_catalog(monkeypatch, fail=True)
+    responses = _settings_rpc(
+        vault_root,
+        ("detect_provider_capabilities", {"provider": "openrouter", "refresh": True}),
+        ("detect_provider_capabilities", {"provider": "codex"}),
+        ("detect_provider_capabilities", {"provider": "ghost"}),
+    )
+    cached = responses[0]["result"]
+    assert cached["source"] == "cache" and cached["stale"] is True
+    assert cached["detected"] == ["audio", "pdf", "image"]
+    assert responses[1]["error"]["data"]["code"] == "unsupported_provider_type"
+    assert responses[2]["error"]["data"]["code"] == "invalid_provider"
+
+
+def test_detect_provider_capabilities_without_any_catalog_is_a_result(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    _seed_catalog(monkeypatch, fail=True)
+
+    result = _settings_rpc(vault_root, ("detect_provider_capabilities", {"provider": "openrouter"}))[0]["result"]
+    assert result["source"] == "unavailable"
+    assert result["detected"] is None and result["modelKnown"] is False
+    assert "catalog" in result["message"]
+
+
+def test_update_provider_modalities_validates_and_persists(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    _route_ingest_to_openrouter(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        ("update_provider_modalities", {"provider": "openrouter", "inputModalities": ["pdf", "bogus"]}),
+        ("update_provider_modalities", {"provider": "codex", "inputModalities": ["pdf"]}),
+        ("update_provider_modalities", {"provider": "openrouter", "inputModalities": ["Pdf", "audio", "pdf"]}),
+        ("update_ingest_settings", {"pdfEngine": "native"}),
+    )
+    assert responses[0]["error"]["data"]["code"] == "invalid_modality"
+    assert responses[1]["error"]["data"]["code"] == "unsupported_provider_type"
+    applied = responses[2]["result"]
+    by_name = {provider["name"]: provider for provider in applied["ai"]["providers"]}
+    assert by_name["openrouter"]["inputModalities"] == ["audio", "pdf"]
+    assert load_config(vault_root / "learnloop.toml").ai.providers["openrouter"].input_modalities == ["audio", "pdf"]
+    pdf_state = next(e for e in responses[3]["result"]["ingest"]["native"]["modalities"] if e["modality"] == "pdf")
+    assert pdf_state["ready"] is True
+
+
+def test_update_ai_settings_openrouter_ingest_profile_uses_cached_catalog(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    catalog = _seed_catalog(monkeypatch)
+    catalog.load_catalog()
+
+    _settings_rpc(
+        vault_root,
+        (
+            "update_ai_settings",
+            {"useCases": {"ingest": {"provider": "openrouter", "openrouterModel": "text-only/model"}}},
+        ),
+    )
+
+    profile = load_config(vault_root / "learnloop.toml").ai.providers["openrouter_ingest"]
+    assert profile.model == "text-only/model"
+    # The base profile's declaration is not copied onto a model the catalog knows takes text only.
+    assert profile.input_modalities == []
+
+
+def test_start_import_batch_fails_fast_for_native_pdf_conflicts(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.delenv("LEARNLOOP_AI_PROVIDER", raising=False)
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    pdf_path = tmp_path / "chapter.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4 fake")
+
+    responses = _settings_rpc(
+        vault_root,
+        ("start_import_batch", {"sources": [str(pdf_path)], "pdfEngine": "native"}),
+        (
+            "start_import_batch",
+            {"sources": [str(pdf_path)], "pdfEngine": "native", "pageStart": 1, "pageEnd": 3},
+        ),
+        ("start_ingest", {"source": str(pdf_path), "subjectId": "linear-algebra", "pdfEngine": "native"}),
+    )
+    unready = responses[0]["error"]["data"]
+    assert unready["code"] == "native_pdf_unavailable"
+    assert unready["details"]["reason"] == "provider_not_chat"
+    assert responses[1]["error"]["data"]["code"] == "invalid_page_range"
+    assert responses[2]["error"]["data"]["code"] == "native_pdf_unavailable"

@@ -51,6 +51,9 @@ import type {
   UpdateAiSettingsInput,
   UpdateIngestSettingsInput,
   UpdateAnimationSettingsInput,
+  DetectProviderCapabilitiesInput,
+  ProviderCapabilitiesDto,
+  UpdateProviderModalitiesInput,
   InspectorEntity,
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
@@ -658,6 +661,10 @@ export const api = {
     call<OpenrouterKeyResult>("set_openrouter_api_key", { apiKey }),
   updateIngestSettings: (input: UpdateIngestSettingsInput) =>
     call<SettingsDto>("update_ingest_settings", { input }),
+  detectProviderCapabilities: (input: DetectProviderCapabilitiesInput) =>
+    call<ProviderCapabilitiesDto>("detect_provider_capabilities", { input }),
+  updateProviderModalities: (input: UpdateProviderModalitiesInput) =>
+    call<SettingsDto>("update_provider_modalities", { input }),
   setTranscriptionApiKey: (apiKey: string) =>
     call<TranscriptionKeyResult>("set_transcription_api_key", { apiKey }),
   updateAnimationSettings: (input: UpdateAnimationSettingsInput) =>
