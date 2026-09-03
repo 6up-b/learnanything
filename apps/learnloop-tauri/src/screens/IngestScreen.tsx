@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type { AcquisitionPreviewItem, CommandError, IngestBatchDto, IngestJobDto, IngestJobPhase, IngestMode, PdfEngine, SourceLibraryCard, StartingLevel } from "../api/dto";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Pill, SectionHeader, TermSelect, type PillColor } from "../components/term";
 import { STARTING_LEVELS } from "../components/StudyMapBriefWizard";
@@ -112,38 +114,28 @@ function LearnerLevelChip() {
   const [level, setLevel] = useState<StartingLevel | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [profileError, setProfileError] = useState<string | null>(null);
-  const [profileLoadRevision, setProfileLoadRevision] = useState(0);
-
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Cached with the other settings-tagged reads; setLearnerProfile invalidates it.
+  const profileQuery = useCachedQuery(["get_learner_profile"], () => api.getLearnerProfile(), {
+    tags: [TAG.settings]
+  });
   useEffect(() => {
-    let alive = true;
-    api
-      .getLearnerProfile()
-      .then((profile) => {
-        if (alive) {
-          setLevel(profile.startingLevel);
-          setProfileError(null);
-        }
-      })
-      .catch((error) => {
-        if (alive) setProfileError(errorMessage(error, "Could not load your learner level."));
-      });
-    return () => {
-      alive = false;
-    };
-  }, [profileLoadRevision]);
+    if (profileQuery.data) setLevel(profileQuery.data.startingLevel);
+  }, [profileQuery.data]);
+  const profileError =
+    saveError ?? (profileQuery.error ? errorMessage(profileQuery.error, "Could not load your learner level.") : null);
 
   const pick = async (next: StartingLevel) => {
     if (saving) return;
     setSaving(true);
-    setProfileError(null);
+    setSaveError(null);
     try {
       const profile = await api.setLearnerProfile({ startingLevel: next });
       setLevel(profile.startingLevel);
       setOpen(false);
     } catch (error) {
       // Keep the last confirmed value and make the failed write explicit.
-      setProfileError(errorMessage(error, "Could not save your learner level."));
+      setSaveError(errorMessage(error, "Could not save your learner level."));
     } finally {
       setSaving(false);
     }
@@ -203,7 +195,7 @@ function LearnerLevelChip() {
       {profileError ? (
         <button
           type="button"
-          onClick={() => setProfileLoadRevision((value) => value + 1)}
+          onClick={() => void profileQuery.refetch().catch(() => undefined)}
           title={profileError}
           style={{
             border: 0,
@@ -564,8 +556,15 @@ function IngestHome({
 }) {
   const [source, setSource] = useState("");
   const [mode, setMode] = useState<Mode>("canonical");
-  const [subjects, setSubjects] = useState<string[]>([]);
+  // Subjects come from the cached application snapshot (a cheap in-memory
+  // read on the sidecar); add-subject invalidates it and refreshSubjects
+  // forces it after creating one.
+  const vaultQuery = useCachedQuery(["load_vault"], () => api.loadVault(), { tags: [TAG.vault] });
+  const subjects: string[] = useMemo(() => vaultQuery.data?.vault?.subjects ?? [], [vaultQuery.data]);
   const [subject, setSubject] = useState<string | null>(null);
+  useEffect(() => {
+    setSubject((current) => (current && subjects.includes(current) ? current : null));
+  }, [subjects]);
   const [creatingSubject, setCreatingSubject] = useState(false);
   const [job, setJob] = useState<IngestJobDto | null>(null);
   const [initialBatch, setInitialBatch] = useState<IngestBatchDto | null>(null);
@@ -625,20 +624,14 @@ function IngestHome({
       ? "imports land in the vault-global source library — no subject needed. A subject chosen here just pre-tags the import batch; sources are bound to subjects later, at outline & build-plan time."
       : "exam seeding replays outcomes into one subject's mastery state, so a subject is required.";
 
+  const refreshVault = vaultQuery.refetch;
   const refreshSubjects = useCallback(async () => {
     try {
-      const snapshot = await api.loadVault();
-      const list = snapshot.vault?.subjects ?? [];
-      setSubjects(list);
-      setSubject((current) => (current && list.includes(current) ? current : null));
+      await refreshVault();
     } catch {
       // vault not loaded yet — the shell surfaces that state
     }
-  }, []);
-
-  useEffect(() => {
-    void refreshSubjects();
-  }, [refreshSubjects]);
+  }, [refreshVault]);
 
   useEffect(() => {
     runningRef.current = running || importing;

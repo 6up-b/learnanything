@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   CoverageRollupDto,
   ProposalBatchDto,
@@ -137,14 +139,20 @@ export function LibraryScreen({
   onNoteSelected?: (noteId: string | null) => void;
   onInspect: (entityId: string) => void;
 }) {
-  const [snapshot, setSnapshot] = useState<VaultTreeSnapshot | null>(null);
-  const [proposals, setProposals] = useState<ProposalsSnapshot | null>(null);
-  const [sourceSets, setSourceSets] = useState<SourceSetSummaryDto[] | null>(null);
+  // The tree, the proposals, and the source-set list are cached: returning to
+  // Library repaints them immediately and revalidates in the background.
+  // Per-set coverage rollups stay lazy (CoverageSection) so a long library
+  // does not fan out N heavy coverage calls on mount.
+  const treeQuery = useCachedQuery(["get_vault_tree"], () => api.getVaultTree(), { tags: [TAG.library] });
+  const snapshot: VaultTreeSnapshot | null = treeQuery.data ?? null;
+  const proposalsQuery = useCachedQuery(["get_proposals"], () => api.getProposals(), { tags: [TAG.proposals] });
+  const proposals: ProposalsSnapshot | null = proposalsQuery.data ?? null;
+  const sourceSetsQuery = useCachedQuery(["list_source_sets"], () => api.listSourceSets(), { tags: [TAG.sources] });
+  const sourceSets: SourceSetSummaryDto[] | null = sourceSetsQuery.data?.sourceSets ?? null;
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [proposalsOpen, setProposalsOpen] = useState(true);
   const [selected, setSelected] = useState<Selection>(null);
   const [content, setContent] = useState<VaultFileContent | null>(null);
-  const [loadingFile, setLoadingFile] = useState(false);
 
   // Edit state. `editing` only gates the raw editor for non-markdown text files;
   // markdown opens straight into the live editor and `draft` always tracks it.
@@ -159,54 +167,28 @@ export function LibraryScreen({
   // Read-only source-provenance popover for the selected entity file.
   const [provenanceOpen, setProvenanceOpen] = useState(false);
 
-  const loadTree = () =>
-    api.getVaultTree().then((tree) => {
-      setSnapshot(tree);
-      return tree;
-    });
-
+  // Collapse deep directories once per mount (the first tree seen), pick a
+  // first file when nothing is selected, and leave the learner's expansion
+  // alone when a background revalidation delivers a changed tree.
+  const seenTreeRef = useRef<VaultTreeSnapshot | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    loadTree()
-      .then((tree) => {
-        if (cancelled) return;
-        const deep = dirPaths(tree.tree).filter((path) => path.includes("/"));
-        setCollapsed(new Set(deep));
-        setSelected((current) => current ?? (firstFilePath(tree.tree) ? { kind: "file", path: firstFilePath(tree.tree)! } : null));
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    api
-      .getProposals()
-      .then((next) => {
-        if (!cancelled) setProposals(next);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    // Source-set *list* is a light call; per-set coverage rollups are fetched
-    // lazily when a set is expanded (see CoverageSection) so a long library
-    // doesn't fan out N heavy coverage calls on mount.
-    api
-      .listSourceSets()
-      .then((next) => {
-        if (!cancelled) setSourceSets(next.sourceSets);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onError]);
+    if (!snapshot || seenTreeRef.current === snapshot) return;
+    const firstTree = seenTreeRef.current === null;
+    seenTreeRef.current = snapshot;
+    if (firstTree) {
+      const deep = dirPaths(snapshot.tree).filter((path) => path.includes("/"));
+      setCollapsed(new Set(deep));
+    }
+    setSelected((current) => current ?? (firstFilePath(snapshot.tree) ? { kind: "file", path: firstFilePath(snapshot.tree)! } : null));
+  }, [snapshot]);
+
+  const loadError = treeQuery.error ?? proposalsQuery.error ?? sourceSetsQuery.error;
+  useEffect(() => {
+    if (loadError) onError(loadError.message);
+  }, [loadError, onError]);
 
   const reloadProposals = () => {
-    api
-      .getProposals()
-      .then(setProposals)
-      .catch((error) => onError((error as Error).message));
+    proposalsQuery.refetch().catch((error) => onError((error as Error).message));
   };
 
   // Honor a handoff from the feedback source panel: select that vault file.
@@ -228,36 +210,40 @@ export function LibraryScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus, proposals]);
 
-  // Load file content for file selections (drops out of edit mode each time).
+  // File bodies are cached per path: re-selecting a file, or returning to
+  // Library, shows it at once; a save invalidates the tag and the fresh body
+  // arrives in the background.
+  const cachedFilePath = selected?.kind === "file" ? selected.path : null;
+  const fileQuery = useCachedQuery(
+    cachedFilePath ? ["read_vault_file", cachedFilePath] : null,
+    () => api.readVaultFile(cachedFilePath as string),
+    { tags: [TAG.library] }
+  );
+  const loadingFile = fileQuery.loading;
+
+  // Every selection change drops out of edit mode and resets the editor.
   useEffect(() => {
     setEditing(false);
     setProvenanceOpen(false);
-    if (!selected || selected.kind !== "file") {
-      setContent(null);
-      setDraft("");
-      return;
-    }
-    let cancelled = false;
     setContent(null);
     setDraft("");
-    setLoadingFile(true);
-    api
-      .readVaultFile(selected.path)
-      .then((file) => {
-        if (cancelled) return;
-        setContent(file);
-        setDraft(file.body ?? "");
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingFile(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, onError]);
+  }, [selected]);
+
+  // Mirror the cached body into the editor. A revalidation (watcher, save,
+  // ingest) must never clobber unsaved text, so the draft is only replaced
+  // while it still matches the body it was seeded from.
+  const draftUntouchedRef = useRef(true);
+  draftUntouchedRef.current = !editing && (content === null || draft === (content.body ?? ""));
+  useEffect(() => {
+    const file = fileQuery.data;
+    if (!file || !cachedFilePath) return;
+    setContent(file);
+    if (draftUntouchedRef.current) setDraft(file.body ?? "");
+  }, [fileQuery.data, cachedFilePath]);
+
+  useEffect(() => {
+    if (fileQuery.error) onError(fileQuery.error.message);
+  }, [fileQuery.error, onError]);
 
   // Seed the payload editor when a proposal selection changes.
   const focusedProposal = useMemo(
@@ -315,8 +301,8 @@ export function LibraryScreen({
     if (!focusedProposal || saving) return;
     setSaving(true);
     try {
+      // The wrapper seeds get_proposals with the returned snapshot.
       const next = await api.editProposalItem(focusedProposal.batch.id, focusedProposal.item.id, draft);
-      setProposals(next);
       const refreshed = findProposal(next, focusedProposal.batch.id, focusedProposal.item.id);
       if (refreshed) setDraft(refreshed.item.payloadJson);
     } catch (error) {
@@ -330,7 +316,7 @@ export function LibraryScreen({
     if (!focusedProposal || saving) return;
     setSaving(true);
     try {
-      setProposals(await api.rejectProposalItems(focusedProposal.batch.id, [focusedProposal.item.id]));
+      await api.rejectProposalItems(focusedProposal.batch.id, [focusedProposal.item.id]);
     } catch (error) {
       onError((error as Error).message);
     } finally {
@@ -342,8 +328,7 @@ export function LibraryScreen({
     if (!focusedProposal || saving) return;
     setSaving(true);
     try {
-      const next = await api.deleteProposalItem(focusedProposal.batch.id, focusedProposal.item.id);
-      setProposals(next);
+      await api.deleteProposalItem(focusedProposal.batch.id, focusedProposal.item.id);
       setSelected(null);
     } catch (error) {
       onError((error as Error).message);
@@ -360,7 +345,7 @@ export function LibraryScreen({
     }
     try {
       const created = await api.createVaultFile(path);
-      await loadTree();
+      await treeQuery.refetch();
       setNewPath(null);
       setSelected({ kind: "file", path: created.path });
     } catch (error) {

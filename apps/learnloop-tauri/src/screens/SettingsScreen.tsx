@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   AnimationRenderer,
   IngestBudgetField,
@@ -137,7 +139,14 @@ export function SettingsScreen({
   onToast,
   onError
 }: SettingsScreenProps) {
-  const [settings, setSettings] = useState<SettingsDto | null>(null);
+  // Settings are cached (a minute of freshness): reopening the overlay paints
+  // at once. Mutation wrappers seed this key with the payload they return and
+  // invalidate the settings tag, so the overlay never holds its own copy.
+  const settingsQuery = useCachedQuery(["get_settings"], () => api.getSettings(), {
+    tags: [TAG.settings],
+    staleAfterMs: 60_000
+  });
+  const settings: SettingsDto | null = settingsQuery.data ?? null;
   const [drafts, setDrafts] = useState<Record<string, UseCaseDraft>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState("");
@@ -155,17 +164,15 @@ export function SettingsScreen({
   const [maxOutputDraft, setMaxOutputDraft] = useState<number | null>(null);
   const [palette, setPalette] = useState(() => localStorage.getItem(PALETTE_STORAGE_KEY) ?? "");
 
+  // The returned payload is already in the cache (seeded by the wrapper);
+  // only the runtime-health side channel needs forwarding.
   const acceptSettings = useCallback((next: SettingsDto) => {
-    setSettings(next);
     if (next.health) onHealthChanged(next.health);
   }, [onHealthChanged]);
 
   useEffect(() => {
-    api
-      .getSettings()
-      .then(setSettings)
-      .catch((error) => onError((error as Error).message));
-  }, [onError]);
+    if (settingsQuery.error) onError(settingsQuery.error.message);
+  }, [settingsQuery.error, onError]);
 
   const providerByName = useMemo(() => {
     const map = new Map<string, { model: string | null }>();
@@ -227,19 +234,9 @@ export function SettingsScreen({
   const saveKey = async (value: string) => {
     setBusy("apikey");
     try {
+      // The wrapper invalidates the settings tag; the key row refreshes
+      // from the sidecar rather than from a local patch.
       const result = await api.setOpenrouterApiKey(value);
-      setSettings((current) =>
-        current
-          ? {
-              ...current,
-              openrouter: {
-                keyPresent: result.keyPresent,
-                keyHint: result.keyHint,
-                settingsEnvPath: result.settingsEnvPath
-              }
-            }
-          : current
-      );
       setKeyDraft("");
       onToast(
         value
@@ -590,18 +587,7 @@ export function SettingsScreen({
               setBusy("transcription-key");
               api
                 .setTranscriptionApiKey(transcriptionKeyDraft.trim())
-                .then((result) => {
-                  setSettings((current) =>
-                    current
-                      ? {
-                          ...current,
-                          ingest: {
-                            ...current.ingest,
-                            transcriptionKey: { keyPresent: result.keyPresent, keyHint: result.keyHint }
-                          }
-                        }
-                      : current
-                  );
+                .then(() => {
                   setTranscriptionKeyDraft("");
                   onToast("transcription key saved");
                 })

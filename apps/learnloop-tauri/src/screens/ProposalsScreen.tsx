@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   ProposalBatchDto,
   ProposalItemDto,
@@ -578,34 +580,30 @@ export function ProposalsScreen({
   focusPatchId?: string | null;
   onFocusConsumed?: () => void;
 }) {
-  const [snapshot, setSnapshot] = useState<ProposalsSnapshot | null>(null);
+  // Proposals come from the query cache. Every proposal mutation wrapper
+  // seeds this key with the snapshot the sidecar returns, so the screen
+  // re-renders from the mutation result without a second round trip, and a
+  // return to this tab repaints the last snapshot immediately.
+  const proposalsQuery = useCachedQuery(["get_proposals"], () => api.getProposals(), { tags: [TAG.proposals] });
+  const snapshot: ProposalsSnapshot | null = proposalsQuery.data ?? null;
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const applySnapshot = useCallback((next: ProposalsSnapshot) => {
-    setSnapshot(next);
+  // Keep the focused item valid whenever the snapshot changes (first load,
+  // background revalidation, or a seeded mutation result).
+  useEffect(() => {
+    if (!snapshot) return;
     setFocusedItemId((current) => {
-      const all = next.batches.flatMap((batch) => batch.items.map((item) => item.id));
+      const all = snapshot.batches.flatMap((batch) => batch.items.map((item) => item.id));
       if (current && all.includes(current)) return current;
       return all[0] ?? null;
     });
-  }, []);
+  }, [snapshot]);
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .getProposals()
-      .then((next) => {
-        if (!cancelled) applySnapshot(next);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [applySnapshot, onError]);
+    if (proposalsQuery.error) onError(proposalsQuery.error.message);
+  }, [proposalsQuery.error, onError]);
 
   useEffect(() => {
     if (!snapshot || !focusPatchId) return;
@@ -664,7 +662,8 @@ export function ProposalsScreen({
       if (busy) return;
       setBusy(true);
       try {
-        applySnapshot(await action());
+        // The wrapper seeds get_proposals with the returned snapshot.
+        await action();
         notifyQueueChanged();
       } catch (error) {
         onError((error as Error).message);
@@ -672,7 +671,7 @@ export function ProposalsScreen({
         setBusy(false);
       }
     },
-    [busy, applySnapshot, onError]
+    [busy, onError]
   );
 
   const accept = useCallback(() => {
