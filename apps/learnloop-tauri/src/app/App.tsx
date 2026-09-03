@@ -36,6 +36,7 @@ import type { TriageResultDto } from "../api/dto";
 import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
+import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { errorMessage } from "../errors";
 
@@ -212,6 +213,9 @@ export function App() {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     listen<VaultFilesChangedEvent>("learnloop://vault-files-changed", ({ payload }) => {
+      // Files changed on disk: every cached read may be stale. Data is kept so
+      // mounted screens repaint from it while they revalidate.
+      if (payload.refresh.mode !== "noop") invalidateAllQueries();
       notifyQueueChanged();
       if (payload.refresh.error) {
         onError(`Vault refresh failed: ${payload.refresh.error.message}`);
@@ -643,6 +647,9 @@ export function App() {
       try {
         await api.selectVault(path);
         selected = true;
+        // Cached reads belong to the previous vault; drop them before any
+        // screen can read through the cache for the new one.
+        clearQueryCache();
         // From this point onward every command targets the new vault. Do not
         // leave the previous vault's snapshot or overlays interactive while the
         // replacement snapshot is loading (or if that second read fails).
