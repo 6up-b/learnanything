@@ -103,7 +103,10 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "settings_env_path": str(global_settings_path()),
         },
         "ingest": {
-            "native_multimodal": config.ingest.native.enabled,
+            # Transitional: true when either modality is routed natively.
+            "native_multimodal": (
+                config.ingest.audio.mode == "native" or config.ingest.pdf.engine == "native"
+            ),
             "transcription_provider": config.ingest.audio.provider,
             "transcription_model": config.ingest.audio.transcription_model,
             "transcription_base_url": config.ingest.audio.transcription_base_url,
@@ -293,7 +296,14 @@ def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsPara
     vault, _repository = ctx.require_vault()
     updates: dict[tuple[str, ...], Any] = {}
     if params.native_multimodal is not None:
-        updates[("ingest", "native", "enabled")] = params.native_multimodal
+        # Transitional shim over the per-modality authorities: on routes both
+        # PDF and audio natively; off restores local PDF extraction only when
+        # native was the selected engine (an explicit marker/pypdf choice stays).
+        updates[("ingest", "audio", "mode")] = "native" if params.native_multimodal else "transcription"
+        if params.native_multimodal:
+            updates[("ingest", "pdf", "engine")] = "native"
+        elif vault.config.ingest.pdf.engine == "native":
+            updates[("ingest", "pdf", "engine")] = "auto"
     provider: str | None = None
     if params.transcription_provider is not None:
         provider = params.transcription_provider.strip().lower()

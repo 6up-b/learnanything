@@ -170,6 +170,22 @@ def normalize_config_input(data: Any) -> Any:
             budgets = dict(budgets)
             budgets.pop("evidence_span_input_tokens", None)
             ingest["budgets"] = budgets
+        # Retired [ingest.native] gates. The master `enabled` plus the audio
+        # flag become `[ingest.audio] mode = "native"` (canonical key wins);
+        # the `pdf` flag is dropped because `[ingest.pdf] engine` is the only
+        # PDF authority.
+        native = ingest.get("native")
+        if isinstance(native, dict):
+            native = dict(native)
+            legacy_enabled = bool(native.pop("enabled", False))
+            legacy_audio = bool(native.pop("audio", True))
+            native.pop("pdf", None)
+            ingest["native"] = native
+            audio = ingest.get("audio")
+            audio = dict(audio) if isinstance(audio, dict) else {}
+            if "mode" not in audio and legacy_enabled and legacy_audio:
+                audio["mode"] = "native"
+            ingest["audio"] = audio
         normalized["ingest"] = ingest
 
     impacts = normalized.get("error_impacts")

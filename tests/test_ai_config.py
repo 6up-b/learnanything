@@ -61,11 +61,11 @@ def test_default_config_contains_audio_and_native_ingest(tmp_path):
         assert audio.language == ""
         assert audio.timeout_seconds == 600
         assert audio.max_file_mb == 25
+        assert audio.mode == "transcription"
         native = config.ingest.native
-        assert native.enabled is False
-        assert native.audio is True
-        assert native.pdf is True
         assert native.max_audio_mb == 20
+        assert native.max_pdf_mb == 32
+        assert native.fallback_when_unavailable is False
         assert config.ingest.pdf.engine == "auto"
         assert config.ai.providers["openrouter"].input_modalities == []
 

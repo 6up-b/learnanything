@@ -742,10 +742,7 @@ video_generation = ""
 
 [ingest]
 [ingest.pdf]
-engine = "auto" # auto | marker | pypdf | native
-
-[ingest.native]
-enabled = false
+engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
 
 [animation]
 enabled = true
@@ -758,7 +755,7 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    "mvp-0.9": "dda61c344785078bcc8b84ccb2cd330ad0a36cc43a4da2d237630cec02308504",
+    "mvp-0.9": "599957ca9d35ccee7ab2ace857906d5bbc8d38aac09ee8b5b6b2b8a724f2a506",
 }
 
 
