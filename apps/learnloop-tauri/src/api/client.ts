@@ -616,7 +616,7 @@ export const api = {
       }
     })),
   scheduleCertificationColdProbes: (learningObjectId?: string | null) =>
-    mutating([TAG.queue], call<{ version: number; schedule: Record<string, unknown> }>(
+    mutating([TAG.queue, TAG.goals, TAG.maintenance], call<{ version: number; schedule: Record<string, unknown> }>(
       "schedule_certification_cold_probes",
       { input: { learningObjectId: learningObjectId ?? null } },
     )),
@@ -631,7 +631,7 @@ export const api = {
       { input: { ...input, reviewer: input.reviewer ?? null, reason: input.reason ?? null } },
     )),
   applyIntegrationBackfill: () =>
-    mutating([TAG.maintenance], call<{
+    mutatingAll(call<{
       version: number;
       applied: Record<string, unknown>;
       integrationBackfill: MeasurementHealthDto["integrationBackfill"];
