@@ -34,6 +34,7 @@ from learnloop.ingest.extractors.pypdf import (
 )
 
 __all__ = [
+    "NativeEngineNotLocalError",
     "DocumentExtractor",
     "DatalabDocumentExtractor",
     "DatalabExtractionError",
@@ -54,6 +55,14 @@ __all__ = [
 ]
 
 
+class NativeEngineNotLocalError(ValueError):
+    """``engine = "native"`` reached the local extractor registry.
+
+    Native PDF ingestion is a chat-provider path owned by the durable pipeline
+    (``learnloop.content.pipeline.jobs``); the registry must never quietly
+    substitute marker or pypdf for it."""
+
+
 def pdf_extractor_for(config: dict | None = None) -> DocumentExtractor:
     """Select the PDF extractor (§2.9).
 
@@ -65,6 +74,11 @@ def pdf_extractor_for(config: dict | None = None) -> DocumentExtractor:
 
     settings = dict(config or {})
     engine = str(settings.pop("engine", "") or "auto")
+    if engine == "native":
+        raise NativeEngineNotLocalError(
+            'PDF engine "native" is not a local extractor; the import pipeline routes it to the '
+            "canonical_ingest chat provider"
+        )
     if engine == "pypdf":
         return PyPdfDocumentExtractor()
     provider = os.environ.get("LEARNLOOP_MARKER_PROVIDER", "local").strip().lower()

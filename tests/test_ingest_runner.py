@@ -1318,12 +1318,37 @@ def test_native_audio_route_transcribes_via_chat_provider(tmp_path, monkeypatch)
     assert parts[1]["input_audio"]["format"] == "mp3"
 
 
-def test_native_audio_disabled_or_modality_absent_uses_endpoint(tmp_path, monkeypatch):
+def test_native_audio_unready_fails_closed_by_default(tmp_path, monkeypatch):
+    from learnloop.content.pipeline.runner import FetchedBytes, IngestRunnerError
+    from learnloop.content.pipeline.jobs import default_extraction_identity
+
+    # mode = "native" but the routed profile does not declare audio: the
+    # explicit choice fails loudly (PDF and audio share these semantics).
+    vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+
+    assert excinfo.value.code == "native_audio_unavailable"
+    assert excinfo.value.retryable is False
+    assert excinfo.value.details["reason"] == "modality_not_declared"
+
+
+def test_native_audio_unready_falls_back_when_opted_in(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
     from learnloop.content.pipeline.runner import FetchedBytes
     from learnloop.content.pipeline.jobs import default_extraction_identity
 
-    # Modality not declared on the routed profile -> endpoint route.
     vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
+    apply_config_updates(
+        vault_root / "learnloop.toml", {("ingest", "native", "fallback_when_unavailable"): True}
+    )
     fetched = FetchedBytes(
         raw_bytes=b"\x00x",
         content_type="audio/mpeg",
@@ -1333,6 +1358,26 @@ def test_native_audio_disabled_or_modality_absent_uses_endpoint(tmp_path, monkey
 
     identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
     assert identity["extractor"] == "audio_transcript"
+    assert identity["config"]["native_fallback"] == "modality_not_declared"
+
+
+def test_audio_transcription_mode_uses_endpoint_without_native_route(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+    from learnloop.content.pipeline.runner import FetchedBytes
+    from learnloop.content.pipeline.jobs import default_extraction_identity
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
+    apply_config_updates(vault_root / "learnloop.toml", {("ingest", "audio", "mode"): "transcription"})
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mpeg",
+        original_uri="talk.mp3",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    assert identity["extractor"] == "audio_transcript"
+    assert "native_fallback" not in identity["config"]
 
 
 def test_native_audio_unsupported_container_falls_back_to_endpoint(tmp_path, monkeypatch):
@@ -1751,6 +1796,9 @@ def test_native_pdf_engine_rejects_page_selection(tmp_path, monkeypatch):
         default_extract(_pdf_fetched(tmp_path), "pdf", ctx)
 
     assert excinfo.value.code == "native_pdf_unavailable"
+    # A page range with the native engine is a configuration conflict, not a
+    # transient failure: the durable queue must not retry it forever.
+    assert excinfo.value.retryable is False
 
 
 def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch):
@@ -1758,7 +1806,8 @@ def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch)
     from learnloop.content.pipeline.jobs import default_extraction_identity
     from tests.openai_fakes import install_fake_openai
 
-    # pdf modality not declared -> engine "native" cannot run; fails closed.
+    # pdf modality not declared -> engine "native" cannot run; fails closed
+    # with the shared readiness reason and no retry.
     vault_root = _native_pdf_vault(tmp_path, monkeypatch, input_modalities=())
     install_fake_openai(monkeypatch)
 
@@ -1766,7 +1815,58 @@ def test_native_pdf_engine_without_capable_route_is_typed(tmp_path, monkeypatch)
         default_extraction_identity(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
 
     assert excinfo.value.code == "native_pdf_unavailable"
-    assert excinfo.value.retryable is True
+    assert excinfo.value.retryable is False
+    assert excinfo.value.details["reason"] == "modality_not_declared"
+    assert "input_modalities" in str(excinfo.value)
+
+
+def test_native_pdf_fallback_when_unavailable_uses_local_with_health_flag(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+    from learnloop.content.pipeline.jobs import default_extract, default_extraction_identity
+    from learnloop.content.pipeline.runner import FetchedBytes
+    from tests.openai_fakes import install_fake_openai
+    from tests.test_source_ingestion_adapters import _make_pdf_bytes
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch, input_modalities=())
+    apply_config_updates(
+        vault_root / "learnloop.toml", {("ingest", "native", "fallback_when_unavailable"): True}
+    )
+    install_fake_openai(monkeypatch)
+    fetched = FetchedBytes(
+        raw_bytes=_make_pdf_bytes(["Native fallback text."]),
+        content_type="application/pdf",
+        original_uri=str(tmp_path / "chapter.pdf"),
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "pdf", _extract_ctx(vault_root))
+    ir = default_extract(fetched, "pdf", _extract_ctx(vault_root))
+
+    # Lock-step: identity and extraction both took the local road, and both
+    # record why native did not run.
+    assert identity["extractor"] != "pdf_native"
+    assert identity["config"]["native_fallback"] == "modality_not_declared"
+    assert ir.extractor != "pdf_native"
+    assert "native_pdf_fallback_local" in ir.health.flags
+    assert "Native fallback text" in " ".join(block.text for block in ir.blocks)
+
+
+def test_native_pdf_rejects_oversized_file(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+    from learnloop.content.pipeline.jobs import default_extract
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch)
+    apply_config_updates(vault_root / "learnloop.toml", {("ingest", "native", "max_pdf_mb"): 0})
+    fake = install_fake_openai(monkeypatch, "# never")
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(_pdf_fetched(tmp_path), "pdf", _extract_ctx(vault_root))
+
+    assert excinfo.value.code == "pdf_too_large"
+    assert excinfo.value.retryable is False
+    assert fake.instances == []  # rejected before any upload
 
 
 def test_append_synthesis_forwards_budget_overrides(tmp_path, monkeypatch):

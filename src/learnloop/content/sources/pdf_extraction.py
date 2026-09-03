@@ -70,6 +70,15 @@ def extract_pdf_markdown(
 
 
 def _resolve_engine(config: PdfIngestConfig) -> str:
+    if config.engine == "native":
+        # The chat-provider path lives in the durable import pipeline only;
+        # this one-shot extractor has no model client, so degrading to a
+        # local engine here would silently ignore an explicit choice.
+        raise PdfExtractionError(
+            'ingest.pdf.engine = "native" sends the PDF to the routed chat model and is only '
+            "supported by the durable import pipeline (learnloop import / the desktop app); "
+            'use "auto", "marker", or "pypdf" for this command'
+        )
     if config.engine == "pypdf":
         return "pypdf"
     marker_available = importlib.util.find_spec("marker") is not None
