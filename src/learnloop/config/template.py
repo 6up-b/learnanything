@@ -501,6 +501,7 @@ poll_interval_seconds = 1.0
 # model follows [ai.routing] animation.
 [animation]
 enabled = true
+renderer = "manim"
 quality = "qm"
 timeout_seconds = 600
 min_duration_seconds = 30
@@ -737,6 +738,7 @@ teach_back = "codex_low"
 rung_variant = "codex_low"
 animation = "codex_medium"
 transcription = ""
+video_generation = ""
 
 [ingest]
 [ingest.pdf]
@@ -747,6 +749,7 @@ enabled = false
 
 [animation]
 enabled = true
+renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
 
 # All other policy uses modeled defaults. Inspect it with:
 #   learnloop config effective
@@ -755,7 +758,7 @@ enabled = true
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    "mvp-0.9": "c0a82e5cb446b19030c2edd9243990aeeafd5ea5a73fa0d9d404eae53102653e",
+    "mvp-0.9": "dda61c344785078bcc8b84ccb2cd330ad0a36cc43a4da2d237630cec02308504",
 }
 
 

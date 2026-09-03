@@ -890,6 +890,30 @@ def default_animation_client(ctx: JobContext) -> Any:
     return _routed_task_client(ctx, "animation")
 
 
+def default_video_client(ctx: JobContext) -> Any:
+    """Resolve [ai.routing] video_generation to an OpenRouter video client.
+
+    The route is read directly (not through provider_for_task): a
+    LEARNLOOP_AI_PROVIDER override names a chat provider and must never
+    redirect billable video jobs."""
+
+    from learnloop.ai.client import make_video_generation_client
+    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop.vault.loader import load_vault
+
+    config = load_vault(ctx.vault_root).config
+    route = (config.ai.routing.video_generation or "").strip()
+    if not route:
+        raise IngestRunnerError(
+            "no video model is routed: choose one in Settings → Animation ([ai.routing] video_generation)",
+            code="video_provider_unavailable",
+        )
+    try:
+        return make_video_generation_client(config, ctx.vault_root, provider_name=route)
+    except AIProviderUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="video_provider_unavailable") from exc
+
+
 def default_rung_variant_client(ctx: JobContext) -> Any:
     """Resolve the rung_variant route (default: the fast low-effort profile).
 
@@ -2307,8 +2331,29 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
     animation_id = str(ctx.payload.get("animation_id") or "")
     if not animation_id:
         raise IngestRunnerError("concept_animation job requires an 'animation_id'.")
-    ctx.report("generation", message="Authoring the explainer scene")
-    client = ctx.services.animation_client(ctx)
+    row = ctx.repo.concept_animation(animation_id)
+    use_video_model = bool(row) and (row.get("renderer") or "manim") == "video_model"
+    video_client = None
+    try:
+        client = ctx.services.animation_client(ctx)
+        if use_video_model:
+            video_client = ctx.services.video_client(ctx)
+    except IngestRunnerError as exc:
+        # A provider that cannot be built used to leave the row wedged in
+        # "queued"; mark it failed so the inspector shows why.
+        if row is not None and row.get("status") in ("queued", "generating"):
+            ctx.repo.update_concept_animation(
+                animation_id,
+                status="failed",
+                failure_stage="video_model" if use_video_model else "generation",
+                failure_reason=str(exc)[:2000],
+                clock=ctx.clock,
+            )
+        raise
+    ctx.report(
+        "generation",
+        message="Writing the video storyboard" if use_video_model else "Authoring the explainer scene",
+    )
     try:
         row = generate_concept_animation(
             ctx.vault_root,
@@ -2316,9 +2361,22 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
             animation_id=animation_id,
             renderer=ctx.services.animation_renderer,
             clock=ctx.clock,
+            video_client=video_client,
+            report=lambda phase, message: ctx.report(phase, message=message),
         )
     except ConceptAnimationError as exc:
         raise IngestRunnerError(str(exc), code=exc.code) from exc
+    except JobCancelled:
+        # The learner cancelled while shots were generating: the service marked
+        # the row failed on its way out; record the honest terminal state.
+        ctx.repo.update_concept_animation(
+            animation_id,
+            status="cancelled",
+            failure_stage="video_model" if use_video_model else "render",
+            failure_reason="cancelled by the learner",
+            clock=ctx.clock,
+        )
+        raise
     # Compact job result: the status RPC serves the full row (code, stderr).
     return {
         "animation_id": row["id"],

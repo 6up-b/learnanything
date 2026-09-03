@@ -62,3 +62,34 @@ def test_remux_faststart_returns_input_when_pyav_missing(monkeypatch):
     raw = tiny_mp4()
     monkeypatch.setitem(sys.modules, "av", None)
     assert remux_faststart(raw) is raw
+
+
+def test_concat_clips_joins_in_order_as_one_faststart_stream():
+    from learnloop.content.authoring.animation_media import concat_clips
+
+    clips = [tiny_mp4(frames=12, fps=15), tiny_mp4(frames=6, fps=15), tiny_mp4(frames=12, fps=15)]
+
+    joined = concat_clips(clips, fps=30)
+
+    assert is_faststart(joined) is True
+    # 0.8 s + 0.4 s + 0.8 s of source timing, re-encoded at a uniform 30 fps.
+    assert probe_duration_seconds(joined) == pytest.approx(2.0, abs=0.15)
+    av = pytest.importorskip("av")
+    import io
+
+    with av.open(io.BytesIO(joined)) as container:
+        streams = [stream.type for stream in container.streams]
+        assert streams == ["video"]
+        video = container.streams.video[0]
+        assert (video.width, video.height) == (64, 48)
+
+
+def test_concat_single_clip_is_just_a_faststart_remux():
+    from learnloop.content.authoring.animation_media import concat_clips
+
+    raw = tiny_mp4()
+    single = concat_clips([raw])
+    assert is_faststart(single) is True
+    assert probe_duration_seconds(single) == pytest.approx(0.8, abs=0.05)
+    with pytest.raises(ValueError):
+        concat_clips([])

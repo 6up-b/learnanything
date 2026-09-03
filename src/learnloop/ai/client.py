@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypeAlias
+from typing import Any, TypeAlias
 
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.transport import OperationClient
@@ -55,3 +55,31 @@ def make_ai_provider_client_from_profile(
 
         return HttpAdapterProviderClient(provider_name, profile)
     raise AIProviderUnavailable(f"Unsupported AI provider type {profile.type!r} for {provider_name!r}")
+
+
+def make_video_generation_client(
+    config: LearnLoopConfig,
+    vault_root: Path,
+    *,
+    provider_name: str,
+    http: Any = None,
+) -> Any:
+    """Build the text-to-video client for an OpenRouter profile.
+
+    Video generation is not a chat completion: it reuses the OpenRouter profile
+    (key env, base URL, attribution headers) but talks to the async
+    ``/api/v1/videos`` job API. Only ``openrouter``-type profiles qualify; no
+    new profile type is introduced, so runtime readiness checks already cover
+    the key."""
+
+    del vault_root  # no local resources; kept for signature parity with the chat factory
+    profile = config.ai.providers.get(provider_name)
+    if profile is None:
+        raise AIProviderUnavailable(f"video provider {provider_name!r} is not configured")
+    if profile.type.lower() != "openrouter":
+        raise AIProviderUnavailable(
+            "video generation requires an OpenRouter profile; choose a video model in Settings → Animation"
+        )
+    from learnloop.ai.providers.openrouter_video import OpenRouterVideoClient
+
+    return OpenRouterVideoClient(provider_name, profile, http=http)

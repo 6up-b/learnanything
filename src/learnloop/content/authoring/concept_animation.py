@@ -23,6 +23,7 @@ consent copy.
 from __future__ import annotations
 
 import ast
+import json
 import logging
 import shutil
 import subprocess
@@ -30,20 +31,35 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from learnloop.ai.errors import AIProviderUnavailable, VideoGenerationFailed, VideoGenerationTimeout
+from learnloop.ai.providers.openrouter_video import (
+    VideoGenerationRequest,
+    clamp_duration,
+    clamp_resolution,
+)
 from learnloop.ai.transport import (
     STRUCTURED_COMPLETION,
+    VIDEO_GENERATION,
     StructuredTransport,
     execute_structured_operation,
 )
 from learnloop.content.authoring.ai_contracts import (
     CONCEPT_ANIMATION_SCENE_SCAFFOLD,
+    VIDEO_STORYBOARD_PROMPT_VERSION,
     ConceptAnimationContext,
     ManimAnimation,
+    VideoStoryboard,
+    VideoStoryboardContext,
     concept_animation_prompt,
+    video_storyboard_prompt,
 )
-from learnloop.content.authoring.animation_media import probe_duration_seconds, remux_faststart
+from learnloop.content.authoring.animation_media import (
+    concat_clips,
+    probe_duration_seconds,
+    remux_faststart,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +104,49 @@ def author_concept_animation(
         prompt=concept_animation_prompt(context),
         result_model=ManimAnimation,
     )
+
+
+def author_video_storyboard(
+    client: StructuredTransport, context: VideoStoryboardContext
+) -> VideoStoryboard:
+    """Author the shot list a text-to-video model will be briefed with."""
+
+    return execute_structured_operation(
+        client,
+        purpose="video_storyboard",
+        prompt=video_storyboard_prompt(context),
+        result_model=VideoStoryboard,
+    )
+
+
+def video_generation_readiness(config: Any, vault_root: Path) -> dict[str, Any]:
+    """Can ``[animation] renderer = "video_model"`` run? Config + key, no network.
+
+    The route is read directly rather than through provider_for_task: a
+    LEARNLOOP_AI_PROVIDER override names a chat provider and must never
+    redirect billable video jobs."""
+
+    from learnloop.ai.runtime import check_ai_runtime
+
+    route = (config.ai.routing.video_generation or "").strip()
+    profile = config.ai.providers.get(route) if route else None
+    model = profile.model if profile is not None else None
+
+    def unready(reason: str) -> dict[str, Any]:
+        return {"ready": False, "provider": route or None, "model": model, "reason": reason}
+
+    if not route:
+        return unready("no video model chosen (Settings → Animation)")
+    if profile is None:
+        return unready(f"video route {route!r} is not a configured provider")
+    if profile.type.lower() != "openrouter":
+        return unready(f"video route {route!r} must be an OpenRouter profile")
+    if not model or "/" not in model:
+        return unready('video model slug missing (an OpenRouter slug like "google/veo-3.1")')
+    report = check_ai_runtime(vault_root, config, provider_name=route)
+    if not report.ready:
+        return unready(report.message or f"video provider {route!r} is {report.status}")
+    return {"ready": True, "provider": route, "model": model, "reason": None}
 
 
 def validate_scene_code(code: str) -> tuple[str | None, list[str]]:
@@ -631,6 +690,11 @@ def request_concept_animation(
         )
     if concept_id not in vault.concepts:
         raise ConceptAnimationError("concept_not_found", f"Concept {concept_id!r} does not exist.")
+    if config.renderer == "video_model":
+        # Video jobs are billed on submission: refuse before a row exists.
+        video = video_generation_readiness(vault.config, vault.root)
+        if not video["ready"]:
+            raise ConceptAnimationError("video_model_unconfigured", video["reason"] or "video model not ready")
 
     pending = repository.pending_concept_animations(concept_id)
     live = [row for row in pending if not repository.concept_animation_batch_dead(row.get("batch_id"))]
@@ -654,12 +718,92 @@ def request_concept_animation(
             "concept_id": concept_id,
             "learning_object_id": learning_object_id,
             "status": "queued",
-            "prompt_version": CONCEPT_ANIMATION_PROMPT_VERSION,
+            "prompt_version": (
+                VIDEO_STORYBOARD_PROMPT_VERSION
+                if config.renderer == "video_model"
+                else CONCEPT_ANIMATION_PROMPT_VERSION
+            ),
             "quality": config.quality,
+            "renderer": config.renderer,
         },
         clock=clock,
     )
     return {"animation_id": animation_id, "concept_id": concept_id, "status": "queued"}
+
+
+def _learning_object_excerpts(
+    vault: Any, concept_id: str, learning_object_id: str | None, *, limit: int = 4
+) -> list[dict[str, str]]:
+    """Title + summary of a few learning objects — never raw source text."""
+
+    learning_objects: list[dict[str, str]] = []
+    for lo_id, lo in sorted(getattr(vault, "learning_objects", {}).items()):
+        if getattr(lo, "concept", None) != concept_id:
+            continue
+        if learning_object_id and lo_id != learning_object_id:
+            continue
+        learning_objects.append(
+            {"title": getattr(lo, "title", lo_id), "summary": getattr(lo, "summary", "") or ""}
+        )
+        if len(learning_objects) >= limit:
+            break
+    return learning_objects
+
+
+def build_video_storyboard_context(
+    vault: Any,
+    *,
+    concept_id: str,
+    learning_object_id: str | None,
+    constraints: Any = None,
+    video_model: str = "",
+    repair: dict | None = None,
+) -> VideoStoryboardContext:
+    """Prompt context for the storyboard: concept material plus the video
+    model's real duration constraints, so shots are asked for in lengths the
+    model can produce."""
+
+    concept = vault.concepts[concept_id]
+    config = vault.config.animation
+    durations = sorted(int(v) for v in getattr(constraints, "supported_durations", ()) or ())
+    max_shots = max(1, int(config.video_max_shots))
+    return VideoStoryboardContext(
+        concept_id=concept_id,
+        concept_title=getattr(concept, "title", concept_id),
+        concept_description=getattr(concept, "description", "") or "",
+        learning_objects=_learning_object_excerpts(vault, concept_id, learning_object_id),
+        min_shots=min(2, max_shots),
+        max_shots=max_shots,
+        shot_durations=durations,
+        min_shot_seconds=durations[0] if durations else 4,
+        max_shot_seconds=durations[-1] if durations else 12,
+        max_total_seconds=config.max_duration_seconds,
+        video_model=video_model,
+        repair=repair,
+    )
+
+
+def storyboard_violations(storyboard: VideoStoryboard, context: VideoStoryboardContext) -> list[str]:
+    """Deterministic checks a storyboard must pass before any shot is billed."""
+
+    violations: list[str] = []
+    shots = storyboard.shots
+    if len(shots) < context.min_shots or len(shots) > context.max_shots:
+        violations.append(
+            f"{len(shots)} shot(s) returned; the storyboard needs between {context.min_shots} and "
+            f"{context.max_shots}"
+        )
+    for index, shot in enumerate(shots, start=1):
+        if len(shot.prompt.strip()) < 20:
+            violations.append(f"shot {index} has no usable prompt")
+        if shot.duration_seconds <= 0:
+            violations.append(f"shot {index} has no duration_seconds")
+    total = sum(max(0, shot.duration_seconds) for shot in shots)
+    if total > context.max_total_seconds:
+        violations.append(
+            f"shots total {total}s; the storyboard may run at most {context.max_total_seconds}s"
+        )
+    return violations
 
 
 def build_animation_context(
@@ -670,17 +814,7 @@ def build_animation_context(
 
     concept = vault.concepts[concept_id]
     config = vault.config.animation
-    learning_objects = []
-    for lo_id, lo in sorted(getattr(vault, "learning_objects", {}).items()):
-        if getattr(lo, "concept", None) != concept_id:
-            continue
-        if learning_object_id and lo_id != learning_object_id:
-            continue
-        learning_objects.append(
-            {"title": getattr(lo, "title", lo_id), "summary": getattr(lo, "summary", "") or ""}
-        )
-        if len(learning_objects) >= 4:
-            break
+    learning_objects = _learning_object_excerpts(vault, concept_id, learning_object_id)
     return ConceptAnimationContext(
         concept_id=concept_id,
         concept_title=getattr(concept, "title", concept_id),
@@ -696,6 +830,40 @@ def build_animation_context(
     )
 
 
+def _store_video(
+    repository: Any, vault_root: Path, animation_id: str, video_bytes: bytes, clock: Any, **fields: Any
+) -> dict[str, Any]:
+    """Remux, content-address, write, and mark the row completed (shared by both renderers)."""
+
+    import hashlib
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.vault.paths import animation_video_path
+
+    # The hash names the STORED bytes: remuxed for streaming playback, so a
+    # re-render of byte-identical output still dedupes.
+    video_bytes = remux_faststart(video_bytes)
+    digest = "sha256:" + hashlib.sha256(video_bytes).hexdigest()
+    video_path = animation_video_path(vault_root, digest)
+    if not video_path.is_file():
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = video_path.with_name(video_path.name + ".tmp")
+        tmp.write_bytes(video_bytes)
+        tmp.replace(video_path)
+    repository.update_concept_animation(
+        animation_id,
+        status="completed",
+        video_hash=digest,
+        video_file_name=video_path.name,
+        duration_seconds=probe_duration_seconds(video_bytes),
+        render_stderr=None,
+        completed_at=utc_now_iso(clock),
+        clock=clock,
+        **fields,
+    )
+    return repository.concept_animation(animation_id)
+
+
 def generate_concept_animation(
     root: Path,
     client: Any,
@@ -704,19 +872,21 @@ def generate_concept_animation(
     repository: Any = None,
     renderer: Any = None,
     clock: Any = None,
+    video_client: Any = None,
+    report: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """The durable-job body: generate -> validate -> render -> store.
 
-    One corrective LLM round-trip on validator violations, one stderr repair
-    round-trip on render failure (when [animation] auto_repair). Any
-    unexpected exception marks the row failed before re-raising — a row never
-    wedges in a non-terminal state."""
-
-    import hashlib
+    manim rows: one corrective LLM round-trip on validator violations, one
+    stderr repair round-trip on render failure (when [animation] auto_repair).
+    video_model rows: storyboard -> one OpenRouter job per shot -> stitch.
+    ``report(phase, message)`` heartbeats the job lease (and may raise to
+    cancel). Any unexpected exception marks the row failed before re-raising —
+    a row never wedges in a non-terminal state."""
 
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
-    from learnloop.vault.paths import VaultPaths, animation_video_path
+    from learnloop.vault.paths import VaultPaths
 
     vault = load_vault(root)
     repository = repository or Repository(VaultPaths(vault.root, vault.config).sqlite_path)
@@ -727,6 +897,7 @@ def generate_concept_animation(
         return row  # idempotent re-entry after a crash/retry
 
     config = vault.config.animation
+    say = report or (lambda phase, message: None)
     render = renderer or render_scene
     # Resolve the manim interpreter once: explicit override → dedicated isolated
     # venv → the ambient env the app launched from (conda/venv). Passed to every
@@ -749,6 +920,19 @@ def generate_concept_animation(
         return repository.concept_animation(animation_id)
 
     try:
+        if (row.get("renderer") or "manim") == "video_model":
+            return _generate_with_video_model(
+                vault,
+                client,
+                video_client,
+                animation_id=animation_id,
+                row=row,
+                repository=repository,
+                config=config,
+                clock=clock,
+                say=say,
+                fail=_fail,
+            )
         if not client.supports(STRUCTURED_COMPLETION):
             return _fail(
                 "generation",
@@ -837,6 +1021,7 @@ def generate_concept_animation(
                 )
 
         repository.update_concept_animation(animation_id, status="rendering", clock=clock)
+        say("rendering", "Rendering with manim")
         result = render(
             animation.scene_code,
             scene_class,
@@ -870,32 +1055,137 @@ def generate_concept_animation(
             )
         if not result.ok:
             return _fail("render", "manim render failed", stderr=result.stderr_tail)
-
-        # The hash names the STORED bytes: remuxed for streaming playback, so a
-        # re-render of byte-identical manim output still dedupes.
-        video_bytes = remux_faststart(result.video_bytes)
-        digest = "sha256:" + hashlib.sha256(video_bytes).hexdigest()
-        video_path = animation_video_path(vault.root, digest)
-        if not video_path.is_file():
-            video_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = video_path.with_name(video_path.name + ".tmp")
-            tmp.write_bytes(video_bytes)
-            tmp.replace(video_path)
-        from learnloop.clock import utc_now_iso
-
-        repository.update_concept_animation(
-            animation_id,
-            status="completed",
-            video_hash=digest,
-            video_file_name=video_path.name,
-            duration_seconds=probe_duration_seconds(video_bytes),
-            render_stderr=None,
-            completed_at=utc_now_iso(clock),
-            clock=clock,
-        )
-        return repository.concept_animation(animation_id)
+        return _store_video(repository, vault.root, animation_id, result.video_bytes, clock)
     except ConceptAnimationError:
         raise
     except Exception as exc:  # noqa: BLE001 — never leave the row wedged
         _fail("generation", str(exc))
         raise
+
+
+def _generate_with_video_model(
+    vault: Any,
+    client: Any,
+    video_client: Any,
+    *,
+    animation_id: str,
+    row: dict[str, Any],
+    repository: Any,
+    config: Any,
+    clock: Any,
+    say: Callable[[str, str], None],
+    fail: Callable[..., dict[str, Any]],
+) -> dict[str, Any]:
+    """Storyboard -> one text-to-video job per shot -> stitched mp4.
+
+    Shots are submitted in order and submission stops at the first rejection,
+    so a synchronous refusal on shot 3 commits (and bills) only shots 1-2. Every
+    job id is persisted as soon as it exists: OpenRouter has no cancel
+    endpoint, and a submitted job is billed whether or not it is downloaded."""
+
+    if video_client is None or not video_client.supports(VIDEO_GENERATION):
+        return fail("video_model", "no video-generation provider is configured")
+    if not client.supports(STRUCTURED_COMPLETION):
+        return fail("generation", "the configured provider does not support storyboard authoring")
+
+    repository.update_concept_animation(
+        animation_id,
+        status="generating",
+        provider=getattr(video_client, "provider_name", None),
+        model=getattr(video_client, "model", None),
+        clock=clock,
+    )
+    constraints = video_client.model_constraints()
+    context = build_video_storyboard_context(
+        vault,
+        concept_id=row["concept_id"],
+        learning_object_id=row.get("learning_object_id"),
+        constraints=constraints,
+        video_model=getattr(video_client, "model", "") or "",
+    )
+    storyboard = author_video_storyboard(client, context)
+    violations = storyboard_violations(storyboard, context)
+    if violations:
+        repair_context = build_video_storyboard_context(
+            vault,
+            concept_id=row["concept_id"],
+            learning_object_id=row.get("learning_object_id"),
+            constraints=constraints,
+            video_model=context.video_model,
+            repair={"previous_storyboard": storyboard.model_dump(), "violations": violations},
+        )
+        storyboard = author_video_storyboard(client, repair_context)
+        violations = storyboard_violations(storyboard, context)
+        if violations:
+            return fail("validation", "; ".join(violations), repair_attempted=True)
+
+    shots = [
+        {
+            "prompt": shot.prompt.strip(),
+            "duration_seconds": clamp_duration(
+                shot.duration_seconds, max_seconds=context.max_shot_seconds, constraints=constraints
+            ),
+            "caption": shot.caption.strip(),
+        }
+        for shot in storyboard.shots
+    ]
+    plan: dict[str, Any] = {"prompt_version": VIDEO_STORYBOARD_PROMPT_VERSION, "shots": shots}
+    repository.update_concept_animation(
+        animation_id,
+        title=storyboard.title or None,
+        narration_md=storyboard.narration_md or None,
+        storyboard_json=json.dumps(plan),
+        status="rendering",
+        clock=clock,
+    )
+    say("rendering", f"Submitting {len(shots)} shot(s) to {context.video_model or 'the video model'}")
+
+    resolution = clamp_resolution(config.video_resolution or None, constraints)
+    job_ids: list[str] = []
+    try:
+        for shot in shots:
+            job = video_client.submit(
+                VideoGenerationRequest(
+                    prompt=shot["prompt"],
+                    duration_seconds=shot["duration_seconds"],
+                    resolution=resolution,
+                    aspect_ratio=config.video_aspect_ratio or None,
+                    generate_audio=bool(config.video_generate_audio),
+                )
+            )
+            job_ids.append(job.id)
+            repository.update_concept_animation(animation_id, video_job_ids=json.dumps(job_ids), clock=clock)
+
+        def checkpoint(statuses: list[Any], elapsed: float) -> None:
+            done = sum(1 for status in statuses if status.status == "completed")
+            waiting = next(
+                (f"shot {i + 1} {status.status}" for i, status in enumerate(statuses) if status.status != "completed"),
+                "",
+            )
+            detail = " · ".join(part for part in (f"shots {done}/{len(statuses)} complete", waiting, f"{int(elapsed)}s") if part)
+            say("rendering", detail)
+
+        statuses = video_client.wait_all(
+            job_ids, max_wait_seconds=config.video_timeout_seconds, checkpoint=checkpoint
+        )
+        clips = [video_client.download(job_id) for job_id in job_ids]
+    except VideoGenerationTimeout as exc:
+        return fail("video_model", str(exc))
+    except VideoGenerationFailed as exc:
+        return fail("video_model", str(exc))
+    except AIProviderUnavailable as exc:
+        return fail("video_model", str(exc))
+
+    say("rendering", f"Stitching {len(clips)} shot(s)")
+    try:
+        video_bytes = concat_clips(clips, fps=quality_preset(config.quality)[1])
+    except Exception as exc:  # noqa: BLE001 — a stitching failure is a typed video_model failure
+        return fail("video_model", f"could not stitch the shots: {exc}")
+    plan["jobs"] = [
+        {"job_id": job_id, "status": status.status, "cost": status.cost}
+        for job_id, status in zip(job_ids, statuses)
+    ]
+    plan["total_cost"] = round(sum(status.cost or 0.0 for status in statuses), 6)
+    return _store_video(
+        repository, vault.root, animation_id, video_bytes, clock, storyboard_json=json.dumps(plan)
+    )

@@ -58,6 +58,7 @@ _ROUTING_TASKS = (
     "rung_variant",
     "animation",
     "transcription",
+    "video_generation",
 )
 
 
@@ -203,8 +204,15 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
                 "invalid_use_case",
                 f"Unknown use case {use_case!r}. Valid: {', '.join(sorted(USE_CASE_ROUTES))}.",
             )
+        if use_case == "video" and choice.provider != "openrouter":
+            raise SidecarError(
+                "invalid_provider",
+                "Video generation runs only through an OpenRouter video model (provider \"openrouter\").",
+            )
         if choice.provider == "openrouter":
             model = _validate_model_slug(choice.openrouter_model or "")
+            if use_case == "video" and "/" not in model:
+                raise SidecarError("invalid_model", 'Video models are OpenRouter slugs like "google/veo-3.1".')
             profile_name = openrouter_profile_name(use_case)
             base = config.ai.providers.get("openrouter")
             if base is None:

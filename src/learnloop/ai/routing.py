@@ -25,6 +25,7 @@ AITask = Literal[
     "rung_variant",
     "animation",
     "transcription",
+    "video_generation",
 ]
 
 # Every structured operation explicitly inherits one configured task route.
@@ -53,6 +54,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "source_set_synthesis": "canonical_ingest",
     "concept_graph_structuring": "canonical_ingest",
     "concept_animation": "animation",
+    "video_storyboard": "animation",
+    "video_generation": "video_generation",
     "append_reconciliation": "canonical_ingest",
     "media_transcription": "transcription",
     "media_markdown": "canonical_ingest",
