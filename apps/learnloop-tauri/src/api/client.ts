@@ -325,27 +325,40 @@ const INGEST_TAGS: readonly QueryTag[] = [TAG.sources, TAG.library, TAG.maintena
 /** Reads affected when a new revision or appended source reshapes the map. */
 const REVISION_TAGS: readonly QueryTag[] = [TAG.sources, TAG.graph, TAG.proposals, TAG.registry, TAG.maintenance];
 
+/**
+ * Run `onSettled` whether the mutation resolved or rejected, preserving the
+ * outcome. A rejected mutation may still have committed (the sidecar's typed
+ * `submission_committed`, a timeout the host reports as outcome-unknown), so
+ * the reads it touches are refreshed either way — a spurious refetch is cheap,
+ * a stale screen after a half-landed write is not.
+ */
+function settled<T>(promise: Promise<T>, onSettled: () => void): Promise<T> {
+  return promise.then(
+    (result) => {
+      onSettled();
+      return result;
+    },
+    (error: unknown) => {
+      onSettled();
+      throw error;
+    }
+  );
+}
+
 function mutating<T>(tags: readonly QueryTag[], promise: Promise<T>): Promise<T> {
-  return promise.then((result) => {
-    invalidate({ tags });
-    return result;
-  });
+  return settled(promise, () => invalidate({ tags }));
 }
 
 /** For operations that can touch arbitrary state (SQL admin, CLI passthrough, vault reload). */
 function mutatingAll<T>(promise: Promise<T>): Promise<T> {
-  return promise.then((result) => {
-    invalidateAll();
-    return result;
-  });
+  return settled(promise, () => invalidateAll());
 }
 
 /** Reader mutations mostly know an annotation/extraction id, not the source: invalidate every per-source reader read. */
 function mutatingReader<T>(promise: Promise<T>, extraTags: readonly QueryTag[] = []): Promise<T> {
-  return promise.then((result) => {
+  return settled(promise, () => {
     invalidate({ tagPrefix: READER_PREFIX });
     if (extraTags.length) invalidate({ tags: extraTags });
-    return result;
   });
 }
 
@@ -354,20 +367,36 @@ function afterProposalMutation(
   promise: Promise<ProposalsSnapshot>,
   extraTags: readonly QueryTag[] = []
 ): Promise<ProposalsSnapshot> {
-  return promise.then((snapshot) => {
-    setQueryData(["get_proposals"], snapshot, [TAG.proposals]);
-    if (extraTags.length) invalidate({ tags: extraTags });
-    return snapshot;
-  });
+  return promise.then(
+    (snapshot) => {
+      setQueryData(["get_proposals"], snapshot, [TAG.proposals]);
+      if (extraTags.length) invalidate({ tags: extraTags });
+      return snapshot;
+    },
+    (error: unknown) => {
+      invalidate({ tags: [TAG.proposals, ...extraTags] });
+      throw error;
+    }
+  );
 }
 
-/** Settings mutations return the full settings payload: seed it, then refresh the other settings-tagged reads. */
+/**
+ * Settings mutations return the full settings payload: refresh the other
+ * settings-tagged reads, THEN seed get_settings so the seed is the newest stamp
+ * (seeding first would make the invalidation refetch what was just seeded).
+ */
 function afterSettingsMutation(promise: Promise<SettingsDto>): Promise<SettingsDto> {
-  return promise.then((settings) => {
-    setQueryData(["get_settings"], settings, [TAG.settings]);
-    invalidate({ tags: [TAG.settings] });
-    return settings;
-  });
+  return promise.then(
+    (settings) => {
+      invalidate({ tags: [TAG.settings] });
+      setQueryData(["get_settings"], settings, [TAG.settings]);
+      return settings;
+    },
+    (error: unknown) => {
+      invalidate({ tags: [TAG.settings] });
+      throw error;
+    }
+  );
 }
 
 export const api = {
@@ -397,7 +426,7 @@ export const api = {
   getProbeContract: (practiceItemId: string, sessionId?: string) =>
     call<ProbeContractDto>("get_probe_contract", { practiceItemId, sessionId: sessionId ?? null }),
   stopProbeDiagnosing: (practiceItemId: string) =>
-    call<StopProbeResultDto>("stop_probe_diagnosing", { practiceItemId }),
+    mutating(ATTEMPT_TAGS, call<StopProbeResultDto>("stop_probe_diagnosing", { practiceItemId })),
   getNextProbeItem: (learningObjectId: string) =>
     call<GetNextProbeItemDto>("get_next_probe_item", { learningObjectId }),
   savePracticeDraft: (input: {
@@ -553,7 +582,10 @@ export const api = {
   previewSourceDeletion: (sourceId: string) =>
     call<{ version: number; plan: SourceDeletionPlanDto }>("preview_source_deletion", { sourceId }),
   deleteSource: (sourceId: string) =>
-    mutating(INGEST_TAGS, call<{ version: number; deleted: SourceDeletionResultDto }>("delete_source", { sourceId })),
+    mutatingReader(
+      call<{ version: number; deleted: SourceDeletionResultDto }>("delete_source", { sourceId }),
+      INGEST_TAGS
+    ),
   getSourceOutline: (extractionRef: string) =>
     call<SourceOutline>("get_source_outline", { extractionRef }),
   getSelectionPreview: (extractionRef: string, selectedUnitIds?: string[] | null) =>
@@ -577,7 +609,7 @@ export const api = {
       input: { selections, subjectId: subjectId ?? null, budgetOverrides: budgetOverrides ?? {} }
     }),
   startExtractionRepair: (input: StartExtractionRepairInput) =>
-    mutating(INGEST_TAGS, call<IngestBatchDto>("start_extraction_repair", { input })),
+    mutatingReader(call<IngestBatchDto>("start_extraction_repair", { input }), INGEST_TAGS),
   listSourceSets: () => call<SourceSetsSnapshot>("list_source_sets"),
   getSourceSet: (sourceSetId: string) =>
     call<{ version: number; sourceSet: SourceSetDto }>("get_source_set", { sourceSetId }),
@@ -595,9 +627,9 @@ export const api = {
   buildStudyMap: (input: BuildStudyMapInput) => mutating(INGEST_TAGS, call<IngestBatchDto>("build_study_map", { input })),
   // ING M7 — Update study map (§10), maintenance feed (§11), exam readiness (§15).
   appendSource: (input: AppendSourceInput) =>
-    mutating(REVISION_TAGS, call<{ version: number; append: AppendResultDto }>("append_source", { input })),
+    mutatingReader(call<{ version: number; append: AppendResultDto }>("append_source", { input }), REVISION_TAGS),
   refreshRevision: (input: RefreshRevisionInput) =>
-    mutating(REVISION_TAGS, call<{ version: number; refresh: RefreshResultDto }>("refresh_revision", { input })),
+    mutatingReader(call<{ version: number; refresh: RefreshResultDto }>("refresh_revision", { input }), REVISION_TAGS),
   getMaintenanceFeed: (subjectId?: string | null) =>
     call<MaintenanceFeedSnapshot>("maintenance_feed", { input: { subjectId: subjectId ?? null } }),
   getMeasurementHealth: () => call<MeasurementHealthDto>("get_measurement_health"),
@@ -827,7 +859,7 @@ export const api = {
   getOverconfidenceList: (goalId: string) =>
     call<OverconfidenceSnapshot>("get_overconfidence_list", { goalId }),
   startOverconfidenceProbe: (learningObjectId: string, facetId?: string | null) =>
-    mutating([TAG.queue], call<StartOverconfidenceProbeResult>("start_overconfidence_probe", {
+    mutating([TAG.queue, TAG.graph], call<StartOverconfidenceProbeResult>("start_overconfidence_probe", {
       input: { learningObjectId, facetId: facetId ?? null }
     })),
   getReentrySummary: (goalId?: string | null) =>
@@ -859,13 +891,16 @@ export const api = {
   stopCalibrationSession: (calibrationSessionId: string) =>
     call<CalibrationSessionProgressDto>("stop_calibration_session", { calibrationSessionId }),
   beginProbeDialogue: (learningObjectId: string) =>
-    call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId }),
+    mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),
   nextProbeDialogueTurn: (dialogueState: string) =>
     call<NextProbeDialogueTurnResult>("next_probe_dialogue_turn", { dialogueState }),
   recordProbeDialogueTurn: (dialogueState: string, presentationId: string) =>
-    call<RecordProbeDialogueTurnResult>("record_probe_dialogue_turn", { dialogueState, presentationId }),
+    mutating(
+      ATTEMPT_TAGS,
+      call<RecordProbeDialogueTurnResult>("record_probe_dialogue_turn", { dialogueState, presentationId })
+    ),
   endProbeDialogue: (dialogueState: string) =>
-    call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState }),
+    mutating(ATTEMPT_TAGS, call<EndProbeDialogueResult>("end_probe_dialogue", { dialogueState })),
   presentClaims: (claims: ClaimCandidateDto[], context: { sessionId?: string | null; visitId?: string | null }) =>
     call<{ version: number; claims: PresentedClaimDto[] }>("present_claims", {
       input: { claims, sessionId: context.sessionId ?? null, visitId: context.visitId ?? null }
@@ -899,7 +934,9 @@ export const api = {
   blueprintRegister: (input: { blueprintSlug: string; spec: Record<string, unknown>; authoringVersion?: string }) =>
     call<BlueprintVersionDto>("blueprint_register", { input }),
   blueprintReview: (blueprintVersionId: string, checks?: Record<string, unknown> | null) =>
-    call<BlueprintVersionDto>("blueprint_review", { input: { blueprintVersionId, checks: checks ?? null } }),
+    mutatingReader(
+      call<BlueprintVersionDto>("blueprint_review", { input: { blueprintVersionId, checks: checks ?? null } })
+    ),
   blueprintGetVersion: (blueprintVersionId: string) =>
     call<BlueprintVersionDto>("blueprint_get_version", { input: { blueprintVersionId } }),
   blueprintDiscoverCandidates: (learningObjectId?: string | null) =>

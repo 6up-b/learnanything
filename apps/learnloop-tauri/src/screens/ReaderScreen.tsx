@@ -521,7 +521,10 @@ export function ReaderScreen({
         setRender(view);
         setOffline(false);
         setSourceTitle(card.title);
-        onSourceChange?.({ card, spanId: jumpSpan ?? null });
+        // The shell remembers the SOURCE, not the jump: a search hit lands the
+        // learner on the passage once; returning to this tab later resumes
+        // from the saved reading position, not the original hit.
+        onSourceChange?.({ card, spanId: null });
         try {
           const savedSpan = window.localStorage.getItem(readingPositionKey(view.sourceId));
           if (savedSpan) {
@@ -573,6 +576,9 @@ export function ReaderScreen({
         }
       } catch (error) {
         onError(errorMessage(error));
+        // A source that no longer opens (deleted, re-extracted away) must not
+        // be resumed on every return to this tab.
+        onSourceChange?.(null);
       } finally {
         setOpening(null);
       }
