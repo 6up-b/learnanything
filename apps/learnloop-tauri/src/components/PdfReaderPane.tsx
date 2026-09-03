@@ -28,6 +28,7 @@ import type { ReaderPdfBlockDto } from "../api/dto";
 import type { AnnotationTrail } from "../screens/ReaderScreen";
 import { COLOR, Faint, FONT_MONO } from "./term";
 import { RectUnionOverlay } from "./RectUnionOverlay";
+import { acquirePdfDocument } from "./pdfDocumentCache";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -171,24 +172,22 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     return map;
   }, [trails]);
 
+  // The parsed document (and its page-text cache) lives in pdfDocumentCache
+  // and survives this pane unmounting, so returning to the Reader does not
+  // re-fetch and re-parse the PDF. Nothing is destroyed here; the cache evicts.
   useEffect(() => {
     let cancelled = false;
-    let task: ReturnType<typeof pdfjs.getDocument> | null = null;
-    (async () => {
-      try {
-        const response = await fetch(fileUrl);
-        if (!response.ok) throw new Error(`originals store returned ${response.status}`);
-        const data = new Uint8Array(await response.arrayBuffer());
-        task = pdfjs.getDocument({ data });
-        const loaded = await task.promise;
-        if (!cancelled) setDoc(loaded);
-      } catch (error) {
+    acquirePdfDocument(fileUrl)
+      .then((entry) => {
+        if (cancelled) return;
+        pageTextsRef.current = entry.pageTexts;
+        setDoc(entry.doc);
+      })
+      .catch((error: unknown) => {
         if (!cancelled) onError(`could not load original PDF: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    })();
+      });
     return () => {
       cancelled = true;
-      void task?.destroy();
       setDoc(null);
     };
   }, [fileUrl, onError]);
@@ -201,11 +200,6 @@ export const PdfReaderPane = forwardRef<PdfReaderPaneHandle, PdfReaderPaneProps>
     setContainerWidth(node.clientWidth);
     return () => observer.disconnect();
   }, []);
-
-  // The document changed: page-text search cache is stale.
-  useEffect(() => {
-    pageTextsRef.current = new Map();
-  }, [doc]);
 
   // Compute find matches (debounced) over the covered pages' text content.
   useEffect(() => {

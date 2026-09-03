@@ -37,6 +37,7 @@ import { setAlgoConfig } from "./algoConfig";
 import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
+import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { errorMessage } from "../errors";
 
@@ -650,6 +651,7 @@ export function App() {
         // Cached reads belong to the previous vault; drop them before any
         // screen can read through the cache for the new one.
         clearQueryCache();
+        clearPdfDocuments();
         // From this point onward every command targets the new vault. Do not
         // leave the previous vault's snapshot or overlays interactive while the
         // replacement snapshot is loading (or if that second read fails).
