@@ -3,13 +3,13 @@ title: "concept_animations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
+source_commit_timestamp: "2026-09-03T10:26:28-07:00"
 last_verified: "2026-08-18"
 aliases:
   - "state.sqlite concept_animations"
   - "table concept_animations"
-schema_head: 156
+schema_head: 157
 table_name: "concept_animations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/114_concept_animations.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/authoring/concept_animation.py"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop_sidecar/handlers/animation.py"
 tags:
   - "learnloop/database/table"
@@ -48,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/114_concept_animations.sql`.
-- **Schema touched by:** `114_concept_animations.sql`.
+- **Schema touched by:** `114_concept_animations.sql`, `157_concept_animation_renderer.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -80,6 +81,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `completed_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `renderer` | `TEXT` | yes | `'manim'` | — | Stored value |
+| `storyboard_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `video_job_ids` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -111,6 +115,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/concept_animation.py`
+- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop_sidecar/handlers/animation.py`
 
 > [!note] Static-reference boundary
@@ -163,7 +168,7 @@ CREATE TABLE concept_animations (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   completed_at TEXT
-);
+, renderer TEXT NOT NULL DEFAULT 'manim', storyboard_json TEXT, video_job_ids TEXT);
 ```
 
 ## Related notes
