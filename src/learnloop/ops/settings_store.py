@@ -40,6 +40,8 @@ USE_CASE_ROUTES: dict[str, tuple[str, ...]] = {
     "ingest": ("canonical_ingest", "canonical_ingest_retry", "authoring"),
     "tutor": ("tutor_qa", "teach_back", "rung_variant"),
     "animation": ("animation",),
+    # The storyboard video model ([animation] renderer = "video_model").
+    "video": ("video_generation",),
 }
 
 

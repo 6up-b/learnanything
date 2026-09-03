@@ -646,6 +646,19 @@ class AnimationConfig(BaseModel):
     allowlist and constrained subprocess are best-effort hardening around it."""
 
     enabled: bool = True
+    # Which renderer produces the video: "manim" renders an LLM-written scene
+    # locally; "video_model" sends an LLM-written storyboard to a text-to-video
+    # model through OpenRouter ([ai.routing] video_generation) and stitches the
+    # shots. The video-model path runs no local code.
+    renderer: Literal["manim", "video_model"] = "manim"
+    # Video-model options. Each storyboard shot is one OpenRouter job, billed
+    # on submission; shot durations are clamped to what the model supports.
+    video_resolution: str = "720p"
+    video_aspect_ratio: str = "16:9"
+    video_generate_audio: bool = False
+    video_max_shots: int = 4
+    # Wall-clock cap for the whole storyboard (submit, poll, download, stitch).
+    video_timeout_seconds: int = 1800
     # manim render quality: "ql" (854x480 @ 15 fps, fast) | "qm" (1280x720 @ 30)
     # | "qh" (1920x1080 @ 60, slow).
     quality: str = "qm"
@@ -946,6 +959,10 @@ class AIRoutingConfig(BaseModel):
     # Optional independently selected media-transcription profile. Empty keeps
     # the endpoint/native-ingest fallback behavior for legacy vaults.
     transcription: str | None = None
+    # OpenRouter video-model profile for [animation] renderer = "video_model"
+    # (Settings materializes it as openrouter_video). Empty = the video
+    # renderer is unavailable; manim rendering is unaffected.
+    video_generation: str | None = None
 
 
 class AIConfig(BaseModel):

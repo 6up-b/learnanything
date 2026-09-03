@@ -15,9 +15,11 @@ from learnloop.ai.schemas import WireModel
 from learnloop.attempts.ai_contracts import GradingContext, GradingProposal
 from learnloop.content.authoring.ai_contracts import (
     ConceptAnimationContext,
+    VideoStoryboardContext,
     ExerciseAuthoring,
     ExerciseAuthoringContext,
     ManimAnimation,
+    VideoStoryboard,
 )
 from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
 from learnloop.content.proposals.ai_contracts import AuthoringContext, AuthoringProposal
@@ -66,7 +68,7 @@ from learnloop.tutor.ai_contracts import (
 )
 from learnloop.ai.transport import STRUCTURED_COMPLETION
 from learnloop.attempts.grading import request_grading_proposal
-from learnloop.content.authoring.concept_animation import author_concept_animation
+from learnloop.content.authoring.concept_animation import author_concept_animation, author_video_storyboard
 from learnloop.content.authoring.exercise_authoring import request_exercise_authoring
 from learnloop.content.pipeline.source_ingestion import request_canonical_ingest
 from learnloop.content.proposals.proposals import request_authoring_proposal
@@ -191,6 +193,7 @@ _SYNTHESIS = SourceSetSynthesisContext(
 )
 _GRAPH = ConceptGraphContext(source_set_id="set_1", subject_id="subject_1")
 _ANIMATION = ConceptAnimationContext(concept_id="svd", concept_title="SVD")
+_STORYBOARD = VideoStoryboardContext(concept_id="svd", concept_title="SVD")
 _APPEND = AppendReconciliationContext(
     source_set_id="set_1", subject_id="subject_1", change_kind="source_added"
 )
@@ -312,14 +315,19 @@ OPERATIONS = (
         ManimAnimation(),
     ),
     OperationCase(
+        "video_storyboard", "video_storyboard",
+        lambda client: author_video_storyboard(client, _STORYBOARD),
+        VideoStoryboard(),
+    ),
+    OperationCase(
         "append_reconciliation", "append_reconciliation",
         lambda client: request_append_reconciliation(client, _APPEND),
         AppendReconciliation(),
     ),
 )
 
-assert len(OPERATIONS) == 23
-assert len({case.name for case in OPERATIONS}) == 23
+assert len(OPERATIONS) == 24
+assert len({case.name for case in OPERATIONS}) == 24
 
 
 @pytest.mark.parametrize("case", OPERATIONS, ids=lambda case: case.name)

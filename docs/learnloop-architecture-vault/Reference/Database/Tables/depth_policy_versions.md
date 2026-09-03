@@ -3,13 +3,13 @@ title: "depth_policy_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
+source_commit_timestamp: "2026-09-03T10:26:28-07:00"
 last_verified: "2026-08-18"
 aliases:
   - "state.sqlite depth_policy_versions"
   - "table depth_policy_versions"
-schema_head: 156
+schema_head: 157
 table_name: "depth_policy_versions"
 table_role: "raw_ledger"
 functionality_status: "active"

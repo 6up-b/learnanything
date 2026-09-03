@@ -45,6 +45,110 @@ class _FakeAnimationClient(StructuredClientFake):
         return self._animations.pop(0)
 
 
+class _FakeVideoClient:
+    """Scripted OpenRouterVideoClient: records requests, serves clips, can fail a shot."""
+
+    provider_name = "openrouter_video"
+    model = "google/veo-3.1"
+
+    def __init__(self, *, clips=None, fail_shot: int | None = None, submit_fail_at: int | None = None,
+                 cancel_on_checkpoint: bool = False, constraints=None):
+        from learnloop.ai.providers.openrouter_video import VideoModelConstraints
+
+        self.clips = clips
+        self.fail_shot = fail_shot
+        self.submit_fail_at = submit_fail_at
+        self.cancel_on_checkpoint = cancel_on_checkpoint
+        self.constraints = constraints if constraints is not None else VideoModelConstraints((4, 6, 8), ("720p",), ("16:9",))
+        self.requests = []
+        self.checkpoints = []
+        self.downloaded = []
+
+    def supports(self, capability):
+        return capability == "video_generation"
+
+    def model_constraints(self):
+        return self.constraints
+
+    def submit(self, request):
+        from learnloop.ai.errors import VideoGenerationFailed
+        from learnloop.ai.providers.openrouter_video import VideoJob
+
+        if self.submit_fail_at is not None and len(self.requests) + 1 == self.submit_fail_at:
+            raise VideoGenerationFailed("OpenRouter video submit failed (HTTP 402): insufficient credits", status="rejected")
+        self.requests.append(request)
+        return VideoJob(id=f"vid_{len(self.requests)}", status="pending", polling_url=None)
+
+    def wait_all(self, job_ids, *, max_wait_seconds, checkpoint=None):
+        from learnloop.ai.errors import VideoGenerationFailed
+        from learnloop.ai.providers.openrouter_video import VideoJobStatus
+
+        statuses = [VideoJobStatus(id=job_id, status="in_progress", error=None, cost=None, url_count=0) for job_id in job_ids]
+        if checkpoint is not None:
+            self.checkpoints.append(list(job_ids))
+            checkpoint(statuses, 15.0)
+        if self.fail_shot is not None:
+            raise VideoGenerationFailed(
+                f"shot {self.fail_shot + 1}/{len(job_ids)} failed: content policy",
+                status="failed", job_id=job_ids[self.fail_shot], shot_index=self.fail_shot,
+            )
+        return [VideoJobStatus(id=job_id, status="completed", error=None, cost=0.25, url_count=1) for job_id in job_ids]
+
+    def download(self, job_id, index=0):
+        self.downloaded.append(job_id)
+        if self.clips is not None:
+            return self.clips[int(job_id.split("_")[-1]) - 1]
+        return b"mp4-" + job_id.encode()
+
+
+def _storyboard(shots=3, seconds=6):
+    from learnloop.content.authoring.ai_contracts import VideoShot, VideoStoryboard
+
+    return VideoStoryboard(
+        title="SVD as stretching",
+        narration_md="**Grid.** A grid of dots.",
+        shots=[
+            VideoShot(
+                prompt=f"Shot {index}: a flat grid of glowing blue dots stretches along one axis, then rotates slowly; clean educational animation, dark background.",
+                duration_seconds=seconds,
+                caption=f"Beat {index}",
+            )
+            for index in range(1, shots + 1)
+        ],
+    )
+
+
+class _FakeStoryboardClient(StructuredClientFake):
+    provider_name = "openrouter"
+    model = "anthropic/claude-sonnet-4.5"
+
+    def __init__(self, *storyboards):
+        self._storyboards = list(storyboards)
+        self.contexts: list = []
+
+    def run_video_storyboard(self, context):
+        self.contexts.append(context)
+        return self._storyboards.pop(0)
+
+
+def _video_vault(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+
+    vault, repository = _vault(tmp_path)
+    apply_config_updates(
+        vault.root / "learnloop.toml",
+        {
+            ("animation", "renderer"): "video_model",
+            ("ai", "routing", "video_generation"): "openrouter_video",
+            ("ai", "providers", "openrouter_video", "type"): "openrouter",
+            ("ai", "providers", "openrouter_video", "model"): "google/veo-3.1",
+        },
+    )
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    vault = load_vault(vault.root)
+    return vault, repository
+
+
 def _ok_renderer(scene_code, scene_class, **kwargs) -> RenderResult:
     return RenderResult(ok=True, video_bytes=b"mp4-bytes", stderr_tail="", returncode=0)
 
@@ -349,3 +453,224 @@ def test_runner_handler_drives_generation_through_the_queue(tmp_path):
     assert job["result"]["videoFileName" if "videoFileName" in job["result"] else "video_file_name"]
     row = repository.concept_animation(requested["animation_id"])
     assert row["status"] == "completed"
+
+
+# ---------------------------------------------------------------------------
+# Video-model renderer (storyboard -> OpenRouter jobs -> stitched clip)
+# ---------------------------------------------------------------------------
+
+
+def test_request_video_model_requires_a_ready_route(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+
+    vault, repository = _vault(tmp_path)
+    apply_config_updates(vault.root / "learnloop.toml", {("animation", "renderer"): "video_model"})
+    vault = load_vault(vault.root)
+
+    with pytest.raises(ConceptAnimationError) as excinfo:
+        request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    assert excinfo.value.code == "video_model_unconfigured"
+    assert "no video model chosen" in str(excinfo.value)
+
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    with pytest.raises(ConceptAnimationError) as excinfo:
+        request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    assert excinfo.value.code == "video_model_unconfigured"
+    assert "OPENROUTER_API_KEY" in str(excinfo.value)
+
+
+def test_generate_video_model_path_stores_stitched_clip_and_provenance(tmp_path, monkeypatch):
+    import json
+
+    from learnloop.content.authoring.animation_media import is_faststart
+
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    assert repository.concept_animation(requested["animation_id"])["renderer"] == "video_model"
+    clips = [tiny_mp4(frames=6, fps=15) for _ in range(3)]
+    video = _FakeVideoClient(clips=clips)
+    client = _FakeStoryboardClient(_storyboard(shots=3, seconds=7))
+    phases: list[tuple[str, str]] = []
+
+    row = generate_concept_animation(
+        vault.root, client, animation_id=requested["animation_id"], repository=repository,
+        renderer=_ok_renderer, video_client=video, report=lambda phase, message: phases.append((phase, message)),
+    )
+
+    assert row["status"] == "completed"
+    assert row["renderer"] == "video_model"
+    assert row["provider"] == "openrouter_video" and row["model"] == "google/veo-3.1"
+    assert row["title"] == "SVD as stretching"
+    assert json.loads(row["video_job_ids"]) == ["vid_1", "vid_2", "vid_3"]
+    plan = json.loads(row["storyboard_json"])
+    assert [shot["caption"] for shot in plan["shots"]] == ["Beat 1", "Beat 2", "Beat 3"]
+    # 7 s requested -> clamped to the largest supported duration under it.
+    assert [request.duration_seconds for request in video.requests] == [6, 6, 6]
+    assert all(request.resolution == "720p" for request in video.requests)
+    assert plan["total_cost"] == pytest.approx(0.75)
+    assert video.downloaded == ["vid_1", "vid_2", "vid_3"]
+    stored = (vault.root / "media" / "animations" / row["video_file_name"]).read_bytes()
+    assert is_faststart(stored) is True
+    assert row["duration_seconds"] == pytest.approx(1.2, abs=0.15)
+    # Progress reached the job lease per polling round.
+    assert any("shots 0/3 complete" in message for _phase, message in phases)
+    assert client.contexts[0].shot_durations == [4, 6, 8]
+    assert client.contexts[0].video_model == "google/veo-3.1"
+
+
+def test_generate_video_model_storyboard_gets_one_repair_then_fails_typed(tmp_path, monkeypatch):
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    video = _FakeVideoClient()
+    client = _FakeStoryboardClient(_storyboard(shots=1), _storyboard(shots=9))
+
+    row = generate_concept_animation(
+        vault.root, client, animation_id=requested["animation_id"], repository=repository,
+        renderer=_ok_renderer, video_client=video,
+    )
+
+    assert row["status"] == "failed"
+    assert row["failure_stage"] == "validation"
+    assert "between 2 and 4" in row["failure_reason"]
+    assert client.contexts[1].repair["violations"]
+    assert video.requests == []  # nothing was billed
+
+
+def test_generate_video_model_shot_failure_and_submit_rejection_are_typed(tmp_path, monkeypatch):
+    import json
+
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    video = _FakeVideoClient(fail_shot=1)
+    row = generate_concept_animation(
+        vault.root, _FakeStoryboardClient(_storyboard()), animation_id=requested["animation_id"],
+        repository=repository, renderer=_ok_renderer, video_client=video,
+    )
+    assert row["status"] == "failed" and row["failure_stage"] == "video_model"
+    assert "shot 2/3 failed" in row["failure_reason"]
+    assert json.loads(row["video_job_ids"]) == ["vid_1", "vid_2", "vid_3"]
+
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    video = _FakeVideoClient(submit_fail_at=2)
+    row = generate_concept_animation(
+        vault.root, _FakeStoryboardClient(_storyboard()), animation_id=requested["animation_id"],
+        repository=repository, renderer=_ok_renderer, video_client=video,
+    )
+    assert row["status"] == "failed" and row["failure_stage"] == "video_model"
+    assert "insufficient credits" in row["failure_reason"]
+    # Submission stopped at the rejection: only the first job was billed.
+    assert json.loads(row["video_job_ids"]) == ["vid_1"]
+
+
+def test_generate_video_model_without_client_fails_typed(tmp_path, monkeypatch):
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+
+    row = generate_concept_animation(
+        vault.root, _FakeStoryboardClient(_storyboard()), animation_id=requested["animation_id"],
+        repository=repository, renderer=_ok_renderer, video_client=None,
+    )
+
+    assert row["status"] == "failed"
+    assert row["failure_stage"] == "video_model"
+    assert "no video-generation provider" in row["failure_reason"]
+
+
+def test_storyboard_total_is_checked_on_the_clamped_durations(tmp_path, monkeypatch):
+    """A model with a fixed duration list rounds short shots UP; the cap must
+    see the lengths that get billed, not the ones the storyboard asked for."""
+
+    from learnloop.ai.providers.openrouter_video import VideoModelConstraints
+    from learnloop.content.authoring.concept_animation import build_video_storyboard_context, storyboard_violations
+    from learnloop.ops.settings_store import apply_config_updates
+
+    vault, _repository = _video_vault(tmp_path, monkeypatch)
+    apply_config_updates(vault.root / "learnloop.toml", {("animation", "max_duration_seconds"): 15})
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(vault.root)
+    constraints = VideoModelConstraints((5, 10), ("720p",), ("16:9",))
+    context = build_video_storyboard_context(
+        vault, concept_id="singular_value_decomposition", learning_object_id=None,
+        constraints=constraints, video_model="google/veo-3.1",
+    )
+    storyboard = _storyboard(shots=4, seconds=3)  # 12 s asked, 20 s once rounded to 5 s shots
+    assert storyboard_violations(storyboard, context) == []  # raw totals look fine
+    violations = storyboard_violations(storyboard, context, constraints=constraints)
+    assert violations and "20s once rounded" in violations[0]
+
+
+def test_generate_video_model_clamps_aspect_ratio_and_resumes_from_persisted_jobs(tmp_path, monkeypatch):
+    import json
+
+    from learnloop.ai.providers.openrouter_video import VideoModelConstraints
+
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    animation_id = requested["animation_id"]
+    clips = [tiny_mp4(frames=6, fps=15) for _ in range(3)]
+    video = _FakeVideoClient(clips=clips, constraints=VideoModelConstraints((4, 6, 8), ("720p",), ("9:16",)))
+    # Simulate a crash after two of three shots were submitted: the row is
+    # "rendering" with the storyboard and two job ids persisted.
+    plan = {
+        "prompt_version": "mvp-0.1-video-storyboard",
+        "shots": [
+            {"prompt": f"Shot {i}: a grid of glowing dots stretches along one axis", "duration_seconds": 6, "caption": f"Beat {i}"}
+            for i in range(1, 4)
+        ],
+    }
+    video.requests = [None, None]  # two jobs (vid_1, vid_2) already exist on the provider side
+    repository.update_concept_animation(
+        animation_id, status="rendering", storyboard_json=json.dumps(plan), video_job_ids=json.dumps(["vid_1", "vid_2"])
+    )
+    client = _FakeStoryboardClient()  # no storyboard available: authoring again would fail
+
+    row = generate_concept_animation(
+        vault.root, client, animation_id=animation_id, repository=repository, renderer=_ok_renderer, video_client=video,
+    )
+
+    assert row["status"] == "completed"
+    assert client.contexts == []  # the storyboard was not re-authored (or re-billed)
+    assert json.loads(row["video_job_ids"]) == ["vid_1", "vid_2", "vid_3"]
+    submitted = [request for request in video.requests if request is not None]
+    assert [request.aspect_ratio for request in submitted] == ["9:16"]  # off-list 16:9 clamped
+    assert video.checkpoints == [["vid_1", "vid_2", "vid_3"]]
+
+
+def test_generate_video_model_cancellation_marks_the_row_cancelled(tmp_path, monkeypatch):
+    class Cancelled(Exception):
+        pass
+
+    vault, repository = _video_vault(tmp_path, monkeypatch)
+    requested = request_concept_animation(vault, repository, concept_id="singular_value_decomposition", consent=True)
+    video = _FakeVideoClient()
+
+    def report(phase, message):
+        if phase == "rendering" and "complete" in message:
+            raise Cancelled()
+
+    with pytest.raises(Cancelled):
+        generate_concept_animation(
+            vault.root, _FakeStoryboardClient(_storyboard()), animation_id=requested["animation_id"],
+            repository=repository, renderer=_ok_renderer, video_client=video, report=report,
+            cancellation=(Cancelled,),
+        )
+    row = repository.concept_animation(requested["animation_id"])
+    assert row["status"] == "cancelled"
+    assert row["failure_stage"] == "video_model"
+    assert row["failure_reason"] == "cancelled by the learner"
+    assert row["video_job_ids"]  # kept for the cost lookup
+
+
+def test_generate_video_model_without_pyav_is_not_ready(tmp_path, monkeypatch):
+    import importlib.util
+
+    from learnloop.content.authoring.concept_animation import video_generation_readiness
+
+    vault, _repository = _video_vault(tmp_path, monkeypatch)
+    assert video_generation_readiness(vault.config, vault.root)["ready"] is True
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name, *a, **k: None if name == "av" else real(name, *a, **k))
+    readiness = video_generation_readiness(vault.config, vault.root)
+    assert readiness["ready"] is False and "PyAV" in readiness["reason"]

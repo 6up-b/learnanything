@@ -4660,7 +4660,7 @@ class Repository(IngestQueueStoreMixin):
         "video_hash", "video_file_name", "duration_seconds", "provider",
         "model", "prompt_version", "quality", "repair_attempted",
         "failure_stage", "failure_reason", "render_stderr", "batch_id",
-        "completed_at",
+        "completed_at", "renderer", "storyboard_json", "video_job_ids",
     }
 
     def insert_concept_animation(self, row: Mapping[str, Any], *, clock: Clock | None = None) -> str:
@@ -4674,8 +4674,8 @@ class Repository(IngestQueueStoreMixin):
                   scene_class, title, narration_md, video_hash, video_file_name,
                   duration_seconds, provider, model, prompt_version, quality,
                   repair_attempted, failure_stage, failure_reason, render_stderr,
-                  batch_id, created_at, updated_at, completed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  batch_id, created_at, updated_at, completed_at, renderer
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     animation_id,
@@ -4701,6 +4701,7 @@ class Repository(IngestQueueStoreMixin):
                     now,
                     now,
                     row.get("completed_at"),
+                    row.get("renderer") or "manim",
                 ),
             )
             connection.commit()

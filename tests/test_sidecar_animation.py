@@ -63,6 +63,9 @@ def test_animation_runtime_reports_probe_and_routed_model(tmp_path, monkeypatch)
     assert "0.18.1" in result["manimVersion"]
     assert result["provider"] == "codex_medium"
     assert result["timeoutSeconds"] == 600
+    assert result["renderer"] == "manim"
+    assert result["videoReady"] is False
+    assert "no video model chosen" in result["videoReason"]
 
 
 def test_request_rejects_missing_consent_and_missing_manim(tmp_path, monkeypatch):
@@ -157,7 +160,7 @@ def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):
         if row and row["status"] in ("completed", "failed"):
             break
         time.sleep(0.2)
-    assert row is not None and row["status"] == "completed", row
+    assert row is not None and row["status"] == "completed", (row["failure_stage"], row["failure_reason"])
 
     responses = _rpc(
         _messages(
@@ -178,3 +181,84 @@ def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):
     assert listing["animations"][0]["animationId"] == animation_id
     # Non-failed rows never expose scene code over the wire.
     assert "sceneCode" not in listing["animations"][0]
+
+
+def _video_vault(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("animation", "renderer"): "video_model",
+            ("ai", "routing", "video_generation"): "openrouter_video",
+            ("ai", "providers", "openrouter_video", "type"): "openrouter",
+            ("ai", "providers", "openrouter_video", "model"): "google/veo-3.1",
+        },
+    )
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    return vault_root
+
+
+def test_video_renderer_runtime_and_request_gate(tmp_path, monkeypatch):
+    vault_root = _video_vault(tmp_path, monkeypatch)
+
+    runtime = _rpc(_messages(vault_root, ("get_animation_runtime", {})))[1]["result"]
+    assert runtime["renderer"] == "video_model"
+    assert runtime["videoReady"] is True
+    assert runtime["videoProvider"] == "openrouter_video"
+    assert runtime["videoModel"] == "google/veo-3.1"
+    assert runtime["timeoutSeconds"] == 1800
+    assert runtime["videoMaxShots"] == 4
+
+    monkeypatch.delenv("OPENROUTER_API_KEY")
+    rejected = _rpc(
+        _messages(
+            vault_root,
+            ("request_concept_animation", {"conceptId": "singular_value_decomposition", "consent": True}),
+        )
+    )[1]
+    assert rejected["error"]["data"]["code"] == "video_model_unconfigured"
+
+
+def test_video_renderer_request_completes_through_the_queue(tmp_path, monkeypatch):
+    import learnloop.content.pipeline.jobs as job_module
+    from tests.media_fakes import tiny_mp4
+    from tests.test_concept_animation_service import _FakeStoryboardClient, _FakeVideoClient, _storyboard
+
+    vault_root = _video_vault(tmp_path, monkeypatch)
+    clips = [tiny_mp4(frames=6, fps=15) for _ in range(3)]
+    monkeypatch.setattr(job_module, "default_animation_client", lambda ctx: _FakeStoryboardClient(_storyboard()))
+    monkeypatch.setattr(job_module, "default_video_client", lambda ctx: _FakeVideoClient(clips=clips))
+
+    requested = _rpc(
+        _messages(
+            vault_root,
+            ("request_concept_animation", {"conceptId": "singular_value_decomposition", "consent": True}),
+        )
+    )[1]["result"]
+    animation_id = requested["animationId"]
+
+    import time
+
+    from learnloop.db.repositories import Repository
+
+    repository = Repository(vault_root / "state.sqlite")
+    deadline = time.time() + 30
+    row = None
+    while time.time() < deadline:
+        row = repository.concept_animation(animation_id)
+        if row and row["status"] in ("completed", "failed", "cancelled"):
+            break
+        time.sleep(0.2)
+    assert row is not None and row["status"] == "completed", (row["failure_stage"], row["failure_reason"])
+
+    status = _rpc(
+        _messages(vault_root, ("get_concept_animation_status", {"animationId": animation_id}))
+    )[1]["result"]
+    assert status["status"] == "completed"
+    assert status["renderer"] == "video_model"
+    assert status["videoJobIds"] == ["vid_1", "vid_2", "vid_3"]
+    assert [shot["caption"] for shot in status["storyboard"]["shots"]] == ["Beat 1", "Beat 2", "Beat 3"]
+    assert status["videoFileName"].startswith("sha256-")
