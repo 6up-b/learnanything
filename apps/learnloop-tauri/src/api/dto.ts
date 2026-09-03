@@ -189,7 +189,8 @@ export interface AnimationRuntimeDto {
   videoReady: boolean;
   videoReason: string | null;
   videoMaxShots: number;
-  manimAvailable: boolean;
+  // null when the probe was skipped (the video renderer never runs manim).
+  manimAvailable: boolean | null;
   manimVersion: string | null;
   manimReason: string | null;
   provider: string;

@@ -211,6 +211,7 @@ def test_video_renderer_runtime_and_request_gate(tmp_path, monkeypatch):
     assert runtime["videoModel"] == "google/veo-3.1"
     assert runtime["timeoutSeconds"] == 1800
     assert runtime["videoMaxShots"] == 4
+    assert runtime["manimAvailable"] is None  # the probe is skipped for the video renderer
 
     monkeypatch.delenv("OPENROUTER_API_KEY")
     rejected = _rpc(

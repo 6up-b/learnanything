@@ -32,6 +32,11 @@ const TRANSCRIPTION_PROVIDERS = [
 const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash";
 
 const OPENROUTER_VIDEO_MODEL_SUGGESTION = "google/veo-3.1";
+// A cleared or fractional number input parses to NaN; only a whole number
+// that differs from the saved value is worth sending to the sidecar.
+function isNewInteger(draft: number | null, current: number): draft is number {
+  return draft !== null && Number.isInteger(draft) && draft !== current;
+}
 const ANIMATION_RENDERER_OPTIONS = [
   { value: "manim", label: "manim (local render)" },
   { value: "video_model", label: "video model (OpenRouter)" }
@@ -721,16 +726,16 @@ export function SettingsScreen({
               style={{ ...inputStyle, width: 70 }}
               value={videoShotsDraft ?? settings.animation.video.maxShots}
               disabled={busy !== null}
-              onChange={(event) => setVideoShotsDraft(Number(event.target.value))}
+              onChange={(event) => setVideoShotsDraft(Number.parseInt(event.target.value, 10))}
             />
             <button
               type="button"
               style={buttonStyle(
-                videoShotsDraft !== null && videoShotsDraft !== settings.animation.video.maxShots && busy === null
+                isNewInteger(videoShotsDraft, settings.animation.video.maxShots) && busy === null
               )}
-              disabled={videoShotsDraft === null || videoShotsDraft === settings.animation.video.maxShots || busy !== null}
+              disabled={!isNewInteger(videoShotsDraft, settings.animation.video.maxShots) || busy !== null}
               onClick={() => {
-                if (videoShotsDraft === null) return;
+                if (!isNewInteger(videoShotsDraft, settings.animation.video.maxShots)) return;
                 setBusy("animation");
                 api
                   .updateAnimationSettings({ videoMaxShots: videoShotsDraft })
@@ -788,18 +793,16 @@ export function SettingsScreen({
           style={{ ...inputStyle, width: 90 }}
           value={animationLengthDraft ?? settings.animation.maxDurationSeconds}
           disabled={busy !== null}
-          onChange={(event) => setAnimationLengthDraft(Number(event.target.value))}
+          onChange={(event) => setAnimationLengthDraft(Number.parseInt(event.target.value, 10))}
         />
         <button
           type="button"
           style={buttonStyle(
-            animationLengthDraft !== null && animationLengthDraft !== settings.animation.maxDurationSeconds && busy === null
+            isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds) && busy === null
           )}
-          disabled={
-            animationLengthDraft === null || animationLengthDraft === settings.animation.maxDurationSeconds || busy !== null
-          }
+          disabled={!isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds) || busy !== null}
           onClick={() => {
-            if (animationLengthDraft === null) return;
+            if (!isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds)) return;
             setBusy("animation");
             api
               .updateAnimationSettings({ maxDurationSeconds: animationLengthDraft })

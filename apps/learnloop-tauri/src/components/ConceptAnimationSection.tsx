@@ -242,8 +242,6 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
     }
   };
 
-  const linkStyle = LINK_STYLE;
-
   if (runtime && !runtime.enabled) {
     return <Faint>animations are disabled ([animation] enabled = false in learnloop.toml)</Faint>;
   }
@@ -258,7 +256,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
       </div>
     );
   }
-  if (runtime && !videoRenderer && !runtime.manimAvailable) {
+  if (runtime && !videoRenderer && runtime.manimAvailable === false) {
     return (
       <div style={{ fontSize: 12, color: COLOR.textDim, lineHeight: 1.5 }}>
         <div>manim is not installed{runtime.manimReason ? ` (${runtime.manimReason})` : ""}.</div>
@@ -289,11 +287,11 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
                 ? ` · ${latest.storyboard.shots.length} shot${latest.storyboard.shots.length === 1 ? "" : "s"}`
                 : ""}
             </Faint>
-            <button type="button" style={linkStyle} onClick={() => setConsentOpen(true)}>
+            <button type="button" style={LINK_STYLE} onClick={() => setConsentOpen(true)}>
               regenerate…
             </button>
             {latest.storyboard ? (
-              <button type="button" style={linkStyle} onClick={() => setShowDebug((value) => !value)}>
+              <button type="button" style={LINK_STYLE} onClick={() => setShowDebug((value) => !value)}>
                 {showDebug ? "hide storyboard" : "show storyboard"}
               </button>
             ) : null}
@@ -304,17 +302,26 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
         <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber }}>
           ◐ {phaseLabel(latest.status, latest.renderer)}…
         </div>
+      ) : latest?.status === "cancelled" ? (
+        <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ color: COLOR.textDim }}>generation cancelled{latest.videoJobIds.length ? " · submitted shots are still billed" : ""}.</div>
+          <div style={{ marginTop: 4, display: "flex", gap: 12 }}>
+            <button type="button" style={LINK_STYLE} onClick={() => setConsentOpen(true)}>
+              generate again…
+            </button>
+          </div>
+        </div>
       ) : latest?.status === "failed" ? (
         <div style={{ fontSize: 12, lineHeight: 1.5 }}>
           <div style={{ color: COLOR.red }}>
             generation failed at {latest.failureStage ?? "unknown"}: {latest.failureReason ?? "unknown error"}
           </div>
           <div style={{ marginTop: 4, display: "flex", gap: 12 }}>
-            <button type="button" style={linkStyle} onClick={() => setConsentOpen(true)}>
+            <button type="button" style={LINK_STYLE} onClick={() => setConsentOpen(true)}>
               retry…
             </button>
             {(latest.renderStderr || latest.sceneCode || latest.storyboard || latest.videoJobIds.length) ? (
-              <button type="button" style={linkStyle} onClick={() => setShowDebug((value) => !value)}>
+              <button type="button" style={LINK_STYLE} onClick={() => setShowDebug((value) => !value)}>
                 {showDebug ? "hide details" : "show details"}
               </button>
             ) : null}
@@ -343,7 +350,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
           ) : null}
         </div>
       ) : !consentOpen ? (
-        <button type="button" style={linkStyle} onClick={() => setConsentOpen(true)}>
+        <button type="button" style={LINK_STYLE} onClick={() => setConsentOpen(true)}>
           + generate animation
         </button>
       ) : null}
@@ -379,13 +386,13 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
           <div style={{ marginTop: 8, display: "flex", gap: 12 }}>
             <button
               type="button"
-              style={{ ...linkStyle, color: consentTicked && !busy ? COLOR.amber : COLOR.textFaint }}
+              style={{ ...LINK_STYLE, color: consentTicked && !busy ? COLOR.amber : COLOR.textFaint }}
               disabled={!consentTicked || busy}
               onClick={() => void generate()}
             >
               {busy ? "…" : "generate"}
             </button>
-            <button type="button" style={{ ...linkStyle, color: COLOR.textFaint }} onClick={() => setConsentOpen(false)}>
+            <button type="button" style={{ ...LINK_STYLE, color: COLOR.textFaint }} onClick={() => setConsentOpen(false)}>
               cancel
             </button>
           </div>

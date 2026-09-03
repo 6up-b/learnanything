@@ -71,9 +71,12 @@ def _animation_row_payload(row: dict[str, Any]) -> dict[str, Any]:
 def get_animation_runtime(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     config = vault.config
-    probe = manim_runtime(
-        manim_command=resolve_manim_command(config.animation, vault.root)
-    )
+    if config.animation.renderer == "video_model":
+        # The probe spawns `python -m manim --version` (seconds); the video
+        # renderer never runs manim, so the inspector is not made to wait on it.
+        probe = {"available": None, "version": None, "reason": None}
+    else:
+        probe = manim_runtime(manim_command=resolve_manim_command(config.animation, vault.root))
     selection = provider_for_task(config, "animation")
     profile = config.ai.providers.get(selection.provider_name)
     video = video_generation_readiness(config, vault.root)
