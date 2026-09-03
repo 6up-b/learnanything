@@ -49,9 +49,16 @@ def _ok_renderer(scene_code, scene_class, **kwargs) -> RenderResult:
     return RenderResult(ok=True, video_bytes=b"mp4-bytes", stderr_tail="", returncode=0)
 
 
-def _vault(tmp_path):
+def _vault(tmp_path, *, min_duration_seconds: int = 0):
+    from learnloop.ops.settings_store import apply_config_updates
+
     vault_root = tmp_path / "vault"
     create_basic_vault(vault_root)
+    # The fakes below author one-line scenes; the pacing lint would otherwise
+    # spend a repair round-trip on every test. Tests that exercise pacing opt in.
+    apply_config_updates(
+        vault_root / "learnloop.toml", {("animation", "min_duration_seconds"): min_duration_seconds}
+    )
     vault = load_vault(vault_root)
     repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     return vault, repository
@@ -173,6 +180,27 @@ def test_generate_stores_faststart_remuxed_bytes_and_hashes_them(tmp_path):
     assert is_faststart(stored) is True
     assert row["video_hash"] == "sha256:" + hashlib.sha256(stored).hexdigest()
     assert row["video_file_name"] == "sha256-" + hashlib.sha256(stored).hexdigest() + ".mp4"
+
+
+def test_generate_short_scene_gets_one_pacing_repair_then_renders(tmp_path):
+    vault, repository = _vault(tmp_path, min_duration_seconds=30)
+    requested = request_concept_animation(
+        vault, repository, concept_id="singular_value_decomposition", consent=True
+    )
+    client = _FakeAnimationClient(_animation(), _animation())
+
+    row = generate_concept_animation(
+        vault.root, client, animation_id=requested["animation_id"], repository=repository,
+        renderer=_ok_renderer,
+    )
+
+    # One pacing round-trip, then the (still short) scene renders: soft gate.
+    assert len(client.contexts) == 2
+    assert "running time" in client.contexts[1].repair["violations"][0]
+    assert client.contexts[1].repair["previous_code"] == VALID_SCENE
+    assert client.contexts[0].min_duration_seconds == 30
+    assert client.contexts[0].resolution == "1280x720" and client.contexts[0].fps == 30
+    assert row["status"] == "completed"
 
 
 def test_generate_provider_without_method_fails_typed(tmp_path):

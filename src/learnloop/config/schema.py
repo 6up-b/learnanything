@@ -646,10 +646,14 @@ class AnimationConfig(BaseModel):
     allowlist and constrained subprocess are best-effort hardening around it."""
 
     enabled: bool = True
-    # manim render quality: "ql" (low, fast) | "qm" | "qh".
-    quality: str = "ql"
-    timeout_seconds: int = 300
-    max_duration_seconds: int = 45
+    # manim render quality: "ql" (854x480 @ 15 fps, fast) | "qm" (1280x720 @ 30)
+    # | "qh" (1920x1080 @ 60, slow).
+    quality: str = "qm"
+    timeout_seconds: int = 600
+    # Pacing band: the prompt targets it and a pre-render lint sends a scene
+    # that comes in under the minimum back to the model once.
+    min_duration_seconds: int = 30
+    max_duration_seconds: int = 60
     # Tex/MathTex requires a LaTeX toolchain; off by default.
     latex_enabled: bool = False
     # One stderr round-trip back to the model when a render fails.

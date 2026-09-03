@@ -96,8 +96,8 @@ def request_concept_animation(ctx: SidecarContext, params: RequestConceptAnimati
         raise SidecarError(
             "manim_missing",
             "manim is not installed: "
-            f"{probe['reason']}. Install with: pip install 'learnloop[animation]' "
-            "(verify with: python -m manim --version).",
+            f"{probe['reason']}. It ships with LearnLoop's Python environment; reinstall "
+            "with `uv sync` (verify with: python -m manim --version).",
         )
     try:
         summary = run_request(

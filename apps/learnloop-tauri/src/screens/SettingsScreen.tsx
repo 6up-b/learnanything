@@ -18,7 +18,7 @@ const USE_CASES: Array<{ id: string; label: string; hint: string; primaryRoute: 
   { id: "grading", label: "grading", hint: "attempt grading + misconception match", primaryRoute: "grading" },
   { id: "ingest", label: "ingest / synthesis", hint: "canonical ingest, study-map synthesis, authoring", primaryRoute: "canonicalIngest" },
   { id: "tutor", label: "tutor", hint: "tutor Q&A, teach-back, rung variants", primaryRoute: "tutorQa" },
-  { id: "animation", label: "animation", hint: "manim explainer-scene authoring", primaryRoute: "animation" }
+  { id: "animation", label: "animation", hint: "explainer-scene authoring model (render settings below)", primaryRoute: "animation" }
 ];
 
 // [ingest.audio] provider: the endpoint path takes any OpenAI-compatible
@@ -29,6 +29,12 @@ const TRANSCRIPTION_PROVIDERS = [
   { value: "openrouter", label: "openrouter" }
 ];
 const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash";
+
+const ANIMATION_QUALITY_OPTIONS = [
+  { value: "ql", label: "ql · 854x480 15fps (fast)" },
+  { value: "qm", label: "qm · 1280x720 30fps" },
+  { value: "qh", label: "qh · 1920x1080 60fps (slow)" }
+];
 
 // The vault's [ingest.budgets] ceilings the build plan charts, in stage order.
 // The build-plan screen overrides these per run; here they are the defaults.
@@ -131,6 +137,7 @@ export function SettingsScreen({
   // a half-typed number must not be persisted on every keystroke.
   const [budgetDrafts, setBudgetDrafts] = useState<Partial<Record<IngestBudgetField, number>>>({});
   const [contextDraft, setContextDraft] = useState<number | null>(null);
+  const [animationLengthDraft, setAnimationLengthDraft] = useState<number | null>(null);
   const [maxOutputDraft, setMaxOutputDraft] = useState<number | null>(null);
   const [palette, setPalette] = useState(() => localStorage.getItem(PALETTE_STORAGE_KEY) ?? "");
 
@@ -606,6 +613,73 @@ export function SettingsScreen({
           </button>
         </div>
       )}
+
+      <SectionHeader>Animation</SectionHeader>
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          render quality
+          <div style={hintStyle}>manim output size and frame rate · higher is slower to render</div>
+        </span>
+        <TermSelect
+          value={settings.animation.quality}
+          options={ANIMATION_QUALITY_OPTIONS}
+          width={230}
+          disabled={busy !== null}
+          onChange={(quality) => {
+            setBusy("animation");
+            api
+              .updateAnimationSettings({ quality })
+              .then((result) => {
+                acceptSettings(result);
+                onToast(`animation quality → ${quality}`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        />
+      </div>
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          target length
+          <div style={hintStyle}>
+            seconds · the scene is paced between {settings.animation.minDurationSeconds}s and this cap · render
+            timeout {settings.animation.timeoutSeconds}s
+          </div>
+        </span>
+        <input
+          type="number"
+          min={Math.max(settings.animation.durationBounds.min, settings.animation.minDurationSeconds)}
+          max={settings.animation.durationBounds.max}
+          style={{ ...inputStyle, width: 90 }}
+          value={animationLengthDraft ?? settings.animation.maxDurationSeconds}
+          disabled={busy !== null}
+          onChange={(event) => setAnimationLengthDraft(Number(event.target.value))}
+        />
+        <button
+          type="button"
+          style={buttonStyle(
+            animationLengthDraft !== null && animationLengthDraft !== settings.animation.maxDurationSeconds && busy === null
+          )}
+          disabled={
+            animationLengthDraft === null || animationLengthDraft === settings.animation.maxDurationSeconds || busy !== null
+          }
+          onClick={() => {
+            if (animationLengthDraft === null) return;
+            setBusy("animation");
+            api
+              .updateAnimationSettings({ maxDurationSeconds: animationLengthDraft })
+              .then((result) => {
+                acceptSettings(result);
+                setAnimationLengthDraft(null);
+                onToast(`animation length → ${animationLengthDraft}s`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        >
+          {busy === "animation" ? "…" : "apply"}
+        </button>
+      </div>
 
       <SectionHeader>Token budgets</SectionHeader>
       {BUDGET_ROWS.map(({ field, label, hint }) => {

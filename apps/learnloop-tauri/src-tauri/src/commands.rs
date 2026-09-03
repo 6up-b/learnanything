@@ -770,6 +770,7 @@ pub async fn get_animation_runtime(
     blocking_sidecar_call(sidecar, "get_animation_runtime", json!({})).await
 }
 
+sidecar_passthrough!(update_animation_settings, "update_animation_settings");
 sidecar_passthrough!(request_concept_animation, "request_concept_animation");
 
 #[tauri::command]

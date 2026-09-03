@@ -335,6 +335,7 @@ fn main() {
             set_openrouter_api_key,
             update_ingest_settings,
             set_transcription_api_key,
+            update_animation_settings,
             get_animation_runtime,
             request_concept_animation,
             get_concept_animation_status,
