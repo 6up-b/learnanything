@@ -28,7 +28,7 @@ import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathScreen } from "../screens/GoldenPathScreen";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
-import { ReaderScreen } from "../screens/ReaderScreen";
+import { ReaderScreen, type ReaderOpenSource } from "../screens/ReaderScreen";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -70,6 +70,9 @@ export function App() {
   const [tab, setTab] = useState<TopTab>("start");
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
+  // The Reader unmounts on every tab switch; the open source is kept here so
+  // returning to the tab resumes it (its reads come from the query cache).
+  const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
   const [openSource, setOpenSource] = useState<OpenSourceTarget | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddGuided, setQuickAddGuided] = useState(false);
@@ -687,6 +690,7 @@ export function App() {
         setPendingPrimedItemId(null);
         setIngestJobId(null);
         setProposalFocusPatchId(null);
+        setReaderSource(null);
         setTodayStage("queue");
         setTab("start");
       } catch (error) {
@@ -948,7 +952,7 @@ export function App() {
       );
     }
     if (tab === "reader") {
-      return <ReaderScreen onError={onError} />;
+      return <ReaderScreen onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />;
     }
     if (tab === "maintain") {
       return (
