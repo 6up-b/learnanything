@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-08-18"
-SCHEMA_HEAD = 156
+SCHEMA_HEAD = 157
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {

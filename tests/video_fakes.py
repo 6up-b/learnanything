@@ -52,11 +52,12 @@ class FakeVideoHttp:
             return self.models_status, {}, json.dumps({"data": self.models}).encode("utf-8")
         if method == "POST" and path.endswith("/videos"):
             self.submitted += 1
-            if self.submit_status not in (200, 202):
+            if not 200 <= self.submit_status < 300:
                 return self.submit_status, {}, json.dumps({"error": self.submit_error or {"message": "rejected"}}).encode("utf-8")
             job_id = f"vid_{self.submitted}"
             self.polls.setdefault(job_id, [{"status": "completed"}])
-            return 202, {}, json.dumps({"id": job_id, "status": "pending", "polling_url": f"/api/v1/videos/{job_id}"}).encode("utf-8")
+            body = json.dumps({"id": job_id, "status": "pending", "polling_url": f"/api/v1/videos/{job_id}"})
+            return self.submit_status, {}, body.encode("utf-8")
         if method == "GET" and path.endswith("/content"):
             job_id = path.rsplit("/", 2)[-2]
             data = self.contents.get(job_id, b"mp4-" + job_id.encode())

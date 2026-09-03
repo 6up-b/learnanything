@@ -11,6 +11,7 @@ retried on a transport error — the caller decides whether to resubmit.
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import time
@@ -29,6 +30,10 @@ FIRST_POLL_DELAY_SECONDS = 15.0
 SUBMIT_TIMEOUT_SECONDS = 60.0
 POLL_TIMEOUT_SECONDS = 30.0
 DOWNLOAD_TIMEOUT_SECONDS = 300.0
+# A status poll is idempotent, so a transport blip is retried a few times
+# with a short pause before the whole storyboard is failed.
+POLL_ATTEMPTS = 3
+POLL_RETRY_DELAY_SECONDS = 2.0
 TERMINAL_FAILURE_STATES = frozenset({"failed", "cancelled", "expired"})
 
 #: (method, url, headers, body, timeout) -> (status, headers, body)
@@ -78,8 +83,12 @@ def _urllib_transport(
     except urllib.error.HTTPError as exc:
         # Surface OpenRouter's error JSON to the caller instead of a bare code.
         return exc.code, dict(exc.headers or {}), exc.read()
-    except urllib.error.URLError as exc:
-        raise AIProviderUnavailable(f"OpenRouter video API unreachable: {exc.reason}") from exc
+    except (urllib.error.URLError, OSError, http.client.HTTPException) as exc:
+        # URLError covers DNS/refused; a socket timeout, a reset mid-read or a
+        # truncated response arrive as OSError / HTTPException and are just as
+        # much "unreachable" from the caller's point of view.
+        reason = getattr(exc, "reason", None) or exc
+        raise AIProviderUnavailable(f"OpenRouter video API unreachable: {reason}") from exc
 
 
 def _error_text(payload: Any) -> str:
@@ -108,14 +117,24 @@ def clamp_duration(
     return under[-1] if under else supported[0]
 
 
-def clamp_resolution(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None:
+def _clamp_choice(preferred: str | None, supported: Sequence[str]) -> str | None:
     if not preferred:
         return None
-    if constraints is None or not constraints.supported_resolutions:
+    if not supported or preferred in supported:
         return preferred
-    if preferred in constraints.supported_resolutions:
-        return preferred
-    return constraints.supported_resolutions[0]
+    return supported[0]
+
+
+def clamp_resolution(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None:
+    """The preferred resolution when the model lists it (or lists nothing), else its first."""
+
+    return _clamp_choice(preferred, constraints.supported_resolutions if constraints else ())
+
+
+def clamp_aspect_ratio(preferred: str | None, constraints: VideoModelConstraints | None) -> str | None:
+    """Same rule for aspect ratios: an off-list value is a 400 from OpenRouter."""
+
+    return _clamp_choice(preferred, constraints.supported_aspect_ratios if constraints else ())
 
 
 class OpenRouterVideoClient:
@@ -208,7 +227,8 @@ class OpenRouterVideoClient:
         if request.seed is not None:
             payload["seed"] = int(request.seed)
         status, data = self._request("POST", self._videos_url, payload, timeout=SUBMIT_TIMEOUT_SECONDS)
-        if status not in (200, 202) or not isinstance(data, Mapping) or not data.get("id"):
+        # Documented as 202; any 2xx that names a job is a submitted (billed) job.
+        if not 200 <= status < 300 or not isinstance(data, Mapping) or not data.get("id"):
             raise VideoGenerationFailed(
                 f"OpenRouter video submit failed (HTTP {status}): {_error_text(data)}", status="rejected"
             )
@@ -216,13 +236,15 @@ class OpenRouterVideoClient:
 
     def poll(self, job_id: str) -> VideoJobStatus:
         last_error: Exception | None = None
-        for attempt in range(2):
+        for attempt in range(POLL_ATTEMPTS):
+            if attempt:
+                self._sleep(POLL_RETRY_DELAY_SECONDS)
             try:
                 status, data = self._request("GET", f"{self._videos_url}/{job_id}", timeout=POLL_TIMEOUT_SECONDS)
             except AIProviderUnavailable as exc:
                 last_error = exc
                 continue
-            if status >= 500 and attempt == 0:
+            if status >= 500 and attempt < POLL_ATTEMPTS - 1:
                 last_error = AIProviderUnavailable(f"OpenRouter video poll HTTP {status}")
                 continue
             if status != 200 or not isinstance(data, Mapping):
@@ -241,7 +263,8 @@ class OpenRouterVideoClient:
 
     def download(self, job_id: str, index: int = 0) -> bytes:
         url = f"{self._videos_url}/{job_id}/content?index={index}"
-        status, _headers, raw = self._http("GET", url, self._headers, None, DOWNLOAD_TIMEOUT_SECONDS)
+        headers = {**self._headers, "Accept": "*/*"}  # the body is an mp4, not JSON
+        status, _headers, raw = self._http("GET", url, headers, None, DOWNLOAD_TIMEOUT_SECONDS)
         if status != 200 or not raw:
             raise VideoGenerationFailed(
                 f"OpenRouter video download failed (HTTP {status})", status="download_failed", job_id=job_id
@@ -276,7 +299,9 @@ class OpenRouterVideoClient:
                 statuses[job_id] = current
                 if current.status == "completed":
                     pending.remove(job_id)
-                elif current.status in TERMINAL_FAILURE_STATES:
+                elif current.status in TERMINAL_FAILURE_STATES or current.error:
+                    # An undocumented status that carries an error payload is
+                    # not worth polling until the deadline.
                     index = list(job_ids).index(job_id)
                     raise VideoGenerationFailed(
                         f"shot {index + 1}/{len(job_ids)} {current.status}: {current.error or 'no details'}",
@@ -303,6 +328,7 @@ __all__ = [
     "VideoJob",
     "VideoJobStatus",
     "VideoModelConstraints",
+    "clamp_aspect_ratio",
     "clamp_duration",
     "clamp_resolution",
 ]

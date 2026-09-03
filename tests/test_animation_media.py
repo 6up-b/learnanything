@@ -93,3 +93,43 @@ def test_concat_single_clip_is_just_a_faststart_remux():
     assert probe_duration_seconds(single) == pytest.approx(0.8, abs=0.05)
     with pytest.raises(ValueError):
         concat_clips([])
+
+
+def _frame_times(data: bytes) -> list[float]:
+    av = pytest.importorskip("av")
+    import io
+
+    with av.open(io.BytesIO(data)) as container:
+        video = container.streams.video[0]
+        return [float(frame.pts * frame.time_base) for frame in container.decode(video)]
+
+
+def test_concat_clips_rebases_offset_clips_and_ignores_longer_audio_tracks():
+    """A shot whose frames start at t=2 s, or whose audio outlives its video,
+    must neither freeze the picture nor swallow the following shot."""
+
+    from learnloop.content.authoring.animation_media import concat_clips
+
+    offset_clip = tiny_mp4(frames=12, fps=15, start_seconds=2.0)
+    audio_clip = tiny_mp4(frames=12, fps=15, audio_seconds=3.0)
+    plain = tiny_mp4(frames=12, fps=15)
+
+    joined = concat_clips([plain, offset_clip, audio_clip, plain])
+
+    times = _frame_times(joined)
+    assert len(times) == 48  # every frame of every clip survives
+    gaps = [round(b - a, 3) for a, b in zip(times, times[1:])]
+    assert max(gaps) == pytest.approx(1 / 15, abs=0.01)  # no frozen stretch
+    assert probe_duration_seconds(joined) == pytest.approx(4 * 0.8, abs=0.15)
+
+
+def test_concat_clips_defaults_to_the_source_frame_rate():
+    from learnloop.content.authoring.animation_media import concat_clips
+
+    av = pytest.importorskip("av")
+    import io
+
+    joined = concat_clips([tiny_mp4(frames=24, fps=24), tiny_mp4(frames=24, fps=24)])
+    with av.open(io.BytesIO(joined)) as container:
+        assert round(float(container.streams.video[0].average_rate)) == 24
+    assert len(_frame_times(joined)) == 48

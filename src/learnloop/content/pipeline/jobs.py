@@ -2350,11 +2350,13 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
                 clock=ctx.clock,
             )
         raise
-    ctx.report(
-        "generation",
-        message="Writing the video storyboard" if use_video_model else "Authoring the explainer scene",
-    )
     try:
+        # The first report is also the first cancellation point: inside the
+        # try so a job cancelled before the service ran still gets a terminal row.
+        ctx.report(
+            "generation",
+            message="Writing the video storyboard" if use_video_model else "Authoring the explainer scene",
+        )
         row = generate_concept_animation(
             ctx.vault_root,
             client,
@@ -2363,19 +2365,22 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
             clock=ctx.clock,
             video_client=video_client,
             report=lambda phase, message: ctx.report(phase, message=message),
+            cancellation=(JobCancelled,),
         )
     except ConceptAnimationError as exc:
         raise IngestRunnerError(str(exc), code=exc.code) from exc
     except JobCancelled:
-        # The learner cancelled while shots were generating: the service marked
-        # the row failed on its way out; record the honest terminal state.
-        ctx.repo.update_concept_animation(
-            animation_id,
-            status="cancelled",
-            failure_stage="video_model" if use_video_model else "render",
-            failure_reason="cancelled by the learner",
-            clock=ctx.clock,
-        )
+        # The service marks its own row cancelled; this covers a cancellation
+        # that landed before it was entered.
+        current = ctx.repo.concept_animation(animation_id)
+        if current is not None and current.get("status") not in ("completed", "failed", "cancelled"):
+            ctx.repo.update_concept_animation(
+                animation_id,
+                status="cancelled",
+                failure_stage="video_model" if use_video_model else "render",
+                failure_reason="cancelled by the learner",
+                clock=ctx.clock,
+            )
         raise
     # Compact job result: the status RPC serves the full row (code, stderr).
     return {

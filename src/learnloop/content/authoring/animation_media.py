@@ -14,7 +14,7 @@ import struct
 import tempfile
 from fractions import Fraction
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -111,13 +111,40 @@ def remux_faststart(data: bytes) -> bytes:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
-def concat_clips(clips: Sequence[bytes], *, fps: int = 30) -> bytes:
+def _video_stream(container: Any) -> Any:
+    return next(stream for stream in container.streams if stream.type == "video")
+
+
+def _stream_fps(stream: Any, fallback: int) -> int:
+    rate = stream.average_rate or stream.guessed_rate
+    if rate:
+        value = int(round(float(rate)))
+        if value > 0:
+            return value
+    return fallback
+
+
+def _stream_extent_seconds(stream: Any, container: Any, av: Any) -> float | None:
+    """How long the video track itself runs (not the container, which an
+    audio track or a start offset can stretch)."""
+
+    if stream.duration is not None and stream.time_base is not None:
+        return float(stream.duration * stream.time_base)
+    if container.duration:
+        return container.duration / av.time_base
+    return None
+
+
+def concat_clips(clips: Sequence[bytes], *, fps: int | None = None) -> bytes:
     """Join mp4 clips into one faststart H.264 file by re-encoding.
 
     Re-encoding (rather than a stream copy) is deliberate: clips from a video
     model can differ in encoder settings, and one uniform stream is what every
-    player handles. Frames keep their source timing; the first clip's size is
-    the output size and other clips are scaled to it. Audio is dropped."""
+    player handles. Each clip is rebased on its own first frame and placed
+    after the previous clip's video track, so a start offset or a longer
+    audio track in one clip cannot freeze or swallow frames. ``fps`` defaults
+    to the first clip's frame rate; the first clip's size is the output size
+    and other clips are scaled to it. Audio is dropped."""
 
     if not clips:
         raise ValueError("concat_clips needs at least one clip")
@@ -133,12 +160,13 @@ def concat_clips(clips: Sequence[bytes], *, fps: int = 30) -> bytes:
             path.write_bytes(data)
             inputs.append(path)
         with av.open(str(inputs[0])) as first:
-            first_video = next(stream for stream in first.streams if stream.type == "video")
+            first_video = _video_stream(first)
             width, height = first_video.width, first_video.height
+            fps = fps or _stream_fps(first_video, 30)
         output_path = workdir / "out.mp4"
         time_base = Fraction(1, fps)
         with av.open(str(output_path), mode="w", format="mp4", options={"movflags": "+faststart"}) as target:
-            encoder = target.add_stream("libx264", rate=fps)
+            encoder = target.add_stream("libx264", rate=fps, options={"preset": "veryfast"})
             encoder.width = width
             encoder.height = height
             encoder.pix_fmt = "yuv420p"
@@ -146,25 +174,35 @@ def concat_clips(clips: Sequence[bytes], *, fps: int = 30) -> bytes:
             last_pts = -1
             for path in inputs:
                 with av.open(str(path)) as source:
-                    video = next(stream for stream in source.streams if stream.type == "video")
-                    clip_seconds = (source.duration / av.time_base) if source.duration else None
+                    video = _video_stream(source)
+                    period = 1.0 / _stream_fps(video, fps)
+                    clip_start: float | None = None
                     last_seen = 0.0
+                    decoded = 0
                     for frame in source.decode(video):
                         if frame.pts is not None and frame.time_base is not None:
-                            seconds = float(frame.pts * frame.time_base)
+                            absolute = float(frame.pts * frame.time_base)
+                            if clip_start is None:
+                                clip_start = absolute
+                            seconds = absolute - clip_start
                         else:
-                            seconds = last_seen + 1.0 / fps
+                            seconds = decoded * period
+                        decoded += 1
                         last_seen = seconds
                         pts = int(round((offset + seconds) * fps))
                         if pts <= last_pts:
                             continue
                         out_frame = frame.reformat(width=width, height=height, format="yuv420p")
+                        # reformat() copies the source picture type; clearing it
+                        # lets x264 pick its own I/P/B pattern and keyframes.
+                        out_frame.pict_type = 0
                         out_frame.pts = pts
                         out_frame.time_base = time_base
                         for packet in encoder.encode(out_frame):
                             target.mux(packet)
                         last_pts = pts
-                    offset += clip_seconds if clip_seconds else last_seen + 1.0 / fps
+                    extent = _stream_extent_seconds(video, source, av) or 0.0
+                    offset += max(extent, last_seen + period)
             for packet in encoder.encode():
                 target.mux(packet)
         return output_path.read_bytes()

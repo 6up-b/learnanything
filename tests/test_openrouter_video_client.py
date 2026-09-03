@@ -8,6 +8,7 @@ from learnloop.ai.providers.openrouter_video import (
     OpenRouterVideoClient,
     VideoGenerationRequest,
     VideoModelConstraints,
+    clamp_aspect_ratio,
     clamp_duration,
     clamp_resolution,
 )
@@ -186,3 +187,70 @@ def test_factory_requires_an_openrouter_profile(monkeypatch, tmp_path):
         make_video_generation_client(config, tmp_path, provider_name="codex")
     with pytest.raises(AIProviderUnavailable, match="not configured"):
         make_video_generation_client(config, tmp_path, provider_name="ghost")
+
+
+def test_submit_accepts_any_2xx_that_names_a_job(monkeypatch):
+    http = FakeVideoHttp(submit_status=201)
+    client, _ = _client(monkeypatch, http)
+    job = client.submit(VideoGenerationRequest(prompt="a slow pan over a grid"))
+    assert job.id == "vid_1"
+
+
+def test_poll_retries_transport_errors_a_few_times_with_a_pause(monkeypatch):
+    from learnloop.ai.providers.openrouter_video import POLL_RETRY_DELAY_SECONDS
+
+    http = FakeVideoHttp(polls={"vid_1": [{"status": "completed"}]}, poll_http_errors={"vid_1": [503, 502]})
+    client, sleeps = _client(monkeypatch, http)
+    assert client.poll("vid_1").status == "completed"
+    assert sleeps == [POLL_RETRY_DELAY_SECONDS, POLL_RETRY_DELAY_SECONDS]
+
+    http2 = FakeVideoHttp(poll_http_errors={"vid_2": [503, 503, 503]})
+    client2, _ = _client(monkeypatch, http2)
+    with pytest.raises(AIProviderUnavailable, match="HTTP 503"):
+        client2.poll("vid_2")
+
+
+def test_wait_all_treats_an_error_payload_as_terminal_even_with_an_unknown_status(monkeypatch):
+    http = FakeVideoHttp(polls={"vid_1": [{"status": "moderated", "error": {"message": "blocked"}}]})
+    client, sleeps = _client(monkeypatch, http)
+    with pytest.raises(VideoGenerationFailed, match="blocked") as excinfo:
+        client.wait_all(["vid_1"], max_wait_seconds=600)
+    assert excinfo.value.status == "moderated"
+    assert sleeps == [15.0]  # not polled until the deadline
+
+
+def test_download_asks_for_any_content_type(monkeypatch):
+    http = FakeVideoHttp(contents={"vid_1": b"mp4"})
+    client, _ = _client(monkeypatch, http)
+    seen = {}
+    original = http.__call__
+
+    def spy(method, url, headers, body, timeout):
+        if url.endswith("/content?index=0"):
+            seen["accept"] = headers.get("Accept")
+        return original(method, url, headers, body, timeout)
+
+    client._http = spy
+    assert client.download("vid_1") == b"mp4"
+    assert seen["accept"] == "*/*"
+
+
+def test_transport_maps_socket_errors_to_provider_unavailable(monkeypatch):
+    import socket
+
+    from learnloop.ai.providers.openrouter_video import _urllib_transport
+
+    def boom(*_args, **_kwargs):
+        raise socket.timeout("timed out")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    with pytest.raises(AIProviderUnavailable, match="timed out"):
+        _urllib_transport("GET", "https://openrouter.ai/api/v1/videos/x", {}, None, 1.0)
+
+
+def test_clamp_aspect_ratio_follows_the_model_listing():
+    constraints = VideoModelConstraints((4,), ("720p",), ("16:9", "9:16"))
+    assert clamp_aspect_ratio("9:16", constraints) == "9:16"
+    assert clamp_aspect_ratio("4:3", constraints) == "16:9"
+    assert clamp_aspect_ratio("4:3", None) == "4:3"
+    assert clamp_aspect_ratio(None, constraints) is None
