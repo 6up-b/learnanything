@@ -127,8 +127,25 @@ export interface SettingsDto {
 
 // `[animation]` render settings. Bounds are served by the backend so the UI
 // validates with the same numbers the handler enforces.
+export type AnimationRenderer = "manim" | "video_model";
+
+// Readiness of the video-model renderer: a routed OpenRouter video profile
+// with a model slug and a key. Computed by the sidecar without network.
+export interface SettingsVideoDto {
+  ready: boolean;
+  provider: string | null;
+  model: string | null;
+  reason: string | null;
+  maxShots: number;
+  timeoutSeconds: number;
+  resolution: string;
+}
+
 export interface SettingsAnimationDto {
   enabled: boolean;
+  renderer: AnimationRenderer;
+  rendererOptions: string[];
+  video: SettingsVideoDto;
   quality: string;
   qualityOptions: string[];
   minDurationSeconds: number;
@@ -139,6 +156,8 @@ export interface SettingsAnimationDto {
 }
 
 export interface UpdateAnimationSettingsInput {
+  renderer?: AnimationRenderer;
+  videoMaxShots?: number;
   quality?: string;
   maxDurationSeconds?: number;
   timeoutSeconds?: number;
@@ -164,6 +183,12 @@ export interface TranscriptionKeyResult {
 
 export interface AnimationRuntimeDto {
   enabled: boolean;
+  renderer: AnimationRenderer;
+  videoProvider: string | null;
+  videoModel: string | null;
+  videoReady: boolean;
+  videoReason: string | null;
+  videoMaxShots: number;
   manimAvailable: boolean;
   manimVersion: string | null;
   manimReason: string | null;
@@ -172,8 +197,25 @@ export interface AnimationRuntimeDto {
   timeoutSeconds: number;
 }
 
+// One storyboard shot as authored (prompt, requested length, on-screen caption).
+export interface StoryboardShotDto {
+  prompt: string;
+  durationSeconds: number | null;
+  caption: string;
+}
+
+export interface StoryboardDto {
+  promptVersion?: string;
+  shots: StoryboardShotDto[];
+  jobs?: Array<{ jobId: string; status: string; cost: number | null }>;
+  totalCost?: number;
+}
+
 export interface ConceptAnimationDto {
   animationId: string;
+  renderer: AnimationRenderer;
+  storyboard: StoryboardDto | null;
+  videoJobIds: string[];
   conceptId: string;
   learningObjectId: string | null;
   status: string;

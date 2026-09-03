@@ -1,18 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
-import type { AnimationRuntimeDto, ConceptAnimationDto } from "../api/dto";
+import type { AnimationRuntimeDto, ConceptAnimationDto, StoryboardDto } from "../api/dto";
 import { COLOR, FONT_MONO, Faint } from "./term";
 import { MarkdownMath } from "../render/MarkdownMath";
 
 const PENDING_STATUSES = new Set(["queued", "generating", "validating", "rendering"]);
 
-const PHASE_LABEL: Record<string, string> = {
-  queued: "queued",
-  generating: "authoring scene code",
-  validating: "validating scene code",
-  rendering: "rendering with manim"
+const PHASE_LABEL: Record<string, Record<string, string>> = {
+  manim: {
+    queued: "queued",
+    generating: "authoring scene code",
+    validating: "validating scene code",
+    rendering: "rendering with manim"
+  },
+  video_model: {
+    queued: "queued",
+    generating: "writing the storyboard",
+    validating: "checking the storyboard",
+    rendering: "video model generating shots (may take minutes)"
+  }
 };
+
+function phaseLabel(status: string, renderer: string): string {
+  return PHASE_LABEL[renderer]?.[status] ?? PHASE_LABEL.manim[status] ?? status;
+}
 
 const LINK_STYLE = {
   color: COLOR.amberLink,
@@ -120,6 +132,23 @@ function AnimationPlayer({ fileName }: { fileName: string }) {
   );
 }
 
+function StoryboardList({ storyboard }: { storyboard: StoryboardDto }) {
+  return (
+    <ol style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 11, color: COLOR.textDim, lineHeight: 1.5 }}>
+      {storyboard.shots.map((shot, index) => (
+        <li key={index} style={{ marginBottom: 4 }}>
+          <span style={{ color: COLOR.text }}>{shot.caption || `shot ${index + 1}`}</span>
+          {shot.durationSeconds ? <Faint style={{ fontSize: 10 }}> · {shot.durationSeconds}s</Faint> : null}
+          <div style={{ color: COLOR.textFaint }}>{shot.prompt}</div>
+        </li>
+      ))}
+      {typeof storyboard.totalCost === "number" ? (
+        <Faint style={{ display: "block", fontSize: 10 }}>reported cost: ${storyboard.totalCost.toFixed(2)}</Faint>
+      ) : null}
+    </ol>
+  );
+}
+
 export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
   const [runtime, setRuntime] = useState<AnimationRuntimeDto | null>(null);
   const [latest, setLatest] = useState<ConceptAnimationDto | null>(null);
@@ -137,8 +166,11 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
     }
   };
 
-  const pollStatus = (animationId: string) => {
+  const pollStatus = (animationId: string, renderer: string = "manim") => {
     stopPolling();
+    // Video jobs take minutes and are polled by the sidecar every 30 s; the
+    // inspector need not hammer the RPC channel for them.
+    const interval = renderer === "video_model" ? 5000 : 2000;
     pollRef.current = window.setInterval(() => {
       api
         .getConceptAnimationStatus(animationId)
@@ -147,7 +179,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
           if (!PENDING_STATUSES.has(row.status)) stopPolling();
         })
         .catch(() => stopPolling());
-    }, 2000);
+    }, interval);
   };
 
   useEffect(() => {
@@ -168,7 +200,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
           rows[0] ??
           null;
         setLatest(preferred);
-        if (preferred && PENDING_STATUSES.has(preferred.status)) pollStatus(preferred.animationId);
+        if (preferred && PENDING_STATUSES.has(preferred.status)) pollStatus(preferred.animationId, preferred.renderer);
       })
       .catch((err) => !cancelled && setError((err as Error).message));
     return () => {
@@ -187,6 +219,9 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
       setConsentTicked(false);
       setLatest({
         animationId: requested.animationId,
+        renderer: runtime?.renderer ?? "manim",
+        storyboard: null,
+        videoJobIds: [],
         conceptId,
         learningObjectId: null,
         status: requested.status,
@@ -199,7 +234,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
         failureStage: null,
         failureReason: null
       });
-      pollStatus(requested.animationId);
+      pollStatus(requested.animationId, runtime?.renderer ?? "manim");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -212,7 +247,18 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
   if (runtime && !runtime.enabled) {
     return <Faint>animations are disabled ([animation] enabled = false in learnloop.toml)</Faint>;
   }
-  if (runtime && !runtime.manimAvailable) {
+  const videoRenderer = runtime?.renderer === "video_model";
+  if (runtime && videoRenderer && !runtime.videoReady) {
+    return (
+      <div style={{ fontSize: 12, color: COLOR.textDim, lineHeight: 1.5 }}>
+        <div>video model not ready: {runtime.videoReason ?? "no video model configured"}.</div>
+        <div style={{ fontFamily: FONT_MONO, color: COLOR.textFaint, marginTop: 4 }}>
+          configure in Settings → Animation (renderer, video model, OpenRouter key)
+        </div>
+      </div>
+    );
+  }
+  if (runtime && !videoRenderer && !runtime.manimAvailable) {
     return (
       <div style={{ fontSize: 12, color: COLOR.textDim, lineHeight: 1.5 }}>
         <div>manim is not installed{runtime.manimReason ? ` (${runtime.manimReason})` : ""}.</div>
@@ -239,15 +285,24 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
           <div style={{ marginTop: 6, display: "flex", gap: 12, alignItems: "baseline" }}>
             <Faint style={{ fontSize: 10 }}>
               {latest.provider ? `${latest.provider}${latest.model ? ` · ${latest.model}` : ""}` : ""}
+              {latest.renderer === "video_model" && latest.storyboard
+                ? ` · ${latest.storyboard.shots.length} shot${latest.storyboard.shots.length === 1 ? "" : "s"}`
+                : ""}
             </Faint>
             <button type="button" style={linkStyle} onClick={() => setConsentOpen(true)}>
               regenerate…
             </button>
+            {latest.storyboard ? (
+              <button type="button" style={linkStyle} onClick={() => setShowDebug((value) => !value)}>
+                {showDebug ? "hide storyboard" : "show storyboard"}
+              </button>
+            ) : null}
           </div>
+          {showDebug && latest.storyboard ? <StoryboardList storyboard={latest.storyboard} /> : null}
         </div>
       ) : latest && PENDING_STATUSES.has(latest.status) ? (
         <div style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber }}>
-          ◐ {PHASE_LABEL[latest.status] ?? latest.status}…
+          ◐ {phaseLabel(latest.status, latest.renderer)}…
         </div>
       ) : latest?.status === "failed" ? (
         <div style={{ fontSize: 12, lineHeight: 1.5 }}>
@@ -258,13 +313,19 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
             <button type="button" style={linkStyle} onClick={() => setConsentOpen(true)}>
               retry…
             </button>
-            {(latest.renderStderr || latest.sceneCode) ? (
+            {(latest.renderStderr || latest.sceneCode || latest.storyboard || latest.videoJobIds.length) ? (
               <button type="button" style={linkStyle} onClick={() => setShowDebug((value) => !value)}>
                 {showDebug ? "hide details" : "show details"}
               </button>
             ) : null}
           </div>
-          {showDebug ? (
+          {showDebug && latest.storyboard ? <StoryboardList storyboard={latest.storyboard} /> : null}
+          {showDebug && latest.videoJobIds.length ? (
+            <Faint style={{ display: "block", fontSize: 10, marginTop: 4 }}>
+              OpenRouter jobs (billed on submission): {latest.videoJobIds.join(", ")}
+            </Faint>
+          ) : null}
+          {showDebug && (latest.renderStderr || latest.sceneCode) ? (
             <pre
               style={{
                 marginTop: 6,
@@ -297,10 +358,22 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
               {consentTicked ? "▣" : "▢"}
             </span>
             <span style={{ color: COLOR.text, lineHeight: 1.5 }} onClick={() => setConsentTicked((value) => !value)}>
-              Send this concept&apos;s description to{" "}
-              <b>{runtime ? `${runtime.provider}${runtime.model ? ` (${runtime.model})` : ""}` : "the routed AI provider"}</b>{" "}
-              and run the AI-written Manim scene locally (validated, temp directory,{" "}
-              {runtime?.timeoutSeconds ?? 600}s cap). Generated code is not reviewed by a human before running.
+              {videoRenderer ? (
+                <>
+                  Send this concept&apos;s description to{" "}
+                  <b>{runtime ? `${runtime.provider}${runtime.model ? ` (${runtime.model})` : ""}` : "the routed AI provider"}</b>{" "}
+                  to write a short storyboard (up to {runtime?.videoMaxShots ?? 4} shots), then generate each shot with{" "}
+                  <b>{runtime?.videoModel ?? "the video model"}</b> through OpenRouter — billed per shot to your OpenRouter
+                  account, usually 2–10 minutes, {runtime?.timeoutSeconds ?? 1800}s cap. No code runs locally.
+                </>
+              ) : (
+                <>
+                  Send this concept&apos;s description to{" "}
+                  <b>{runtime ? `${runtime.provider}${runtime.model ? ` (${runtime.model})` : ""}` : "the routed AI provider"}</b>{" "}
+                  and run the AI-written Manim scene locally (validated, temp directory,{" "}
+                  {runtime?.timeoutSeconds ?? 600}s cap). Generated code is not reviewed by a human before running.
+                </>
+              )}
             </span>
           </label>
           <div style={{ marginTop: 8, display: "flex", gap: 12 }}>

@@ -334,6 +334,12 @@ def test_get_settings_reports_animation_block(tmp_path, monkeypatch):
     animation = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]["animation"]
 
     assert animation["enabled"] is True
+    assert animation["renderer"] == "manim"
+    assert animation["rendererOptions"] == ["manim", "video_model"]
+    assert animation["video"]["ready"] is False
+    assert "no video model chosen" in animation["video"]["reason"]
+    assert animation["video"]["maxShots"] == 4
+    assert animation["video"]["timeoutSeconds"] == 1800
     assert animation["quality"] == "qm"
     assert animation["qualityOptions"] == ["ql", "qm", "qh"]
     assert animation["minDurationSeconds"] == 30
@@ -370,3 +376,41 @@ def test_update_animation_settings_persists_and_rejects_bad_values(tmp_path, mon
     assert config.animation.timeout_seconds == 900
     # The edit lands in the existing [animation] table (comment-preserving writer).
     assert (vault_root / "learnloop.toml").read_text().count("[animation]") == 1
+
+
+def test_update_ai_settings_materializes_openrouter_video_profile(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-secret")
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        ("update_ai_settings", {"useCases": {"video": {"provider": "codex"}}}),
+        ("update_ai_settings", {"useCases": {"video": {"provider": "openrouter", "openrouterModel": "veo"}}}),
+        (
+            "update_ai_settings",
+            {"useCases": {"video": {"provider": "openrouter", "openrouterModel": "google/veo-3.1"}}},
+        ),
+        ("update_animation_settings", {"renderer": "video_model", "videoMaxShots": 3}),
+        ("update_animation_settings", {"renderer": "hologram"}),
+        ("update_animation_settings", {"videoMaxShots": 9}),
+    )
+    assert responses[0]["error"]["data"]["code"] == "invalid_provider"
+    assert responses[1]["error"]["data"]["code"] == "invalid_model"
+    routed = responses[2]["result"]
+    assert routed["ai"]["routing"]["videoGeneration"] == "openrouter_video"
+    animation = responses[3]["result"]["animation"]
+    assert animation["renderer"] == "video_model"
+    assert animation["video"]["ready"] is True
+    assert animation["video"]["provider"] == "openrouter_video"
+    assert animation["video"]["model"] == "google/veo-3.1"
+    assert animation["video"]["maxShots"] == 3
+    assert responses[4]["error"]["data"]["code"] == "invalid_renderer"
+    assert responses[5]["error"]["data"]["code"] == "invalid_shot_count"
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.ai.providers["openrouter_video"].model == "google/veo-3.1"
+    assert config.ai.providers["openrouter_video"].type == "openrouter"
+    assert config.animation.renderer == "video_model"
+    assert config.animation.video_max_shots == 3
