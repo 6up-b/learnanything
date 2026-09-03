@@ -30,6 +30,9 @@ interface Entry extends CachedPdfDocument {
 
 const documents = new Map<string, Entry>();
 const loading = new Map<string, Promise<CachedPdfDocument>>();
+// Bumped by clearPdfDocuments(): a load that started before a clear must not
+// install its (previous-vault) document afterwards.
+let generation = 0;
 
 function evictBeyondLimit(): void {
   if (documents.size <= MAX_DOCS) return;
@@ -42,12 +45,21 @@ function evictBeyondLimit(): void {
 }
 
 async function load(fileUrl: string): Promise<CachedPdfDocument> {
+  const startedIn = generation;
   const response = await fetch(fileUrl);
   if (!response.ok) throw new Error(`originals store returned ${response.status}`);
   const data = new Uint8Array(await response.arrayBuffer());
   const task = pdfjs.getDocument({ data });
   const doc = await task.promise;
   const entry: Entry = { doc, task, pageTexts: new Map(), lastUsed: Date.now() };
+  const existing = documents.get(fileUrl);
+  if (startedIn !== generation || existing) {
+    // Cleared mid-load, or a concurrent load already installed this URL: the
+    // worker-side document would otherwise leak with nothing referencing it.
+    void task.destroy();
+    if (existing && startedIn === generation) return existing;
+    throw new Error("PDF document cache was cleared while loading");
+  }
   documents.set(fileUrl, entry);
   evictBeyondLimit();
   return entry;
@@ -71,6 +83,7 @@ export function acquirePdfDocument(fileUrl: string): Promise<CachedPdfDocument> 
 
 /** Destroy every cached document (vault switch). */
 export function clearPdfDocuments(): void {
+  generation += 1;
   for (const entry of documents.values()) void entry.task.destroy();
   documents.clear();
   loading.clear();

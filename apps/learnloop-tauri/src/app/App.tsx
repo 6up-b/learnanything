@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import type { AppSnapshot, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
@@ -28,7 +29,7 @@ import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
 import { GoldenPathScreen } from "../screens/GoldenPathScreen";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
-import { ReaderScreen } from "../screens/ReaderScreen";
+import { ReaderScreen, type ReaderOpenSource } from "../screens/ReaderScreen";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -70,6 +71,9 @@ export function App() {
   const [tab, setTab] = useState<TopTab>("start");
   // Registry review (§5.7) + Open-in-source (§9.2) + Quick add (§1) surfaces.
   const [registrySubjectId, setRegistrySubjectId] = useState<string | null>(null);
+  // The Reader unmounts on every tab switch; the open source is kept here so
+  // returning to the tab resumes it (its reads come from the query cache).
+  const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
   const [openSource, setOpenSource] = useState<OpenSourceTarget | null>(null);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [quickAddGuided, setQuickAddGuided] = useState(false);
@@ -213,10 +217,22 @@ export function App() {
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
+    // An ingest writes files in bursts (one watcher event every few hundred
+    // ms); each burst would otherwise refetch every mounted query on the
+    // single serialized sidecar pipe. Coalesce into one invalidation per quiet
+    // second — the data stays on screen meanwhile.
+    let invalidateTimer: number | null = null;
+    const scheduleInvalidateAll = () => {
+      if (invalidateTimer !== null) return;
+      invalidateTimer = window.setTimeout(() => {
+        invalidateTimer = null;
+        invalidateAllQueries();
+      }, 1000);
+    };
     listen<VaultFilesChangedEvent>("learnloop://vault-files-changed", ({ payload }) => {
       // Files changed on disk: every cached read may be stale. Data is kept so
       // mounted screens repaint from it while they revalidate.
-      if (payload.refresh.mode !== "noop") invalidateAllQueries();
+      if (payload.refresh.mode !== "noop") scheduleInvalidateAll();
       notifyQueueChanged();
       if (payload.refresh.error) {
         onError(`Vault refresh failed: ${payload.refresh.error.message}`);
@@ -257,6 +273,7 @@ export function App() {
       .catch((error) => onError(errorMessage(error, "Could not watch this vault for changes.")));
     return () => {
       disposed = true;
+      if (invalidateTimer !== null) window.clearTimeout(invalidateTimer);
       unlisten?.();
     };
   }, [onError]);
@@ -648,15 +665,21 @@ export function App() {
       try {
         await api.selectVault(path);
         selected = true;
+        // From this point onward every command targets the new vault. Do not
+        // leave the previous vault's snapshot or overlays interactive while the
+        // replacement snapshot is loading (or if that second read fails).
+        // Unmount the screens SYNCHRONOUSLY before the cache is cleared:
+        // clearing re-arms every still-subscribed query, and a screen keyed on
+        // the old vault's ids would otherwise fire those reads at the new one
+        // (get_today_queue with a foreign session id records scheduler state).
+        flushSync(() => {
+          setSnapshot(null);
+          setSession(null);
+        });
         // Cached reads belong to the previous vault; drop them before any
         // screen can read through the cache for the new one.
         clearQueryCache();
         clearPdfDocuments();
-        // From this point onward every command targets the new vault. Do not
-        // leave the previous vault's snapshot or overlays interactive while the
-        // replacement snapshot is loading (or if that second read fails).
-        setSnapshot(null);
-        setSession(null);
         setStartupError(null);
         setSettingsOpen(false);
         setReviewOpen(false);
@@ -687,6 +710,7 @@ export function App() {
         setPendingPrimedItemId(null);
         setIngestJobId(null);
         setProposalFocusPatchId(null);
+        setReaderSource(null);
         setTodayStage("queue");
         setTab("start");
       } catch (error) {
@@ -948,7 +972,7 @@ export function App() {
       );
     }
     if (tab === "reader") {
-      return <ReaderScreen onError={onError} />;
+      return <ReaderScreen onError={onError} initialSource={readerSource} onSourceChange={setReaderSource} />;
     }
     if (tab === "maintain") {
       return (

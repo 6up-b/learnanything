@@ -19,6 +19,12 @@ export interface CachedQuery<T> {
   readonly loading: boolean;
   /** Data is on screen but expired, invalidated, or being revalidated. */
   readonly stale: boolean;
+  /**
+   * The data on screen predates an invalidation and its replacement is in
+   * flight: what is shown is known to be out of date (not merely aged out).
+   * Screens whose rows trigger actions gate keyboard shortcuts on this.
+   */
+  readonly refreshing: boolean;
   readonly error: CommandError | null;
   /** Force a fetch (shares an in-flight request). Rejects when the query is disabled. */
   readonly refetch: () => Promise<T>;
@@ -93,5 +99,6 @@ export function useCachedQuery<T>(
 
   const loading = enabled && hash !== null && state.data === undefined && state.error === null;
   const stale = state.data !== undefined && (state.fetching || isStale(state, optionsRef.current.staleAfterMs));
-  return { data: state.data, loading, stale, error: state.error, refetch };
+  const refreshing = state.data !== undefined && state.fetching && state.invalidatedAt > state.updatedAt;
+  return { data: state.data, loading, stale, refreshing, error: state.error, refetch };
 }

@@ -208,14 +208,20 @@ export function TodayScreen({
     if (queueQuery.error) onError(queueQuery.error.message);
   }, [queueQuery.error, onError]);
 
+  // The cached queue can predate an invalidation (an attempt was just
+  // submitted): it paints, but its rows must not be actionable until the
+  // replacement lands, or Enter re-serves the item the scheduler just moved.
+  const queueRefreshing = queueQuery.refreshing;
+
   // Keep the focused row valid across cached paints and revalidations: only
   // move focus when the focused item left the queue (a no-change refresh
-  // must not yank j/k focus back to the top).
+  // must not yank j/k focus back to the top). Focus is not (re)assigned from
+  // a queue known to be out of date.
   useEffect(() => {
-    if (!queue) return;
+    if (!queue || queueRefreshing) return;
     const ids = queueItems(queue).map((item) => item.practiceItemId);
     setFocusedId((current) => (current && ids.includes(current) ? current : ids[0] ?? null));
-  }, [queue]);
+  }, [queue, queueRefreshing]);
 
   // Active goals ordered for the banner: nearest due first, ties by higher priority.
   const activeGoals = useMemo(() => {
@@ -477,10 +483,10 @@ export function TodayScreen({
         setFocusedId(flatIds[Math.max(0, index - 1)] ?? null);
         event.preventDefault();
       } else if (["Enter", "l", "ArrowRight"].includes(event.key) && focusedItem) {
-        onOpenPractice(focusedItem.practiceItemId);
+        if (!queueRefreshing) onOpenPractice(focusedItem.practiceItemId);
         event.preventDefault();
       } else if (/^[1-9]$/.test(event.key)) {
-        const target = flatIds[Number(event.key) - 1];
+        const target = queueRefreshing ? undefined : flatIds[Number(event.key) - 1];
         if (target) {
           setFocusedId(target);
           onOpenPractice(target);
@@ -499,7 +505,7 @@ export function TodayScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [finishSession, flatIds, focusedItem, onOpenPractice]);
+  }, [finishSession, flatIds, focusedItem, onOpenPractice, queueRefreshing]);
 
   // Force a fresh scheduler pass (shares a request already in flight). The
   // `force` option is kept for call-site compatibility; the cache handles the

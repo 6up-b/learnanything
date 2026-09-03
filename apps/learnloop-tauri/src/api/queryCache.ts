@@ -132,6 +132,7 @@ function setState(entry: Entry, next: QueryState<unknown>): void {
 }
 
 function sameJson(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
   try {
     return JSON.stringify(a) === JSON.stringify(b);
   } catch {
@@ -176,7 +177,11 @@ export function getOrFetch<T>(key: QueryKey, fetcher: () => Promise<T>, options:
         // switch): the result belongs to the old vault and must not land.
         if (startedIn !== generation) return result;
         const current = entry.state as QueryState<T>;
-        const data = current.data !== undefined && sameJson(current.data, result) ? current.data : result;
+        // Reference preservation only matters to a mounted subscriber's memos;
+        // skip the (potentially multi-MB) stringify when nobody is listening.
+        const keepReference =
+          entry.listeners.size > 0 && current.data !== undefined && sameJson(current.data, result);
+        const data = keepReference ? (current.data as T) : result;
         setState(entry, {
           data,
           error: null,
@@ -184,6 +189,12 @@ export function getOrFetch<T>(key: QueryKey, fetcher: () => Promise<T>, options:
           invalidatedAt: current.invalidatedAt,
           fetching: false
         });
+        if (current.invalidatedAt > startedAt) {
+          // Invalidated while this request was in flight (a mutation resolved
+          // off the primary pipe): the result is already stale, so follow up
+          // once. The follow-up starts after the stamp, so it cannot loop.
+          void getOrFetch(key, fetcher, { ...options, force: true }).catch(() => undefined);
+        }
         return data;
       },
       (error: unknown) => {
@@ -214,7 +225,9 @@ export function setQueryData<T>(key: QueryKey, data: T, tags: readonly QueryTag[
 }
 
 function markStale(entry: Entry, now: number): void {
-  if (entry.state.data === undefined && entry.promise === null) return;
+  // Nothing to refresh: never fetched and not fetching. An entry whose fetch
+  // FAILED is included, so an invalidation gives it another try.
+  if (entry.state.data === undefined && entry.state.error === null && entry.promise === null) return;
   setState(entry, { ...entry.state, invalidatedAt: staleStamp(entry.state, now) });
 }
 
