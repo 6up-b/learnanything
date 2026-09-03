@@ -180,19 +180,21 @@ On Debian or Ubuntu, Tauri currently requires:
 sudo apt update
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
   libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-  gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav
 ```
 
 On Arch Linux, install the matching GStreamer runtime plugins for embedded
 audio and video playback:
 
 ```bash
-sudo pacman -Syu --needed gst-plugins-base gst-plugins-good
+sudo pacman -Syu --needed gst-plugins-base gst-plugins-good gst-libav
 ```
 
 `gst-plugins-good` provides `autoaudiosink`, which WebKitGTK requires when the
 Reader plays embedded video. If it is missing, the WebKit web process can exit
-when playback starts.
+when playback starts. `gstreamer1.0-libav` / `gst-libav` provides the H.264
+decoder that generated concept animations (mp4) need; without it the inspector
+reports a decode error instead of playing the video.
 
 ### Run from a checkout
 

@@ -41,7 +41,7 @@ from learnloop.content.authoring.ai_contracts import (
     ManimAnimation,
     concept_animation_prompt,
 )
-from learnloop.content.authoring.animation_media import probe_duration_seconds
+from learnloop.content.authoring.animation_media import probe_duration_seconds, remux_faststart
 
 ALLOWED_IMPORTS = frozenset({"manim", "numpy", "math"})
 ALLOWED_SCENE_BASES = {"Scene", "MovingCameraScene", "ThreeDScene", "ZoomedScene"}
@@ -625,12 +625,15 @@ def generate_concept_animation(
         if not result.ok:
             return _fail("render", "manim render failed", stderr=result.stderr_tail)
 
-        digest = "sha256:" + hashlib.sha256(result.video_bytes).hexdigest()
+        # The hash names the STORED bytes: remuxed for streaming playback, so a
+        # re-render of byte-identical manim output still dedupes.
+        video_bytes = remux_faststart(result.video_bytes)
+        digest = "sha256:" + hashlib.sha256(video_bytes).hexdigest()
         video_path = animation_video_path(vault.root, digest)
         if not video_path.is_file():
             video_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = video_path.with_name(video_path.name + ".tmp")
-            tmp.write_bytes(result.video_bytes)
+            tmp.write_bytes(video_bytes)
             tmp.replace(video_path)
         from learnloop.clock import utc_now_iso
 
@@ -639,7 +642,7 @@ def generate_concept_animation(
             status="completed",
             video_hash=digest,
             video_file_name=video_path.name,
-            duration_seconds=probe_duration_seconds(result.video_bytes),
+            duration_seconds=probe_duration_seconds(video_bytes),
             render_stderr=None,
             completed_at=utc_now_iso(clock),
             clock=clock,
