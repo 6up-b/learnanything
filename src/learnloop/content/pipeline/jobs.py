@@ -364,36 +364,32 @@ class NativeMediaRoute:
     max_audio_mb: int
 
 
-def _native_media_route(ctx: JobContext, modality: str) -> NativeMediaRoute | None:
+def _native_media_route(
+    ctx: JobContext, modality: str, *, requested: bool | None = None
+) -> NativeMediaRoute | None:
     """PURE config decision: is native multimodal active for this modality?
 
     Shared by default_extract and default_extraction_identity so the cache
-    identity and the actual extraction can never disagree. Requires
-    [ingest.native] enabled + the per-modality flag, a canonical_ingest route
-    resolving to an OpenAI-compatible chat provider, and the modality declared
-    in that profile's input_modalities."""
+    identity and the actual extraction can never disagree. The judgement is
+    ``learnloop.ai.native_media``: the modality must be selected (``[ingest.pdf]
+    engine`` / ``[ingest.audio] mode``, or ``requested`` for a per-run PDF
+    engine) and the canonical_ingest route must resolve to an OpenAI-compatible
+    chat provider declaring the modality in ``input_modalities``."""
 
-    from learnloop.ai.multimodal import supports_input_modality
-    from learnloop.ai.routing import provider_for_task
+    from learnloop.ai.native_media import native_modality_readiness
     from learnloop.vault.loader import load_vault
 
     try:
         config = load_vault(ctx.vault_root).config
     except FileNotFoundError:
         return None
-    native = config.ingest.native
-    if not native.enabled or not bool(getattr(native, modality, False)):
-        return None
-    selection = provider_for_task(config, "canonical_ingest")
-    profile = config.ai.providers.get(selection.provider_name)
-    if profile is None or profile.type.lower() not in {"openai_chat", "openrouter"}:
-        return None
-    if not supports_input_modality(profile, modality):
+    readiness = native_modality_readiness(config, modality, requested=requested)
+    if not (readiness.requested and readiness.ready):
         return None
     return NativeMediaRoute(
-        provider_name=selection.provider_name,
-        model=profile.model,
-        max_audio_mb=native.max_audio_mb,
+        provider_name=readiness.provider_name or "",
+        model=readiness.model,
+        max_audio_mb=config.ingest.native.max_audio_mb,
     )
 
 
@@ -683,12 +679,12 @@ def _chat_transcript_to_ir(
 
 
 def _require_native_pdf_route(ctx: JobContext) -> NativeMediaRoute:
-    route = _native_media_route(ctx, "pdf")
+    # The caller already established that the effective engine is "native".
+    route = _native_media_route(ctx, "pdf", requested=True)
     if route is None:
         raise IngestRunnerError(
-            'PDF engine "native" requires [ingest.native] enabled with pdf = true and a '
-            'canonical_ingest route to an OpenAI-compatible provider declaring "pdf" in '
-            "input_modalities.",
+            'PDF engine "native" requires a canonical_ingest route to an OpenAI-compatible '
+            'chat provider declaring "pdf" in input_modalities.',
             code="native_pdf_unavailable",
             retryable=True,
         )

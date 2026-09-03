@@ -1264,7 +1264,7 @@ def _native_audio_vault(tmp_path, monkeypatch, *, input_modalities=("audio",)):
     apply_config_updates(
         vault_root / "learnloop.toml",
         {
-            ("ingest", "native", "enabled"): True,
+            ("ingest", "audio", "mode"): "native",
             ("ai", "routing", "canonical_ingest"): "openrouter",
             ("ai", "providers", "openrouter", "input_modalities"): list(input_modalities),
         },
@@ -1684,7 +1684,7 @@ def _native_pdf_vault(tmp_path, monkeypatch, *, input_modalities=("pdf",)):
         vault_root / "learnloop.toml",
         {
             ("ingest", "pdf", "engine"): "native",
-            ("ingest", "native", "enabled"): True,
+            ("ingest", "audio", "mode"): "native",
             ("ai", "routing", "canonical_ingest"): "openrouter",
             ("ai", "providers", "openrouter", "input_modalities"): list(input_modalities),
         },

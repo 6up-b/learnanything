@@ -71,10 +71,10 @@ transcription = ""
 
 [ingest]
 [ingest.pdf]
-engine = "auto" # auto | marker | pypdf | native
+engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
 
-[ingest.native]
-enabled = false
+[ingest.audio]
+mode = "transcription" # transcription | native (send mp3/wav to the ingest model)
 
 [animation]
 enabled = true
@@ -98,8 +98,8 @@ This is copied from `DEFAULT_CONFIG_TEXT`; the template is constrained to remain
 | `ai.providers.codex.*` | SDK, GPT-5.6, low | Seed profile; see [[AI Architecture]] |
 | `ai.providers.openrouter.*` | OpenRouter profile | Optional configured profile; secret is indirect |
 | `ai.routing.*` | low/medium profiles | Per-workflow provider selection |
-| `ingest.pdf.engine` | `auto` | PDF extraction capability choice |
-| `ingest.native.enabled` | `false` | External-data-flow opt-in |
+| `ingest.pdf.engine` | `auto` | PDF extraction choice; `native` sends the whole PDF to the ingest model (external data flow) |
+| `ingest.audio.mode` | `transcription` | Audio path; `native` sends mp3/wav to the ingest model (external data flow) |
 | `animation.enabled` | `true` | Makes animation available; each render still requires consent |
 
 Every other current default is enumerated in [[Configuration Field Catalog]].

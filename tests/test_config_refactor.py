@@ -284,6 +284,28 @@ def test_endpoint_audio_config_does_not_create_a_chat_route() -> None:
     assert config.ingest.audio.timeout_seconds == 222
 
 
+def test_legacy_native_gates_normalize_to_audio_mode() -> None:
+    # enabled + audio flag -> the audio modality's own authority.
+    on = _parsed('[ingest.native]\nenabled = true\naudio = true\npdf = true\n')
+    assert on.ingest.audio.mode == "native"
+    assert on.ingest.pdf.engine == "auto"  # PDF authority is never the legacy gate
+    assert "enabled" not in on.ingest.native.model_dump()
+
+    # enabled with audio off, or plain disabled, keeps the transcription path.
+    assert _parsed('[ingest.native]\nenabled = true\naudio = false\n').ingest.audio.mode == "transcription"
+    assert _parsed('[ingest.native]\nenabled = false\n').ingest.audio.mode == "transcription"
+
+    # The canonical key wins when both are present.
+    both = _parsed('[ingest.native]\nenabled = true\n[ingest.audio]\nmode = "transcription"\n')
+    assert both.ingest.audio.mode == "transcription"
+
+    # Limits survive and the normalization is idempotent.
+    limits = _parsed('[ingest.native]\nenabled = true\nmax_audio_mb = 5\n')
+    assert limits.ingest.native.max_audio_mb == 5
+    twice = LearnLoopConfig.model_validate(limits.model_dump(mode="json"))
+    assert twice.model_dump(mode="json") == limits.model_dump(mode="json")
+
+
 def test_schema_v1_is_accepted_but_v2_is_generated() -> None:
     assert LearnLoopConfig.model_validate({"schema_version": 1}).schema_version == 1
     assert LearnLoopConfig().schema_version == 2

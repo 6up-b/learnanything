@@ -40,6 +40,7 @@ Legacy input is translated **one way** into the canonical typed model before run
 | Codex model `gpt-5.5` | current default model/reasoning pair | Applies to canonical Codex alias normalization |
 | AI route value `codex` | task-specific `codex_low` or `codex_medium` | Explicit modern route is unchanged |
 | `error_impacts.*.max_sharpening` | `recall_coverage.max_error_sharpening` | Canonical destination wins |
+| `[ingest.native] enabled = true` with `audio = true` | `[ingest.audio] mode = "native"` | An explicit `mode` wins; the retired `pdf` flag is dropped because `[ingest.pdf] engine` is the only PDF authority |
 
 ## Legacy audio normalization
 
@@ -56,6 +57,7 @@ These values parse for old files but are removed before the runtime model is ser
 - `probe.dialogue.max_turns`;
 - `recall_coverage.facet_recall_prior_pseudo_count` and `coverage_epsilon`;
 - `ingest.budgets.evidence_span_input_tokens`;
+- `ingest.native.enabled`, `ingest.native.audio`, and `ingest.native.pdf` (translated as above, then removed);
 - provider `auth_mode`.
 
 > [!note] Parse-and-ignore is deliberate
