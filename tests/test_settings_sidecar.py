@@ -466,7 +466,6 @@ def test_get_settings_reports_native_modality_readiness(tmp_path, monkeypatch):
     ingest = settings["ingest"]
     assert ingest["pdfEngine"] == "auto"
     assert ingest["audioMode"] == "transcription"
-    assert ingest["nativeMultimodal"] is False
     native = ingest["native"]
     assert [entry["modality"] for entry in native["modalities"]] == ["pdf", "audio"]
     # A Codex-routed ingest route cannot take media natively; the UI gets the reason.
@@ -505,7 +504,6 @@ def test_update_ingest_settings_sets_per_modality_authorities(tmp_path, monkeypa
     result = responses[0]["result"]
     assert result["ingest"]["pdfEngine"] == "native"
     assert result["ingest"]["audioMode"] == "native"
-    assert result["ingest"]["nativeMultimodal"] is True
     assert result["ingest"]["native"]["fallbackWhenUnavailable"] is True
     assert result["ingest"]["native"]["maxPdfMb"] == 10
     pdf_state = next(e for e in result["ingest"]["native"]["modalities"] if e["modality"] == "pdf")

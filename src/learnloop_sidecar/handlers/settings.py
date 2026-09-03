@@ -112,10 +112,6 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "settings_env_path": str(global_settings_path()),
         },
         "ingest": {
-            # Transitional: true when either modality is routed natively.
-            "native_multimodal": (
-                config.ingest.audio.mode == "native" or config.ingest.pdf.engine == "native"
-            ),
             "pdf_engine": config.ingest.pdf.engine,
             "audio_mode": config.ingest.audio.mode,
             # Per-modality readiness from the same judgement the pipeline
@@ -347,9 +343,6 @@ NATIVE_LIMIT_BOUNDS_MB = (1, 500)
 
 
 class UpdateIngestSettingsParams(ParamsModel):
-    # Transitional toggle kept until the desktop UI moves to the per-modality
-    # fields below.
-    native_multimodal: bool | None = None
     # Per-modality authorities ([ingest.pdf] engine / [ingest.audio] mode).
     pdf_engine: Literal["auto", "marker", "pypdf", "native"] | None = None
     audio_mode: Literal["transcription", "native"] | None = None
@@ -376,15 +369,6 @@ TRANSCRIPTION_PROVIDERS = ("openai_compatible", "openrouter")
 def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsParams) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     updates: dict[tuple[str, ...], Any] = {}
-    if params.native_multimodal is not None:
-        # Transitional shim over the per-modality authorities: on routes both
-        # PDF and audio natively; off restores local PDF extraction only when
-        # native was the selected engine (an explicit marker/pypdf choice stays).
-        updates[("ingest", "audio", "mode")] = "native" if params.native_multimodal else "transcription"
-        if params.native_multimodal:
-            updates[("ingest", "pdf", "engine")] = "native"
-        elif vault.config.ingest.pdf.engine == "native":
-            updates[("ingest", "pdf", "engine")] = "auto"
     if params.pdf_engine is not None:
         updates[("ingest", "pdf", "engine")] = params.pdf_engine
     if params.audio_mode is not None:
@@ -426,7 +410,7 @@ def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsPara
     # OpenRouter transcription runs as chat input_audio against a model slug;
     # catch an endpoint model (e.g. whisper-1) left behind on a provider
     # switch. Only when the request touches provider/model — an unrelated
-    # update (e.g. the native toggle) must not fail on a pre-existing mismatch.
+    # update (e.g. a limit) must not fail on a pre-existing mismatch.
     if provider is not None or model is not None:
         effective_provider = (
             provider

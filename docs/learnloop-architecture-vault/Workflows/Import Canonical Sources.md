@@ -66,6 +66,20 @@ stateDiagram-v2
 
 The durable status is separate from the work checkpoint. A successful full import advances through `acquired → registered → extracted`; inventory/synthesis jobs continue through `inventoried → synthesized → proposed → applied`. Dependencies must complete before downstream jobs become eligible. ^ingest-checkpoints
 
+### Choose the PDF engine
+
+`[ingest.pdf] engine` (Settings → Ingestion → PDF, or the per-import dropdown on the Ingest screen) selects how a PDF becomes text:
+
+| Engine | Where the bytes go | Page ranges |
+|---|---|---|
+| `auto` | local: Marker when installed, else pypdf | honoured |
+| `marker` / `pypdf` | local, forced | honoured |
+| `native` | the whole PDF is sent to the `canonical_ingest` chat provider as a file content part | rejected (`invalid_page_range`) |
+
+`native` requires the routed profile to be an OpenAI-compatible chat provider (`openai_chat` or `openrouter`) that declares `pdf` in `input_modalities`; Settings shows the readiness line and, for OpenRouter models, can detect the declaration from the public model catalog (see [[Configure AI Providers#Declare input modalities]]). An unready native route is refused when the batch is started and again by the durable job (`native_pdf_unavailable`, not retried); `[ingest.native] fallback_when_unavailable = true` runs the local engine instead and flags the extraction `native_pdf_fallback_local`. Uploads are capped by `[ingest.native] max_pdf_mb`. The legacy one-shot `learnloop ingest` command has no chat client and rejects `native` rather than downgrading it.
+
+Audio follows the same shape through `[ingest.audio] mode` (`transcription` or `native` for mp3/wav).
+
 ## Inspect the batch and extraction
 
 ```bash
