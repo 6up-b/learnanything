@@ -50,6 +50,7 @@ import type {
   TranscriptionKeyResult,
   UpdateAiSettingsInput,
   UpdateIngestSettingsInput,
+  UpdateAnimationSettingsInput,
   InspectorEntity,
   KnowledgeMapHistory,
   KnowledgeMapSnapshot,
@@ -659,6 +660,8 @@ export const api = {
     call<SettingsDto>("update_ingest_settings", { input }),
   setTranscriptionApiKey: (apiKey: string) =>
     call<TranscriptionKeyResult>("set_transcription_api_key", { apiKey }),
+  updateAnimationSettings: (input: UpdateAnimationSettingsInput) =>
+    call<SettingsDto>("update_animation_settings", { input }),
   getAnimationRuntime: () => call<AnimationRuntimeDto>("get_animation_runtime"),
   requestConceptAnimation: (input: { conceptId: string; learningObjectId?: string | null; consent: boolean }) =>
     call<RequestConceptAnimationResult>("request_concept_animation", { input }),

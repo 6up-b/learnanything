@@ -43,6 +43,11 @@ from learnloop_sidecar.registry import method
 
 OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
 
+# [animation] render settings the Settings tab edits.
+ANIMATION_QUALITY_OPTIONS = ("ql", "qm", "qh")
+ANIMATION_DURATION_BOUNDS = (15, 180)
+ANIMATION_TIMEOUT_BOUNDS = (60, 3600)
+
 _ROUTING_TASKS = (
     "grading",
     "canonical_ingest",
@@ -109,6 +114,17 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
                 for field in PLAN_BUDGET_FIELDS
             },
             "provider_limits": _provider_limits(config),
+        },
+        "animation": {
+            "enabled": config.animation.enabled,
+            "quality": config.animation.quality,
+            "quality_options": list(ANIMATION_QUALITY_OPTIONS),
+            "min_duration_seconds": config.animation.min_duration_seconds,
+            "max_duration_seconds": config.animation.max_duration_seconds,
+            "timeout_seconds": config.animation.timeout_seconds,
+            # Accepted ranges, so the UI validates with the handler's numbers.
+            "duration_bounds": {"min": ANIMATION_DURATION_BOUNDS[0], "max": ANIMATION_DURATION_BOUNDS[1]},
+            "timeout_bounds": {"min": ANIMATION_TIMEOUT_BOUNDS[0], "max": ANIMATION_TIMEOUT_BOUNDS[1]},
         },
     }
 
@@ -384,3 +400,50 @@ def set_openrouter_api_key(ctx: SidecarContext, params: SetOpenrouterApiKeyParam
             "status": report.status,
         }
     )
+
+
+class UpdateAnimationSettingsParams(ParamsModel):
+    quality: str | None = None
+    max_duration_seconds: int | None = None
+    timeout_seconds: int | None = None
+
+
+@method("update_animation_settings", UpdateAnimationSettingsParams)
+def update_animation_settings(
+    ctx: SidecarContext, params: UpdateAnimationSettingsParams
+) -> dict[str, Any]:
+    """Persist [animation] render quality / pacing cap / timeout and reload."""
+
+    vault, _repository = ctx.require_vault()
+    updates: dict[tuple[str, ...], Any] = {}
+    if params.quality is not None:
+        quality = params.quality.strip().lower()
+        if quality not in ANIMATION_QUALITY_OPTIONS:
+            raise SidecarError(
+                "invalid_quality",
+                f"Animation quality must be one of: {', '.join(ANIMATION_QUALITY_OPTIONS)}.",
+            )
+        updates[("animation", "quality")] = quality
+    if params.max_duration_seconds is not None:
+        low, high = ANIMATION_DURATION_BOUNDS
+        floor = max(low, vault.config.animation.min_duration_seconds)
+        if not floor <= params.max_duration_seconds <= high:
+            raise SidecarError(
+                "invalid_duration",
+                f"Animation length must be between {floor} and {high} seconds.",
+            )
+        updates[("animation", "max_duration_seconds")] = params.max_duration_seconds
+    if params.timeout_seconds is not None:
+        low, high = ANIMATION_TIMEOUT_BOUNDS
+        if not low <= params.timeout_seconds <= high:
+            raise SidecarError(
+                "invalid_timeout", f"Render timeout must be between {low} and {high} seconds."
+            )
+        updates[("animation", "timeout_seconds")] = params.timeout_seconds
+    if updates:
+        try:
+            apply_config_updates(vault.root / "learnloop.toml", updates)
+        except SettingsStoreError as exc:
+            raise SidecarError(exc.code, str(exc))
+        ctx.reload(maintenance=False)
+    return versioned(_settings_payload(ctx))

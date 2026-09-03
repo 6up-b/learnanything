@@ -80,9 +80,10 @@ def test_animation_config_and_routing_parity(tmp_path):
         assert config.ai.routing.animation == "codex_medium"
         animation = config.animation
         assert animation.enabled is True
-        assert animation.quality == "ql"
-        assert animation.timeout_seconds == 300
-        assert animation.max_duration_seconds == 45
+        assert animation.quality == "qm"
+        assert animation.timeout_seconds == 600
+        assert animation.min_duration_seconds == 30
+        assert animation.max_duration_seconds == 60
         assert animation.latex_enabled is False
         assert animation.auto_repair is True
         assert animation.manim_executable is None

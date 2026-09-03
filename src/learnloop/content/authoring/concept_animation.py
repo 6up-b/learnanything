@@ -23,6 +23,7 @@ consent copy.
 from __future__ import annotations
 
 import ast
+import logging
 import shutil
 import subprocess
 import sys
@@ -37,11 +38,14 @@ from learnloop.ai.transport import (
     execute_structured_operation,
 )
 from learnloop.content.authoring.ai_contracts import (
+    CONCEPT_ANIMATION_SCENE_SCAFFOLD,
     ConceptAnimationContext,
     ManimAnimation,
     concept_animation_prompt,
 )
 from learnloop.content.authoring.animation_media import probe_duration_seconds, remux_faststart
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_IMPORTS = frozenset({"manim", "numpy", "math"})
 ALLOWED_SCENE_BASES = {"Scene", "MovingCameraScene", "ThreeDScene", "ZoomedScene"}
@@ -53,6 +57,18 @@ _FORBIDDEN_NAMES = frozenset(
     }
 )
 _STDERR_TAIL_CHARS = 8000
+# manim quality flag -> (resolution, fps); the prompt cites these for layout.
+_QUALITY_PRESETS: dict[str, tuple[str, int]] = {
+    "ql": ("854x480", 15),
+    "qm": ("1280x720", 30),
+    "qh": ("1920x1080", 60),
+}
+# Static pacing tolerance above the configured maximum before the lint objects.
+_PACING_OVER_SLACK_SECONDS = 15.0
+
+
+def quality_preset(quality: str | None) -> tuple[str, int]:
+    return _QUALITY_PRESETS.get((quality or "qm").lower(), _QUALITY_PRESETS["qm"])
 
 
 class ConceptAnimationError(ValueError):
@@ -313,6 +329,194 @@ def _combined_scene_videos(media_root: Path, scene_class: str) -> list[Path]:
     return sorted(named or candidates, key=lambda path: path.stat().st_mtime)
 
 
+# ---------------------------------------------------------------------------
+# Static pacing estimate: the sum of self.play run_times and self.wait pauses
+# in construct(), following helper methods and constant range() loops. Rough
+# by design (rate functions and data-dependent loops are ignored); it exists
+# to catch a 3-second "explainer", not to time a scene.
+# ---------------------------------------------------------------------------
+
+
+def _const_number(node: ast.AST, env: dict[str, float]) -> float | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+        return float(node.value)
+    if isinstance(node, ast.Name):
+        return env.get(node.id)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        inner = _const_number(node.operand, env)
+        return -inner if inner is not None else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+        left = _const_number(node.left, env)
+        right = _const_number(node.right, env)
+        if left is None or right is None:
+            return None
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        return left / right if right else None
+    return None
+
+
+def _scene_base_name(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _self_call_name(call: ast.Call) -> str | None:
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "self":
+        return func.attr
+    return None
+
+
+def estimate_scene_duration(code: str) -> float | None:
+    """Seconds of animation implied by the Scene subclass's construct(), or None."""
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    scene = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and any(_scene_base_name(base) in ALLOWED_SCENE_BASES for base in node.bases)
+        ),
+        None,
+    )
+    if scene is None:
+        return None
+    methods = {node.name: node for node in scene.body if isinstance(node, ast.FunctionDef)}
+    if "construct" not in methods:
+        return None
+
+    def call_cost(call: ast.Call, env: dict[str, float], depth: int) -> float:
+        name = _self_call_name(call)
+        if name is None:
+            return 0.0
+        keywords = {kw.arg: kw.value for kw in call.keywords if kw.arg}
+        if name == "wait":
+            source = call.args[0] if call.args else keywords.get("duration")
+            if source is None:
+                return 1.0
+            value = _const_number(source, env)
+            return value if value is not None else 1.0
+        if name == "play":
+            if "run_time" not in keywords:
+                return 1.0
+            value = _const_number(keywords["run_time"], env)
+            return value if value is not None else 1.0
+        if name in methods and depth < 3:
+            overrides = {
+                key: value
+                for key, node in keywords.items()
+                if (value := _const_number(node, env)) is not None
+            }
+            return method_cost(name, overrides, depth + 1)
+        return 0.0
+
+    def statements_cost(statements: list[ast.stmt], env: dict[str, float], depth: int) -> float:
+        total = 0.0
+        for statement in statements:
+            if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(statement, ast.For):
+                repeats = 1.0
+                iterator = statement.iter
+                if (
+                    isinstance(iterator, ast.Call)
+                    and isinstance(iterator.func, ast.Name)
+                    and iterator.func.id == "range"
+                    and iterator.args
+                ):
+                    bounds = [_const_number(arg, env) for arg in iterator.args[:2]]
+                    if all(bound is not None for bound in bounds):
+                        start = bounds[0] if len(bounds) == 2 else 0.0
+                        repeats = max(0.0, float(bounds[-1]) - float(start))
+                total += repeats * statements_cost(statement.body, env, depth)
+                total += statements_cost(statement.orelse, env, depth)
+                continue
+            if isinstance(statement, (ast.While, ast.If)):
+                total += statements_cost(statement.body, env, depth)
+                total += statements_cost(statement.orelse, env, depth)
+                continue
+            if isinstance(statement, ast.With):
+                total += statements_cost(statement.body, env, depth)
+                continue
+            if isinstance(statement, ast.Try):
+                total += statements_cost(statement.body, env, depth)
+                for handler in statement.handlers:
+                    total += statements_cost(handler.body, env, depth)
+                total += statements_cost(statement.finalbody, env, depth)
+                continue
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Call):
+                    total += call_cost(node, env, depth)
+        return total
+
+    def method_cost(name: str, overrides: dict[str, float], depth: int) -> float:
+        function = methods[name]
+        env: dict[str, float] = {}
+        positional = function.args.args[1:] if function.args.args else []
+        defaults = function.args.defaults
+        for param, default in zip(positional[len(positional) - len(defaults):], defaults):
+            value = _const_number(default, env)
+            if value is not None:
+                env[param.arg] = value
+        for param, default in zip(function.args.kwonlyargs, function.args.kw_defaults):
+            if default is None:
+                continue
+            value = _const_number(default, env)
+            if value is not None:
+                env[param.arg] = value
+        env.update(overrides)
+        return statements_cost(function.body, env, depth)
+
+    return round(method_cost("construct", {}, 0), 2)
+
+
+def pacing_band(config: Any) -> tuple[int, int]:
+    """The (min, max) running time the prompt targets and the lint enforces.
+
+    A vault written before ``min_duration_seconds`` existed can carry a
+    ``max_duration_seconds`` below the new default minimum; the minimum yields
+    so the model is never asked for "between 30 and 25 seconds"."""
+
+    minimum = int(config.min_duration_seconds)
+    maximum = int(config.max_duration_seconds)
+    if maximum > 0:
+        minimum = min(minimum, maximum)
+    return minimum, maximum
+
+
+def lint_scene_pacing(code: str, *, min_seconds: float, max_seconds: float) -> list[str]:
+    """Human-readable pacing violations for a repair round-trip (empty = fine)."""
+
+    if min_seconds <= 0 and max_seconds <= 0:
+        return []
+    estimate = estimate_scene_duration(code)
+    if estimate is None:
+        return []
+    if min_seconds > 0 and estimate < min_seconds:
+        return [
+            f"estimated running time {estimate:.0f}s is below the {min_seconds:.0f}s minimum: "
+            "add beats and longer self.wait() pauses"
+        ]
+    if max_seconds > 0 and estimate > max_seconds + _PACING_OVER_SLACK_SECONDS:
+        return [
+            f"estimated running time {estimate:.0f}s exceeds the {max_seconds:.0f}s maximum: "
+            "cut beats or shorten run_time/wait values"
+        ]
+    return []
+
+
 def render_scene(
     scene_code: str,
     scene_class: str,
@@ -482,8 +686,12 @@ def build_animation_context(
         concept_title=getattr(concept, "title", concept_id),
         concept_description=getattr(concept, "description", "") or "",
         learning_objects=learning_objects,
-        max_duration_seconds=config.max_duration_seconds,
+        min_duration_seconds=pacing_band(config)[0],
+        max_duration_seconds=pacing_band(config)[1],
         latex_available=config.latex_enabled,
+        resolution=quality_preset(config.quality)[0],
+        fps=quality_preset(config.quality)[1],
+        scene_scaffold=CONCEPT_ANIMATION_SCENE_SCAFFOLD,
         repair=repair,
     )
 
@@ -568,7 +776,9 @@ def generate_concept_animation(
         )
 
         scene_class, violations = validate_scene_code(animation.scene_code)
+        repaired_once = False
         if violations:
+            repaired_once = True
             # One corrective round-trip naming the exact violations.
             repair_context = build_animation_context(
                 vault,
@@ -589,6 +799,42 @@ def generate_concept_animation(
             if violations:
                 return _fail("validation", "; ".join(violations))
         scene_class = scene_class or animation.scene_class
+
+        # Pacing is a soft gate: a scene that comes in far too short gets one
+        # round-trip (when no repair has been spent yet), then renders as is.
+        # The round-trip can only improve things: a repaired scene that fails
+        # the security validator is discarded and the original (valid) scene
+        # renders instead of failing the job over pacing.
+        min_seconds, max_seconds = pacing_band(config)
+        pacing = lint_scene_pacing(animation.scene_code, min_seconds=min_seconds, max_seconds=max_seconds)
+        if pacing and not repaired_once:
+            repaired_once = True
+            repository.update_concept_animation(animation_id, repair_attempted=1, clock=clock)
+            repair_context = build_animation_context(
+                vault,
+                concept_id=row["concept_id"],
+                learning_object_id=row.get("learning_object_id"),
+                repair={"previous_code": animation.scene_code, "violations": pacing},
+            )
+            repaired = author_concept_animation(client, repair_context)
+            repaired_class, violations = validate_scene_code(repaired.scene_code)
+            if violations:
+                logger.warning(
+                    "pacing repair for animation %s produced an invalid scene (%s); rendering the original",
+                    animation_id,
+                    "; ".join(violations),
+                )
+            else:
+                animation = repaired
+                scene_class = repaired_class or repaired.scene_class
+                repository.update_concept_animation(
+                    animation_id,
+                    scene_code=animation.scene_code,
+                    scene_class=scene_class,
+                    title=animation.title or None,
+                    narration_md=animation.narration_md or None,
+                    clock=clock,
+                )
 
         repository.update_concept_animation(animation_id, status="rendering", clock=clock)
         result = render(

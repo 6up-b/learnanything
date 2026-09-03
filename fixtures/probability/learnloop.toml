@@ -474,8 +474,8 @@ poll_interval_seconds = 1.0
 # AI-generated Manim explainer animations (concept inspector -> "generate
 # animation"). enabled is a hard kill-switch; every run ALSO requires a
 # per-generation consent click — the LLM-written scene code is AST-validated
-# and rendered by a local manim subprocess (install with: pip install
-# learnloop[animation]). The authoring model follows [ai.routing] animation.
+# and rendered by a local manim subprocess (manim ships with LearnLoop's
+# Python environment). The authoring model follows [ai.routing] animation.
 [animation]
 enabled = true
 quality = "ql"

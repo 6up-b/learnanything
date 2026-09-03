@@ -217,7 +217,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
       <div style={{ fontSize: 12, color: COLOR.textDim, lineHeight: 1.5 }}>
         <div>manim is not installed{runtime.manimReason ? ` (${runtime.manimReason})` : ""}.</div>
         <div style={{ fontFamily: FONT_MONO, color: COLOR.textFaint, marginTop: 4 }}>
-          pip install &quot;learnloop[animation]&quot; · verify: python -m manim --version
+          reinstall the app&apos;s Python environment (uv sync) · verify: python -m manim --version
         </div>
       </div>
     );
@@ -300,7 +300,7 @@ export function ConceptAnimationSection({ conceptId }: { conceptId: string }) {
               Send this concept&apos;s description to{" "}
               <b>{runtime ? `${runtime.provider}${runtime.model ? ` (${runtime.model})` : ""}` : "the routed AI provider"}</b>{" "}
               and run the AI-written Manim scene locally (validated, temp directory,{" "}
-              {runtime?.timeoutSeconds ?? 300}s cap). Generated code is not reviewed by a human before running.
+              {runtime?.timeoutSeconds ?? 600}s cap). Generated code is not reviewed by a human before running.
             </span>
           </label>
           <div style={{ marginTop: 8, display: "flex", gap: 12 }}>

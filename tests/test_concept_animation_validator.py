@@ -4,8 +4,11 @@ import subprocess
 import types
 from pathlib import Path
 
+from learnloop.content.authoring.ai_contracts import CONCEPT_ANIMATION_SCENE_SCAFFOLD
 from learnloop.content.authoring.concept_animation import (
     RenderResult,
+    estimate_scene_duration,
+    lint_scene_pacing,
     manim_runtime,
     render_scene,
     validate_scene_code,
@@ -221,3 +224,66 @@ def test_render_scene_off_linux_runs_direct_without_bwrap(monkeypatch):
     assert result.ok is True
     assert captured["command"][0] != "/usr/bin/bwrap"
     assert "render" in captured["command"]
+
+
+def _scaffold_with_beats(count: int) -> str:
+    beats = "".join(
+        f'        self.beat("Beat {index}", Circle(), run_time=2, hold=3)\n' for index in range(count)
+    )
+    code = CONCEPT_ANIMATION_SCENE_SCAFFOLD.replace(
+        '        # self.beat("Heading of at most eight words", visual, run_time=2, hold=3)\n', beats
+    ).replace(
+        '        # self.recap(["first takeaway", "second takeaway", "third takeaway"])\n',
+        '        self.recap(["a", "b", "c"])\n',
+    )
+    assert code != CONCEPT_ANIMATION_SCENE_SCAFFOLD
+    return code
+
+
+def test_scaffold_passes_validator():
+    scene_class, violations = validate_scene_code(CONCEPT_ANIMATION_SCENE_SCAFFOLD)
+    assert scene_class == "ConceptExplainer"
+    assert violations == []
+
+
+def test_scaffold_with_four_beats_estimates_within_the_band():
+    code = _scaffold_with_beats(4)
+    estimate = estimate_scene_duration(code)
+    # title card (5 s) + 4 beats (about 6.2 s each) + recap (about 5 s):
+    # the static estimate counts the recap loop once, so it lands just under.
+    assert estimate is not None and 28 <= estimate <= 45
+    assert lint_scene_pacing(code, min_seconds=25, max_seconds=60) == []
+
+
+def test_short_and_overlong_scenes_are_flagged_by_pacing_lint():
+    short = lint_scene_pacing(VALID_SCENE, min_seconds=30, max_seconds=60)
+    assert len(short) == 1 and "below the 30s minimum" in short[0]
+    long_scene = VALID_SCENE + "        self.wait(500)\n"
+    over = lint_scene_pacing(long_scene, min_seconds=30, max_seconds=60)
+    assert len(over) == 1 and "exceeds the 60s maximum" in over[0]
+    assert lint_scene_pacing(VALID_SCENE, min_seconds=0, max_seconds=0) == []
+    assert lint_scene_pacing("def broken(:", min_seconds=30, max_seconds=60) == []
+
+
+def test_estimate_follows_loops_defaults_and_helpers():
+    code = """\
+from manim import Scene, Circle, Create
+
+
+class Looping(Scene):
+    def construct(self):
+        for i in range(3):
+            self.wait(2)
+        for j in range(1, 3):
+            self.play(Create(Circle()), run_time=1.5)
+        self.step(hold=4)
+        self.step()
+        self.play(Create(Circle()))
+
+    def step(self, *, hold=2.0):
+        self.play(Create(Circle()), run_time=0.5)
+        self.wait(hold)
+"""
+    # 3*2 + 2*1.5 + (0.5+4) + (0.5+2) + 1 = 17
+    assert estimate_scene_duration(code) == 17.0
+    assert estimate_scene_duration("import manim\nx = 1\n") is None

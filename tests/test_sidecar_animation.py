@@ -6,6 +6,8 @@ CI); the LLM is a fake client injected through the runner services factory.
 
 from __future__ import annotations
 
+import pytest
+
 from tests.structured_ai import StructuredClientFake
 
 import io
@@ -36,6 +38,15 @@ def _messages(vault_root: Path, *calls):
     return payload
 
 
+@pytest.fixture(autouse=True)
+def _disable_pacing_lint(monkeypatch):
+    # These tests drive the RPC surface with one-line fake scenes; pacing is
+    # covered by the service and validator suites.
+    from learnloop.content.authoring import concept_animation
+
+    monkeypatch.setattr(concept_animation, "lint_scene_pacing", lambda *args, **kwargs: [])
+
+
 def _fake_manim_available(_executable=None, **_kwargs):
     return {"available": True, "version": "Manim Community v0.18.1", "reason": None}
 
@@ -51,7 +62,7 @@ def test_animation_runtime_reports_probe_and_routed_model(tmp_path, monkeypatch)
     assert result["manimAvailable"] is True
     assert "0.18.1" in result["manimVersion"]
     assert result["provider"] == "codex_medium"
-    assert result["timeoutSeconds"] == 300
+    assert result["timeoutSeconds"] == 600
 
 
 def test_request_rejects_missing_consent_and_missing_manim(tmp_path, monkeypatch):
@@ -81,7 +92,7 @@ def test_request_rejects_missing_consent_and_missing_manim(tmp_path, monkeypatch
         )
     )[1]
     assert missing["error"]["data"]["code"] == "manim_missing"
-    assert "learnloop[animation]" in missing["error"]["data"].get("message", "") or True
+    assert "uv sync" in missing["error"]["message"]
 
 
 def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):

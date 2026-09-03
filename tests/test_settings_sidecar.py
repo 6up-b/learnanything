@@ -324,3 +324,49 @@ def test_update_ingest_settings_rejects_bad_budgets_without_persisting(tmp_path,
     config = load_config(vault_root / "learnloop.toml")
     assert config.ingest.budgets.inventory_output_tokens == 3000
     assert "codex_medium" not in config.ingest.providers
+
+
+def test_get_settings_reports_animation_block(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    animation = _settings_rpc(vault_root, ("get_settings", {}))[0]["result"]["animation"]
+
+    assert animation["enabled"] is True
+    assert animation["quality"] == "qm"
+    assert animation["qualityOptions"] == ["ql", "qm", "qh"]
+    assert animation["minDurationSeconds"] == 30
+    assert animation["maxDurationSeconds"] == 60
+    assert animation["timeoutSeconds"] == 600
+    assert animation["durationBounds"] == {"min": 15, "max": 180}
+
+
+def test_update_animation_settings_persists_and_rejects_bad_values(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+
+    responses = _settings_rpc(
+        vault_root,
+        ("update_animation_settings", {"quality": "qh", "maxDurationSeconds": 90, "timeoutSeconds": 900}),
+        ("update_animation_settings", {"quality": "4k"}),
+        ("update_animation_settings", {"maxDurationSeconds": 10}),
+        ("update_animation_settings", {"timeoutSeconds": 5}),
+    )
+    result = responses[0]["result"]["animation"]
+    assert result["quality"] == "qh"
+    assert result["maxDurationSeconds"] == 90
+    assert result["timeoutSeconds"] == 900
+    assert [response["error"]["data"]["code"] for response in responses[1:]] == [
+        "invalid_quality",
+        "invalid_duration",
+        "invalid_timeout",
+    ]
+
+    config = load_config(vault_root / "learnloop.toml")
+    assert config.animation.quality == "qh"
+    assert config.animation.max_duration_seconds == 90
+    assert config.animation.timeout_seconds == 900
+    # The edit lands in the existing [animation] table (comment-preserving writer).
+    assert (vault_root / "learnloop.toml").read_text().count("[animation]") == 1

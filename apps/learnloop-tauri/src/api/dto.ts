@@ -121,7 +121,27 @@ export interface SettingsDto {
   ai: SettingsAiDto;
   openrouter: OpenrouterKeyStateDto;
   ingest: SettingsIngestDto;
+  animation: SettingsAnimationDto;
   health?: RuntimeHealth;
+}
+
+// `[animation]` render settings. Bounds are served by the backend so the UI
+// validates with the same numbers the handler enforces.
+export interface SettingsAnimationDto {
+  enabled: boolean;
+  quality: string;
+  qualityOptions: string[];
+  minDurationSeconds: number;
+  maxDurationSeconds: number;
+  timeoutSeconds: number;
+  durationBounds: { min: number; max: number };
+  timeoutBounds: { min: number; max: number };
+}
+
+export interface UpdateAnimationSettingsInput {
+  quality?: string;
+  maxDurationSeconds?: number;
+  timeoutSeconds?: number;
 }
 
 export interface UpdateIngestSettingsInput {
