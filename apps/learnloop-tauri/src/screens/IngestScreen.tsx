@@ -581,6 +581,24 @@ function IngestHome({
   const [previews, setPreviews] = useState<Record<string, AcquisitionPreviewItem>>({});
   const [pageSelection, setPageSelection] = useState("");
   const [pdfEngine, setPdfEngine] = useState<PdfEngine>("auto");
+  // The vault's own [ingest.pdf] engine: "auto (vault default)" may mean the
+  // native engine, and the page-range control must know before the sidecar
+  // refuses the batch.
+  const [vaultPdfEngine, setVaultPdfEngine] = useState<PdfEngine>("auto");
+  const effectivePdfEngine: PdfEngine = pdfEngine === "auto" ? vaultPdfEngine : pdfEngine;
+  const nativePdf = effectivePdfEngine === "native";
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) setVaultPdfEngine(settings.ingest.pdfEngine);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const inputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef<HTMLDivElement>(null);
   const runningRef = useRef(false);
@@ -1153,12 +1171,13 @@ function IngestHome({
               <PageRangeSelector
                 value={pageSelection}
                 onChange={setPageSelection}
-                disabled={running || importing || pdfEngine === "native"}
+                disabled={running || importing || nativePdf}
                 compact
               />
-              {pdfEngine === "native" ? (
+              {nativePdf ? (
                 <Faint style={{ display: "block", fontSize: 11, marginTop: 3 }}>
-                  page ranges are ignored with the native engine: the whole PDF goes to the ingest model
+                  page ranges are ignored with the native engine
+                  {pdfEngine === "auto" ? " (the vault default)" : ""}: the whole PDF goes to the ingest model
                 </Faint>
               ) : null}
               {hasStaged ? (
@@ -1171,7 +1190,7 @@ function IngestHome({
                 <TermSelect
                   value={pdfEngine}
                   options={[
-                    { value: "auto", label: "auto (vault default)" },
+                    { value: "auto", label: `auto (vault default: ${vaultPdfEngine})` },
                     { value: "marker", label: "marker — structured, math, OCR" },
                     { value: "pypdf", label: "pypdf — fast native text" },
                     { value: "native", label: "native — send PDF to the ingest model" }

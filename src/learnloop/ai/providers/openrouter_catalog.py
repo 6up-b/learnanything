@@ -76,8 +76,13 @@ def _fetch_models_payload(timeout: float) -> dict[str, Any]:
 def reduce_models_payload(payload: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
     """``{"data": [{"id", "architecture": {"input_modalities": [...]}}]}`` → slug → modalities."""
 
+    entries = payload.get("data") if isinstance(payload, Mapping) else None
+    if not isinstance(entries, list):
+        # An error body or a changed shape must not be cached as an empty
+        # catalog for a day.
+        raise OpenRouterCatalogError("unexpected OpenRouter models payload (no data list)")
     models: dict[str, tuple[str, ...]] = {}
-    for entry in payload.get("data") or []:
+    for entry in entries:
         if not isinstance(entry, Mapping):
             continue
         slug = entry.get("id")
@@ -113,7 +118,12 @@ def _read_cache(path: Path) -> tuple[dict[str, tuple[str, ...]], str] | None:
     fetched_at = payload.get("fetched_at")
     if not isinstance(models, dict) or not isinstance(fetched_at, str):
         return None
-    return {str(slug): tuple(str(m) for m in mods) for slug, mods in models.items()}, fetched_at
+    parsed: dict[str, tuple[str, ...]] = {}
+    for slug, mods in models.items():
+        if not isinstance(mods, list) or not all(isinstance(m, str) for m in mods):
+            return None  # a hand-edited or truncated file: refetch rather than crash
+        parsed[str(slug)] = tuple(mods)
+    return parsed, fetched_at
 
 
 def _write_cache(path: Path, models: Mapping[str, tuple[str, ...]], fetched_at: str) -> None:
@@ -136,6 +146,8 @@ def _write_cache(path: Path, models: Mapping[str, tuple[str, ...]], fetched_at: 
 
 def _is_fresh(fetched_at: str, now: datetime, ttl_seconds: int) -> bool:
     stamp = _parse_timestamp(fetched_at)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
     return stamp is not None and now - stamp <= timedelta(seconds=ttl_seconds)
 
 
@@ -191,7 +203,11 @@ def cached_catalog_state(*, now: datetime | None = None, ttl_seconds: int = CATA
 
     now = now or datetime.now(timezone.utc)
     path = catalog_cache_path()
-    cached = _read_cache(path)
+    try:
+        cached = _read_cache(path)
+    except Exception as exc:  # noqa: BLE001 — a settings read must survive any cache file
+        logger.warning("unreadable OpenRouter catalog cache at %s: %s", path, exc)
+        cached = None
     return {
         "cached": cached is not None,
         "fetched_at": cached[1] if cached is not None else None,

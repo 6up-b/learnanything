@@ -188,13 +188,15 @@ def _native_pdf_preflight(vault, pdf_engine: str, sources: list[str], *, has_pag
     engine = pdf_engine if pdf_engine != "auto" else vault.config.ingest.pdf.engine
     if engine != "native" or not any(_is_pdf_source(source) for source in sources):
         return
+    readiness = native_modality_readiness(vault.config, "pdf", requested=True)
+    if not readiness.ready and vault.config.ingest.native.fallback_when_unavailable:
+        return  # the job takes the local road, which honours page ranges
     if has_page_ranges:
         raise SidecarError(
             "invalid_page_range",
             "Native PDF ingestion sends the whole document; clear the page range or choose a local engine.",
         )
-    readiness = native_modality_readiness(vault.config, "pdf", requested=True)
-    if readiness.ready or vault.config.ingest.native.fallback_when_unavailable:
+    if readiness.ready:
         return
     raise SidecarError(
         "native_pdf_unavailable",

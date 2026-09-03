@@ -3,8 +3,9 @@
 // [ingest.audio] mode), a readiness line computed by the sidecar with the same
 // judgement the import pipeline uses, and a capabilities panel that declares
 // (or detects, for OpenRouter) which modalities each chat provider accepts.
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
+import { errorMessage } from "../errors";
 import type {
   AudioMode,
   NativeModalityStateDto,
@@ -84,6 +85,8 @@ export function NativeMediaSettings({
   const audioState = native.modalities.find((entry) => entry.modality === "audio") ?? null;
   const [detections, setDetections] = useState<Record<string, ProviderCapabilitiesDto>>({});
   const [detecting, setDetecting] = useState<string | null>(null);
+  // Providers with a background lookup in flight (StrictMode mounts twice).
+  const inflightRef = useRef<Set<string>>(new Set());
 
   const saveIngest = (input: Parameters<typeof api.updateIngestSettings>[0], toast: string) => {
     setBusy("ingest");
@@ -93,19 +96,22 @@ export function NativeMediaSettings({
         acceptSettings(result);
         onToast(toast);
       })
-      .catch((error) => onError((error as Error).message))
+      .catch((error) => onError(errorMessage(error)))
       .finally(() => setBusy(null));
   };
 
   const detect = (provider: string, refresh: boolean, { quiet = false } = {}) => {
+    if (inflightRef.current.has(provider)) return Promise.resolve();
+    inflightRef.current.add(provider);
     if (!quiet) setDetecting(provider);
     return api
       .detectProviderCapabilities({ provider, refresh })
       .then((result) => setDetections((current) => ({ ...current, [provider]: result })))
       .catch((error) => {
-        if (!quiet) onError((error as Error).message);
+        if (!quiet) onError(errorMessage(error));
       })
       .finally(() => {
+        inflightRef.current.delete(provider);
         if (!quiet) setDetecting(null);
       });
   };
@@ -118,24 +124,30 @@ export function NativeMediaSettings({
         acceptSettings(result);
         onToast(`${provider} accepts: ${inputModalities.join(", ") || "text only"}`);
       })
-      .catch((error) => onError((error as Error).message))
+      .catch((error) => onError(errorMessage(error)))
       .finally(() => setBusy(null));
   };
 
-  // One background lookup for the routed OpenRouter profile when its
-  // declaration is missing or the catalog is stale. Never blocks rendering;
-  // a failure leaves the declared state on screen.
+  // One background lookup for a routed OpenRouter profile whose native path
+  // is SELECTED but undeclared (or whose catalog entry is stale): that is the
+  // one case the learner needs the answer for right now. Nothing is fetched
+  // for modalities that stay local. Never blocks rendering; a failure leaves
+  // the declared state on screen.
   useEffect(() => {
     const routed = [pdfState, audioState].filter(
       (state): state is NativeModalityStateDto =>
-        state !== null && state.providerType === "openrouter" && state.providerName !== null && (!state.declared || native.catalog.stale)
+        state !== null &&
+        state.requested &&
+        state.providerType === "openrouter" &&
+        state.providerName !== null &&
+        (!state.declared || native.catalog.stale)
     );
     const providers = Array.from(new Set(routed.map((state) => state.providerName as string)));
     for (const provider of providers) {
       if (!detections[provider]) void detect(provider, false, { quiet: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pdfState?.providerName, audioState?.providerName, native.catalog.stale]);
+  }, [pdfState?.requested, audioState?.requested, pdfState?.providerName, audioState?.providerName, native.catalog.stale]);
 
   const chatProviders: SettingsProviderDto[] = settings.ai.providers.filter((provider) =>
     CHAT_PROVIDER_TYPES.has(provider.type)
@@ -177,17 +189,17 @@ export function NativeMediaSettings({
           <span style={styles.hint}>PDF bytes stay on this machine</span>
         )}
       </div>
-      {settings.ingest.pdfEngine === "native" ? (
+      {settings.ingest.pdfEngine === "native" || settings.ingest.audioMode === "native" ? (
         <div style={styles.row}>
           <span style={styles.label}>
             <div style={styles.hint}>
-              otherwise imports fail with native_pdf_unavailable until the ingest route is fixed · max{" "}
-              {native.maxPdfMb} MB per PDF
+              otherwise imports fail with native_pdf_unavailable / native_audio_unavailable until the ingest
+              route is fixed · max {native.maxPdfMb} MB per PDF, {native.maxAudioMb} MB per audio file
             </div>
           </span>
           <TermCheckbox
             checked={native.fallbackWhenUnavailable}
-            label="fall back to local extraction when the model cannot take the file"
+            label="fall back to local extraction / transcription when the model cannot take the file"
             disabled={busy !== null}
             onChange={(next) =>
               saveIngest({ nativeFallbackWhenUnavailable: next }, `native fallback → ${next ? "on" : "off"}`)
@@ -237,8 +249,12 @@ export function NativeMediaSettings({
           ) : null}
           {chatProviders.map((provider) => {
             const detection = detections[provider.name];
+            // A lookup answers for the model it was made for; after the
+            // profile's model changes it only says "detect again".
+            const detectionCurrent = detection != null && detection.model === provider.model;
             const detectedDiffers =
-              detection?.detected != null &&
+              detectionCurrent &&
+              detection.detected != null &&
               (detection.detected.length !== provider.inputModalities.length ||
                 detection.detected.some((m) => !provider.inputModalities.includes(m)));
             return (
@@ -259,9 +275,10 @@ export function NativeMediaSettings({
                         onChange={(next) =>
                           applyModalities(
                             provider.name,
-                            next
+                            (next
                               ? [...provider.inputModalities, modality]
                               : provider.inputModalities.filter((m) => m !== modality)
+                            ).filter((m) => native.knownModalities.includes(m))
                           )
                         }
                       />
@@ -271,11 +288,13 @@ export function NativeMediaSettings({
                   <>
                     <ModalityChips modalities={provider.inputModalities} known={native.knownModalities} />
                     {detectButton(provider.name)}
-                    {detection ? (
+                    {detection && detectionCurrent ? (
                       <span style={{ ...styles.hint, color: detection.source === "unavailable" ? COLOR.red : COLOR.textFaint }}>
                         {detection.message}
                         {detection.source === "cache" ? ` (cached${detection.stale ? ", stale" : ""})` : ""}
                       </span>
+                    ) : detection ? (
+                      <span style={styles.hint}>model changed since the last lookup · detect again</span>
                     ) : null}
                     {detection && detectedDiffers ? (
                       <button
