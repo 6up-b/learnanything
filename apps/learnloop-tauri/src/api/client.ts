@@ -245,7 +245,29 @@ import type {
   AdjudicationScoreboardDto,
 } from "./dto";
 
+// Development aid for verifying the query cache: with
+// localStorage.setItem("learnloop.debugRpc", "1") every sidecar command is
+// counted and logged, so "returning to a tab issued no RPC" is checkable from
+// the devtools console (window.__llRpcCounts). Off in production builds.
+function readRpcDebugFlag(): boolean {
+  try {
+    return localStorage.getItem("learnloop.debugRpc") === "1";
+  } catch {
+    return false;
+  }
+}
+const RPC_DEBUG = import.meta.env.DEV && readRpcDebugFlag();
+const rpcCounts = new Map<string, number>();
+if (RPC_DEBUG) {
+  (window as unknown as { __llRpcCounts?: Map<string, number> }).__llRpcCounts = rpcCounts;
+}
+
 async function call<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
+  if (RPC_DEBUG) {
+    const count = (rpcCounts.get(command) ?? 0) + 1;
+    rpcCounts.set(command, count);
+    console.debug(`[rpc ${count}] ${command}`);
+  }
   try {
     return await invoke<T>(command, args);
   } catch (error) {
