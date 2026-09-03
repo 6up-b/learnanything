@@ -167,7 +167,7 @@ def ingest(
     ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for ingestion.")] = None,
     pdf_engine: Annotated[
         str | None,
-        typer.Option("--pdf-engine", help="PDF extraction engine override: auto, marker, or pypdf (\"native\" is a vault-level [ingest.pdf] choice served by the import pipeline)."),
+        typer.Option("--pdf-engine", help="PDF extraction engine override: auto, marker, or pypdf."),
     ] = None,
     pdf_llm: Annotated[
         bool | None,
@@ -213,7 +213,7 @@ def ingest_exam(
     ai_provider: Annotated[str | None, typer.Option("--ai-provider", help="AI provider profile to use for ingestion.")] = None,
     pdf_engine: Annotated[
         str | None,
-        typer.Option("--pdf-engine", help="PDF extraction engine override: auto, marker, or pypdf (\"native\" is a vault-level [ingest.pdf] choice served by the import pipeline)."),
+        typer.Option("--pdf-engine", help="PDF extraction engine override: auto, marker, or pypdf."),
     ] = None,
     pdf_llm: Annotated[
         bool | None,
