@@ -62,7 +62,40 @@ def _fake_run_success(command, cwd=None, env=None, capture_output=None, timeout=
     media = Path(cwd) / "media" / "videos" / "scene" / "480p15"
     media.mkdir(parents=True)
     (media / "ExplainSVD.mp4").write_bytes(b"fake-mp4-bytes")
+    # Manim also leaves one fragment per self.play() beside the combined file;
+    # it sorts AFTER the class-named file, so a naive sorted(glob)[-1] picks it.
+    partial = media / "partial_movie_files" / "ExplainSVD"
+    partial.mkdir(parents=True)
+    (partial / "uncached_00000.mp4").write_bytes(b"partial-fragment")
     return types.SimpleNamespace(returncode=0, stdout=b"", stderr=b"rendered fine")
+
+
+def test_render_scene_ignores_partial_movie_files_when_only_partials_exist():
+    def partial_only_run(command, cwd=None, env=None, capture_output=None, timeout=None):
+        partial = Path(cwd) / "media" / "videos" / "scene" / "480p15" / "partial_movie_files" / "ExplainSVD"
+        partial.mkdir(parents=True)
+        (partial / "uncached_00000.mp4").write_bytes(b"partial-fragment")
+        return types.SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    result = render_scene(VALID_SCENE, "ExplainSVD", sandbox=False, run=partial_only_run)
+
+    assert result.ok is False
+    assert result.video_bytes is None
+    assert "partial movie files" in result.stderr_tail
+
+
+def test_render_scene_prefers_scene_class_named_file():
+    def two_outputs_run(command, cwd=None, env=None, capture_output=None, timeout=None):
+        media = Path(cwd) / "media" / "videos" / "scene" / "480p15"
+        media.mkdir(parents=True)
+        (media / "ExplainSVD.mp4").write_bytes(b"named")
+        (media / "Zzz.mp4").write_bytes(b"other")
+        return types.SimpleNamespace(returncode=0, stdout=b"", stderr=b"")
+
+    result = render_scene(VALID_SCENE, "ExplainSVD", sandbox=False, run=two_outputs_run)
+
+    assert result.ok is True
+    assert result.video_bytes == b"named"
 
 
 def test_render_scene_success_reads_mp4_and_cleans_temp(tmp_path):

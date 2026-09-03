@@ -41,6 +41,7 @@ from learnloop.content.authoring.ai_contracts import (
     ManimAnimation,
     concept_animation_prompt,
 )
+from learnloop.content.authoring.animation_media import probe_duration_seconds
 
 ALLOWED_IMPORTS = frozenset({"manim", "numpy", "math"})
 ALLOWED_SCENE_BASES = {"Scene", "MovingCameraScene", "ThreeDScene", "ZoomedScene"}
@@ -293,6 +294,25 @@ def _sandboxed_command(command: list[str], workdir: Path, bwrap: str) -> list[st
     return [*args, "--", *command]
 
 
+def _combined_scene_videos(media_root: Path, scene_class: str) -> list[Path]:
+    """The combined scene mp4(s) under manim's media dir, oldest first.
+
+    Manim writes one fragment per ``self.play`` under ``partial_movie_files/``
+    beside the combined ``<SceneClass>.mp4``. A plain ``sorted(glob)[-1]``
+    returns a fragment (``partial_movie_files`` sorts after any capitalised
+    class name), which is how animations used to be stored as their last
+    fragment only. Fragments are excluded and the file named after the scene
+    class is preferred over any other combined output."""
+
+    candidates = [
+        path
+        for path in media_root.glob("videos/**/*.mp4")
+        if "partial_movie_files" not in path.parts
+    ]
+    named = [path for path in candidates if path.stem == scene_class]
+    return sorted(named or candidates, key=lambda path: path.stat().st_mtime)
+
+
 def render_scene(
     scene_code: str,
     scene_class: str,
@@ -362,9 +382,14 @@ def render_scene(
         stderr_tail = (result.stderr or b"").decode("utf-8", errors="replace")[-_STDERR_TAIL_CHARS:]
         if result.returncode != 0:
             return RenderResult(False, None, stderr_tail, result.returncode)
-        videos = sorted((workdir / "media").glob("videos/**/*.mp4"))
+        videos = _combined_scene_videos(workdir / "media", scene_class)
         if not videos:
-            return RenderResult(False, None, stderr_tail or "manim produced no mp4", result.returncode)
+            return RenderResult(
+                False,
+                None,
+                stderr_tail or "manim produced no combined mp4 (only partial movie files)",
+                result.returncode,
+            )
         return RenderResult(True, videos[-1].read_bytes(), stderr_tail, result.returncode)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
@@ -614,6 +639,7 @@ def generate_concept_animation(
             status="completed",
             video_hash=digest,
             video_file_name=video_path.name,
+            duration_seconds=probe_duration_seconds(result.video_bytes),
             render_stderr=None,
             completed_at=utc_now_iso(clock),
             clock=clock,

@@ -18,6 +18,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 
 from tests.helpers import create_basic_vault
+from tests.media_fakes import tiny_mp4
 
 VALID_SCENE = """\
 from manim import Scene, Circle, Create
@@ -116,6 +117,8 @@ def test_generate_happy_path_stores_content_addressed_mp4(tmp_path):
     assert row["video_file_name"].startswith("sha256-") and row["video_file_name"].endswith(".mp4")
     video = vault.root / "media" / "animations" / row["video_file_name"]
     assert video.read_bytes() == b"mp4-bytes"
+    # Placeholder bytes are not a real container: the probe stays quiet.
+    assert row["duration_seconds"] is None
     # Context carried concept material.
     assert client.contexts[0].concept_title == "Singular Value Decomposition"
 
@@ -125,6 +128,25 @@ def test_generate_happy_path_stores_content_addressed_mp4(tmp_path):
         repository=repository, renderer=_ok_renderer,
     )
     assert again["status"] == "completed"
+
+
+def test_generate_records_duration_of_a_real_clip(tmp_path):
+    clip = tiny_mp4(frames=12, fps=15)
+    vault, repository = _vault(tmp_path)
+    requested = request_concept_animation(
+        vault, repository, concept_id="singular_value_decomposition", consent=True
+    )
+
+    def real_clip_renderer(scene_code, scene_class, **kwargs) -> RenderResult:
+        return RenderResult(ok=True, video_bytes=clip, stderr_tail="", returncode=0)
+
+    row = generate_concept_animation(
+        vault.root, _FakeAnimationClient(_animation()), animation_id=requested["animation_id"],
+        repository=repository, renderer=real_clip_renderer,
+    )
+
+    assert row["status"] == "completed"
+    assert row["duration_seconds"] == pytest.approx(0.8, abs=0.05)
 
 
 def test_generate_provider_without_method_fails_typed(tmp_path):
