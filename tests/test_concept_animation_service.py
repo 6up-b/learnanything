@@ -149,6 +149,32 @@ def test_generate_records_duration_of_a_real_clip(tmp_path):
     assert row["duration_seconds"] == pytest.approx(0.8, abs=0.05)
 
 
+def test_generate_stores_faststart_remuxed_bytes_and_hashes_them(tmp_path):
+    import hashlib
+
+    from learnloop.content.authoring.animation_media import is_faststart
+
+    clip = tiny_mp4()
+    assert is_faststart(clip) is False
+    vault, repository = _vault(tmp_path)
+    requested = request_concept_animation(
+        vault, repository, concept_id="singular_value_decomposition", consent=True
+    )
+
+    def real_clip_renderer(scene_code, scene_class, **kwargs) -> RenderResult:
+        return RenderResult(ok=True, video_bytes=clip, stderr_tail="", returncode=0)
+
+    row = generate_concept_animation(
+        vault.root, _FakeAnimationClient(_animation()), animation_id=requested["animation_id"],
+        repository=repository, renderer=real_clip_renderer,
+    )
+
+    stored = (vault.root / "media" / "animations" / row["video_file_name"]).read_bytes()
+    assert is_faststart(stored) is True
+    assert row["video_hash"] == "sha256:" + hashlib.sha256(stored).hexdigest()
+    assert row["video_file_name"] == "sha256-" + hashlib.sha256(stored).hexdigest() + ".mp4"
+
+
 def test_generate_provider_without_method_fails_typed(tmp_path):
     vault, repository = _vault(tmp_path)
     requested = request_concept_animation(
