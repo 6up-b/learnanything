@@ -3097,7 +3097,9 @@ def test_update_ingest_settings_toggles_native_and_transcription(tmp_path, monke
     from learnloop.config import load_config
 
     config = load_config(vault_root / "learnloop.toml")
-    assert config.ingest.native.enabled is True
+    # The transitional toggle routes both modalities natively.
+    assert config.ingest.audio.mode == "native"
+    assert config.ingest.pdf.engine == "native"
     assert config.ingest.audio.transcription_model == "gpt-4o-transcribe"
     assert config.ingest.audio.transcription_base_url == "https://api.groq.com/openai/v1"
 
