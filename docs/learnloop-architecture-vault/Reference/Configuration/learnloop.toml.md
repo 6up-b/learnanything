@@ -73,9 +73,6 @@ transcription = ""
 [ingest.pdf]
 engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
 
-[ingest.audio]
-mode = "transcription" # transcription | native (send mp3/wav to the ingest model)
-
 [animation]
 enabled = true
 

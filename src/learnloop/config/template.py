@@ -744,9 +744,6 @@ video_generation = ""
 [ingest.pdf]
 engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
 
-[ingest.audio]
-mode = "transcription" # transcription | native (send mp3/wav to the ingest model)
-
 [animation]
 enabled = true
 renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
