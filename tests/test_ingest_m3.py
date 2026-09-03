@@ -621,6 +621,11 @@ def test_import_snapshots_pdf_engine_choice_into_payload(tmp_path):
     auto = jobs.enqueue_import([str(tmp_path / "scan.pdf")], pdf_engine="auto")
     assert "pdf_config" not in repo.ingest_jobs_for_batch(auto)[0]["payload"]
 
+    # A per-run "native" choice used to be dropped on the floor; it is an
+    # explicit engine like the others and joins the extraction identity.
+    native = jobs.enqueue_import([str(tmp_path / "scan.pdf")], pdf_engine="native")
+    assert repo.ingest_jobs_for_batch(native)[0]["payload"]["pdf_config"] == {"engine": "native"}
+
 
 def test_multi_source_import_assigns_page_selection_per_source(tmp_path):
     from learnloop.content.pipeline.jobs import DurableIngestJobs
