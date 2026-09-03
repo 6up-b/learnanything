@@ -466,7 +466,6 @@ def test_get_settings_reports_native_modality_readiness(tmp_path, monkeypatch):
     ingest = settings["ingest"]
     assert ingest["pdfEngine"] == "auto"
     assert ingest["audioMode"] == "transcription"
-    assert ingest["nativeMultimodal"] is False
     native = ingest["native"]
     assert [entry["modality"] for entry in native["modalities"]] == ["pdf", "audio"]
     # A Codex-routed ingest route cannot take media natively; the UI gets the reason.
@@ -505,7 +504,6 @@ def test_update_ingest_settings_sets_per_modality_authorities(tmp_path, monkeypa
     result = responses[0]["result"]
     assert result["ingest"]["pdfEngine"] == "native"
     assert result["ingest"]["audioMode"] == "native"
-    assert result["ingest"]["nativeMultimodal"] is True
     assert result["ingest"]["native"]["fallbackWhenUnavailable"] is True
     assert result["ingest"]["native"]["maxPdfMb"] == 10
     pdf_state = next(e for e in result["ingest"]["native"]["modalities"] if e["modality"] == "pdf")
@@ -650,3 +648,69 @@ def test_start_import_batch_fails_fast_for_native_pdf_conflicts(tmp_path, monkey
     assert unready["details"]["reason"] == "provider_not_chat"
     assert responses[1]["error"]["data"]["code"] == "invalid_page_range"
     assert responses[2]["error"]["data"]["code"] == "native_pdf_unavailable"
+
+    # With the fallback opted in, an unready route takes the local road, which
+    # honours page ranges: the preflight must not refuse what the job accepts.
+    from learnloop.ops.settings_store import apply_config_updates
+
+    apply_config_updates(vault_root / "learnloop.toml", {("ingest", "native", "fallback_when_unavailable"): True})
+    accepted = _settings_rpc(
+        vault_root,
+        (
+            "start_import_batch",
+            {"sources": [str(pdf_path)], "pdfEngine": "native", "pageStart": 1, "pageEnd": 3},
+        ),
+    )[0]
+    assert "error" not in accepted, accepted
+
+
+def test_update_provider_modalities_materializes_a_compat_derived_profile(tmp_path, monkeypatch):
+    """The legacy [ingest.audio] provider shape synthesises openrouter_transcription in
+    memory only; declaring a modality on it must write the whole profile, not a bare
+    table that reloads as the pydantic default."""
+
+    from learnloop.ops.settings_store import apply_config_updates
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {
+            ("ingest", "audio", "provider"): "openrouter",
+            ("ingest", "audio", "transcription_model"): "google/gemini-2.5-flash",
+        },
+    )
+    before = load_config(vault_root / "learnloop.toml").ai.providers["openrouter_transcription"]
+    assert before.type == "openrouter" and before.model == "google/gemini-2.5-flash"
+
+    result = _settings_rpc(
+        vault_root,
+        ("update_provider_modalities", {"provider": "openrouter_transcription", "inputModalities": ["audio"]}),
+    )[0]["result"]
+
+    after = load_config(vault_root / "learnloop.toml").ai.providers["openrouter_transcription"]
+    assert after.type == "openrouter"
+    assert after.model == "google/gemini-2.5-flash"
+    assert after.input_modalities == ["audio"]
+    row = next(p for p in result["ai"]["providers"] if p["name"] == "openrouter_transcription")
+    assert row["inputModalities"] == ["audio"]
+
+
+def test_detect_provider_capabilities_without_a_model_skips_the_network(tmp_path, monkeypatch):
+    from learnloop.ops.settings_store import apply_config_updates
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "global"))
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    apply_config_updates(
+        vault_root / "learnloop.toml",
+        {("ai", "providers", "openrouter", "type"): "openrouter", ("ai", "providers", "openrouter", "model"): ""},
+    )
+    catalog = _seed_catalog(monkeypatch, fail=True)  # any fetch would raise
+
+    result = _settings_rpc(vault_root, ("detect_provider_capabilities", {"provider": "openrouter"}))[0]["result"]
+
+    assert result["source"] == "unavailable"
+    assert "no model slug" in result["message"]
+    assert not catalog.catalog_cache_path().exists()

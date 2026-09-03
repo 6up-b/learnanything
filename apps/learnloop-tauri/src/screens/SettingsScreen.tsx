@@ -9,6 +9,7 @@ import type {
   UseCaseChoiceInput
 } from "../api/dto";
 import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
+import { NativeMediaSettings } from "../components/NativeMediaSettings";
 import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
 
@@ -470,37 +471,23 @@ export function SettingsScreen({
       </div>
 
       <SectionHeader>Ingestion</SectionHeader>
-      <div style={rowStyle}>
-        <span style={labelStyle}>
-          native multimodal
-          <div style={hintStyle}>
-            send audio/PDF media to the routed chat model when it declares the modality
-          </div>
-        </span>
-        <TermCheckbox
-          checked={settings.ingest.nativeMultimodal}
-          label={settings.ingest.nativeMultimodal ? "enabled" : "disabled"}
-          disabled={busy !== null}
-          onChange={(next) => {
-            setBusy("ingest");
-            api
-              .updateIngestSettings({ nativeMultimodal: next })
-              .then((result) => {
-                acceptSettings(result);
-                onToast(`native multimodal → ${next ? "on" : "off"}`);
-              })
-              .catch((error) => onError((error as Error).message))
-              .finally(() => setBusy(null));
-          }}
-        />
-      </div>
+      <NativeMediaSettings
+        settings={settings}
+        busy={busy}
+        setBusy={setBusy}
+        acceptSettings={acceptSettings}
+        onToast={onToast}
+        onError={onError}
+        styles={{ row: rowStyle, label: labelStyle, hint: hintStyle, button: buttonStyle }}
+      />
       <div style={rowStyle}>
         <span style={labelStyle}>
           transcription
           <div style={hintStyle}>
-            {transcriptionProvider === "openrouter"
-              ? "chat input_audio via the OpenRouter key · model must accept audio · mp3/wav only"
-              : "OpenAI-compatible /audio/transcriptions endpoint"}
+            {(settings.ingest.audioMode === "native" ? "used for formats the native path cannot take · " : "") +
+              (transcriptionProvider === "openrouter"
+                ? "chat input_audio via the OpenRouter key · model must accept audio · mp3/wav only"
+                : "OpenAI-compatible /audio/transcriptions endpoint")}
           </div>
         </span>
         <TermSelect

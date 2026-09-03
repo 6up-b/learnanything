@@ -40,7 +40,7 @@ Legacy input is translated **one way** into the canonical typed model before run
 | Codex model `gpt-5.5` | current default model/reasoning pair | Applies to canonical Codex alias normalization |
 | AI route value `codex` | task-specific `codex_low` or `codex_medium` | Explicit modern route is unchanged |
 | `error_impacts.*.max_sharpening` | `recall_coverage.max_error_sharpening` | Canonical destination wins |
-| `[ingest.native] enabled = true` with `audio = true` | `[ingest.audio] mode = "native"` | An explicit `mode` wins; the retired `pdf` flag is dropped because `[ingest.pdf] engine` is the only PDF authority |
+| `[ingest.native] enabled = true` with `audio = true` | `[ingest.audio] mode = "native"` plus `[ingest.native] fallback_when_unavailable = true` (unless set) | An explicit `mode` wins; the fallback opt-in preserves the legacy gate's silent transcription when the routed model cannot take audio; the retired `pdf` flag is dropped because `[ingest.pdf] engine` is the only PDF authority |
 
 ## Legacy audio normalization
 

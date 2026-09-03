@@ -581,6 +581,24 @@ function IngestHome({
   const [previews, setPreviews] = useState<Record<string, AcquisitionPreviewItem>>({});
   const [pageSelection, setPageSelection] = useState("");
   const [pdfEngine, setPdfEngine] = useState<PdfEngine>("auto");
+  // The vault's own [ingest.pdf] engine: "auto (vault default)" may mean the
+  // native engine, and the page-range control must know before the sidecar
+  // refuses the batch.
+  const [vaultPdfEngine, setVaultPdfEngine] = useState<PdfEngine>("auto");
+  const effectivePdfEngine: PdfEngine = pdfEngine === "auto" ? vaultPdfEngine : pdfEngine;
+  const nativePdf = effectivePdfEngine === "native";
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getSettings()
+      .then((settings) => {
+        if (!cancelled) setVaultPdfEngine(settings.ingest.pdfEngine);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const inputRef = useRef<HTMLInputElement>(null);
   const activityRef = useRef<HTMLDivElement>(null);
   const runningRef = useRef(false);
@@ -1153,9 +1171,15 @@ function IngestHome({
               <PageRangeSelector
                 value={pageSelection}
                 onChange={setPageSelection}
-                disabled={running || importing}
+                disabled={running || importing || nativePdf}
                 compact
               />
+              {nativePdf ? (
+                <Faint style={{ display: "block", fontSize: 11, marginTop: 3 }}>
+                  page ranges are ignored with the native engine
+                  {pdfEngine === "auto" ? " (the vault default)" : ""}: the whole PDF goes to the ingest model
+                </Faint>
+              ) : null}
               {hasStaged ? (
                 <Faint style={{ display: "block", fontSize: 11, marginTop: 3 }}>
                   This range belongs to the current source. Staging captures it independently for that PDF.
@@ -1166,11 +1190,21 @@ function IngestHome({
                 <TermSelect
                   value={pdfEngine}
                   options={[
-                    { value: "auto", label: "auto (vault default)" },
+                    { value: "auto", label: `auto (vault default: ${vaultPdfEngine})` },
                     { value: "marker", label: "marker — structured, math, OCR" },
-                    { value: "pypdf", label: "pypdf — fast native text" }
+                    { value: "pypdf", label: "pypdf — fast native text" },
+                    { value: "native", label: "native — send PDF to the ingest model" }
                   ]}
-                  onChange={(value) => setPdfEngine(value as PdfEngine)}
+                  onChange={(value) => {
+                    const next = value as PdfEngine;
+                    setPdfEngine(next);
+                    if (next === "native") {
+                      // The native path sends the whole document; a staged
+                      // range would be silently ignored, so drop it here.
+                      setPageSelection("");
+                      setStagedPageRanges({});
+                    }
+                  }}
                   disabled={running || importing}
                   width={250}
                 />
@@ -1178,7 +1212,9 @@ function IngestHome({
                   <Faint style={{ fontSize: 10 }}>
                     {pdfEngine === "marker"
                       ? "structured extraction via local Marker, or hosted Datalab in the debug runtime"
-                      : "no OCR, tables, or math — scanned PDFs will fail"}
+                      : pdfEngine === "pypdf"
+                        ? "no OCR, tables, or math — scanned PDFs will fail"
+                        : "whole document goes to the canonical_ingest model · fails fast unless the routed model declares pdf (Settings → Ingestion)"}
                   </Faint>
                 )}
               </div>

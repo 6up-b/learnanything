@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -125,3 +127,41 @@ def test_corrupt_cache_is_ignored(monkeypatch):
     snapshot = catalog.load_catalog(now=T0)
 
     assert snapshot.source == "network" and len(calls) == 1
+
+
+def test_malformed_cache_values_are_ignored_and_never_crash_the_settings_read(monkeypatch):
+    calls = _install_fetch(monkeypatch)
+    path = catalog.catalog_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"version": 1, "fetched_at": T0.isoformat(), "models": {"x/y": None, "a/b": "audio"}}),
+        encoding="utf-8",
+    )
+
+    state = catalog.cached_catalog_state(now=T0)
+    assert state["cached"] is False
+
+    snapshot = catalog.load_catalog(now=T0)
+    assert snapshot.source == "network" and len(calls) == 1
+
+
+def test_unexpected_payload_shape_is_not_cached(monkeypatch):
+    _install_fetch(monkeypatch, payload={"error": {"message": "temporarily unavailable"}})
+
+    with pytest.raises(catalog.OpenRouterCatalogError):
+        catalog.load_catalog(now=T0)
+    assert not catalog.catalog_cache_path().exists()
+
+    # With a cache present the bad payload degrades to the cached copy.
+    _install_fetch(monkeypatch)
+    catalog.load_catalog(now=T0)
+    _install_fetch(monkeypatch, payload={"data": {"not": "a list"}})
+    stale = catalog.load_catalog(now=T0, refresh=True)
+    assert stale.source == "cache" and stale.models
+
+
+def test_naive_now_is_treated_as_utc(monkeypatch):
+    _install_fetch(monkeypatch)
+    catalog.load_catalog(now=T0)
+    snapshot = catalog.load_catalog(now=T0.replace(tzinfo=None))
+    assert snapshot.source == "cache" and snapshot.stale is False

@@ -112,10 +112,6 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "settings_env_path": str(global_settings_path()),
         },
         "ingest": {
-            # Transitional: true when either modality is routed natively.
-            "native_multimodal": (
-                config.ingest.audio.mode == "native" or config.ingest.pdf.engine == "native"
-            ),
             "pdf_engine": config.ingest.pdf.engine,
             "audio_mode": config.ingest.audio.mode,
             # Per-modality readiness from the same judgement the pipeline
@@ -315,6 +311,34 @@ def _cached_catalog_modalities(model: str | None) -> list[str] | None:
     return list(detected) if detected is not None else None
 
 
+def _ordered_modalities(values: set[str]) -> list[str]:
+    """Known modalities in vocabulary order; anything else declared by hand is kept after them."""
+
+    known = [candidate for candidate in KNOWN_INPUT_MODALITIES if candidate in values]
+    return known + sorted(values - set(KNOWN_INPUT_MODALITIES))
+
+
+def _provider_modality_updates(
+    provider_name: str, profile: Any, input_modalities: list[str]
+) -> dict[tuple[str, ...], Any]:
+    """Config writes that declare ``input_modalities`` on a provider profile.
+
+    A profile can exist only in memory (config/compat synthesises
+    ``openrouter_transcription`` from the legacy ``[ingest.audio] provider``
+    shape); writing one key would leave a bare table on disk that reloads as
+    the pydantic default. Every explicitly set field is written alongside."""
+
+    updates: dict[tuple[str, ...], Any] = {}
+    fields = profile.model_dump(exclude_defaults=True, exclude_none=True)
+    fields["type"] = profile.type
+    if profile.model:
+        fields["model"] = profile.model
+    fields["input_modalities"] = list(input_modalities)
+    for key, value in fields.items():
+        updates[("ai", "providers", provider_name, key)] = value
+    return updates
+
+
 def _adopt_cached_modalities(ctx: SidecarContext, modalities: tuple[str, ...]) -> None:
     """When a modality is routed natively to an OpenRouter profile that does not
     declare it but the cached catalog says its model accepts it, record the
@@ -332,9 +356,9 @@ def _adopt_cached_modalities(ctx: SidecarContext, modalities: tuple[str, ...]) -
             continue
         profile = config.ai.providers[readiness.provider_name]
         merged = set(profile.input_modalities or []) | set(detected)
-        updates[("ai", "providers", readiness.provider_name, "input_modalities")] = [
-            candidate for candidate in KNOWN_INPUT_MODALITIES if candidate in merged
-        ]
+        updates.update(
+            _provider_modality_updates(readiness.provider_name, profile, _ordered_modalities(merged))
+        )
     if updates:
         try:
             apply_config_updates(vault.root / "learnloop.toml", updates)
@@ -347,9 +371,6 @@ NATIVE_LIMIT_BOUNDS_MB = (1, 500)
 
 
 class UpdateIngestSettingsParams(ParamsModel):
-    # Transitional toggle kept until the desktop UI moves to the per-modality
-    # fields below.
-    native_multimodal: bool | None = None
     # Per-modality authorities ([ingest.pdf] engine / [ingest.audio] mode).
     pdf_engine: Literal["auto", "marker", "pypdf", "native"] | None = None
     audio_mode: Literal["transcription", "native"] | None = None
@@ -376,15 +397,6 @@ TRANSCRIPTION_PROVIDERS = ("openai_compatible", "openrouter")
 def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsParams) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     updates: dict[tuple[str, ...], Any] = {}
-    if params.native_multimodal is not None:
-        # Transitional shim over the per-modality authorities: on routes both
-        # PDF and audio natively; off restores local PDF extraction only when
-        # native was the selected engine (an explicit marker/pypdf choice stays).
-        updates[("ingest", "audio", "mode")] = "native" if params.native_multimodal else "transcription"
-        if params.native_multimodal:
-            updates[("ingest", "pdf", "engine")] = "native"
-        elif vault.config.ingest.pdf.engine == "native":
-            updates[("ingest", "pdf", "engine")] = "auto"
     if params.pdf_engine is not None:
         updates[("ingest", "pdf", "engine")] = params.pdf_engine
     if params.audio_mode is not None:
@@ -426,7 +438,7 @@ def update_ingest_settings(ctx: SidecarContext, params: UpdateIngestSettingsPara
     # OpenRouter transcription runs as chat input_audio against a model slug;
     # catch an endpoint model (e.g. whisper-1) left behind on a provider
     # switch. Only when the request touches provider/model — an unrelated
-    # update (e.g. the native toggle) must not fail on a pre-existing mismatch.
+    # update (e.g. a limit) must not fail on a pre-existing mismatch.
     if provider is not None or model is not None:
         effective_provider = (
             provider
@@ -510,6 +522,19 @@ def detect_provider_capabilities(
         "model": profile.model,
         "declared": list(profile.input_modalities or []),
     }
+    if not profile.model:
+        # Nothing to look up: do not spend a network fetch on it.
+        return versioned(
+            {
+                **base,
+                "detected": None,
+                "model_known": False,
+                "source": "unavailable",
+                "fetched_at": None,
+                "stale": False,
+                "message": "the profile has no model slug to look up",
+            }
+        )
     try:
         snapshot = load_catalog(refresh=params.refresh)
     except OpenRouterCatalogError as exc:
@@ -524,10 +549,8 @@ def detect_provider_capabilities(
                 "message": str(exc),
             }
         )
-    detected = model_input_modalities(snapshot, profile.model) if profile.model else None
-    if not profile.model:
-        message = "the profile has no model slug to look up"
-    elif detected is None:
+    detected = model_input_modalities(snapshot, profile.model)
+    if detected is None:
         message = f"{profile.model} is not in the OpenRouter catalog"
     elif detected:
         message = f"{profile.model} accepts {', '.join(detected)} natively"
@@ -575,11 +598,10 @@ def update_provider_modalities(
                 f"Unknown modality {value!r}; valid: {', '.join(KNOWN_INPUT_MODALITIES)}.",
             )
         chosen.add(cleaned)
-    ordered = [modality for modality in KNOWN_INPUT_MODALITIES if modality in chosen]
+    ordered = _ordered_modalities(chosen)
     try:
         apply_config_updates(
-            vault.root / "learnloop.toml",
-            {("ai", "providers", params.provider, "input_modalities"): ordered},
+            vault.root / "learnloop.toml", _provider_modality_updates(params.provider, profile, ordered)
         )
     except SettingsStoreError as exc:
         raise SidecarError(exc.code, str(exc))

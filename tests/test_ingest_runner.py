@@ -1906,3 +1906,57 @@ def test_append_synthesis_forwards_budget_overrides(tmp_path, monkeypatch):
     assert job["status"] == "completed", job.get("error")
     assert seen["source_set_id"] == "set_x"
     assert seen["budget_overrides"] == {"append_output_tokens": 7777}
+
+
+def test_native_audio_unready_route_is_irrelevant_for_non_chat_containers(tmp_path, monkeypatch):
+    """An .m4a can never go native, so an undeclared route must not fail it."""
+
+    from learnloop.content.pipeline.runner import FetchedBytes
+    from learnloop.content.pipeline.jobs import default_extraction_identity
+
+    vault_root = _native_audio_vault(tmp_path, monkeypatch, input_modalities=())
+    fetched = FetchedBytes(
+        raw_bytes=b"\x00x",
+        content_type="audio/mp4",
+        original_uri="lecture.m4a",
+        retrieved_at="2026-07-22T00:00:00Z",
+    )
+
+    identity = default_extraction_identity(fetched, "audio", _extract_ctx(vault_root))
+    assert identity["extractor"] == "audio_transcript"
+    assert "native_fallback" not in identity["config"]
+
+
+def test_native_pdf_engine_rejects_a_repair_page_range(tmp_path, monkeypatch):
+    """Repairs carry pages as pdf_config.page_range; the whole-document upload refuses them too."""
+
+    from learnloop.content.pipeline.runner import IngestRunnerError, JobContext
+    from learnloop.content.pipeline.jobs import default_extract
+    from tests.openai_fakes import install_fake_openai
+
+    vault_root = _native_pdf_vault(tmp_path, monkeypatch)
+    install_fake_openai(monkeypatch)
+    ctx = JobContext(
+        repo=None,
+        vault_root=vault_root,
+        job={"payload": {"pdf_config": {"engine": "native", "page_range": [2, 3]}}},
+        clock=_clock(),
+        worker_id="w1",
+    )
+
+    with pytest.raises(IngestRunnerError) as excinfo:
+        default_extract(_pdf_fetched(tmp_path), "pdf", ctx)
+
+    assert excinfo.value.code == "native_pdf_unavailable"
+    assert excinfo.value.retryable is False
+
+
+def test_legacy_one_shot_pipeline_never_uses_the_native_engine():
+    from learnloop.config.schema import PdfIngestConfig
+    from learnloop.content.pipeline.source_ingestion import _legacy_pdf_config
+
+    native_vault = PdfIngestConfig(engine="native")
+    assert _legacy_pdf_config(native_vault, engine=None, use_llm=None).engine == "auto"
+    assert _legacy_pdf_config(native_vault, engine="native", use_llm=None).engine == "auto"
+    assert _legacy_pdf_config(native_vault, engine="pypdf", use_llm=None).engine == "pypdf"
+    assert _legacy_pdf_config(PdfIngestConfig(engine="marker"), engine=None, use_llm=True).use_llm is True

@@ -98,6 +98,19 @@ DEEPSEEK_API_KEY=replace-with-real-secret
 
 Credential precedence is the existing shell environment, then `<vault>/.env`, then `~/.config/learnloop/settings.env`. Existing shell values are never overwritten by an env file.
 
+### Declare input modalities
+
+A provider profile lists the media it accepts natively under `input_modalities` (values: `audio`, `pdf`, `image`, `video`); native ingestion trusts only this declaration, never a runtime probe, so extraction identity stays deterministic offline.
+
+```toml
+[ai.providers.openrouter_ingest]
+type = "openrouter"
+model = "google/gemini-2.5-pro"
+input_modalities = ["audio", "pdf", "image"]
+```
+
+Settings → Ingestion → *model capabilities* edits the same list: OpenAI-compatible profiles get checkboxes; OpenRouter profiles get **detect**, which looks the model up in OpenRouter's public model catalog (`GET /api/v1/models`, cached for 24 h under the machine config dir) and offers to apply what it finds. Choosing a native PDF/audio path for an OpenRouter route that has no declaration adopts the cached catalog entry automatically, without a network call.
+
 ### Typed manual mode
 
 Use the profile explicitly for a single ordinary attempt:

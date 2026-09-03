@@ -144,8 +144,6 @@ export interface SettingsNativeIngestDto {
 }
 
 export interface SettingsIngestDto {
-  // Transitional: true when either modality is routed natively.
-  nativeMultimodal: boolean;
   pdfEngine: PdfEngine;
   audioMode: AudioMode;
   native: SettingsNativeIngestDto;
@@ -206,7 +204,6 @@ export interface UpdateAnimationSettingsInput {
 }
 
 export interface UpdateIngestSettingsInput {
-  nativeMultimodal?: boolean;
   pdfEngine?: PdfEngine;
   audioMode?: AudioMode;
   nativeFallbackWhenUnavailable?: boolean;

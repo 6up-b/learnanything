@@ -283,17 +283,23 @@ def default_extraction_identity(
 
         chat_format = chat_audio_format(_audio_filename(fetched))
         fallback_config: dict[str, Any] = {}
-        decision = _decide_native(ctx, "audio", unavailable_code="native_audio_unavailable")
+        # Containers the chat API cannot take (m4a, flac, ...) never go native,
+        # so their route's readiness is irrelevant: the documented data-dependent
+        # fallback to transcription, with no marker in the identity.
+        decision = (
+            _decide_native(ctx, "audio", unavailable_code="native_audio_unavailable")
+            if chat_format is not None
+            else None
+        )
         if decision is not None:
-            if decision.route is not None and chat_format is not None:
+            if decision.route is not None:
                 return {
                     "extractor": "audio_native",
                     "extractor_version": "1",
                     "model_versions": {"chat_model": decision.route.model or ""},
                     "config": {"provider": decision.route.provider_name},
                 }
-            # Ready but not mp3/wav is the documented data-dependent fallback
-            # (no marker); a configuration fallback is recorded in the identity.
+            # A configuration fallback is recorded in the identity.
             if decision.fallback_reason:
                 fallback_config = {"native_fallback": decision.fallback_reason}
         audio_config = _audio_ingest_config(ctx)
@@ -394,9 +400,13 @@ class NativeMediaRoute:
     max_mb: int
 
 
-def _native_readiness(ctx: JobContext, modality: str, *, requested: bool | None = None) -> Any:
-    """The shared readiness judgement (learnloop.ai.native_media) for this vault, or
-    None when the vault has no config file yet."""
+def _native_readiness(
+    ctx: JobContext, modality: str, *, requested: bool | None = None
+) -> tuple[Any, bool] | None:
+    """The shared readiness judgement (learnloop.ai.native_media) for this vault
+    plus the ``fallback_when_unavailable`` opt-in, read from ONE config load so
+    the two can never come from different versions of learnloop.toml. None when
+    the vault has no config file yet."""
 
     from learnloop.ai.native_media import native_modality_readiness
     from learnloop.vault.loader import load_vault
@@ -405,16 +415,8 @@ def _native_readiness(ctx: JobContext, modality: str, *, requested: bool | None 
         config = load_vault(ctx.vault_root).config
     except FileNotFoundError:
         return None
-    return native_modality_readiness(config, modality, requested=requested)
-
-
-def _native_fallback_allowed(ctx: JobContext) -> bool:
-    from learnloop.vault.loader import load_vault
-
-    try:
-        return bool(load_vault(ctx.vault_root).config.ingest.native.fallback_when_unavailable)
-    except FileNotFoundError:
-        return False
+    readiness = native_modality_readiness(config, modality, requested=requested)
+    return readiness, bool(config.ingest.native.fallback_when_unavailable)
 
 
 def _route_from_readiness(readiness: Any) -> NativeMediaRoute:
@@ -448,8 +450,8 @@ def _decide_native(
     configuration reason, and fallback is not opted in — the durable queue
     must not retry a misconfiguration forever."""
 
-    readiness = _native_readiness(ctx, modality, requested=requested)
-    if readiness is None:
+    loaded = _native_readiness(ctx, modality, requested=requested)
+    if loaded is None:
         if requested:
             raise IngestRunnerError(
                 f"native {modality} ingestion was requested but the vault has no configuration",
@@ -457,11 +459,12 @@ def _decide_native(
                 retryable=False,
             )
         return None
+    readiness, fallback_allowed = loaded
     if not readiness.requested:
         return None
     if readiness.ready:
         return _NativeDecision(route=_route_from_readiness(readiness), fallback_reason=None)
-    if _native_fallback_allowed(ctx):
+    if fallback_allowed:
         return _NativeDecision(route=None, fallback_reason=readiness.reason or "unavailable")
     raise IngestRunnerError(
         readiness.message,
@@ -469,21 +472,6 @@ def _decide_native(
         retryable=False,
         details={"reason": readiness.reason, "modality": modality},
     )
-
-
-def _native_media_route(
-    ctx: JobContext, modality: str, *, requested: bool | None = None
-) -> NativeMediaRoute | None:
-    """The native route for ``modality`` when it is selected AND ready, else None.
-
-    Callers that must distinguish "not selected" from "selected but
-    unavailable" use ``_decide_native``; this keeps the pure lookup for the
-    places that only need the route."""
-
-    readiness = _native_readiness(ctx, modality, requested=requested)
-    if readiness is None or not (readiness.requested and readiness.ready):
-        return None
-    return _route_from_readiness(readiness)
 
 
 def _add_health_flag(ir: Any, flag: str) -> Any:
@@ -622,9 +610,15 @@ def _extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any:
 
     chat_format = chat_audio_format(_audio_filename(fetched))
     native_fallback: str | None = None
-    decision = _decide_native(ctx, "audio", unavailable_code="native_audio_unavailable")
+    # Lock-step with default_extraction_identity: only chat-accepted containers
+    # consult the native route.
+    decision = (
+        _decide_native(ctx, "audio", unavailable_code="native_audio_unavailable")
+        if chat_format is not None
+        else None
+    )
     if decision is not None:
-        if decision.route is not None and chat_format is not None:
+        if decision.route is not None:
             return _extract_audio_native(fetched, ctx, decision.route, chat_format)
         native_fallback = decision.fallback_reason
 
@@ -798,7 +792,10 @@ def _extract_pdf_native(fetched: FetchedBytes, ctx: JobContext, route: NativeMed
     from learnloop.ai.errors import CodexUnavailable
     from learnloop.ingest.extractors import markdown_to_ir
 
-    if ctx.payload.get("page_selection"):
+    # Pages arrive as the import's ``page_selection`` or as a repair's
+    # ``pdf_config.page_range``; either would be silently ignored by a
+    # whole-document upload, so both are refused.
+    if ctx.payload.get("page_selection") or (ctx.payload.get("pdf_config") or {}).get("page_range"):
         raise IngestRunnerError(
             "Native PDF ingestion sends the whole document and does not support page "
             "selection; clear the page range or choose the marker or pypdf engine.",

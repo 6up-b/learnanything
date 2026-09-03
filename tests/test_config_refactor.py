@@ -290,6 +290,12 @@ def test_legacy_native_gates_normalize_to_audio_mode() -> None:
     assert on.ingest.audio.mode == "native"
     assert on.ingest.pdf.engine == "auto"  # PDF authority is never the legacy gate
     assert "enabled" not in on.ingest.native.model_dump()
+    # The legacy gate silently transcribed when the model could not take
+    # audio; the translation keeps that instead of failing closed.
+    assert on.ingest.native.fallback_when_unavailable is True
+    explicit = _parsed('[ingest.native]\nenabled = true\nfallback_when_unavailable = false\n')
+    assert explicit.ingest.native.fallback_when_unavailable is False
+    assert _parsed('[ingest.audio]\nmode = "native"\n').ingest.native.fallback_when_unavailable is False
 
     # enabled with audio off, or plain disabled, keeps the transcription path.
     assert _parsed('[ingest.native]\nenabled = true\naudio = false\n').ingest.audio.mode == "transcription"

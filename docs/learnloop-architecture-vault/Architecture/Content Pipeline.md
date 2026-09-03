@@ -68,6 +68,8 @@ The model never receives authority merely by returning JSON. Feature-owned synth
 
 Local files, websites, YouTube/captions, Markdown/text, PDFs, and audio follow typed extractors. PDFs honor per-job/vault engine selection and may degrade from optional Marker extraction to pypdf with a visible health flag unless Marker was explicitly forced. Audio uses the dedicated transcription route and consent policy from [[AI Architecture#Task routes]].
 
+Each media modality has one native authority (`[ingest.pdf] engine = "native"`, `[ingest.audio] mode = "native"`): the file goes to the `canonical_ingest` chat provider as a content part. One pure readiness judgement (`learnloop.ai.native_media`) is shared by extraction identity, extraction, the sidecar settings payload, and enqueue-time checks. A native choice whose route cannot take the modality fails closed with a typed, non-retryable error (`native_pdf_unavailable`, `native_audio_unavailable`) unless `[ingest.native] fallback_when_unavailable` is on, in which case the non-native path runs and both the identity and the IR carry a `native_*_fallback_*` marker.
+
 ## Legacy compatibility
 
 The gen-2 source-ingestion implementation remains available through frozen `legacy_ingest` and `exam_ingest` queue aliases. The durable runner presents corrected effective status for known historical result/status mismatches while preserving raw audit records.
