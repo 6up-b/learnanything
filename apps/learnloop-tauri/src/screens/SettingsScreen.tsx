@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import type {
+  AnimationRenderer,
   IngestBudgetField,
   IngestBudgetsDto,
   RuntimeHealth,
@@ -30,6 +31,16 @@ const TRANSCRIPTION_PROVIDERS = [
 ];
 const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash";
 
+const OPENROUTER_VIDEO_MODEL_SUGGESTION = "google/veo-3.1";
+// A cleared or fractional number input parses to NaN; only a whole number
+// that differs from the saved value is worth sending to the sidecar.
+function isNewInteger(draft: number | null, current: number): draft is number {
+  return draft !== null && Number.isInteger(draft) && draft !== current;
+}
+const ANIMATION_RENDERER_OPTIONS = [
+  { value: "manim", label: "manim (local render)" },
+  { value: "video_model", label: "video model (OpenRouter)" }
+];
 const ANIMATION_QUALITY_OPTIONS = [
   { value: "ql", label: "ql · 854x480 15fps (fast)" },
   { value: "qm", label: "qm · 1280x720 30fps" },
@@ -138,6 +149,8 @@ export function SettingsScreen({
   const [budgetDrafts, setBudgetDrafts] = useState<Partial<Record<IngestBudgetField, number>>>({});
   const [contextDraft, setContextDraft] = useState<number | null>(null);
   const [animationLengthDraft, setAnimationLengthDraft] = useState<number | null>(null);
+  const [videoModelDraft, setVideoModelDraft] = useState<string | null>(null);
+  const [videoShotsDraft, setVideoShotsDraft] = useState<number | null>(null);
   const [maxOutputDraft, setMaxOutputDraft] = useState<number | null>(null);
   const [palette, setPalette] = useState(() => localStorage.getItem(PALETTE_STORAGE_KEY) ?? "");
 
@@ -617,6 +630,132 @@ export function SettingsScreen({
       <SectionHeader>Animation</SectionHeader>
       <div style={rowStyle}>
         <span style={labelStyle}>
+          renderer
+          <div style={hintStyle}>
+            {settings.animation.renderer === "video_model"
+              ? "an LLM writes a short storyboard; a text-to-video model generates each shot; the clips are stitched"
+              : "an LLM writes a Manim scene that renders locally in a sandbox"}
+          </div>
+        </span>
+        <TermSelect
+          value={settings.animation.renderer}
+          options={ANIMATION_RENDERER_OPTIONS}
+          width={230}
+          disabled={busy !== null}
+          onChange={(renderer) => {
+            setBusy("animation");
+            api
+              .updateAnimationSettings({ renderer: renderer as AnimationRenderer })
+              .then((result) => {
+                acceptSettings(result);
+                onToast(`animation renderer → ${renderer}`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        />
+        {settings.animation.renderer === "video_model" ? (
+          <span style={{ color: settings.animation.video.ready ? COLOR.green : COLOR.red, fontSize: 10 }}>
+            {settings.animation.video.ready
+              ? `ready · ${settings.animation.video.model}`
+              : `not ready · ${settings.animation.video.reason ?? "video model not configured"}`}
+          </span>
+        ) : null}
+      </div>
+      {settings.animation.renderer === "video_model" ? (
+        <>
+          <div style={rowStyle}>
+            <span style={labelStyle}>
+              video model
+              <div style={hintStyle}>
+                OpenRouter slug · billed per shot to your OpenRouter account (uses the key above); a storyboard of{" "}
+                {settings.animation.video.maxShots} shots usually takes 2–10 minutes
+              </div>
+            </span>
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              placeholder={`e.g. ${OPENROUTER_VIDEO_MODEL_SUGGESTION}`}
+              value={videoModelDraft ?? settings.animation.video.model ?? ""}
+              disabled={busy !== null}
+              onChange={(event) => setVideoModelDraft(event.target.value)}
+            />
+            <button
+              type="button"
+              style={buttonStyle(
+                videoModelDraft !== null &&
+                  videoModelDraft.trim().includes("/") &&
+                  videoModelDraft.trim() !== (settings.animation.video.model ?? "") &&
+                  busy === null
+              )}
+              disabled={
+                videoModelDraft === null ||
+                !videoModelDraft.trim().includes("/") ||
+                videoModelDraft.trim() === (settings.animation.video.model ?? "") ||
+                busy !== null
+              }
+              onClick={() => {
+                if (videoModelDraft === null) return;
+                const slug = videoModelDraft.trim();
+                setBusy("animation");
+                api
+                  .updateAiSettings({ useCases: { video: { provider: "openrouter", openrouterModel: slug } } })
+                  .then((result) => {
+                    acceptSettings(result);
+                    setVideoModelDraft(null);
+                    onToast(`video model → ${slug}`);
+                  })
+                  .catch((error) => onError((error as Error).message))
+                  .finally(() => setBusy(null));
+              }}
+            >
+              {busy === "animation" ? "…" : "apply"}
+            </button>
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>
+              storyboard shots
+              <div style={hintStyle}>
+                maximum shots per animation · each shot is one billed job; the model&apos;s supported durations cap each
+                shot and the target length caps the total
+              </div>
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={6}
+              style={{ ...inputStyle, width: 70 }}
+              value={videoShotsDraft ?? settings.animation.video.maxShots}
+              disabled={busy !== null}
+              onChange={(event) => setVideoShotsDraft(Number.parseInt(event.target.value, 10))}
+            />
+            <button
+              type="button"
+              style={buttonStyle(
+                isNewInteger(videoShotsDraft, settings.animation.video.maxShots) && busy === null
+              )}
+              disabled={!isNewInteger(videoShotsDraft, settings.animation.video.maxShots) || busy !== null}
+              onClick={() => {
+                if (!isNewInteger(videoShotsDraft, settings.animation.video.maxShots)) return;
+                setBusy("animation");
+                api
+                  .updateAnimationSettings({ videoMaxShots: videoShotsDraft })
+                  .then((result) => {
+                    acceptSettings(result);
+                    setVideoShotsDraft(null);
+                    onToast(`storyboard shots → ${videoShotsDraft}`);
+                  })
+                  .catch((error) => onError((error as Error).message))
+                  .finally(() => setBusy(null));
+              }}
+            >
+              apply
+            </button>
+          </div>
+        </>
+      ) : null}
+      {settings.animation.renderer === "manim" ? (
+      <div style={rowStyle}>
+        <span style={labelStyle}>
           render quality
           <div style={hintStyle}>manim output size and frame rate · higher is slower to render</div>
         </span>
@@ -638,6 +777,7 @@ export function SettingsScreen({
           }}
         />
       </div>
+      ) : null}
       <div style={rowStyle}>
         <span style={labelStyle}>
           target length
@@ -653,18 +793,16 @@ export function SettingsScreen({
           style={{ ...inputStyle, width: 90 }}
           value={animationLengthDraft ?? settings.animation.maxDurationSeconds}
           disabled={busy !== null}
-          onChange={(event) => setAnimationLengthDraft(Number(event.target.value))}
+          onChange={(event) => setAnimationLengthDraft(Number.parseInt(event.target.value, 10))}
         />
         <button
           type="button"
           style={buttonStyle(
-            animationLengthDraft !== null && animationLengthDraft !== settings.animation.maxDurationSeconds && busy === null
+            isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds) && busy === null
           )}
-          disabled={
-            animationLengthDraft === null || animationLengthDraft === settings.animation.maxDurationSeconds || busy !== null
-          }
+          disabled={!isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds) || busy !== null}
           onClick={() => {
-            if (animationLengthDraft === null) return;
+            if (!isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds)) return;
             setBusy("animation");
             api
               .updateAnimationSettings({ maxDurationSeconds: animationLengthDraft })

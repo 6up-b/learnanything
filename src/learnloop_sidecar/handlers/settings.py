@@ -19,6 +19,7 @@ import os
 from typing import Any
 
 from learnloop.ai.runtime import check_ai_runtime
+from learnloop.content.authoring.concept_animation import video_generation_readiness
 from learnloop.config import CODEX_PROVIDER_NAMES, global_ai_defaults_path, global_settings_path
 from learnloop.ops.settings_store import (
     USE_CASE_ROUTES,
@@ -45,6 +46,8 @@ OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
 
 # [animation] render settings the Settings tab edits.
 ANIMATION_QUALITY_OPTIONS = ("ql", "qm", "qh")
+ANIMATION_RENDERER_OPTIONS = ("manim", "video_model")
+ANIMATION_SHOT_BOUNDS = (1, 6)
 ANIMATION_DURATION_BOUNDS = (15, 180)
 ANIMATION_TIMEOUT_BOUNDS = (60, 3600)
 
@@ -118,6 +121,15 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
         },
         "animation": {
             "enabled": config.animation.enabled,
+            "renderer": config.animation.renderer,
+            "renderer_options": list(ANIMATION_RENDERER_OPTIONS),
+            # Readiness of the video-model renderer (route + key), no network.
+            "video": {
+                **video_generation_readiness(config, vault.root),
+                "max_shots": config.animation.video_max_shots,
+                "timeout_seconds": config.animation.video_timeout_seconds,
+                "resolution": config.animation.video_resolution,
+            },
             "quality": config.animation.quality,
             "quality_options": list(ANIMATION_QUALITY_OPTIONS),
             "min_duration_seconds": config.animation.min_duration_seconds,
@@ -411,9 +423,11 @@ def set_openrouter_api_key(ctx: SidecarContext, params: SetOpenrouterApiKeyParam
 
 
 class UpdateAnimationSettingsParams(ParamsModel):
+    renderer: str | None = None
     quality: str | None = None
     max_duration_seconds: int | None = None
     timeout_seconds: int | None = None
+    video_max_shots: int | None = None
 
 
 @method("update_animation_settings", UpdateAnimationSettingsParams)
@@ -424,6 +438,19 @@ def update_animation_settings(
 
     vault, _repository = ctx.require_vault()
     updates: dict[tuple[str, ...], Any] = {}
+    if params.renderer is not None:
+        renderer = params.renderer.strip().lower()
+        if renderer not in ANIMATION_RENDERER_OPTIONS:
+            raise SidecarError(
+                "invalid_renderer",
+                f"Animation renderer must be one of: {', '.join(ANIMATION_RENDERER_OPTIONS)}.",
+            )
+        updates[("animation", "renderer")] = renderer
+    if params.video_max_shots is not None:
+        low, high = ANIMATION_SHOT_BOUNDS
+        if not low <= params.video_max_shots <= high:
+            raise SidecarError("invalid_shot_count", f"Storyboard shots must be between {low} and {high}.")
+        updates[("animation", "video_max_shots")] = params.video_max_shots
     if params.quality is not None:
         quality = params.quality.strip().lower()
         if quality not in ANIMATION_QUALITY_OPTIONS:
