@@ -169,6 +169,40 @@ def classify_ingest_source(_ctx: SidecarContext, params: ClassifyIngestSourceInp
     return versioned({"kind": resolved.category, "normalized_source": resolved.source})
 
 
+def _is_pdf_source(source: str) -> bool:
+    try:
+        return resolve_source(source).category == "pdf"
+    except UnsupportedSourceError:
+        return False
+
+
+def _native_pdf_preflight(vault, pdf_engine: str, sources: list[str], *, has_page_ranges: bool) -> None:
+    """Refuse at enqueue time what the import would reject anyway.
+
+    The pipeline makes the same judgement (learnloop.ai.native_media) when the
+    job runs; surfacing it here means the learner sees why before a batch is
+    created, instead of a failed job a moment later."""
+
+    from learnloop.ai.native_media import native_modality_readiness
+
+    engine = pdf_engine if pdf_engine != "auto" else vault.config.ingest.pdf.engine
+    if engine != "native" or not any(_is_pdf_source(source) for source in sources):
+        return
+    if has_page_ranges:
+        raise SidecarError(
+            "invalid_page_range",
+            "Native PDF ingestion sends the whole document; clear the page range or choose a local engine.",
+        )
+    readiness = native_modality_readiness(vault.config, "pdf", requested=True)
+    if readiness.ready or vault.config.ingest.native.fallback_when_unavailable:
+        return
+    raise SidecarError(
+        "native_pdf_unavailable",
+        f"Native PDF ingestion is selected but {readiness.message}.",
+        details={"reason": readiness.reason},
+    )
+
+
 @method("start_ingest", StartIngestInput)
 def start_ingest(ctx: SidecarContext, params: StartIngestInput) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
@@ -181,6 +215,7 @@ def start_ingest(ctx: SidecarContext, params: StartIngestInput) -> dict[str, Any
         resolve_source(source)
     except UnsupportedSourceError as exc:
         raise SidecarError("unsupported_source", str(exc)) from exc
+    _native_pdf_preflight(vault, params.pdf_engine, [source], has_page_ranges=False)
     try:
         job = ctx.ingest_jobs.start(
             vault.root, source, params.subject_id, params.mode, pdf_engine=params.pdf_engine
@@ -270,6 +305,12 @@ def start_import_batch(ctx: SidecarContext, params: StartImportBatchInput) -> di
             raise SidecarError(
                 "unsupported_source", f"Reader opt-out source '{source}' is not in this import batch."
             )
+    _native_pdf_preflight(
+        vault,
+        params.pdf_engine,
+        sources,
+        has_page_ranges=page_selection is not None or bool(page_selections),
+    )
     batch_id = ctx.ingest_jobs.enqueue_import(
         sources,
         subject_id=params.subject_id,

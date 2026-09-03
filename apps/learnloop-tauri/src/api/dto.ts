@@ -59,6 +59,9 @@ export interface SettingsProviderDto {
   model: string | null;
   baseUrl: string | null;
   apiKeyEnv: string | null;
+  // Media modalities the profile declares it accepts natively ([ai.providers.*]
+  // input_modalities). Config-declared, never probed: this is what ingestion trusts.
+  inputModalities: string[];
 }
 
 export interface SettingsAiDto {
@@ -105,8 +108,47 @@ export interface IngestProviderLimitsDto {
   maxOutputTokens: number | null;
 }
 
+export type AudioMode = "transcription" | "native";
+
+// The sidecar's per-modality readiness judgement (learnloop.ai.native_media):
+// the same function the import pipeline uses, so the UI never claims a route
+// the import would reject.
+export interface NativeModalityStateDto {
+  modality: string;
+  requested: boolean;
+  task: string;
+  providerName: string | null;
+  providerType: string | null;
+  model: string | null;
+  declared: boolean;
+  ready: boolean;
+  reason: string | null;
+  message: string;
+  maxMb: number;
+}
+
+export interface CatalogStateDto {
+  cached: boolean;
+  fetchedAt: string | null;
+  stale: boolean;
+  path: string;
+}
+
+export interface SettingsNativeIngestDto {
+  modalities: NativeModalityStateDto[];
+  fallbackWhenUnavailable: boolean;
+  maxPdfMb: number;
+  maxAudioMb: number;
+  knownModalities: string[];
+  catalog: CatalogStateDto;
+}
+
 export interface SettingsIngestDto {
+  // Transitional: true when either modality is routed natively.
   nativeMultimodal: boolean;
+  pdfEngine: PdfEngine;
+  audioMode: AudioMode;
+  native: SettingsNativeIngestDto;
   transcriptionProvider: string;
   transcriptionModel: string;
   transcriptionBaseUrl: string;
@@ -165,6 +207,11 @@ export interface UpdateAnimationSettingsInput {
 
 export interface UpdateIngestSettingsInput {
   nativeMultimodal?: boolean;
+  pdfEngine?: PdfEngine;
+  audioMode?: AudioMode;
+  nativeFallbackWhenUnavailable?: boolean;
+  nativeMaxPdfMb?: number;
+  nativeMaxAudioMb?: number;
   transcriptionProvider?: string;
   transcriptionModel?: string;
   transcriptionBaseUrl?: string;
@@ -172,6 +219,31 @@ export interface UpdateIngestSettingsInput {
   budgets?: Partial<IngestBudgetsDto>;
   providerContextTokens?: number;
   providerMaxOutputTokens?: number;
+}
+
+export interface DetectProviderCapabilitiesInput {
+  provider: string;
+  refresh?: boolean;
+}
+
+export interface ProviderCapabilitiesDto {
+  version: number;
+  provider: string;
+  providerType: string;
+  model: string | null;
+  declared: string[];
+  // null when the model is not in the catalog (or the catalog was unavailable).
+  detected: string[] | null;
+  modelKnown: boolean;
+  source: "network" | "cache" | "unavailable";
+  fetchedAt: string | null;
+  stale: boolean;
+  message: string;
+}
+
+export interface UpdateProviderModalitiesInput {
+  provider: string;
+  inputModalities: string[];
 }
 
 export interface TranscriptionKeyResult {

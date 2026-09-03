@@ -749,6 +749,8 @@ pub async fn set_openrouter_api_key(
 }
 
 sidecar_passthrough!(update_ingest_settings, "update_ingest_settings");
+sidecar_passthrough!(detect_provider_capabilities, "detect_provider_capabilities");
+sidecar_passthrough!(update_provider_modalities, "update_provider_modalities");
 
 #[tauri::command]
 pub async fn set_transcription_api_key(

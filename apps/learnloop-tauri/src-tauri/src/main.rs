@@ -334,6 +334,8 @@ fn main() {
             update_ai_settings,
             set_openrouter_api_key,
             update_ingest_settings,
+            detect_provider_capabilities,
+            update_provider_modalities,
             set_transcription_api_key,
             update_animation_settings,
             get_animation_runtime,

@@ -49,13 +49,19 @@ def openrouter_profile_name(use_case: str) -> str:
     return f"openrouter_{use_case}"
 
 
-def openrouter_task_profile_values(base: AIProviderConfig, model: str) -> dict[str, Any]:
+def openrouter_task_profile_values(
+    base: AIProviderConfig, model: str, *, input_modalities: list[str] | None = None
+) -> dict[str, Any]:
     """Concrete keys for a per-use-case OpenRouter profile cloned from ``base``.
 
     Only explicitly-set keys are emitted — pydantic defaults are never dumped
-    into the TOML, keeping the committed config minimal."""
+    into the TOML, keeping the committed config minimal. ``input_modalities``
+    overrides the copy from ``base``: the use case runs a different model, so
+    the base profile's declaration is only a guess for it."""
 
     values: dict[str, Any] = {"type": base.type or "openrouter", "model": model}
+    if input_modalities is not None:
+        values["input_modalities"] = list(input_modalities)
     for key in (
         "api_key_env",
         "base_url",
@@ -68,6 +74,8 @@ def openrouter_task_profile_values(base: AIProviderConfig, model: str) -> dict[s
         "x_title",
         "input_modalities",
     ):
+        if key in values:
+            continue
         value = getattr(base, key, None)
         if value is not None:
             values[key] = value
