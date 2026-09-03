@@ -92,7 +92,7 @@ def test_request_rejects_missing_consent_and_missing_manim(tmp_path, monkeypatch
         )
     )[1]
     assert missing["error"]["data"]["code"] == "manim_missing"
-    assert "learnloop[animation]" in missing["error"]["data"].get("message", "") or True
+    assert "uv sync" in missing["error"]["message"]
 
 
 def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):

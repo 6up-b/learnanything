@@ -23,6 +23,7 @@ consent copy.
 from __future__ import annotations
 
 import ast
+import logging
 import shutil
 import subprocess
 import sys
@@ -43,6 +44,8 @@ from learnloop.content.authoring.ai_contracts import (
     concept_animation_prompt,
 )
 from learnloop.content.authoring.animation_media import probe_duration_seconds, remux_faststart
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_IMPORTS = frozenset({"manim", "numpy", "math"})
 ALLOWED_SCENE_BASES = {"Scene", "MovingCameraScene", "ThreeDScene", "ZoomedScene"}
@@ -479,6 +482,20 @@ def estimate_scene_duration(code: str) -> float | None:
     return round(method_cost("construct", {}, 0), 2)
 
 
+def pacing_band(config: Any) -> tuple[int, int]:
+    """The (min, max) running time the prompt targets and the lint enforces.
+
+    A vault written before ``min_duration_seconds`` existed can carry a
+    ``max_duration_seconds`` below the new default minimum; the minimum yields
+    so the model is never asked for "between 30 and 25 seconds"."""
+
+    minimum = int(config.min_duration_seconds)
+    maximum = int(config.max_duration_seconds)
+    if maximum > 0:
+        minimum = min(minimum, maximum)
+    return minimum, maximum
+
+
 def lint_scene_pacing(code: str, *, min_seconds: float, max_seconds: float) -> list[str]:
     """Human-readable pacing violations for a repair round-trip (empty = fine)."""
 
@@ -669,8 +686,8 @@ def build_animation_context(
         concept_title=getattr(concept, "title", concept_id),
         concept_description=getattr(concept, "description", "") or "",
         learning_objects=learning_objects,
-        min_duration_seconds=config.min_duration_seconds,
-        max_duration_seconds=config.max_duration_seconds,
+        min_duration_seconds=pacing_band(config)[0],
+        max_duration_seconds=pacing_band(config)[1],
         latex_available=config.latex_enabled,
         resolution=quality_preset(config.quality)[0],
         fps=quality_preset(config.quality)[1],
@@ -785,31 +802,39 @@ def generate_concept_animation(
 
         # Pacing is a soft gate: a scene that comes in far too short gets one
         # round-trip (when no repair has been spent yet), then renders as is.
-        pacing = lint_scene_pacing(
-            animation.scene_code,
-            min_seconds=config.min_duration_seconds,
-            max_seconds=config.max_duration_seconds,
-        )
+        # The round-trip can only improve things: a repaired scene that fails
+        # the security validator is discarded and the original (valid) scene
+        # renders instead of failing the job over pacing.
+        min_seconds, max_seconds = pacing_band(config)
+        pacing = lint_scene_pacing(animation.scene_code, min_seconds=min_seconds, max_seconds=max_seconds)
         if pacing and not repaired_once:
+            repaired_once = True
+            repository.update_concept_animation(animation_id, repair_attempted=1, clock=clock)
             repair_context = build_animation_context(
                 vault,
                 concept_id=row["concept_id"],
                 learning_object_id=row.get("learning_object_id"),
                 repair={"previous_code": animation.scene_code, "violations": pacing},
             )
-            animation = author_concept_animation(client, repair_context)
-            scene_class, violations = validate_scene_code(animation.scene_code)
+            repaired = author_concept_animation(client, repair_context)
+            repaired_class, violations = validate_scene_code(repaired.scene_code)
             if violations:
-                return _fail("validation", "; ".join(violations))
-            scene_class = scene_class or animation.scene_class
-            repository.update_concept_animation(
-                animation_id,
-                scene_code=animation.scene_code,
-                scene_class=scene_class,
-                title=animation.title or None,
-                narration_md=animation.narration_md or None,
-                clock=clock,
-            )
+                logger.warning(
+                    "pacing repair for animation %s produced an invalid scene (%s); rendering the original",
+                    animation_id,
+                    "; ".join(violations),
+                )
+            else:
+                animation = repaired
+                scene_class = repaired_class or repaired.scene_class
+                repository.update_concept_animation(
+                    animation_id,
+                    scene_code=animation.scene_code,
+                    scene_class=scene_class,
+                    title=animation.title or None,
+                    narration_md=animation.narration_md or None,
+                    clock=clock,
+                )
 
         repository.update_concept_animation(animation_id, status="rendering", clock=clock)
         result = render(
