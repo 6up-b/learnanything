@@ -17,6 +17,8 @@
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   ReaderAnswerMode,
   ReaderDisposition,
@@ -202,15 +204,25 @@ function readingPositionKey(sourceId: string): string {
 }
 
 export function ReaderScreen({ onError }: { onError: (message: string) => void }) {
-  const [contract, setContract] = useState<ReaderPromptContractDto | null>(null);
+  // The prompt contract only changes with settings, so it is cached until a
+  // settings mutation invalidates it; the picker's library list is shared with
+  // the Ingest sidebar. Both repaint at once when the learner returns here.
+  const contractQuery = useCachedQuery(["reader_prompt_contract"], () => api.readerPromptContract(), {
+    tags: [TAG.reader, TAG.settings],
+    staleAfterMs: Infinity
+  });
+  const contract: ReaderPromptContractDto | null = contractQuery.data ?? null;
   const [render, setRender] = useState<ReaderRenderViewDto | null>(null);
   const [guidePlan, setGuidePlan] = useState<ReaderGuidePlanDto | null>(null);
   const [guideLoading, setGuideLoading] = useState(false);
   const [offline, setOffline] = useState(false);
   // Source picker state: the real library (ready sources are openable), whether
   // the sidecar answered at all, and the title of whatever is open.
-  const [library, setLibrary] = useState<SourceLibraryCard[] | null>(null);
-  const [sidecarDown, setSidecarDown] = useState(false);
+  // If the sidecar is unreachable the demo fixture stays available, clearly
+  // labeled (U-031) — it is never silently substituted for a real source.
+  const libraryQuery = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
+  const sidecarDown = libraryQuery.data === undefined && libraryQuery.error !== null;
+  const library: SourceLibraryCard[] | null = libraryQuery.data?.sources ?? (sidecarDown ? [] : null);
   const [sourceTitle, setSourceTitle] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [activeSpan, setActiveSpan] = useState<string | null>(null);
@@ -353,8 +365,8 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   }, [render?.renderViewId, offline, onError, refreshRequests]);
 
   useEffect(() => {
-    api.readerPromptContract().then(setContract).catch((error) => onError(errorMessage(error, "Could not load Reader settings.")));
-  }, [onError]);
+    if (contractQuery.error) onError(errorMessage(contractQuery.error, "Could not load Reader settings."));
+  }, [contractQuery.error, onError]);
 
   // The rail's content can lose a lot of height in one frame (a quick check is
   // answered and collapses to one line, a card is dismissed, a tab switches).
@@ -420,22 +432,6 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       /* A denied storage write should not interrupt reading. */
     }
   }, [sectionPromptsEnabled]);
-
-  // Load the real source library for the picker. If the sidecar is unreachable
-  // the demo fixture stays available, clearly labeled (U-031) — it is never
-  // silently substituted for a real source.
-  useEffect(() => {
-    api
-      .getSourceLibrary()
-      .then((snapshot) => {
-        setLibrary(snapshot.sources);
-        setSidecarDown(false);
-      })
-      .catch(() => {
-        setLibrary([]);
-        setSidecarDown(true);
-      });
-  }, []);
 
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
