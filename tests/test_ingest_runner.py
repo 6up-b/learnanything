@@ -1960,3 +1960,42 @@ def test_legacy_one_shot_pipeline_never_uses_the_native_engine():
     assert _legacy_pdf_config(native_vault, engine="native", use_llm=None).engine == "auto"
     assert _legacy_pdf_config(native_vault, engine="pypdf", use_llm=None).engine == "pypdf"
     assert _legacy_pdf_config(PdfIngestConfig(engine="marker"), engine=None, use_llm=True).use_llm is True
+
+
+def test_append_synthesis_preserves_gate_failure_code_and_diagnostics(tmp_path, monkeypatch):
+    """The append handler used to flatten a StudyMapError into the message and
+    raise a bare IngestRunnerError: code became `invalid_job`, the gate
+    diagnostics the Activity panel renders were dropped, and retryable
+    defaulted to False. Mirror the bootstrap lane's mapping."""
+
+    from learnloop.content.pipeline import runner as ir
+    from learnloop.content.synthesis.source_set_synthesis import StudyMapError
+
+    diagnostic = {
+        "gate": "span_resolution",
+        "severity": "hard_fail",
+        "entity_refs": ["plink_1"],
+        "message": "span s9 does not resolve in extraction run ext_1",
+        "suggested_action": "re-extract or drop the unresolved citation",
+    }
+
+    def fake_append_source(_root, _source_set_id, **_kwargs):
+        raise StudyMapError("append_gate_failed", "Append proposal failed hard quality gates.",
+                            diagnostics=[diagnostic])
+
+    monkeypatch.setattr("learnloop.content.synthesis.source_append.append_source", fake_append_source)
+    runner = _runner(tmp_path)
+    runner.services = ir.RunnerServices(synthesis_client_factory=lambda ctx: object())
+    batch_id = runner.enqueue_batch(
+        "update_study_map", [JobSpec("append_synthesis", {"source_set_id": "set_x"})]
+    )
+    runner.drain()
+
+    job = runner.repo.ingest_jobs_for_batch(batch_id)[0]
+    assert job["status"] == "failed"
+    error = job["error"]
+    assert error["code"] == "append_gate_failed"
+    assert error["message"] == "Append proposal failed hard quality gates."
+    assert error["details"]["diagnostics"] == [diagnostic]
+    assert error["details"]["stage"] == "synthesis"
+    assert error["retryable"] is True

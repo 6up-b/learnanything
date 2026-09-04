@@ -499,6 +499,11 @@ def _span_refs(
         extraction_id = str(ref.get("extraction_id") or "")
         span_id = str(ref.get("span_id") or "")
         unit_id = str(ref.get("unit_id") or "")
+        if not extraction_id and not span_id:
+            # A blank ref is "no citation", not a citation to span "" of run
+            # "". Skipping it lets the adequate-provenance gate judge the item
+            # (review) instead of three hard-fails naming an empty string.
+            continue
         origin = inputs.span_origin.get(extraction_id, {})
         role = origin.get("role", ref.get("role") or "reference")
         source_id = origin.get("source_id", ref.get("source_id") or "")
@@ -510,7 +515,9 @@ def _span_refs(
             ProvenanceRef(
                 extraction_id=extraction_id,
                 revision_id=revision_id,
-                unit_id=unit_id,
+                # None is the gate's "no unit cited" spelling; "" would fail
+                # unit_id_validity even when the span itself resolves.
+                unit_id=unit_id or None,
                 span_id=span_id,
                 relation=relation,
                 role=role,

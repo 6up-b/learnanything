@@ -1630,7 +1630,22 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             unlimited_token_budget=bool(payload.get("unlimited_token_budget", False)),
         )
     except StudyMapError as exc:
-        raise IngestRunnerError(f"{exc.code}: {exc}") from exc
+        # Same mapping as the bootstrap lane above. Flattening the code into the
+        # message left every append failure as `invalid_job`, dropped the gate
+        # diagnostics the Activity panel renders, and asserted retryable=False
+        # for a gate rejection that a fresh model turn routinely clears.
+        raise IngestRunnerError(
+            str(exc),
+            code=exc.code,
+            details={
+                "diagnostics": exc.diagnostics,
+                "lock_reasons": exc.lock_reasons,
+                "stage": "synthesis",
+                "completed_dependencies_preserved": True,
+                "synthesis_run_id": exc.synthesis_run_id,
+            },
+            retryable=exc.code not in {"source_set_not_found"},
+        ) from exc
     ctx.record_usage({"calls": 0 if result.reused else 1})
     ctx.report("synthesized", message="Source reconciliation synthesized")
     if result.auto_applied_item_ids:
