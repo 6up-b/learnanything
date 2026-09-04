@@ -243,7 +243,11 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         raise CodexUnavailable(f"{self.provider_name} request retries exhausted")
 
     def _response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None:
-        configured = (self.profile.response_format or "").strip()
+        # `complete()` now consults this before the first turn (to decide
+        # whether the schema must ride in the prompt), so a profile that
+        # declares no response_format at all must read as "nothing on the
+        # wire" rather than fail the request.
+        configured = (getattr(self.profile, "response_format", None) or "").strip()
         if not configured:
             return None
         if configured == "json_schema":
