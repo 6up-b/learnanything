@@ -59,6 +59,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
     build_manifest,
     persist_manifest,
 )
+from learnloop.content.synthesis.vault_epigraphs import digest_for_append, generate_vault_epigraphs
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, SourceSet
 from learnloop.vault.paths import VaultPaths
@@ -407,6 +408,20 @@ def _append(
         result.merge_review_proposals = [
             p.as_dict() for p in near_duplicate_facet_review(vault_after)
         ]
+
+    # Best-effort Start-screen epigraphs (see vault_epigraphs.py): an append
+    # may emit only provenance links, so the digest is topped up from the new
+    # inventories and the bounded neighborhood. Never raises.
+    generate_vault_epigraphs(
+        repository, vault, client,
+        subject_id=subject_id, source_set_id=source_set.id,
+        synthesis_run_id=synthesis_run_id, mode="append",
+        digest=digest_for_append(
+            rows, new_inventories, neighborhood.as_context(),
+            summary=str(getattr(reconciliation, "summary", "") or ""),
+        ),
+        brief=brief, clock=clock,
+    )
     return result
 
 

@@ -9,6 +9,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     claims,
     cli,
     diagnostic,
+    epigraphs,
     exams,
     facet_detail,
     facets,

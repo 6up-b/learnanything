@@ -76,7 +76,7 @@ def test_repository_carries_a_fixture_at_the_current_migration_head():
     fixture = (
         Path(__file__).resolve().parents[1]
         / "fixtures"
-        / "migration_head_157"
+        / "migration_head_158"
         / "state.sqlite"
     )
 
