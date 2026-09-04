@@ -13,7 +13,11 @@ from typing import Any
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
 from learnloop.attempts.ai_contracts import GradingContext
-from learnloop.content.authoring.ai_contracts import ConceptAnimationContext, ExerciseAuthoringContext
+from learnloop.content.authoring.ai_contracts import (
+    ConceptAnimationContext,
+    ExerciseAuthoringContext,
+    VideoStoryboardContext,
+)
 from learnloop.content.pipeline.ai_contracts import (
     CanonicalIngestContext,
     ExtractionPlan,
@@ -25,6 +29,7 @@ from learnloop.content.synthesis.ai_contracts import (
     ConceptGraphContext,
     SourceSetSynthesisContext,
     SourceUnitInventoryContext,
+    VaultEpigraphContext,
 )
 from learnloop.curriculum.ai_contracts import DepthEdgeInstanceContext, RungBackfillContext
 from learnloop.diagnosis.ai_contracts import (
@@ -64,7 +69,9 @@ _HANDLER_FOR_PURPOSE = {
     "source_set_synthesis": "run_source_set_synthesis",
     "concept_graph_structuring": "run_concept_graph_structuring",
     "concept_animation": "run_concept_animation",
+    "video_storyboard": "run_video_storyboard",
     "append_reconciliation": "run_append_reconciliation",
+    "vault_epigraphs": "run_vault_epigraphs",
 }
 
 _CONTEXT_FOR_PURPOSE = {
@@ -87,7 +94,9 @@ _CONTEXT_FOR_PURPOSE = {
     "source_set_synthesis": SourceSetSynthesisContext,
     "concept_graph_structuring": ConceptGraphContext,
     "concept_animation": ConceptAnimationContext,
+    "video_storyboard": VideoStoryboardContext,
     "append_reconciliation": AppendReconciliationContext,
+    "vault_epigraphs": VaultEpigraphContext,
 }
 
 

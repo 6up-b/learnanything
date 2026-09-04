@@ -3,8 +3,8 @@ title: "Configuration Field Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
+source_commit_timestamp: "2026-09-03T10:26:28-07:00"
 last_verified: "2026-08-18"
 aliases:
   - "Effective config index"
@@ -12,8 +12,8 @@ aliases:
 config_schema_version: 2
 algorithm_version: "mvp-0.9"
 section_count: 27
-field_count: 487
-field_status_counts: {"ACTIVE": 464, "COMPAT": 4, "DORMANT": 15, "LEGACY": 4}
+field_count: 495
+field_status_counts: {"ACTIVE": 472, "COMPAT": 4, "DORMANT": 15, "LEGACY": 4}
 generated: true
 source_paths:
   - "src/learnloop/config/schema.py"
@@ -38,7 +38,7 @@ Every one of the 487 effective leaves has a semantic Function, a runtime/refacto
 
 | Status | Effective leaves | Meaning |
 |---|---:|---|
-| `ACTIVE` | 464 | Canonical typed input to current behavior. |
+| `ACTIVE` | 472 | Canonical typed input to current behavior. |
 | `DORMANT` | 15 | Implemented but shadow-only, default-inert, or behind a shipped-off activation gate. |
 | `COMPAT` | 4 | Effective compatibility seam retained while canonical behavior uses another field or route. |
 | `LEGACY` | 4 | Read only by a frozen historical replay path. |
@@ -68,9 +68,9 @@ Every one of the 487 effective leaves has a semantic Function, a runtime/refacto
 | [[Config - tutor_promotion|`tutor_promotion`]] | 6 | Runtime configuration |
 | [[Config - teach_back|`teach_back`]] | 3 | Runtime configuration |
 | [[Config - rung_variants|`rung_variants`]] | 8 | Runtime configuration |
-| [[Config - animation|`animation`]] | 9 | Runtime configuration |
+| [[Config - animation|`animation`]] | 16 | Runtime configuration |
 | [[Config - ingest|`ingest`]] | 38 | Runtime configuration |
-| [[Config - ai|`ai`]] | 113 | AI provider profile and task routing; see [[AI Architecture]] |
+| [[Config - ai|`ai`]] | 114 | AI provider profile and task routing; see [[AI Architecture]] |
 | [[Config - capabilities|`capabilities`]] | 6 | Runtime configuration |
 | [[Config - locks|`locks`]] | 2 | Runtime configuration |
 | [[Config - error_impacts|`error_impacts`]] | 9 | Runtime configuration |

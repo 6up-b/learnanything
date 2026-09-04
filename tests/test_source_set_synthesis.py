@@ -31,6 +31,8 @@ from learnloop.content.synthesis.ai_contracts import (
     SynthIntegrationComponent,
     SynthRecipeComponent,
     SynthSpanRef,
+    VaultEpigraph,
+    VaultEpigraphBatch,
 )
 from learnloop.db.repositories import Repository
 from learnloop.content.proposals.patches import PatchApplicationError, apply_accepted_items
@@ -141,15 +143,36 @@ class FakeSynthesisClient(StructuredClientFake):
     provider_type = "codex"
     model = "fake-synth-1"
 
-    def __init__(self, *, builder=None):
+    def __init__(self, *, builder=None, epigraph_builder=None):
         self.calls: list[object] = []
+        self.epigraph_calls: list[object] = []
         self.builder = builder
+        self.epigraph_builder = epigraph_builder
 
     def run_source_set_synthesis(self, context) -> SourceSetSynthesis:
         self.calls.append(context)
         if self.builder is not None:
             return self.builder(context, len(self.calls))
         return _default_payload(context)
+
+    def run_vault_epigraphs(self, context) -> VaultEpigraphBatch:
+        self.epigraph_calls.append(context)
+        if self.epigraph_builder is not None:
+            return self.epigraph_builder(context, len(self.epigraph_calls))
+        return default_epigraphs()
+
+
+def default_epigraphs() -> VaultEpigraphBatch:
+    return VaultEpigraphBatch(
+        epigraphs=[
+            VaultEpigraph(kind="quote", lines=["Symmetry is a promise the transpose keeps."]),
+            VaultEpigraph(
+                kind="haiku",
+                lines=["A equals A T", "the spectral theorem waits", "eigenvectors align"],
+            ),
+            VaultEpigraph(kind="quote", lines=["Escape will make me diagonal."]),
+        ]
+    )
 
 
 def _default_payload(context) -> SourceSetSynthesis:
@@ -1075,3 +1098,61 @@ def test_integration_capability_has_no_schema_default():
     assert SynthCriterionTarget().capability is None
     with pytest.raises(ValueError):
         SynthIntegrationComponent(capability="assemble the whole proof")
+
+
+def test_bootstrap_persists_vault_epigraphs(tmp_path):
+    from learnloop.content.synthesis.ai_contracts import VAULT_EPIGRAPHS_PROMPT_VERSION
+
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient()
+    result = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK, apply=True)
+
+    rows = repo.recent_vault_epigraphs(subject_id="linear-algebra")
+    assert len(rows) == 3
+    assert {row["kind"] for row in rows} == {"quote", "haiku"}
+    assert {row["synthesis_run_id"] for row in rows} == {result.synthesis_run_id}
+    assert {row["mode"] for row in rows} == {"bootstrap"}
+    assert {row["prompt_version"] for row in rows} == {VAULT_EPIGRAPHS_PROMPT_VERSION}
+    assert {row["provider"] for row in rows} == {"codex"}
+    haiku = next(row for row in rows if row["kind"] == "haiku")
+    assert haiku["text"].split("\n") == ["A equals A T", "the spectral theorem waits", "eigenvectors align"]
+    # The model wrote about the synthesized material, not a blank context.
+    context = client.epigraph_calls[0]
+    assert context.subject_id == "linear-algebra"
+    assert context.mode == "bootstrap"
+    assert context.subject_title == "Linear Algebra"
+    assert context.claims and context.concepts
+    assert context.recent_epigraphs == []
+
+
+
+def test_manifest_cache_hit_writes_no_epigraphs(tmp_path):
+    # A reused synthesis authored nothing new, so there is nothing to write
+    # about; the hook runs only behind a fresh model synthesis.
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient()
+    first = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                             repository=repo, clock=_CLOCK, apply=False)
+    again = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                             repository=repo, clock=_CLOCK, apply=False)
+
+    assert first.reused is False and again.reused is True
+    assert len(client.epigraph_calls) == 1
+    assert len(repo.recent_vault_epigraphs(subject_id="linear-algebra")) == 3
+
+
+def test_bootstrap_epigraph_failure_leaves_the_synthesis_unchanged(tmp_path):
+    def exploding(_context, _n):
+        raise RuntimeError("epigraph provider down")
+
+    root, repo = _setup(tmp_path)
+    client = FakeSynthesisClient(epigraph_builder=exploding)
+    result = create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                              repository=repo, clock=_CLOCK, apply=True)
+
+    assert result.applied is True
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    assert result.item_counts["facet"] == 2
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+    assert repo.recent_vault_epigraphs(subject_id="linear-algebra") == []

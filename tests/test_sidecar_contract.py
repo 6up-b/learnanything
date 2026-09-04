@@ -2931,7 +2931,7 @@ def test_get_settings_reports_routing_providers_and_key_presence(tmp_path, monke
     assert "deepseek_flash" in provider_names
     assert result["openrouter"]["keyPresent"] is False
     assert "settingsEnvPath" in result["openrouter"]
-    assert sorted(result["ai"]["useCases"]) == ["animation", "grading", "ingest", "tutor"]
+    assert sorted(result["ai"]["useCases"]) == ["animation", "grading", "ingest", "tutor", "video"]
 
 
 def test_update_ai_settings_persists_openrouter_grading_route(tmp_path, monkeypatch):
@@ -3085,19 +3085,22 @@ def test_update_ingest_settings_toggles_native_and_transcription(tmp_path, monke
         (
             "update_ingest_settings",
             {
-                "nativeMultimodal": True,
+                "pdfEngine": "native",
+                "audioMode": "native",
                 "transcriptionModel": "gpt-4o-transcribe",
                 "transcriptionBaseUrl": "https://api.groq.com/openai/v1",
             },
         ),
     )[0]["result"]
 
-    assert result["ingest"]["nativeMultimodal"] is True
+    assert result["ingest"]["pdfEngine"] == "native"
+    assert result["ingest"]["audioMode"] == "native"
     assert result["ingest"]["transcriptionModel"] == "gpt-4o-transcribe"
     from learnloop.config import load_config
 
     config = load_config(vault_root / "learnloop.toml")
-    assert config.ingest.native.enabled is True
+    assert config.ingest.audio.mode == "native"
+    assert config.ingest.pdf.engine == "native"
     assert config.ingest.audio.transcription_model == "gpt-4o-transcribe"
     assert config.ingest.audio.transcription_base_url == "https://api.groq.com/openai/v1"
 
@@ -3143,7 +3146,7 @@ def test_update_ingest_settings_transcription_provider_switch(tmp_path, monkeypa
     assert config.ingest.audio.provider == "openrouter"
     assert config.ingest.audio.transcription_model == "google/gemini-2.5-flash"
 
-    # An update that never touches provider/model (the native toggle) must not
+    # An update that never touches provider/model (the audio mode) must not
     # trip the slug check, even against a hand-edited non-slug model.
     from learnloop.ops.settings_store import apply_config_updates
 
@@ -3152,9 +3155,9 @@ def test_update_ingest_settings_transcription_provider_switch(tmp_path, monkeypa
         {("ingest", "audio", "transcription_model"): "whisper-1"},
     )
     toggled = _settings_rpc(
-        vault_root, ("update_ingest_settings", {"nativeMultimodal": True})
+        vault_root, ("update_ingest_settings", {"audioMode": "native"})
     )[0]["result"]
-    assert toggled["ingest"]["nativeMultimodal"] is True
+    assert toggled["ingest"]["audioMode"] == "native"
 
     # Switching back to the endpoint provider accepts endpoint-style models.
     back = _settings_rpc(

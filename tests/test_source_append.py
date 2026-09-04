@@ -25,6 +25,8 @@ from learnloop.content.synthesis.ai_contracts import (
     AppendReconciliation,
     AppendRestructure,
     SynthSpanRef,
+    VaultEpigraph,
+    VaultEpigraphBatch,
 )
 from learnloop.db.repositories import Repository
 from learnloop.content.synthesis.append_neighborhood import select_neighborhood
@@ -103,15 +105,31 @@ class FakeAppendClient(StructuredClientFake):
     provider_type = "codex"
     model = "fake-append-1"
 
-    def __init__(self, *, builder=None):
+    def __init__(self, *, builder=None, epigraph_builder=None):
         self.calls: list[object] = []
+        self.epigraph_calls: list[object] = []
         self.builder = builder
+        self.epigraph_builder = epigraph_builder
 
     def run_append_reconciliation(self, context) -> AppendReconciliation:
         self.calls.append(context)
         if self.builder is not None:
             return self.builder(context, len(self.calls))
         return _default_append(context)
+
+    def run_vault_epigraphs(self, context):
+        self.epigraph_calls.append(context)
+        if self.epigraph_builder is not None:
+            return self.epigraph_builder(context, len(self.epigraph_calls))
+        # Distinct from the bootstrap fake's lines: the service dedupes a
+        # batch against the subject's recent rows, so a repeat persists nothing.
+        return VaultEpigraphBatch(
+            epigraphs=[
+                VaultEpigraph(kind="quote", lines=["A second source, the same transpose."]),
+                VaultEpigraph(kind="haiku", lines=["again, symmetric", "another voice says A T", "equals A, still true"]),
+                VaultEpigraph(kind="quote", lines=["Escape will make me corroborated."]),
+            ]
+        )
 
 
 def _default_append(context) -> AppendReconciliation:
@@ -602,3 +620,108 @@ def test_append_budget_overrides_reach_the_manifest(tmp_path):
     assert (
         load_vault(root).config.ingest.budgets.append_neighborhood_input_tokens == default_budget
     )
+
+
+def test_provenance_links_without_a_resolvable_span_are_dropped_not_hard_failed(tmp_path):
+    """A chat provider that never saw the schema leaves ``span`` blank (or
+    invents one). Either way the link has nothing to attach: it is dropped
+    with a typed review record, and the paid run still lands its other items
+    instead of hard-failing on a citation to span "" of extraction ""."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+
+    def builder(context, _n):
+        good = _default_append(context)
+        target = _neighborhood_facet_id(context)
+        ext, unit, _span = _first_new_span(context)
+        return good.model_copy(
+            update={
+                "provenance_links": [
+                    *good.provenance_links,
+                    AppendProvenanceLink(
+                        client_item_id="plink_blank",
+                        target_entity_type="facet",
+                        target_entity_id=target,
+                        span=SynthSpanRef(),
+                    ),
+                    AppendProvenanceLink(
+                        client_item_id="plink_invented",
+                        target_entity_type="facet",
+                        target_entity_id=target,
+                        span=SynthSpanRef(extraction_id=ext, unit_id=unit, span_id="s_invented"),
+                    ),
+                ]
+            }
+        )
+
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    dropped = [d for d in result.gate_diagnostics if d["gate"] == "provenance_link_span"]
+    assert {d["entity_refs"][0] for d in dropped} == {"plink_blank", "plink_invented"}
+    assert all(d["severity"] == "review" for d in dropped)
+    assert any("no span cited" in d["message"] for d in dropped)
+    assert any("s_invented" in d["message"] for d in dropped)
+    # The well-cited link still lands and auto-applies.
+    assert result.item_counts.get("provenance_link") == 1
+    assert result.auto_applied_item_ids
+
+
+def test_provenance_link_span_without_a_unit_id_still_resolves(tmp_path):
+    """``unit_id`` is optional on a citation (the gate skips None); a blank one
+    must not be read as "unit '' is invalid"."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+
+    def builder(context, _n):
+        good = _default_append(context)
+        link = good.provenance_links[0]
+        return good.model_copy(
+            update={"provenance_links": [link.model_copy(update={"span": link.span.model_copy(update={"unit_id": ""})})]}
+        )
+
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    assert result.item_counts.get("provenance_link") == 1
+    assert result.auto_applied_item_ids
+
+
+def test_append_persists_vault_epigraphs(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path)
+    client = FakeAppendClient()
+
+    result = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK)
+
+    rows = [row for row in repo.recent_vault_epigraphs(subject_id="linear-algebra", limit=50)
+            if row["mode"] == "append"]
+    assert len(rows) == 3
+    assert {row["synthesis_run_id"] for row in rows} == {result.synthesis_run_id}
+    context = client.epigraph_calls[0]
+    assert context.mode == "append"
+    assert context.source_set_id == "set_la"
+    # A provenance-link-only append still has material: the new inventory's
+    # claim and the neighborhood's facets feed the digest.
+    assert any("symmetric" in claim.lower() for claim in context.claims)
+    # The bootstrap's epigraphs are handed back as "don't repeat these".
+    assert len(context.recent_epigraphs) == 3
+    # Newest first: the append batch precedes the bootstrap batch.
+    assert repo.recent_vault_epigraphs(subject_id="linear-algebra")[0]["mode"] == "append"
+
+
+def test_append_epigraph_failure_leaves_the_append_unchanged(tmp_path):
+    def exploding(_context, _n):
+        raise RuntimeError("epigraph provider down")
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    result = append_source(root, "set_la", client=FakeAppendClient(epigraph_builder=exploding),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    assert result.auto_applied_item_ids
+    assert repo.synthesis_run(result.synthesis_run_id)["status"] == "completed"
+    assert all(row["mode"] == "bootstrap"
+               for row in repo.recent_vault_epigraphs(subject_id="linear-algebra", limit=50))

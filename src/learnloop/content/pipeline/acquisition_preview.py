@@ -155,6 +155,8 @@ def _configured_extractor(category: str, config: LearnLoopConfig) -> str:
 
 
 def _potential_external(category: str, config: LearnLoopConfig) -> list[dict]:
+    from learnloop.ai.native_media import native_modality_readiness
+
     external: list[dict] = []
     if category == "pdf" and config.ingest.pdf.use_llm:
         external.append(
@@ -167,12 +169,35 @@ def _potential_external(category: str, config: LearnLoopConfig) -> list[dict]:
             }
         )
     if category == "pdf" and config.ingest.pdf.engine == "native":
+        readiness = native_modality_readiness(config, "pdf")
         external.append(
             {
                 "kind": "pdf_native_extraction",
                 "base_url": None,
-                "model": None,
-                "reason": "engine \"native\" sends the whole PDF to the routed chat provider",
+                "model": readiness.model,
+                "provider": readiness.provider_name,
+                "ready": readiness.ready,
+                "reason": (
+                    "engine \"native\" sends the whole PDF to the routed chat provider"
+                    if readiness.ready
+                    else f"engine \"native\" is selected but {readiness.message}"
+                ),
+            }
+        )
+    if category == "audio" and config.ingest.audio.mode == "native":
+        readiness = native_modality_readiness(config, "audio")
+        external.append(
+            {
+                "kind": "audio_native_ingestion",
+                "base_url": None,
+                "model": readiness.model,
+                "provider": readiness.provider_name,
+                "ready": readiness.ready,
+                "reason": (
+                    "mode \"native\" sends mp3/wav audio to the routed chat provider"
+                    if readiness.ready
+                    else f"mode \"native\" is selected but {readiness.message}"
+                ),
             }
         )
     if category == "audio":

@@ -61,11 +61,11 @@ def test_default_config_contains_audio_and_native_ingest(tmp_path):
         assert audio.language == ""
         assert audio.timeout_seconds == 600
         assert audio.max_file_mb == 25
+        assert audio.mode == "transcription"
         native = config.ingest.native
-        assert native.enabled is False
-        assert native.audio is True
-        assert native.pdf is True
         assert native.max_audio_mb == 20
+        assert native.max_pdf_mb == 32
+        assert native.fallback_when_unavailable is False
         assert config.ingest.pdf.engine == "auto"
         assert config.ai.providers["openrouter"].input_modalities == []
 
@@ -80,9 +80,10 @@ def test_animation_config_and_routing_parity(tmp_path):
         assert config.ai.routing.animation == "codex_medium"
         animation = config.animation
         assert animation.enabled is True
-        assert animation.quality == "ql"
-        assert animation.timeout_seconds == 300
-        assert animation.max_duration_seconds == 45
+        assert animation.quality == "qm"
+        assert animation.timeout_seconds == 600
+        assert animation.min_duration_seconds == 30
+        assert animation.max_duration_seconds == 60
         assert animation.latex_enabled is False
         assert animation.auto_repair is True
         assert animation.manim_executable is None

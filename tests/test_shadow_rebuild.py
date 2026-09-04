@@ -17,7 +17,7 @@ from learnloop.vault.loader import load_vault
 
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_156"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_158"
 )
 
 

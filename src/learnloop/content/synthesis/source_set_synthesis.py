@@ -74,6 +74,10 @@ from learnloop.content.synthesis.synthesis_manifests import (
     persist_manifest,
 )
 from learnloop.ai.usage import TokenUsage, consume_client_usage
+from learnloop.content.synthesis.vault_epigraphs import (
+    digest_from_proposal_rows,
+    generate_vault_epigraphs,
+)
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, SourceSet
 from learnloop.vault.paths import VaultPaths
@@ -499,6 +503,11 @@ def _span_refs(
         extraction_id = str(ref.get("extraction_id") or "")
         span_id = str(ref.get("span_id") or "")
         unit_id = str(ref.get("unit_id") or "")
+        if not extraction_id and not span_id:
+            # A blank ref is "no citation", not a citation to span "" of run
+            # "". Skipping it lets the adequate-provenance gate judge the item
+            # (review) instead of three hard-fails naming an empty string.
+            continue
         origin = inputs.span_origin.get(extraction_id, {})
         role = origin.get("role", ref.get("role") or "reference")
         source_id = origin.get("source_id", ref.get("source_id") or "")
@@ -510,7 +519,9 @@ def _span_refs(
             ProvenanceRef(
                 extraction_id=extraction_id,
                 revision_id=revision_id,
-                unit_id=unit_id,
+                # None is the gate's "no unit cited" spelling; "" would fail
+                # unit_id_validity even when the span itself resolves.
+                unit_id=unit_id or None,
                 span_id=span_id,
                 relation=relation,
                 role=role,
@@ -1648,6 +1659,20 @@ def _create_study_map(
         result.applied = True
         if create_goal and _is_exam_prep(brief):
             result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock)
+
+    # 7. best-effort Start-screen epigraphs about the freshly synthesized
+    #    material. Never raises; nothing here can change `result`. Sits after
+    #    apply so a failed apply still surfaces first, and outside
+    #    `_gate_and_persist` because revalidation reuses that with no client.
+    generate_vault_epigraphs(
+        repository, vault, client,
+        subject_id=subject_id, source_set_id=source_set.id,
+        synthesis_run_id=synthesis_run_id, mode="bootstrap",
+        digest=digest_from_proposal_rows(
+            normalized.rows, summary=str(getattr(merged, "summary", "") or ""),
+        ),
+        brief=brief, clock=clock,
+    )
     return result
 
 

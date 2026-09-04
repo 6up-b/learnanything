@@ -415,6 +415,9 @@ def test_operation_routes_include_semantic_diagnostic_grading():
     assert ROUTE_FOR_OPERATION["grade_diagnostic_fire"] == "grading"
     assert ROUTE_FOR_OPERATION["source_unit_inventory"] == "canonical_ingest"
     assert ROUTE_FOR_OPERATION["concept_animation"] == "animation"
+    assert ROUTE_FOR_OPERATION["video_storyboard"] == "animation"
+    assert ROUTE_FOR_OPERATION["video_generation"] == "video_generation"
+    assert ROUTE_FOR_OPERATION["vault_epigraphs"] == "canonical_ingest"
 
 
 def test_named_codex_profile_identity_survives_provider_construction(tmp_path):

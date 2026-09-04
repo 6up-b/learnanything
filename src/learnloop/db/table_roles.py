@@ -309,6 +309,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("task_feature_schema_versions", TableRole.RAW_LEDGER),
     ("trace_exercised_facets", TableRole.RAW_LEDGER),
     ("unresolved_cause_factors", TableRole.WORKFLOW),
+    ("vault_epigraphs", TableRole.RAW_LEDGER),
 )
 
 

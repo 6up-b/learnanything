@@ -620,8 +620,10 @@ class TeachBackConfig(BaseModel):
 
 
 class PdfIngestConfig(BaseModel):
-    # "native" sends the PDF to the routed OpenAI-compatible chat provider as a
-    # file content part instead of extracting locally (see [ingest.native]).
+    # "native" sends the WHOLE PDF to the routed canonical_ingest chat provider
+    # as a file content part instead of extracting locally; page ranges are
+    # not applied. The provider must declare "pdf" in input_modalities (see
+    # learnloop.ai.native_media); limits live under [ingest.native].
     engine: Literal["auto", "marker", "pypdf", "native"] = "auto"
     # Device for marker model inference: "" lets marker/surya auto-detect
     # (cuda when available), or pin e.g. "cuda", "cuda:1", "cpu", "mps".
@@ -646,10 +648,27 @@ class AnimationConfig(BaseModel):
     allowlist and constrained subprocess are best-effort hardening around it."""
 
     enabled: bool = True
-    # manim render quality: "ql" (low, fast) | "qm" | "qh".
-    quality: str = "ql"
-    timeout_seconds: int = 300
-    max_duration_seconds: int = 45
+    # Which renderer produces the video: "manim" renders an LLM-written scene
+    # locally; "video_model" sends an LLM-written storyboard to a text-to-video
+    # model through OpenRouter ([ai.routing] video_generation) and stitches the
+    # shots. The video-model path runs no local code.
+    renderer: Literal["manim", "video_model"] = "manim"
+    # Video-model options. Each storyboard shot is one OpenRouter job, billed
+    # on submission; shot durations are clamped to what the model supports.
+    video_resolution: str = "720p"
+    video_aspect_ratio: str = "16:9"
+    video_generate_audio: bool = False
+    video_max_shots: int = 4
+    # Wall-clock cap for the whole storyboard (submit, poll, download, stitch).
+    video_timeout_seconds: int = 1800
+    # manim render quality: "ql" (854x480 @ 15 fps, fast) | "qm" (1280x720 @ 30)
+    # | "qh" (1920x1080 @ 60, slow).
+    quality: str = "qm"
+    timeout_seconds: int = 600
+    # Pacing band: the prompt targets it and a pre-render lint sends a scene
+    # that comes in under the minimum back to the model once.
+    min_duration_seconds: int = 30
+    max_duration_seconds: int = 60
     # Tex/MathTex requires a LaTeX toolchain; off by default.
     latex_enabled: bool = False
     # One stderr round-trip back to the model when a render fails.
@@ -681,6 +700,12 @@ class AudioIngestConfig(BaseModel):
     stored in this file."""
 
     provider: str = "openai_compatible"  # legacy input; chat routes normalize into [ai]
+    # "transcription" (default): the [ai.routing] transcription chat route when
+    # set, else the /audio/transcriptions endpoint below. "native": send
+    # mp3/wav as input_audio parts to the canonical_ingest chat provider (it
+    # must declare "audio" in input_modalities); other containers still take
+    # the transcription path.
+    mode: Literal["transcription", "native"] = "transcription"
     transcription_base_url: str = "https://api.openai.com/v1"
     transcription_model: str = "whisper-1"
     transcription_api_key_env: str = "LEARNLOOP_TRANSCRIPTION_API_KEY"
@@ -692,20 +717,23 @@ class AudioIngestConfig(BaseModel):
 
 
 class NativeIngestConfig(BaseModel):
-    """Native multimodal ingestion: media as chat content parts (§spec 1a).
+    """Shared limits for native media ingestion (media as chat content parts).
 
-    When enabled AND the routed canonical_ingest provider is an
-    OpenAI-compatible chat provider whose profile lists the modality under
-    ``input_modalities``, media is ingested natively instead of via the local
-    pipeline: audio as input_audio parts (yielding a timestamped transcript),
-    PDFs as file parts (set engine = "native" under [ingest.pdf]). Off by
-    default: media bytes leave the machine to the chat provider."""
+    The per-modality switches live with the modality: ``[ingest.pdf] engine =
+    "native"`` and ``[ingest.audio] mode = "native"``. The legacy
+    ``enabled``/``audio``/``pdf`` gates are normalized away in
+    ``learnloop.config.compat``. Media bytes leave the machine to the chat
+    provider whenever a native path is selected."""
 
-    enabled: bool = False
-    audio: bool = True
-    pdf: bool = True
     # Base64 inflates ~33% inside a chat body; rejected before any upload.
     max_audio_mb: int = 20
+    # OpenAI-compatible file inputs cap at 32 MB per file.
+    max_pdf_mb: int = 32
+    # When native is selected but the routed provider cannot take the modality
+    # for a configuration reason, use the non-native path (PDF: marker/pypdf;
+    # audio: the transcription route/endpoint) with a health flag instead of
+    # failing closed. Off by default: an explicit native choice fails loudly.
+    fallback_when_unavailable: bool = False
 
 
 class IngestBudgetsConfig(BaseModel):
@@ -820,6 +848,13 @@ _COMPAT_OPTIONAL_PROVIDER_FIELDS = frozenset(
         "misconception_match_path",
     }
 )
+
+
+#: Media modalities a provider profile may declare under ``input_modalities``.
+#: ``pdf`` and ``audio`` have native ingest paths today; ``image`` and
+#: ``video`` are accepted so capability detection can record them ahead of
+#: an ingest path.
+KNOWN_INPUT_MODALITIES: tuple[str, ...] = ("audio", "pdf", "image", "video")
 
 
 class AIProviderConfig(BaseModel):
@@ -942,6 +977,10 @@ class AIRoutingConfig(BaseModel):
     # Optional independently selected media-transcription profile. Empty keeps
     # the endpoint/native-ingest fallback behavior for legacy vaults.
     transcription: str | None = None
+    # OpenRouter video-model profile for [animation] renderer = "video_model"
+    # (Settings materializes it as openrouter_video). Empty = the video
+    # renderer is unavailable; manim rendering is unaffected.
+    video_generation: str | None = None
 
 
 class AIConfig(BaseModel):

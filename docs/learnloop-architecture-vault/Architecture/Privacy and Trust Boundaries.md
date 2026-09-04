@@ -51,7 +51,7 @@ External output crosses two boundaries: transport/schema validation and feature 
 
 ## Source acquisition egress
 
-Local files are read locally. URLs, websites, arXiv, YouTube transcripts/metadata, and other remote sources require network fetches. Acquisition captures immutable bytes/revision identity before later synthesis. PDF extraction is local; optional Marker may load local model resources. Audio transcription follows its separately configured provider and consent policy.
+Local files are read locally. URLs, websites, arXiv, YouTube transcripts/metadata, and other remote sources require network fetches. Acquisition captures immutable bytes/revision identity before later synthesis. PDF extraction is local (optional Marker may load local model resources) unless `[ingest.pdf] engine = "native"`, which sends the whole PDF to the `canonical_ingest` chat provider as a file content part; `[ingest.audio] mode = "native"` likewise sends mp3/wav audio to that provider, and other audio follows its separately configured transcription provider. Both native paths require the routed profile to declare the modality in `input_modalities`, cap uploads with `[ingest.native] max_pdf_mb` / `max_audio_mb`, and are named on the acquisition consent card before any bytes leave the machine. See [[Legacy Configuration Compatibility]] for the retired `[ingest.native]` gates.
 
 ## AI egress
 
