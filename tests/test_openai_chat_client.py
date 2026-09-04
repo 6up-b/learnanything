@@ -374,3 +374,37 @@ def test_chat_does_not_retry_non_retryable_errors(monkeypatch):
 
     assert len(fake_openai.instances[0].requests) == 1
     assert sleeps == []
+
+
+def test_json_object_route_carries_the_output_schema_in_the_system_turn(monkeypatch):
+    """A ``json_object`` profile puts no schema on the wire, and the feature
+    prompt only says "match the provided output schema". Without one in the
+    prompt the model guesses field names; every miss defaults at validation
+    (a blank provenance ``span``), which the synthesis gates then reject."""
+
+    fake_openai = install_fake_openai(monkeypatch, "not json", grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+
+    proposal = request_grading_proposal(client, _grading_context())
+
+    assert proposal.rubric_score == 4
+    first, repair = fake_openai.instances[0].requests
+    system = first["messages"][0]["content"]
+    assert system.startswith("Return only valid JSON.")
+    assert "Schema:" in system
+    assert '"rubric_score"' in system
+    assert '"additionalProperties": false' in system
+    # The repair turn already carries the schema in its user message.
+    assert "Schema:" not in repair["messages"][0]["content"]
+
+
+def test_json_schema_route_does_not_duplicate_the_schema_in_the_prompt(monkeypatch):
+    fake_openai = install_fake_openai(monkeypatch, grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile(response_format="json_schema"))
+
+    request_grading_proposal(client, _grading_context())
+
+    system = fake_openai.instances[0].requests[0]["messages"][0]["content"]
+    assert system == "Return only valid JSON. Do not include Markdown fences."

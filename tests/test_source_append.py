@@ -602,3 +602,70 @@ def test_append_budget_overrides_reach_the_manifest(tmp_path):
     assert (
         load_vault(root).config.ingest.budgets.append_neighborhood_input_tokens == default_budget
     )
+
+
+def test_provenance_links_without_a_resolvable_span_are_dropped_not_hard_failed(tmp_path):
+    """A chat provider that never saw the schema leaves ``span`` blank (or
+    invents one). Either way the link has nothing to attach: it is dropped
+    with a typed review record, and the paid run still lands its other items
+    instead of hard-failing on a citation to span "" of extraction ""."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+
+    def builder(context, _n):
+        good = _default_append(context)
+        target = _neighborhood_facet_id(context)
+        ext, unit, _span = _first_new_span(context)
+        return good.model_copy(
+            update={
+                "provenance_links": [
+                    *good.provenance_links,
+                    AppendProvenanceLink(
+                        client_item_id="plink_blank",
+                        target_entity_type="facet",
+                        target_entity_id=target,
+                        span=SynthSpanRef(),
+                    ),
+                    AppendProvenanceLink(
+                        client_item_id="plink_invented",
+                        target_entity_type="facet",
+                        target_entity_id=target,
+                        span=SynthSpanRef(extraction_id=ext, unit_id=unit, span_id="s_invented"),
+                    ),
+                ]
+            }
+        )
+
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    dropped = [d for d in result.gate_diagnostics if d["gate"] == "provenance_link_span"]
+    assert {d["entity_refs"][0] for d in dropped} == {"plink_blank", "plink_invented"}
+    assert all(d["severity"] == "review" for d in dropped)
+    assert any("no span cited" in d["message"] for d in dropped)
+    assert any("s_invented" in d["message"] for d in dropped)
+    # The well-cited link still lands and auto-applies.
+    assert result.item_counts.get("provenance_link") == 1
+    assert result.auto_applied_item_ids
+
+
+def test_provenance_link_span_without_a_unit_id_still_resolves(tmp_path):
+    """``unit_id`` is optional on a citation (the gate skips None); a blank one
+    must not be read as "unit '' is invalid"."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+
+    def builder(context, _n):
+        good = _default_append(context)
+        link = good.provenance_links[0]
+        return good.model_copy(
+            update={"provenance_links": [link.model_copy(update={"span": link.span.model_copy(update={"unit_id": ""})})]}
+        )
+
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder),
+                           new_revision_ids=["rev_alt"], repository=repo, clock=_CLOCK)
+
+    assert not any(d["severity"] == "hard_fail" for d in result.gate_diagnostics)
+    assert result.item_counts.get("provenance_link") == 1
+    assert result.auto_applied_item_ids
