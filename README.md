@@ -217,10 +217,16 @@ provider that preserves richer layout, tables, math, figures, and geometry (I wo
 uv sync --extra dev --extra pdf
 ```
 
-The Tauri shell starts the Python `learnloop_sidecar` automatically. When the
-tracked linear-algebra fixture is present, it is used as the development default.
-Click the green vault path in the app header to select another vault, or use the
-new-vault wizard on the Start screen to create and bootstrap one.
+The Tauri shell starts the Python `learnloop_sidecar` automatically. On launch
+it opens the first of: `LEARNLOOP_VAULT` if set; the vault you last selected in
+the app (remembered in `~/.config/learnloop/last_vault`, honoring
+`LEARNLOOP_CONFIG_DIR` / `XDG_CONFIG_HOME`); the first vault under the
+gitignored `fixtures-local/`; and only then the tracked linear-algebra fixture.
+Keep your own vault in `fixtures-local/` — opening a vault writes to it, so a
+bare `npm run dev` against the tracked fixture leaves `fixtures/` dirty in
+`git status`. Click the green vault path in the app header to select another
+vault, or use the new-vault wizard on the Start screen to create and bootstrap
+one; either choice becomes the next launch's default.
 
 To open a particular vault immediately:
 

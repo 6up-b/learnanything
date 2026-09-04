@@ -83,6 +83,7 @@ impl SidecarManager {
         // Reconnects after a timeout or broken pipe must preserve the selected
         // vault. Previously `call()` reinitialized with `None`, which silently
         // fell back to the fixture/default vault after dropping a dead client.
+        let explicit_selection = requested_vault.is_some();
         let vault = resolve_vault_path(requested_vault, state.vault_path.clone());
         if state.client.is_none() || state.vault_path.as_ref() != Some(&vault) {
             // Never run two job managers against one vault while switching.
@@ -103,6 +104,12 @@ impl SidecarManager {
                 }
             };
             state.client = Some(candidate);
+            if explicit_selection {
+                // A vault the user chose (header picker, new-vault wizard)
+                // becomes the next launch's default; the fallbacks below only
+                // apply until then.
+                remember_vault(&vault);
+            }
             state.vault_path = Some(vault);
             return Ok(initialized);
         }
@@ -514,14 +521,78 @@ fn repo_root() -> PathBuf {
         .unwrap_or_else(|_| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
 }
 
+fn is_vault(path: &Path) -> bool {
+    path.join("learnloop.toml").is_file()
+}
+
+/// The machine-global LearnLoop config directory, resolved the way
+/// `learnloop.config.loader` does it: `LEARNLOOP_CONFIG_DIR`, else
+/// `$XDG_CONFIG_HOME/learnloop`, else `~/.config/learnloop`.
+fn config_dir() -> Option<PathBuf> {
+    if let Some(dir) = std::env::var_os("LEARNLOOP_CONFIG_DIR") {
+        return Some(PathBuf::from(dir));
+    }
+    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
+        return Some(PathBuf::from(xdg).join("learnloop"));
+    }
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|home| PathBuf::from(home).join(".config").join("learnloop"))
+}
+
+fn last_vault_file() -> Option<PathBuf> {
+    config_dir().map(|dir| dir.join("last_vault"))
+}
+
+/// The vault recorded by the last explicit selection, if it is still a vault.
+fn remembered_vault_from(file: &Path) -> Option<PathBuf> {
+    let raw = std::fs::read_to_string(file).ok()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(trimmed);
+    is_vault(&path).then_some(path)
+}
+
+fn remember_vault(vault: &Path) {
+    let Some(file) = last_vault_file() else {
+        return;
+    };
+    if let Some(parent) = file.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    // Best effort: an unwritable config dir must not fail vault selection.
+    let _ = std::fs::write(&file, format!("{}\n", vault.display()));
+}
+
+/// The first (sorted) vault under `<root>/fixtures-local/`, the gitignored
+/// home for per-developer vaults.
+fn local_dev_vault_in(root: &Path) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(root.join("fixtures-local")).ok()?;
+    let mut vaults: Vec<PathBuf> = entries
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| is_vault(path))
+        .collect();
+    vaults.sort();
+    vaults.into_iter().next()
+}
+
 fn default_vault_path() -> PathBuf {
-    // Dev default: the tracked linear-algebra fixture vault (real SVD content).
-    // Override with the LEARNLOOP_VAULT env var to point at another vault.
-    let fixture = repo_root().join("fixtures").join("linear_algebra");
-    if fixture.join("learnloop.toml").exists() {
+    // Dev default order: a personal vault under fixtures-local/, then the
+    // tracked linear-algebra fixture. The fixture is the last resort on
+    // purpose — opening a vault writes to it (state.sqlite, learner profile),
+    // and the tracked one shows up dirty in `git status` every launch.
+    let root = repo_root();
+    if let Some(local) = local_dev_vault_in(&root) {
+        return local;
+    }
+    let fixture = root.join("fixtures").join("linear_algebra");
+    if is_vault(&fixture) {
         fixture
     } else {
-        repo_root()
+        root
     }
 }
 
@@ -529,6 +600,7 @@ fn resolve_vault_path(requested: Option<PathBuf>, selected: Option<PathBuf>) -> 
     requested
         .or(selected)
         .or_else(|| std::env::var("LEARNLOOP_VAULT").ok().map(PathBuf::from))
+        .or_else(|| last_vault_file().and_then(|file| remembered_vault_from(&file)))
         .unwrap_or_else(default_vault_path)
 }
 
@@ -547,6 +619,51 @@ fn python_path(repo_root: &Path) -> String {
 mod tests {
     use super::*;
     use crate::errors::SIDECAR_PROTOCOL_CODE;
+
+    fn scratch_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "learnloop-sidecar-{label}-{}-{:?}",
+            std::process::id(),
+            std::thread::current().id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+
+    fn make_vault(path: &Path) {
+        std::fs::create_dir_all(path).expect("vault dir");
+        std::fs::write(path.join("learnloop.toml"), "").expect("vault marker");
+    }
+
+    #[test]
+    fn remembered_vault_must_still_be_a_vault() {
+        let dir = scratch_dir("remembered");
+        let file = dir.join("last_vault");
+        let vault = dir.join("mine");
+
+        assert_eq!(remembered_vault_from(&file), None, "missing file");
+        std::fs::write(&file, "\n").unwrap();
+        assert_eq!(remembered_vault_from(&file), None, "blank file");
+        std::fs::write(&file, format!("{}\n", vault.display())).unwrap();
+        assert_eq!(remembered_vault_from(&file), None, "path is not a vault yet");
+        make_vault(&vault);
+        assert_eq!(remembered_vault_from(&file), Some(vault));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn local_dev_vault_is_the_first_sorted_vault_under_fixtures_local() {
+        let root = scratch_dir("local");
+        assert_eq!(local_dev_vault_in(&root), None, "no fixtures-local yet");
+        let local = root.join("fixtures-local");
+        std::fs::create_dir_all(local.join("notes")).unwrap(); // not a vault
+        assert_eq!(local_dev_vault_in(&root), None, "non-vault dirs are ignored");
+        make_vault(&local.join("zeta"));
+        make_vault(&local.join("alpha"));
+        assert_eq!(local_dev_vault_in(&root), Some(local.join("alpha")));
+        let _ = std::fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn reconnect_keeps_the_selected_vault() {
