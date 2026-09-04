@@ -3,19 +3,19 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
+source_commit: "c454e125fe262787a0ed6f452214e48b2525cf0b"
+source_commit_timestamp: "2026-09-03T19:48:19-07:00"
 last_verified: "2026-08-18"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 157
-table_count: 251
+schema_head: 158
+table_count: 252
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_157/state.sqlite"
+  - "fixtures/migration_head_158/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
@@ -38,7 +38,7 @@ This is the exhaustive map of the 251 user tables at migration head 156. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 126 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 127 |
 | [[Table Roles#Derived|`derived`]] | 10 |
 | [[Table Roles#Receipt|`receipt`]] | 51 |
 | [[Table Roles#Workflow|`workflow`]] | 54 |
@@ -48,7 +48,7 @@ This is the exhaustive map of the 251 user tables at migration head 156. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 238 |
+| `active` | 239 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -391,6 +391,7 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/practice_pools|practice_pools]] — `raw_ledger` · `active` · Gives practice pool a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `blueprint_version_id`, `content_hash`, `pool_slug`, making the operational relationship explicit.
 - [[Reference/Database/Tables/surface_mint_requests|surface_mint_requests]] — `workflow` · `active` · Queues a durable, retryable request for surface mint so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `card_version_id`, `anchor_surface_id`, `candidate_surface_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/task_feature_schema_versions|task_feature_schema_versions]] — `raw_ledger` · `active` · Pins immutable versions of task feature schema so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `content_hash`, `schema_slug`, `version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/vault_epigraphs|vault_epigraphs]] — `raw_ledger` · `active` · Gives vault epigraph a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `subject_id`, `source_set_id`, `synthesis_run_id`, making the operational relationship explicit.
 
 ## Maintenance contract
 

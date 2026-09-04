@@ -183,7 +183,7 @@ def test_real_fk_rebuild_153_rolls_back_on_interruption(tmp_path, monkeypatch):
 
     monkeypatch.setattr(migrate_module, "_iter_sql_statements", original_iterator)
     apply_migrations(db)
-    assert max(applied_versions(db)) == 157  # the current migration head
+    assert max(applied_versions(db)) == 158  # the current migration head
     with connect(db) as connection:
         assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
