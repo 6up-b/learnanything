@@ -29,6 +29,7 @@ from learnloop.content.synthesis.ai_contracts import (
     ConceptGraphContext,
     SourceSetSynthesisContext,
     SourceUnitInventoryContext,
+    VaultEpigraphContext,
 )
 from learnloop.curriculum.ai_contracts import DepthEdgeInstanceContext, RungBackfillContext
 from learnloop.diagnosis.ai_contracts import (
@@ -70,6 +71,7 @@ _HANDLER_FOR_PURPOSE = {
     "concept_animation": "run_concept_animation",
     "video_storyboard": "run_video_storyboard",
     "append_reconciliation": "run_append_reconciliation",
+    "vault_epigraphs": "run_vault_epigraphs",
 }
 
 _CONTEXT_FOR_PURPOSE = {
@@ -94,6 +96,7 @@ _CONTEXT_FOR_PURPOSE = {
     "concept_animation": ConceptAnimationContext,
     "video_storyboard": VideoStoryboardContext,
     "append_reconciliation": AppendReconciliationContext,
+    "vault_epigraphs": VaultEpigraphContext,
 }
 
 

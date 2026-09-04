@@ -57,6 +57,7 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "video_storyboard": "animation",
     "video_generation": "video_generation",
     "append_reconciliation": "canonical_ingest",
+    "vault_epigraphs": "canonical_ingest",
     "media_transcription": "transcription",
     "media_markdown": "canonical_ingest",
 }

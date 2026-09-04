@@ -32,6 +32,8 @@ from learnloop.content.synthesis.ai_contracts import (
     SourceSetSynthesisContext,
     SourceUnitInventory,
     SourceUnitInventoryContext,
+    VaultEpigraphBatch,
+    VaultEpigraphContext,
 )
 from learnloop.curriculum.ai_contracts import (
     DepthEdgeInstanceBatch,
@@ -78,6 +80,7 @@ from learnloop.content.synthesis.source_set_synthesis import (
     request_source_set_synthesis,
 )
 from learnloop.content.synthesis.source_unit_inventory import request_source_unit_inventory
+from learnloop.content.synthesis.vault_epigraphs import request_vault_epigraphs
 from learnloop.curriculum.depth_edge_authoring import request_depth_edge_instances
 from learnloop.curriculum.rung_backfill import request_rung_backfill
 from learnloop.diagnosis.diagnostic_gate import (
@@ -197,6 +200,7 @@ _STORYBOARD = VideoStoryboardContext(concept_id="svd", concept_title="SVD")
 _APPEND = AppendReconciliationContext(
     source_set_id="set_1", subject_id="subject_1", change_kind="source_added"
 )
+_EPIGRAPHS = VaultEpigraphContext(subject_id="subject_1", source_set_id="set_1", mode="bootstrap")
 
 
 OPERATIONS = (
@@ -324,10 +328,15 @@ OPERATIONS = (
         lambda client: request_append_reconciliation(client, _APPEND),
         AppendReconciliation(),
     ),
+    OperationCase(
+        "vault_epigraphs", "vault_epigraphs",
+        lambda client: request_vault_epigraphs(client, _EPIGRAPHS),
+        VaultEpigraphBatch(),
+    ),
 )
 
-assert len(OPERATIONS) == 24
-assert len({case.name for case in OPERATIONS}) == 24
+assert len(OPERATIONS) == 25
+assert len({case.name for case in OPERATIONS}) == 25
 
 
 @pytest.mark.parametrize("case", OPERATIONS, ids=lambda case: case.name)
