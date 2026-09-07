@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
+  AnimationRenderer,
   IngestBudgetField,
   IngestBudgetsDto,
   RuntimeHealth,
@@ -8,6 +11,7 @@ import type {
   UseCaseChoiceInput
 } from "../api/dto";
 import { CommandOverlayFrame } from "../components/CommandOverlayFrame";
+import { NativeMediaSettings } from "../components/NativeMediaSettings";
 import { COLOR, FONT_MONO, TermCheckbox, TermSelect } from "../components/term";
 import { SectionHeader } from "../components/ui";
 
@@ -18,7 +22,7 @@ const USE_CASES: Array<{ id: string; label: string; hint: string; primaryRoute: 
   { id: "grading", label: "grading", hint: "attempt grading + misconception match", primaryRoute: "grading" },
   { id: "ingest", label: "ingest / synthesis", hint: "canonical ingest, study-map synthesis, authoring", primaryRoute: "canonicalIngest" },
   { id: "tutor", label: "tutor", hint: "tutor Q&A, teach-back, rung variants", primaryRoute: "tutorQa" },
-  { id: "animation", label: "animation", hint: "manim explainer-scene authoring", primaryRoute: "animation" }
+  { id: "animation", label: "animation", hint: "explainer-scene authoring model (render settings below)", primaryRoute: "animation" }
 ];
 
 // [ingest.audio] provider: the endpoint path takes any OpenAI-compatible
@@ -29,6 +33,22 @@ const TRANSCRIPTION_PROVIDERS = [
   { value: "openrouter", label: "openrouter" }
 ];
 const OPENROUTER_TRANSCRIPTION_MODEL_SUGGESTION = "google/gemini-2.5-flash";
+
+const OPENROUTER_VIDEO_MODEL_SUGGESTION = "google/veo-3.1";
+// A cleared or fractional number input parses to NaN; only a whole number
+// that differs from the saved value is worth sending to the sidecar.
+function isNewInteger(draft: number | null, current: number): draft is number {
+  return draft !== null && Number.isInteger(draft) && draft !== current;
+}
+const ANIMATION_RENDERER_OPTIONS = [
+  { value: "manim", label: "manim (local render)" },
+  { value: "video_model", label: "video model (OpenRouter)" }
+];
+const ANIMATION_QUALITY_OPTIONS = [
+  { value: "ql", label: "ql · 854x480 15fps (fast)" },
+  { value: "qm", label: "qm · 1280x720 30fps" },
+  { value: "qh", label: "qh · 1920x1080 60fps (slow)" }
+];
 
 // The vault's [ingest.budgets] ceilings the build plan charts, in stage order.
 // The build-plan screen overrides these per run; here they are the defaults.
@@ -119,7 +139,14 @@ export function SettingsScreen({
   onToast,
   onError
 }: SettingsScreenProps) {
-  const [settings, setSettings] = useState<SettingsDto | null>(null);
+  // Settings are cached (a minute of freshness): reopening the overlay paints
+  // at once. Mutation wrappers seed this key with the payload they return and
+  // invalidate the settings tag, so the overlay never holds its own copy.
+  const settingsQuery = useCachedQuery(["get_settings"], () => api.getSettings(), {
+    tags: [TAG.settings],
+    staleAfterMs: 60_000
+  });
+  const settings: SettingsDto | null = settingsQuery.data ?? null;
   const [drafts, setDrafts] = useState<Record<string, UseCaseDraft>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [keyDraft, setKeyDraft] = useState("");
@@ -131,20 +158,21 @@ export function SettingsScreen({
   // a half-typed number must not be persisted on every keystroke.
   const [budgetDrafts, setBudgetDrafts] = useState<Partial<Record<IngestBudgetField, number>>>({});
   const [contextDraft, setContextDraft] = useState<number | null>(null);
+  const [animationLengthDraft, setAnimationLengthDraft] = useState<number | null>(null);
+  const [videoModelDraft, setVideoModelDraft] = useState<string | null>(null);
+  const [videoShotsDraft, setVideoShotsDraft] = useState<number | null>(null);
   const [maxOutputDraft, setMaxOutputDraft] = useState<number | null>(null);
   const [palette, setPalette] = useState(() => localStorage.getItem(PALETTE_STORAGE_KEY) ?? "");
 
+  // The returned payload is already in the cache (seeded by the wrapper);
+  // only the runtime-health side channel needs forwarding.
   const acceptSettings = useCallback((next: SettingsDto) => {
-    setSettings(next);
     if (next.health) onHealthChanged(next.health);
   }, [onHealthChanged]);
 
   useEffect(() => {
-    api
-      .getSettings()
-      .then(setSettings)
-      .catch((error) => onError((error as Error).message));
-  }, [onError]);
+    if (settingsQuery.error) onError(settingsQuery.error.message);
+  }, [settingsQuery.error, onError]);
 
   const providerByName = useMemo(() => {
     const map = new Map<string, { model: string | null }>();
@@ -206,19 +234,9 @@ export function SettingsScreen({
   const saveKey = async (value: string) => {
     setBusy("apikey");
     try {
+      // The wrapper invalidates the settings tag; the key row refreshes
+      // from the sidecar rather than from a local patch.
       const result = await api.setOpenrouterApiKey(value);
-      setSettings((current) =>
-        current
-          ? {
-              ...current,
-              openrouter: {
-                keyPresent: result.keyPresent,
-                keyHint: result.keyHint,
-                settingsEnvPath: result.settingsEnvPath
-              }
-            }
-          : current
-      );
       setKeyDraft("");
       onToast(
         value
@@ -450,37 +468,23 @@ export function SettingsScreen({
       </div>
 
       <SectionHeader>Ingestion</SectionHeader>
-      <div style={rowStyle}>
-        <span style={labelStyle}>
-          native multimodal
-          <div style={hintStyle}>
-            send audio/PDF media to the routed chat model when it declares the modality
-          </div>
-        </span>
-        <TermCheckbox
-          checked={settings.ingest.nativeMultimodal}
-          label={settings.ingest.nativeMultimodal ? "enabled" : "disabled"}
-          disabled={busy !== null}
-          onChange={(next) => {
-            setBusy("ingest");
-            api
-              .updateIngestSettings({ nativeMultimodal: next })
-              .then((result) => {
-                acceptSettings(result);
-                onToast(`native multimodal → ${next ? "on" : "off"}`);
-              })
-              .catch((error) => onError((error as Error).message))
-              .finally(() => setBusy(null));
-          }}
-        />
-      </div>
+      <NativeMediaSettings
+        settings={settings}
+        busy={busy}
+        setBusy={setBusy}
+        acceptSettings={acceptSettings}
+        onToast={onToast}
+        onError={onError}
+        styles={{ row: rowStyle, label: labelStyle, hint: hintStyle, button: buttonStyle }}
+      />
       <div style={rowStyle}>
         <span style={labelStyle}>
           transcription
           <div style={hintStyle}>
-            {transcriptionProvider === "openrouter"
-              ? "chat input_audio via the OpenRouter key · model must accept audio · mp3/wav only"
-              : "OpenAI-compatible /audio/transcriptions endpoint"}
+            {(settings.ingest.audioMode === "native" ? "used for formats the native path cannot take · " : "") +
+              (transcriptionProvider === "openrouter"
+                ? "chat input_audio via the OpenRouter key · model must accept audio · mp3/wav only"
+                : "OpenAI-compatible /audio/transcriptions endpoint")}
           </div>
         </span>
         <TermSelect
@@ -583,18 +587,7 @@ export function SettingsScreen({
               setBusy("transcription-key");
               api
                 .setTranscriptionApiKey(transcriptionKeyDraft.trim())
-                .then((result) => {
-                  setSettings((current) =>
-                    current
-                      ? {
-                          ...current,
-                          ingest: {
-                            ...current.ingest,
-                            transcriptionKey: { keyPresent: result.keyPresent, keyHint: result.keyHint }
-                          }
-                        }
-                      : current
-                  );
+                .then(() => {
                   setTranscriptionKeyDraft("");
                   onToast("transcription key saved");
                 })
@@ -606,6 +599,198 @@ export function SettingsScreen({
           </button>
         </div>
       )}
+
+      <SectionHeader>Animation</SectionHeader>
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          renderer
+          <div style={hintStyle}>
+            {settings.animation.renderer === "video_model"
+              ? "an LLM writes a short storyboard; a text-to-video model generates each shot; the clips are stitched"
+              : "an LLM writes a Manim scene that renders locally in a sandbox"}
+          </div>
+        </span>
+        <TermSelect
+          value={settings.animation.renderer}
+          options={ANIMATION_RENDERER_OPTIONS}
+          width={230}
+          disabled={busy !== null}
+          onChange={(renderer) => {
+            setBusy("animation");
+            api
+              .updateAnimationSettings({ renderer: renderer as AnimationRenderer })
+              .then((result) => {
+                acceptSettings(result);
+                onToast(`animation renderer → ${renderer}`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        />
+        {settings.animation.renderer === "video_model" ? (
+          <span style={{ color: settings.animation.video.ready ? COLOR.green : COLOR.red, fontSize: 10 }}>
+            {settings.animation.video.ready
+              ? `ready · ${settings.animation.video.model}`
+              : `not ready · ${settings.animation.video.reason ?? "video model not configured"}`}
+          </span>
+        ) : null}
+      </div>
+      {settings.animation.renderer === "video_model" ? (
+        <>
+          <div style={rowStyle}>
+            <span style={labelStyle}>
+              video model
+              <div style={hintStyle}>
+                OpenRouter slug · billed per shot to your OpenRouter account (uses the key above); a storyboard of{" "}
+                {settings.animation.video.maxShots} shots usually takes 2–10 minutes
+              </div>
+            </span>
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              placeholder={`e.g. ${OPENROUTER_VIDEO_MODEL_SUGGESTION}`}
+              value={videoModelDraft ?? settings.animation.video.model ?? ""}
+              disabled={busy !== null}
+              onChange={(event) => setVideoModelDraft(event.target.value)}
+            />
+            <button
+              type="button"
+              style={buttonStyle(
+                videoModelDraft !== null &&
+                  videoModelDraft.trim().includes("/") &&
+                  videoModelDraft.trim() !== (settings.animation.video.model ?? "") &&
+                  busy === null
+              )}
+              disabled={
+                videoModelDraft === null ||
+                !videoModelDraft.trim().includes("/") ||
+                videoModelDraft.trim() === (settings.animation.video.model ?? "") ||
+                busy !== null
+              }
+              onClick={() => {
+                if (videoModelDraft === null) return;
+                const slug = videoModelDraft.trim();
+                setBusy("animation");
+                api
+                  .updateAiSettings({ useCases: { video: { provider: "openrouter", openrouterModel: slug } } })
+                  .then((result) => {
+                    acceptSettings(result);
+                    setVideoModelDraft(null);
+                    onToast(`video model → ${slug}`);
+                  })
+                  .catch((error) => onError((error as Error).message))
+                  .finally(() => setBusy(null));
+              }}
+            >
+              {busy === "animation" ? "…" : "apply"}
+            </button>
+          </div>
+          <div style={rowStyle}>
+            <span style={labelStyle}>
+              storyboard shots
+              <div style={hintStyle}>
+                maximum shots per animation · each shot is one billed job; the model&apos;s supported durations cap each
+                shot and the target length caps the total
+              </div>
+            </span>
+            <input
+              type="number"
+              min={1}
+              max={6}
+              style={{ ...inputStyle, width: 70 }}
+              value={videoShotsDraft ?? settings.animation.video.maxShots}
+              disabled={busy !== null}
+              onChange={(event) => setVideoShotsDraft(Number.parseInt(event.target.value, 10))}
+            />
+            <button
+              type="button"
+              style={buttonStyle(
+                isNewInteger(videoShotsDraft, settings.animation.video.maxShots) && busy === null
+              )}
+              disabled={!isNewInteger(videoShotsDraft, settings.animation.video.maxShots) || busy !== null}
+              onClick={() => {
+                if (!isNewInteger(videoShotsDraft, settings.animation.video.maxShots)) return;
+                setBusy("animation");
+                api
+                  .updateAnimationSettings({ videoMaxShots: videoShotsDraft })
+                  .then((result) => {
+                    acceptSettings(result);
+                    setVideoShotsDraft(null);
+                    onToast(`storyboard shots → ${videoShotsDraft}`);
+                  })
+                  .catch((error) => onError((error as Error).message))
+                  .finally(() => setBusy(null));
+              }}
+            >
+              apply
+            </button>
+          </div>
+        </>
+      ) : null}
+      {settings.animation.renderer === "manim" ? (
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          render quality
+          <div style={hintStyle}>manim output size and frame rate · higher is slower to render</div>
+        </span>
+        <TermSelect
+          value={settings.animation.quality}
+          options={ANIMATION_QUALITY_OPTIONS}
+          width={230}
+          disabled={busy !== null}
+          onChange={(quality) => {
+            setBusy("animation");
+            api
+              .updateAnimationSettings({ quality })
+              .then((result) => {
+                acceptSettings(result);
+                onToast(`animation quality → ${quality}`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        />
+      </div>
+      ) : null}
+      <div style={rowStyle}>
+        <span style={labelStyle}>
+          target length
+          <div style={hintStyle}>
+            seconds · the scene is paced between {settings.animation.minDurationSeconds}s and this cap · render
+            timeout {settings.animation.timeoutSeconds}s
+          </div>
+        </span>
+        <input
+          type="number"
+          min={Math.max(settings.animation.durationBounds.min, settings.animation.minDurationSeconds)}
+          max={settings.animation.durationBounds.max}
+          style={{ ...inputStyle, width: 90 }}
+          value={animationLengthDraft ?? settings.animation.maxDurationSeconds}
+          disabled={busy !== null}
+          onChange={(event) => setAnimationLengthDraft(Number.parseInt(event.target.value, 10))}
+        />
+        <button
+          type="button"
+          style={buttonStyle(
+            isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds) && busy === null
+          )}
+          disabled={!isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds) || busy !== null}
+          onClick={() => {
+            if (!isNewInteger(animationLengthDraft, settings.animation.maxDurationSeconds)) return;
+            setBusy("animation");
+            api
+              .updateAnimationSettings({ maxDurationSeconds: animationLengthDraft })
+              .then((result) => {
+                acceptSettings(result);
+                setAnimationLengthDraft(null);
+                onToast(`animation length → ${animationLengthDraft}s`);
+              })
+              .catch((error) => onError((error as Error).message))
+              .finally(() => setBusy(null));
+          }}
+        >
+          {busy === "animation" ? "…" : "apply"}
+        </button>
+      </div>
 
       <SectionHeader>Token budgets</SectionHeader>
       {BUDGET_ROWS.map(({ field, label, hint }) => {

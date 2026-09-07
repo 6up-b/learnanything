@@ -7,6 +7,8 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type { QueueSnapshot, ScheduledItemDto, SessionSnapshot, StreakSummary, VaultSummary } from "../api/dto";
 import { EmptyPlaceholder, KeyBar, SectionHeader } from "../components/ui";
 // Palette-aware colors: every token is a var(--…) string that retints with the
@@ -1667,47 +1669,31 @@ export function StartScreen({
   const [energy, setEnergy] = useState(0.7);
   const [sleep, setSleep] = useState(0.5);
   const [minutes, setMinutes] = useState(30);
-  const [preview, setPreview] = useState<QueueSnapshot | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const previewRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot> } | null>(null);
 
   const energyValue = energyBucket(energy);
   const queueLimit = readinessQueueLimit(energy, sleep, minutes);
   const readinessFactor = readinessScore(energy, sleep, minutes).toFixed(2);
+
+  // The queue preview is keyed by its scheduler inputs, so dragging a slider
+  // back to a value already previewed repaints instantly, and returning to
+  // Start after a session shows the last preview while it revalidates. The
+  // store also dedupes a request that is still in flight for the same inputs.
+  const previewQuery = useCachedQuery(
+    ["get_today_queue", { energy: energyValue, availableMinutes: minutes, limit: queueLimit }],
+    () => api.getTodayQueue({ energy: energyValue, availableMinutes: minutes, limit: queueLimit }),
+    { tags: [TAG.queue] }
+  );
+  const preview: QueueSnapshot | null = previewQuery.data ?? null;
+  const previewLoading = previewQuery.loading;
 
   useEffect(() => {
     localStorage.setItem("learnloop.startBackdrop", backdrop);
   }, [backdrop]);
 
   useEffect(() => {
-    let cancelled = false;
-    const key = JSON.stringify({ energy: energyValue, availableMinutes: minutes, limit: queueLimit });
-    const inFlight = previewRequestRef.current;
-    const promise =
-      inFlight?.key === key
-        ? inFlight.promise
-        : api.getTodayQueue({ energy: energyValue, availableMinutes: minutes, limit: queueLimit });
-
-    previewRequestRef.current = { key, promise };
-    setPreviewLoading(true);
-    promise
-      .then((queue) => {
-        if (!cancelled) setPreview(queue);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      })
-      .finally(() => {
-        if (previewRequestRef.current?.promise === promise) {
-          previewRequestRef.current = null;
-        }
-        if (!cancelled) setPreviewLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [energyValue, minutes, onError, queueLimit, sleep]);
+    if (previewQuery.error) onError(previewQuery.error.message);
+  }, [previewQuery.error, onError]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

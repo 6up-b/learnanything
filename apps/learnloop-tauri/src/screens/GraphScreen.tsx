@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   CommandError,
   ConceptGraphEdge,
@@ -154,7 +156,15 @@ type GraphView = "map" | "knowledge";
 
 export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) => void; onError: (message: string) => void }) {
   const [view, setView] = useState<GraphView>("map");
-  const [snapshot, setSnapshot] = useState<ConceptGraphSnapshot | null>(null);
+  // The concept graph is read through the query cache: returning to this tab
+  // repaints the last graph at once and revalidates in the background. A
+  // minute of freshness keeps the full-vault-walk RPC off the serialised
+  // sidecar pipe while the learner is only flipping between tabs.
+  const graphQuery = useCachedQuery(["get_concept_graph"], () => api.getConceptGraph(), {
+    tags: [TAG.graph],
+    staleAfterMs: 60_000
+  });
+  const snapshot: ConceptGraphSnapshot | null = graphQuery.data ?? null;
   const [selected, setSelected] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   // Goal overlay: tint concept nodes by whether they fall in the active goal's
@@ -240,21 +250,12 @@ export function GraphScreen({ onInspect, onError }: { onInspect: (id: string) =>
   }, [goalOverlay, goal]);
 
   useEffect(() => {
-    let cancelled = false;
-    api
-      .getConceptGraph()
-      .then((graph) => {
-        if (cancelled) return;
-        setSnapshot(graph);
-        setSelected((current) => current ?? graph.concepts[0]?.id ?? null);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [onError]);
+    if (snapshot) setSelected((current) => current ?? snapshot.concepts[0]?.id ?? null);
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (graphQuery.error) onError(graphQuery.error.message);
+  }, [graphQuery.error, onError]);
 
   const order = useMemo(() => snapshot?.concepts.map((c) => c.id) ?? [], [snapshot]);
   const layout = useMemo(

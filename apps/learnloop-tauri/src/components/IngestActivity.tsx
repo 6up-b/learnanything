@@ -639,6 +639,9 @@ function synthesisRecoveryMessage(code?: string): string {
   if (code === "synthesis_gate_failed") {
     return "The generated candidate was rejected before any vault changes. Mechanically-safe defects (like dangling criterion-id dependencies) can be auto-repaired and revalidated with zero model calls; otherwise review the diagnostics and rerun only synthesis — completed inventories are preserved.";
   }
+  if (code === "append_gate_failed") {
+    return "The reconciliation candidate was rejected before any vault changes. Inspect the diagnostics for the gate that fired, then rerun only the append — extraction and inventory work is preserved.";
+  }
   if (code === "duplicate_client_item_ids" || code === "IntegrityError") {
     return "Synthesis completed but its merged identifiers collided. No vault content was applied; completed inventories are preserved for a synthesis-only retry.";
   }

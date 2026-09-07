@@ -10,10 +10,13 @@ completed row names a content-addressed mp4 served over llmedia://.
 
 from __future__ import annotations
 
+import json
+
 from typing import Any
 
 from learnloop.ai.routing import provider_for_task
 from learnloop.content.authoring.concept_animation import (
+    video_generation_readiness,
     ConceptAnimationError,
     manim_runtime,
     request_concept_animation as run_request,
@@ -25,9 +28,23 @@ from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
 
+def _json_field(raw: Any, default: Any) -> Any:
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 def _animation_row_payload(row: dict[str, Any]) -> dict[str, Any]:
     payload = {
         "animation_id": row["id"],
+        "renderer": row.get("renderer") or "manim",
+        # Storyboard shots (prompt, duration, caption, per-shot job result) and
+        # the OpenRouter job ids: not secret, and what a cost lookup needs.
+        "storyboard": _json_field(row.get("storyboard_json"), None),
+        "video_job_ids": _json_field(row.get("video_job_ids"), []),
         "concept_id": row["concept_id"],
         "learning_object_id": row.get("learning_object_id"),
         "status": row["status"],
@@ -54,20 +71,34 @@ def _animation_row_payload(row: dict[str, Any]) -> dict[str, Any]:
 def get_animation_runtime(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]:
     vault, _repository = ctx.require_vault()
     config = vault.config
-    probe = manim_runtime(
-        manim_command=resolve_manim_command(config.animation, vault.root)
-    )
+    if config.animation.renderer == "video_model":
+        # The probe spawns `python -m manim --version` (seconds); the video
+        # renderer never runs manim, so the inspector is not made to wait on it.
+        probe = {"available": None, "version": None, "reason": None}
+    else:
+        probe = manim_runtime(manim_command=resolve_manim_command(config.animation, vault.root))
     selection = provider_for_task(config, "animation")
     profile = config.ai.providers.get(selection.provider_name)
+    video = video_generation_readiness(config, vault.root)
     return versioned(
         {
             "enabled": config.animation.enabled,
+            "renderer": config.animation.renderer,
             "manim_available": probe["available"],
             "manim_version": probe["version"],
             "manim_reason": probe["reason"],
             "provider": selection.provider_name,
             "model": profile.model if profile is not None else None,
-            "timeout_seconds": config.animation.timeout_seconds,
+            "timeout_seconds": (
+                config.animation.video_timeout_seconds
+                if config.animation.renderer == "video_model"
+                else config.animation.timeout_seconds
+            ),
+            "video_provider": video["provider"],
+            "video_model": video["model"],
+            "video_ready": video["ready"],
+            "video_reason": video["reason"],
+            "video_max_shots": config.animation.video_max_shots,
         }
     )
 
@@ -89,16 +120,22 @@ def request_concept_animation(ctx: SidecarContext, params: RequestConceptAnimati
         )
     if not config.animation.enabled:
         raise SidecarError("animation_disabled", "[animation] enabled is false in learnloop.toml.")
-    probe = manim_runtime(
-        manim_command=resolve_manim_command(config.animation, vault.root)
-    )
-    if not probe["available"]:
-        raise SidecarError(
-            "manim_missing",
-            "manim is not installed: "
-            f"{probe['reason']}. Install with: pip install 'learnloop[animation]' "
-            "(verify with: python -m manim --version).",
+    if config.animation.renderer == "video_model":
+        # No local render: the gate is a configured, ready video route.
+        video = video_generation_readiness(config, vault.root)
+        if not video["ready"]:
+            raise SidecarError("video_model_unconfigured", video["reason"] or "video model not ready")
+    else:
+        probe = manim_runtime(
+            manim_command=resolve_manim_command(config.animation, vault.root)
         )
+        if not probe["available"]:
+            raise SidecarError(
+                "manim_missing",
+                "manim is not installed: "
+                f"{probe['reason']}. It ships with LearnLoop's Python environment; reinstall "
+                "with `uv sync` (verify with: python -m manim --version).",
+            )
     try:
         summary = run_request(
             vault,

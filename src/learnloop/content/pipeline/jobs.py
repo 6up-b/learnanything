@@ -160,6 +160,36 @@ def _pdf_payload_config(ctx: JobContext) -> dict[str, Any]:
     return config
 
 
+def _extract_pdf_locally(
+    fetched: FetchedBytes, extractor: Any, pdf_config: Mapping[str, Any], context: Any
+) -> Any:
+    """Run a local PDF extractor, degrading marker to pypdf with a health flag."""
+
+    try:
+        return extractor.extract(fetched.raw_bytes, context)
+    except Exception as marker_exc:  # noqa: BLE001 — degrade explicitly (§2.9)
+        # Marker can fail at runtime (model load, GPU state, malformed PDF
+        # object streams) long after the availability check passed. Unless
+        # marker was explicitly forced, degrade to native-text extraction
+        # with a health flag instead of failing the whole import.
+        if extractor.name != "marker" or pdf_config.get("engine") == "marker":
+            raise
+        from learnloop.ingest.extractors import PyPdfDocumentExtractor
+
+        try:
+            ir = PyPdfDocumentExtractor().extract(fetched.raw_bytes, context)
+        except Exception as pypdf_exc:
+            raise IngestRunnerError(
+                "PDF extraction failed: marker: "
+                f"{marker_exc}; pypdf fallback: {pypdf_exc}",
+                code="pdf_extraction_failed",
+                retryable=True,
+            ) from pypdf_exc
+        if "marker_failed_pypdf_fallback" not in ir.health.flags:
+            ir.health.flags.append("marker_failed_pypdf_fallback")
+        return ir
+
+
 def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> Any:
     """Produce Document IR from fetched bytes using the M1 extractor providers.
 
@@ -181,8 +211,13 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
     )
     if is_pdf:
         pdf_config = _pdf_payload_config(ctx)
+        native_fallback: str | None = None
         if pdf_config.get("engine") == "native":
-            return _extract_pdf_native(fetched, ctx)
+            decision = _decide_native(ctx, "pdf", requested=True, unavailable_code="native_pdf_unavailable")
+            if decision is not None and decision.route is not None:
+                return _extract_pdf_native(fetched, ctx, decision.route)
+            native_fallback = decision.fallback_reason if decision else "unavailable"
+            pdf_config = {**pdf_config, "engine": "auto"}
         try:
             extractor = pdf_extractor_for(pdf_config)
         except MarkerUnavailableError as exc:
@@ -194,29 +229,10 @@ def default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> An
             revision_id=str(ctx.job.get("_revision_id") or "rev"),
             page_selection=tuple(pages) if pages is not None else None,
         )
-        try:
-            return extractor.extract(fetched.raw_bytes, context)
-        except Exception as marker_exc:  # noqa: BLE001 — degrade explicitly (§2.9)
-            # Marker can fail at runtime (model load, GPU state, malformed PDF
-            # object streams) long after the availability check passed. Unless
-            # marker was explicitly forced, degrade to native-text extraction
-            # with a health flag instead of failing the whole import.
-            if extractor.name != "marker" or pdf_config.get("engine") == "marker":
-                raise
-            from learnloop.ingest.extractors import PyPdfDocumentExtractor
-
-            try:
-                ir = PyPdfDocumentExtractor().extract(fetched.raw_bytes, context)
-            except Exception as pypdf_exc:
-                raise IngestRunnerError(
-                    "PDF extraction failed: marker: "
-                    f"{marker_exc}; pypdf fallback: {pypdf_exc}",
-                    code="pdf_extraction_failed",
-                    retryable=True,
-                ) from pypdf_exc
-            if "marker_failed_pypdf_fallback" not in ir.health.flags:
-                ir.health.flags.append("marker_failed_pypdf_fallback")
-            return ir
+        ir = _extract_pdf_locally(fetched, extractor, pdf_config, context)
+        if native_fallback:
+            _add_health_flag(ir, "native_pdf_fallback_local")
+        return ir
 
     text = fetched.raw_bytes.decode("utf-8", errors="replace")
 
@@ -265,18 +281,31 @@ def default_extraction_identity(
         # hashing._sanitized_config.
         from learnloop.ai.multimodal import chat_audio_format
 
-        route = _native_media_route(ctx, "audio")
-        if route is not None and chat_audio_format(_audio_filename(fetched)) is not None:
-            return {
-                "extractor": "audio_native",
-                "extractor_version": "1",
-                "model_versions": {"chat_model": route.model or ""},
-                "config": {"provider": route.provider_name},
-            }
+        chat_format = chat_audio_format(_audio_filename(fetched))
+        fallback_config: dict[str, Any] = {}
+        # Containers the chat API cannot take (m4a, flac, ...) never go native,
+        # so their route's readiness is irrelevant: the documented data-dependent
+        # fallback to transcription, with no marker in the identity.
+        decision = (
+            _decide_native(ctx, "audio", unavailable_code="native_audio_unavailable")
+            if chat_format is not None
+            else None
+        )
+        if decision is not None:
+            if decision.route is not None:
+                return {
+                    "extractor": "audio_native",
+                    "extractor_version": "1",
+                    "model_versions": {"chat_model": decision.route.model or ""},
+                    "config": {"provider": decision.route.provider_name},
+                }
+            # A configuration fallback is recorded in the identity.
+            if decision.fallback_reason:
+                fallback_config = {"native_fallback": decision.fallback_reason}
         audio_config = _audio_ingest_config(ctx)
         route = _transcription_media_route(ctx)
         if route is not None:
-            if chat_audio_format(_audio_filename(fetched)) is None:
+            if chat_format is None:
                 raise IngestRunnerError(
                     _ROUTED_AUDIO_FORMAT_MESSAGE,
                     code="audio_format_unsupported",
@@ -286,13 +315,13 @@ def default_extraction_identity(
                 "extractor": "audio_native",
                 "extractor_version": "1",
                 "model_versions": {"chat_model": route.model or ""},
-                "config": {"provider": route.provider_name},
+                "config": {"provider": route.provider_name, **fallback_config},
             }
         return {
             "extractor": "audio_transcript",
             "extractor_version": "1",
             "model_versions": {"transcription_model": audio_config.transcription_model},
-            "config": {"base_url": audio_config.transcription_base_url},
+            "config": {"base_url": audio_config.transcription_base_url, **fallback_config},
         }
 
     is_pdf = (
@@ -302,14 +331,20 @@ def default_extraction_identity(
     )
     if is_pdf:
         config = _pdf_payload_config(ctx)
+        native_fallback: str | None = None
         if config.get("engine") == "native":
-            route = _require_native_pdf_route(ctx)
-            return {
-                "extractor": "pdf_native",
-                "extractor_version": "1",
-                "model_versions": {"chat_model": route.model or ""},
-                "config": {"provider": route.provider_name},
-            }
+            decision = _decide_native(ctx, "pdf", requested=True, unavailable_code="native_pdf_unavailable")
+            if decision is not None and decision.route is not None:
+                return {
+                    "extractor": "pdf_native",
+                    "extractor_version": "1",
+                    "model_versions": {"chat_model": decision.route.model or ""},
+                    "config": {"provider": decision.route.provider_name},
+                }
+            # Native cannot run and fallback is opted in: the local road, and
+            # the identity says why so the cache never confuses the two.
+            native_fallback = decision.fallback_reason if decision else "unavailable"
+            config = {**config, "engine": "auto"}
         try:
             extractor = pdf_extractor_for(config)
         except MarkerUnavailableError as exc:
@@ -320,7 +355,7 @@ def default_extraction_identity(
             "extractor": extractor.name,
             "extractor_version": extractor.version(),
             "model_versions": extractor.model_versions(),
-            "config": config,
+            "config": {**config, "native_fallback": native_fallback} if native_fallback else config,
         }
     if category == "youtube":
         # Captions normalizer (captions_to_ir) v2 stamps per-cue t= timing onto
@@ -361,40 +396,88 @@ class NativeMediaRoute:
 
     provider_name: str
     model: str | None
-    max_audio_mb: int
+    #: Upload cap for the modality (base64 inflates ~33% inside a chat body).
+    max_mb: int
 
 
-def _native_media_route(ctx: JobContext, modality: str) -> NativeMediaRoute | None:
-    """PURE config decision: is native multimodal active for this modality?
+def _native_readiness(
+    ctx: JobContext, modality: str, *, requested: bool | None = None
+) -> tuple[Any, bool] | None:
+    """The shared readiness judgement (learnloop.ai.native_media) for this vault
+    plus the ``fallback_when_unavailable`` opt-in, read from ONE config load so
+    the two can never come from different versions of learnloop.toml. None when
+    the vault has no config file yet."""
 
-    Shared by default_extract and default_extraction_identity so the cache
-    identity and the actual extraction can never disagree. Requires
-    [ingest.native] enabled + the per-modality flag, a canonical_ingest route
-    resolving to an OpenAI-compatible chat provider, and the modality declared
-    in that profile's input_modalities."""
-
-    from learnloop.ai.multimodal import supports_input_modality
-    from learnloop.ai.routing import provider_for_task
+    from learnloop.ai.native_media import native_modality_readiness
     from learnloop.vault.loader import load_vault
 
     try:
         config = load_vault(ctx.vault_root).config
     except FileNotFoundError:
         return None
-    native = config.ingest.native
-    if not native.enabled or not bool(getattr(native, modality, False)):
-        return None
-    selection = provider_for_task(config, "canonical_ingest")
-    profile = config.ai.providers.get(selection.provider_name)
-    if profile is None or profile.type.lower() not in {"openai_chat", "openrouter"}:
-        return None
-    if not supports_input_modality(profile, modality):
-        return None
+    readiness = native_modality_readiness(config, modality, requested=requested)
+    return readiness, bool(config.ingest.native.fallback_when_unavailable)
+
+
+def _route_from_readiness(readiness: Any) -> NativeMediaRoute:
     return NativeMediaRoute(
-        provider_name=selection.provider_name,
-        model=profile.model,
-        max_audio_mb=native.max_audio_mb,
+        provider_name=readiness.provider_name or "",
+        model=readiness.model,
+        max_mb=readiness.max_mb,
     )
+
+
+@dataclass(frozen=True)
+class _NativeDecision:
+    """What happens to media whose modality is routed natively.
+
+    ``route`` is set when the native path runs. ``fallback_reason`` is set when
+    native was selected but cannot run for a configuration reason and
+    ``[ingest.native] fallback_when_unavailable`` sends the file down the
+    non-native path instead; identity and extraction both record it."""
+
+    route: NativeMediaRoute | None
+    fallback_reason: str | None
+
+
+def _decide_native(
+    ctx: JobContext, modality: str, *, requested: bool | None = None, unavailable_code: str
+) -> _NativeDecision | None:
+    """PURE config decision shared by identity and extraction.
+
+    Returns None when native is not selected for ``modality``. Raises a typed,
+    NON-retryable error when native is selected, unavailable for a
+    configuration reason, and fallback is not opted in — the durable queue
+    must not retry a misconfiguration forever."""
+
+    loaded = _native_readiness(ctx, modality, requested=requested)
+    if loaded is None:
+        if requested:
+            raise IngestRunnerError(
+                f"native {modality} ingestion was requested but the vault has no configuration",
+                code=unavailable_code,
+                retryable=False,
+            )
+        return None
+    readiness, fallback_allowed = loaded
+    if not readiness.requested:
+        return None
+    if readiness.ready:
+        return _NativeDecision(route=_route_from_readiness(readiness), fallback_reason=None)
+    if fallback_allowed:
+        return _NativeDecision(route=None, fallback_reason=readiness.reason or "unavailable")
+    raise IngestRunnerError(
+        readiness.message,
+        code=unavailable_code,
+        retryable=False,
+        details={"reason": readiness.reason, "modality": modality},
+    )
+
+
+def _add_health_flag(ir: Any, flag: str) -> Any:
+    if flag not in ir.health.flags:
+        ir.health.flags.append(flag)
+    return ir
 
 
 def _native_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any:
@@ -409,11 +492,12 @@ def _native_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any:
         explicit=route.provider_name,
     )
     if resolved.client is None:
+        status = resolved.runtime.status
         raise IngestRunnerError(
-            resolved.runtime.message
-            or f"AI provider {route.provider_name!r} is {resolved.runtime.status}.",
+            resolved.runtime.message or f"AI provider {route.provider_name!r} is {status}.",
             code="native_media_unavailable",
-            retryable=True,
+            # A missing key or profile needs the owner, not a retry.
+            retryable=status not in {"provider_auth_required", "provider_missing_config"},
         )
     return resolved.client
 
@@ -456,7 +540,7 @@ def _transcription_media_route(ctx: JobContext) -> NativeMediaRoute | None:
         model=profile.model,
         # Preserve the existing base64/chat upload cap. Endpoint transcription
         # continues to use [ingest.audio] max_file_mb below.
-        max_audio_mb=config.ingest.native.max_audio_mb,
+        max_mb=config.ingest.native.max_audio_mb,
     )
 
 
@@ -523,17 +607,36 @@ def _extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any:
     switches routes (different cost/consent surface)."""
 
     from learnloop.ai.multimodal import chat_audio_format
+
+    chat_format = chat_audio_format(_audio_filename(fetched))
+    native_fallback: str | None = None
+    # Lock-step with default_extraction_identity: only chat-accepted containers
+    # consult the native route.
+    decision = (
+        _decide_native(ctx, "audio", unavailable_code="native_audio_unavailable")
+        if chat_format is not None
+        else None
+    )
+    if decision is not None:
+        if decision.route is not None:
+            return _extract_audio_native(fetched, ctx, decision.route, chat_format)
+        native_fallback = decision.fallback_reason
+
+    ir = _extract_audio_transcription(fetched, ctx, chat_format)
+    if native_fallback:
+        _add_health_flag(ir, "native_audio_fallback_transcription")
+    return ir
+
+
+def _extract_audio_transcription(fetched: FetchedBytes, ctx: JobContext, chat_format: str | None) -> Any:
+    """The non-native audio path: the dedicated transcription route, else the endpoint."""
+
     from learnloop.ingest.extractors import transcript_to_ir
     from learnloop.ingest.transcription import (
         TranscriptionFailed,
         TranscriptionUnavailable,
         transcribe_audio,
     )
-
-    route = _native_media_route(ctx, "audio")
-    chat_format = chat_audio_format(_audio_filename(fetched))
-    if route is not None and chat_format is not None:
-        return _extract_audio_native(fetched, ctx, route, chat_format)
 
     config = _audio_ingest_config(ctx)
     transcription_route = _transcription_media_route(ctx)
@@ -576,9 +679,9 @@ def _extract_audio_native(
     from learnloop.ai.errors import CodexUnavailable
 
     size_mb = len(fetched.raw_bytes) / (1024 * 1024)
-    if size_mb > route.max_audio_mb:
+    if size_mb > route.max_mb:
         raise IngestRunnerError(
-            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {route.max_audio_mb}.",
+            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {route.max_mb}.",
             code="audio_too_large",
             retryable=True,
         )
@@ -617,11 +720,11 @@ def _extract_audio_routed(
             retryable=True,
         )
     size_mb = len(fetched.raw_bytes) / (1024 * 1024)
-    if size_mb > route.max_audio_mb:
+    if size_mb > route.max_mb:
         # Base64 inflates ~33% inside a chat body, so the chat-path cap
         # applies, not the endpoint's max_file_mb.
         raise IngestRunnerError(
-            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {route.max_audio_mb}.",
+            f"Audio file is {size_mb:.1f} MB; [ingest.native] max_audio_mb is {route.max_mb}.",
             code="audio_too_large",
             retryable=True,
         )
@@ -682,32 +785,29 @@ def _chat_transcript_to_ir(
     )
 
 
-def _require_native_pdf_route(ctx: JobContext) -> NativeMediaRoute:
-    route = _native_media_route(ctx, "pdf")
-    if route is None:
-        raise IngestRunnerError(
-            'PDF engine "native" requires [ingest.native] enabled with pdf = true and a '
-            'canonical_ingest route to an OpenAI-compatible provider declaring "pdf" in '
-            "input_modalities.",
-            code="native_pdf_unavailable",
-            retryable=True,
-        )
-    return route
-
-
-def _extract_pdf_native(fetched: FetchedBytes, ctx: JobContext) -> Any:
+def _extract_pdf_native(fetched: FetchedBytes, ctx: JobContext, route: NativeMediaRoute) -> Any:
     """PDF → chat file part → Markdown → IR ([ingest.pdf] engine "native")."""
 
     from learnloop.ai.multimodal import PdfExtractionContextNative
     from learnloop.ai.errors import CodexUnavailable
     from learnloop.ingest.extractors import markdown_to_ir
 
-    route = _require_native_pdf_route(ctx)
-    if ctx.payload.get("page_selection"):
+    # Pages arrive as the import's ``page_selection`` or as a repair's
+    # ``pdf_config.page_range``; either would be silently ignored by a
+    # whole-document upload, so both are refused.
+    if ctx.payload.get("page_selection") or (ctx.payload.get("pdf_config") or {}).get("page_range"):
         raise IngestRunnerError(
-            "Native PDF ingestion does not support page selection; use the marker or "
-            "pypdf engine for page ranges.",
+            "Native PDF ingestion sends the whole document and does not support page "
+            "selection; clear the page range or choose the marker or pypdf engine.",
             code="native_pdf_unavailable",
+            retryable=False,
+        )
+    size_mb = len(fetched.raw_bytes) / (1024 * 1024)
+    if size_mb > route.max_mb:
+        raise IngestRunnerError(
+            f"PDF is {size_mb:.1f} MB; [ingest.native] max_pdf_mb is {route.max_mb}.",
+            code="pdf_too_large",
+            retryable=False,
         )
     filename = _audio_filename(fetched)
     if "." not in filename:
@@ -888,6 +988,30 @@ def default_animation_client(ctx: JobContext) -> Any:
     configured provider works; run_concept_animation is getattr-discovered."""
 
     return _routed_task_client(ctx, "animation")
+
+
+def default_video_client(ctx: JobContext) -> Any:
+    """Resolve [ai.routing] video_generation to an OpenRouter video client.
+
+    The route is read directly (not through provider_for_task): a
+    LEARNLOOP_AI_PROVIDER override names a chat provider and must never
+    redirect billable video jobs."""
+
+    from learnloop.ai.client import make_video_generation_client
+    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop.vault.loader import load_vault
+
+    config = load_vault(ctx.vault_root).config
+    route = (config.ai.routing.video_generation or "").strip()
+    if not route:
+        raise IngestRunnerError(
+            "no video model is routed: choose one in Settings → Animation ([ai.routing] video_generation)",
+            code="video_provider_unavailable",
+        )
+    try:
+        return make_video_generation_client(config, ctx.vault_root, provider_name=route)
+    except AIProviderUnavailable as exc:
+        raise IngestRunnerError(str(exc), code="video_provider_unavailable") from exc
 
 
 def default_rung_variant_client(ctx: JobContext) -> Any:
@@ -1506,7 +1630,22 @@ def handle_append_synthesis(ctx: JobContext) -> dict[str, Any]:
             unlimited_token_budget=bool(payload.get("unlimited_token_budget", False)),
         )
     except StudyMapError as exc:
-        raise IngestRunnerError(f"{exc.code}: {exc}") from exc
+        # Same mapping as the bootstrap lane above. Flattening the code into the
+        # message left every append failure as `invalid_job`, dropped the gate
+        # diagnostics the Activity panel renders, and asserted retryable=False
+        # for a gate rejection that a fresh model turn routinely clears.
+        raise IngestRunnerError(
+            str(exc),
+            code=exc.code,
+            details={
+                "diagnostics": exc.diagnostics,
+                "lock_reasons": exc.lock_reasons,
+                "stage": "synthesis",
+                "completed_dependencies_preserved": True,
+                "synthesis_run_id": exc.synthesis_run_id,
+            },
+            retryable=exc.code not in {"source_set_not_found"},
+        ) from exc
     ctx.record_usage({"calls": 0 if result.reused else 1})
     ctx.report("synthesized", message="Source reconciliation synthesized")
     if result.auto_applied_item_ids:
@@ -2307,18 +2446,57 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
     animation_id = str(ctx.payload.get("animation_id") or "")
     if not animation_id:
         raise IngestRunnerError("concept_animation job requires an 'animation_id'.")
-    ctx.report("generation", message="Authoring the explainer scene")
-    client = ctx.services.animation_client(ctx)
+    row = ctx.repo.concept_animation(animation_id)
+    use_video_model = bool(row) and (row.get("renderer") or "manim") == "video_model"
+    video_client = None
     try:
+        client = ctx.services.animation_client(ctx)
+        if use_video_model:
+            video_client = ctx.services.video_client(ctx)
+    except IngestRunnerError as exc:
+        # A provider that cannot be built used to leave the row wedged in
+        # "queued"; mark it failed so the inspector shows why.
+        if row is not None and row.get("status") in ("queued", "generating"):
+            ctx.repo.update_concept_animation(
+                animation_id,
+                status="failed",
+                failure_stage="video_model" if use_video_model else "generation",
+                failure_reason=str(exc)[:2000],
+                clock=ctx.clock,
+            )
+        raise
+    try:
+        # The first report is also the first cancellation point: inside the
+        # try so a job cancelled before the service ran still gets a terminal row.
+        ctx.report(
+            "generation",
+            message="Writing the video storyboard" if use_video_model else "Authoring the explainer scene",
+        )
         row = generate_concept_animation(
             ctx.vault_root,
             client,
             animation_id=animation_id,
             renderer=ctx.services.animation_renderer,
             clock=ctx.clock,
+            video_client=video_client,
+            report=lambda phase, message: ctx.report(phase, message=message),
+            cancellation=(JobCancelled,),
         )
     except ConceptAnimationError as exc:
         raise IngestRunnerError(str(exc), code=exc.code) from exc
+    except JobCancelled:
+        # The service marks its own row cancelled; this covers a cancellation
+        # that landed before it was entered.
+        current = ctx.repo.concept_animation(animation_id)
+        if current is not None and current.get("status") not in ("completed", "failed", "cancelled"):
+            ctx.repo.update_concept_animation(
+                animation_id,
+                status="cancelled",
+                failure_stage="video_model" if use_video_model else "render",
+                failure_reason="cancelled by the learner",
+                clock=ctx.clock,
+            )
+        raise
     # Compact job result: the status RPC serves the full row (code, stderr).
     return {
         "animation_id": row["id"],
@@ -2504,7 +2682,7 @@ class DurableIngestJobs:
             import_payload: dict[str, Any] = {"source": source, "subject_id": subject_id}
             if mode == "exam":
                 import_payload["reader_enabled"] = False
-            if pdf_engine in ("marker", "pypdf"):
+            if pdf_engine and pdf_engine != "auto":
                 # An explicit engine choice is part of the extraction identity;
                 # "auto" stays implicit so unchanged sources keep their cache.
                 import_payload["pdf_config"] = {"engine": pdf_engine}
@@ -2600,7 +2778,7 @@ class DurableIngestJobs:
                 payload["page_selection"] = source_pages
             if reader_disabled_sources and source in reader_disabled_sources:
                 payload["reader_enabled"] = False
-            if pdf_engine in ("marker", "pypdf"):
+            if pdf_engine and pdf_engine != "auto":
                 # See start(): explicit engines join the extraction identity.
                 payload["pdf_config"] = {"engine": pdf_engine}
             if estimate is not None:

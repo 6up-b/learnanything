@@ -74,3 +74,18 @@ def test_animations_listing_orders_newest_first(tmp_path):
 def test_animation_video_path_is_content_addressed(tmp_path):
     path = animation_video_path(tmp_path, "sha256:deadbeef")
     assert path == tmp_path / "media" / "animations" / "sha256-deadbeef.mp4"
+
+
+def test_renderer_and_storyboard_columns_round_trip(tmp_path):
+    repo = _repo(tmp_path)
+    manim_id = repo.insert_concept_animation({"concept_id": "c1"})
+    assert repo.concept_animation(manim_id)["renderer"] == "manim"
+
+    video_id = repo.insert_concept_animation({"concept_id": "c1", "renderer": "video_model"})
+    assert repo.update_concept_animation(
+        video_id, storyboard_json='{"shots": []}', video_job_ids='["vid_1", "vid_2"]'
+    )
+    row = repo.concept_animation(video_id)
+    assert row["renderer"] == "video_model"
+    assert row["storyboard_json"] == '{"shots": []}'
+    assert row["video_job_ids"] == '["vid_1", "vid_2"]'

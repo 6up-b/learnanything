@@ -37,6 +37,7 @@ logger = logging.getLogger(__name__)
 # Module-level so tests can monkeypatch the backoff away.
 _sleep = time.sleep
 _RETRY_DELAYS_SECONDS = (1.0, 4.0)
+_JSON_ONLY_SYSTEM_PROMPT = "Return only valid JSON. Do not include Markdown fences."
 
 
 class OpenAIChatProviderClient(TokenUsageAccounting):
@@ -83,10 +84,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         try:
             return self._run_json_messages(
                 [
-                    {
-                        "role": "system",
-                        "content": "Return only valid JSON. Do not include Markdown fences.",
-                    },
+                    {"role": "system", "content": self._system_prompt(request.result_model)},
                     {"role": "user", "content": request.prompt},
                 ],
                 request.result_model,
@@ -164,10 +162,33 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def _chat(self, prompt: str, model_type: type[BaseModel] | None = None) -> str:
         return self._chat_messages(
             [
-                {"role": "system", "content": "Return only valid JSON. Do not include Markdown fences."},
+                {"role": "system", "content": _JSON_ONLY_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
             model_type,
+        )
+
+    def _system_prompt(self, model_type: type[BaseModel]) -> str:
+        """The system turn for a first structured attempt.
+
+        Feature prompts end with "match the provided output schema", but only
+        two routes actually provide one: Codex's Responses API and the
+        ``json_schema`` response_format. A ``json_object`` profile (the
+        OpenRouter/DeepSeek default) left the model guessing field names from
+        prose; every field it did not guess defaulted at validation, so a
+        provenance ``span`` arrived as empty strings and the synthesis gates
+        rejected it as a citation to nowhere. Carry the same strict schema in
+        the prompt whenever the wire does not.
+        """
+
+        response_format = self._response_format(model_type) or {}
+        if response_format.get("type") == "json_schema":
+            return _JSON_ONLY_SYSTEM_PROMPT
+        schema = json.dumps(_prompt_schema(model_type), sort_keys=True, ensure_ascii=False)
+        return (
+            f"{_JSON_ONLY_SYSTEM_PROMPT} The JSON object must validate against this JSON "
+            "schema; emit every declared field and no others.\n\n"
+            f"Schema:\n{schema}"
         )
 
     def _chat_messages(
@@ -222,7 +243,11 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         raise CodexUnavailable(f"{self.provider_name} request retries exhausted")
 
     def _response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None:
-        configured = (self.profile.response_format or "").strip()
+        # `complete()` now consults this before the first turn (to decide
+        # whether the schema must ride in the prompt), so a profile that
+        # declares no response_format at all must read as "nothing on the
+        # wire" rather than fail the request.
+        configured = (getattr(self.profile, "response_format", None) or "").strip()
         if not configured:
             return None
         if configured == "json_schema":
@@ -259,6 +284,16 @@ def _is_retryable(exc: Exception) -> bool:
     if not isinstance(status_code, int):
         return False
     return status_code == 429 or status_code >= 500
+
+
+def _prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]:
+    # The strict schema is the leaner one (no defaults/titles) and is what the
+    # schema-carrying routes send; a plain BaseModel (media transcripts) has no
+    # strict form, so its ordinary schema stands in.
+    try:
+        return strict_output_schema(model_type)
+    except TypeError:
+        return model_type.model_json_schema()
 
 
 def _repair_prompt(text: str, model_type: type[BaseModel]) -> str:

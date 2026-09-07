@@ -5,7 +5,7 @@
 Use `uv` for everything Python.
 
 ```bash
-uv sync --extra dev                      # install (add --extra pdf for Marker, --extra animation for Manim)
+uv sync --extra dev                      # install (add --extra pdf for Marker; manim is a core dependency)
 uv run pytest                            # full suite (~10 min)
 uv run pytest tests/test_scheduler.py::test_name -x   # single test
 uv run lint-imports --no-cache           # architectural dependency contracts

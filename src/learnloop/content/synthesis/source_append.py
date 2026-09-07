@@ -59,6 +59,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
     build_manifest,
     persist_manifest,
 )
+from learnloop.content.synthesis.vault_epigraphs import digest_for_append, generate_vault_epigraphs
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, SourceSet
 from learnloop.vault.paths import VaultPaths
@@ -407,6 +408,20 @@ def _append(
         result.merge_review_proposals = [
             p.as_dict() for p in near_duplicate_facet_review(vault_after)
         ]
+
+    # Best-effort Start-screen epigraphs (see vault_epigraphs.py): an append
+    # may emit only provenance links, so the digest is topped up from the new
+    # inventories and the bounded neighborhood. Never raises.
+    generate_vault_epigraphs(
+        repository, vault, client,
+        subject_id=subject_id, source_set_id=source_set.id,
+        synthesis_run_id=synthesis_run_id, mode="append",
+        digest=digest_for_append(
+            rows, new_inventories, neighborhood.as_context(),
+            summary=str(getattr(reconciliation, "summary", "") or ""),
+        ),
+        brief=brief, clock=clock,
+    )
     return result
 
 
@@ -476,11 +491,31 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
     auto_apply_ids: list[str] = []
 
     # provenance_link items.
+    dropped_diagnostics: list[dict[str, Any]] = []
     for link in getattr(reconciliation, "provenance_links", []) or []:
         obj = d(link)
         client = obj.get("client_item_id") or f"plink_{new_ulid()[:8]}"
         target_type = obj.get("target_entity_type") or "facet"
         target_id = obj.get("target_entity_id") or ""
+        problem = _span_problem(obj.get("span") or {}, inputs)
+        if problem:
+            # A link IS its span: with nothing resolvable to attach, the item
+            # is empty. Drop it with a typed review record rather than letting
+            # the span/scope/unit gates hard-fail the whole paid run — the same
+            # trade the bootstrap normalizer makes for unresolved concepts.
+            dropped_diagnostics.append(
+                {
+                    "gate": "provenance_link_span",
+                    "severity": "review",
+                    "entity_refs": [client, target_id] if target_id else [client],
+                    "message": (
+                        f"dropped provenance_link {client!r} for {target_type} "
+                        f"{target_id!r}: {problem}"
+                    ),
+                    "suggested_action": "cite a span id from the new inventories, or rerun the append",
+                }
+            )
+            continue
         relation = obj.get("relation") or _relation_for_intent(obj.get("reconciliation_intent"))
         gate_refs, yaml_refs, span_ids = _span_refs([obj.get("span") or {}], inputs, default_relation=relation)
         ref = yaml_refs[0] if yaml_refs else {}
@@ -584,8 +619,28 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         conflict_candidates,
         set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
         auto_apply_ids,
-        list(normalized.edge_diagnostics),
+        [*normalized.edge_diagnostics, *dropped_diagnostics],
     )
+
+
+def _span_problem(span: dict[str, Any], inputs) -> str | None:
+    """Why a provenance_link's cited span cannot attach, or None when it can.
+
+    Mirrors the three provenance gates (span_resolution / scope / unit_id_validity)
+    so a link that would hard-fail them is caught here, per item."""
+
+    extraction_id = str(span.get("extraction_id") or "")
+    span_id = str(span.get("span_id") or "")
+    if not extraction_id or not span_id:
+        return "no span cited"
+    if extraction_id not in inputs.extraction_ids:
+        return f"extraction run {extraction_id} is not in the source set"
+    if span_id not in inputs.extraction_spans.get(extraction_id, set()):
+        return f"span {span_id} does not resolve in extraction run {extraction_id}"
+    unit_id = str(span.get("unit_id") or "")
+    if unit_id and unit_id not in inputs.extraction_units.get(extraction_id, set()):
+        return f"unit {unit_id} is not valid for extraction run {extraction_id}"
+    return None
 
 
 def _relation_for_intent(intent: str | None) -> str:

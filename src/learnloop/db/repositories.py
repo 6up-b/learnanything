@@ -4660,7 +4660,7 @@ class Repository(IngestQueueStoreMixin):
         "video_hash", "video_file_name", "duration_seconds", "provider",
         "model", "prompt_version", "quality", "repair_attempted",
         "failure_stage", "failure_reason", "render_stderr", "batch_id",
-        "completed_at",
+        "completed_at", "renderer", "storyboard_json", "video_job_ids",
     }
 
     def insert_concept_animation(self, row: Mapping[str, Any], *, clock: Clock | None = None) -> str:
@@ -4674,8 +4674,8 @@ class Repository(IngestQueueStoreMixin):
                   scene_class, title, narration_md, video_hash, video_file_name,
                   duration_seconds, provider, model, prompt_version, quality,
                   repair_attempted, failure_stage, failure_reason, render_stderr,
-                  batch_id, created_at, updated_at, completed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  batch_id, created_at, updated_at, completed_at, renderer
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     animation_id,
@@ -4701,6 +4701,7 @@ class Repository(IngestQueueStoreMixin):
                     now,
                     now,
                     row.get("completed_at"),
+                    row.get("renderer") or "manim",
                 ),
             )
             connection.commit()
@@ -12430,6 +12431,75 @@ class Repository(IngestQueueStoreMixin):
                 (extraction_id, section_id),
             ).fetchone()
         return dict(row) if row is not None else None
+
+    # ------------------------------------------------------------------
+    # Vault epigraphs (migration 158): model-authored quotes/haiku about the
+    # material, one batch per completed synthesis. Append-only history; the
+    # Start screen reads the newest N.
+    # ------------------------------------------------------------------
+
+    def insert_vault_epigraphs(
+        self,
+        *,
+        subject_id: str,
+        source_set_id: str | None,
+        synthesis_run_id: str | None,
+        mode: str,
+        epigraphs: Sequence[Mapping[str, Any]],
+        prompt_version: str,
+        provider: str | None,
+        model: str | None,
+        clock: Clock | None = None,
+    ) -> list[str]:
+        """Persist one synthesis's batch. ``epigraphs`` entries carry ``kind``
+        and ``text`` (haiku lines already "\n"-joined). The batch shares one
+        ``created_at``; ``ordinal`` records model order because ULIDs minted
+        in one millisecond do not sort by insertion."""
+
+        now = utc_now_iso(clock)
+        ids: list[str] = []
+        with self.connection() as connection:
+            for ordinal, entry in enumerate(epigraphs):
+                epigraph_id = f"vep_{new_ulid()}"
+                connection.execute(
+                    "INSERT INTO vault_epigraphs("
+                    "  id, subject_id, source_set_id, synthesis_run_id, mode, kind,"
+                    "  text, prompt_version, provider, model, ordinal, created_at"
+                    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        epigraph_id,
+                        subject_id,
+                        source_set_id,
+                        synthesis_run_id,
+                        mode,
+                        str(entry["kind"]),
+                        str(entry["text"]),
+                        prompt_version,
+                        provider,
+                        model,
+                        ordinal,
+                        now,
+                    ),
+                )
+                ids.append(epigraph_id)
+            connection.commit()
+        return ids
+
+    def recent_vault_epigraphs(
+        self, *, subject_id: str | None = None, limit: int = 12
+    ) -> list[dict[str, Any]]:
+        """Newest first; ``subject_id=None`` spans the whole vault."""
+
+        sql = "SELECT * FROM vault_epigraphs"
+        params: list[Any] = []
+        if subject_id:
+            sql += " WHERE subject_id = ?"
+            params.append(subject_id)
+        sql += " ORDER BY created_at DESC, ordinal DESC, id DESC LIMIT ?"
+        params.append(int(limit))
+        with self.connection() as connection:
+            rows = connection.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
 
     def transition_reader_authored_question(
         self,

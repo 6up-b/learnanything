@@ -17,6 +17,9 @@
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { getOrFetch, type QueryKey } from "../api/queryCache";
+import { TAG, readerTag } from "../api/queryTags";
 import type {
   ReaderAnswerMode,
   ReaderDisposition,
@@ -201,16 +204,53 @@ function readingPositionKey(sourceId: string): string {
   return `learnloop.reader.position.${sourceId}`;
 }
 
-export function ReaderScreen({ onError }: { onError: (message: string) => void }) {
-  const [contract, setContract] = useState<ReaderPromptContractDto | null>(null);
+// Per-source reads the Reader opens imperatively (render view, guide plan,
+// progress, PDF/watch manifests, ask history, annotations) go through the
+// query cache with a freshness window instead of a hook: openSource is a
+// sequence with side effects, not a render-time subscription. Reader mutation
+// wrappers invalidate the `reader:<sourceId>` tag, so a re-read after a
+// mutation always fetches; within the window a re-open (returning to this
+// tab) is served from memory.
+const READER_CACHE_MS = 10 * 60_000;
+
+function cachedSourceRead<T>(sourceId: string, key: QueryKey, fetcher: () => Promise<T>): Promise<T> {
+  return getOrFetch(key, fetcher, { tags: [readerTag(sourceId)], staleAfterMs: READER_CACHE_MS });
+}
+
+export interface ReaderOpenSource {
+  card: SourceLibraryCard;
+  spanId: string | null;
+}
+
+export function ReaderScreen({
+  onError,
+  initialSource = null,
+  onSourceChange
+}: {
+  onError: (message: string) => void;
+  /** The source that was open when the Reader last unmounted (hoisted by the shell). */
+  initialSource?: ReaderOpenSource | null;
+  onSourceChange?: (next: ReaderOpenSource | null) => void;
+}) {
+  // The prompt contract only changes with settings, so it is cached until a
+  // settings mutation invalidates it; the picker's library list is shared with
+  // the Ingest sidebar. Both repaint at once when the learner returns here.
+  const contractQuery = useCachedQuery(["reader_prompt_contract"], () => api.readerPromptContract(), {
+    tags: [TAG.reader, TAG.settings],
+    staleAfterMs: Infinity
+  });
+  const contract: ReaderPromptContractDto | null = contractQuery.data ?? null;
   const [render, setRender] = useState<ReaderRenderViewDto | null>(null);
   const [guidePlan, setGuidePlan] = useState<ReaderGuidePlanDto | null>(null);
   const [guideLoading, setGuideLoading] = useState(false);
   const [offline, setOffline] = useState(false);
   // Source picker state: the real library (ready sources are openable), whether
   // the sidecar answered at all, and the title of whatever is open.
-  const [library, setLibrary] = useState<SourceLibraryCard[] | null>(null);
-  const [sidecarDown, setSidecarDown] = useState(false);
+  // If the sidecar is unreachable the demo fixture stays available, clearly
+  // labeled (U-031) — it is never silently substituted for a real source.
+  const libraryQuery = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), { tags: [TAG.sources] });
+  const sidecarDown = libraryQuery.data === undefined && libraryQuery.error !== null;
+  const library: SourceLibraryCard[] | null = libraryQuery.data?.sources ?? (sidecarDown ? [] : null);
   const [sourceTitle, setSourceTitle] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [activeSpan, setActiveSpan] = useState<string | null>(null);
@@ -353,8 +393,8 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   }, [render?.renderViewId, offline, onError, refreshRequests]);
 
   useEffect(() => {
-    api.readerPromptContract().then(setContract).catch((error) => onError(errorMessage(error, "Could not load Reader settings.")));
-  }, [onError]);
+    if (contractQuery.error) onError(errorMessage(contractQuery.error, "Could not load Reader settings."));
+  }, [contractQuery.error, onError]);
 
   // The rail's content can lose a lot of height in one frame (a quick check is
   // answered and collapses to one line, a card is dismissed, a tab switches).
@@ -421,22 +461,6 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     }
   }, [sectionPromptsEnabled]);
 
-  // Load the real source library for the picker. If the sidecar is unreachable
-  // the demo fixture stays available, clearly labeled (U-031) — it is never
-  // silently substituted for a real source.
-  useEffect(() => {
-    api
-      .getSourceLibrary()
-      .then((snapshot) => {
-        setLibrary(snapshot.sources);
-        setSidecarDown(false);
-      })
-      .catch(() => {
-        setLibrary([]);
-        setSidecarDown(true);
-      });
-  }, []);
-
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
     setGuidePlan(null);
@@ -490,11 +514,17 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
       setOpening(card.sourceId);
       try {
         // reader.render_view resolves a source id to its latest completed extraction.
-        const view = await api.readerRenderView({ extractionId: card.sourceId });
+        const view = await cachedSourceRead(card.sourceId, ["reader_render_view", card.sourceId], () =>
+          api.readerRenderView({ extractionId: card.sourceId })
+        );
         resetSourceState();
         setRender(view);
         setOffline(false);
         setSourceTitle(card.title);
+        // The shell remembers the SOURCE, not the jump: a search hit lands the
+        // learner on the passage once; returning to this tab later resumes
+        // from the saved reading position, not the original hit.
+        onSourceChange?.({ card, spanId: null });
         try {
           const savedSpan = window.localStorage.getItem(readingPositionKey(view.sourceId));
           if (savedSpan) {
@@ -511,13 +541,16 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
           setActiveSpan(jumpSpan);
         }
         setGuideLoading(true);
-        api.readerGuidePlan({ extractionId: view.extractionId })
+        cachedSourceRead(card.sourceId, ["reader_guide_plan", view.extractionId], () =>
+          api.readerGuidePlan({ extractionId: view.extractionId })
+        )
           .then(setGuidePlan)
           .catch(() => setGuidePlan(null))
           .finally(() => setGuideLoading(false));
         // Hydrate durable reading progress so reveal/completion survive restarts.
-        api
-          .readerGetProgress({ extractionId: view.extractionId })
+        cachedSourceRead(card.sourceId, ["reader_get_progress", view.extractionId], () =>
+          api.readerGetProgress({ extractionId: view.extractionId })
+        )
           .then((progress) => {
             setRevealedSections((ids) => [
               ...new Set([...ids, ...progress.sections.filter((s) => s.revealedAt).map((s) => s.sectionId)])
@@ -529,24 +562,28 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
           .catch(() => undefined);
         if (youtubeVideoId(card.canonicalUri ?? "") !== null) {
           setWatchLoading(true);
-          api.readerWatchPlan(card.sourceId)
+          cachedSourceRead(card.sourceId, ["reader_watch_plan", card.sourceId], () => api.readerWatchPlan(card.sourceId))
             .then(setWatch)
             .catch(() => setWatch(null))
             .finally(() => setWatchLoading(false));
         } else {
           // Original-PDF surface when the originals store has this revision's bytes.
-          api
-            .readerPdfView({ extractionId: card.sourceId })
+          cachedSourceRead(card.sourceId, ["reader_pdf_view", card.sourceId], () =>
+            api.readerPdfView({ extractionId: card.sourceId })
+          )
             .then((manifest) => setPdfView(manifest.available ? manifest : null))
             .catch(() => setPdfView(null));
         }
       } catch (error) {
         onError(errorMessage(error));
+        // A source that no longer opens (deleted, re-extracted away) must not
+        // be resumed on every return to this tab.
+        onSourceChange?.(null);
       } finally {
         setOpening(null);
       }
     },
-    [onError, resetSourceState],
+    [onError, onSourceChange, resetSourceState],
   );
 
   const openFixture = useCallback(() => {
@@ -554,14 +591,26 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
     setRender(readerRenderViewFixture);
     setOffline(true);
     setSourceTitle("demo chapter (fixture)");
-  }, [resetSourceState]);
+    onSourceChange?.(null);
+  }, [onSourceChange, resetSourceState]);
 
   const backToLibrary = useCallback(() => {
     resetSourceState();
     setRender(null);
     setOffline(false);
     setSourceTitle(null);
-  }, [resetSourceState]);
+    onSourceChange?.(null);
+  }, [onSourceChange, resetSourceState]);
+
+  // Resume the source that was open when this tab was last left: the shell
+  // keeps the card, the cache keeps the reads, so the return is instant.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || !initialSource || render) return;
+    resumedRef.current = true;
+    void openSource(initialSource.card, initialSource.spanId ?? undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const enabled = contract?.readerEnabled ?? false;
   const boundaryChecksAvailable = mode === "anchor" && sectionPromptsEnabled;
@@ -572,8 +621,9 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   useEffect(() => {
     if (!render || offline) return;
     let cancelled = false;
-    void api
-      .readerAskHistory(render.extractionId)
+    void cachedSourceRead(render.sourceId, ["reader_ask_history", render.extractionId], () =>
+      api.readerAskHistory(render.extractionId)
+    )
       .then((result) => {
         if (cancelled) return;
         const restored: ReaderExchange[] = result.exchanges.map((exchange) => ({
@@ -865,7 +915,9 @@ export function ReaderScreen({ onError }: { onError: (message: string) => void }
   const refreshAnnotations = useCallback(async () => {
     if (!render || offline) return;
     try {
-      const result = await api.readerSourceAnnotations({ sourceId: render.sourceId });
+      const result = await cachedSourceRead(render.sourceId, ["reader_source_annotations", render.sourceId], () =>
+        api.readerSourceAnnotations({ sourceId: render.sourceId })
+      );
       const rows = (result.annotations as Array<Record<string, unknown>>) ?? [];
       setAnnotations(
         rows.map((r) => {

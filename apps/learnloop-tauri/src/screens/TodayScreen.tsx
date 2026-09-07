@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   ClaimCandidateDto,
   DecayPressureDto,
@@ -23,7 +25,7 @@ import { GoalWizard } from "../components/GoalWizard";
 import { GoalReviewCard, type ReviewReason } from "../components/GoalReviewCard";
 import { FacetEvidenceDrawer } from "../components/KnowledgeModel";
 import { QuestionQueuePanel } from "../components/QuestionQueue";
-import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
+import { notifyQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -157,13 +159,30 @@ export function TodayScreen({
   readerSeedingActive?: boolean;
   onError: (message: string) => void;
 }) {
-  const [queue, setQueue] = useState<QueueSnapshot | null>(null);
-  const [queueLoading, setQueueLoading] = useState(true);
+  // The scheduler queue is cached by its inputs: returning to Today repaints
+  // the last queue at once and revalidates in the background; every queue
+  // mutation wrapper (attempts, skips, probes, proposals) invalidates it.
+  const queueInput = useMemo(
+    () => ({
+      sessionId: session?.sessionId ?? null,
+      availableMinutes: session?.availableMinutes ?? null,
+      energy: session?.energy ?? null
+    }),
+    [session?.sessionId, session?.availableMinutes, session?.energy]
+  );
+  const queueQuery = useCachedQuery(["get_today_queue", queueInput], () => api.getTodayQueue(queueInput), {
+    tags: [TAG.queue]
+  });
+  // After "end session" the queue must not repaint for a dead session while
+  // the shell navigates away.
+  const [ended, setEnded] = useState(false);
+  const queue: QueueSnapshot | null = ended ? null : queueQuery.data ?? null;
+  const queueLoading = !ended && queueQuery.loading;
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<PracticeItemDetail | null>(null);
   const [bannerOpen, setBannerOpen] = useState(true);
   const [ending, setEnding] = useState(false);
-  const [goals, setGoals] = useState<GoalDto[] | null>(null);
+  const goalsQuery = useCachedQuery(["goals_list"], () => api.goalsList(), { tags: [TAG.goals] });
+  const goals: GoalDto[] | null = goalsQuery.data?.goals ?? null;
   const [wizardOpen, setWizardOpen] = useState(false);
   const [goalPopulation, setGoalPopulation] =
     useState<IngestBatchDto | null>(null);
@@ -172,26 +191,37 @@ export function TodayScreen({
   const [writeCardOpen, setWriteCardOpen] = useState(false);
   const [evidenceFacetId, setEvidenceFacetId] = useState<string | null>(null);
   const [dismissedReview, setDismissedReview] = useState<Set<string>>(() => new Set());
-  const queueRequestRef = useRef<{ key: string; promise: Promise<QueueSnapshot>; id: number } | null>(null);
-  const queueRequestSeqRef = useRef(0);
   const now = useNowMinute();
   // F5/F7 hypothesis surfaces: one visit id per Today visit for schedule_choice
   // claim telemetry (§2.2 — outside a practice session).
   const visitIdRef = useRef<string>(mintVisitId());
-  const [overconfidence, setOverconfidence] = useState<OverconfidentFacetDto[]>([]);
-  const [reentry, setReentry] = useState<ReentrySummaryDto | null>(null);
-  const [decayPressure, setDecayPressure] = useState<DecayPressureDto | null>(null);
 
+  const refetchGoals = goalsQuery.refetch;
   const refreshGoals = useCallback(() => {
-    api
-      .goalsList()
-      .then((snap) => setGoals(snap.goals))
-      .catch((error) => onError((error as Error).message));
-  }, [onError]);
+    refetchGoals().catch((error) => onError((error as Error).message));
+  }, [refetchGoals, onError]);
 
   useEffect(() => {
-    refreshGoals();
-  }, [refreshGoals]);
+    if (goalsQuery.error) onError(goalsQuery.error.message);
+  }, [goalsQuery.error, onError]);
+  useEffect(() => {
+    if (queueQuery.error) onError(queueQuery.error.message);
+  }, [queueQuery.error, onError]);
+
+  // The cached queue can predate an invalidation (an attempt was just
+  // submitted): it paints, but its rows must not be actionable until the
+  // replacement lands, or Enter re-serves the item the scheduler just moved.
+  const queueRefreshing = queueQuery.refreshing;
+
+  // Keep the focused row valid across cached paints and revalidations: only
+  // move focus when the focused item left the queue (a no-change refresh
+  // must not yank j/k focus back to the top). Focus is not (re)assigned from
+  // a queue known to be out of date.
+  useEffect(() => {
+    if (!queue || queueRefreshing) return;
+    const ids = queueItems(queue).map((item) => item.practiceItemId);
+    setFocusedId((current) => (current && ids.includes(current) ? current : ids[0] ?? null));
+  }, [queue, queueRefreshing]);
 
   // Active goals ordered for the banner: nearest due first, ties by higher priority.
   const activeGoals = useMemo(() => {
@@ -235,62 +265,49 @@ export function TodayScreen({
 
   // KM3b §9.6 session narrative: the primary active goal's next-gap bottleneck
   // (deterministic; from the KM3a blueprint readiness projection, no LLM).
-  const [nextGap, setNextGap] = useState<string | null>(null);
   const primaryGoalId = activeGoals[0]?.id ?? null;
-  useEffect(() => {
-    if (!primaryGoalId) { setNextGap(null); return; }
-    let alive = true;
-    api
-      .getGoalReport(primaryGoalId)
-      .then((snap) => {
-        if (!alive) return;
-        const readiness = snap.report.blueprintReadiness ?? {};
-        let worst: { facet: string; predicted: number } | null = null;
-        for (const lo of Object.values(readiness)) {
-          const b = lo.bottleneck;
-          if (b && (!worst || b.predictedRecall < worst.predicted)) {
-            worst = { facet: b.facet, predicted: b.predictedRecall };
-          }
-        }
-        setNextGap(worst ? worst.facet.replace(/^facet_/, "") : null);
-      })
-      .catch(() => { if (alive) setNextGap(null); });
-    return () => { alive = false; };
-  }, [primaryGoalId]);
+  const goalReportQuery = useCachedQuery(
+    primaryGoalId ? ["get_goal_report", primaryGoalId] : null,
+    () => api.getGoalReport(primaryGoalId as string),
+    { tags: [TAG.goals] }
+  );
+  const nextGap = useMemo(() => {
+    const readiness = goalReportQuery.data?.report.blueprintReadiness ?? {};
+    let worst: { facet: string; predicted: number } | null = null;
+    for (const lo of Object.values(readiness)) {
+      const b = lo.bottleneck;
+      if (b && (!worst || b.predictedRecall < worst.predicted)) {
+        worst = { facet: b.facet, predicted: b.predictedRecall };
+      }
+    }
+    return worst ? worst.facet.replace(/^facet_/, "") : null;
+  }, [goalReportQuery.data]);
 
   // F5 overconfidence list + F7 welcome-back diff, both anchored on the primary
-  // active goal (§4.3, §4.4). Refetched when the goal or queue changes.
+  // active goal (§4.3, §4.4). Tagged with the queue so attempts refresh them;
+  // a failed read degrades to "nothing to show", as before.
   const hasActiveGoal = activeGoals.length > 0;
-  useEffect(() => {
-    if (!primaryGoalId) {
-      setOverconfidence([]);
-      setReentry(null);
-      return;
-    }
-    let alive = true;
-    api
-      .getOverconfidenceList(primaryGoalId)
-      .then((snap) => { if (alive) setOverconfidence(snap.facets); })
-      .catch(() => { if (alive) setOverconfidence([]); });
-    api
-      .getReentrySummary(primaryGoalId)
-      .then((snap) => { if (alive) setReentry(snap.summary.show ? snap.summary : null); })
-      .catch(() => { if (alive) setReentry(null); });
-    return () => { alive = false; };
-  }, [primaryGoalId, queue?.totalItems]);
+  const overconfidenceQuery = useCachedQuery(
+    primaryGoalId ? ["get_overconfidence_list", primaryGoalId] : null,
+    () => api.getOverconfidenceList(primaryGoalId as string),
+    { tags: [TAG.goals, TAG.queue] }
+  );
+  const overconfidence: OverconfidentFacetDto[] = overconfidenceQuery.data?.facets ?? [];
+  const reentryQuery = useCachedQuery(
+    primaryGoalId ? ["get_reentry_summary", primaryGoalId] : null,
+    () => api.getReentrySummary(primaryGoalId as string),
+    { tags: [TAG.goals, TAG.queue] }
+  );
+  const reentry: ReentrySummaryDto | null = reentryQuery.data?.summary.show ? reentryQuery.data.summary : null;
 
   // F7 no-goal / fresh-vault fallback (§4.5): decay pressure fills the hero slot
   // only when there is no active goal.
-  useEffect(() => {
-    if (hasActiveGoal) { setDecayPressure(null); return; }
-    if (goals == null) return;
-    let alive = true;
-    api
-      .getDecayPressure(null)
-      .then((snap) => { if (alive) setDecayPressure(snap.pressure); })
-      .catch(() => { if (alive) setDecayPressure(null); });
-    return () => { alive = false; };
-  }, [hasActiveGoal, goals]);
+  const decayQuery = useCachedQuery(
+    !hasActiveGoal && goals != null ? ["get_decay_pressure", null] : null,
+    () => api.getDecayPressure(null),
+    { tags: [TAG.goals, TAG.queue] }
+  );
+  const decayPressure: DecayPressureDto | null = hasActiveGoal ? null : decayQuery.data?.pressure ?? null;
 
   const startOverconfidenceProbe = useCallback(
     (facet: OverconfidentFacetDto) => {
@@ -317,18 +334,9 @@ export function TodayScreen({
     return `Today: ${parts.join(", ")}${gap}`;
   }, [items, probeCount, nextGap]);
 
-  useEffect(() => {
-    void refreshQueue();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.sessionId]);
-
   // Foreground mutations (Open questions, Ask overlay, proposal acceptance)
-  // invalidate immediately without waiting for the durable watermark poll.
-  useEffect(
-    () => subscribeQueueChanged(() => void refreshQueue({ force: true })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session?.sessionId]
-  );
+  // reach the cached queue through notifyQueueChanged -> invalidate(queue),
+  // which refetches the mounted query without a subscription here.
 
   // Background authoring may complete without a React action. Poll only the
   // cheap revision token, then rebuild the scheduler queue once on change.
@@ -436,32 +444,25 @@ export function TodayScreen({
     return activeGoals.every((goal) => (goal.practicableItemCount ?? 0) > 0);
   }, [goalPopulation, activeGoals]);
 
+  // The focused item's detail is a guarded read (no budget spend), cached per
+  // item so moving focus back and forth is instant.
+  const focusedPracticeItemId = focusedItem?.practiceItemId ?? null;
+  const detailQuery = useCachedQuery(
+    focusedPracticeItemId && !ended ? ["open_queue_item", focusedPracticeItemId] : null,
+    () => api.openQueueItem(focusedPracticeItemId as string),
+    { tags: [TAG.queue] }
+  );
+  const detail: PracticeItemDetail | null = detailQuery.data ?? null;
   useEffect(() => {
-    if (!focusedItem) {
-      setDetail(null);
-      return;
-    }
-    let cancelled = false;
-    api
-      .openQueueItem(focusedItem.practiceItemId)
-      .then((item) => {
-        if (!cancelled) setDetail(item);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [focusedItem?.practiceItemId, onError]);
+    if (detailQuery.error) onError(detailQuery.error.message);
+  }, [detailQuery.error, onError]);
 
   const finishSession = useCallback(async () => {
     if (!session || ending) return;
     setEnding(true);
     try {
       const summary = await api.endSession(session.sessionId);
-      setQueue(null);
-      setDetail(null);
+      setEnded(true);
       onEndSession(summary);
     } catch (error) {
       onError((error as Error).message);
@@ -482,10 +483,10 @@ export function TodayScreen({
         setFocusedId(flatIds[Math.max(0, index - 1)] ?? null);
         event.preventDefault();
       } else if (["Enter", "l", "ArrowRight"].includes(event.key) && focusedItem) {
-        onOpenPractice(focusedItem.practiceItemId);
+        if (!queueRefreshing) onOpenPractice(focusedItem.practiceItemId);
         event.preventDefault();
       } else if (/^[1-9]$/.test(event.key)) {
-        const target = flatIds[Number(event.key) - 1];
+        const target = queueRefreshing ? undefined : flatIds[Number(event.key) - 1];
         if (target) {
           setFocusedId(target);
           onOpenPractice(target);
@@ -504,42 +505,17 @@ export function TodayScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [finishSession, flatIds, focusedItem, onOpenPractice]);
+  }, [finishSession, flatIds, focusedItem, onOpenPractice, queueRefreshing]);
 
-  async function refreshQueue({ force = false }: { force?: boolean } = {}): Promise<QueueSnapshot | null> {
-    const input = {
-      sessionId: session?.sessionId ?? null,
-      availableMinutes: session?.availableMinutes ?? null,
-      energy: session?.energy ?? null
-    };
-    const key = JSON.stringify(input);
-    const inFlight = queueRequestRef.current;
-    const reuse = !force && inFlight?.key === key;
-    const requestId = reuse ? inFlight.id : queueRequestSeqRef.current + 1;
-    const promise = reuse ? inFlight.promise : api.getTodayQueue(input);
-
-    if (!reuse) {
-      queueRequestSeqRef.current = requestId;
-      queueRequestRef.current = { key, promise, id: requestId };
-    }
-    setQueueLoading(true);
+  // Force a fresh scheduler pass (shares a request already in flight). The
+  // `force` option is kept for call-site compatibility; the cache handles the
+  // mount read itself.
+  async function refreshQueue(_options: { force?: boolean } = {}): Promise<QueueSnapshot | null> {
     try {
-      const next = await promise;
-      if (queueRequestSeqRef.current === requestId) {
-        setQueue(next);
-        setFocusedId(queueItems(next)[0]?.practiceItemId ?? null);
-      }
-      return next;
+      return await queueQuery.refetch();
     } catch (error) {
       onError((error as Error).message);
       return null;
-    } finally {
-      if (queueRequestRef.current?.promise === promise) {
-        queueRequestRef.current = null;
-      }
-      if (queueRequestSeqRef.current === requestId) {
-        setQueueLoading(false);
-      }
     }
   }
 

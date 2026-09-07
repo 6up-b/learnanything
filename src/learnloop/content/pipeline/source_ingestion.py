@@ -191,7 +191,7 @@ def ingest_canonical_source(
     )
     if allow_auto_captions is None:
         allow_auto_captions = vault.config.ingest.allow_auto_captions
-    pdf_config = _resolved_pdf_config(vault.config.ingest.pdf, engine=pdf_engine, use_llm=pdf_use_llm)
+    pdf_config = _legacy_pdf_config(vault.config.ingest.pdf, engine=pdf_engine, use_llm=pdf_use_llm)
     if goal_id is not None:
         _validate_active_goal(vault, goal_id)
 
@@ -582,6 +582,25 @@ def _downgrade_unready_auto_apply(rows: list[dict[str, Any]], vault) -> None:
         target = row["payload"].get("target") or row["payload"].get("target_concept_id")
         if source not in vault.concepts or target not in vault.concepts:
             row["_auto_apply"] = False
+
+
+def _legacy_pdf_config(
+    base: PdfIngestConfig,
+    *,
+    engine: str | None,
+    use_llm: bool | None,
+) -> PdfIngestConfig:
+    """The PDF settings for this one-shot pipeline, which only runs local extractors.
+
+    ``[ingest.pdf] engine = "native"`` belongs to the durable import job (the
+    sidecar chains this pipeline after it and hands over the native IR as
+    ``ir_markdown``); here it degrades to the local auto engine instead of
+    failing the chained job over an engine this path was never going to use."""
+
+    resolved = _resolved_pdf_config(base, engine=engine, use_llm=use_llm)
+    if resolved.engine != "native":
+        return resolved
+    return _resolved_pdf_config(base, engine="auto", use_llm=use_llm)
 
 
 def _resolved_pdf_config(

@@ -10,6 +10,8 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   AppendResultDto,
   ExamReadinessReportDto,
@@ -82,12 +84,33 @@ export function MaintenanceScreen({
   onOpenAdjudication?: () => void;
 }) {
   const [subjectId, setSubjectId] = useState<string | null>(subjects[0]?.id ?? null);
-  const [notices, setNotices] = useState<MaintenanceNoticeDto[]>([]);
-  const [conflicts, setConflicts] = useState<SourceConflictDto[]>([]);
-  const [readiness, setReadiness] = useState<ExamReadinessReportDto | null>(null);
-  const [sourceSets, setSourceSets] = useState<SourceSetSummaryDto[]>([]);
-  const [measurementHealth, setMeasurementHealth] = useState<MeasurementHealthDto | null>(null);
-  const [adjudicationOwed, setAdjudicationOwed] = useState<number | null>(null);
+  // Every read goes through the query cache: returning to Maintain repaints
+  // the last feed at once and the six RPCs run as background revalidation.
+  // Actions on this screen no longer reload by hand — their mutation wrappers
+  // invalidate the `maintenance` (and related) tags, which refetches here.
+  const feedQuery = useCachedQuery(["maintenance_feed", subjectId], () => api.getMaintenanceFeed(subjectId), {
+    tags: [TAG.maintenance]
+  });
+  const conflictsQuery = useCachedQuery(["list_source_conflicts", "open"], () => api.listSourceConflicts("open"), {
+    tags: [TAG.maintenance, TAG.sources]
+  });
+  const readinessQuery = useCachedQuery(["exam_readiness", subjectId], () => api.getExamReadiness(subjectId), {
+    tags: [TAG.maintenance, TAG.goals]
+  });
+  const sourceSetsQuery = useCachedQuery(["list_source_sets"], () => api.listSourceSets(), { tags: [TAG.sources] });
+  const healthQuery = useCachedQuery(["get_measurement_health"], () => api.getMeasurementHealth(), {
+    tags: [TAG.maintenance]
+  });
+  const adjudicationQuery = useCachedQuery(["adjudication_queue", { limit: 0 }], () => api.adjudicationQueue({ limit: 0 }), {
+    tags: [TAG.maintenance]
+  });
+  const notices: MaintenanceNoticeDto[] = feedQuery.data?.notices ?? [];
+  const conflicts: SourceConflictDto[] = conflictsQuery.data?.conflicts ?? [];
+  const readiness: ExamReadinessReportDto | null = readinessQuery.data?.report ?? null;
+  const sourceSets: SourceSetSummaryDto[] = sourceSetsQuery.data?.sourceSets ?? [];
+  const measurementHealth: MeasurementHealthDto | null = healthQuery.data ?? null;
+  // The adjudication count is decoration: a failed read shows nothing rather than an error.
+  const adjudicationOwed: number | null = adjudicationQuery.data?.total ?? null;
   const [busy, setBusy] = useState(false);
   const [generatingPractice, setGeneratingPractice] = useState(false);
   const [practiceRun, setPracticeRun] = useState<GenerateCommissioningPracticeResult | null>(null);
@@ -104,26 +127,27 @@ export function MaintenanceScreen({
     [onError]
   );
 
-  const load = useCallback(() => {
-    api.getMaintenanceFeed(subjectId).then((r) => setNotices(r.notices)).catch(reportError);
-    api.listSourceConflicts("open").then((r) => setConflicts(r.conflicts)).catch(reportError);
-    api.getExamReadiness(subjectId).then((r) => setReadiness(r.report)).catch(reportError);
-    api.listSourceSets().then((r) => setSourceSets(r.sourceSets)).catch(reportError);
-    api.getMeasurementHealth().then(setMeasurementHealth).catch(reportError);
-    api
-      .adjudicationQueue({ limit: 0 })
-      .then((queue) => setAdjudicationOwed(queue.total))
-      .catch(() => setAdjudicationOwed(null));
-  }, [subjectId, reportError]);
+  // Manual refresh: force every read, sharing any request already in flight.
+  const reload = () => {
+    void Promise.allSettled([
+      feedQuery.refetch(),
+      conflictsQuery.refetch(),
+      readinessQuery.refetch(),
+      sourceSetsQuery.refetch(),
+      healthQuery.refetch(),
+      adjudicationQuery.refetch()
+    ]);
+  };
 
+  const loadError =
+    feedQuery.error ?? conflictsQuery.error ?? readinessQuery.error ?? sourceSetsQuery.error ?? healthQuery.error;
   useEffect(() => {
-    load();
-  }, [load]);
+    if (loadError) reportError(loadError);
+  }, [loadError, reportError]);
 
   const noticeAction = async (notice: MaintenanceNoticeDto, action: "dismiss" | "snooze") => {
     try {
       await api.maintenanceNoticeAction(notice.id, action);
-      load();
     } catch (err) {
       reportError(err);
     }
@@ -136,7 +160,6 @@ export function MaintenanceScreen({
   ) => {
     try {
       await api.resolveEdgeDirection({ edgeId, resolution, rationale });
-      load();
     } catch (err) {
       reportError(err);
     }
@@ -148,7 +171,6 @@ export function MaintenanceScreen({
     try {
       const res = await api.appendSource({ sourceSetId });
       setAppend(res.append);
-      load();
     } catch (err) {
       reportError(err);
     } finally {
@@ -166,7 +188,6 @@ export function MaintenanceScreen({
         resolution = { canonicalNotation: canonical, alternateNotation: alternate };
       }
       await api.resolveSourceConflict({ conflictId: conflict.id, resolutionKind: kind, resolution });
-      load();
     } catch (err) {
       reportError(err);
     }
@@ -178,7 +199,6 @@ export function MaintenanceScreen({
     setBusy(true);
     try {
       await api.scheduleCertificationColdProbes();
-      load();
     } catch (err) {
       reportError(err);
     } finally {
@@ -193,7 +213,6 @@ export function MaintenanceScreen({
     const reason = needsReviewer ? window.prompt("Review reason (optional)?")?.trim() || null : null;
     try {
       await api.transitionCausalProbeCandidate({ candidateId, toStatus, reviewer, reason });
-      load();
     } catch (err) {
       reportError(err);
     }
@@ -228,7 +247,6 @@ export function MaintenanceScreen({
     setBusy(true);
     try {
       await api.applyIntegrationBackfill();
-      load();
     } catch (err) {
       reportError(err);
     } finally {
@@ -247,7 +265,7 @@ export function MaintenanceScreen({
             onChange={(v) => setSubjectId(v || null)}
           />
         ) : null}
-        <button style={btn} onClick={load}>↻ refresh</button>
+        <button style={btn} onClick={reload}>↻ refresh</button>
         {onOpenAdjudication ? (
           <button style={btn} onClick={onOpenAdjudication} title="Judge queued diagnoses (learnloop diagnosis adjudicate)">
             adjudicate diagnoses{adjudicationOwed == null ? "" : ` · ${adjudicationOwed} owed`}

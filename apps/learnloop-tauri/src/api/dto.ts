@@ -59,6 +59,9 @@ export interface SettingsProviderDto {
   model: string | null;
   baseUrl: string | null;
   apiKeyEnv: string | null;
+  // Media modalities the profile declares it accepts natively ([ai.providers.*]
+  // input_modalities). Config-declared, never probed: this is what ingestion trusts.
+  inputModalities: string[];
 }
 
 export interface SettingsAiDto {
@@ -105,8 +108,45 @@ export interface IngestProviderLimitsDto {
   maxOutputTokens: number | null;
 }
 
+export type AudioMode = "transcription" | "native";
+
+// The sidecar's per-modality readiness judgement (learnloop.ai.native_media):
+// the same function the import pipeline uses, so the UI never claims a route
+// the import would reject.
+export interface NativeModalityStateDto {
+  modality: string;
+  requested: boolean;
+  task: string;
+  providerName: string | null;
+  providerType: string | null;
+  model: string | null;
+  declared: boolean;
+  ready: boolean;
+  reason: string | null;
+  message: string;
+  maxMb: number;
+}
+
+export interface CatalogStateDto {
+  cached: boolean;
+  fetchedAt: string | null;
+  stale: boolean;
+  path: string;
+}
+
+export interface SettingsNativeIngestDto {
+  modalities: NativeModalityStateDto[];
+  fallbackWhenUnavailable: boolean;
+  maxPdfMb: number;
+  maxAudioMb: number;
+  knownModalities: string[];
+  catalog: CatalogStateDto;
+}
+
 export interface SettingsIngestDto {
-  nativeMultimodal: boolean;
+  pdfEngine: PdfEngine;
+  audioMode: AudioMode;
+  native: SettingsNativeIngestDto;
   transcriptionProvider: string;
   transcriptionModel: string;
   transcriptionBaseUrl: string;
@@ -121,11 +161,54 @@ export interface SettingsDto {
   ai: SettingsAiDto;
   openrouter: OpenrouterKeyStateDto;
   ingest: SettingsIngestDto;
+  animation: SettingsAnimationDto;
   health?: RuntimeHealth;
 }
 
+// `[animation]` render settings. Bounds are served by the backend so the UI
+// validates with the same numbers the handler enforces.
+export type AnimationRenderer = "manim" | "video_model";
+
+// Readiness of the video-model renderer: a routed OpenRouter video profile
+// with a model slug and a key. Computed by the sidecar without network.
+export interface SettingsVideoDto {
+  ready: boolean;
+  provider: string | null;
+  model: string | null;
+  reason: string | null;
+  maxShots: number;
+  timeoutSeconds: number;
+  resolution: string;
+}
+
+export interface SettingsAnimationDto {
+  enabled: boolean;
+  renderer: AnimationRenderer;
+  rendererOptions: string[];
+  video: SettingsVideoDto;
+  quality: string;
+  qualityOptions: string[];
+  minDurationSeconds: number;
+  maxDurationSeconds: number;
+  timeoutSeconds: number;
+  durationBounds: { min: number; max: number };
+  timeoutBounds: { min: number; max: number };
+}
+
+export interface UpdateAnimationSettingsInput {
+  renderer?: AnimationRenderer;
+  videoMaxShots?: number;
+  quality?: string;
+  maxDurationSeconds?: number;
+  timeoutSeconds?: number;
+}
+
 export interface UpdateIngestSettingsInput {
-  nativeMultimodal?: boolean;
+  pdfEngine?: PdfEngine;
+  audioMode?: AudioMode;
+  nativeFallbackWhenUnavailable?: boolean;
+  nativeMaxPdfMb?: number;
+  nativeMaxAudioMb?: number;
   transcriptionProvider?: string;
   transcriptionModel?: string;
   transcriptionBaseUrl?: string;
@@ -133,6 +216,31 @@ export interface UpdateIngestSettingsInput {
   budgets?: Partial<IngestBudgetsDto>;
   providerContextTokens?: number;
   providerMaxOutputTokens?: number;
+}
+
+export interface DetectProviderCapabilitiesInput {
+  provider: string;
+  refresh?: boolean;
+}
+
+export interface ProviderCapabilitiesDto {
+  version: number;
+  provider: string;
+  providerType: string;
+  model: string | null;
+  declared: string[];
+  // null when the model is not in the catalog (or the catalog was unavailable).
+  detected: string[] | null;
+  modelKnown: boolean;
+  source: "network" | "cache" | "unavailable";
+  fetchedAt: string | null;
+  stale: boolean;
+  message: string;
+}
+
+export interface UpdateProviderModalitiesInput {
+  provider: string;
+  inputModalities: string[];
 }
 
 export interface TranscriptionKeyResult {
@@ -144,7 +252,14 @@ export interface TranscriptionKeyResult {
 
 export interface AnimationRuntimeDto {
   enabled: boolean;
-  manimAvailable: boolean;
+  renderer: AnimationRenderer;
+  videoProvider: string | null;
+  videoModel: string | null;
+  videoReady: boolean;
+  videoReason: string | null;
+  videoMaxShots: number;
+  // null when the probe was skipped (the video renderer never runs manim).
+  manimAvailable: boolean | null;
   manimVersion: string | null;
   manimReason: string | null;
   provider: string;
@@ -152,8 +267,25 @@ export interface AnimationRuntimeDto {
   timeoutSeconds: number;
 }
 
+// One storyboard shot as authored (prompt, requested length, on-screen caption).
+export interface StoryboardShotDto {
+  prompt: string;
+  durationSeconds: number | null;
+  caption: string;
+}
+
+export interface StoryboardDto {
+  promptVersion?: string;
+  shots: StoryboardShotDto[];
+  jobs?: Array<{ jobId: string; status: string; cost: number | null }>;
+  totalCost?: number;
+}
+
 export interface ConceptAnimationDto {
   animationId: string;
+  renderer: AnimationRenderer;
+  storyboard: StoryboardDto | null;
+  videoJobIds: string[];
   conceptId: string;
   learningObjectId: string | null;
   status: string;

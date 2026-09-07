@@ -96,6 +96,13 @@ def test_auto_engine_falls_back_to_pypdf_when_marker_missing(monkeypatch):
     assert not extraction.used_llm
 
 
+def test_native_engine_is_rejected_by_legacy_extractor():
+    # The one-shot CLI extractor has no chat client: an explicit "native"
+    # choice must not silently become marker/pypdf.
+    with pytest.raises(PdfExtractionError, match="native"):
+        extract_pdf_markdown(_make_pdf_bytes(["text"]), config=PdfIngestConfig(engine="native"))
+
+
 def test_explicit_marker_engine_requires_marker(monkeypatch):
     _hide_marker(monkeypatch)
     config = PdfIngestConfig(engine="marker")

@@ -23,24 +23,47 @@ consent copy.
 from __future__ import annotations
 
 import ast
+import importlib.util
+import json
+import logging
 import shutil
 import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
+from learnloop.ai.errors import AIProviderUnavailable, VideoGenerationFailed, VideoGenerationTimeout
+from learnloop.ai.providers.openrouter_video import (
+    VideoGenerationRequest,
+    clamp_aspect_ratio,
+    clamp_duration,
+    clamp_resolution,
+)
 from learnloop.ai.transport import (
     STRUCTURED_COMPLETION,
+    VIDEO_GENERATION,
     StructuredTransport,
     execute_structured_operation,
 )
 from learnloop.content.authoring.ai_contracts import (
+    CONCEPT_ANIMATION_SCENE_SCAFFOLD,
+    VIDEO_STORYBOARD_PROMPT_VERSION,
     ConceptAnimationContext,
     ManimAnimation,
+    VideoStoryboard,
+    VideoStoryboardContext,
     concept_animation_prompt,
+    video_storyboard_prompt,
 )
+from learnloop.content.authoring.animation_media import (
+    concat_clips,
+    probe_duration_seconds,
+    remux_faststart,
+)
+
+logger = logging.getLogger(__name__)
 
 ALLOWED_IMPORTS = frozenset({"manim", "numpy", "math"})
 ALLOWED_SCENE_BASES = {"Scene", "MovingCameraScene", "ThreeDScene", "ZoomedScene"}
@@ -52,6 +75,18 @@ _FORBIDDEN_NAMES = frozenset(
     }
 )
 _STDERR_TAIL_CHARS = 8000
+# manim quality flag -> (resolution, fps); the prompt cites these for layout.
+_QUALITY_PRESETS: dict[str, tuple[str, int]] = {
+    "ql": ("854x480", 15),
+    "qm": ("1280x720", 30),
+    "qh": ("1920x1080", 60),
+}
+# Static pacing tolerance above the configured maximum before the lint objects.
+_PACING_OVER_SLACK_SECONDS = 15.0
+
+
+def quality_preset(quality: str | None) -> tuple[str, int]:
+    return _QUALITY_PRESETS.get((quality or "qm").lower(), _QUALITY_PRESETS["qm"])
 
 
 class ConceptAnimationError(ValueError):
@@ -71,6 +106,51 @@ def author_concept_animation(
         prompt=concept_animation_prompt(context),
         result_model=ManimAnimation,
     )
+
+
+def author_video_storyboard(
+    client: StructuredTransport, context: VideoStoryboardContext
+) -> VideoStoryboard:
+    """Author the shot list a text-to-video model will be briefed with."""
+
+    return execute_structured_operation(
+        client,
+        purpose="video_storyboard",
+        prompt=video_storyboard_prompt(context),
+        result_model=VideoStoryboard,
+    )
+
+
+def video_generation_readiness(config: Any, vault_root: Path) -> dict[str, Any]:
+    """Can ``[animation] renderer = "video_model"`` run? Config + key, no network.
+
+    The route is read directly rather than through provider_for_task: a
+    LEARNLOOP_AI_PROVIDER override names a chat provider and must never
+    redirect billable video jobs."""
+
+    from learnloop.ai.runtime import check_ai_runtime
+
+    route = (config.ai.routing.video_generation or "").strip()
+    profile = config.ai.providers.get(route) if route else None
+    model = profile.model if profile is not None else None
+
+    def unready(reason: str) -> dict[str, Any]:
+        return {"ready": False, "provider": route or None, "model": model, "reason": reason}
+
+    if not route:
+        return unready("no video model chosen (Settings → Animation)")
+    if profile is None:
+        return unready(f"video route {route!r} is not a configured provider")
+    if profile.type.lower() != "openrouter":
+        return unready(f"video route {route!r} must be an OpenRouter profile")
+    if not model or "/" not in model:
+        return unready('video model slug missing (an OpenRouter slug like "google/veo-3.1")')
+    if importlib.util.find_spec("av") is None:
+        return unready("PyAV (the `av` package) is not installed; stitching shots needs it (uv sync)")
+    report = check_ai_runtime(vault_root, config, provider_name=route)
+    if not report.ready:
+        return unready(report.message or f"video provider {route!r} is {report.status}")
+    return {"ready": True, "provider": route, "model": model, "reason": None}
 
 
 def validate_scene_code(code: str) -> tuple[str | None, list[str]]:
@@ -293,6 +373,213 @@ def _sandboxed_command(command: list[str], workdir: Path, bwrap: str) -> list[st
     return [*args, "--", *command]
 
 
+def _combined_scene_videos(media_root: Path, scene_class: str) -> list[Path]:
+    """The combined scene mp4(s) under manim's media dir, oldest first.
+
+    Manim writes one fragment per ``self.play`` under ``partial_movie_files/``
+    beside the combined ``<SceneClass>.mp4``. A plain ``sorted(glob)[-1]``
+    returns a fragment (``partial_movie_files`` sorts after any capitalised
+    class name), which is how animations used to be stored as their last
+    fragment only. Fragments are excluded and the file named after the scene
+    class is preferred over any other combined output."""
+
+    candidates = [
+        path
+        for path in media_root.glob("videos/**/*.mp4")
+        if "partial_movie_files" not in path.parts
+    ]
+    named = [path for path in candidates if path.stem == scene_class]
+    return sorted(named or candidates, key=lambda path: path.stat().st_mtime)
+
+
+# ---------------------------------------------------------------------------
+# Static pacing estimate: the sum of self.play run_times and self.wait pauses
+# in construct(), following helper methods and constant range() loops. Rough
+# by design (rate functions and data-dependent loops are ignored); it exists
+# to catch a 3-second "explainer", not to time a scene.
+# ---------------------------------------------------------------------------
+
+
+def _const_number(node: ast.AST, env: dict[str, float]) -> float | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)) and not isinstance(node.value, bool):
+        return float(node.value)
+    if isinstance(node, ast.Name):
+        return env.get(node.id)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        inner = _const_number(node.operand, env)
+        return -inner if inner is not None else None
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)):
+        left = _const_number(node.left, env)
+        right = _const_number(node.right, env)
+        if left is None or right is None:
+            return None
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        return left / right if right else None
+    return None
+
+
+def _scene_base_name(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _self_call_name(call: ast.Call) -> str | None:
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "self":
+        return func.attr
+    return None
+
+
+def estimate_scene_duration(code: str) -> float | None:
+    """Seconds of animation implied by the Scene subclass's construct(), or None."""
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    scene = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and any(_scene_base_name(base) in ALLOWED_SCENE_BASES for base in node.bases)
+        ),
+        None,
+    )
+    if scene is None:
+        return None
+    methods = {node.name: node for node in scene.body if isinstance(node, ast.FunctionDef)}
+    if "construct" not in methods:
+        return None
+
+    def call_cost(call: ast.Call, env: dict[str, float], depth: int) -> float:
+        name = _self_call_name(call)
+        if name is None:
+            return 0.0
+        keywords = {kw.arg: kw.value for kw in call.keywords if kw.arg}
+        if name == "wait":
+            source = call.args[0] if call.args else keywords.get("duration")
+            if source is None:
+                return 1.0
+            value = _const_number(source, env)
+            return value if value is not None else 1.0
+        if name == "play":
+            if "run_time" not in keywords:
+                return 1.0
+            value = _const_number(keywords["run_time"], env)
+            return value if value is not None else 1.0
+        if name in methods and depth < 3:
+            overrides = {
+                key: value
+                for key, node in keywords.items()
+                if (value := _const_number(node, env)) is not None
+            }
+            return method_cost(name, overrides, depth + 1)
+        return 0.0
+
+    def statements_cost(statements: list[ast.stmt], env: dict[str, float], depth: int) -> float:
+        total = 0.0
+        for statement in statements:
+            if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue
+            if isinstance(statement, ast.For):
+                repeats = 1.0
+                iterator = statement.iter
+                if (
+                    isinstance(iterator, ast.Call)
+                    and isinstance(iterator.func, ast.Name)
+                    and iterator.func.id == "range"
+                    and iterator.args
+                ):
+                    bounds = [_const_number(arg, env) for arg in iterator.args[:2]]
+                    if all(bound is not None for bound in bounds):
+                        start = bounds[0] if len(bounds) == 2 else 0.0
+                        repeats = max(0.0, float(bounds[-1]) - float(start))
+                total += repeats * statements_cost(statement.body, env, depth)
+                total += statements_cost(statement.orelse, env, depth)
+                continue
+            if isinstance(statement, (ast.While, ast.If)):
+                total += statements_cost(statement.body, env, depth)
+                total += statements_cost(statement.orelse, env, depth)
+                continue
+            if isinstance(statement, ast.With):
+                total += statements_cost(statement.body, env, depth)
+                continue
+            if isinstance(statement, ast.Try):
+                total += statements_cost(statement.body, env, depth)
+                for handler in statement.handlers:
+                    total += statements_cost(handler.body, env, depth)
+                total += statements_cost(statement.finalbody, env, depth)
+                continue
+            for node in ast.walk(statement):
+                if isinstance(node, ast.Call):
+                    total += call_cost(node, env, depth)
+        return total
+
+    def method_cost(name: str, overrides: dict[str, float], depth: int) -> float:
+        function = methods[name]
+        env: dict[str, float] = {}
+        positional = function.args.args[1:] if function.args.args else []
+        defaults = function.args.defaults
+        for param, default in zip(positional[len(positional) - len(defaults):], defaults):
+            value = _const_number(default, env)
+            if value is not None:
+                env[param.arg] = value
+        for param, default in zip(function.args.kwonlyargs, function.args.kw_defaults):
+            if default is None:
+                continue
+            value = _const_number(default, env)
+            if value is not None:
+                env[param.arg] = value
+        env.update(overrides)
+        return statements_cost(function.body, env, depth)
+
+    return round(method_cost("construct", {}, 0), 2)
+
+
+def pacing_band(config: Any) -> tuple[int, int]:
+    """The (min, max) running time the prompt targets and the lint enforces.
+
+    A vault written before ``min_duration_seconds`` existed can carry a
+    ``max_duration_seconds`` below the new default minimum; the minimum yields
+    so the model is never asked for "between 30 and 25 seconds"."""
+
+    minimum = int(config.min_duration_seconds)
+    maximum = int(config.max_duration_seconds)
+    if maximum > 0:
+        minimum = min(minimum, maximum)
+    return minimum, maximum
+
+
+def lint_scene_pacing(code: str, *, min_seconds: float, max_seconds: float) -> list[str]:
+    """Human-readable pacing violations for a repair round-trip (empty = fine)."""
+
+    if min_seconds <= 0 and max_seconds <= 0:
+        return []
+    estimate = estimate_scene_duration(code)
+    if estimate is None:
+        return []
+    if min_seconds > 0 and estimate < min_seconds:
+        return [
+            f"estimated running time {estimate:.0f}s is below the {min_seconds:.0f}s minimum: "
+            "add beats and longer self.wait() pauses"
+        ]
+    if max_seconds > 0 and estimate > max_seconds + _PACING_OVER_SLACK_SECONDS:
+        return [
+            f"estimated running time {estimate:.0f}s exceeds the {max_seconds:.0f}s maximum: "
+            "cut beats or shorten run_time/wait values"
+        ]
+    return []
+
+
 def render_scene(
     scene_code: str,
     scene_class: str,
@@ -362,9 +649,14 @@ def render_scene(
         stderr_tail = (result.stderr or b"").decode("utf-8", errors="replace")[-_STDERR_TAIL_CHARS:]
         if result.returncode != 0:
             return RenderResult(False, None, stderr_tail, result.returncode)
-        videos = sorted((workdir / "media").glob("videos/**/*.mp4"))
+        videos = _combined_scene_videos(workdir / "media", scene_class)
         if not videos:
-            return RenderResult(False, None, stderr_tail or "manim produced no mp4", result.returncode)
+            return RenderResult(
+                False,
+                None,
+                stderr_tail or "manim produced no combined mp4 (only partial movie files)",
+                result.returncode,
+            )
         return RenderResult(True, videos[-1].read_bytes(), stderr_tail, result.returncode)
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
@@ -402,6 +694,11 @@ def request_concept_animation(
         )
     if concept_id not in vault.concepts:
         raise ConceptAnimationError("concept_not_found", f"Concept {concept_id!r} does not exist.")
+    if config.renderer == "video_model":
+        # Video jobs are billed on submission: refuse before a row exists.
+        video = video_generation_readiness(vault.config, vault.root)
+        if not video["ready"]:
+            raise ConceptAnimationError("video_model_unconfigured", video["reason"] or "video model not ready")
 
     pending = repository.pending_concept_animations(concept_id)
     live = [row for row in pending if not repository.concept_animation_batch_dead(row.get("batch_id"))]
@@ -425,12 +722,121 @@ def request_concept_animation(
             "concept_id": concept_id,
             "learning_object_id": learning_object_id,
             "status": "queued",
-            "prompt_version": CONCEPT_ANIMATION_PROMPT_VERSION,
+            "prompt_version": (
+                VIDEO_STORYBOARD_PROMPT_VERSION
+                if config.renderer == "video_model"
+                else CONCEPT_ANIMATION_PROMPT_VERSION
+            ),
             "quality": config.quality,
+            "renderer": config.renderer,
         },
         clock=clock,
     )
     return {"animation_id": animation_id, "concept_id": concept_id, "status": "queued"}
+
+
+def _learning_object_excerpts(
+    vault: Any, concept_id: str, learning_object_id: str | None, *, limit: int = 4
+) -> list[dict[str, str]]:
+    """Title + summary of a few learning objects — never raw source text."""
+
+    learning_objects: list[dict[str, str]] = []
+    for lo_id, lo in sorted(getattr(vault, "learning_objects", {}).items()):
+        if getattr(lo, "concept", None) != concept_id:
+            continue
+        if learning_object_id and lo_id != learning_object_id:
+            continue
+        learning_objects.append(
+            {"title": getattr(lo, "title", lo_id), "summary": getattr(lo, "summary", "") or ""}
+        )
+        if len(learning_objects) >= limit:
+            break
+    return learning_objects
+
+
+def build_video_storyboard_context(
+    vault: Any,
+    *,
+    concept_id: str,
+    learning_object_id: str | None,
+    constraints: Any = None,
+    video_model: str = "",
+    repair: dict | None = None,
+) -> VideoStoryboardContext:
+    """Prompt context for the storyboard: concept material plus the video
+    model's real duration constraints, so shots are asked for in lengths the
+    model can produce."""
+
+    concept = vault.concepts[concept_id]
+    config = vault.config.animation
+    durations = sorted(int(v) for v in getattr(constraints, "supported_durations", ()) or ())
+    max_shots = max(1, int(config.video_max_shots))
+    return VideoStoryboardContext(
+        concept_id=concept_id,
+        concept_title=getattr(concept, "title", concept_id),
+        concept_description=getattr(concept, "description", "") or "",
+        learning_objects=_learning_object_excerpts(vault, concept_id, learning_object_id),
+        min_shots=min(2, max_shots),
+        max_shots=max_shots,
+        shot_durations=durations,
+        min_shot_seconds=durations[0] if durations else 4,
+        max_shot_seconds=durations[-1] if durations else 12,
+        max_total_seconds=config.max_duration_seconds,
+        video_model=video_model,
+        repair=repair,
+    )
+
+
+def _loads_json(raw: Any, default: Any) -> Any:
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def clamped_shot_seconds(
+    storyboard: VideoStoryboard, context: VideoStoryboardContext, constraints: Any
+) -> list[int | None]:
+    """The per-shot lengths that will actually be requested from the model."""
+
+    return [
+        clamp_duration(shot.duration_seconds, max_seconds=context.max_shot_seconds, constraints=constraints)
+        if shot.duration_seconds > 0
+        else None
+        for shot in storyboard.shots
+    ]
+
+
+def storyboard_violations(
+    storyboard: VideoStoryboard, context: VideoStoryboardContext, *, constraints: Any = None
+) -> list[str]:
+    """Deterministic checks a storyboard must pass before any shot is billed.
+
+    The total is checked on the *clamped* lengths: a model with a fixed
+    duration list rounds a too-short request up, and that is what gets billed."""
+
+    violations: list[str] = []
+    shots = storyboard.shots
+    if len(shots) < context.min_shots or len(shots) > context.max_shots:
+        violations.append(
+            f"{len(shots)} shot(s) returned; the storyboard needs between {context.min_shots} and "
+            f"{context.max_shots}"
+        )
+    for index, shot in enumerate(shots, start=1):
+        if len(shot.prompt.strip()) < 20:
+            violations.append(f"shot {index} has no usable prompt")
+        if shot.duration_seconds <= 0:
+            violations.append(f"shot {index} has no duration_seconds")
+    total = sum(seconds or 0 for seconds in clamped_shot_seconds(storyboard, context, constraints))
+    if total > context.max_total_seconds:
+        allowed = ", ".join(str(value) for value in context.shot_durations) or "any"
+        violations.append(
+            f"shots total {total}s once rounded to the model's supported lengths ({allowed}); "
+            f"the storyboard may run at most {context.max_total_seconds}s"
+        )
+    return violations
 
 
 def build_animation_context(
@@ -441,26 +847,54 @@ def build_animation_context(
 
     concept = vault.concepts[concept_id]
     config = vault.config.animation
-    learning_objects = []
-    for lo_id, lo in sorted(getattr(vault, "learning_objects", {}).items()):
-        if getattr(lo, "concept", None) != concept_id:
-            continue
-        if learning_object_id and lo_id != learning_object_id:
-            continue
-        learning_objects.append(
-            {"title": getattr(lo, "title", lo_id), "summary": getattr(lo, "summary", "") or ""}
-        )
-        if len(learning_objects) >= 4:
-            break
+    learning_objects = _learning_object_excerpts(vault, concept_id, learning_object_id)
     return ConceptAnimationContext(
         concept_id=concept_id,
         concept_title=getattr(concept, "title", concept_id),
         concept_description=getattr(concept, "description", "") or "",
         learning_objects=learning_objects,
-        max_duration_seconds=config.max_duration_seconds,
+        min_duration_seconds=pacing_band(config)[0],
+        max_duration_seconds=pacing_band(config)[1],
         latex_available=config.latex_enabled,
+        resolution=quality_preset(config.quality)[0],
+        fps=quality_preset(config.quality)[1],
+        scene_scaffold=CONCEPT_ANIMATION_SCENE_SCAFFOLD,
         repair=repair,
     )
+
+
+def _store_video(
+    repository: Any, vault_root: Path, animation_id: str, video_bytes: bytes, clock: Any, **fields: Any
+) -> dict[str, Any]:
+    """Remux, content-address, write, and mark the row completed (shared by both renderers)."""
+
+    import hashlib
+
+    from learnloop.clock import utc_now_iso
+    from learnloop.vault.paths import animation_video_path
+
+    # The hash names the STORED bytes: remuxed for streaming playback, so a
+    # re-render of byte-identical output still dedupes.
+    video_bytes = remux_faststart(video_bytes)
+    digest = "sha256:" + hashlib.sha256(video_bytes).hexdigest()
+    video_path = animation_video_path(vault_root, digest)
+    if not video_path.is_file():
+        video_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = video_path.with_name(video_path.name + ".tmp")
+        tmp.write_bytes(video_bytes)
+        tmp.replace(video_path)
+    repository.update_concept_animation(
+        animation_id,
+        status="completed",
+        video_hash=digest,
+        video_file_name=video_path.name,
+        duration_seconds=probe_duration_seconds(video_bytes),
+        render_stderr=None,
+        completed_at=utc_now_iso(clock),
+        clock=clock,
+        **fields,
+    )
+    return repository.concept_animation(animation_id)
 
 
 def generate_concept_animation(
@@ -471,34 +905,39 @@ def generate_concept_animation(
     repository: Any = None,
     renderer: Any = None,
     clock: Any = None,
+    video_client: Any = None,
+    report: Callable[[str, str], None] | None = None,
+    cancellation: tuple[type[BaseException], ...] = (),
 ) -> dict[str, Any]:
     """The durable-job body: generate -> validate -> render -> store.
 
-    One corrective LLM round-trip on validator violations, one stderr repair
-    round-trip on render failure (when [animation] auto_repair). Any
-    unexpected exception marks the row failed before re-raising — a row never
-    wedges in a non-terminal state."""
-
-    import hashlib
+    manim rows: one corrective LLM round-trip on validator violations, one
+    stderr repair round-trip on render failure (when [animation] auto_repair).
+    video_model rows: storyboard -> one OpenRouter job per shot -> stitch; a
+    row interrupted while its shots were generating resumes from the
+    persisted job ids instead of billing a second storyboard.
+    ``report(phase, message)`` heartbeats the job lease and may raise one of
+    ``cancellation`` to stop: the row is then marked cancelled and the
+    exception re-raised. Any other exception marks the row failed before
+    re-raising — a row never wedges in a non-terminal state."""
 
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
-    from learnloop.vault.paths import VaultPaths, animation_video_path
+    from learnloop.vault.paths import VaultPaths
 
     vault = load_vault(root)
     repository = repository or Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     row = repository.concept_animation(animation_id)
     if row is None:
         raise ConceptAnimationError("animation_not_found", f"Animation {animation_id!r} does not exist.")
-    if row["status"] not in ("queued", "generating"):
+    use_video_model = (row.get("renderer") or "manim") == "video_model"
+    resumable = use_video_model and row["status"] == "rendering" and bool(row.get("video_job_ids"))
+    if row["status"] not in ("queued", "generating") and not resumable:
         return row  # idempotent re-entry after a crash/retry
 
     config = vault.config.animation
+    say = report or (lambda phase, message: None)
     render = renderer or render_scene
-    # Resolve the manim interpreter once: explicit override → dedicated isolated
-    # venv → the ambient env the app launched from (conda/venv). Passed to every
-    # render call; test-injected renderers ignore it via **kwargs.
-    manim_command = resolve_manim_command(config, vault.root)
 
     def _fail(
         stage: str, reason: str, *, stderr: str | None = None, repair_attempted: bool | None = None
@@ -516,11 +955,30 @@ def generate_concept_animation(
         return repository.concept_animation(animation_id)
 
     try:
+        if use_video_model:
+            return _generate_with_video_model(
+                vault,
+                client,
+                video_client,
+                animation_id=animation_id,
+                row=row,
+                repository=repository,
+                config=config,
+                clock=clock,
+                say=say,
+                fail=_fail,
+            )
         if not client.supports(STRUCTURED_COMPLETION):
             return _fail(
                 "generation",
                 "the configured provider does not support animation authoring",
             )
+        # Resolve the manim interpreter once: explicit override → dedicated
+        # isolated venv → the ambient env the app launched from (conda/venv).
+        # Passed to every render call; test-injected renderers ignore it via
+        # **kwargs. Only the manim renderer pays for this (it may provision a
+        # venv).
+        manim_command = resolve_manim_command(config, vault.root)
         repository.update_concept_animation(
             animation_id,
             status="generating",
@@ -543,7 +1001,9 @@ def generate_concept_animation(
         )
 
         scene_class, violations = validate_scene_code(animation.scene_code)
+        repaired_once = False
         if violations:
+            repaired_once = True
             # One corrective round-trip naming the exact violations.
             repair_context = build_animation_context(
                 vault,
@@ -565,7 +1025,44 @@ def generate_concept_animation(
                 return _fail("validation", "; ".join(violations))
         scene_class = scene_class or animation.scene_class
 
+        # Pacing is a soft gate: a scene that comes in far too short gets one
+        # round-trip (when no repair has been spent yet), then renders as is.
+        # The round-trip can only improve things: a repaired scene that fails
+        # the security validator is discarded and the original (valid) scene
+        # renders instead of failing the job over pacing.
+        min_seconds, max_seconds = pacing_band(config)
+        pacing = lint_scene_pacing(animation.scene_code, min_seconds=min_seconds, max_seconds=max_seconds)
+        if pacing and not repaired_once:
+            repaired_once = True
+            repository.update_concept_animation(animation_id, repair_attempted=1, clock=clock)
+            repair_context = build_animation_context(
+                vault,
+                concept_id=row["concept_id"],
+                learning_object_id=row.get("learning_object_id"),
+                repair={"previous_code": animation.scene_code, "violations": pacing},
+            )
+            repaired = author_concept_animation(client, repair_context)
+            repaired_class, violations = validate_scene_code(repaired.scene_code)
+            if violations:
+                logger.warning(
+                    "pacing repair for animation %s produced an invalid scene (%s); rendering the original",
+                    animation_id,
+                    "; ".join(violations),
+                )
+            else:
+                animation = repaired
+                scene_class = repaired_class or repaired.scene_class
+                repository.update_concept_animation(
+                    animation_id,
+                    scene_code=animation.scene_code,
+                    scene_class=scene_class,
+                    title=animation.title or None,
+                    narration_md=animation.narration_md or None,
+                    clock=clock,
+                )
+
         repository.update_concept_animation(animation_id, status="rendering", clock=clock)
+        say("rendering", "Rendering with manim")
         result = render(
             animation.scene_code,
             scene_class,
@@ -599,28 +1096,156 @@ def generate_concept_animation(
             )
         if not result.ok:
             return _fail("render", "manim render failed", stderr=result.stderr_tail)
-
-        digest = "sha256:" + hashlib.sha256(result.video_bytes).hexdigest()
-        video_path = animation_video_path(vault.root, digest)
-        if not video_path.is_file():
-            video_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = video_path.with_name(video_path.name + ".tmp")
-            tmp.write_bytes(result.video_bytes)
-            tmp.replace(video_path)
-        from learnloop.clock import utc_now_iso
-
+        return _store_video(repository, vault.root, animation_id, result.video_bytes, clock)
+    except ConceptAnimationError:
+        raise
+    except cancellation:
+        # The learner cancelled the job (report() raised): an honest terminal
+        # state, not a failure. Submitted video jobs stay on the row for a cost
+        # lookup — OpenRouter has no cancel endpoint.
         repository.update_concept_animation(
             animation_id,
-            status="completed",
-            video_hash=digest,
-            video_file_name=video_path.name,
-            render_stderr=None,
-            completed_at=utc_now_iso(clock),
+            status="cancelled",
+            failure_stage="video_model" if use_video_model else "render",
+            failure_reason="cancelled by the learner",
             clock=clock,
         )
-        return repository.concept_animation(animation_id)
-    except ConceptAnimationError:
         raise
     except Exception as exc:  # noqa: BLE001 — never leave the row wedged
         _fail("generation", str(exc))
         raise
+
+
+def _generate_with_video_model(
+    vault: Any,
+    client: Any,
+    video_client: Any,
+    *,
+    animation_id: str,
+    row: dict[str, Any],
+    repository: Any,
+    config: Any,
+    clock: Any,
+    say: Callable[[str, str], None],
+    fail: Callable[..., dict[str, Any]],
+) -> dict[str, Any]:
+    """Storyboard -> one text-to-video job per shot -> stitched mp4.
+
+    Shots are submitted in order and submission stops at the first rejection,
+    so a synchronous refusal on shot 3 commits (and bills) only shots 1-2. Every
+    job id is persisted as soon as it exists: OpenRouter has no cancel
+    endpoint, and a submitted job is billed whether or not it is downloaded."""
+
+    if video_client is None or not video_client.supports(VIDEO_GENERATION):
+        return fail("video_model", "no video-generation provider is configured")
+    if not client.supports(STRUCTURED_COMPLETION):
+        return fail("generation", "the configured provider does not support storyboard authoring")
+
+    video_model = getattr(video_client, "model", "") or ""
+    constraints = video_client.model_constraints()
+    job_ids: list[str] = []
+    if row["status"] == "rendering":
+        # Interrupted mid-generation (sidecar restart, crash): every submitted
+        # job id was persisted, so pick the wait up where it stopped instead of
+        # authoring and billing a second storyboard.
+        plan = _loads_json(row.get("storyboard_json"), {})
+        job_ids = [str(job_id) for job_id in _loads_json(row.get("video_job_ids"), [])]
+        shots = list(plan.get("shots") or []) if isinstance(plan, dict) else []
+        if not shots or len(job_ids) > len(shots):
+            return fail("video_model", "cannot resume: the persisted storyboard and job ids disagree")
+        say("rendering", f"Resuming: {len(job_ids)}/{len(shots)} shot(s) already submitted")
+    else:
+        repository.update_concept_animation(
+            animation_id,
+            status="generating",
+            provider=getattr(video_client, "provider_name", None),
+            model=video_model or None,
+            clock=clock,
+        )
+        context = build_video_storyboard_context(
+            vault,
+            concept_id=row["concept_id"],
+            learning_object_id=row.get("learning_object_id"),
+            constraints=constraints,
+            video_model=video_model,
+        )
+        storyboard = author_video_storyboard(client, context)
+        violations = storyboard_violations(storyboard, context, constraints=constraints)
+        if violations:
+            repair_context = build_video_storyboard_context(
+                vault,
+                concept_id=row["concept_id"],
+                learning_object_id=row.get("learning_object_id"),
+                constraints=constraints,
+                video_model=context.video_model,
+                repair={"previous_storyboard": storyboard.model_dump(), "violations": violations},
+            )
+            storyboard = author_video_storyboard(client, repair_context)
+            violations = storyboard_violations(storyboard, context, constraints=constraints)
+            if violations:
+                return fail("validation", "; ".join(violations), repair_attempted=True)
+
+        shots = [
+            {"prompt": shot.prompt.strip(), "duration_seconds": seconds, "caption": shot.caption.strip()}
+            for shot, seconds in zip(storyboard.shots, clamped_shot_seconds(storyboard, context, constraints))
+        ]
+        plan = {"prompt_version": VIDEO_STORYBOARD_PROMPT_VERSION, "shots": shots}
+        repository.update_concept_animation(
+            animation_id,
+            title=storyboard.title or None,
+            narration_md=storyboard.narration_md or None,
+            storyboard_json=json.dumps(plan),
+            status="rendering",
+            clock=clock,
+        )
+        say("rendering", f"Submitting {len(shots)} shot(s) to {video_model or 'the video model'}")
+
+    resolution = clamp_resolution(config.video_resolution or None, constraints)
+    aspect_ratio = clamp_aspect_ratio(config.video_aspect_ratio or None, constraints)
+    try:
+        for shot in shots[len(job_ids):]:
+            job = video_client.submit(
+                VideoGenerationRequest(
+                    prompt=shot["prompt"],
+                    duration_seconds=shot["duration_seconds"],
+                    resolution=resolution,
+                    aspect_ratio=aspect_ratio,
+                    generate_audio=bool(config.video_generate_audio),
+                )
+            )
+            job_ids.append(job.id)
+            repository.update_concept_animation(animation_id, video_job_ids=json.dumps(job_ids), clock=clock)
+
+        def checkpoint(statuses: list[Any], elapsed: float) -> None:
+            done = sum(1 for status in statuses if status.status == "completed")
+            waiting = next(
+                (f"shot {i + 1} {status.status}" for i, status in enumerate(statuses) if status.status != "completed"),
+                "",
+            )
+            detail = " · ".join(part for part in (f"shots {done}/{len(statuses)} complete", waiting, f"{int(elapsed)}s") if part)
+            say("rendering", detail)
+
+        statuses = video_client.wait_all(
+            job_ids, max_wait_seconds=config.video_timeout_seconds, checkpoint=checkpoint
+        )
+        clips = [video_client.download(job_id) for job_id in job_ids]
+    except VideoGenerationTimeout as exc:
+        return fail("video_model", str(exc))
+    except VideoGenerationFailed as exc:
+        return fail("video_model", str(exc))
+    except AIProviderUnavailable as exc:
+        return fail("video_model", str(exc))
+
+    say("rendering", f"Stitching {len(clips)} shot(s)")
+    try:
+        video_bytes = concat_clips(clips)  # at the shots' own frame rate
+    except Exception as exc:  # noqa: BLE001 — a stitching failure is a typed video_model failure
+        return fail("video_model", f"could not stitch the shots: {exc}")
+    plan["jobs"] = [
+        {"job_id": job_id, "status": status.status, "cost": status.cost}
+        for job_id, status in zip(job_ids, statuses)
+    ]
+    plan["total_cost"] = round(sum(status.cost or 0.0 for status in statuses), 6)
+    return _store_video(
+        repository, vault.root, animation_id, video_bytes, clock, storyboard_json=json.dumps(plan)
+    )

@@ -176,6 +176,7 @@ class RunnerServices:
     exercise_import_client_factory: Callable[["JobContext"], Any] | None = None
     animation_client_factory: Callable[["JobContext"], Any] | None = None
     animation_renderer: Callable[..., Any] | None = None
+    video_client_factory: Callable[["JobContext"], Any] | None = None
     _inventory_identity_cache: tuple[str, str] | None = field(
         default=None, init=False, repr=False
     )
@@ -277,6 +278,11 @@ class RunnerServices:
         return (self.animation_client_factory or _job_defaults().default_animation_client)(
             ctx
         )
+
+    def video_client(self, ctx: "JobContext") -> Any:
+        """The text-to-video client for [animation] renderer = "video_model"."""
+
+        return (self.video_client_factory or _job_defaults().default_video_client)(ctx)
 
 
 def _job_defaults() -> Any:

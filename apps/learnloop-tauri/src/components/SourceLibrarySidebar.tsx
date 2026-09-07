@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type {
   CommandError,
   SourceDeletionPlanDto,
@@ -55,34 +57,32 @@ export function SourceLibrarySidebar({
   onOpenBatch?: (batchId: string) => void;
   refreshToken?: number;
 }): JSX.Element {
-  const [sources, setSources] = useState<SourceLibraryCard[]>([]);
-  const [loading, setLoading] = useState(true);
+  // The library list is cached and shared with every other reader of
+  // get_source_library (the Reader picker), so switching between Ingest and
+  // Reader repaints it at once. Last data is kept on error; only a failure
+  // with nothing to show is surfaced.
+  const libraryQuery = useCachedQuery(["get_source_library"], () => api.getSourceLibrary(), {
+    tags: [TAG.sources]
+  });
+  const sources: SourceLibraryCard[] = libraryQuery.data?.sources ?? [];
+  const loading = libraryQuery.loading;
   const [selected, setSelected] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? (libraryQuery.data ? null : libraryQuery.error?.message ?? null);
   // Which ready row has its "add to collection" panel open (sourceId), and a
   // token that bumps to re-fetch the collections list after a membership change.
   const [addTarget, setAddTarget] = useState<string | null>(null);
   const [collectionsRefresh, setCollectionsRefresh] = useState(0);
   // The source whose delete confirmation is open (null = no dialog).
   const [deleteTarget, setDeleteTarget] = useState<SourceLibraryCard | null>(null);
-  const firstLoad = useRef(true);
-
-  // ── Data load — keep last data on error, surface only first-load failures ──
+  const refetchLibrary = libraryQuery.refetch;
   const refresh = useCallback(async () => {
-    try {
-      const snapshot = await api.getSourceLibrary();
-      setSources(snapshot.sources);
-      setError(null);
-    } catch (e) {
-      if (firstLoad.current) setError((e as CommandError).message);
-    } finally {
-      firstLoad.current = false;
-      setLoading(false);
-    }
-  }, []);
+    await refetchLibrary().catch(() => undefined);
+  }, [refetchLibrary]);
 
+  // An external refresh token (import completed, source deleted) forces a re-read.
   useEffect(() => {
-    void refresh();
+    if (refreshToken) void refresh();
   }, [refresh, refreshToken]);
 
   // ── Poll while any source is still processing ──
@@ -517,7 +517,8 @@ function CollectionsSection({
   refreshToken: number;
   onSynthesize?: (batchId: string) => void;
 }) {
-  const [sets, setSets] = useState<SourceSetSummaryDto[]>([]);
+  const setsQuery = useCachedQuery(["list_source_sets"], () => api.listSourceSets(), { tags: [TAG.sources] });
+  const sets: SourceSetSummaryDto[] = setsQuery.data?.sourceSets ?? [];
   const [expanded, setExpanded] = useState<Record<string, SourceSetDto | "loading">>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -537,17 +538,14 @@ function CollectionsSection({
     [sources]
   );
 
+  const refetchSets = setsQuery.refetch;
   const refresh = useCallback(async () => {
-    try {
-      const snap = await api.listSourceSets();
-      setSets(snap.sourceSets ?? []);
-    } catch {
-      // keep last on transient error
-    }
-  }, []);
+    // keep last on transient error
+    await refetchSets().catch(() => undefined);
+  }, [refetchSets]);
 
   useEffect(() => {
-    void refresh();
+    if (refreshToken) void refresh();
   }, [refresh, refreshToken]);
 
   async function toggle(id: string) {

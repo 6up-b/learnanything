@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type { DecayPressureDto, KnowledgeFacetPoint, KnowledgeMapHistory, KnowledgeMapPoint, KnowledgeMapSnapshot } from "../api/dto";
 import { EntityLink } from "../components/ui";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader } from "../components/term";
@@ -25,7 +27,15 @@ import { useElementSize } from "./wire3d";
 const FRONTIER_LEVEL = 0.7;
 
 export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: string) => void; onError: (message: string) => void }) {
-  const [snapshot, setSnapshot] = useState<KnowledgeMapSnapshot | null>(null);
+  // The map is the most expensive read in the app (pure-Python MDS plus a
+  // scheduler pass), so it is cached with generous freshness: returning to
+  // the field repaints instantly and revalidates only after five minutes or
+  // an explicit invalidation (attempts, proposals, vault edits).
+  const snapshotQuery = useCachedQuery(["get_knowledge_map"], () => api.getKnowledgeMap(), {
+    tags: [TAG.graph],
+    staleAfterMs: 5 * 60_000
+  });
+  const snapshot: KnowledgeMapSnapshot | null = snapshotQuery.data ?? null;
   // Sticky hover selection, same convention as the facet radar: the last point
   // touched stays selected until another one is hovered/clicked.
   const [selected, setSelected] = useState<string | null>(null);
@@ -36,11 +46,23 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // coming back to the field is a fresh look.
   const [pinned, setPinned] = useState(false);
   const [mode, setMode] = useState<"terrain" | "well" | "strata">("terrain");
-  const [history, setHistory] = useState<KnowledgeMapHistory | null>(null);
+  // The strata view's history feed loads lazily on first switch and then stays
+  // cached across tab switches.
+  const historyQuery = useCachedQuery(["get_knowledge_map_history"], () => api.getKnowledgeMapHistory(), {
+    tags: [TAG.graph, TAG.review],
+    enabled: mode === "strata",
+    staleAfterMs: 5 * 60_000
+  });
+  const history: KnowledgeMapHistory | null = historyQuery.data ?? null;
   // The well view's decay-pressure feed (which facets the FSRS model holds flat
   // for lack of history, and which cross target soon). Fetched lazily on first
   // switch to "well"; the view degrades gracefully to no-decay if it's absent.
-  const [decay, setDecay] = useState<DecayPressureDto | null>(null);
+  const decayQuery = useCachedQuery(["get_decay_pressure", null], () => api.getDecayPressure(), {
+    tags: [TAG.goals, TAG.queue],
+    enabled: mode === "well",
+    staleAfterMs: 60_000
+  });
+  const decay: DecayPressureDto | null = decayQuery.data?.pressure ?? null;
   // One facet side window owns both its semantic contract and evidence receipt.
   // Facets have no map coordinate — we join by id.
   const [inspectFacetId, setInspectFacetId] = useState<string | null>(null);
@@ -48,57 +70,14 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
   // scene fills the pane instead of sitting in a fixed 860-wide letterbox.
   const canvas = useElementSize<HTMLDivElement>();
 
+  // Load failures surface as toasts, as before; whatever was cached stays up.
+  const loadError = snapshotQuery.error ?? historyQuery.error ?? decayQuery.error;
   useEffect(() => {
-    let cancelled = false;
-    api
-      .getKnowledgeMap()
-      .then((data) => {
-        if (cancelled) return;
-        setSnapshot(data);
-        setSelected((current) => current ?? data.facetField.points[0]?.id ?? null);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [onError]);
+    if (loadError) onError(loadError.message);
+  }, [loadError, onError]);
 
-  // The strata view's history feed is only fetched once, on first switch.
-  useEffect(() => {
-    if (mode !== "strata" || history != null) return;
-    let cancelled = false;
-    api
-      .getKnowledgeMapHistory()
-      .then((data) => {
-        if (!cancelled) setHistory(data);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, history, onError]);
-
-  // The well view's decay feed is only fetched once, on first switch.
-  useEffect(() => {
-    if (mode !== "well" || decay != null) return;
-    let cancelled = false;
-    api
-      .getDecayPressure()
-      .then((data) => {
-        if (!cancelled) setDecay(data.pressure);
-      })
-      .catch((error) => {
-        if (!cancelled) onError(error.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [mode, decay, onError]);
-
+  // Keeps the selection valid for the current field (and picks the first
+  // point when nothing is selected yet, including right after the map loads).
   useEffect(() => {
     if (!snapshot) return;
     setSelected((current) => {

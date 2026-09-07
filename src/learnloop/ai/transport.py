@@ -18,6 +18,8 @@ STRUCTURED_COMPLETION = "structured_completion"
 MEDIA_TRANSCRIPTION = "media_transcription"
 MEDIA_MARKDOWN = "media_markdown"
 INTERRUPT = "interrupt"
+# Text-to-video generation (an async job API, not a chat completion).
+VIDEO_GENERATION = "video_generation"
 
 
 @dataclass(frozen=True, slots=True)

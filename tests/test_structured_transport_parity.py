@@ -15,9 +15,11 @@ from learnloop.ai.schemas import WireModel
 from learnloop.attempts.ai_contracts import GradingContext, GradingProposal
 from learnloop.content.authoring.ai_contracts import (
     ConceptAnimationContext,
+    VideoStoryboardContext,
     ExerciseAuthoring,
     ExerciseAuthoringContext,
     ManimAnimation,
+    VideoStoryboard,
 )
 from learnloop.content.pipeline.ai_contracts import CanonicalIngestContext
 from learnloop.content.proposals.ai_contracts import AuthoringContext, AuthoringProposal
@@ -30,6 +32,8 @@ from learnloop.content.synthesis.ai_contracts import (
     SourceSetSynthesisContext,
     SourceUnitInventory,
     SourceUnitInventoryContext,
+    VaultEpigraphBatch,
+    VaultEpigraphContext,
 )
 from learnloop.curriculum.ai_contracts import (
     DepthEdgeInstanceBatch,
@@ -66,7 +70,7 @@ from learnloop.tutor.ai_contracts import (
 )
 from learnloop.ai.transport import STRUCTURED_COMPLETION
 from learnloop.attempts.grading import request_grading_proposal
-from learnloop.content.authoring.concept_animation import author_concept_animation
+from learnloop.content.authoring.concept_animation import author_concept_animation, author_video_storyboard
 from learnloop.content.authoring.exercise_authoring import request_exercise_authoring
 from learnloop.content.pipeline.source_ingestion import request_canonical_ingest
 from learnloop.content.proposals.proposals import request_authoring_proposal
@@ -76,6 +80,7 @@ from learnloop.content.synthesis.source_set_synthesis import (
     request_source_set_synthesis,
 )
 from learnloop.content.synthesis.source_unit_inventory import request_source_unit_inventory
+from learnloop.content.synthesis.vault_epigraphs import request_vault_epigraphs
 from learnloop.curriculum.depth_edge_authoring import request_depth_edge_instances
 from learnloop.curriculum.rung_backfill import request_rung_backfill
 from learnloop.diagnosis.diagnostic_gate import (
@@ -191,9 +196,11 @@ _SYNTHESIS = SourceSetSynthesisContext(
 )
 _GRAPH = ConceptGraphContext(source_set_id="set_1", subject_id="subject_1")
 _ANIMATION = ConceptAnimationContext(concept_id="svd", concept_title="SVD")
+_STORYBOARD = VideoStoryboardContext(concept_id="svd", concept_title="SVD")
 _APPEND = AppendReconciliationContext(
     source_set_id="set_1", subject_id="subject_1", change_kind="source_added"
 )
+_EPIGRAPHS = VaultEpigraphContext(subject_id="subject_1", source_set_id="set_1", mode="bootstrap")
 
 
 OPERATIONS = (
@@ -312,14 +319,24 @@ OPERATIONS = (
         ManimAnimation(),
     ),
     OperationCase(
+        "video_storyboard", "video_storyboard",
+        lambda client: author_video_storyboard(client, _STORYBOARD),
+        VideoStoryboard(),
+    ),
+    OperationCase(
         "append_reconciliation", "append_reconciliation",
         lambda client: request_append_reconciliation(client, _APPEND),
         AppendReconciliation(),
     ),
+    OperationCase(
+        "vault_epigraphs", "vault_epigraphs",
+        lambda client: request_vault_epigraphs(client, _EPIGRAPHS),
+        VaultEpigraphBatch(),
+    ),
 )
 
-assert len(OPERATIONS) == 23
-assert len({case.name for case in OPERATIONS}) == 23
+assert len(OPERATIONS) == 25
+assert len({case.name for case in OPERATIONS}) == 25
 
 
 @pytest.mark.parametrize("case", OPERATIONS, ids=lambda case: case.name)

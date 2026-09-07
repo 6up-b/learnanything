@@ -3,8 +3,10 @@
 // warnings from synthesis generation-needs, lock chips, and pre-lock merge/coarsen
 // actions that create REVIEW proposals (never auto-merge).
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
+import { useCachedQuery } from "../api/useCachedQuery";
+import { TAG } from "../api/queryTags";
 import type { FacetContractCardDto, IdentifiabilityWarningDto, MeasurementRankDto, SubjectRegistryDto } from "../api/dto";
 import { ProvenancePanel } from "../components/ProvenancePanel";
 import { COLOR, Faint, FONT_MONO, Pill, SectionHeader, TermSelect } from "../components/term";
@@ -20,52 +22,28 @@ export function RegistryReviewScreen({
   onSelectSubject: (id: string) => void;
   onOpenSource?: (extractionId: string, spanId: string, entityType: string, entityId: string) => void;
 }) {
-  const [registry, setRegistry] = useState<SubjectRegistryDto | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Cached per subject: switching subjects or tabs and coming back repaints
+  // the last registry immediately while it revalidates.
+  const registryQuery = useCachedQuery(
+    subjectId ? ["get_subject_registry", subjectId] : null,
+    () => api.getSubjectRegistry(subjectId as string),
+    { tags: [TAG.registry] }
+  );
+  const registry: SubjectRegistryDto | null = registryQuery.data ?? null;
+  const loading = registryQuery.loading;
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? registryQuery.error?.message ?? null;
   const [notice, setNotice] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    if (!subjectId) {
-      setRegistry(null);
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    api
-      .getSubjectRegistry(subjectId)
-      .then((res) => {
-        if (!cancelled) {
-          setRegistry(res);
-          setLoading(false);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [subjectId]);
-
-  useEffect(() => {
-    const cleanup = load();
-    return cleanup;
-  }, [load]);
 
   const proposeMerge = async (retiredFacetId: string, survivingFacetId: string, needId?: string | null) => {
     if (!subjectId) return;
-    setError(null);
+    setActionError(null);
     try {
       await api.proposeFacetMerge({ subjectId, retiredFacetId, survivingFacetId, needId: needId ?? null });
       setNotice("Merge review item created → review in Proposals.");
-      load();
+      void registryQuery.refetch();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      setActionError(err instanceof Error ? err.message : String(err));
     }
   };
 

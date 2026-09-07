@@ -496,13 +496,16 @@ poll_interval_seconds = 1.0
 # AI-generated Manim explainer animations (concept inspector -> "generate
 # animation"). enabled is a hard kill-switch; every run ALSO requires a
 # per-generation consent click — the LLM-written scene code is AST-validated
-# and rendered by a local manim subprocess (install with: pip install
-# learnloop[animation]). The authoring model follows [ai.routing] animation.
+# and rendered by a local manim subprocess (manim ships with LearnLoop's
+# Python environment; verify with: python -m manim --version). The authoring
+# model follows [ai.routing] animation.
 [animation]
 enabled = true
-quality = "ql"
-timeout_seconds = 300
-max_duration_seconds = 45
+renderer = "manim"
+quality = "qm"
+timeout_seconds = 600
+min_duration_seconds = 30
+max_duration_seconds = 60
 latex_enabled = false
 auto_repair = true
 
@@ -735,16 +738,15 @@ teach_back = "codex_low"
 rung_variant = "codex_low"
 animation = "codex_medium"
 transcription = ""
+video_generation = ""
 
 [ingest]
 [ingest.pdf]
-engine = "auto" # auto | marker | pypdf | native
-
-[ingest.native]
-enabled = false
+engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
 
 [animation]
 enabled = true
+renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
 
 # All other policy uses modeled defaults. Inspect it with:
 #   learnloop config effective
@@ -753,7 +755,7 @@ enabled = true
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    "mvp-0.9": "9d7298b773fb5d4e5f7226d8ac5b6d24a881f68f632751af77d56ce20d559ca0",
+    "mvp-0.9": "599957ca9d35ccee7ab2ace857906d5bbc8d38aac09ee8b5b6b2b8a724f2a506",
 }
 
 

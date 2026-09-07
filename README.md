@@ -180,19 +180,21 @@ On Debian or Ubuntu, Tauri currently requires:
 sudo apt update
 sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
   libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev \
-  gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+  gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav
 ```
 
 On Arch Linux, install the matching GStreamer runtime plugins for embedded
 audio and video playback:
 
 ```bash
-sudo pacman -Syu --needed gst-plugins-base gst-plugins-good
+sudo pacman -Syu --needed gst-plugins-base gst-plugins-good gst-libav
 ```
 
 `gst-plugins-good` provides `autoaudiosink`, which WebKitGTK requires when the
 Reader plays embedded video. If it is missing, the WebKit web process can exit
-when playback starts.
+when playback starts. `gstreamer1.0-libav` / `gst-libav` provides the H.264
+decoder that generated concept animations (mp4) need; without it the inspector
+reports a decode error instead of playing the video.
 
 ### Run from a checkout
 
@@ -215,10 +217,16 @@ provider that preserves richer layout, tables, math, figures, and geometry (I wo
 uv sync --extra dev --extra pdf
 ```
 
-The Tauri shell starts the Python `learnloop_sidecar` automatically. When the
-tracked linear-algebra fixture is present, it is used as the development default.
-Click the green vault path in the app header to select another vault, or use the
-new-vault wizard on the Start screen to create and bootstrap one.
+The Tauri shell starts the Python `learnloop_sidecar` automatically. On launch
+it opens the first of: `LEARNLOOP_VAULT` if set; the vault you last selected in
+the app (remembered in `~/.config/learnloop/last_vault`, honoring
+`LEARNLOOP_CONFIG_DIR` / `XDG_CONFIG_HOME`); the first vault under the
+gitignored `fixtures-local/`; and only then the tracked linear-algebra fixture.
+Keep your own vault in `fixtures-local/` — opening a vault writes to it, so a
+bare `npm run dev` against the tracked fixture leaves `fixtures/` dirty in
+`git status`. Click the green vault path in the app header to select another
+vault, or use the new-vault wizard on the Start screen to create and bootstrap
+one; either choice becomes the next launch's default.
 
 To open a particular vault immediately:
 

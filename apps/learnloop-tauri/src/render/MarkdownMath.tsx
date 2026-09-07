@@ -1,3 +1,4 @@
+import { memo, type ComponentProps } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -23,10 +24,18 @@ export function normalizeMathDelimiters(value: string): string {
     .join("");
 }
 
-export function MarkdownMath({ value }: { value: string }) {
+// Module-level plugin lists: a fresh array per render defeats react-markdown's
+// own memoisation, and the component is memoised because the markdown +
+// KaTeX pipeline is the most expensive render in the app (used from dozens
+// of call sites that re-render on unrelated state).
+type MarkdownProps = ComponentProps<typeof ReactMarkdown>;
+const REMARK_PLUGINS: MarkdownProps["remarkPlugins"] = [remarkGfm, remarkMath];
+const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex];
+
+export const MarkdownMath = memo(function MarkdownMath({ value }: { value: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
       {normalizeMathDelimiters(value || "")}
     </ReactMarkdown>
   );
-}
+});

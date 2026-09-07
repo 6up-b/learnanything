@@ -63,7 +63,8 @@ The difficult invariant is registration continuity: a frontend `invoke` must hav
 | Layer | Primary sources | Owns | Must not own |
 |---|---|---|---|
 | React application | `src/app`, `src/screens`, `src/components` | navigation, overlays, drafts, visual state, accessibility/input behavior | grading, scheduling, SQL, provider protocol |
-| TypeScript API/DTO | `src/api/client.ts`, `src/api/dto.ts` | command names, request/response types, Tauri invocation | domain interpretation or persistence |
+| TypeScript API/DTO | `src/api/client.ts`, `src/api/dto.ts` | command names, request/response types, Tauri invocation; per-mutation cache invalidation tags (`mutating*` wrappers) | domain interpretation or persistence |
+| Query cache | `src/api/queryCache.ts`, `src/api/useCachedQuery.ts`, `src/api/queryTags.ts`, `src/components/pdfDocumentCache.ts` | stale-while-revalidate memo of sidecar reads keyed by `[command, ...args]`, tag invalidation, `clear()` on vault switch, one in-flight request per key | authority over any state (the sidecar snapshot is; a cached value is never trusted past its next revalidation) |
 | Tauri host | `src-tauri/src/main.rs`, `commands.rs` | native window/protocol/plugin setup, command registration, blocking boundary | learning policy |
 | sidecar process manager | `src-tauri/src/sidecar.rs` | Python process lifecycle, request ids, timeouts, reconnect, isolated long calls | silently retrying outcome-unknown mutations |
 | Python sidecar | `src/learnloop_sidecar` | protocol validation/serialization and delegation | adapter-specific learning forks |
@@ -90,6 +91,8 @@ The primary process is serialized behind a mutex for interactive calls. Long-run
 Rust's `vault_watcher` coalesces create/modify/remove bursts for Markdown, YAML, TOML, and JSON under the active vault. It ignores runtime/build/raw-original paths, sends normalized relative paths to Python's `refresh_vault_files`, and emits `learnloop://vault-files-changed` back to React.
 
 Python remains the authority for incremental versus full refresh. A backend rescan/error or directory-only mutation deliberately selects the conservative full-refresh arm. Read events do not feed back into another refresh loop.
+
+Every `learnloop://vault-files-changed` event whose mode is not `noop` also marks the whole query cache stale (coalesced to one invalidation per quiet second, since ingests write in bursts); mounted screens keep painting their cached data while they revalidate. SQLite-only mutations are invisible to the watcher, so each mutation wrapper in `client.ts` names the tags it affects — a new RPC that writes state must pick its tags there, and a new cached read must declare the tags that cover it. The Reader's per-source reads are the one sanctioned imperative use of `getOrFetch` (its open sequence has side effects); everything else reads through `useCachedQuery`.
 
 ## Native capabilities and trust boundaries
 

@@ -22,7 +22,7 @@ def test_migration_head_user_tables_match_role_registry_exactly(tmp_path):
     with connect(sqlite_path, read_only=True) as connection:
         actual_tables = user_table_names(connection)
 
-    assert len(actual_tables) == 251
+    assert len(actual_tables) == 252
     assert actual_tables == frozenset(TABLE_ROLES)
     assert registry_mismatch(actual_tables).is_complete
     assert_complete_registry(actual_tables)
