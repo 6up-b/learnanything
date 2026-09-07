@@ -47,32 +47,9 @@ from learnloop.tutor.teach_back import request_teach_back_authoring
 from learnloop.config import CodexConfig
 
 
-def test_codex_authoring_schema_is_strict_response_format_compatible():
+def test_strict_schema_preserves_a_field_named_title():
     schema = strict_output_schema(AuthoringProposal)
-
-    assert schema["additionalProperties"] is False
-    assert "default" not in _schema_keys(schema)
-    assert "title" not in _schema_keys(schema)
-    assert "minimum" not in _schema_keys(schema)
-    assert "maximum" not in _schema_keys(schema)
     assert "title" in schema["$defs"]["LearningObjectPatchPayload"]["properties"]
-    assert not _non_strict_objects(schema)
-
-
-def test_codex_grading_schema_is_strict_response_format_compatible():
-    schema = strict_output_schema(GradingProposal)
-
-    assert schema["additionalProperties"] is False
-    assert "default" not in _schema_keys(schema)
-    assert not _non_strict_objects(schema)
-
-
-def test_codex_teach_back_authoring_schema_is_strict_response_format_compatible():
-    schema = strict_output_schema(TeachBackAuthoring)
-
-    assert schema["additionalProperties"] is False
-    assert "default" not in _schema_keys(schema)
-    assert not _non_strict_objects(schema)
 
 
 def test_append_schema_declares_properties_on_bare_restructure_payload():

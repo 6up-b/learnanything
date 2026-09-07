@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 157
+schema_head: 163
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,7 +24,6 @@ source_paths:
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
-  - "src/learnloop/diagnosis/probe_blocks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -103,6 +102,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository._insert_probe_presentation_row()`
+- `Repository._link_attempt_to_scheduler_candidate()`
 - `Repository.active_probe_presentation()`
 - `Repository.active_probe_presentation_for_session()`
 - `Repository.consume_probe_presentation()`
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`

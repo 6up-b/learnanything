@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 157
+schema_head: 163
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/substrate/dataset.py"
   - "src/learnloop_sidecar/handlers/ingest.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -52,7 +53,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/044_provenance_manifests_apply_intents.sql`.
-- **Schema touched by:** `044_provenance_manifests_apply_intents.sql`, `063_synthesis_candidate_output.sql`.
+- **Schema touched by:** `044_provenance_manifests_apply_intents.sql`, `063_synthesis_candidate_output.sql`, `158_vault_epigraphs.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -122,6 +123,7 @@ Indexes and uniqueness:
 
 - `tests/test_migrations.py`
 - `tests/test_source_set_synthesis.py`
+- `tests/test_source_append.py`
 - `tests/test_synthesis_runs_repo.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

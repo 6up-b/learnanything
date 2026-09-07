@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import pytest
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -21,9 +22,29 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_158"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_163"
 )
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
+
+
+def test_live_rebuild_failure_preserves_all_published_state(tmp_path, monkeypatch):
+    import learnloop.substrate.rebuild_orchestrator as orchestrator
+
+    root = _copy_fixture(tmp_path, "interrupted")
+    repository = Repository(root / "state.sqlite")
+    tables = set(tables_for_role(TableRole.DERIVED)) | {"derived_state_rebuilds"}
+    before = _projection_snapshot(repository, tables)
+    original = orchestrator._RUNNERS["learning_state"]
+
+    def interrupted(spec, context):
+        original(spec, context)
+        assert _projection_snapshot(repository, tables) == before
+        raise RuntimeError("replay interrupted after family writes")
+
+    monkeypatch.setitem(orchestrator._RUNNERS, "learning_state", interrupted)
+    with pytest.raises(RuntimeError, match="replay interrupted"):
+        rebuild_all_derived_state(load_vault(root), repository, clock=CLOCK)
+    assert _projection_snapshot(repository, tables) == before
 
 
 def _copy_fixture(tmp_path: Path, name: str) -> Path:

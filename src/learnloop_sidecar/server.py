@@ -63,7 +63,17 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
-        result = spec.handler(ctx, params)
+        from learnloop.ai.execution import observe_model_calls
+        from learnloop.ids import new_ulid
+        repository = ctx.repository
+        if repository is None:
+            result = spec.handler(ctx, params)
+        else:
+            submission_id = getattr(params, "submission_id", None)
+            owner_kind = "submission" if submission_id else "sidecar_rpc"
+            owner_id = submission_id or f"{method_name}:{new_ulid()}"
+            with observe_model_calls(lambda action, event: repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)):
+                result = spec.handler(ctx, params)
     except ValidationError as exc:
         log_event("rpc.error", method=method_name, id=request_id, code="validation_error",
                   duration_ms=_elapsed_ms(started))

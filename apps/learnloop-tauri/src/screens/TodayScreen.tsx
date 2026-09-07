@@ -142,7 +142,7 @@ export function TodayScreen({
   gradingReady?: boolean;
   gradingProvider?: string;
   algorithmVersion: string;
-  onOpenPractice: (practiceItemId: string) => void;
+  onOpenPractice: (practiceItemId: string, schedulerCandidateId?: string | null) => void;
   onOpenPrimedPractice: (practiceItemId: string) => void;
   onAsk: (target: AskTarget) => void;
   onPaletteEntities?: (ids: { inspectIds: string[]; practiceItemIds: string[] }) => void;
@@ -483,13 +483,13 @@ export function TodayScreen({
         setFocusedId(flatIds[Math.max(0, index - 1)] ?? null);
         event.preventDefault();
       } else if (["Enter", "l", "ArrowRight"].includes(event.key) && focusedItem) {
-        if (!queueRefreshing) onOpenPractice(focusedItem.practiceItemId);
+        if (!queueRefreshing) onOpenPractice(focusedItem.practiceItemId, focusedItem.schedulerCandidateId);
         event.preventDefault();
       } else if (/^[1-9]$/.test(event.key)) {
         const target = queueRefreshing ? undefined : flatIds[Number(event.key) - 1];
         if (target) {
           setFocusedId(target);
-          onOpenPractice(target);
+          onOpenPractice(target, items.find((item) => item.practiceItemId === target)?.schedulerCandidateId);
           event.preventDefault();
         }
       } else if (event.key.toLowerCase() === "e") {
@@ -505,7 +505,7 @@ export function TodayScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [finishSession, flatIds, focusedItem, onOpenPractice, queueRefreshing]);
+  }, [finishSession, flatIds, focusedItem, items, onOpenPractice, queueRefreshing]);
 
   // Force a fresh scheduler pass (shares a request already in flight). The
   // `force` option is kept for call-site compatibility; the cache handles the
@@ -534,7 +534,7 @@ export function TodayScreen({
       return;
     }
     setFocusedId(target.practiceItemId);
-    onOpenPractice(target.practiceItemId);
+    onOpenPractice(target.practiceItemId, target.schedulerCandidateId);
   }
 
   if (queueLoading && !queue) {
@@ -637,7 +637,7 @@ export function TodayScreen({
               onDismiss={() => setBannerOpen(false)}
               onOpen={(id) => {
                 setFocusedId(id);
-                onOpenPractice(id);
+                onOpenPractice(id, items.find((item) => item.practiceItemId === id)?.schedulerCandidateId);
               }}
               onInspect={onInspect}
             />
@@ -740,7 +740,7 @@ export function TodayScreen({
             sessionId={session?.sessionId ?? null}
             visitId={visitIdRef.current}
             producerVersion={algorithmVersion}
-            onPractice={() => focusedItem && onOpenPractice(focusedItem.practiceItemId)}
+            onPractice={() => focusedItem && onOpenPractice(focusedItem.practiceItemId, focusedItem.schedulerCandidateId)}
             onWriteCard={() => setWriteCardOpen(true)}
             onInspect={onInspect}
             onOpenFacet={setEvidenceFacetId}

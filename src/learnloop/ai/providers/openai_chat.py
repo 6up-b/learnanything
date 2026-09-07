@@ -7,11 +7,13 @@ import logging
 import os
 import sys
 import time
+from contextvars import ContextVar
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from learnloop.ai.errors import AIInvalidOutput, CodexUnavailable
+from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
+from learnloop.ai.execution import model_call
 from learnloop.ai.multimodal import (
     MediaTranscript,
     MediaTranscriptionContext,
@@ -38,6 +40,7 @@ logger = logging.getLogger(__name__)
 _sleep = time.sleep
 _RETRY_DELAYS_SECONDS = (1.0, 4.0)
 _JSON_ONLY_SYSTEM_PROMPT = "Return only valid JSON. Do not include Markdown fences."
+_request_options: ContextVar[tuple[float | None, int | None]] = ContextVar("chat_request_options", default=(None, None))
 
 
 class OpenAIChatProviderClient(TokenUsageAccounting):
@@ -68,6 +71,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             "api_key": api_key,
             "base_url": base_url,
             "timeout": profile.timeout_seconds,
+            "max_retries": 0,
         }
         headers = self._default_headers()
         if headers:
@@ -77,10 +81,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def complete(self, request: StructuredRequest[Any]) -> Any:
         """Execute one validated structured request with one bounded repair."""
 
-        marker = object()
-        previous_timeout = self.__dict__.get("_request_timeout_seconds", marker)
-        if request.timeout_seconds is not None:
-            self._request_timeout_seconds = request.timeout_seconds
+        token = _request_options.set((request.timeout_seconds, request.output_budget_tokens))
         try:
             return self._run_json_messages(
                 [
@@ -90,10 +91,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
                 request.result_model,
             )
         finally:
-            if previous_timeout is marker:
-                self.__dict__.pop("_request_timeout_seconds", None)
-            else:
-                self._request_timeout_seconds = previous_timeout
+            _request_options.reset(token)
 
     def supports(self, capability: str) -> bool:
         if capability in {STRUCTURED_COMPLETION, "complete", "structured"}:
@@ -202,21 +200,25 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             "model": self.model,
             "messages": messages,
         }
-        request_timeout = self.__dict__.get("_request_timeout_seconds")
+        request_timeout, request_budget = _request_options.get()
         if request_timeout is not None:
             kwargs["timeout"] = request_timeout
         if use_response_format:
             response_format = self._response_format(model_type)
             if response_format:
                 kwargs["response_format"] = response_format
-        if self.profile.max_tokens is not None:
-            kwargs["max_tokens"] = self.profile.max_tokens
+        limits = [limit for limit in (self.profile.max_tokens, request_budget) if limit is not None]
+        if limits:
+            if min(limits) <= 0:
+                raise AIOutputTruncated("No generation budget remains for JSON repair.")
+            kwargs["max_tokens"] = min(limits)
         kwargs.update(self._reasoning_kwargs())
         response = self._create_with_retry(kwargs)
         # A7: meter before touching the body. Everything below can raise
         # (empty content, and upstream a validation failure that triggers a
         # second billed repair round) and those tokens were still spent.
-        self.record_token_usage(*usage_from_chat_response(response))
+        if getattr(response.choices[0], "finish_reason", None) == "length":
+            raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
         content = response.choices[0].message.content
         if not isinstance(content, str) or not content.strip():
             raise CodexUnavailable(f"{self.provider_name} returned an empty response")
@@ -225,7 +227,20 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def _create_with_retry(self, kwargs: dict[str, Any]) -> Any:
         for attempt in range(len(_RETRY_DELAYS_SECONDS) + 1):
             try:
-                return self._client.chat.completions.create(**kwargs)
+                with model_call(self, purpose="chat_request", prompt=kwargs.get("messages"), schema=kwargs.get("response_format"), budget=kwargs.get("max_tokens")):
+                    response = self._client.chat.completions.create(**kwargs)
+                    usage = usage_from_chat_response(response)
+                    self.record_token_usage(*usage)
+                    timeout, budget = _request_options.get()
+                    if budget is not None:
+                        content = response.choices[0].message.content or ""
+                        spent = usage[1] or max(1, (len(content) + 3) // 4)
+                        _request_options.set((timeout, max(0, budget - spent)))
+                    if getattr(response.choices[0], "finish_reason", None) == "length":
+                        raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
+                    return response
+            except AIOutputTruncated:
+                raise
             except Exception as exc:
                 if attempt < len(_RETRY_DELAYS_SECONDS) and _is_retryable(exc):
                     logger.warning(

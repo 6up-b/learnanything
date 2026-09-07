@@ -19,6 +19,15 @@ from typing import Any, Iterable, Mapping, Sequence
 from learnloop.clock import Clock, utc_now_iso
 
 
+def owns_ingest_job(connection, job_id: str, worker_id: str, attempt_count: int) -> bool:
+    """Check a write fence inside the caller's existing transaction."""
+    row = connection.execute(
+        "SELECT status, worker_id, attempt_count FROM ingest_jobs WHERE id=?",
+        (job_id,),
+    ).fetchone()
+    return row is not None and tuple(row) == ("running", worker_id, attempt_count)
+
+
 def _json(data: Any) -> str:
     return json.dumps(data, sort_keys=True, separators=(",", ":"))
 
@@ -394,15 +403,16 @@ class IngestQueueStoreMixin:
         job_id: str,
         *,
         worker_id: str,
+        attempt_count: int | None = None,
         phase: str | None = None,
         message: str | None = None,
         current_window: int | None = None,
         total_windows: int | None = None,
         clock: Clock | None = None,
-    ) -> None:
+    ) -> bool:
         now = utc_now_iso(clock)
         with self.connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE ingest_jobs
                    SET heartbeat_at = ?,
@@ -410,17 +420,24 @@ class IngestQueueStoreMixin:
                        message = COALESCE(?, message),
                        current_window = COALESCE(?, current_window),
                        total_windows = COALESCE(?, total_windows)
-                 WHERE id = ? AND worker_id = ?
+                 WHERE id = ? AND worker_id = ? AND status = 'running'
+                   AND (? IS NULL OR attempt_count = ?)
                 """,
-                (now, phase, message, current_window, total_windows, job_id, worker_id),
+                (now, phase, message, current_window, total_windows, job_id, worker_id,
+                 attempt_count, attempt_count),
             )
             connection.commit()
+            return cursor.rowcount == 1
 
     def finish_ingest_job(
         self,
         job_id: str,
         *,
         status: str,
+        worker_id: str | None = None,
+        attempt_count: int | None = None,
+        expected_status: str | None = None,
+        lease_cutoff_iso: str | None = None,
         phase: str | None = None,
         message: str | None = None,
         result: Mapping[str, Any] | None = None,
@@ -431,13 +448,20 @@ class IngestQueueStoreMixin:
         current_window: int | None = None,
         total_windows: int | None = None,
         clock: Clock | None = None,
-    ) -> None:
-        """Move a job to a new state and optionally release its lease."""
+    ) -> bool:
+        """Conditionally finish an owned attempt or transition an unleased job.
+
+        A worker must supply both its identity and claimed generation. Calls
+        without an owner can only transition rows that hold no lease.
+        """
+
+        if worker_id is not None and attempt_count is None:
+            raise ValueError('finishing an owned job requires its attempt_count')
 
         now = utc_now_iso(clock)
         finished_at = None if clear_finished else now
         with self.connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE ingest_jobs
                    SET status = ?,
@@ -452,6 +476,10 @@ class IngestQueueStoreMixin:
                        heartbeat_at = CASE WHEN ? THEN NULL ELSE heartbeat_at END,
                        finished_at = ?
                  WHERE id = ?
+                   AND ((? IS NULL AND worker_id IS NULL) OR worker_id = ?)
+                   AND (? IS NULL OR attempt_count = ?)
+                   AND (? IS NULL OR status = ?)
+                   AND (? IS NULL OR heartbeat_at IS NULL OR heartbeat_at < ?)
                 """,
                 (
                     status,
@@ -466,9 +494,12 @@ class IngestQueueStoreMixin:
                     1 if release_lease else 0,
                     finished_at,
                     job_id,
+                    worker_id, worker_id, attempt_count, attempt_count,
+                    expected_status, expected_status, lease_cutoff_iso, lease_cutoff_iso,
                 ),
             )
             connection.commit()
+            return cursor.rowcount == 1
 
     def requeue_ingest_job(
         self,

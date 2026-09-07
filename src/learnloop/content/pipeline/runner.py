@@ -42,6 +42,8 @@ from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+from learnloop.db.scopes import JobOwnershipLost
+from learnloop.vault_lock import vault_mutation_lock
 
 # The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
 CHECKPOINT_LADDER: tuple[str, ...] = (
@@ -338,14 +340,20 @@ class JobContext:
         if self._cancel_requested():
             raise JobCancelled()
         self._phase = phase
-        self.repo.heartbeat_ingest_job(
+        owned = self.repo.heartbeat_ingest_job(
             self.job_id,
             worker_id=self.worker_id,
+            attempt_count=self.job.get('attempt_count'),
             phase=phase,
             message=message or _phase_message(phase),
             current_window=current_window,
             total_windows=total_windows,
+            clock=self.clock,
         )
+        if not owned:
+            from learnloop.db.scopes import JobOwnershipLost
+
+            raise JobOwnershipLost(f'Job {self.job_id} is owned by another attempt')
 
     def record_usage(self, usage: Mapping[str, Any]) -> None:
         """Add one call's usage to the running per-attempt sum (§6.2)."""
@@ -508,17 +516,28 @@ class IngestRunner:
         """Startup recovery (§6.2): expired ``running`` leases -> ``failed(interrupted)``;
         their queued siblings simply resume. Returns the recovered job ids."""
 
+        with vault_mutation_lock(self.vault_root, purpose='ingest_lease_recovery'):
+            return self._recover_stale_leases_locked()
+
+    def _recover_stale_leases_locked(self) -> list[str]:
+        self._last_recovery_at = self.clock.now()
         cutoff = self._lease_cutoff_iso()
         recovered: list[str] = []
         for job in self.repo.expired_running_ingest_jobs(cutoff):
-            self.repo.finish_ingest_job(
+            changed = self.repo.finish_ingest_job(
                 job["id"],
                 status="failed",
+                worker_id=job.get('worker_id'),
+                attempt_count=job['attempt_count'],
+                expected_status='running',
+                lease_cutoff_iso=cutoff,
                 phase="failed",
                 message="Interrupted before completion",
                 error={"code": "interrupted", "message": "Worker lease expired before the job finished."},
                 clock=self.clock,
             )
+            if not changed:
+                continue
             recovered.append(job["id"])
             self._propagate_blocks(job["batch_id"])
             self._refresh_batch(job["batch_id"])
@@ -547,15 +566,19 @@ class IngestRunner:
         """Claim and run one eligible job. Returns False when nothing was run
         (no eligible job, or another worker holds the drain lease)."""
 
-        job = self.repo.claim_next_ingest_job(
-            worker_id=self.worker_id,
-            now_iso=utc_now_iso(self.clock),
-            lease_cutoff_iso=self._lease_cutoff_iso(),
-            eligible_job_types=eligible_job_types,
-            compatible_running_job_types=compatible_running_job_types,
-            allow_parallel=allow_parallel,
-            max_parallel=max_parallel,
-        )
+        last_recovery = getattr(self, '_last_recovery_at', None)
+        if last_recovery is None or (self.clock.now() - last_recovery).total_seconds() >= 1:
+            self.recover_stale_leases()
+        with vault_mutation_lock(self.vault_root, purpose='ingest_lease_claim'):
+            job = self.repo.claim_next_ingest_job(
+                worker_id=self.worker_id,
+                now_iso=utc_now_iso(self.clock),
+                lease_cutoff_iso=self._lease_cutoff_iso(),
+                eligible_job_types=eligible_job_types,
+                compatible_running_job_types=compatible_running_job_types,
+                allow_parallel=allow_parallel,
+                max_parallel=max_parallel,
+            )
         if job is None:
             return False
         self._run_claimed(job)
@@ -613,6 +636,7 @@ class IngestRunner:
         attempt and claim remain untouched; only generation-owned state resets.
         """
 
+        self.recover_stale_leases()
         batch = self.repo.get_ingest_batch(batch_id)
         if batch is None:
             raise IngestRunnerError(f"batch '{batch_id}' does not exist.")
@@ -638,6 +662,12 @@ class IngestRunner:
 
     def _run_claimed(self, job: dict[str, Any]) -> None:
         batch_id = job["batch_id"]
+        def finish(job_id, **values):
+            return self.repo.finish_ingest_job(
+                job_id, worker_id=self.worker_id, attempt_count=job['attempt_count'],
+                expected_status='running', **values,
+            )
+
         self.repo.update_ingest_batch_status(batch_id, "running", mark_started=True, clock=self.clock)
         ctx = JobContext(
             repo=self.repo,
@@ -650,7 +680,7 @@ class IngestRunner:
             _bind_interruptible=lambda client: self._bind_job_interruptible(job["id"], client),
         )
         if ctx.cancelled():
-            self.repo.finish_ingest_job(
+            finish(
                 job["id"],
                 status="cancelled",
                 phase="cancelled",
@@ -668,18 +698,27 @@ class IngestRunner:
             heartbeat_stop = threading.Event()
             heartbeat_thread = threading.Thread(
                 target=self._heartbeat_while_running,
-                args=(job["id"], heartbeat_stop),
+                args=(job["id"], heartbeat_stop, job["attempt_count"]),
                 name=f"ingest-heartbeat-{job['id']}",
                 daemon=True,
             )
             heartbeat_thread.start()
             try:
-                result = handler(ctx)
+                from learnloop.db.scopes import guard_ingest_writes
+                from learnloop.ai.execution import observe_model_calls
+
+                with guard_ingest_writes(self.repo.sqlite_path, job['id'], self.worker_id, job['attempt_count']), observe_model_calls(
+                    lambda action, event: self.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=job['id'])
+                ):
+                    result = handler(ctx)
             finally:
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=1)
+        except JobOwnershipLost:
+            self._clear_job_interruptible(job['id'])
+            return
         except JobCancelled:
-            self.repo.finish_ingest_job(
+            finish(
                 job["id"],
                 status="cancelled",
                 phase="cancelled",
@@ -689,7 +728,7 @@ class IngestRunner:
                 clock=self.clock,
             )
         except WaitingForInput as waiting:
-            self.repo.finish_ingest_job(
+            finish(
                 job["id"],
                 status="waiting_for_input",
                 phase="waiting_for_input",
@@ -701,7 +740,7 @@ class IngestRunner:
                 clock=self.clock,
             )
         except NotImplementedError as exc:
-            self.repo.finish_ingest_job(
+            finish(
                 job["id"],
                 status="failed",
                 phase="failed",
@@ -713,7 +752,7 @@ class IngestRunner:
             self._propagate_blocks(batch_id)
         except Exception as exc:  # noqa: BLE001 — a failed job must never crash the drain
             if ctx.cancelled():
-                self.repo.finish_ingest_job(
+                finish(
                     job["id"],
                     status="cancelled",
                     phase="cancelled",
@@ -727,7 +766,7 @@ class IngestRunner:
                 if isinstance(exc, IngestRunnerError):
                     error["details"] = exc.details
                     error["retryable"] = exc.retryable
-                self.repo.finish_ingest_job(
+                finish(
                     job["id"],
                     status="failed",
                     phase="failed",
@@ -739,7 +778,7 @@ class IngestRunner:
                 self._propagate_blocks(batch_id)
         else:
             if ctx.cancelled():
-                self.repo.finish_ingest_job(
+                finish(
                     job["id"],
                     status="cancelled",
                     phase="cancelled",
@@ -749,7 +788,7 @@ class IngestRunner:
                     clock=self.clock,
                 )
             else:
-                self.repo.finish_ingest_job(
+                completed = finish(
                     job["id"],
                     status="completed",
                     phase=ctx._phase or "applied",
@@ -758,21 +797,30 @@ class IngestRunner:
                     usage=ctx._usage or None,
                     clock=self.clock,
                 )
-                if job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
+                if completed and job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
                     self.repo.bump_queue_revision(clock=self.clock)
         self._clear_job_interruptible(job["id"])
         self._refresh_batch(batch_id)
 
-    def _heartbeat_while_running(self, job_id: str, stop: threading.Event) -> None:
+    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, attempt_count: int | None = None) -> None:
         """Keep a blocking extractor/LLM stage's lease alive until it returns."""
 
         interval = max(0.01, self.heartbeat_interval_seconds)
         while not stop.wait(interval):
-            self.repo.heartbeat_ingest_job(
+            owned = self.repo.heartbeat_ingest_job(
                 job_id,
                 worker_id=self.worker_id,
+                attempt_count=attempt_count,
                 clock=self.clock,
             )
+            if not owned:
+                # Stop only this runner's transport. Cancelling the batch here
+                # would cancel the replacement owner's valid work as well.
+                with self._interrupt_lock:
+                    interrupt = self._active_interrupts.get(job_id)
+                if interrupt is not None:
+                    interrupt()
+                return
 
     def _propagate_blocks(self, batch_id: str) -> None:
         """Mark every downstream queued job blocked when a dependency failed,

@@ -41,11 +41,20 @@ fn timeout_from_env(name: &str, default_secs: u64) -> Duration {
 #[derive(Clone)]
 pub struct SidecarManager {
     state: Arc<Mutex<SidecarState>>,
+    // Native resources must never wait for the RPC response mutex.
+    selection: Arc<Mutex<VaultSelection>>,
+}
+
+#[derive(Clone, Default)]
+struct VaultSelection {
+    path: Option<PathBuf>,
+    generation: u64,
 }
 
 struct SidecarState {
     client: Option<SidecarClient>,
     vault_path: Option<PathBuf>,
+    grading_override: Option<String>,
 }
 
 struct SidecarClient {
@@ -70,7 +79,9 @@ impl SidecarManager {
             state: Arc::new(Mutex::new(SidecarState {
                 client: None,
                 vault_path: None,
+                grading_override: None,
             })),
+            selection: Arc::new(Mutex::new(VaultSelection::default())),
         }
     }
 
@@ -85,6 +96,7 @@ impl SidecarManager {
         // fell back to the fixture/default vault after dropping a dead client.
         let explicit_selection = requested_vault.is_some();
         let vault = resolve_vault_path(requested_vault, state.vault_path.clone());
+        let same_vault = state.vault_path.as_ref() == Some(&vault);
         if state.client.is_none() || state.vault_path.as_ref() != Some(&vault) {
             // Never run two job managers against one vault while switching.
             // Keep the last successful path, though: if selection fails, the
@@ -93,7 +105,7 @@ impl SidecarManager {
                 stop_client(&mut previous, true);
             }
             let mut candidate = SidecarClient::spawn()?;
-            let initialized = match candidate.call(
+            let mut initialized = match candidate.call(
                 "initialize",
                 json!({"vaultPath": vault, "clientVersion": env!("CARGO_PKG_VERSION")}),
             ) {
@@ -103,12 +115,32 @@ impl SidecarManager {
                     return Err(error);
                 }
             };
+            if same_vault {
+                if let Some(provider) = state.grading_override.as_ref() {
+                    if let Err(error) = candidate.call("set_grading_provider", json!({"provider": provider})) {
+                        stop_client(&mut candidate, false);
+                        return Err(error);
+                    }
+                    if let Ok(health) = candidate.call("get_runtime_health", json!({})) {
+                        initialized["health"] = health;
+                    }
+                }
+            } else {
+                state.grading_override = None;
+            }
             state.client = Some(candidate);
             if explicit_selection {
                 // A vault the user chose (header picker, new-vault wizard)
                 // becomes the next launch's default; the fallbacks below only
                 // apply until then.
                 remember_vault(&vault);
+            }
+            {
+                let mut selection = self.selection.lock().map_err(|_| CommandError::state_unavailable())?;
+                if selection.path.as_ref() != Some(&vault) {
+                    selection.generation += 1;
+                    selection.path = Some(vault.clone());
+                }
             }
             state.vault_path = Some(vault);
             return Ok(initialized);
@@ -120,12 +152,17 @@ impl SidecarManager {
     /// llpdf:// protocol to locate the vault's content-addressed originals
     /// store without a sidecar round-trip.
     pub fn resolved_vault_path(&self) -> PathBuf {
+        self.vault_snapshot().0
+    }
+
+    fn vault_snapshot(&self) -> (PathBuf, u64) {
         let selected = self
-            .state
+            .selection
             .lock()
             .ok()
-            .and_then(|state| state.vault_path.clone());
-        resolve_vault_path(None, selected)
+            .map(|selection| selection.clone())
+            .unwrap_or_default();
+        (resolve_vault_path(None, selected.path), selected.generation)
     }
 
     pub fn select_vault(&self, vault_path: Option<String>) -> Result<Value, CommandError> {
@@ -157,7 +194,13 @@ impl SidecarManager {
             .client
             .as_mut()
             .ok_or_else(CommandError::state_unavailable)?;
+        let grading_override = if method == "set_grading_provider" {
+            params.get("provider").and_then(Value::as_str).map(str::to_string)
+        } else { None };
         let result = client.call(method, params);
+        if result.is_ok() && grading_override.is_some() {
+            state.grading_override = grading_override;
+        }
         // Transport/protocol failures leave no trustworthy request boundary.
         // Reap the process so the next command starts a clean client against
         // the same selected vault. Typed application errors keep it alive.
@@ -176,7 +219,7 @@ impl SidecarManager {
     /// process has its own stdin/stdout protocol and is always reaped after the
     /// call, whether the RPC succeeds, fails, or times out.
     pub fn call_isolated(&self, method: &str, params: Value) -> Result<Value, CommandError> {
-        let vault = self.resolved_vault_path();
+        let (vault, generation) = self.vault_snapshot();
         let mut client = SidecarClient::spawn()?;
         let initialized = client.call(
             "initialize",
@@ -190,6 +233,14 @@ impl SidecarManager {
         let result = client.call(method, params);
         let graceful = !matches!(&result, Err(error) if error.invalidates_sidecar());
         stop_client(&mut client, graceful);
+        if self.vault_snapshot().1 != generation {
+            return Err(CommandError {
+                code: "vault_changed".into(),
+                message: "This action belongs to the previously selected vault. Its result was not loaded into the current view.".into(),
+                retryable: false,
+                details: Some(json!({"vaultPath": vault, "generation": generation})),
+            });
+        }
         result
     }
 }
@@ -618,6 +669,23 @@ fn python_path(repo_root: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_vault_lookup_does_not_wait_for_an_rpc() {
+        let manager = SidecarManager::new();
+        let root = PathBuf::from("/selected-vault");
+        manager.selection.lock().unwrap().path = Some(root.clone());
+        let held_rpc = manager.state.lock().unwrap();
+        let reader = manager.clone();
+        let (send, receive) = mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            send.send(reader.resolved_vault_path()).unwrap();
+        });
+        let result = receive.recv_timeout(Duration::from_secs(1));
+        drop(held_rpc);
+        thread.join().unwrap();
+        assert_eq!(result.unwrap(), root);
+    }
     use crate::errors::SIDECAR_PROTOCOL_CODE;
 
     fn scratch_dir(label: &str) -> PathBuf {

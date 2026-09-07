@@ -37,6 +37,8 @@ from typing import Any, Callable, Mapping
 
 from learnloop.clock import Clock
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
+from learnloop.ai.execution import content_key, generation_limit
+from learnloop.ai.usage import snapshot_client_usage
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     SourceUnitInventory,
@@ -516,6 +518,8 @@ class PreparedInventory:
     output_budget_tokens: int | None
     prompt_version: str
     schema_version: int
+    window_keys: tuple[str, ...] = ()
+    cached_windows: tuple[dict[str, Any] | None, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -648,6 +652,12 @@ def prepare_unit_inventory(
         unit_ids=source_unit_ids,
         input_budget_tokens=input_budget_tokens,
     )
+    keys = tuple(content_key({
+        "purpose": "inventory_window", "prompt_version": prompt_version,
+        "schema_version": schema_version, "provider": provider_name, "model": model_name,
+        "role": role, "profile": requested_profile, "window": window,
+        "unit_id": effective_id, "semantic_hash": semantic_hash,
+    }) for window in windows)
     return PreparedInventory(
         extraction_id=extraction_id,
         revision_id=revision_id,
@@ -663,6 +673,8 @@ def prepare_unit_inventory(
         output_budget_tokens=output_budget_tokens,
         prompt_version=prompt_version,
         schema_version=schema_version,
+        window_keys=keys,
+        cached_windows=tuple(repo.model_checkpoint(key) for key in keys),
     )
 
 
@@ -671,18 +683,18 @@ def execute_prepared_inventory(
     client: Any,
     *,
     progress: Callable[[int, int], None] | None = None,
+    checkpoint: Callable[[str, SourceUnitInventory, dict[str, Any]], None] | None = None,
 ) -> InventoryExecution:
     """Run provider windows without touching SQLite."""
 
     per_window: list[SourceUnitInventory] = []
     usage: dict[str, Any] = {
         "calls": 0,
-        "input_tokens_estimate": sum(
-            max(1, len(json.dumps(window, default=str)) // _CHARS_PER_TOKEN)
-            for window in prepared.windows
-        ),
+        "input_tokens_estimate": 0,
     }
     total_windows = len(prepared.windows)
+    remaining_output = prepared.output_budget_tokens
+    usage["reused_windows"] = 0
     for ordinal, window in enumerate(prepared.windows, start=1):
         context = SourceUnitInventoryContext(
             unit_id=prepared.unit_id,
@@ -691,16 +703,32 @@ def execute_prepared_inventory(
             inventory_profile=prepared.profile,
             unit_view=window,
         )
-        raw = request_source_unit_inventory(client, context)
-        assigned = assign_deterministic_ids(
-            raw,
-            unit_id=prepared.unit_id,
-            window_ordinal=window["window_ordinal"],
-        )
-        assigned.semantic_hash = prepared.semantic_hash
+        cached = prepared.cached_windows[ordinal - 1] if prepared.cached_windows else None
+        if cached:
+            assigned = SourceUnitInventory.model_validate(cached["result"])
+            usage["reused_windows"] += 1
+        else:
+            if remaining_output is not None and remaining_output <= 0:
+                raise InventoryValidationError("inventory output budget exhausted before the next window")
+            before = snapshot_client_usage(client)
+            with generation_limit(remaining_output):
+                raw = request_source_unit_inventory(client, context)
+            after = snapshot_client_usage(client)
+            usage["input_tokens_estimate"] += max(1, len(source_unit_inventory_prompt(context)) // _CHARS_PER_TOKEN, after.input_tokens - before.input_tokens)
+            assigned = assign_deterministic_ids(raw, unit_id=prepared.unit_id, window_ordinal=window["window_ordinal"])
+            assigned.semantic_hash = prepared.semantic_hash
+            usage["calls"] += 1
         validate_inventory(assigned, set(prepared.valid_span_ids))
+        window_tokens = max(1, len(assigned.model_dump_json()) // _CHARS_PER_TOKEN)
+        if not cached:
+            window_tokens = max(window_tokens, after.output_tokens - before.output_tokens)
+        if remaining_output is not None:
+            remaining_output -= window_tokens
+            if remaining_output < 0:
+                raise InventoryValidationError("inventory output exceeded its configured token budget")
+        if not cached and checkpoint is not None and prepared.window_keys:
+            checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
         per_window.append(assigned)
-        usage["calls"] += 1
         if progress is not None:
             progress(ordinal, total_windows)
 
@@ -798,7 +826,10 @@ def run_unit_inventory(
     )
     if isinstance(prepared, InventoryResult):
         return prepared
-    execution = execute_prepared_inventory(prepared, client, progress=progress)
+    execution = execute_prepared_inventory(
+        prepared, client, progress=progress,
+        checkpoint=lambda key, result, usage: repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage),
+    )
     return persist_prepared_inventory(repo, prepared, execution, clock=clock)
 
 

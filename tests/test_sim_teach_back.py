@@ -84,9 +84,19 @@ def build_teach_back_sim_vault(root: Path) -> Path:
     return root
 
 
-@pytest.fixture()
-def teach_vault(tmp_path: Path) -> Path:
-    return build_teach_back_sim_vault(tmp_path / "source_vault")
+@pytest.fixture(scope="module")
+def teach_vault(tmp_path_factory) -> Path:
+    return build_teach_back_sim_vault(tmp_path_factory.mktemp("teach-source") / "vault")
+
+
+@pytest.fixture(scope="module")
+def teach_runs(teach_vault, tmp_path_factory):
+    directory = tmp_path_factory.mktemp("teach-runs")
+    runs = []
+    for name in ("first", "second"):
+        root = prepare_run_vault(teach_vault, directory / name)
+        runs.append((root, run_simulation(root, _profile(), days=8, items_per_day=7, seed=42)))
+    return runs
 
 
 def _profile() -> StudentProfile:
@@ -173,10 +183,9 @@ def test_transfer_difficulty_delta_round_trips_through_profile() -> None:
 
 
 def test_runner_completes_session_with_teach_back_item(
-    teach_vault: Path, tmp_path: Path
+    teach_runs,
 ) -> None:
-    run_root = prepare_run_vault(teach_vault, tmp_path / "run")
-    report = run_simulation(run_root, _profile(), days=8, items_per_day=7, seed=42)
+    run_root, report = teach_runs[0]
 
     teach_attempts = [a for a in report.attempts if a.attempt_type == "teach_back"]
     assert teach_attempts, "the teach_back item was never practiced"
@@ -206,11 +215,8 @@ def test_runner_completes_session_with_teach_back_item(
     assert "lo_move_terms" in belief_los
 
 
-def test_teach_back_runs_are_seed_deterministic(teach_vault: Path, tmp_path: Path) -> None:
-    reports = []
-    for name in ("run_a", "run_b"):
-        run_root = prepare_run_vault(teach_vault, tmp_path / name)
-        reports.append(run_simulation(run_root, _profile(), days=6, items_per_day=7, seed=9))
+def test_teach_back_runs_are_seed_deterministic(teach_runs) -> None:
+    reports = [report for _, report in teach_runs]
     assert reports[0].deterministic_dict() == reports[1].deterministic_dict()
     assert any(a.attempt_type == "teach_back" for a in reports[0].attempts)
 

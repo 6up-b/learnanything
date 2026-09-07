@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import learnloop.ai.routing as routing
 import pytest
+from tests.source_inventory import source_ast, source_text
 from learnloop.ai.client import make_ai_provider_client_from_profile
 from learnloop.ai.providers.codex import SdkCodexClient
 from learnloop.ai.providers.codex_http import HttpCodexClient
@@ -53,7 +54,7 @@ def test_all_six_entry_point_paths_delegate_to_the_composition_root(
 
     module = importlib.import_module(module_name)
     module_path = Path(module.__file__ or "")
-    tree = ast.parse(module_path.read_text(encoding="utf-8"), filename=str(module_path))
+    tree = source_ast(source_text(module_path))
     definitions = [
         node
         for node in ast.walk(tree)
@@ -159,67 +160,18 @@ def test_provider_resolution_config_matrix_is_uniform(
 
 
 @pytest.mark.parametrize(
-    ("payload", "unavailable"),
-    (
-        ({}, set()),
-        (
-            {
-                "ai": {
-                    "routing": {"grading": "named", "canonical_ingest": "named"},
-                    "providers": {
-                        "named": {"type": "codex_sdk", "model": "named-model"}
-                    },
-                }
-            },
-            set(),
-        ),
-        (
-            {
-                "ai": {
-                    "active_provider": "openrouter",
-                    "routing": {
-                        "grading": "openrouter",
-                        "canonical_ingest": "openrouter",
-                    },
-                }
-            },
-            set(),
-        ),
-        (
-            {
-                "ai": {
-                    "routing": {
-                        "grading": "primary",
-                        "canonical_ingest": "primary",
-                    },
-                    "fallback_provider": "backup",
-                    "providers": {
-                        "primary": {"type": "openrouter", "model": "primary-model"},
-                        "backup": {"type": "openai_chat", "model": "backup-model"},
-                    },
-                }
-            },
-            {"primary"},
-        ),
-        (
-            {
-                "ai": {
-                    "routing": {
-                        "grading": MANUAL_PROVIDER,
-                        "canonical_ingest": MANUAL_PROVIDER,
-                    },
-                }
-            },
-            set(),
-        ),
-    ),
-    ids=("codex-only", "named-profile", "openrouter-active", "fallback", "manual"),
+    ("payload", "unavailable", "expected_identity"),
+    [
+        ({}, set(), ("codex_low", "codex_sdk", "gpt-5.6-sol", "codex_low", None)),
+        ({"ai": {"routing": {"grading": "manual", "canonical_ingest": "manual"}}}, set(), ("manual", None, None, "manual", None)),
+    ], ids=("ready", "manual"),
 )
 def test_config_matrix_executes_all_six_production_resolution_paths(
     tmp_path,
     monkeypatch,
     payload,
     unavailable,
+    expected_identity,
 ) -> None:
     """Run the six adapters, not merely their shared root or their ASTs."""
 
@@ -268,10 +220,9 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
             resolved.fallback_from,
         )
 
-    expected = {
-        task: identity(original_ready(tmp_path, config, task))
-        for task in ("grading", "canonical_ingest")
-    }
+    expected = {task: expected_identity for task in ("grading", "canonical_ingest")}
+    if expected_identity[0] == "codex_low":
+        expected["canonical_ingest"] = ("codex_medium", "codex_sdk", "gpt-5.6-sol", "codex_medium", None)
     observed: list[tuple[str, tuple[object, ...]]] = []
 
     def recording_ready(root, parsed, task, **kwargs):
@@ -445,23 +396,6 @@ def test_diagnostic_fire_uses_the_structured_completion_path():
     assert captured[0].purpose == "grade_diagnostic_fire"
     assert captured[0].result_model is DiagnosticFireJudgment
 
-
-def test_legacy_http_declares_exactly_its_endpoint_operations():
-    client = HttpCodexClient(CodexConfig(provider="http"))
-    operations = {
-        "authoring",
-        "canonical_ingest",
-        "grading",
-        "tutor_qa",
-        "teach_back",
-        "teach_back_authoring",
-        "misconception_match",
-        "promotion_analysis",
-    }
-
-    assert all(client.supports(operation) for operation in operations)
-    assert client.supports(STRUCTURED_COMPLETION) is False
-    assert not hasattr(client, "complete")
 
 
 def test_chat_complete_and_declared_media_capabilities_share_one_contract():

@@ -3,9 +3,9 @@ title: "Config - mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "learnloop.toml mastery"
   - "[mastery] configuration"
@@ -32,9 +32,9 @@ source_paths:
   - "tests/test_goal_intent.py"
   - "tests/test_goal_scope_material.py"
   - "tests/test_hypothesis_claim_dispatcher.py"
-  - "tests/test_ingest_runner.py"
   - "tests/test_intent_planner.py"
   - "tests/test_irt_difficulty.py"
+  - "tests/test_item_parameters.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/mastery"
@@ -73,8 +73,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `mastery.irt.p_clip` | `0.0001` | number | modeled default or validator seed | Controls p clip in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:134`; `src/learnloop/learner/mastery.py:427` |
 | `mastery.irt.mu_abs_max` | `5.0` | number | modeled default or validator seed | Caps mu abs allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:135`; `src/learnloop/learner/mastery.py:554` |
 | `mastery.irt.max_logit_step` | `4.0` | number | modeled default or validator seed | Caps logit step allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:136`; `src/learnloop/learner/mastery.py:549` |
-| `mastery.irt.priming_b_offset` | `2.0` | number | modeled default or validator seed | Controls priming b offset in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:149`; `src/learnloop/attempts/attempts.py:2284` |
-| `mastery.irt.eb_difficulty_enabled` | `false` | boolean | modeled default or validator seed | Turns eb difficulty behavior on or off within difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:150`; `src/learnloop/attempts/attempts.py:2200`; `src/learnloop/learner/mastery.py:395` |
+| `mastery.irt.priming_b_offset` | `2.0` | number | modeled default or validator seed | Controls priming b offset in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:149`; `src/learnloop/attempts/attempts.py:2302` |
+| `mastery.irt.eb_difficulty_enabled` | `false` | boolean | modeled default or validator seed | Turns eb difficulty behavior on or off within difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:150`; `src/learnloop/attempts/attempts.py:2218`; `src/learnloop/learner/mastery.py:395` |
 | `mastery.irt.b_prior_variance` | `0.25` | number | modeled default or validator seed | Sets the b prior variance used by difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:151`; `src/learnloop/learner/mastery.py:423` |
 | `mastery.irt.b_learning_rate_scale` | `0.2` | number | modeled default or validator seed | Controls b learning rate scale in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:152`; `src/learnloop/learner/mastery.py:434` |
 | `mastery.irt.b_max_step` | `0.25` | number | modeled default or validator seed | Controls b max step in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:153`; `src/learnloop/learner/mastery.py:437` |
@@ -96,9 +96,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_goal_intent.py`
 - `tests/test_goal_scope_material.py`
 - `tests/test_hypothesis_claim_dispatcher.py`
-- `tests/test_ingest_runner.py`
 - `tests/test_intent_planner.py`
 - `tests/test_irt_difficulty.py`
+- `tests/test_item_parameters.py`
 
 ## Extension and modification guidance
 

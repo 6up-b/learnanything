@@ -14,6 +14,7 @@ be verified against its revision's ``asset_hash``.
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from learnloop.ingest.hashing import asset_hash
 
@@ -32,9 +33,19 @@ def store_original_bytes(vault_root: Path, digest: str, raw_bytes: bytes) -> Pat
     path = canonical_source_raw_path(vault_root, digest)
     if not path.is_file():
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + ".tmp")
-        tmp.write_bytes(raw_bytes)
-        tmp.replace(path)
+        # Concurrent imports of the same content must not share a temporary
+        # name: one writer replacing it used to strand the other writer.
+        with NamedTemporaryFile(dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False) as handle:
+            tmp = Path(handle.name)
+            try:
+                handle.write(raw_bytes)
+            except BaseException:
+                tmp.unlink(missing_ok=True)
+                raise
+        try:
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
     return path
 
 

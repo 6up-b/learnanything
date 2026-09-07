@@ -16,7 +16,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "tests/test_doctor.py"
   - "tests/test_source_layer.py"
-  - "REFACTOR_PROPOSAL.md"
+  - "docs/specs/REFACTOR_PROPOSAL.md"
 tags:
   - "learnloop/database/compatibility"
   - "learnloop/status/needs-owner-input"

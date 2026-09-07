@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 157
+schema_head: 163
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,8 +23,8 @@ source_paths:
   - "src/learnloop/content/pipeline/build_plan.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/quick_add.py"
+  - "src/learnloop/content/pipeline/source_ingestion.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop/content/sources/source_outline.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
+- `src/learnloop/content/pipeline/source_ingestion.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`

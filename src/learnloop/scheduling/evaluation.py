@@ -345,7 +345,14 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     pairs: list[tuple[float, float]] = []
     by_band: dict[str, list[tuple[float, float]]] = {label: [] for _, _, label in bands}
     unmatched = 0
+    from learnloop.outcome_contract import LABEL_VERSION, retention_exclusions
+    excluded: dict[str, int] = {}
     for label_row in repository.retention_label_rows():
+        reasons = retention_exclusions(label_row)
+        if reasons:
+            for reason in reasons:
+                excluded[reason] = excluded.get(reason, 0) + 1
+            continue
         stability = stability_after.get(label_row["source_attempt_id"])
         if stability is None:
             unmatched += 1
@@ -363,6 +370,8 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     return {
         "count": len(pairs),
         "unmatched_labels": unmatched,
+        "label_contract_version": LABEL_VERSION,
+        "excluded_labels_by_reason": excluded,
         "reconstruction": {
             "items_checked": checked,
             "stability_mismatches": mismatches,
@@ -385,7 +394,8 @@ def _propensity_section(repository: Repository) -> dict[str, Any]:
     slates = {row["slate_id"] for row in rows}
     chosen = [row for row in rows if row["chosen_attempt_id"] is not None]
     propensities = [
-        float(row["selection_propensity"]) for row in chosen if row["selection_propensity"] is not None
+        float(row["selection_propensity"]) for row in chosen
+        if row["selection_propensity"] is not None and 0 < float(row["selection_propensity"]) <= 1
     ]
     null_count = sum(1 for row in chosen if row["selection_propensity"] is None)
     near_one = sum(1 for value in propensities if value >= 0.999)
@@ -395,12 +405,14 @@ def _propensity_section(repository: Repository) -> dict[str, Any]:
     for value in propensities:
         histogram[min(int(value * 10), 9)] += 1
 
-    degenerate = bool(chosen) and (near_one + null_count) / len(chosen) > 0.90
+    invalid_count = len(chosen) - null_count - len(propensities)
+    degenerate = bool(chosen) and (invalid_count > 0 or (near_one + null_count) / len(chosen) > 0.90)
     return {
         "slates": len(slates),
         "chosen_candidates": len(chosen),
         "exploration_fraction": (exploration / len(chosen)) if chosen else None,
         "null_propensities": null_count,
+        "invalid_propensities": invalid_count,
         "propensities_near_one": near_one,
         "histogram": histogram,
         "off_policy_readiness": "DEGENERATE" if degenerate else ("OK" if chosen else "NO DATA"),

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from learnloop.ai.execution import content_key
+
 import hashlib
 import json
 import re
@@ -178,6 +180,7 @@ def ingest_canonical_source(
     pdf_engine: str | None = None,
     pdf_use_llm: bool | None = None,
     ir_markdown: str | None = None,
+    ir_extraction_id: str | None = None,
     clock: Clock | None = None,
     progress: IngestProgress | None = None,
 ) -> IngestResult:
@@ -198,18 +201,38 @@ def ingest_canonical_source(
     if resolved_kind == "textbook_chapter":
         _validate_textbook_targets(vault, subject_id, target_learning_object_ids)
 
-    _report_progress(progress, "fetching", source_kind=resolved_kind)
-    fetch_result = fetch_source(
-        vault.root,
-        resolved_source.source,
-        kind=resolved_kind,
-        allow_auto_captions=allow_auto_captions,
-        pdf_config=pdf_config,
-        clock=clock,
-        progress=progress,
-    )
-    _report_progress(progress, "extracting", source_kind=resolved_kind)
-    normalized = normalize_source(fetch_result, resolved_kind)
+    if ir_markdown is not None and ir_extraction_id is not None:
+        # Explicit revision resume: use the exact retained acquisition and IR,
+        # even if the original URL/file changed or is no longer available.
+        repository = Repository(paths.sqlite_path)
+        extraction = repository.get_extraction_run(ir_extraction_id)
+        revision = repository.get_source_revision(extraction["revision_id"]) if extraction else None
+        artifact = repository.get_source_artifact(revision["source_id"]) if revision else None
+        from learnloop.ingest.originals import stored_original_path
+        from learnloop.ingest.hashing import asset_hash
+        original_path = stored_original_path(vault.root, revision["asset_hash"]) if revision else None
+        if not revision or not artifact or original_path is None:
+            raise SourceIngestionError("The saved extraction's original bytes are unavailable; re-import this source.")
+        raw = original_path.read_bytes()
+        if asset_hash(raw) != revision["asset_hash"]:
+            raise SourceIngestionError("The saved extraction's original bytes failed their content hash check.")
+        original_uri = str(revision.get("original_uri") or artifact.get("canonical_uri") or source)
+        retrieved_at = str(revision.get("retrieved_at") or revision["created_at"])
+        fetch_result = FetchResult(raw_bytes=raw, content_type=None, original_uri=original_uri, retrieved_at=retrieved_at)
+        normalized = NormalizedSource(kind=resolved_kind, title=str(artifact.get("display_title") or Path(original_uri).stem or "Source"), authors=[], canonical_uri=str(artifact.get("canonical_uri") or original_uri), original_uri=original_uri, markdown=ir_markdown, retrieved_at=retrieved_at)
+    else:
+        _report_progress(progress, "fetching", source_kind=resolved_kind)
+        fetch_result = fetch_source(
+            vault.root,
+            resolved_source.source,
+            kind=resolved_kind,
+            allow_auto_captions=allow_auto_captions,
+            pdf_config=pdf_config,
+            clock=clock,
+            progress=progress,
+        )
+        _report_progress(progress, "extracting", source_kind=resolved_kind)
+        normalized = normalize_source(fetch_result, resolved_kind)
     # M3.5 v2-lite (§2.3): when a durable ExtractionRun already produced a Document
     # IR for this source, synthesis builds its chunk context from the IR's
     # deterministic display rendering (respecting a persisted unit selection)
@@ -246,6 +269,9 @@ def ingest_canonical_source(
         content_hash,
         resolved_kind,
         target_learning_object_ids,
+        instructions=instructions, subject_id=subject,
+        provider_identity=_agent_provider_fields(codex_client, model=model, provider_revision=codex_revision),
+        purpose=purpose,
     )
     completed = repository.completed_agent_run_by_context(purpose, context_hash)
     if completed is not None:
@@ -279,6 +305,7 @@ def ingest_canonical_source(
     # windows it actually paid for (A7).
     active_client: AIProviderClient = codex_client
     try:
+        window_usage = {"calls": 0}
         merged = _run_ingest_windows(
             codex_client,
             vault,
@@ -287,6 +314,7 @@ def ingest_canonical_source(
             windows,
             target_learning_object_ids=target_learning_object_ids,
             instructions=instructions,
+            usage=window_usage,
             progress=progress,
         )
         if change_analysis.summary:
@@ -337,6 +365,7 @@ def ingest_canonical_source(
                 windows,
                 target_learning_object_ids=target_learning_object_ids,
                 instructions=instructions,
+                usage=window_usage,
                 progress=progress,
             )
             if change_analysis.summary:
@@ -419,7 +448,7 @@ def ingest_canonical_source(
         subject_id=subject,
         content_hash=content_hash,
         reused_existing=False,
-        codex_calls=len(windows),
+        codex_calls=window_usage["calls"],
         auto_applied_count=sum(1 for row in rows if row.get("_auto_apply")),
         review_required_count=sum(
             1
@@ -445,8 +474,10 @@ def _run_ingest_windows(
     target_learning_object_ids: list[str],
     instructions: str | None,
     progress: IngestProgress | None = None,
+    usage: dict[str, int] | None = None,
 ) -> AuthoringProposal:
     proposals: list[AuthoringProposal] = []
+    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
     for index, window in enumerate(windows, 1):
         _report_progress(
             progress,
@@ -462,8 +493,17 @@ def _run_ingest_windows(
             target_learning_object_ids=target_learning_object_ids,
             instructions=instructions,
         )
-        proposal = request_canonical_ingest(client, context)
-        proposals.append(_proposal_with_locator_validation(proposal, registered, window))
+        key = content_key({"purpose": "legacy_ingest_window", "prompt": canonical_ingest_prompt(context), "schema": AuthoringProposal.model_json_schema(), "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)})
+        checkpoint = repository.model_checkpoint(key)
+        if checkpoint:
+            proposal = AuthoringProposal.model_validate(checkpoint["result"])
+        else:
+            if usage is not None:
+                usage["calls"] = usage.get("calls", 0) + 1
+            proposal = request_canonical_ingest(client, context)
+            proposal = _proposal_with_locator_validation(proposal, registered, window)
+            repository.save_model_checkpoint(key, purpose="legacy_ingest_window", result=proposal.model_dump(mode="json"))
+        proposals.append(proposal)
     return merge_window_proposals(proposals)
 
 
@@ -932,8 +972,13 @@ def canonical_ingest_context_hash(
     content_hash: str,
     source_kind: SourceKind,
     target_learning_object_ids: list[str],
+    *, instructions: str | None = None, subject_id: str | None = None,
+    provider_identity: dict[str, Any] | None = None, purpose: str = "canonical_ingest",
 ) -> str:
     payload = {
+        "identity_version": 2, "prompt_version": CANONICAL_INGEST_PROMPT_VERSION,
+        "instructions": instructions, "subject_id": subject_id,
+        "provider_identity": provider_identity, "purpose": purpose,
         "canonical_uri": canonical_uri,
         "content_hash": content_hash,
         "source_kind": source_kind,
@@ -955,7 +1000,7 @@ def register_canonical_source(
     existing = _existing_registered_source(vault, source.kind, source.canonical_uri, content_hash)
     if existing is not None:
         _retain_raw_bytes(root, existing.note_id, content_hash, raw_bytes)
-        return existing
+        return replace(existing, subject_id=subject_id)
 
     now = utc_now_iso(clock)
     note_id = _unique_note_id(vault, source.title, content_hash)

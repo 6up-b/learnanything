@@ -858,6 +858,7 @@ def source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str:
         "learnloop source set synthesis",
         SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
         {"task": SOURCE_SET_SYNTHESIS_PROMPT, "context": asdict(context)},
+        context_tail_fields=("resolved_spans",),
     )
 
 

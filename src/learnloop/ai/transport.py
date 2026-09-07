@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.usage import TokenUsage
+from learnloop.ai.execution import model_call, output_limit
 
 WireResult = TypeVar("WireResult", bound=WireModel)
 
@@ -36,6 +37,7 @@ class StructuredRequest(Generic[WireResult]):
     prompt: str
     result_model: type[WireResult]
     timeout_seconds: float | None = None
+    output_budget_tokens: int | None = None
 
     @property
     def model_type(self) -> type[WireResult]:
@@ -142,7 +144,17 @@ def execute_structured_operation(
         prompt=prompt,
         result_model=result_model,
         timeout_seconds=timeout_seconds,
+        output_budget_tokens=output_limit(),
     )
+    with model_call(transport, purpose=purpose, prompt=prompt, schema=result_model.model_json_schema(), budget=request.output_budget_tokens) as metadata:
+        result = _execute_request(transport, request, legacy_context, legacy_capability)
+        if isinstance(result, BaseModel):
+            metadata["output_text"] = result.model_dump_json()
+        return result
+
+
+def _execute_request(transport, request, legacy_context, legacy_capability):
+    purpose = request.purpose
     if transport.supports(STRUCTURED_COMPLETION):
         # Advertising the capability is the transport-level guarantee that the
         # operation client implements the complete() contract.  The cast keeps
@@ -183,15 +195,26 @@ def render_structured_prompt(
     title: str,
     prompt_version: str,
     payload: Mapping[str, Any],
+    *,
+    context_tail_fields: tuple[str, ...] = (),
 ) -> str:
     """Render the byte-stable envelope shared by feature-owned operations."""
+
+    def encode(key: str) -> str:
+        value = prompt_safe(payload[key])
+        if key == "context" and isinstance(value, dict) and context_tail_fields:
+            ordered = sorted(value, key=lambda field: (field in context_tail_fields, field))
+            return "{" + ", ".join(f"{json.dumps(field)}: {json.dumps(value[field], sort_keys=True, ensure_ascii=False)}" for field in ordered) + "}"
+        return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
     return (
         f"{title}\n"
         f"prompt_version: {prompt_version}\n\n"
         "Return only JSON that matches the provided output schema. Do not include "
         "Markdown fences or explanatory prose.\n\n"
-        f"{json.dumps(prompt_safe(payload), sort_keys=True, ensure_ascii=False)}"
+        # Keep stable instructions before changing source content. Each value
+        # remains canonically encoded, so identical prefixes stay byte stable.
+        + "{" + ", ".join(f"{json.dumps(key)}: {encode(key)}" for key in sorted(payload, key=lambda key: (key == "context", key))) + "}"
     )
 
 __all__ = [

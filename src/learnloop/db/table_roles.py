@@ -62,6 +62,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("angle_inventories", TableRole.RAW_LEDGER),
     ("apply_intents", TableRole.WORKFLOW),
     ("assessment_contract_versions", TableRole.RAW_LEDGER),
+    ("attempt_completion_work", TableRole.WORKFLOW),
     # Carries immutable diagnosis/firewall receipts and recorded priming inputs
     # alongside the replay trace.  There is no external lossless source for the
     # receipt portion, so the table is an authoritative attempt artifact.
@@ -154,6 +155,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("facet_uncertainty", TableRole.COMPAT),
     ("failure_triage_events", TableRole.RECEIPT),
     ("failure_triage_routes", TableRole.RAW_LEDGER),
+    ("false_remediation_adjudications", TableRole.RAW_LEDGER),
     ("familiarity_kernel_events", TableRole.RECEIPT),
     ("familiarity_kernel_features", TableRole.RECEIPT),
     ("familiarity_kernel_models", TableRole.RAW_LEDGER),
@@ -201,6 +203,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("misconception_transition_events", TableRole.RECEIPT),
     ("misconceptions", TableRole.WORKFLOW),
     ("missing_vocabulary_notes", TableRole.RAW_LEDGER),
+    ("model_call_receipts", TableRole.RECEIPT),
+    ("model_work_checkpoints", TableRole.WORKFLOW),
     ("notation_mappings", TableRole.RAW_LEDGER),
     ("observation_events", TableRole.RAW_LEDGER),
     ("observation_templates", TableRole.RAW_LEDGER),
@@ -259,6 +263,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reveal_events", TableRole.RAW_LEDGER),
     ("rung_variant_requests", TableRole.WORKFLOW),
     ("scheduler_explanations", TableRole.RECEIPT),
+    ("scheduler_offer_receipts", TableRole.RECEIPT),
     ("scheduler_slate_candidates", TableRole.WORKFLOW),
     ("scheduler_slates", TableRole.WORKFLOW),
     ("schema_migrations", TableRole.RECEIPT),
@@ -296,6 +301,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("source_unit_inventories", TableRole.RAW_LEDGER),
     ("source_unit_selections", TableRole.WORKFLOW),
     ("subject_identifiability_watermarks", TableRole.DERIVED),
+    ("submission_intents", TableRole.RAW_LEDGER),
     ("surface_fingerprint_memberships", TableRole.RAW_LEDGER),
     ("surface_mint_requests", TableRole.WORKFLOW),
     ("synthesis_generation_needs", TableRole.WORKFLOW),

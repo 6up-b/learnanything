@@ -464,13 +464,14 @@ def _ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, An
     )
     ai_report = resolved.runtime
     return {
-        "ready": ai_report.ready,
-        "status": ai_report.status,
-        "active_provider": ai_report.active_provider,
+        "ready": True if resolved.manual else ai_report.ready,
+        "status": "manual" if resolved.manual else ai_report.status,
+        "active_provider": "manual" if resolved.manual else ai_report.active_provider,
         "provider_type": ai_report.provider_type,
         "model": ai_report.model,
         "provider_revision": ai_report.provider_revision,
         **base,
+        "manual_grading": resolved.manual,
     }
 
 

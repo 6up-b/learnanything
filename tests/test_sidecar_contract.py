@@ -612,8 +612,9 @@ def test_cached_submission_recovery_precedes_ended_session_and_removed_item_chec
     assert recovered == {"version": 1, "status": "recovered", "result": first}
 
 
-def test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key(
-    tmp_path,
+@pytest.mark.parametrize('legacy_missing_work', [False, True])
+def test_missing_diagnostic_receipt_recovers_only_from_durable_completion(
+    tmp_path, legacy_missing_work,
 ):
     """An attempt id cannot bypass diagnostic deferred/block-end routing.
 
@@ -679,6 +680,8 @@ def test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key(
             "DELETE FROM attempt_submission_receipts WHERE submission_id = ?",
             (payload["submissionId"],),
         )
+        if legacy_missing_work:
+            connection.execute('DELETE FROM attempt_completion_work WHERE submission_id=?', (payload['submissionId'],))
         connection.commit()
 
     retried = _rpc(
@@ -696,19 +699,77 @@ def test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key(
             },
         ]
     )[1]
-    assert retried["error"]["data"] == {
-        "code": "submission_committed",
-        "retryable": False,
-        "details": {
-            "attempt_id": first["attemptId"],
-            "attempt_type": "diagnostic_probe",
-            "route_status": "unknown",
-        },
-    }
+    if legacy_missing_work:
+        assert retried["error"]["data"] == {
+            "code": "submission_committed",
+            "retryable": False,
+            "details": {
+                "attempt_id": first["attemptId"],
+                "attempt_type": "diagnostic_probe",
+                "route_status": "unknown",
+            },
+        }
+    else:
+        assert retried['result'] == {'version': 1, 'status': 'recovered', 'result': first}
     assert [row["id"] for row in repository.list_attempt_history()] == [first["attemptId"]]
     checkpoint = repository.fetch_session_checkpoint(session_id)
     assert checkpoint is not None
     assert checkpoint["focus_block_state"]["practice"]["submissionId"] == payload["submissionId"]
+
+
+@pytest.mark.parametrize('boundary', ['run_post_attempt_pipeline', '_store_submission_receipt'])
+def test_interrupted_submission_resumes_saved_result_once(tmp_path, monkeypatch, boundary):
+    from learnloop_sidecar.handlers import practice
+
+    root = tmp_path / 'vault'
+    paths = create_basic_vault(root)
+    initialize = {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize', 'params': {'vaultPath': str(root)}}
+    session_id = _rpc([initialize, {'jsonrpc': '2.0', 'id': 2, 'method': 'start_session', 'params': {}}])[1]['result']['sessionId']
+    params = {
+        'sessionId': session_id, 'practiceItemId': 'pi_svd_define_001',
+        'submissionId': 'interrupted-grade', 'answerMd': 'U Sigma V transpose',
+        'attemptType': 'independent_attempt',
+        'selfGrade': {'criterionPoints': {'correctness': 4}, 'confidence': 5},
+    }
+    original = getattr(practice, boundary)
+    calls = 0
+
+    def interrupt_once(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError('injected completion interruption')
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(practice, boundary, interrupt_once)
+    failed = _rpc([initialize, {'jsonrpc': '2.0', 'id': 2, 'method': 'submit_attempt', 'params': params}])[1]
+    assert 'error' in failed
+    repository = Repository(paths.sqlite_path)
+    attempt = repository.practice_attempt_by_submission_id(params['submissionId'])
+    assert attempt is not None
+    assert repository.attempt_completion(attempt['id']) is not None
+    recovery = {'jsonrpc': '2.0', 'id': 2, 'method': 'recover_practice_submission', 'params': {k: params[k] for k in ('sessionId', 'practiceItemId', 'submissionId')}}
+    first = _rpc([initialize, recovery])[1]['result']
+    second = _rpc([initialize, recovery])[1]['result']
+    assert first == second
+    assert first['status'] == 'recovered'
+    assert first['result']['attemptId'] == attempt['id']
+    assert len(repository.list_attempt_history()) == 1
+    assert repository.attempt_completion(attempt['id'])['status'] == 'completed'
+    assert repository.fetch_attempt_feedback_metadata(attempt['id']) is not None
+
+
+def test_configured_manual_grading_is_ready(tmp_path):
+    from learnloop_sidecar.context import _ai_health
+
+    root = tmp_path / 'vault'
+    create_basic_vault(root)
+    vault = load_vault(root)
+    vault.config.ai.routing.grading = 'manual'
+    health = _ai_health(vault, None)
+    assert health['ready'] is True
+    assert health['status'] == health['active_provider'] == 'manual'
+    assert health['manual_grading'] is True
 
 
 def test_inspector_opens_probe_episode_drilldown(tmp_path):

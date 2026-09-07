@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import textwrap
 import tomllib
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -18,6 +19,8 @@ from learnloop.vault.writer import upsert_practice_item
 NOW = datetime(2026, 5, 19, 12, 0, tzinfo=UTC)
 NOW_ISO = "2026-05-19T12:00:00Z"
 ALGORITHM_VERSION = LearnLoopConfig().algorithms.algorithm_version
+_BASIC_VAULT_TEMPLATE: VaultPaths | None = None
+_FRESH_VAULTS = False
 
 
 async def begin_session(app, pilot):
@@ -60,7 +63,11 @@ def seed_due_item(paths: VaultPaths) -> Repository:
     return repository
 
 
-def create_basic_vault(root: Path) -> VaultPaths:
+def create_basic_vault(root: Path, *, fresh: bool = False) -> VaultPaths:
+    template = _BASIC_VAULT_TEMPLATE
+    if template is not None and not fresh and not _FRESH_VAULTS and (not root.exists() or not any(root.iterdir())):
+        shutil.copytree(template.root, root, dirs_exist_ok=True)
+        return VaultPaths(root.resolve(), template.config.model_copy(deep=True))
     clock = FrozenClock(NOW)
     init_vault(root, clock=clock)
     # The basic vault is the legacy (mvp-0.6) baseline: its items declare ad-hoc

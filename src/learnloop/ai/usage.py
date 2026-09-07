@@ -20,6 +20,7 @@ contracts.
 from __future__ import annotations
 
 import threading
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -113,6 +114,19 @@ class TokenUsageAccounting:
             self._usage_calls = 0
         return usage
 
+    def snapshot_usage(self) -> TokenUsage:
+        """Read without draining the enclosing run's accounting."""
+        with self._usage_mutex():
+            return TokenUsage(self._usage_input_tokens, self._usage_output_tokens, self._usage_calls)
+
+
+def snapshot_client_usage(client: Any | None) -> TokenUsage:
+    snapshot = getattr(client, "snapshot_usage", None)
+    if not callable(snapshot):
+        return TokenUsage()
+    usage = snapshot()
+    return usage if isinstance(usage, TokenUsage) else TokenUsage()
+
 
 def consume_client_usage(client: Any | None) -> TokenUsage:
     """Drain ``client``'s accumulator, tolerating clients that have none.
@@ -146,6 +160,23 @@ def usage_from_chat_response(response: Any) -> tuple[int, int]:
     """
 
     usage = _attr_or_key(response, "usage")
+    from learnloop.ai.execution import report_call_usage
+    prompt_details = _attr_or_key(usage, "prompt_tokens_details")
+    completion_details = _attr_or_key(usage, "completion_tokens_details")
+    choices = _attr_or_key(response, "choices") or []
+    report_call_usage({
+        "provider_response_id": _attr_or_key(response, "id"),
+        "resolved_model": _attr_or_key(response, "model"),
+        "usage_json": json.dumps(usage.model_dump(mode="json") if hasattr(usage, "model_dump") else usage, default=str) if usage is not None else None,
+        "output_text": _attr_or_key(_attr_or_key(choices[0], "message"), "content") if choices else None,
+        "finish_reason": _attr_or_key(choices[0], "finish_reason") if choices else None,
+        "cached_input_tokens": _optional_tokens(_attr_or_key(prompt_details, "cached_tokens")),
+        "cache_write_tokens": _optional_tokens(_attr_or_key(prompt_details, "cache_write_tokens")),
+        "reasoning_tokens": _optional_tokens(_attr_or_key(completion_details, "reasoning_tokens")),
+        "cost": _optional_cost(_attr_or_key(usage, "cost")),
+        "input_tokens": _optional_tokens(_attr_or_key(usage, "prompt_tokens") if _attr_or_key(usage, "prompt_tokens") is not None else _attr_or_key(usage, "input_tokens")),
+        "output_tokens": _optional_tokens(_attr_or_key(usage, "completion_tokens") if _attr_or_key(usage, "completion_tokens") is not None else _attr_or_key(usage, "output_tokens")),
+    })
     if usage is None:
         return 0, 0
     input_tokens = _attr_or_key(usage, "prompt_tokens")
@@ -180,6 +211,13 @@ def usage_from_codex_turn(result: Any) -> tuple[int, int]:
         breakdown = _attr_or_key(usage, "last")
     if breakdown is None:
         return 0, 0
+    from learnloop.ai.execution import report_call_usage
+    report_call_usage({
+        "input_tokens": _optional_tokens(_attr_or_key(breakdown, "input_tokens")),
+        "output_tokens": _optional_tokens(_attr_or_key(breakdown, "output_tokens")),
+        "cached_input_tokens": _optional_tokens(_attr_or_key(breakdown, "cached_input_tokens")),
+        "reasoning_tokens": _optional_tokens(_attr_or_key(breakdown, "reasoning_output_tokens")),
+    })
     return (
         _coerce_tokens(_attr_or_key(breakdown, "input_tokens")),
         _coerce_tokens(_attr_or_key(breakdown, "output_tokens")),
@@ -199,6 +237,25 @@ def _coerce_tokens(value: Any) -> int:
         return 0
     try:
         count = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
     return count if count > 0 else 0
+
+
+def _optional_tokens(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        count = int(value)
+        return count if count >= 0 else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def _optional_cost(value: Any) -> float | None:
+    import math
+    try:
+        cost = float(value)
+        return cost if math.isfinite(cost) and cost >= 0 else None
+    except (TypeError, ValueError, OverflowError):
+        return None

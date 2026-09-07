@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 157
+schema_head: 163
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_activity_policy.py"
+  - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/curriculum/depth_rungs.py"
@@ -126,6 +127,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
@@ -145,7 +147,6 @@ Indexes and uniqueness:
 - `src/learnloop/sim/diagnostic_validation.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop/substrate/state_sync.py`
-- `src/learnloop/tui/screens/feedback.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

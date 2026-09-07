@@ -798,7 +798,7 @@ def test_selection_propensities_greedy_when_disabled_or_singleton_or_probe():
     }
 
 
-def test_scheduler_persists_selection_propensity_and_exploration_flag(tmp_path):
+def test_scheduler_preserves_draw_diagnostics_without_claiming_final_propensity(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     write_yaml(
         paths.practice_item_path("linear-algebra", "pi_svd_define_999"),
@@ -861,8 +861,9 @@ def test_scheduler_persists_selection_propensity_and_exploration_flag(tmp_path):
     slate = repository.latest_scheduler_slate_by_session("s_prop")
     candidates = repository.scheduler_slate_candidates(slate["id"])
     propensity_by_id = {row["practice_item_id"]: row["selection_propensity"] for row in candidates}
-    assert all(value is not None for value in propensity_by_id.values())
-    assert abs(sum(propensity_by_id.values()) - 1.0) < 1e-9
+    assert all(value is None for value in propensity_by_id.values())
+    assert all(row["propensity_kind"] == "unavailable_composed_offer" for row in candidates)
+    assert abs(sum(row["components"]["base_selection_propensity"] for row in candidates) - 1.0) < 1e-9
     # Exactly the candidate promoted by seeded exploration carries the realized flag.
     explored = [row["practice_item_id"] for row in candidates if row["exploration_flag"] == 1]
     assert len(explored) <= 1

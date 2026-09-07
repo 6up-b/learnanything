@@ -642,6 +642,8 @@ def _simulate_one_attempt(
         manual_review_reason=None,
     )
     draft = AttemptDraft(
+        entry_surface="simulation",
+        evidence_origin="simulator",
         practice_item_id=item.id,
         learner_answer_md=answer_md,
         attempt_type=attempt_type,

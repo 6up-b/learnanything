@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, is_dataclass, replace
 from datetime import UTC, datetime
 from math import exp, log
 from typing import Any, Mapping
@@ -10,6 +10,7 @@ from typing import Any, Mapping
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.substrate.instrument_serving import unservable_reason
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve
@@ -66,8 +67,11 @@ class ScheduledItem:
     #: ``followup_tasks.kind`` so surfaces need not reverse-engineer the lane
     #: from the learner-facing prose.
     followup_kind: str | None = None
+    scheduler_slate_id: str | None = None
+    scheduler_candidate_id: str | None = None
 
 
+@pinned_repository_call
 def build_due_queue(
     vault: LoadedVault,
     repository: Repository,
@@ -542,7 +546,9 @@ def build_due_queue(
             _explanation_payload(
                 item,
                 selected=item.practice_item_id in selected_ids,
-                selection_propensity=propensity_by_id.get(item.practice_item_id),
+                # Later composition and learner choice change the action
+                # distribution. The pre-composition draw is not an OPE weight.
+                selection_propensity=None,
             )
             for item in considered_queue
         ] + [
@@ -605,17 +611,34 @@ def build_due_queue(
                             extra_selection_components=extra_components,
                             clock=clock,
                         )
-        repository.record_scheduler_slate(
+        for explanation in explanations:
+            explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
+            explanation["propensity_kind"] = "unavailable_composed_offer"
+            decision_item = vault.practice_items.get(explanation["practice_item_id"])
+            if decision_item is not None:
+                lo_id = decision_item.learning_object_id
+                belief = mastery_states.get(lo_id)
+                explanation["decision_features"] = {
+                    "ability_vector": {
+                        "mastery": asdict(belief) if belief is not None else None,
+                        "facets": [asdict(value) if is_dataclass(value) else value for value in facet_states_by_lo.get(lo_id, [])],
+                    },
+                    "item_demand_vector": decision_item.model_dump(mode="json"),
+                    "context": {"collection_version": "learnloop-events-v1", "selection_policy": "composed_offer_v2", "selected": explanation["components"].get("selected"), "components": dict(explanation["components"])},
+                }
+        slate_id = repository.record_scheduler_slate(
             explanations,
             session_id=session.session_id,
             algorithm_version=config.algorithms.algorithm_version,
             requested_limit=limit,
             session_context=_session_context(session, short_session=short_session, readiness_factor=readiness_factor, shadow_intent=shadow_intent),
             config_snapshot=_scheduler_config_snapshot(config),
-            selection_policy="selection_reward_v1",
+            selection_policy="composed_offer_v2",
             probe_presentation=probe_presentation,
             clock=clock,
         )
+        candidates = {row["practice_item_id"]: row["id"] for row in repository.scheduler_slate_candidates(slate_id)}
+        queue = [replace(scheduled, scheduler_slate_id=slate_id, scheduler_candidate_id=candidates[scheduled.practice_item_id]) for scheduled in queue]
         committed = repository.active_probe_presentation_for_session(session.session_id)
         if committed is not None:
             for scheduled in queue:

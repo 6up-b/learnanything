@@ -459,6 +459,8 @@ def _submit_response(
         repository,
         ApplyAttemptInput(
             draft=AttemptDraft(
+                entry_surface="diagnostic_simulation",
+                evidence_origin="simulator",
                 practice_item_id=practice_item_id,
                 learner_answer_md=f"[planted response score={response.score}]",
                 # In production an explicit "I don't know" during a committed

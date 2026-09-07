@@ -526,6 +526,50 @@ def test_manifest_idempotency_cache_zero_new_calls(tmp_path):
     assert second.manifest_hash == first.manifest_hash
 
 
+def test_cached_generation_resumes_apply_after_failure_without_new_model_calls(tmp_path, monkeypatch):
+    from learnloop.content.proposals import patches
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = FakeSynthesisClient()
+    original = patches.apply_accepted_items
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("interrupted apply")
+    monkeypatch.setattr(patches, "apply_accepted_items", interrupted)
+    with pytest.raises(RuntimeError, match="interrupted apply"):
+        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, apply=True)
+    calls = len(client.calls)
+    monkeypatch.setattr(patches, "apply_accepted_items", original)
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, apply=True)
+    assert result.reused and result.applied
+    assert len(client.calls) == calls
+    assert "facet_symmetry_definition" in load_vault(root).evidence_facets
+
+
+def test_evidence_pass_retry_reuses_first_paid_pass(tmp_path):
+    from learnloop.ai.errors import AITurnTimeout
+    root, repo = _setup(tmp_path, with_exam=False)
+    def builder(context, ordinal):
+        if ordinal == 1:
+            extraction, unit, span = _first_semantic_span(context)
+            return SourceSetSynthesis(span_requests=[{"extraction_id": extraction, "unit_id": unit, "span_id": span}])
+        if ordinal == 2:
+            raise AITurnTimeout("interrupted evidence pass")
+        assert context.resolved_spans
+        return _default_payload(context)
+    client = FakeSynthesisClient(builder=builder)
+    with pytest.raises(AITurnTimeout):
+        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
+    assert result.proposal_id and len(client.calls) == 3
+
+
+def test_complete_base_request_budget_is_checked_before_paying(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+    client = FakeSynthesisClient()
+    with pytest.raises(StudyMapError, match="ceiling"):
+        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, budget_overrides={"synthesis_total_input_ceiling": 1})
+    assert client.calls == []
+
+
 def test_legacy_vault_acceptance_refused(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False, mvp07=False)
     client = FakeSynthesisClient()
@@ -611,22 +655,27 @@ def _setup_two_chapters(tmp_path: Path):
     return root, repo
 
 
-def test_shard_checkpoints_survive_post_generation_failure(tmp_path):
+def test_shard_checkpoints_survive_post_generation_failure(tmp_path, monkeypatch):
     """A failure AFTER the shards ran must not re-pay their model calls: the
     retry reuses every checkpointed shard at zero calls."""
 
     root, repo = _setup_two_chapters(tmp_path)
     client = FakeSynthesisClient()
 
-    with pytest.raises(StudyMapError) as excinfo:
+    from learnloop.content.synthesis import source_set_synthesis as synthesis
+    original = synthesis._consolidate_same_title_concepts
+    def fail_after_generation(result):
+        raise StudyMapError("injected_failure", "failed after checkpointed generation")
+    monkeypatch.setattr(synthesis, "_consolidate_same_title_concepts", fail_after_generation)
+    with pytest.raises(StudyMapError, match="checkpointed"):
         create_study_map(
             root, "set_la", client=client, brief={"depth": "intro"},
             repository=repo, clock=_CLOCK,
-            budget_overrides={"synthesis_shard_input_tokens": 1, "synthesis_output_tokens": 1},
+            budget_overrides={"synthesis_shard_input_tokens": 1},
         )
-    assert excinfo.value.code == "budget_exceeded"
     paid_calls = len(client.calls)
-    assert paid_calls == 2  # one per shard
+    assert paid_calls == 2
+    monkeypatch.setattr(synthesis, "_consolidate_same_title_concepts", original)
 
     result = create_study_map(
         root, "set_la", client=client, brief={"depth": "intro"},

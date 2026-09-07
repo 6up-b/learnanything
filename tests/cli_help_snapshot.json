@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 20017,
-    "sha256": "c1b04a8632316f075e43fd79844500013a6769f571da7275b406d03dfcaa1b82"
+    "bytes": 20527,
+    "sha256": "88a394ed98d944da830399f30ff95f0cff8545e7b8ab1d62cde4c2598c6b6138"
   },
   "accept": {
     "bytes": 1593,
@@ -14,6 +14,10 @@
   "add-subject": {
     "bytes": 1508,
     "sha256": "94e729af56daf93c8df2bf23e02a75cd185e2c93cfbd56574628e2581124cb04"
+  },
+  "adjudicate-remediation": {
+    "bytes": 2352,
+    "sha256": "4ada972e648d32d883d508d45a7ff28609a4fda3db4f9258608768f659459e62"
   },
   "attempt": {
     "bytes": 3378,
@@ -159,6 +163,14 @@
     "bytes": 3708,
     "sha256": "e316e210fe2d91eb572f5e638971be7d71efbf1639269fa99d1eafb379e4e406"
   },
+  "data-quality": {
+    "bytes": 1040,
+    "sha256": "968698993c675e44b10a550cc4b5bebc83377a6c5c9d42a6ddc18d27dfa59dd7"
+  },
+  "dataset-export": {
+    "bytes": 1585,
+    "sha256": "a91cacb12ddf98cf275af88683494e7ddb7173cbba298cfdee3ae33ce6beee1b"
+  },
   "debug-advance": {
     "bytes": 1840,
     "sha256": "e2430132640239e31c0b7ee68e1844e1d864fc8bb36c3906d0771ae2c2f4cf84"
@@ -224,8 +236,8 @@
     "sha256": "e5dd5d5ede091c324d2b56f5918432dc87e68d6a34311ed5af039e1c907a3069"
   },
   "doctor": {
-    "bytes": 1218,
-    "sha256": "869e7c95ccab94f47b3cc0ee2a659bc339f0e07cd7b0b6edad297fb0699ce021"
+    "bytes": 1388,
+    "sha256": "0420fa2f947dece8ab28476c9a33701febd83799091c9f963f8885231996d56c"
   },
   "edit-proposal-item": {
     "bytes": 1678,

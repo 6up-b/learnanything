@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 157
+schema_head: 163
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -53,7 +53,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `029_probe_selection_and_calibration.sql`, `143_instrument_classes.sql`.
+- **Schema touched by:** `001_initial.sql`, `029_probe_selection_and_calibration.sql`, `143_instrument_classes.sql`, `161_collection_contract.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
+- `tests/test_collection_dataset.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_item_authoring.py`
 - `tests/test_learner_review_system_entries.py`

@@ -5,6 +5,7 @@ from datetime import UTC
 from typing import Any
 
 from learnloop.clock import SystemClock, parse_utc
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.db.repositories import (
     GradingEvidenceRecord,
     MasteryState,
@@ -58,6 +59,7 @@ def _followup_kind(scheduled: ScheduledItem) -> str:
     return "intervention_followup"
 
 
+@pinned_repository_call
 def scheduled_item_dtos(
     vault: LoadedVault,
     repository: Repository,
@@ -110,6 +112,8 @@ def _scheduled_item_dto(
     return to_camel(
         {
             "practice_item_id": scheduled.practice_item_id,
+            "scheduler_slate_id": scheduled.scheduler_slate_id,
+            "scheduler_candidate_id": scheduled.scheduler_candidate_id,
             "learning_object_id": scheduled.learning_object_id,
             "learning_object_title": learning_object.title if learning_object else scheduled.learning_object_id,
             "subject": _primary_subject(vault, item),

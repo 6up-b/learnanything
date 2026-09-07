@@ -1,0 +1,84 @@
+[
+  {
+    "fixture": "migration_head_162",
+    "samples": [
+      {
+        "mode": "unpinned",
+        "milliseconds": 63.099036924541,
+        "items": 5,
+        "result_sha256": "964f708e8b5473e4dc01f8f1676f1822df7cbe35d7bf61d508a26ea7220d8210"
+      },
+      {
+        "mode": "unpinned",
+        "milliseconds": 55.049041053280234,
+        "items": 5,
+        "result_sha256": "964f708e8b5473e4dc01f8f1676f1822df7cbe35d7bf61d508a26ea7220d8210"
+      },
+      {
+        "mode": "unpinned",
+        "milliseconds": 55.12215103954077,
+        "items": 5,
+        "result_sha256": "964f708e8b5473e4dc01f8f1676f1822df7cbe35d7bf61d508a26ea7220d8210"
+      },
+      {
+        "mode": "pinned",
+        "milliseconds": 3.213395131751895,
+        "items": 5,
+        "result_sha256": "964f708e8b5473e4dc01f8f1676f1822df7cbe35d7bf61d508a26ea7220d8210"
+      },
+      {
+        "mode": "pinned",
+        "milliseconds": 3.1949139665812254,
+        "items": 5,
+        "result_sha256": "964f708e8b5473e4dc01f8f1676f1822df7cbe35d7bf61d508a26ea7220d8210"
+      },
+      {
+        "mode": "pinned",
+        "milliseconds": 3.1949148979038,
+        "items": 5,
+        "result_sha256": "964f708e8b5473e4dc01f8f1676f1822df7cbe35d7bf61d508a26ea7220d8210"
+      }
+    ]
+  },
+  {
+    "fixture": "linear_algebra",
+    "samples": [
+      {
+        "mode": "unpinned",
+        "milliseconds": 73.3818809967488,
+        "items": 41,
+        "result_sha256": "a0ebd885dc5074d38d569eea3aa7eff310881360b258aa49e3a32f3a5cd8e7cd"
+      },
+      {
+        "mode": "unpinned",
+        "milliseconds": 35.23855307139456,
+        "items": 41,
+        "result_sha256": "a0ebd885dc5074d38d569eea3aa7eff310881360b258aa49e3a32f3a5cd8e7cd"
+      },
+      {
+        "mode": "unpinned",
+        "milliseconds": 34.597243182361126,
+        "items": 41,
+        "result_sha256": "a0ebd885dc5074d38d569eea3aa7eff310881360b258aa49e3a32f3a5cd8e7cd"
+      },
+      {
+        "mode": "pinned",
+        "milliseconds": 4.674342228099704,
+        "items": 41,
+        "result_sha256": "a0ebd885dc5074d38d569eea3aa7eff310881360b258aa49e3a32f3a5cd8e7cd"
+      },
+      {
+        "mode": "pinned",
+        "milliseconds": 4.655771888792515,
+        "items": 41,
+        "result_sha256": "a0ebd885dc5074d38d569eea3aa7eff310881360b258aa49e3a32f3a5cd8e7cd"
+      },
+      {
+        "mode": "pinned",
+        "milliseconds": 4.650342045351863,
+        "items": 41,
+        "result_sha256": "a0ebd885dc5074d38d569eea3aa7eff310881360b258aa49e3a32f3a5cd8e7cd"
+      }
+    ]
+  }
+]
