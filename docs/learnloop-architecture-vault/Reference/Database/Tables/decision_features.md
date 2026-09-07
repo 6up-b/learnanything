@@ -3,13 +3,13 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite decision_features"
   - "table decision_features"
-schema_head: 157
+schema_head: 163
 table_name: "decision_features"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/011_training_dataset_logging.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
@@ -51,7 +52,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/011_training_dataset_logging.sql`.
-- **Schema touched by:** `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `027_question_promotions.sql`.
+- **Schema touched by:** `011_training_dataset_logging.sql`, `012_facet_diagnostic_state.sql`, `027_question_promotions.sql`, `161_collection_contract.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -79,6 +80,11 @@ Indexes and uniqueness:
 - `sqlite_autoindex_decision_features_2` on `decision_id`, `decision_type` (unique).
 - `sqlite_autoindex_decision_features_1` on `id` (unique).
 
+Database triggers:
+
+- `decision_features_immutable_delete` — schema-enforced lifecycle or immutability constraint.
+- `decision_features_immutable_update` — schema-enforced lifecycle or immutability constraint.
+
 ## Who calls it
 
 ### Repository access surface
@@ -86,6 +92,7 @@ Indexes and uniqueness:
 - `Repository.decision_features()`
 - `Repository.find_record()`
 - `Repository.record_decision_features()`
+- `Repository.record_scheduler_slate()`
 
 ### Direct SQL readers
 
@@ -101,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/followups.py`
+- `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 
@@ -109,6 +117,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_collection_dataset.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_migrations.py`
@@ -120,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
+- `tests/test_probe_episodes.py`
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`
 

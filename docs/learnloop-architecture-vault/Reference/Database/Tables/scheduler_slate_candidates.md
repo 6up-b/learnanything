@@ -3,13 +3,13 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
   - "table scheduler_slate_candidates"
-schema_head: 157
+schema_head: 163
 table_name: "scheduler_slate_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,9 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/010_scheduler_training_logs.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/scheduling/scheduler.py"
+  - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop_sidecar/handlers/practice.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
@@ -48,7 +51,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/010_scheduler_training_logs.sql`.
-- **Schema touched by:** `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`.
+- **Schema touched by:** `010_scheduler_training_logs.sql`, `011_training_dataset_logging.sql`, `161_collection_contract.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -82,6 +85,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `selection_propensity` | `REAL` | no | — | — | Stored value |
 | `exploration_flag` | `INTEGER` | yes | `0` | — | Stored value |
 | `selection_temperature` | `REAL` | no | — | — | Stored value |
+| `propensity_kind` | `TEXT` | yes | `'legacy-unverified'` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -113,10 +117,12 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/collection.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/collection.py`
 
 ### Upstream callers of the repository access surface
 
@@ -138,6 +144,7 @@ Indexes and uniqueness:
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_attempts.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
+- `tests/test_collection_dataset.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
@@ -186,7 +193,7 @@ CREATE TABLE scheduler_slate_candidates (
   plain_english_json TEXT,
   algorithm_version TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  chosen_at TEXT, selection_propensity REAL, exploration_flag INTEGER NOT NULL DEFAULT 0 CHECK (exploration_flag IN (0, 1)), selection_temperature REAL,
+  chosen_at TEXT, selection_propensity REAL, exploration_flag INTEGER NOT NULL DEFAULT 0 CHECK (exploration_flag IN (0, 1)), selection_temperature REAL, propensity_kind TEXT NOT NULL DEFAULT 'legacy-unverified',
   UNIQUE (slate_id, practice_item_id)
 );
 ```

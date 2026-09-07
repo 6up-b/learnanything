@@ -3,13 +3,13 @@ title: "scheduler_slates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite scheduler_slates"
   - "table scheduler_slates"
-schema_head: 157
+schema_head: 163
 table_name: "scheduler_slates"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/010_scheduler_training_logs.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
@@ -47,7 +49,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/010_scheduler_training_logs.sql`.
-- **Schema touched by:** `010_scheduler_training_logs.sql`.
+- **Schema touched by:** `010_scheduler_training_logs.sql`, `161_collection_contract.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -70,6 +72,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `algorithm_version` | `TEXT` | yes | — | — | Stored value |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `updated_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `collection_version` | `TEXT` | yes | `'legacy-unversioned'` | — | Stored value |
 
 ## Relationships and access paths
 
@@ -95,10 +98,12 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/collection.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/collection.py`
 
 ### Upstream callers of the repository access surface
 
@@ -162,7 +167,7 @@ CREATE TABLE scheduler_slates (
   algorithm_version TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-);
+, collection_version TEXT NOT NULL DEFAULT 'legacy-unversioned');
 ```
 
 ## Related notes

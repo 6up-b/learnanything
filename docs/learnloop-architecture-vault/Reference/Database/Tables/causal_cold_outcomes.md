@@ -3,13 +3,13 @@ title: "causal_cold_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "589b35df8e5e3ce56849cbdab681c6bc12737419"
-source_commit_timestamp: "2026-09-03T10:26:28-07:00"
-last_verified: "2026-08-18"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+last_verified: "2026-09-07"
 aliases:
   - "state.sqlite causal_cold_outcomes"
   - "table causal_cold_outcomes"
-schema_head: 157
+schema_head: 163
 table_name: "causal_cold_outcomes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,8 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
   - "src/learnloop/diagnosis/guided_redo.py"
+  - "src/learnloop/substrate/data_quality.py"
+  - "src/learnloop/substrate/dataset.py"
   - "src/learnloop_sidecar/handlers/serializers.py"
   - "src/learnloop_sidecar/handlers/sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
@@ -128,6 +130,7 @@ None found by exact static reference scan.
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_guided_redo.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_collection_dataset.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

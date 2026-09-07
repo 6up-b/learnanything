@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_158/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_163/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_158" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_163" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -57,8 +57,8 @@ COMMIT = subprocess.check_output(
 COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
-VERIFIED_DATE = "2026-08-18"
-SCHEMA_HEAD = 158
+VERIFIED_DATE = "2026-09-07"
+SCHEMA_HEAD = 163
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -106,6 +106,12 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
+    "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
+    "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
+    "model_work_checkpoints": "Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work.",
+    "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
+    "scheduler_offer_receipts": "Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer.",
+    "false_remediation_adjudications": "Records append-only human or machine false-remediation labels with retained evidence references and verifier versions; corrections append another adjudication.",
     "schema_migrations": "Records exactly which numbered SQL migrations have been applied to this database.",
     "practice_attempts": "Stores the authoritative learner-attempt ledger used by grading, replay, diagnosis, and scheduling.",
     "learning_object_mastery": "Materializes the current per-learning-object mastery posterior for learner-facing decisions.",
@@ -1493,12 +1499,12 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             aliases=["state.sqlite table index", "Database table MOC", "Table Catalog"],
             tags=[
                 "learnloop/database/moc",
-                "learnloop/database/schema-head-156",
+                f"learnloop/database/schema-head-{SCHEMA_HEAD}",
                 "learnloop/navigation",
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_158/state.sqlite",
+                "fixtures/migration_head_163/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",
@@ -1512,7 +1518,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
         "",
         "# Database Catalog",
         "",
-        "This is the exhaustive map of the 251 user tables at migration head 156. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope",
+        f"This is the exhaustive map of the {len(TABLE_ROLES)} user tables at migration head {SCHEMA_HEAD}. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope",
         "",
         "> [!important] Role is not runtime status",
         "> `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].",
@@ -1608,7 +1614,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ".venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py",
             "```",
             "",
-            "Then run `tests/test_migrations.py` and `tests/test_table_roles.py` when schema or role code changed. The first validator enforces the 251 table functions and exact 487-leaf config catalog; the second resolves the whole vault's frontmatter, source paths, Wikilinks, headings, and blocks.",
+            "Then run `tests/test_migrations.py` and `tests/test_table_roles.py` when schema or role code changed. The first validator checks table coverage and the configuration catalog against their live authorities; the second resolves the whole vault's frontmatter, source paths, Wikilinks, headings, and blocks.",
             "",
         ]
     )
@@ -1718,15 +1724,15 @@ def generate_config_catalog(sections: list[str]) -> None:
 def validate_generated(grouped: dict[str, list[str]], sections: list[str]) -> None:
     table_files = sorted(TABLES_ROOT.glob("*.md"))
     config_files = sorted(CONFIG_FIELDS_ROOT.glob("*.md"))
-    if len(table_files) != len(TABLE_ROLES) or len(TABLE_ROLES) != 251:
+    if len(table_files) != len(TABLE_ROLES):
         raise SystemExit(
-            f"expected 251 table notes, got {len(table_files)} for {len(TABLE_ROLES)} roles"
+            f"expected {len(TABLE_ROLES)} table notes, got {len(table_files)}"
         )
     if len(config_files) != len(sections):
         raise SystemExit(
             f"expected {len(sections)} config section notes, got {len(config_files)}"
         )
-    if sum(len(values) for values in grouped.values()) != 251:
+    if sum(len(values) for values in grouped.values()) != len(TABLE_ROLES):
         raise SystemExit("table grouping does not cover every table exactly once")
     for path in [*table_files, *config_files]:
         text = path.read_text(encoding="utf-8")

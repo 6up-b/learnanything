@@ -1,0 +1,79 @@
+{
+  "sqlite_version": "3.50.4",
+  "platform": "Linux-7.2.0-1-cachyos-x86_64-with-glibc2.44",
+  "filesystem_path": "/home/saturn/Documents/thinking/learnanything/.pytest_tmp",
+  "results": [
+    {
+      "journal_mode": "DELETE",
+      "synchronous": "FULL",
+      "seconds": 10.039499887963757,
+      "workers": [
+        {
+          "role": "writer",
+          "operations": 200,
+          "busy_failures": 0,
+          "p50_ms": 46.65178409777582,
+          "p95_ms": 68.38163896463811,
+          "max_ms": 84.1527699958533
+        },
+        {
+          "role": "reader",
+          "operations": 200,
+          "busy_failures": 1,
+          "p50_ms": 2.0449068397283554,
+          "p95_ms": 2.095147967338562,
+          "max_ms": 5000.547136180103
+        },
+        {
+          "role": "reader",
+          "operations": 200,
+          "busy_failures": 1,
+          "p50_ms": 2.045608125627041,
+          "p95_ms": 2.0889879669994116,
+          "max_ms": 5000.639645848423
+        }
+      ],
+      "acknowledged_rows": 200,
+      "integrity": "ok",
+      "checkpoint": null
+    },
+    {
+      "journal_mode": "WAL",
+      "synchronous": "FULL",
+      "seconds": 2.6566086339298636,
+      "workers": [
+        {
+          "role": "writer",
+          "operations": 200,
+          "busy_failures": 0,
+          "p50_ms": 10.309437988325953,
+          "p95_ms": 23.44699203968048,
+          "max_ms": 40.002462919801474
+        },
+        {
+          "role": "reader",
+          "operations": 200,
+          "busy_failures": 0,
+          "p50_ms": 2.033076947554946,
+          "p95_ms": 2.068726811558008,
+          "max_ms": 2.103168051689863
+        },
+        {
+          "role": "reader",
+          "operations": 200,
+          "busy_failures": 0,
+          "p50_ms": 2.029488096013665,
+          "p95_ms": 2.0640981383621693,
+          "max_ms": 2.0998178515583277
+        }
+      ],
+      "acknowledged_rows": 200,
+      "integrity": "ok",
+      "checkpoint": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
