@@ -64,6 +64,7 @@ class HttpCodexClient(TokenUsageAccounting):
             path,
             {"context": prompt_safe(context)},
             purpose=purpose,
+            timeout_seconds=request.timeout_seconds,
         )
         return self._validated(request.result_model, payload, purpose=purpose)
 
@@ -93,7 +94,7 @@ class HttpCodexClient(TokenUsageAccounting):
                 f"{describe_wire_validation_error(model_type, exc)}"
             ) from exc
 
-    def _post(self, path: str, payload: dict, *, purpose: str) -> dict:
+    def _post(self, path: str, payload: dict, *, purpose: str, timeout_seconds: float | None = None) -> dict:
         url = _url(self.config.base_url, path)
         _log_codex_debug(
             "codex.http.request",
@@ -112,7 +113,7 @@ class HttpCodexClient(TokenUsageAccounting):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.config.healthcheck_timeout_seconds) as response:
+            with urllib.request.urlopen(request, timeout=timeout_seconds or self.config.timeout_seconds) as response:
                 raw = response.read()
         except urllib.error.HTTPError as exc:
             _log_codex_debug(

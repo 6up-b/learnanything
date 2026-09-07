@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import type { AppSnapshot, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
@@ -10,16 +10,10 @@ import { SessionFinishHud } from "../components/SessionFinishHud";
 import { EmptyPlaceholder, SHOW_GOLDEN_PATH, TerminalFrame, type NavBadgeCounts, type TopTab, navTabs } from "../components/ui";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
-import { ExamScreen } from "../screens/ExamScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
-import { GraphScreen } from "../screens/GraphScreen";
-import { IngestScreen } from "../screens/IngestScreen";
-import { LibraryScreen } from "../screens/LibraryScreen";
 import { MaintenanceScreen } from "../screens/MaintenanceScreen";
 import { SettingsOverlay } from "../screens/SettingsScreen";
 import { PracticeScreen } from "../screens/PracticeScreen";
-import { ProposalsScreen } from "../screens/ProposalsScreen";
-import { RegistryReviewScreen } from "../screens/RegistryReviewScreen";
 import { RepairScreen } from "../screens/RepairScreen";
 import { ReviewScreen } from "../screens/ReviewScreen";
 import { StartScreen } from "../screens/StartScreen";
@@ -27,9 +21,8 @@ import { TodayScreen } from "../screens/TodayScreen";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
-import { GoldenPathScreen } from "../screens/GoldenPathScreen";
 import { GoldenPathSetup } from "../components/goldenpath/GoldenPathSetup";
-import { ReaderScreen, type ReaderOpenSource } from "../screens/ReaderScreen";
+import type { ReaderOpenSource } from "../screens/ReaderScreen";
 import { ExemplarConfirmDialog } from "../components/ExemplarConfirmDialog";
 import { WhyDiagnosisOverlay } from "../components/WhyDiagnosisOverlay";
 import { AdjudicationOverlay } from "../components/AdjudicationOverlay";
@@ -39,6 +32,7 @@ import { isTypingTarget } from "./keyboard";
 import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
+import { selectWithDraftFlush } from "./vaultTransition";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { errorMessage } from "../errors";
 
@@ -49,6 +43,15 @@ type OpenSourceTarget = {
   entityType?: string | null;
   entityId?: string | null;
 };
+
+const ReaderScreen = lazy(() => import("../screens/ReaderScreen").then((module) => ({ default: module.ReaderScreen })));
+const GraphScreen = lazy(() => import("../screens/GraphScreen").then((module) => ({ default: module.GraphScreen })));
+const IngestScreen = lazy(() => import("../screens/IngestScreen").then((module) => ({ default: module.IngestScreen })));
+const ExamScreen = lazy(() => import("../screens/ExamScreen").then((module) => ({ default: module.ExamScreen })));
+const LibraryScreen = lazy(() => import("../screens/LibraryScreen").then((module) => ({ default: module.LibraryScreen })));
+const ProposalsScreen = lazy(() => import("../screens/ProposalsScreen").then((module) => ({ default: module.ProposalsScreen })));
+const RegistryReviewScreen = lazy(() => import("../screens/RegistryReviewScreen").then((module) => ({ default: module.RegistryReviewScreen })));
+const GoldenPathScreen = lazy(() => import("../screens/GoldenPathScreen").then((module) => ({ default: module.GoldenPathScreen })));
 
 type TodayStage = "queue" | "practice" | "feedback" | "blockReview";
 
@@ -82,6 +85,7 @@ export function App() {
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [todayStage, setTodayStage] = useState<TodayStage>("queue");
   const [practiceItemId, setPracticeItemId] = useState<string | null>(null);
+  const [practiceOffer, setPracticeOffer] = useState<{ itemId: string; candidateId: string | null } | null>(null);
   // The current practice item is a primed retry (opened from the feedback
   // screen's source panel); the submit carries primed=true to the backend.
   const [primedRetry, setPrimedRetry] = useState(false);
@@ -459,7 +463,8 @@ export function App() {
     setTodayStage("queue");
   }
 
-  function openPractice(id: string) {
+  function openPractice(id: string, schedulerCandidateId?: string | null) {
+    setPracticeOffer({ itemId: id, candidateId: schedulerCandidateId ?? null });
     if (!session) {
       setTab("start");
       setToast("Start a session before opening practice.");
@@ -474,6 +479,7 @@ export function App() {
   }
 
   function openPrimedRetry(id: string) {
+    setPracticeOffer(null);
     if (!session) {
       setTab("start");
       setToast("Start a session before opening practice.");
@@ -662,8 +668,12 @@ export function App() {
   const changeVault = useCallback(
     async (path: string) => {
       let selected = false;
+      let selectionAttempted = false;
       try {
-        await api.selectVault(path);
+        await selectWithDraftFlush(() => {
+          selectionAttempted = true;
+          return api.selectVault(path);
+        });
         selected = true;
         // From this point onward every command targets the new vault. Do not
         // leave the previous vault's snapshot or overlays interactive while the
@@ -720,7 +730,7 @@ export function App() {
           // would create a cross-vault UI/data mismatch. Keep the app blocked
           // on a retryable load surface for the newly selected vault instead.
           setStartupError(message);
-        } else {
+        } else if (selectionAttempted) {
           // A path that could not be selected (deleted/renamed directory, bad
           // vault) drops out of recents; the still-active old snapshot is safe.
           removeRecentVault(path);
@@ -803,6 +813,7 @@ export function App() {
             key={`${session.sessionId}:${practiceItemId}`}
             session={session}
             practiceItemId={practiceItemId}
+            schedulerCandidateId={!primedRetry && !redoContext && practiceOffer?.itemId === practiceItemId ? practiceOffer.candidateId : null}
             primed={primedRetry}
             redo={redoContext && redoContext.practiceItemId === practiceItemId ? redoContext : null}
             gradingReady={gradingReady}
@@ -1004,7 +1015,7 @@ export function App() {
             {toast}
           </div>
         ) : null}
-        {renderBody()}
+        <Suspense fallback={<div role="status">Loading…</div>}>{renderBody()}</Suspense>
       </TerminalFrame>
       {settingsOpen ? (
         <SettingsOverlay

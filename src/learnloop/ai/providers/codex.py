@@ -1,6 +1,7 @@
 """Codex SDK structured transport and runtime integration."""
 
 from __future__ import annotations
+from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit
 
 import json
 import logging
@@ -21,6 +22,7 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import (
     AIInvalidOutput,
+    AIOutputTruncated,
     AIInterrupted,
     AIProviderUnavailable,
     AITurnTimeout,
@@ -129,11 +131,12 @@ class SdkCodexClient(TokenUsageAccounting):
         if request.timeout_seconds is not None:
             self._request_timeout_seconds = request.timeout_seconds
         try:
-            return self._complete_validated(
-                request.prompt,
-                request.result_model,
-                purpose=request.purpose,
-            )
+            with generation_limit(request.output_budget_tokens):
+                return self._complete_validated(
+                    request.prompt,
+                    request.result_model,
+                    purpose=request.purpose,
+                )
         finally:
             if previous_timeout is marker:
                 self.__dict__.pop("_request_timeout_seconds", None)
@@ -164,8 +167,26 @@ class SdkCodexClient(TokenUsageAccounting):
         """
 
         output_schema = strict_output_schema(model_type)
+        remaining = output_limit()
+
+        def run_turn(turn_prompt, *, turn_purpose):
+            nonlocal remaining
+            if remaining is not None and remaining <= 0:
+                raise AIOutputTruncated("No generation budget remains for Codex JSON repair.")
+            before = self.snapshot_usage()
+            result = None
+            try:
+                with generation_limit(remaining):
+                    result = self._run_structured(turn_prompt, output_schema, purpose=turn_purpose)
+                return result
+            finally:
+                if remaining is not None:
+                    reported = self.snapshot_usage().output_tokens - before.output_tokens
+                    estimate = max(1, (len(result) + 3) // 4) if result is not None else 0
+                    remaining = max(0, remaining - max(reported, estimate))
+
         try:
-            text = self._run_structured(prompt, output_schema, purpose=purpose)
+            text = run_turn(prompt, turn_purpose=purpose)
         except CodexUnavailable as first_exc:
             # Some app-server/model combinations reject malformed structured
             # output before exposing a final_response to the SDK. In that case
@@ -182,10 +203,9 @@ class SdkCodexClient(TokenUsageAccounting):
                 model=self.config.model,
                 error=str(first_exc),
             )
-            text = self._run_structured(
+            text = run_turn(
                 structured_output_regeneration_prompt(prompt),
-                output_schema,
-                purpose=f"{purpose}_json_regenerate",
+                turn_purpose=f"{purpose}_json_regenerate",
             )
         try:
             return model_type.model_validate_json(text)
@@ -200,10 +220,9 @@ class SdkCodexClient(TokenUsageAccounting):
                 error=str(first_exc),
                 reason=reason,
             )
-            repaired = self._run_structured(
+            repaired = run_turn(
                 structured_output_repair_prompt(text, model_type, reason=reason),
-                output_schema,
-                purpose=f"{purpose}_json_repair",
+                turn_purpose=f"{purpose}_json_repair",
             )
             try:
                 return model_type.model_validate_json(repaired)
@@ -217,6 +236,7 @@ class SdkCodexClient(TokenUsageAccounting):
                     f"attempt: {describe_wire_validation_error(model_type, second_exc)}"
                 ) from second_exc
 
+    @observed_sdk_turn
     def _run_structured(
         self,
         prompt: str,
@@ -225,6 +245,12 @@ class SdkCodexClient(TokenUsageAccounting):
         purpose: str,
         timeout_seconds: float | None = None,
     ) -> str:
+        budget = output_limit()
+        if budget is not None:
+            # The app-server protocol has no hard per-turn output-token cap.
+            # Keep the target explicit; domain gates enforce the returned
+            # artifact limit and receipts retain the actual billed usage.
+            prompt += f"\n\nKeep the complete JSON response within {budget} output tokens."
         requested_timeout = (
             timeout_seconds
             if timeout_seconds is not None

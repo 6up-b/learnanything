@@ -6,6 +6,7 @@ mod vault_watcher;
 use commands::*;
 use sidecar::SidecarManager;
 use std::borrow::Cow;
+use std::io::{Read, Seek, SeekFrom};
 use tauri::Manager;
 use vault_watcher::VaultWatcher;
 
@@ -118,20 +119,35 @@ fn serve_llmedia(
         .join("media")
         .join("animations")
         .join(name);
-    let bytes = match std::fs::read(&path) {
-        Ok(bytes) => bytes,
+    let mut file = match std::fs::File::open(&path) {
+        Ok(file) => file,
         Err(_) => return llmedia_response(404, b"not in animation store".to_vec(), None),
     };
-    let total = bytes.len() as u64;
+    let total = match file.metadata() {
+        Ok(metadata) => metadata.len(),
+        Err(_) => return llmedia_response(500, b"could not read animation".to_vec(), None),
+    };
     match slice_range(total, range_header) {
-        None => llmedia_response(200, bytes, None),
+        None => {
+            let mut bytes = Vec::new();
+            if file.read_to_end(&mut bytes).is_err() {
+                return llmedia_response(500, b"could not read animation".to_vec(), None);
+            }
+            llmedia_response(200, bytes, None)
+        },
         Some(Err(())) => llmedia_response(
             416,
             Vec::new(),
             Some(("Content-Range".into(), format!("bytes */{total}"))),
         ),
         Some(Ok((start, end))) => {
-            let body = bytes[start as usize..=(end as usize)].to_vec();
+            let Ok(length) = usize::try_from(end - start + 1) else {
+                return llmedia_response(416, Vec::new(), None);
+            };
+            let mut body = vec![0; length];
+            if file.seek(SeekFrom::Start(start)).is_err() || file.read_exact(&mut body).is_err() {
+                return llmedia_response(500, b"could not read animation range".to_vec(), None);
+            }
             llmedia_response(
                 206,
                 body,
@@ -169,18 +185,22 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(sidecar)
-        .register_uri_scheme_protocol("llpdf", |ctx, request| {
-            let manager = ctx.app_handle().state::<SidecarManager>();
-            serve_llpdf(&manager, request.uri().path())
+        .register_asynchronous_uri_scheme_protocol("llpdf", |ctx, request, responder| {
+            let manager = ctx.app_handle().state::<SidecarManager>().inner().clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(serve_llpdf(&manager, request.uri().path()));
+            });
         })
-        .register_uri_scheme_protocol("llmedia", |ctx, request| {
-            let manager = ctx.app_handle().state::<SidecarManager>();
+        .register_asynchronous_uri_scheme_protocol("llmedia", |ctx, request, responder| {
+            let manager = ctx.app_handle().state::<SidecarManager>().inner().clone();
             let range = request
                 .headers()
                 .get("range")
                 .and_then(|value| value.to_str().ok())
                 .map(|value| value.to_string());
-            serve_llmedia(&manager, request.uri().path(), range.as_deref())
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(serve_llmedia(&manager, request.uri().path(), range.as_deref()));
+            });
         })
         .setup(move |app| {
             app.manage(VaultWatcher::start(

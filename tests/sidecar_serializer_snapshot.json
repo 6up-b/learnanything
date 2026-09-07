@@ -31,6 +31,8 @@
     "practiceMode": "short_answer",
     "priority": 1.25,
     "readinessFactor": 0.8,
+    "schedulerCandidateId": null,
+    "schedulerSlateId": null,
     "selectedMode": "short_answer",
     "subject": "linear-algebra"
   },

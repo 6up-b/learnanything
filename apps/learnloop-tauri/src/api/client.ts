@@ -435,6 +435,7 @@ export const api = {
     answerMd: string;
     hintsUsed: number;
     submissionId: string;
+    schedulerCandidateId?: string | null;
   }) => call<{ ok: boolean }>("save_practice_draft", { input }),
   recoverPracticeSubmission: (input: {
     sessionId: string;
@@ -456,6 +457,7 @@ export const api = {
     answerConfidence?: number | null;
     assessmentContractVersionId?: string | null;
     submissionId?: string | null;
+    schedulerCandidateId?: string | null;
   }) => mutating(ATTEMPT_TAGS, call<AttemptResultDto>("submit_dont_know", { input })),
   skipPracticeItem: (input: { sessionId: string; practiceItemId: string }) =>
     mutating([TAG.queue], call<QueueSnapshot>("skip_practice_item", { input })),

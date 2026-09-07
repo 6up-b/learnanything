@@ -398,6 +398,8 @@ def finish_exam(
         grade = _grade_from_dict(answer["grade"])
         answer_md = answer.get("answer_md") or ""
         draft = AttemptDraft(
+            entry_surface="exam",
+            evidence_origin="human",
             practice_item_id=item_id,
             learner_answer_md=answer_md,
             attempt_type="exam_attempt",

@@ -13,6 +13,10 @@ class AIInterrupted(AIProviderUnavailable):
     """A LearnLoop-owned provider turn was explicitly interrupted."""
 
 
+class AIOutputTruncated(AIInvalidOutput):
+    """Generation exhausted its output budget; JSON repair cannot recover it."""
+
+
 class AITurnTimeout(AIProviderUnavailable, TimeoutError):
     """A provider turn exceeded its wall-clock deadline."""
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+import pytest
 
 # Keep the 4,000+ fixture vaults off the capacity-constrained system temp
 # volume. PYTEST_DEBUG_TEMPROOT controls pytest's numbered tmp_path roots when
@@ -31,11 +32,12 @@ os.environ.pop("LEARNLOOP_CODEX_CHECKOUT_PATH", None)
 import learnloop.db.connection as _db_connection  # noqa: E402
 
 _durable_connect = _db_connection.connect
+_durability_active = False
 
 
 def _fast_test_connect(sqlite_path, *, read_only=False):
     connection = _durable_connect(sqlite_path, read_only=read_only)
-    if not read_only:
+    if not read_only and not _durability_active:
         connection.execute("PRAGMA synchronous=OFF")
         connection.execute("PRAGMA journal_mode=MEMORY")
     return connection
@@ -45,3 +47,36 @@ _db_connection.connect = _fast_test_connect
 for _module in list(sys.modules.values()):
     if getattr(_module, "__name__", "").startswith("learnloop") and getattr(_module, "connect", None) is _durable_connect:
         _module.connect = _fast_test_connect
+
+
+def pytest_addoption(parser):
+    parser.addoption("--durable-sqlite", action="store_true", help="Use production SQLite durability for every selected test.")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "durability: use production SQLite durability and fresh vault construction")
+    config.addinivalue_line("markers", "fresh_vault: bypass the session basic-vault template")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def basic_vault_template(tmp_path_factory):
+    from tests import helpers
+    paths = helpers.create_basic_vault(tmp_path_factory.mktemp("basic-template") / "vault", fresh=True)
+    # Copying a database with embedded template-root identities would silently
+    # point tests at shared state. Scan text and SQLite bytes before enabling it.
+    prefix = str(paths.root).encode()
+    assert all(prefix not in path.read_bytes() for path in paths.root.rglob("*") if path.is_file())
+    helpers._BASIC_VAULT_TEMPLATE = paths
+    yield
+    helpers._BASIC_VAULT_TEMPLATE = None
+
+
+@pytest.fixture(autouse=True)
+def sqlite_test_mode(request, basic_vault_template):
+    from tests import helpers
+    global _durability_active
+    _durability_active = bool(request.config.getoption("--durable-sqlite") or request.node.get_closest_marker("durability"))
+    helpers._FRESH_VAULTS = _durability_active or bool(request.node.get_closest_marker("fresh_vault"))
+    yield
+    _durability_active = False
+    helpers._FRESH_VAULTS = False

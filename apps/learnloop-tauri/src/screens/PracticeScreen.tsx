@@ -1,4 +1,5 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useCloseWithFlush } from "../app/useCloseWithFlush";
+import { registerVaultDraft } from "../app/vaultTransition";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
@@ -91,6 +92,7 @@ function activeProbeContract(contract: ProbeContractDto): ProbeContractDto | nul
 export function PracticeScreen({
   session,
   practiceItemId,
+  schedulerCandidateId = null,
   gradingReady,
   gradingProvider,
   restoredAnswer,
@@ -113,6 +115,7 @@ export function PracticeScreen({
 }: {
   session: SessionSnapshot;
   practiceItemId: string;
+  schedulerCandidateId?: string | null;
   /** This item is a primed retry launched from the feedback source panel. */
   primed?: boolean;
   /** Fix 3 guided partial redo: the preserved learner work is rendered locked
@@ -191,9 +194,13 @@ export function PracticeScreen({
     practiceItemId,
     answerMd: answer,
     hintsUsed,
-    submissionId: submissionId.current
+    submissionId: submissionId.current,
+    schedulerCandidateId
   });
   const suppressDraftFlush = useRef(false);
+  const vaultFrozen = useRef(false);
+  const [vaultChanging, setVaultChanging] = useState(false);
+  const draftWrites = useRef<Promise<unknown>>(Promise.resolve());
   const isTeachBack = item?.practiceMode === "teach_back";
   // Teach-back conversations own the checkpoint (the sidecar stores the
   // conversation envelope in current_answer); the plain draft flush must never
@@ -265,15 +272,28 @@ export function PracticeScreen({
       practiceItemId,
       answerMd: answer,
       hintsUsed,
-      submissionId: submissionId.current
+      submissionId: submissionId.current,
+      schedulerCandidateId
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, session.sessionId]);
+  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId]);
 
-  const flushDraft = useCallback(async () => {
-    if (suppressDraftFlush.current || teachBackRef.current) return;
-    await api.savePracticeDraft(latestDraft.current);
+  const flushDraft = useCallback(async (beforeVaultSwitch = false) => {
+    if (suppressDraftFlush.current || teachBackRef.current || (vaultFrozen.current && !beforeVaultSwitch)) {
+      if (beforeVaultSwitch) await draftWrites.current;
+      return;
+    }
+    const draft = latestDraft.current;
+    const write = draftWrites.current.catch(() => undefined).then(() => api.savePracticeDraft(draft));
+    draftWrites.current = write;
+    await write;
   }, []);
+
+  useEffect(() => registerVaultDraft({
+    freeze: () => { vaultFrozen.current = true; setVaultChanging(true); },
+    flush: () => flushDraft(true),
+    resume: () => { vaultFrozen.current = false; setVaultChanging(false); }
+  }), [flushDraft]);
 
   useEffect(() => {
     setAnswer(restoredAnswer ?? "");
@@ -304,7 +324,7 @@ export function PracticeScreen({
             practiceItemId,
             submissionId: retryKey
           });
-          if (cancelled) return;
+          if (cancelled || vaultFrozen.current) return;
           if (recovery.status === "recovered" && recovery.result) {
             // The exact original payload carries deferred/block-end routing and
             // does not require the now-single-use item to still be active.
@@ -313,11 +333,11 @@ export function PracticeScreen({
             // The screen may have unmounted while the optional title lookup was
             // in flight. Never route a stale result; retain its retry key so the
             // still-current surface can recover it authoritatively.
-            if (cancelled) return;
+            if (cancelled || vaultFrozen.current) return;
             const routed = await routeAfterAttempt(
               recovery.result,
               recoveredItem,
-              () => cancelled,
+              () => cancelled || vaultFrozen.current,
             );
             if (!routed) return;
             // Route first, then acknowledge. If routing mounts a new item and
@@ -385,37 +405,18 @@ export function PracticeScreen({
       void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
       // Reported only on unmount — reporting on every debounced flush would
       // loop the draft back through restoredAnswer while the user is typing.
-      if (!suppressDraftFlush.current && !teachBackRef.current) {
+      if (!suppressDraftFlush.current && !teachBackRef.current && !vaultFrozen.current) {
         const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey } = latestDraft.current;
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);
 
-  useEffect(() => {
-    const appWindow = getCurrentWindow();
-    let unlisten: (() => void) | undefined;
-    let closing = false;
-    appWindow.onCloseRequested(async (event) => {
-      if (closing) return;
-      event.preventDefault();
-      closing = true;
-      try {
-        await flushDraft();
-      } catch (error) {
-        onError(errorMessage(error, "Could not save the practice draft before closing."));
-      } finally {
-        await appWindow.destroy();
-      }
-    }).then((listener) => {
-      unlisten = listener;
-    }).catch((error) => onError(errorMessage(error, "Could not register the close handler.")));
-    return () => unlisten?.();
-  }, [flushDraft, onError]);
+  useCloseWithFlush(flushDraft, onError);
 
   const practiceReady = item !== null && probeLoadState === "ready";
   const probeActive = Boolean(probe?.active && probe.presentationId);
-  const interactionReady = practiceReady && committedRecovery === null;
+  const interactionReady = practiceReady && committedRecovery === null && !vaultChanging;
 
   useEffect(() => {
     onAskAvailabilityChange(interactionReady && !probeActive && !isTeachBack);
@@ -424,6 +425,7 @@ export function PracticeScreen({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (vaultFrozen.current) return;
       if (committedRecovery) {
         if (event.key.toLowerCase() === "r") {
           event.preventDefault();
@@ -611,6 +613,7 @@ export function PracticeScreen({
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
         submissionId: submittedKey,
+        schedulerCandidateId,
         // Drop attributions for any criterion the learner ultimately left at full
         // credit, so a restored score never ships a stale error tag.
         selfGrade: fallbackRequired ? { ...selfGrade, errorAttributions: prunedAttributions(item, selfGrade) } : null
@@ -658,7 +661,8 @@ export function PracticeScreen({
         probePresentationId: probeActive ? probe?.presentationId : null,
         answerConfidence,
         assessmentContractVersionId: item.assessmentContractVersionId,
-        submissionId: submittedKey
+        submissionId: submittedKey,
+        schedulerCandidateId
       });
       suppressDraftFlush.current = true;
       if (!mountedRef.current) return;
@@ -693,6 +697,7 @@ export function PracticeScreen({
   }
 
   async function acknowledgeCheckpoint(practiceItemId: string, expectedSubmissionId: string): Promise<boolean> {
+    if (vaultFrozen.current) return false;
     try {
       const result = await api.acknowledgePracticeSubmission({
         sessionId: session.sessionId,
@@ -764,6 +769,10 @@ export function PracticeScreen({
         <KeyBar keys={[{ key: "esc", label: "today" }]} />
       </div>
     );
+  }
+
+  if (vaultChanging) {
+    return <div className="screen-scroll"><Card>Saving practice before opening the next vault...</Card></div>;
   }
 
   if (!practiceReady || !item) {

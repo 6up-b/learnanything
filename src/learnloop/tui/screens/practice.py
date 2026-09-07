@@ -225,6 +225,8 @@ class PracticeScreen(Screen):
         if self.probe_presentation_id is not None:
             resolved_type = "diagnostic_probe"
         return AttemptDraft(
+            entry_surface="tui_practice",
+            evidence_origin="human",
             practice_item_id=self.practice_item.id,
             learner_answer_md=self.answer,
             attempt_type=resolved_type,

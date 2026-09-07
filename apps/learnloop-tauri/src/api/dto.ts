@@ -594,6 +594,8 @@ export interface SchedulerComponents {
 }
 
 export interface ScheduledItemDto {
+  schedulerSlateId?: string | null;
+  schedulerCandidateId?: string | null;
   practiceItemId: string;
   learningObjectId: string;
   learningObjectTitle: string;
@@ -981,6 +983,7 @@ export interface SubmitAttemptInput {
   assessmentContractVersionId?: string | null;
   /** Stable identity reused when a network submission is retried. */
   submissionId?: string | null;
+  schedulerCandidateId?: string | null;
 }
 
 /** §5.7 block-end hook payload: withheld feedback released at the boundary,

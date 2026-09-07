@@ -348,6 +348,27 @@ def test_c3_k1_leaves_no_sample_support_on_the_stored_attribution(tmp_path):
     assert receipts[0]["c3_sample_count"] == 1
 
 
+def test_post_commit_receipt_failure_never_records_a_fallback_attempt(tmp_path, monkeypatch):
+    from learnloop.attempts import attempts
+    paths = create_basic_vault(tmp_path / "vault")
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository)
+    def fail(*args, **kwargs):
+        raise ValueError("interrupted augmentation receipt")
+    monkeypatch.setattr(attempts, "_record_diagnostic_augmentation", fail)
+    with pytest.raises(ValueError, match="augmentation receipt"):
+        complete_attempt_with_ai_fallback(
+            vault, repository,
+            AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="A = U Sigma"),
+            SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+            runtime=AIRuntimeReport(status="ready", active_provider="fake", provider_type="openai_chat", model="fake"),
+            ai_client=_SequenceDiagnostician([lambda context: _proposal(context.attempt_id)]),
+        )
+    with repository.connection() as connection:
+        assert connection.execute("SELECT count(*) FROM practice_attempts").fetchone()[0] == 1
+        assert connection.execute("SELECT count(*) FROM attempt_completion_work WHERE status='pending'").fetchone()[0] == 1
+
+
 def test_c3_disagreement_becomes_unresolved_cause_set_and_real_support():
     context = GradingContext(
         attempt_id="attempt_1",

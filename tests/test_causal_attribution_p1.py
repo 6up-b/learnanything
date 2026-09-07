@@ -567,10 +567,10 @@ def test_common_repair_cover_requires_explicit_target_match(tmp_path):
     assert episode is not None
     cover = episode["receipt"]["common_repair_cover"]
     assert cover["covers_plausible_set"] is False
-    assert [value["covered"] for value in cover["matrix"]] == [
-        True,
-        False,
-    ]
+    assert {value["target_ref"]["kind"]: value["covered"] for value in cover["matrix"]} == {
+        "facet_capability": True,
+        "answer_span": False,
+    }
 
 
 def test_structural_selector_rejects_repairs_that_damage_a_passed_target():

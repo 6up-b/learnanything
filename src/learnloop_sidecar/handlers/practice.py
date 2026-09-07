@@ -7,6 +7,7 @@ from learnloop.ai.errors import CodexUnavailable
 from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop.attempts.attempts import (
     AttemptDraft,
+    AttemptResult,
     AttemptValidationError,
     SelfGradeErrorAttribution,
     SelfGradeInput,
@@ -56,6 +57,7 @@ class PracticeDraftCheckpoint(ParamsModel):
     # Stable client retry key for the attempt being composed. Optional only for
     # compatibility with older clients; the desktop persists it before submit.
     submission_id: str | None = None
+    scheduler_candidate_id: str | None = None
 
 
 class PracticeSubmissionRecoveryInput(ParamsModel):
@@ -104,6 +106,7 @@ class SubmitAttemptInput(ParamsModel):
     answer_confidence: int | None = None
     assessment_contract_version_id: str | None = None
     submission_id: str | None = None
+    scheduler_candidate_id: str | None = None
 
 
 class DontKnowInput(ParamsModel):
@@ -116,6 +119,7 @@ class DontKnowInput(ParamsModel):
     answer_confidence: int | None = None
     assessment_contract_version_id: str | None = None
     submission_id: str | None = None
+    scheduler_candidate_id: str | None = None
 
 
 class SkipInput(ParamsModel):
@@ -389,6 +393,7 @@ def start_overconfidence_probe(ctx: SidecarContext, params: OverconfidenceProbeI
 def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     _require_active_item(vault, params.practice_item_id)
+    _bind_offer(repository, params, params.submission_id)
     patch_checkpoint(
         repository,
         SessionCheckpointInput(
@@ -400,6 +405,17 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
         ),
     )
     return {"ok": True}
+
+
+def _bind_offer(repository, params, submission_id):
+    try:
+        return repository.bind_submission_offer(
+            submission_id=submission_id, session_id=params.session_id,
+            practice_item_id=params.practice_item_id,
+            scheduler_candidate_id=params.scheduler_candidate_id,
+        )
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
 
 
 @method("recover_practice_submission", PracticeSubmissionRecoveryInput)
@@ -427,7 +443,7 @@ def recover_practice_submission(
     # Exact receipts are durable completion facts. Read them before checking
     # mutable session/item state: the session may have ended or a single-use
     # item may have disappeared after the original response was produced.
-    cached = _cached_submission(repository, submission_id, params.practice_item_id)
+    cached = _cached_submission(repository, submission_id, params.practice_item_id, vault=vault)
     if cached is not None:
         return versioned({"status": "recovered", "result": cached})
     _require_open_session(repository, params.session_id)
@@ -468,7 +484,7 @@ def acknowledge_practice_submission(
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     submission_id = _submission_id(params.submission_id, params.probe_presentation_id)
-    cached = _cached_submission(repository, submission_id, params.practice_item_id)
+    cached = _cached_submission(repository, submission_id, params.practice_item_id, vault=vault)
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
@@ -501,6 +517,9 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
+        scheduler_candidate_id=_bind_offer(repository, params, submission_id),
+        entry_surface="desktop_practice",
+        evidence_origin="human",
     )
     self_grade = _self_grade(params.self_grade)
     provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
@@ -581,7 +600,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     submission_id = _submission_id(params.submission_id, params.probe_presentation_id)
-    cached = _cached_submission(repository, submission_id, params.practice_item_id)
+    cached = _cached_submission(repository, submission_id, params.practice_item_id, vault=vault)
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
@@ -599,6 +618,9 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
+        scheduler_candidate_id=_bind_offer(repository, params, submission_id),
+        entry_surface="desktop_practice",
+        evidence_origin="human",
         declared_dont_know=True,
     )
     try:
@@ -629,7 +651,7 @@ def _submission_id(client_id: str | None, presentation_id: str | None) -> str | 
     return None
 
 
-def _cached_submission(repository, submission_id: str | None, practice_item_id: str) -> dict[str, Any] | None:
+def _cached_submission(repository, submission_id: str | None, practice_item_id: str, *, vault=None) -> dict[str, Any] | None:
     if submission_id is None:
         return None
     receipt = repository.attempt_submission_receipt(submission_id)
@@ -641,11 +663,24 @@ def _cached_submission(repository, submission_id: str | None, practice_item_id: 
     # before its full response receipt. Never grade or write the same submission
     # a second time. Crucially, an attempt id alone is not an authoritative UI
     # route: a diagnostic response may have deferred feedback or closed a block.
-    # Tell the client to hold the checkpoint and fail closed.
+    # New attempts resume their saved completion; legacy rows without that
+    # continuation keep the checkpoint and fail closed.
     existing = repository.practice_attempt_by_submission_id(submission_id)
     if existing is not None:
         if existing["practice_item_id"] != practice_item_id:
             raise SidecarError("validation_error", "submission id was already used for another item")
+        work = repository.attempt_completion(existing['id'])
+        if work is not None and vault is not None:
+            saved = dict(work['result'])
+            saved['debug_payload'] = saved.pop('debug', {})
+            result = AttemptResult(**saved)
+            # Complete the persisted grade; never call a grader or reapply it.
+            run_post_attempt_pipeline(
+                vault, repository, result=result, session_id=work['session_id'],
+            )
+            payload = _attempt_result(result, repository)
+            _store_submission_receipt(repository, submission_id, result.attempt_id, practice_item_id, payload)
+            return payload
         raise SidecarError(
             "submission_committed",
             f"Attempt {existing['id']} was recorded, but its completion route is unavailable. Retry recovery without changing the submission id.",
@@ -689,13 +724,16 @@ def skip_practice_item(ctx: SidecarContext, params: SkipInput) -> dict[str, Any]
             energy=session.get("energy"),
         ),
     )
+    slate_id = queue[0].scheduler_slate_id if queue else None
     queue = filter_unready_teach_back_items(
         vault, queue, grading_provider_override=ctx.grading_provider_override
     )
+    queue = [item for item in queue if item.practice_item_id != params.practice_item_id]
+    repository.finalize_scheduler_offer(slate_id, [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id])
     dtos = scheduled_item_dtos(
         vault,
         repository,
-        [item for item in queue if item.practice_item_id != params.practice_item_id],
+        queue,
     )
     repository.clear_session_checkpoint(params.session_id)
     return versioned(
@@ -732,6 +770,10 @@ def _attempt_result(result, repository=None) -> dict[str, Any]:
     payload = versioned(result.as_dict())
     block_end = getattr(result, "probe_block_end", None)
     if repository is not None:
+        work = repository.attempt_completion(result.attempt_id)
+        if work is not None and work['status'] == 'completed':
+            payload['probeEpisode'] = versioned({'probe_episode': work['route']})['probeEpisode']
+            return payload
         # Probe redesign §5.6/§5.7: the client defers feedback while the LO's
         # diagnostic episode is still measuring; the block-end hook releases
         # the block's withheld feedback and routes the learner.

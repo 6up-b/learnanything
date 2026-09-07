@@ -9,7 +9,8 @@
     "build": "tauri build",
     "vite": "vite",
     "frontend:build": "vite build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
@@ -29,8 +30,11 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0"
+    "@types/react-dom": "^18.3.0",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "esbuild": "^0.25.0"

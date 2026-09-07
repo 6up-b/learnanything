@@ -21,9 +21,29 @@ import errno
 import os
 import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
+
+
+_mutation_guard: ContextVar[Callable[[Path], None] | None] = ContextVar('vault_mutation_guard', default=None)
+
+
+@contextmanager
+def guard_vault_mutations(check: Callable[[Path], None]):
+    """Install an owner's check, evaluated inside the publication lock."""
+    token = _mutation_guard.set(check)
+    try:
+        yield
+    finally:
+        _mutation_guard.reset(token)
+
+
+def _check_mutation_owner(root: Path) -> None:
+    check = _mutation_guard.get()
+    if check is not None:
+        check(root)
 
 try:  # POSIX advisory locks. The app targets local-first POSIX hosts.
     import fcntl
@@ -112,6 +132,7 @@ def vault_mutation_lock(
         # intent for diagnostics.
         _write_holder(path, holder)
         try:
+            _check_mutation_owner(root)
             yield holder
         finally:
             _clear_holder(path)
@@ -122,6 +143,7 @@ def vault_mutation_lock(
         _acquire_with_timeout(fd, path, timeout_s)
         _write_holder_fd(fd, holder)
         try:
+            _check_mutation_owner(root)
             yield holder
         finally:
             # Blank the holder metadata before releasing so a later diagnostic

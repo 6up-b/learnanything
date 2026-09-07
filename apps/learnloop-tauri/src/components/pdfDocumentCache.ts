@@ -11,7 +11,6 @@
  * worker holds the parsed document and its page caches; a scanned textbook
  * can be a few hundred MB there, so this is a small number on purpose.
  */
-import * as pdfjs from "pdfjs-dist";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy } from "pdfjs-dist";
 
 const MAX_DOCS = 3;
@@ -30,6 +29,18 @@ interface Entry extends CachedPdfDocument {
 
 const documents = new Map<string, Entry>();
 const loading = new Map<string, Promise<CachedPdfDocument>>();
+const pendingFetches = new Set<AbortController>();
+const pendingTasks = new Set<PDFDocumentLoadingTask>();
+const destruction = new WeakMap<PDFDocumentLoadingTask, Promise<void>>();
+
+function destroyTask(task: PDFDocumentLoadingTask): Promise<void> {
+  const existing = destruction.get(task);
+  if (existing) return existing;
+  // Cleanup must not mask a parse error or reject an unobserved eviction.
+  const promise = Promise.resolve().then(() => task.destroy()).catch(() => undefined);
+  destruction.set(task, promise);
+  return promise;
+}
 // Bumped by clearPdfDocuments(): a load that started before a clear must not
 // install its (previous-vault) document afterwards.
 let generation = 0;
@@ -40,23 +51,42 @@ function evictBeyondLimit(): void {
   for (const [url, entry] of stale) {
     if (documents.size <= MAX_DOCS) break;
     documents.delete(url);
-    void entry.task.destroy();
+    void destroyTask(entry.task);
   }
 }
 
 async function load(fileUrl: string): Promise<CachedPdfDocument> {
   const startedIn = generation;
-  const response = await fetch(fileUrl);
-  if (!response.ok) throw new Error(`originals store returned ${response.status}`);
-  const data = new Uint8Array(await response.arrayBuffer());
+  const controller = new AbortController();
+  pendingFetches.add(controller);
+  let data: Uint8Array;
+  let pdfjs: typeof import("pdfjs-dist");
+  try {
+    const [response, module] = await Promise.all([fetch(fileUrl, { signal: controller.signal }), import("pdfjs-dist")]);
+    if (!response.ok) throw new Error(`originals store returned ${response.status}`);
+    data = new Uint8Array(await response.arrayBuffer());
+    pdfjs = module;
+  } finally {
+    pendingFetches.delete(controller);
+  }
+  if (startedIn !== generation) throw new Error("PDF document cache was cleared while loading");
   const task = pdfjs.getDocument({ data });
-  const doc = await task.promise;
+  pendingTasks.add(task);
+  let doc: PDFDocumentProxy;
+  try {
+    doc = await task.promise;
+  } catch (error) {
+    await destroyTask(task);
+    throw error;
+  } finally {
+    pendingTasks.delete(task);
+  }
   const entry: Entry = { doc, task, pageTexts: new Map(), lastUsed: Date.now() };
   const existing = documents.get(fileUrl);
   if (startedIn !== generation || existing) {
     // Cleared mid-load, or a concurrent load already installed this URL: the
     // worker-side document would otherwise leak with nothing referencing it.
-    void task.destroy();
+    void destroyTask(task);
     if (existing && startedIn === generation) return existing;
     throw new Error("PDF document cache was cleared while loading");
   }
@@ -84,7 +114,11 @@ export function acquirePdfDocument(fileUrl: string): Promise<CachedPdfDocument> 
 /** Destroy every cached document (vault switch). */
 export function clearPdfDocuments(): void {
   generation += 1;
-  for (const entry of documents.values()) void entry.task.destroy();
+  for (const controller of pendingFetches) controller.abort();
+  pendingFetches.clear();
+  for (const task of pendingTasks) void destroyTask(task);
+  pendingTasks.clear();
+  for (const entry of documents.values()) void destroyTask(entry.task);
   documents.clear();
   loading.clear();
 }

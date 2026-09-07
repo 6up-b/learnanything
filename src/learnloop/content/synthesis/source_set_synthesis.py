@@ -23,6 +23,8 @@ proposed_patch_items -> apply_accepted_items.
 
 from __future__ import annotations
 
+from learnloop.ai.execution import content_key, generation_limit
+
 import json
 import re
 from dataclasses import dataclass, field
@@ -73,7 +75,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
     build_manifest,
     persist_manifest,
 )
-from learnloop.ai.usage import TokenUsage, consume_client_usage
+from learnloop.ai.usage import TokenUsage, consume_client_usage, snapshot_client_usage
 from learnloop.content.synthesis.vault_epigraphs import (
     digest_from_proposal_rows,
     generate_vault_epigraphs,
@@ -1505,14 +1507,6 @@ def _create_study_map(
         raise StudyMapError("unsupported_mode", f"mode '{mode}' is not supported by create_study_map (append is ING M7).")
 
     # 1. lock check — typed refusal for a locked subject.
-    lock_reasons = _bootstrap_lock_refusal(vault, repository)
-    if lock_reasons:
-        raise StudyMapError(
-            "subject_identity_locked",
-            f"Bootstrap synthesis refused: subject '{subject_id}' has locked identities.",
-            lock_reasons=lock_reasons,
-        )
-
     inputs = _collect_inputs(repository, vault, source_set)
     budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
@@ -1557,9 +1551,25 @@ def _create_study_map(
     cached = repository.completed_agent_run_by_context(SYNTHESIS_AGENT_PURPOSE, context_hash)
     if cached is not None:
         batch = repository.proposal_batch_for_agent_run(cached["id"])
-        return StudyMapResult(
+        result = StudyMapResult(
             source_set_id=source_set.id, subject_id=subject_id, mode=resolved_mode,
             manifest_hash=manifest_hash, proposal_id=(batch or {}).get("id"), reused=True,
+        )
+        if apply and result.proposal_id:
+            from learnloop.content.proposals.patches import apply_accepted_items
+            apply_accepted_items(root, result.proposal_id, clock=clock)
+            result.applied = True
+            if create_goal and _is_exam_prep(brief):
+                facets = [str((row.get("edited_payload") or row.get("payload") or {}).get("id") or "") for row in repository.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+                result.goal_id = _create_goal_from_brief(root, brief, facets, clock=clock, provenance_key=result.proposal_id)
+        return result
+
+    lock_reasons = _bootstrap_lock_refusal(vault, repository)
+    if lock_reasons:
+        raise StudyMapError(
+            "subject_identity_locked",
+            f"Bootstrap synthesis refused: subject '{subject_id}' has locked identities.",
+            lock_reasons=lock_reasons,
         )
 
     now = utc_now_iso(clock)
@@ -1658,7 +1668,7 @@ def _create_study_map(
         apply_accepted_items(root, patch_id, clock=clock)
         result.applied = True
         if create_goal and _is_exam_prep(brief):
-            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock)
+            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock, provenance_key=patch_id)
 
     # 7. best-effort Start-screen epigraphs about the freshly synthesized
     #    material. Never raises; nothing here can change `result`. Sits after
@@ -2020,7 +2030,7 @@ def revalidate_synthesis_candidate(
         result.applied = True
         brief = dict(manifest.get("brief") or {})
         if create_goal and _is_exam_prep(brief):
-            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock)
+            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock, provenance_key=patch_id)
     return result
 
 
@@ -2038,8 +2048,21 @@ def _run_synthesis(
     calls = 0
     reused_shards = 0
     input_tokens_estimate = 0
-    def entry_tokens(entries: list[dict[str, Any]]) -> int:
-        return sum(max(1, len(json.dumps(entry, default=str)) // 4) for entry in entries)
+    output_tokens_spent = 0
+    schema = SourceSetSynthesis.model_json_schema()
+
+    def pass_request(context):
+        prompt = source_set_synthesis_prompt(context)
+        key = content_key({"purpose": "synthesis_pass", "prompt": prompt, "schema": schema, "provider": provider, "model": model})
+        tokens = max(1, (len(prompt) + len(json.dumps(schema))) // 4)
+        return key, tokens
+
+    def base_context(ordinal, shard):
+        return SourceSetSynthesisContext(
+            source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
+            brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
+            registry_index=registry, resolved_spans=[], shard_ordinal=ordinal, shard_count=len(shards),
+        )
 
     # Durable per-shard checkpoints: resolve every shard's cache slot up front so
     # the total-input preflight only charges for shards that will actually run.
@@ -2053,17 +2076,39 @@ def _run_synthesis(
         cached = repository.synthesis_shard_result(key)
         shard_states.append((ordinal, shard, key, cached if cached and cached.get("output") else None))
 
-    base_input_tokens = sum(
-        entry_tokens(shard) for _, shard, _, cached in shard_states if cached is None
-    )
-    if (
-        not unlimited_token_budget
-        and base_input_tokens > budgets.synthesis_total_input_ceiling
-    ):
-        raise StudyMapError(
-            "budget_exceeded",
-            "Selected inventories exceed the synthesis total-input ceiling; narrow the source scope.",
-        )
+    base_reserves = {}
+    for ordinal, shard, _, cached in shard_states:
+        key, tokens = pass_request(base_context(ordinal, shard))
+        base_reserves[ordinal] = 0 if cached or repository.model_checkpoint(key) else tokens
+    if not unlimited_token_budget and sum(base_reserves.values()) > budgets.synthesis_total_input_ceiling:
+        raise StudyMapError("budget_exceeded", "Uncached synthesis base passes exceed the total-input ceiling.")
+
+    def run_pass(context, *, future_input_reserve=0):
+        nonlocal calls, input_tokens_estimate, output_tokens_spent
+        key, tokens = pass_request(context)
+        checkpoint = repository.model_checkpoint(key)
+        if checkpoint:
+            return SourceSetSynthesis.model_validate(checkpoint["result"])
+        # Estimate the entire request, including the schema and fixed context.
+        # Provider-reported usage is recorded separately; this is a preflight.
+        if not unlimited_token_budget and input_tokens_estimate + tokens + future_input_reserve > budgets.synthesis_total_input_ceiling:
+            raise StudyMapError("budget_exceeded", "The next synthesis pass would exceed the total-input ceiling; completed passes are saved.")
+        output_limit = None if unlimited_token_budget else min(budgets.synthesis_shard_output_tokens, budgets.synthesis_output_tokens - output_tokens_spent)
+        if output_limit is not None and output_limit <= 0:
+            raise StudyMapError("budget_exceeded", "The synthesis output budget is exhausted; completed passes are saved.")
+        input_tokens_estimate += tokens
+        before = snapshot_client_usage(client or transport)
+        with generation_limit(output_limit):
+            result = request_source_set_synthesis(transport, context)
+        calls += 1
+        after = snapshot_client_usage(client or transport)
+        input_tokens_estimate += max(0, after.input_tokens - before.input_tokens - tokens)
+        output_charge = max(_result_tokens(result), after.output_tokens - before.output_tokens)
+        output_tokens_spent += output_charge
+        if output_limit is not None and output_charge > output_limit:
+            raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
+        repository.save_model_checkpoint(key, purpose="synthesis_pass", result=result.model_dump(mode="json"), usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
+        return result
 
     for ordinal, shard, shard_key, cached in shard_states:
         if cached is not None:
@@ -2079,18 +2124,12 @@ def _run_synthesis(
             merged = _merge_synthesis(merged, result) if merged is not None else result
             continue
 
-        shard_tokens = entry_tokens(shard)
-        input_tokens_estimate += shard_tokens
         _notify(progress, "synthesis",
                 f"Synthesizing shard {ordinal + 1} of {len(shards)}",
                 current=ordinal + 1, total=len(shards))
-        context = SourceSetSynthesisContext(
-            source_set_id=source_set.id, subject_id=source_set.subject_id, mode="bootstrap",
-            brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
-            registry_index=registry, resolved_spans=[], shard_ordinal=ordinal, shard_count=len(shards),
-        )
-        result = request_source_set_synthesis(transport, context)
-        calls += 1
+        context = base_context(ordinal, shard)
+        future_reserve = sum(tokens for next_ordinal, tokens in base_reserves.items() if next_ordinal > ordinal)
+        result = run_pass(context, future_input_reserve=future_reserve)
         if (
             not unlimited_token_budget
             and _result_tokens(result) > budgets.synthesis_shard_output_tokens
@@ -2114,21 +2153,9 @@ def _run_synthesis(
                 brief=brief, unit_inventories=shard, exam_profile=inputs.exam_profile or {},
                 registry_index=registry, resolved_spans=resolved, shard_ordinal=ordinal, shard_count=len(shards),
             )
-            second_round_tokens = shard_tokens + sum(
-                max(1, len(json.dumps(span, default=str)) // 4) for span in resolved
-            )
-            if (
-                not unlimited_token_budget
-                and input_tokens_estimate + second_round_tokens
-                > budgets.synthesis_total_input_ceiling
-            ):
-                raise StudyMapError(
-                    "budget_exceeded",
-                    "The requested evidence spans would exceed the synthesis total-input ceiling.",
-                )
-            input_tokens_estimate += second_round_tokens
-            result = request_source_set_synthesis(transport, context)
-            calls += 1
+            # Reserve the remaining base shards before spending on optional
+            # evidence expansion. Re-check before every subsequent base call.
+            result = run_pass(context, future_input_reserve=future_reserve)
             if (
                 not unlimited_token_budget
                 and _result_tokens(result) > budgets.synthesis_shard_output_tokens
@@ -2150,6 +2177,8 @@ def _run_synthesis(
         )
         result = _namespace_synthesis_shard(result, ordinal)
         merged = _merge_synthesis(merged, result) if merged is not None else result
+        if not unlimited_token_budget and _result_tokens(merged) > budgets.synthesis_output_tokens:
+            raise StudyMapError("budget_exceeded", "Merged synthesis exceeded its total output budget; completed shards are saved.")
 
     if merged is None:
         merged = SourceSetSynthesis()
@@ -2162,6 +2191,7 @@ def _run_synthesis(
         total_input_ceiling=(
             None if unlimited_token_budget else budgets.synthesis_total_input_ceiling
         ),
+        output_budget_tokens=None if unlimited_token_budget else max(0, budgets.synthesis_output_tokens - output_tokens_spent),
         progress=progress,
     )
     calls += int(structuring_usage.pop("calls", 0))
@@ -2175,6 +2205,7 @@ def _run_synthesis(
     usage.update({
         "calls": calls,
         "input_tokens_estimate": input_tokens_estimate,
+        "output_tokens_charged": output_tokens_spent,
         "shard_count": len(shards),
         "reused_shards": reused_shards,
     })
@@ -2375,6 +2406,7 @@ def _model_graph_structuring(
     shard_count: int,
     input_tokens_estimate: int,
     total_input_ceiling: int | None,
+    output_budget_tokens: int | None = None,
     progress: ProgressFn | None = None,
 ) -> tuple[Any, dict[str, Any]]:
     """One bounded model pass over the WHOLE merged candidate (§8.5): folds
@@ -2394,6 +2426,8 @@ def _model_graph_structuring(
     needed = shard_count >= 2 or not list(getattr(merged, "concept_relations", []) or [])
     if client is None or len(concepts) < 2 or not needed:
         return merged, {}
+    if output_budget_tokens == 0:
+        return merged, {"graph_structuring_skipped": "output budget exhausted"}
 
     compact = [
         {
@@ -2430,7 +2464,10 @@ def _model_graph_structuring(
         return merged, {"graph_structuring_skipped": "total-input ceiling reached"}
     _notify(progress, "synthesis", "Structuring the concept graph across sources")
     try:
-        outcome = request_concept_graph_structuring(client, context)
+        with generation_limit(output_budget_tokens):
+            outcome = request_concept_graph_structuring(client, context)
+        if output_budget_tokens is not None and _result_tokens(outcome) > output_budget_tokens:
+            return merged, {"graph_structuring_skipped": "output budget exceeded", "calls": 1, "input_tokens_estimate": estimate}
     except Exception as exc:  # noqa: BLE001 — never discard paid-for shards over this
         return merged, {"graph_structuring_skipped": f"{exc.__class__.__name__}: {exc}"}
     mapping = _validated_merge_mapping(outcome, merged)
@@ -2650,7 +2687,13 @@ def _is_exam_prep(brief: dict[str, Any]) -> bool:
     return "exam" in outcome or bool(brief.get("exam_preparation"))
 
 
-def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None) -> str | None:
+def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None = None) -> str | None:
+    from learnloop.vault_lock import vault_mutation_lock
+    with vault_mutation_lock(root):
+        return _create_goal_from_brief_locked(root, brief, facet_ids, clock=clock, provenance_key=provenance_key)
+
+
+def _create_goal_from_brief_locked(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None) -> str | None:
     """Create a Goal wired to the freshly minted facets (§5.1), after acceptance."""
 
     from learnloop.vault.models import Goal
@@ -2667,6 +2710,10 @@ def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[s
     title = str(brief.get("goal_title") or brief.get("outcome") or "Exam preparation")
     base = f"goal_{snake_case(title)[:40] or 'exam_prep'}"
     existing = {str(g.get("id")) for g in goals if isinstance(g, dict)}
+    if provenance_key:
+        base = f"{base}_{content_key(provenance_key)[:12]}"
+        if base in existing:
+            return base
     goal_id, n = base, 2
     while goal_id in existing:
         goal_id = f"{base}_{n}"

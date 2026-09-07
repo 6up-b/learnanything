@@ -17,6 +17,7 @@ synchronously via ``drain_foreground()`` with stubbed :class:`RunnerServices`.
 from __future__ import annotations
 
 import concurrent.futures
+from contextvars import copy_context
 import json
 import os
 import queue
@@ -870,6 +871,7 @@ def default_run_legacy_ingest(
     progress: Callable[[str, dict[str, Any]], None] | None,
     clock: Clock | None,
     ir_markdown: str | None = None,
+    ir_extraction_id: str | None = None,
     **_ignored: Any,
 ) -> Any:
     """Run the legacy one-shot pipeline in-process with a ready provider client.
@@ -900,6 +902,7 @@ def default_run_legacy_ingest(
         codex_revision=getattr(runtime, "actual_revision", None),
         purpose=purpose,
         ir_markdown=ir_markdown,
+        ir_extraction_id=ir_extraction_id,
         clock=clock,
         progress=progress,
     )
@@ -1238,108 +1241,91 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
                 )
             clients.append(client)
 
-        lanes: list[list[tuple[int, PreparedInventory]]] = [
-            [] for _ in range(worker_count)
-        ]
-        for ordinal, item in enumerate(sorted(work_by_index.items())):
-            lanes[ordinal % worker_count].append(item)
+        # A worker owns one client and one unit at a time. The runner accepts
+        # receipt/checkpoint events before acknowledging them, keeping all SQL
+        # on this thread and saving paid work before scheduling more work.
+        from learnloop.ai.execution import observe_model_calls
 
         interrupt_group = _InventoryInterruptGroup()
         ctx.bind_interruptible(interrupt_group)
-        progress_events: queue.SimpleQueue[tuple[str, int, int]] = queue.SimpleQueue()
-        total_model_windows = sum(
-            len(prepared.windows) for prepared in work_by_index.values()
-        )
+        events: queue.SimpleQueue = queue.SimpleQueue()
+        stopped = threading.Event()
+        total_model_windows = sum(len(prepared.windows) for prepared in work_by_index.values())
         completed_model_windows = 0
-        ctx.report(
-            "inventoried",
-            message=(
-                f"Inventorying {len(work_by_index)} uncached unit"
-                f"{'' if len(work_by_index) == 1 else 's'} "
-                f"across {total_model_windows} model window"
-                f"{'' if total_model_windows == 1 else 's'}"
-            ),
-            current_window=0,
-            total_windows=total_model_windows,
-        )
+        ctx.report("inventoried", message="Inventorying uncached units", current_window=0, total_windows=total_model_windows)
 
-        def run_lane(
-            client: Any,
-            lane: list[tuple[int, PreparedInventory]],
-        ) -> list[tuple[int, PreparedInventory, InventoryExecution]]:
-            completed: list[
-                tuple[int, PreparedInventory, InventoryExecution]
-            ] = []
+        def on_runner(callback):
+            receipt = concurrent.futures.Future()
+            events.put((callback, receipt))
+            return receipt.result()
+
+        def run_unit(client, index, prepared):
             interrupt_group.add(client)
+            def observe(action, event):
+                if action == "start" and stopped.is_set():
+                    raise JobCancelled()
+                return on_runner(lambda: ctx.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=ctx.job["id"]))
+            def checkpoint(key, result, usage):
+                on_runner(lambda: ctx.repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage))
+            def report_window(current, total):
+                def report():
+                    nonlocal completed_model_windows
+                    completed_model_windows += 1
+                    ctx.report("inventoried", message=f"Inventoried {prepared.unit_id} window {current} of {total}", current_window=completed_model_windows, total_windows=total_model_windows)
+                on_runner(report)
+                if stopped.is_set():
+                    raise JobCancelled()
             try:
-                for index, prepared in lane:
-                    def report_window(
-                        current: int,
-                        total: int,
-                        unit: str = prepared.unit_id,
-                    ) -> None:
-                        progress_events.put((unit, current, total))
-
-                    execution = execute_prepared_inventory(
-                        prepared,
-                        client,
-                        progress=report_window,
-                    )
-                    completed.append((index, prepared, execution))
-                return completed
+                with observe_model_calls(observe):
+                    execution = execute_prepared_inventory(prepared, client, progress=report_window, checkpoint=checkpoint)
+                return index, prepared, execution
             finally:
                 interrupt_group.discard(client)
 
-        executions: dict[int, tuple[PreparedInventory, InventoryExecution]] = {}
-        try:
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=worker_count,
-                thread_name_prefix="learnloop-inventory",
-            ) as executor:
-                pending = {
-                    executor.submit(run_lane, client, lane)
-                    for client, lane in zip(clients, lanes)
-                    if lane
-                }
-                while pending:
-                    done, pending = concurrent.futures.wait(
-                        pending,
-                        timeout=0.25,
-                        return_when=concurrent.futures.FIRST_COMPLETED,
-                    )
-                    while not progress_events.empty():
-                        unit_id, unit_window, unit_total = progress_events.get_nowait()
-                        completed_model_windows += 1
-                        ctx.report(
-                            "inventoried",
-                            message=(
-                                f"Inventoried {unit_id} window "
-                                f"{unit_window} of {unit_total}"
-                            ),
-                            current_window=completed_model_windows,
-                            total_windows=total_model_windows,
-                        )
+        work = iter(sorted(work_by_index.items()))
+        failure = None
+        with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="learnloop-inventory") as executor:
+            pending = {}
+            def submit(client):
+                item = next(work, None)
+                if item is not None:
+                    index, prepared = item
+                    pending[executor.submit(copy_context().run, run_unit, client, index, prepared)] = client
+            for client in clients:
+                submit(client)
+            while pending:
+                done, _ = concurrent.futures.wait(pending, timeout=0.05, return_when=concurrent.futures.FIRST_COMPLETED)
+                while not events.empty():
+                    callback, receipt = events.get_nowait()
+                    try:
+                        receipt.set_result(callback())
+                    except BaseException as exc:
+                        receipt.set_exception(exc)
+                        failure = failure or exc
+                try:
                     if ctx.cancelled():
-                        interrupt_group.interrupt()
-                        for future in pending:
-                            future.cancel()
                         raise JobCancelled()
-                    for future in done:
-                        for index, prepared, execution in future.result():
-                            executions[index] = (prepared, execution)
-        except Exception:
-            interrupt_group.interrupt()
-            raise
-
-        # Provider workers never touch SQLite. Persist their validated output in
-        # payload order on the runner thread.
-        for index in sorted(executions):
-            prepared, execution = executions[index]
-            result = persist_prepared_inventory(
-                ctx.repo, prepared, execution, clock=ctx.clock
-            )
-            ctx.record_usage(dict(result.usage or {}))
-            results_by_index[index] = result
+                except BaseException as exc:
+                    failure = failure or exc
+                free_clients = []
+                for future in done:
+                    free_clients.append(pending.pop(future))
+                    try:
+                        index, prepared, execution = future.result()
+                        result = persist_prepared_inventory(ctx.repo, prepared, execution, clock=ctx.clock)
+                        ctx.record_usage(dict(result.usage or {}))
+                        results_by_index[index] = result
+                    except BaseException as exc:
+                        failure = failure or exc
+                if failure is not None:
+                    if not stopped.is_set():
+                        stopped.set()
+                        interrupt_group.interrupt()
+                else:
+                    for client in free_clients:
+                        submit(client)
+            if failure is not None:
+                raise failure
 
     results: list[dict[str, Any]] = []
     for index, spec in enumerate(specs):
@@ -1842,12 +1828,29 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
         subject_id=subject_id,
         mode=mode,
         ir_markdown=ir_markdown,
+        **({"ir_extraction_id": _legacy_ir_extraction_id(ctx)} if ir_markdown is not None else {}),
         progress=_progress,
         clock=ctx.clock,
     )
     ctx.record_usage({"calls": int(getattr(result, "codex_calls", 0) or 0)})
     ctx.report("applied", message="Ingest complete")
     return result.as_dict() if hasattr(result, "as_dict") else dict(result)
+
+
+def _legacy_ir_extraction_id(ctx: JobContext) -> str | None:
+    extraction_id: str | None = None
+    for dep_id in ctx.repo.ingest_job_dependency_ids(ctx.job_id):
+        dep = ctx.repo.get_ingest_job(dep_id)
+        if dep is None or dep.get("job_type") != "import" or dep.get("status") != "completed":
+            continue
+        result = dep.get("result")
+        if isinstance(result, Mapping):
+            candidate = result.get("extraction_id")
+            if candidate:
+                extraction_id = str(candidate)
+                break
+    return extraction_id
+
 
 
 def _legacy_ir_markdown(ctx: JobContext) -> str | None:
@@ -1860,17 +1863,7 @@ def _legacy_ir_markdown(ctx: JobContext) -> str | None:
 
     from learnloop.ingest.ir import render_ir_markdown
 
-    extraction_id: str | None = None
-    for dep_id in ctx.repo.ingest_job_dependency_ids(ctx.job_id):
-        dep = ctx.repo.get_ingest_job(dep_id)
-        if dep is None or dep.get("job_type") != "import" or dep.get("status") != "completed":
-            continue
-        result = dep.get("result")
-        if isinstance(result, Mapping):
-            candidate = result.get("extraction_id")
-            if candidate:
-                extraction_id = str(candidate)
-                break
+    extraction_id = _legacy_ir_extraction_id(ctx)
     if extraction_id is None:
         return None
 

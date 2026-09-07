@@ -39,6 +39,7 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.followups import (
     FollowupDecision,
     evaluate_attempt_intervention_followup,
+    normalize_and_resolve_attempt,
 )
 from learnloop.vault.models import LoadedVault
 
@@ -81,6 +82,66 @@ def run_post_attempt_pipeline(
     suppress_insertion_reason: str | None = None,
     clock: Clock | None = None,
 ) -> PostAttemptOutcome:
+    """Resume local completion exactly once after any provider normalization.
+
+    The applied attempt and its saved result exist before this function runs.
+    Normalization may call a provider and keeps its existing idempotent event
+    links; it must never hold the transaction used to publish local completion.
+    The follow-up writes and the final diagnostic route commit together.
+    """
+    work = repository.attempt_completion(result.attempt_id)
+    if work is not None and work['status'] == 'completed':
+        return PostAttemptOutcome(result.attempt_id, None, ('already_completed',))
+    if work is not None:
+        repository.save_attempt_completion(
+            attempt_id=result.attempt_id, submission_id=work['submission_id'],
+            session_id=work['session_id'], practice_item_id=result.practice_item_id,
+            result=result.as_dict(), clock=clock,
+        )
+    attempt = repository.fetch_practice_attempt(result.attempt_id) or {}
+    episode = repository.open_probe_episode(result.learning_object_id)
+    deferred = (
+        episode is not None and episode.status == 'in_progress'
+        and attempt.get('probe_presentation_id') is not None
+    )
+    if not deferred:
+        normalize_and_resolve_attempt(
+            vault, repository, attempt_id=result.attempt_id,
+            learning_object_id=result.learning_object_id, ai_client=ai_client,
+            clock=clock,
+        )
+    with repository.atomic():
+        current = repository.attempt_completion(result.attempt_id)
+        if current is not None and current['status'] == 'completed':
+            return PostAttemptOutcome(result.attempt_id, None, ('already_completed',))
+        outcome = _run_post_attempt_pipeline(
+            vault, repository, result=result, purpose=purpose, session_id=session_id,
+            self_grade=self_grade, available_minutes=available_minutes,
+            suppress_insertion_reason=suppress_insertion_reason, clock=clock,
+        )
+        episode = repository.open_probe_episode(result.learning_object_id)
+        route = {
+            'episode_id': episode.id, 'status': episode.status,
+            'feedback_deferred': episode.status == 'in_progress' and result.probe_block_end is None,
+        } if episode is not None else None
+        repository.complete_attempt_work(
+            result.attempt_id, result=result.as_dict(), route=route, clock=clock,
+        )
+        return outcome
+
+
+def _run_post_attempt_pipeline(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    result: Any,
+    purpose: str = "practice",
+    session_id: str | None = None,
+    self_grade: Any = None,
+    available_minutes: int | None = None,
+    suppress_insertion_reason: str | None = None,
+    clock: Clock | None = None,
+) -> PostAttemptOutcome:
     """Run the composed post-attempt steps for one applied attempt.
 
     ``result`` is the :class:`learnloop.attempts.attempts.AttemptResult` the
@@ -110,7 +171,7 @@ def run_post_attempt_pipeline(
         result=result,
         available_minutes=available_minutes,
         session_id=session_id,
-        ai_client=ai_client,
+        normalization_prepared=True,
         suppress_insertion_reason=suppress_insertion_reason,
         clock=clock,
     )

@@ -309,9 +309,7 @@ def _sha256_file(path: Path) -> str:
 def _backup_database(source: Repository, destination: Repository) -> None:
     """Make a transactionally consistent copy using the requested attach APIs."""
 
-    with closing(source.connection()) as source_connection, closing(
-        destination.connection()
-    ) as destination_connection:
+    with source.connection() as source_connection, destination.connection() as destination_connection:
         source_connection.backup(destination_connection)
         destination_connection.commit()
 

@@ -63,25 +63,30 @@ function flattenSourceObjects(heads: Array<Record<string, unknown>>): Map<string
  */
 export function useReaderRequests(sourceId: string | null, enabled: boolean) {
   const activeSourceId = enabled ? sourceId : null;
-  const activeSourceRef = useRef(activeSourceId);
-  activeSourceRef.current = activeSourceId;
+  const activeScope = useMemo(() => ({ sourceId: activeSourceId }), [activeSourceId]);
+  const activeSourceRef = useRef<typeof activeScope | null>(activeScope);
+  activeSourceRef.current = activeScope;
 
-  useEffect(() => () => {
-    activeSourceRef.current = null;
-  }, []);
+  useEffect(() => {
+    activeSourceRef.current = activeScope;
+    return () => { if (activeSourceRef.current === activeScope) activeSourceRef.current = null; };
+  }, [activeScope]);
 
   const [requests, setRequests] = useState<BackgroundRequest[]>([]);
   const [proposalCount, setProposalCount] = useState(0);
   const [synthesizedObjects, setSynthesizedObjects] = useState<Map<string, SynthesizedObject>>(new Map());
   const [openProposalIds, setOpenProposalIds] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
+  const observedRequests = useRef(new Map<string, string>());
 
-  const loadArtifacts = useCallback(async (targetSourceId: string) => {
+  const loadArtifacts = useCallback(async (targetScope: { sourceId: string | null }) => {
+    const targetSourceId = targetScope.sourceId;
+    if (!targetSourceId) return;
     const [inbox, objects] = await Promise.all([
       api.readerProposalInbox({ status: "proposed" }),
       api.readerSourceObjects(targetSourceId)
     ]);
-    if (activeSourceRef.current !== targetSourceId) return;
+    if (activeSourceRef.current !== targetScope) return;
     const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? [];
     setProposalCount(proposals.length);
     setOpenProposalIds(new Set(proposals.map((proposal) => String(proposal.id))));
@@ -92,12 +97,13 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
 
   const refresh = useCallback(async () => {
     if (!activeSourceId) return;
+    const targetScope = activeScope;
     const targetSourceId = activeSourceId;
     const [snapshot, artifacts] = await Promise.allSettled([
       api.readerSourceRequests(targetSourceId),
-      loadArtifacts(targetSourceId)
+      loadArtifacts(targetScope)
     ]);
-    if (activeSourceRef.current !== targetSourceId) return;
+    if (activeSourceRef.current !== targetScope) return;
     const failures: string[] = [];
     if (snapshot.status === "fulfilled") {
       setRequests((snapshot.value.requests as BackgroundRequest[]) ?? []);
@@ -108,9 +114,10 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
       failures.push(`request results: ${errorMessage(artifacts.reason)}`);
     }
     setLoadError(failures.length > 0 ? failures.join(" · ") : null);
-  }, [activeSourceId, loadArtifacts]);
+  }, [activeSourceId, activeScope, loadArtifacts]);
 
   useEffect(() => {
+    observedRequests.current = new Map();
     setRequests([]);
     setProposalCount(0);
     setSynthesizedObjects(new Map());
@@ -122,6 +129,7 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
   const polling = useMemo(() => hasActiveRequest(requests), [requests]);
   useEffect(() => {
     if (!activeSourceId || !polling) return;
+    const targetScope = activeScope;
     const targetSourceId = activeSourceId;
     let cancelled = false;
     let timer: number | undefined;
@@ -130,29 +138,34 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
       let pollAgain = true;
       try {
         const snapshot = await api.readerSourceRequests(targetSourceId);
-        if (cancelled || activeSourceRef.current !== targetSourceId) return;
+        if (cancelled || activeSourceRef.current !== targetScope) return;
         const next = (snapshot.requests as BackgroundRequest[]) ?? [];
         pollAgain = hasActiveRequest(next);
-        if (pollAgain) {
+        const signatures = new Map(next.map((request) => [
+          request.id, JSON.stringify([request.status, request.resultJson, request.errorJson])
+        ]));
+        const newlyTerminal = next.some((request) =>
+          !ACTIVE_REQUEST_STATUSES.has(request.status)
+          && observedRequests.current.get(request.id) !== signatures.get(request.id)
+        );
+        if (newlyTerminal || !pollAgain) {
+          // Publish each completion even while another request is running.
+          // Advance the observed signatures only after hydration succeeds, so
+          // an artifact failure retries on the next non-overlapping poll.
+          await loadArtifacts(targetScope);
+        }
+        if (!cancelled && activeSourceRef.current === targetScope) {
+          observedRequests.current = signatures;
           setRequests(next);
           setLoadError(null);
-        } else {
-          // The completion edge is the only polling tick that needs the global
-          // proposal set and synthesized objects. If it fails, keep retrying so
-          // a completed card cannot remain permanently empty.
-          await loadArtifacts(targetSourceId);
-          if (!cancelled && activeSourceRef.current === targetSourceId) {
-            setRequests(next);
-            setLoadError(null);
-          }
         }
       } catch (error) {
         pollAgain = true;
-        if (!cancelled && activeSourceRef.current === targetSourceId) {
+        if (!cancelled && activeSourceRef.current === targetScope) {
           setLoadError(`Reader request status is temporarily unavailable: ${errorMessage(error)}`);
         }
       }
-      if (!cancelled && activeSourceRef.current === targetSourceId && pollAgain) {
+      if (!cancelled && activeSourceRef.current === targetScope && pollAgain) {
         timer = window.setTimeout(() => void poll(), 2000);
       }
     };
@@ -162,7 +175,7 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [activeSourceId, polling, loadArtifacts]);
+  }, [activeSourceId, activeScope, polling, loadArtifacts]);
 
   return { requests, proposalCount, synthesizedObjects, openProposalIds, loadError, refresh };
 }

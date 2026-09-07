@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
+from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
 from learnloop.causal_activity_policy import (
     CAUSAL_ACTIVITY_POLICY_VERSION,
     CONTAMINATION_PRECEDENCE,
@@ -21,6 +22,9 @@ from learnloop.causal_activity_policy import (
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
+from learnloop.db.stores.completion import AttemptCompletionStoreMixin
+from learnloop.db.stores.model_calls import ModelCallStoreMixin
+from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
 from learnloop.db.stores.observation_ledger import (
     load_authoritative_observation_ledger,
@@ -707,7 +711,7 @@ class _PinnedConnection:
         self._connection.isolation_level = ""
 
 
-class Repository(IngestQueueStoreMixin):
+class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin):
     def __init__(self, sqlite_path: Path):
         self._initialize(sqlite_path, read_only=False)
         apply_migrations(sqlite_path)
@@ -740,7 +744,39 @@ class Repository(IngestQueueStoreMixin):
         pinned = getattr(self._pin, "connection", None)
         if pinned is not None:
             return pinned
-        return connect(self.sqlite_path, read_only=self._read_only)
+        from learnloop.db.scopes import OwnedConnection
+
+        return OwnedConnection(connect(self.sqlite_path, read_only=self._read_only))
+
+    @contextmanager
+    def atomic(self) -> Iterator[None]:
+        """Commit a local operation once, including its nested store writes."""
+        from learnloop.db.scopes import AtomicConnection
+
+        previous = getattr(self._pin, "connection", None)
+        if isinstance(previous, AtomicConnection):
+            with previous:
+                yield
+            return
+        raw = previous._connection if previous is not None else connect(
+            self.sqlite_path, read_only=self._read_only
+        )
+        if raw.in_transaction:
+            raise RuntimeError("Repository.atomic() requires no unrelated pending transaction")
+        try:
+            raw.execute("BEGIN IMMEDIATE")
+            self._pin.connection = AtomicConnection(raw)
+            try:
+                yield
+            except BaseException:
+                raw.rollback()
+                raise
+            else:
+                raw.commit()
+        finally:
+            self._pin.connection = previous
+            if previous is None:
+                raw.close()
 
     @contextmanager
     def pinned(self) -> Iterator[None]:
@@ -6191,9 +6227,15 @@ class Repository(IngestQueueStoreMixin):
         with self.connection() as connection:
             rows = connection.execute(
                 """
-                SELECT * FROM learning_outcome_labels
-                WHERE label_type = 'same_item_retention'
-                ORDER BY created_at ASC, id ASC
+                SELECT l.*, a.primed AS outcome_primed,
+                       a.manual_review AS outcome_manual_review,
+                       a.session_id AS outcome_session_id,
+                       source.session_id AS source_session_id
+                FROM learning_outcome_labels l
+                JOIN practice_attempts a ON a.id=l.outcome_attempt_id
+                JOIN practice_attempts source ON source.id=l.source_attempt_id
+                WHERE l.label_type = 'same_item_retention'
+                ORDER BY l.created_at ASC, l.id ASC
                 """
             ).fetchall()
         return [_decode_learning_outcome_label(row) for row in rows]
@@ -8329,12 +8371,7 @@ class Repository(IngestQueueStoreMixin):
                   item_demand_vector_json, context_json, algorithm_version, created_at
                 )
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(decision_id, decision_type) DO UPDATE SET
-                  ability_vector_json = excluded.ability_vector_json,
-                  item_demand_vector_json = excluded.item_demand_vector_json,
-                  context_json = excluded.context_json,
-                  algorithm_version = excluded.algorithm_version,
-                  created_at = excluded.created_at
+                ON CONFLICT(decision_id, decision_type) DO NOTHING
                 """,
                 (
                     feature_id,
@@ -8458,9 +8495,9 @@ class Repository(IngestQueueStoreMixin):
                   id, session_id, generated_at, requested_limit, returned_count,
                   candidate_count, chosen_practice_item_id, chosen_attempt_id,
                   selection_policy, session_context_json, config_snapshot_json,
-                  algorithm_version, created_at, updated_at
+                  algorithm_version, created_at, updated_at, collection_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 'learnloop-events-v1')
                 """,
                 (
                     slate_id,
@@ -8494,9 +8531,9 @@ class Repository(IngestQueueStoreMixin):
                       legacy_priority, expected_information_gain, readiness_factor,
                       components_json, reward_debug_json, target_scope_json,
                       plain_english_json, selection_propensity, exploration_flag,
-                      selection_temperature, algorithm_version, created_at, chosen_at
+                      selection_temperature, algorithm_version, created_at, chosen_at, propensity_kind
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, ?)
                     """,
                     (
                         candidate_id,
@@ -8521,8 +8558,16 @@ class Repository(IngestQueueStoreMixin):
                         int(explanation.get("exploration_flag") or 0),
                         algorithm_version,
                         now,
+                        explanation.get("propensity_kind", "legacy-unverified"),
                     ),
                 )
+                features = explanation.get("decision_features")
+                if features is not None:
+                    connection.execute(
+                        """INSERT INTO decision_features(id,decision_id,decision_type,ability_vector_json,item_demand_vector_json,context_json,algorithm_version,created_at)
+                           VALUES (?,?,'selection',?,?,?,?,?)""",
+                        (new_ulid(), candidate_id, _json(features["ability_vector"]), _json(features.get("item_demand_vector")), _json(features.get("context", {})), algorithm_version, now),
+                    )
             if probe_presentation is not None:
                 presentation_values = dict(probe_presentation)
                 practice_item_id = str(presentation_values["practice_item_id"])
@@ -16790,9 +16835,9 @@ class Repository(IngestQueueStoreMixin):
               error_type, grader_confidence, manual_review, manual_review_reason,
               created_at, updated_at, session_id, scheduler_slate_id, scheduler_candidate_id,
               primed, probe_presentation_id, answer_confidence, submission_id,
-              declared_dont_know
+              declared_dont_know, collection_version, entry_surface, evidence_origin
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 attempt["id"],
@@ -16824,6 +16869,9 @@ class Repository(IngestQueueStoreMixin):
                 attempt.get("answer_confidence"),
                 attempt.get("submission_id"),
                 1 if attempt.get("declared_dont_know") else 0,
+                attempt.get("collection_version", "learnloop-events-v1"),
+                attempt.get("entry_surface", "unspecified"),
+                attempt.get("evidence_origin", "unknown"),
             ),
         )
 
@@ -17208,38 +17256,25 @@ class Repository(IngestQueueStoreMixin):
         )
 
     def _link_attempt_to_scheduler_candidate(
-        self,
-        connection: sqlite3.Connection,
-        attempt: Mapping[str, Any],
+        self, connection: sqlite3.Connection, attempt: Mapping[str, Any],
     ) -> None:
         session_id = attempt.get("session_id")
-        if not session_id:
-            return
+        candidate_id = attempt.get("scheduler_candidate_id")
+        if not candidate_id and attempt.get("probe_presentation_id"):
+            presentation = connection.execute("SELECT scheduler_candidate_id FROM probe_presentations WHERE id=?", (attempt["probe_presentation_id"],)).fetchone()
+            candidate_id = presentation[0] if presentation else None
+        if not candidate_id:
+            return  # Direct/legacy selection is unavailable, never inferred.
         row = connection.execute(
-            """
-            SELECT c.id AS candidate_id, c.slate_id AS slate_id
-            FROM scheduler_slate_candidates c
-            JOIN scheduler_slates s ON s.id = c.slate_id
-            WHERE s.session_id = ?
-              AND c.practice_item_id = ?
-              AND s.generated_at <= ?
-              AND (c.chosen_attempt_id IS NULL OR c.chosen_attempt_id = ?)
-            ORDER BY s.generated_at DESC,
-                     c.was_returned DESC,
-                     COALESCE(c.returned_rank, 1000000) ASC,
-                     c.rank ASC,
-                     c.id DESC
-            LIMIT 1
-            """,
-            (
-                session_id,
-                attempt["practice_item_id"],
-                attempt["created_at"],
-                attempt["id"],
-            ),
+            """SELECT c.id AS candidate_id, c.slate_id FROM scheduler_slate_candidates c
+               JOIN scheduler_slates s ON s.id=c.slate_id
+               WHERE c.id=? AND s.session_id=? AND c.practice_item_id=?
+                 AND c.was_returned=1 AND s.generated_at<=?
+                 AND (c.chosen_attempt_id IS NULL OR c.chosen_attempt_id=?)""",
+            (candidate_id, session_id, attempt["practice_item_id"], attempt["created_at"], attempt["id"]),
         ).fetchone()
         if row is None:
-            return
+            raise ValueError("The scheduler offer does not belong to this item/session or was already consumed.")
         connection.execute(
             """
             UPDATE practice_attempts
@@ -17319,6 +17354,7 @@ class Repository(IngestQueueStoreMixin):
             metadata = {
                 "source": _attempt_label_snapshot(source),
                 "outcome": _attempt_label_snapshot(current),
+                "label_version": LABEL_VERSION,
             }
             connection.execute(
                 """
@@ -25278,6 +25314,11 @@ def _attempt_label_snapshot(row: sqlite3.Row) -> dict[str, Any]:
         "rubric_score": row["rubric_score"],
         "correctness": row["correctness"],
         "hints_used": row["hints_used"],
+        "primed": row["primed"],
+        "manual_review": row["manual_review"],
+        "collection_version": row["collection_version"],
+        "entry_surface": row["entry_surface"],
+        "evidence_origin": row["evidence_origin"],
         "latency_seconds": row["latency_seconds"],
         "created_at": row["created_at"],
     }

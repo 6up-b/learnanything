@@ -7,6 +7,7 @@ import importlib
 import pkgutil
 import re
 from pathlib import Path
+from tests.source_inventory import source_ast, source_text, python_files
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +42,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/migrate.py",
         "src/learnloop/db/repositories.py",
         "src/learnloop/db/stores/ingest_queue.py",
+        "src/learnloop/db/stores/completion.py",
+        "src/learnloop/db/stores/model_calls.py",
+        "src/learnloop/db/stores/collection.py",
+        "src/learnloop/substrate/data_quality.py",
+        "src/learnloop/substrate/dataset.py",
         "src/learnloop/substrate/replay.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
@@ -89,7 +95,7 @@ def _module_name(path: Path) -> str:
 
 
 def _runtime_module_names() -> frozenset[str]:
-    return frozenset(_module_name(path) for path in LEARNLOOP_ROOT.rglob("*.py"))
+    return frozenset(_module_name(path) for path in python_files(LEARNLOOP_ROOT))
 
 
 def _resolved_import_from_module(
@@ -163,7 +169,7 @@ def _function_local_import_targets(
             elif module:
                 found.append((node.lineno, module))
 
-    Visitor().visit(ast.parse(source))
+    Visitor().visit(source_ast(source))
     return found
 
 
@@ -208,10 +214,10 @@ def _current_function_local_domain_edges() -> tuple[frozenset[str], dict[str, li
         root = LEARNLOOP_ROOT / package
         if not root.exists():
             continue
-        for path in sorted(root.rglob("*.py")):
+        for path in python_files(root):
             importer = _module_name(path)
             for line, edge in _function_local_domain_edges(
-                path.read_text(encoding="utf-8"),
+                source_text(path),
                 importer,
                 available_modules=available_modules,
                 importer_is_package=path.name == "__init__.py",
@@ -223,7 +229,7 @@ def _current_function_local_domain_edges() -> tuple[frozenset[str], dict[str, li
 
 
 def _private_cross_boundary_imports(source: str, importer: str) -> list[str]:
-    tree = ast.parse(source)
+    tree = source_ast(source)
     importer_boundary = _boundary(importer)
     violations: list[str] = []
     for node in ast.walk(tree):
@@ -240,7 +246,7 @@ def _private_cross_boundary_imports(source: str, importer: str) -> list[str]:
 
 
 def _sql_write_lines(source: str) -> list[int]:
-    tree = ast.parse(source)
+    tree = source_ast(source)
     writes: list[int] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
@@ -272,9 +278,9 @@ def test_legacy_codex_namespace_is_not_referenced() -> None:
     retired_services = ".".join(("learnloop", "services"))
     violations: list[str] = []
     for relative_root in ("src", "tests"):
-        for path in sorted((REPOSITORY_ROOT / relative_root).rglob("*.py")):
+        for path in python_files(REPOSITORY_ROOT / relative_root):
             for line_number, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
+                source_text(path).splitlines(), start=1
             ):
                 if forbidden in line or retired_services in line:
                     violations.append(
@@ -294,8 +300,8 @@ def test_infrastructure_never_imports_domain_packages() -> None:
         LEARNLOOP_ROOT / "ingest",
         LEARNLOOP_ROOT / "ai",
     ):
-        for path in sorted(infrastructure.rglob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for path in python_files(infrastructure):
+            tree = source_ast(source_text(path))
             for line, target in _import_targets(tree):
                 parts = target.split(".")
                 if len(parts) > 1 and parts[0] == "learnloop" and parts[1] in DOMAIN_PACKAGES:
@@ -366,11 +372,11 @@ def test_private_cross_package_import_detector_rejects_synthetic_edge() -> None:
 def test_runtime_packages_import_only_public_cross_boundary_names() -> None:
     violations: list[str] = []
     for root, prefix in ((LEARNLOOP_ROOT, "learnloop"), (SIDECAR_ROOT, "learnloop_sidecar")):
-        for path in sorted(root.rglob("*.py")):
+        for path in python_files(root):
             relative = path.relative_to(root).with_suffix("")
             importer = ".".join((prefix, *relative.parts))
             for detail in _private_cross_boundary_imports(
-                path.read_text(encoding="utf-8"), importer
+                source_text(path), importer
             ):
                 violations.append(f"{path.relative_to(REPOSITORY_ROOT)}:{detail}")
     assert not violations, "\n".join(violations)
@@ -389,9 +395,9 @@ def test_sql_write_location_detector_rejects_f_string_owner() -> None:
 def test_sql_writes_stay_in_registered_owner_modules() -> None:
     violations: list[str] = []
     for root in (LEARNLOOP_ROOT, SIDECAR_ROOT):
-        for path in sorted(root.rglob("*.py")):
+        for path in python_files(root):
             relative = str(path.relative_to(REPOSITORY_ROOT))
-            lines = _sql_write_lines(path.read_text(encoding="utf-8"))
+            lines = _sql_write_lines(source_text(path))
             if lines and relative not in REGISTERED_SQL_OWNERS:
                 violations.append(f"{relative}: {lines}")
     assert not violations, "\n".join(violations)

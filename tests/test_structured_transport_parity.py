@@ -398,6 +398,7 @@ def test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest(mon
         "promotion_analysis",
     }
     assert not client.supports(STRUCTURED_COMPLETION)
+    assert not hasattr(client, "complete")
     assert {case.purpose for case in OPERATIONS if client.supports(case.purpose)} == expected_supported
 
     for case in OPERATIONS:

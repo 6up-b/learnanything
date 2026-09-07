@@ -132,6 +132,7 @@ def test_attempt_links_to_scheduler_slate_and_later_retention_label(tmp_path):
             learner_answer_md="SVD is U Sigma V^T.",
             attempt_type="independent_attempt",
             session_id="session_training",
+            scheduler_candidate_id=queue[0].scheduler_candidate_id,
         ),
         SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
         clock=clock,

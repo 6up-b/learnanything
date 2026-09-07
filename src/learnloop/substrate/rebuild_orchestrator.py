@@ -19,6 +19,7 @@ from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.db.scopes import atomic_repository_call
 from learnloop.db.table_roles import TableRole, tables_for_role
 from learnloop.learner.assessment_contracts import CANONICAL_STATE_VERSIONS
 from learnloop.learner.facet_diagnostics import coverage_denominator_version
@@ -383,6 +384,7 @@ _RUNNERS = {
 }
 
 
+@atomic_repository_call
 def rebuild_all_derived_state(
     vault: LoadedVault,
     repository: Repository,
@@ -395,7 +397,9 @@ def rebuild_all_derived_state(
 
     Registry validation happens before any write.  Attempt completeness is the
     union of explicit accounting returned by every replay unit.  A completeness
-    failure is raised before the receipt is written.
+    failure is raised before the receipt is written. Every nested write and the
+    receipt publish in one transaction; failed replay leaves live state intact.
+    BEGIN IMMEDIATE prevents concurrent evidence writers during the replay.
     """
 
     validate_replayer_registry()

@@ -88,11 +88,13 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
         ),
         limit=params.limit,
     )
-    # Handler-level (never persisted): teach_back items dead-end without their
+    slate_id = queue[0].scheduler_slate_id if queue else None
+    # Teach-back items dead-end without their
     # AI provider, so they are dropped from the offered queue while it is down.
     queue = filter_unready_teach_back_items(
         vault, queue, grading_provider_override=ctx.grading_provider_override
     )
+    repository.finalize_scheduler_offer(slate_id, [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id])
     dtos = scheduled_item_dtos(vault, repository, queue)
     slate = repository.latest_scheduler_slate_by_session(params.session_id) if params.session_id else None
     log_event(

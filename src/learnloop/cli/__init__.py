@@ -18,6 +18,7 @@ from learnloop.cli.questions import *  # noqa: F401,F403
 from learnloop.cli.exam import *  # noqa: F401,F403
 from learnloop.cli.fit import *  # noqa: F401,F403
 from learnloop.cli.sim import *  # noqa: F401,F403
+from learnloop.cli.data import *  # noqa: F401,F403
 
 app.add_typer(config_app, name="config")
 app.add_typer(claims_app, name="claims")

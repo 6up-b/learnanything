@@ -498,6 +498,7 @@ def evaluate_attempt_intervention_followup(
     manual_override: bool = False,
     ai_client: Any = None,
     suppress_insertion_reason: str | None = None,
+    normalization_prepared: bool = False,
     clock: Clock | None = None,
 ) -> FollowupDecision:
     """Run the full post-attempt intervention policy for one attempt result.
@@ -536,14 +537,15 @@ def evaluate_attempt_intervention_followup(
             False, None, "deferred_to_block_end", [], suppressed, intent=None
         )
 
-    normalize_and_resolve_attempt(
-        vault,
-        repository,
-        attempt_id=result.attempt_id,
-        learning_object_id=result.learning_object_id,
-        ai_client=ai_client,
-        clock=clock,
-    )
+    if not normalization_prepared:
+        normalize_and_resolve_attempt(
+            vault,
+            repository,
+            attempt_id=result.attempt_id,
+            learning_object_id=result.learning_object_id,
+            ai_client=ai_client,
+            clock=clock,
+        )
     # §6.5 re-probe trigger: repeated prediction errors on a settled LO signal
     # model misspecification and reopen probing (live path only, never replay).
     from learnloop.diagnosis.probe_episodes import maybe_reprobe_for_predictive_failure

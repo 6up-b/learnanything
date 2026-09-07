@@ -23,4 +23,8 @@ def connect(sqlite_path: Path, *, read_only: bool = False) -> sqlite3.Connection
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     connection.execute("PRAGMA busy_timeout = 5000")
+    if not read_only:
+        from learnloop.db.scopes import guarded_connection
+
+        return guarded_connection(connection, sqlite_path)
     return connection
