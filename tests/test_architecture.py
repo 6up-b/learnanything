@@ -45,8 +45,6 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/completion.py",
         "src/learnloop/db/stores/model_calls.py",
         "src/learnloop/db/stores/collection.py",
-        "src/learnloop/substrate/data_quality.py",
-        "src/learnloop/substrate/dataset.py",
         "src/learnloop/substrate/replay.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
@@ -401,6 +399,17 @@ def test_sql_writes_stay_in_registered_owner_modules() -> None:
             if lines and relative not in REGISTERED_SQL_OWNERS:
                 violations.append(f"{relative}: {lines}")
     assert not violations, "\n".join(violations)
+
+
+def test_every_registered_sql_owner_still_writes() -> None:
+    """A registered module without writes would let a future write pass unreviewed."""
+
+    idle_owners = sorted(
+        relative
+        for relative in REGISTERED_SQL_OWNERS
+        if not _sql_write_lines(source_text(REPOSITORY_ROOT / relative))
+    )
+    assert not idle_owners, idle_owners
 
 
 def test_assessment_service_reexports_neutral_algorithm_versions() -> None:
