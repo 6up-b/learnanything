@@ -4,6 +4,8 @@ use serde_json::{json, Value};
 pub const SIDECAR_TIMEOUT_CODE: &str = "sidecar_timeout";
 pub const SIDECAR_UNAVAILABLE_CODE: &str = "sidecar_unavailable";
 pub const SIDECAR_PROTOCOL_CODE: &str = "sidecar_protocol_error";
+pub const VAULT_CHANGED_CODE: &str = "vault_changed";
+pub const GRADING_PROVIDER_RESET_CODE: &str = "grading_provider_reset";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -84,6 +86,35 @@ impl CommandError {
                 .to_string(),
             retryable: false,
             details: Some(details),
+        }
+    }
+
+    /// A command issued against one vault selection reached the sidecar after
+    /// the learner selected another vault.
+    pub fn vault_changed(message: &str, details: Value) -> Self {
+        Self {
+            code: VAULT_CHANGED_CODE.to_string(),
+            message: message.to_string(),
+            retryable: false,
+            details: Some(details),
+        }
+    }
+
+    /// A replacement sidecar refused the learner's grading-provider choice, so
+    /// the choice was dropped and grading uses the vault's configured provider.
+    /// The replacement sidecar itself is healthy, so the action can be retried.
+    pub fn grading_provider_reset(provider: &str, cause: CommandError) -> Self {
+        Self {
+            code: GRADING_PROVIDER_RESET_CODE.to_string(),
+            message: format!(
+                "LearnLoop restarted its local service but could not restore the grading provider \"{provider}\" ({}). Grading now uses the vault's configured provider. Retry the action.",
+                cause.message
+            ),
+            retryable: true,
+            details: Some(json!({
+                "provider": provider,
+                "cause": {"code": cause.code, "message": cause.message, "details": cause.details},
+            })),
         }
     }
 

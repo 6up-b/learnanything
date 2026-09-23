@@ -251,6 +251,7 @@ def test_inventory_can_disable_the_output_ceiling(tmp_path):
             output_budget_tokens=1,
             clock=_CLOCK,
         )
+    assert len(client.calls) == 1
 
     result = run_unit_inventory(
         repo,
@@ -263,6 +264,9 @@ def test_inventory_can_disable_the_output_ceiling(tmp_path):
     )
     assert result.cache_hit is False
     assert result.usage["output_tokens_estimate"] > 1
+    # The over-budget window validated and was paid for, so the retry reuses it.
+    assert len(client.calls) == 1
+    assert result.usage["reused_windows"] == 1
 
 
 def test_deterministic_inventory_ids_stable(tmp_path):

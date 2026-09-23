@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
-from dataclasses import asdict, dataclass, is_dataclass, replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from math import exp, log
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
-from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repository
+from learnloop.db.repositories import (
+    ActiveErrorEvent,
+    MasteryState,
+    PracticeItemQualityState,
+    PracticeItemState,
+    Repository,
+)
 from learnloop.db.scopes import pinned_repository_call
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.substrate.instrument_serving import unservable_reason
@@ -35,7 +42,12 @@ from learnloop.learner.recall_coverage import (
     familiarity_discount_from_attempts,
     resolve_coverage,
 )
-from learnloop.scheduling.selection_rewards import SchedulerIntent, score_selection_reward
+from learnloop.scheduling.selection_rewards import (
+    SchedulerIntent,
+    ability_vector,
+    item_demand_vector,
+    score_selection_reward,
+)
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 logger = logging.getLogger(__name__)
@@ -611,21 +623,24 @@ def build_due_queue(
                             extra_selection_components=extra_components,
                             clock=clock,
                         )
+        ability_by_lo: dict[str, dict[str, object]] = {}
         for explanation in explanations:
             explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
-            explanation["propensity_kind"] = "unavailable_composed_offer"
+            explanation["propensity_kind"] = UNAVAILABLE_PROPENSITY_KIND
             decision_item = vault.practice_items.get(explanation["practice_item_id"])
-            if decision_item is not None:
-                lo_id = decision_item.learning_object_id
-                belief = mastery_states.get(lo_id)
-                explanation["decision_features"] = {
-                    "ability_vector": {
-                        "mastery": asdict(belief) if belief is not None else None,
-                        "facets": [asdict(value) if is_dataclass(value) else value for value in facet_states_by_lo.get(lo_id, [])],
-                    },
-                    "item_demand_vector": decision_item.model_dump(mode="json"),
-                    "context": {"collection_version": "learnloop-events-v1", "selection_policy": "composed_offer_v2", "selected": explanation["components"].get("selected"), "components": dict(explanation["components"])},
-                }
+            if decision_item is None:
+                continue
+            features = _selection_decision_features(
+                vault,
+                decision_item,
+                mastery_states=mastery_states,
+                facet_states_by_lo=facet_states_by_lo,
+                errors_by_lo=errors_by_lo,
+                quality_states=quality_states,
+                ability_by_lo=ability_by_lo,
+            )
+            if features is not None:
+                explanation["decision_features"] = features
         slate_id = repository.record_scheduler_slate(
             explanations,
             session_id=session.session_id,
@@ -633,7 +648,7 @@ def build_due_queue(
             requested_limit=limit,
             session_context=_session_context(session, short_session=short_session, readiness_factor=readiness_factor, shadow_intent=shadow_intent),
             config_snapshot=_scheduler_config_snapshot(config),
-            selection_policy="composed_offer_v2",
+            selection_policy=SELECTION_POLICY,
             probe_presentation=probe_presentation,
             clock=clock,
         )
@@ -656,6 +671,128 @@ def build_due_queue(
             repository, queue, probe_item_ids, session, entropy_before=probe_entropy_before, clock=clock
         )
     return queue
+
+
+#: Policy name recorded on every persisted slate built by ``build_due_queue``.
+SELECTION_POLICY = "composed_offer_v2"
+
+#: ``propensity_kind`` of every candidate on a composed-offer slate. The offer
+#: is composed after the exploration draw and then chosen from by the learner,
+#: so no selection propensity is recorded for it.
+UNAVAILABLE_PROPENSITY_KIND = "unavailable_composed_offer"
+
+#: Shape tag for ``decision_features`` rows of ``decision_type='selection'``.
+#: Components, propensity, policy and collection version are not repeated in
+#: the row: they live on the candidate and slate rows its ``decision_id``
+#: (the scheduler candidate id) points at.
+SELECTION_FEATURE_SCHEMA = "selection_features_v1"
+
+
+def _selection_decision_features(
+    vault: LoadedVault,
+    item: PracticeItem,
+    *,
+    mastery_states: Mapping[str, MasteryState],
+    facet_states_by_lo: Mapping[str, list[Any]],
+    errors_by_lo: Mapping[str, list[ActiveErrorEvent]],
+    quality_states: Mapping[str, PracticeItemQualityState],
+    ability_by_lo: dict[str, dict[str, object]],
+) -> dict[str, object] | None:
+    """Compact, immutable features for one considered candidate.
+
+    The rows are append-only and written for every candidate of every saved
+    queue build, so they hold only what the selector consumes: the learner's
+    ability vector for the item's learning object and the item's numeric and
+    categorical demand. The scored item revision is referenced by the hash of
+    its full serialized form; ``item_snapshot`` carries that serialization so
+    the repository stores it once per distinct revision in
+    ``practice_item_snapshots``.
+    """
+
+    learning_object = vault.learning_object_for_item(item)
+    if learning_object is None:
+        return None
+    learning_object_id = learning_object.id
+    ability = ability_by_lo.get(learning_object_id)
+    if ability is None:
+        ability = _selection_ability_features(
+            vault,
+            learning_object_id,
+            mastery=mastery_states.get(learning_object_id),
+            facet_states=facet_states_by_lo.get(learning_object_id, []),
+            active_errors=errors_by_lo.get(learning_object_id, []),
+        )
+        ability_by_lo[learning_object_id] = ability
+    demand = item_demand_vector(vault, item, learning_object, quality_states.get(item.id))
+    snapshot_hash, item_json = _practice_item_snapshot(item)
+    item_demand = {
+        "practice_item_id": item.id,
+        "content_hash": snapshot_hash,
+        **demand.as_dict(),
+    }
+    return {
+        "ability_vector": ability,
+        "item_demand_vector": item_demand,
+        "context": {"feature_schema": SELECTION_FEATURE_SCHEMA},
+        "item_snapshot": {
+            "content_hash": snapshot_hash,
+            "practice_item_id": item.id,
+            "item_json": item_json,
+        },
+    }
+
+
+def _practice_item_snapshot(item: PracticeItem) -> tuple[str, str]:
+    """Canonical JSON of the whole item and the SHA-256 of exactly that text.
+
+    ``practice_item_hash`` covers only the grading-relevant fields, so two
+    revisions that differ in a scored demand field (scaffold level, transfer
+    distance, surface family) would share it. The snapshot key must change
+    whenever anything the selector could have read changes.
+    """
+
+    item_json = json.dumps(
+        item.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(item_json.encode("utf-8")).hexdigest(), item_json
+
+
+def _selection_ability_features(
+    vault: LoadedVault,
+    learning_object_id: str,
+    *,
+    mastery: MasteryState | None,
+    facet_states: list[Any],
+    active_errors: list[ActiveErrorEvent],
+) -> dict[str, object]:
+    """The selector's ability vector plus the mastery summary behind it.
+
+    ``LearnerAbilityVector`` squashes the mastery logit; the blueprint
+    correctness projection also reads the raw logit and its evidence count, so
+    both are kept to make the recorded features sufficient to recompute it.
+    """
+
+    ability = ability_vector(
+        learning_object_id,
+        mastery,
+        facet_states,
+        active_errors,
+        facet_aliases=vault.facet_aliases,
+    ).as_dict()
+    ability["mastery"] = (
+        {
+            "logit_mean": mastery.logit_mean,
+            "logit_variance": mastery.logit_variance,
+            "evidence_count": mastery.evidence_count,
+            "last_evidence_at": mastery.last_evidence_at,
+        }
+        if mastery is not None
+        else None
+    )
+    return ability
 
 
 #: Learner-facing reason per delayed follow-up lane. Keyed on the

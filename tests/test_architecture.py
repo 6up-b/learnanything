@@ -7,7 +7,7 @@ import importlib
 import pkgutil
 import re
 from pathlib import Path
-from tests.source_inventory import source_ast, source_text, python_files
+from tests.ast_cache import source_ast, source_text, python_files
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -45,8 +45,6 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/completion.py",
         "src/learnloop/db/stores/model_calls.py",
         "src/learnloop/db/stores/collection.py",
-        "src/learnloop/substrate/data_quality.py",
-        "src/learnloop/substrate/dataset.py",
         "src/learnloop/substrate/replay.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
@@ -258,9 +256,9 @@ def _sql_write_lines(source: str) -> list[int]:
         if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
             sql_text = statement.value
         elif isinstance(statement, ast.JoinedStr):
-            # Dynamic identifiers still leave the SQL verb in literal f-string
-            # fragments; ignoring JoinedStr made the ownership guard falsely
-            # green for UPDATE/INSERT/DELETE calls.
+            # Dynamic identifiers still leave the SQL verb in the literal
+            # f-string fragments, so scanning them catches UPDATE/INSERT/DELETE
+            # calls that interpolate a table name.
             sql_text = "".join(
                 value.value
                 for value in statement.values
@@ -272,7 +270,7 @@ def _sql_write_lines(source: str) -> list[int]:
 
 
 def test_legacy_codex_namespace_is_not_referenced() -> None:
-    """Provider-neutral AI contracts must not regress to the deleted namespace."""
+    """No source or test may reference a codex or services package under learnloop; neither exists."""
 
     forbidden = ".".join(("learnloop", "codex"))
     retired_services = ".".join(("learnloop", "services"))
@@ -401,6 +399,17 @@ def test_sql_writes_stay_in_registered_owner_modules() -> None:
             if lines and relative not in REGISTERED_SQL_OWNERS:
                 violations.append(f"{relative}: {lines}")
     assert not violations, "\n".join(violations)
+
+
+def test_every_registered_sql_owner_still_writes() -> None:
+    """A registered module without writes would let a future write pass unreviewed."""
+
+    idle_owners = sorted(
+        relative
+        for relative in REGISTERED_SQL_OWNERS
+        if not _sql_write_lines(source_text(REPOSITORY_ROOT / relative))
+    )
+    assert not idle_owners, idle_owners
 
 
 def test_assessment_service_reexports_neutral_algorithm_versions() -> None:

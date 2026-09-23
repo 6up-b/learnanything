@@ -183,3 +183,39 @@ def test_series_caps_points_and_keeps_recent_window(tmp_path):
 
     assert len(series) == 6
     assert series[-1].at == (NOW + timedelta(days=365)).astimezone(series[-1].at.tzinfo)
+
+
+def test_series_replays_past_an_adjudicated_attempt(tmp_path):
+    """Append-only ledgers must stay outside the FK walk that truncates scratch copies."""
+
+    vault, repository = _loaded(tmp_path)
+    attempt_at = NOW + timedelta(days=8)
+    attempt = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id=ITEM_ID,
+            learner_answer_md="SVD factorizes into U Sigma V^T.",
+            attempt_type="independent_attempt",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=5),
+        clock=FrozenClock(attempt_at),
+    )
+    repository.record_false_remediation(
+        attempt_id=attempt.attempt_id,
+        value=False,
+        evidence_refs=[{"table": "practice_attempts", "id": attempt.attempt_id}],
+        author_kind="human",
+        verifier_version="test-v1",
+    )
+
+    series = goal_report_series(
+        vault, repository, vault.goals[0], clock=FrozenClock(NOW + timedelta(days=10))
+    )
+
+    assert series[0].on_track_count == 0
+    with repository.connection() as connection:
+        adjudications = connection.execute(
+            "SELECT COUNT(*) FROM false_remediation_adjudications"
+        ).fetchone()[0]
+    assert adjudications == 1

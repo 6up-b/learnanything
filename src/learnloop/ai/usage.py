@@ -19,8 +19,9 @@ contracts.
 
 from __future__ import annotations
 
-import threading
 import json
+import math
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -128,6 +129,31 @@ def snapshot_client_usage(client: Any | None) -> TokenUsage:
     return usage if isinstance(usage, TokenUsage) else TokenUsage()
 
 
+class UsageMeter:
+    """Provider-reported usage of the calls a client made since the meter started.
+
+    Budgets charge a call the larger of a local estimate and what the provider
+    reported: the estimate covers providers that report nothing, the report
+    covers hidden output such as reasoning tokens. Reading never drains the
+    client's run-level accounting.
+    """
+
+    def __init__(self, client: Any | None):
+        self._client = client
+        self._start = snapshot_client_usage(client)
+
+    def reported(self) -> TokenUsage:
+        now = snapshot_client_usage(self._client)
+        return TokenUsage(
+            input_tokens=now.input_tokens - self._start.input_tokens,
+            output_tokens=now.output_tokens - self._start.output_tokens,
+            calls=now.calls - self._start.calls,
+        )
+
+    def output_charge(self, estimate: int) -> int:
+        return max(estimate, self.reported().output_tokens)
+
+
 def consume_client_usage(client: Any | None) -> TokenUsage:
     """Drain ``client``'s accumulator, tolerating clients that have none.
 
@@ -160,11 +186,30 @@ def usage_from_chat_response(response: Any) -> tuple[int, int]:
     """
 
     usage = _attr_or_key(response, "usage")
-    from learnloop.ai.execution import report_call_usage
+    if usage is None:
+        return 0, 0
+    input_tokens = _attr_or_key(usage, "prompt_tokens")
+    if input_tokens is None:
+        input_tokens = _attr_or_key(usage, "input_tokens")
+    output_tokens = _attr_or_key(usage, "completion_tokens")
+    if output_tokens is None:
+        output_tokens = _attr_or_key(usage, "output_tokens")
+    return _coerce_tokens(input_tokens), _coerce_tokens(output_tokens)
+
+
+def receipt_fields_from_chat_response(response: Any) -> dict[str, Any]:
+    """The call-receipt view of an OpenAI-shaped chat completion.
+
+    Unlike ``usage_from_chat_response`` this keeps "not reported" (None) apart
+    from zero, and carries the response id, resolved model, finish reason,
+    returned text and cache/reasoning detail a receipt records.
+    """
+
+    usage = _attr_or_key(response, "usage")
     prompt_details = _attr_or_key(usage, "prompt_tokens_details")
     completion_details = _attr_or_key(usage, "completion_tokens_details")
     choices = _attr_or_key(response, "choices") or []
-    report_call_usage({
+    return {
         "provider_response_id": _attr_or_key(response, "id"),
         "resolved_model": _attr_or_key(response, "model"),
         "usage_json": json.dumps(usage.model_dump(mode="json") if hasattr(usage, "model_dump") else usage, default=str) if usage is not None else None,
@@ -176,16 +221,7 @@ def usage_from_chat_response(response: Any) -> tuple[int, int]:
         "cost": _optional_cost(_attr_or_key(usage, "cost")),
         "input_tokens": _optional_tokens(_attr_or_key(usage, "prompt_tokens") if _attr_or_key(usage, "prompt_tokens") is not None else _attr_or_key(usage, "input_tokens")),
         "output_tokens": _optional_tokens(_attr_or_key(usage, "completion_tokens") if _attr_or_key(usage, "completion_tokens") is not None else _attr_or_key(usage, "output_tokens")),
-    })
-    if usage is None:
-        return 0, 0
-    input_tokens = _attr_or_key(usage, "prompt_tokens")
-    if input_tokens is None:
-        input_tokens = _attr_or_key(usage, "input_tokens")
-    output_tokens = _attr_or_key(usage, "completion_tokens")
-    if output_tokens is None:
-        output_tokens = _attr_or_key(usage, "output_tokens")
-    return _coerce_tokens(input_tokens), _coerce_tokens(output_tokens)
+    }
 
 
 def usage_from_codex_turn(result: Any) -> tuple[int, int]:
@@ -203,25 +239,37 @@ def usage_from_codex_turn(result: Any) -> tuple[int, int]:
     failed before the first response), which reads as 0.
     """
 
-    usage = _attr_or_key(result, "usage")
-    if usage is None:
-        return 0, 0
-    breakdown = _attr_or_key(usage, "total")
-    if breakdown is None:
-        breakdown = _attr_or_key(usage, "last")
+    breakdown = _codex_turn_breakdown(result)
     if breakdown is None:
         return 0, 0
-    from learnloop.ai.execution import report_call_usage
-    report_call_usage({
-        "input_tokens": _optional_tokens(_attr_or_key(breakdown, "input_tokens")),
-        "output_tokens": _optional_tokens(_attr_or_key(breakdown, "output_tokens")),
-        "cached_input_tokens": _optional_tokens(_attr_or_key(breakdown, "cached_input_tokens")),
-        "reasoning_tokens": _optional_tokens(_attr_or_key(breakdown, "reasoning_output_tokens")),
-    })
     return (
         _coerce_tokens(_attr_or_key(breakdown, "input_tokens")),
         _coerce_tokens(_attr_or_key(breakdown, "output_tokens")),
     )
+
+
+def receipt_fields_from_codex_turn(result: Any) -> dict[str, Any]:
+    """The call-receipt view of a Codex turn's usage; empty when none was reported."""
+
+    breakdown = _codex_turn_breakdown(result)
+    if breakdown is None:
+        return {}
+    return {
+        "input_tokens": _optional_tokens(_attr_or_key(breakdown, "input_tokens")),
+        "output_tokens": _optional_tokens(_attr_or_key(breakdown, "output_tokens")),
+        "cached_input_tokens": _optional_tokens(_attr_or_key(breakdown, "cached_input_tokens")),
+        "reasoning_tokens": _optional_tokens(_attr_or_key(breakdown, "reasoning_output_tokens")),
+    }
+
+
+def _codex_turn_breakdown(result: Any) -> Any:
+    usage = _attr_or_key(result, "usage")
+    if usage is None:
+        return None
+    breakdown = _attr_or_key(usage, "total")
+    if breakdown is None:
+        breakdown = _attr_or_key(usage, "last")
+    return breakdown
 
 
 def _attr_or_key(payload: Any, name: str) -> Any:
@@ -253,7 +301,6 @@ def _optional_tokens(value: Any) -> int | None:
 
 
 def _optional_cost(value: Any) -> float | None:
-    import math
     try:
         cost = float(value)
         return cost if math.isfinite(cost) and cost >= 0 else None

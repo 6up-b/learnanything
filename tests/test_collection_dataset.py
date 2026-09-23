@@ -10,8 +10,9 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
-from learnloop.outcome_contract import retention_exclusions
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.outcome_contract import COLLECTION_VERSION, retention_exclusions
+from learnloop.scheduling.scheduler import SELECTION_FEATURE_SCHEMA, SchedulerSession, build_due_queue
+from learnloop.scheduling.selection_rewards import item_demand_vector
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import export_dataset, split_assignments
 from learnloop.substrate.dataset import outcome_records
@@ -60,6 +61,85 @@ def test_exact_offer_survives_refresh_recovery_and_dataset_export(tmp_path):
     assert manifest["inclusion"]["projection_tables_are_training_inputs"] is False
 
 
+def test_selection_decision_features_reference_the_item_and_stay_compact(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    features = repository.decision_features(decision_id=offered.scheduler_candidate_id, decision_type="selection")
+    item = vault.practice_items[offered.practice_item_id]
+    learning_object = vault.learning_object_for_item(item)
+    demand = features["item_demand_vector"]
+    # The item is referenced by id and snapshot hash, and only the demand
+    # fields the selector scores are kept.
+    assert demand["practice_item_id"] == item.id
+    assert demand["content_hash"] == hashlib.sha256(
+        json.dumps(item.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+    assert {key: value for key, value in demand.items() if key not in {"practice_item_id", "content_hash"}} == item_demand_vector(vault, item, learning_object, None).as_dict()
+    assert "prompt" not in demand and "expected_answer" not in demand
+    assert features["ability_vector"]["learning_object_id"] == learning_object.id
+    assert {"lo_mastery", "facet_recall_mean_by_facet", "mastery"} <= set(features["ability_vector"])
+    assert features["context"] == {"feature_schema": SELECTION_FEATURE_SCHEMA}
+    with connect(paths.sqlite_path) as connection:
+        largest_row = connection.execute(
+            "SELECT MAX(LENGTH(ability_vector_json) + LENGTH(item_demand_vector_json) + LENGTH(context_json)) FROM decision_features WHERE decision_type = 'selection'"
+        ).fetchone()[0]
+    assert largest_row < 2048
+
+
+def test_scored_item_text_is_snapshotted_once_per_revision_and_exported(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = SchedulerSession(session_id=repository.create_session(clock=clock))
+
+    def snapshots() -> list[sqlite3.Row]:
+        with connect(paths.sqlite_path) as connection:
+            return connection.execute(
+                "SELECT * FROM practice_item_snapshots ORDER BY practice_item_id, created_at"
+            ).fetchall()
+
+    def scored_item_ids() -> set[str]:
+        with connect(paths.sqlite_path) as connection:
+            rows = connection.execute(
+                "SELECT item_demand_vector_json FROM decision_features WHERE decision_type = 'selection'"
+            ).fetchall()
+        return {json.loads(row[0])["practice_item_id"] for row in rows}
+
+    for _ in range(5):
+        offered = build_due_queue(vault, repository, clock=clock, session=session)[0]
+    assert sorted(row["practice_item_id"] for row in snapshots()) == sorted(scored_item_ids())
+
+    item = vault.practice_items[offered.practice_item_id]
+    vault.practice_items[item.id] = item.model_copy(update={"prompt": item.prompt + " (edited)"})
+    build_due_queue(vault, repository, clock=clock, session=session)
+    revisions = [row for row in snapshots() if row["practice_item_id"] == item.id]
+    assert len(revisions) == 2
+    assert {json.loads(row["item_json"])["prompt"] for row in revisions} == {item.prompt, item.prompt + " (edited)"}
+    for row in revisions:
+        assert hashlib.sha256(row["item_json"].encode("utf-8")).hexdigest() == row["content_hash"]
+    with connect(paths.sqlite_path) as connection, pytest.raises(sqlite3.IntegrityError, match="immutable"):
+        connection.execute("DELETE FROM practice_item_snapshots")
+
+    # Every exported selection feature joins back to the exact scored text.
+    output = tmp_path / "dataset"
+    manifest = export_dataset(paths.sqlite_path, output)
+    assert "practice_item_snapshots" in manifest["inclusion"]["tables"]
+    exported = {
+        row["content_hash"]: row
+        for row in map(json.loads, (output / "practice_item_snapshots.jsonl").read_text().splitlines())
+    }
+    features = [json.loads(line) for line in (output / "decision_features.jsonl").read_text().splitlines()]
+    selection = [row for row in features if row["decision_type"] == "selection"]
+    assert len(selection) == 6 * len(scored_item_ids())
+    for row in selection:
+        demand = json.loads(row["item_demand_vector_json"])
+        assert exported[demand["content_hash"]]["practice_item_id"] == demand["practice_item_id"]
+
 def test_final_offer_refuses_filtered_and_cross_session_candidates(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     repository = seed_due_item(paths)
@@ -80,13 +160,97 @@ def test_retention_contract_rejects_contaminated_or_unobserved_labels(change, re
     assert reason in retention_exclusions(row)
 
 
-def test_split_assignments_quarantine_source_families_across_time_boundaries():
-    attempts = [{"id": str(index), "practice_item_id": f"item{index}", "learning_object_id": f"lo{index}", "created_at": f"2026-01-{index + 1:02d}T00:00:00Z", "evidence_origin": "human"} for index in range(20)]
-    contracts = [{"practice_item_id": row["practice_item_id"], "contract_json": json.dumps({"surface_family": "shared" if index in {0, 19} else f"family{index}"})} for index, row in enumerate(attempts)]
+def _split_rows(count, *, lineage):
+    """One human attempt per day; `lineage(index)` gives each item's contract."""
+    attempts = [{"id": f"{index:02d}", "practice_item_id": f"item{index}", "learning_object_id": f"lo{index}", "created_at": f"2026-01-{index + 1:02d}T00:00:00Z", "evidence_origin": "human"} for index in range(count)]
+    contracts = [{"practice_item_id": row["practice_item_id"], "contract_json": json.dumps(lineage(index))} for index, row in enumerate(attempts)]
+    return attempts, contracts
+
+
+def _blueprint(name):
+    return {"recipes": [{"blueprint_id": name}]}
+
+
+def test_split_assignments_quarantine_content_families_across_time_boundaries():
+    attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint("shared" if index in {0, 19} else f"bp{index}"))
     assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts)}
-    assert assignments["0"]["group_hash"] == assignments["19"]["group_hash"]
-    assert assignments["0"]["split"] == assignments["19"]["split"] == "quarantined_boundary_overlap"
-    assert max(int(key) for key, row in assignments.items() if row["split"] == "train") < min(int(key) for key, row in assignments.items() if row["split"] == "test")
+    assert assignments["00"]["group_hash"] == assignments["19"]["group_hash"]
+    assert assignments["00"]["split"] == assignments["19"]["split"] == "quarantined_boundary_overlap"
+    assert max(key for key, row in assignments.items() if row["split"] == "train") < min(key for key, row in assignments.items() if row["split"] == "test")
+
+
+def test_split_assignments_never_join_families_through_a_surface_format_label():
+    attempts, contracts = _split_rows(20, lineage=lambda index: {**_blueprint(f"bp{index}"), "surface_family": "verbal_option_recognition"})
+    assignments = split_assignments(attempts, contracts)
+    assert len({row["group_hash"] for row in assignments}) == 20
+    assert not any(row["split"] == "quarantined_boundary_overlap" for row in assignments)
+
+
+def test_independent_content_families_both_land_in_splits():
+    # Family A is practised early, family B late; neither crosses a cutoff.
+    attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint("family-a" if index < 10 else f"bp{index}"))
+    for attempt in attempts[:10]:
+        attempt["learning_object_id"] = "lo_a"
+    for attempt in attempts[17:]:
+        attempt["learning_object_id"] = "lo_b"
+    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts)}
+    assert {assignments[f"{index:02d}"]["split"] for index in range(10)} == {"train"}
+    assert {assignments[f"{index:02d}"]["split"] for index in range(17, 20)} == {"test"}
+    assert assignments["00"]["group_hash"] != assignments["19"]["group_hash"]
+
+
+def test_source_spans_join_learning_objects_into_one_family():
+    attempts, contracts = _split_rows(2, lineage=lambda index: {})
+    links = [{"entity_type": "learning_object", "entity_id": row["learning_object_id"], "source_id": "src", "revision_id": "rev", "locator": "span:ext/s1", "status": "current"} for row in attempts]
+    joined = split_assignments(attempts, contracts, links)
+    assert joined[0]["group_hash"] == joined[1]["group_hash"]
+    assert all(row["content_provenance"] for row in joined)
+    unlinked = split_assignments(attempts, contracts)
+    assert {row["split"] for row in unlinked} == {"unavailable_provenance"}
+
+
+def test_non_human_attempts_do_not_quarantine_a_human_family():
+    attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint(f"bp{index}"))
+    simulated = {"id": "sim", "practice_item_id": "item0", "learning_object_id": "lo0", "created_at": "2026-02-01T00:00:00Z", "evidence_origin": "simulator"}
+    assignments = {row["attempt_id"]: row for row in split_assignments([*attempts, simulated], contracts)}
+    assert assignments["00"]["split"] == "train"
+    assert assignments["sim"]["split"] == "unavailable_origin"
+    assert assignments["sim"]["group_hash"] == assignments["00"]["group_hash"]
+
+
+def test_split_assignments_are_independent_of_input_order():
+    import random
+
+    attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint(f"bp{index % 4}"))
+    expected = split_assignments(attempts, contracts)
+    shuffled_attempts, shuffled_contracts = list(attempts), list(contracts)
+    random.Random(7).shuffle(shuffled_attempts)
+    random.Random(8).shuffle(shuffled_contracts)
+    assert split_assignments(shuffled_attempts, shuffled_contracts) == expected
+
+
+def test_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_families(tmp_path):
+    import shutil
+    from pathlib import Path
+
+    from learnloop.substrate.data_quality import rows, table_names
+    from learnloop.substrate.dataset import _split_source_links
+
+    copy = tmp_path / "state.sqlite"
+    shutil.copyfile(Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra" / "state.sqlite", copy)
+    connection = sqlite3.connect(copy)
+    connection.row_factory = sqlite3.Row
+    try:
+        attempts = rows(connection, "practice_attempts", columns=("id", "practice_item_id", "learning_object_id", "created_at"))
+        for attempt in attempts:
+            attempt["evidence_origin"] = "human"
+        assignments = split_assignments(attempts, rows(connection, "assessment_contract_versions"), _split_source_links(connection, table_names(connection)))
+    finally:
+        connection.close()
+    learning_objects = {attempt["learning_object_id"] for attempt in attempts}
+    assert len({row["group_hash"] for row in assignments}) >= len(learning_objects) - 2
+    assert not any(row["split"] == "unavailable_provenance" for row in assignments)
+    assert any(row["split"] == "train" for row in assignments)
 
 
 @pytest.mark.durability
@@ -140,3 +304,217 @@ def test_export_preserves_censored_repair_disposition_as_distinct_from_failure(t
         label = outcome_records(connection)[0]
     assert label["R_cold"] == [{"causal_outcome_id": "expired", "followup_task_id": "expired-task", "status": "right_censored_expired", "value": None, "verification_id": None, "label_kind": "repair_disposition"}]
     assert data_quality_report(paths.sqlite_path)["cold_terminal_dispositions"] == {"right_censored_expired": 1}
+
+
+def _self_graded_attempt(paths, repository, *, clock=None, evidence_origin="human"):
+    vault = load_vault(paths.root)
+    return complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="A factorization", evidence_origin=evidence_origin),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
+        clock=clock or FrozenClock(NOW),
+    )
+
+
+def test_adjudication_rejects_a_missing_attempt_with_a_value_error(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    with pytest.raises(ValueError, match="does not exist"):
+        repository.record_false_remediation(attempt_id="att_typo", value=True, evidence_refs=[{"table": "practice_attempts", "id": attempt.attempt_id}], author_kind="human", verifier_version="test-v1")
+
+
+@pytest.mark.parametrize("reference", [{"table": ["practice_attempts"], "id": "x"}, {"table": "practice_attempts", "id": 7}, "practice_attempts"])
+def test_adjudication_rejects_malformed_evidence_references(tmp_path, reference):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    with pytest.raises(ValueError, match="evidence reference"):
+        repository.record_false_remediation(attempt_id=attempt.attempt_id, value=True, evidence_refs=[reference], author_kind="human", verifier_version="test-v1")
+
+
+def test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offer = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    repository.finalize_scheduler_offer(offer.scheduler_slate_id, [offer.scheduler_candidate_id])
+    repository.bind_submission_offer(submission_id="sub-1", session_id=session, practice_item_id=offer.practice_item_id, scheduler_candidate_id=offer.scheduler_candidate_id)
+    attempt = _self_graded_attempt(paths, repository)
+    references = [{"table": "submission_intents", "id": "sub-1"}, {"table": "scheduler_offer_receipts", "id": offer.scheduler_slate_id}]
+    adjudication = repository.record_false_remediation(attempt_id=attempt.attempt_id, value=True, evidence_refs=references, author_kind="human", verifier_version="test-v1")
+    assert adjudication
+    with pytest.raises(ValueError, match=r"submission_intents\.submission_id='missing' does not exist"):
+        repository.record_false_remediation(attempt_id=attempt.attempt_id, value=True, evidence_refs=[{"table": "submission_intents", "id": "missing"}], author_kind="human", verifier_version="test-v1")
+    with repository.connection() as connection:
+        receipt_version = connection.execute("SELECT collection_version FROM scheduler_offer_receipts").fetchone()[0]
+    assert receipt_version == COLLECTION_VERSION
+
+
+def _final_receipt(repository, receipt_id, *, source_attempt_id, derived, cold_attempt_id=None):
+    repository.insert_coldness_receipt(receipt_id=receipt_id, lane="repair_cold_retry", stage="final", followup_task_id=None, remediation_episode_id=None, source_attempt_id=source_attempt_id, cold_attempt_id=cold_attempt_id, cold_verification_id=None, dimensions={}, derived=derived, telemetry_coverage={}, receipt_version="test-v1")
+
+
+def test_cold_receipt_status_keeps_unscorable_and_dispositions_distinct(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    _final_receipt(repository, "a-qualified-unscored", source_attempt_id=attempt.attempt_id, derived={"qualifies_as_cold_retrieval": True})
+    _final_receipt(repository, "b-expired", source_attempt_id=attempt.attempt_id, derived={"qualifies_as_cold_retrieval": None, "outcome": "right_censored_expired"})
+    _final_receipt(repository, "c-qualified-scored", source_attempt_id=attempt.attempt_id, cold_attempt_id=attempt.attempt_id, derived={"qualifies_as_cold_retrieval": True, "outcome": "cold_success"})
+    _final_receipt(repository, "d-unqualified", source_attempt_id=attempt.attempt_id, derived={"qualifies_as_cold_retrieval": False})
+    with repository.connection() as connection:
+        label = outcome_records(connection)[0]
+    statuses = {record["receipt_id"]: record["status"] for record in label["R_cold"]}
+    assert statuses == {"a-qualified-unscored": "unscorable", "b-expired": "right_censored_expired", "c-qualified-scored": "observed", "d-unqualified": "unqualified"}
+
+
+def test_failed_export_leaves_no_manifest_and_no_partial_directory(tmp_path, monkeypatch):
+    import learnloop.substrate.dataset as dataset
+
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+
+    def fail(connection):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(dataset, "outcome_records", fail)
+    output = tmp_path / "dataset"
+    with pytest.raises(sqlite3.OperationalError):
+        export_dataset(paths.sqlite_path, output)
+    assert not output.exists()
+
+
+def test_manifest_is_published_by_atomic_rename(tmp_path, monkeypatch):
+    import os
+
+    import learnloop.substrate.dataset as dataset
+
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    replaced = []
+    real_replace = os.replace
+
+    def observe_replace(source, destination):
+        # The final name must not exist until the complete file is renamed onto it.
+        assert not os.path.exists(destination)
+        assert json.loads(open(source, encoding="utf-8").read())["artifacts"]
+        replaced.append((os.path.basename(source), os.path.basename(destination)))
+        real_replace(source, destination)
+
+    monkeypatch.setattr(dataset.os, "replace", observe_replace)
+    output = tmp_path / "dataset"
+    manifest = export_dataset(paths.sqlite_path, output)
+    assert replaced == [("manifest.json.tmp", "manifest.json")]
+    assert json.loads((output / "manifest.json").read_text()) == json.loads(json.dumps(manifest))
+    assert not (output / "manifest.json.tmp").exists()
+    for name, artifact in manifest["artifacts"].items():
+        assert hashlib.sha256((output / name).read_bytes()).hexdigest() == artifact["sha256"]
+
+
+def _cli(*args):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    return CliRunner().invoke(app, [str(arg) for arg in args])
+
+
+def _evidence_file(tmp_path, references):
+    path = tmp_path / "evidence.json"
+    path.write_text(json.dumps(references), encoding="utf-8")
+    return path
+
+
+def test_adjudicate_cli_records_through_the_locked_vault_opener(tmp_path, monkeypatch):
+    import learnloop.vault.repository as vault_repository
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    migrated = []
+    real_migrate = vault_repository.migrate_vault
+
+    def spy(*args, **kwargs):
+        migrated.append(args[0])
+        return real_migrate(*args, **kwargs)
+
+    monkeypatch.setattr(vault_repository, "migrate_vault", spy)
+    evidence = _evidence_file(tmp_path, [{"table": "practice_attempts", "id": attempt.attempt_id}])
+    result = _cli("adjudicate-remediation", attempt.attempt_id, "--false-remediation", "--evidence", evidence, "--verifier-version", "test-v1", "--vault", paths.root)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["adjudication_id"]
+    assert migrated == [paths.root]
+
+
+@pytest.mark.parametrize(("attempt_id", "references", "message"), [
+    ("att_typo", None, "does not exist"),
+    (None, [{"table": ["practice_attempts"], "id": "x"}], "string table"),
+    (None, [{"table": "submission_intents", "id": "missing"}], "does not exist"),
+    (None, {"table": "practice_attempts"}, "JSON list"),
+])
+def test_adjudicate_cli_reports_bad_input_without_a_traceback(tmp_path, attempt_id, references, message):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    evidence = _evidence_file(tmp_path, references if references is not None else [{"table": "practice_attempts", "id": attempt.attempt_id}])
+    result = _cli("adjudicate-remediation", attempt_id or attempt.attempt_id, "--false-remediation", "--evidence", evidence, "--verifier-version", "test-v1", "--vault", paths.root)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert message in result.stderr
+
+
+def test_dataset_export_cli_reports_sqlite_errors_and_removes_partial_output(tmp_path, monkeypatch):
+    import learnloop.substrate.dataset as dataset
+
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+
+    def locked(connection):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(dataset, "outcome_records", locked)
+    output = tmp_path / "dataset"
+    result = _cli("dataset-export", output, "--vault", paths.root)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "database is locked" in result.stderr
+    assert not output.exists()
+
+
+def test_dataset_export_cli_refuses_an_existing_output_directory(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    output = tmp_path / "dataset"
+    output.mkdir()
+    (output / "keep.txt").write_text("mine", encoding="utf-8")
+    result = _cli("dataset-export", output, "--vault", paths.root)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert (output / "keep.txt").read_text(encoding="utf-8") == "mine"
+
+
+def test_writers_stamp_the_current_collection_version(tmp_path, monkeypatch):
+    import learnloop.db.repositories as repositories
+    import learnloop.db.stores.collection as collection_store
+
+    monkeypatch.setattr(repositories, "COLLECTION_VERSION", "learnloop-events-test")
+    monkeypatch.setattr(collection_store, "COLLECTION_VERSION", "learnloop-events-test")
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offer = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    repository.finalize_scheduler_offer(offer.scheduler_slate_id, [offer.scheduler_candidate_id])
+    attempt = _self_graded_attempt(paths, repository)
+    with repository.connection() as connection:
+        versions = {
+            "slate": connection.execute("SELECT collection_version FROM scheduler_slates WHERE id=?", (offer.scheduler_slate_id,)).fetchone()[0],
+            "offer": connection.execute("SELECT collection_version FROM scheduler_offer_receipts WHERE slate_id=?", (offer.scheduler_slate_id,)).fetchone()[0],
+            "attempt": connection.execute("SELECT collection_version FROM practice_attempts WHERE id=?", (attempt.attempt_id,)).fetchone()[0],
+        }
+    assert versions == {"slate": "learnloop-events-test", "offer": "learnloop-events-test", "attempt": "learnloop-events-test"}

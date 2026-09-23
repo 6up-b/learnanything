@@ -177,3 +177,58 @@ def test_concurrent_original_writers_use_independent_temporary_files(tmp_path, m
         paths = [future.result(timeout=10) for future in futures]
     assert paths[0] == paths[1] and paths[0].read_bytes() == b"same source"
     assert not list(paths[0].parent.glob("*.tmp"))
+
+
+def _client_settings(**profile_overrides):
+    from learnloop.ai.execution import model_settings
+    profile = SimpleNamespace(model="model-a", base_url="https://one.invalid", reasoning_effort="low", thinking="enabled", response_format="json_object")
+    for name, value in profile_overrides.items():
+        setattr(profile, name, value)
+    return model_settings(SimpleNamespace(provider_name="profile_a", model="model-a", profile=profile))
+
+
+_SETTING_CHANGES = [
+    {"base_url": "https://two.invalid"},
+    {"reasoning_effort": "high"},
+    {"thinking": "disabled"},
+    {"response_format": "json_schema"},
+]
+
+
+@pytest.mark.parametrize("change", _SETTING_CHANGES)
+def test_synthesis_pass_key_changes_with_each_provider_setting(change):
+    from learnloop.content.synthesis.source_set_synthesis import _synthesis_pass_key
+    baseline = _synthesis_pass_key("prompt", {"type": "object"}, _client_settings())
+    assert _synthesis_pass_key("prompt", {"type": "object"}, _client_settings(**change)) != baseline
+
+
+def test_synthesis_pass_key_changes_with_prompt_and_schema():
+    from learnloop.content.synthesis.source_set_synthesis import _synthesis_pass_key
+    settings = _client_settings()
+    baseline = _synthesis_pass_key("prompt", {"type": "object"}, settings)
+    assert _synthesis_pass_key("prompt!", {"type": "object"}, settings) != baseline
+    assert _synthesis_pass_key("prompt", {"type": "array"}, settings) != baseline
+    assert _synthesis_pass_key("prompt", {"type": "object"}, dict(settings)) == baseline
+
+
+def _inventory_context(text="An eigenvector scales under a matrix."):
+    from learnloop.content.synthesis.ai_contracts import SourceUnitInventoryContext
+    window = {"window_ordinal": 1, "blocks": [{"span_id": "s1", "text": text}]}
+    return SourceUnitInventoryContext(unit_id="u1", semantic_hash="h", role="reference", inventory_profile="combined", unit_view=window)
+
+
+@pytest.mark.parametrize("change", _SETTING_CHANGES)
+def test_inventory_window_key_changes_with_each_provider_setting(change):
+    baseline = inventory.inventory_window_key(_inventory_context(), _client_settings(), schema_version=1)
+    assert inventory.inventory_window_key(_inventory_context(), _client_settings(**change), schema_version=1) != baseline
+
+
+def test_inventory_window_key_follows_the_rendered_prompt(monkeypatch):
+    settings = _client_settings()
+    baseline = inventory.inventory_window_key(_inventory_context(), settings, schema_version=1)
+    assert inventory.inventory_window_key(_inventory_context("Different text."), settings, schema_version=1) != baseline
+    assert inventory.inventory_window_key(_inventory_context(), settings, schema_version=2) != baseline
+    # A prompt-text edit changes the key even when the prompt version label does not.
+    original = inventory.source_unit_inventory_prompt
+    monkeypatch.setattr(inventory, "source_unit_inventory_prompt", lambda context: original(context) + "\nEdited instruction.")
+    assert inventory.inventory_window_key(_inventory_context(), settings, schema_version=1) != baseline

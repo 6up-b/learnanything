@@ -53,9 +53,39 @@ def pytest_addoption(parser):
     parser.addoption("--durable-sqlite", action="store_true", help="Use production SQLite durability for every selected test.")
 
 
+# The SQLite mode is switched in runtest hooks rather than in a fixture because
+# pytest builds module- and session-scoped fixtures before any function-scoped
+# autouse fixture runs; a fixture-based switch would leave shared fixtures in
+# the fast lane. The mode active when a shared fixture is first built is the
+# one it keeps, so a module fixture used by both `durability` tests and plain
+# tests runs in whichever lane its first consumer selected.
+_session_durable = False
+
+
+def _set_sqlite_test_mode(*, durable: bool) -> None:
+    from tests import helpers
+
+    global _durability_active
+    _durability_active = durable
+    # Durability tests also exercise real vault construction, not a copy.
+    helpers._FRESH_VAULTS = durable
+
+
 def pytest_configure(config):
-    config.addinivalue_line("markers", "durability: use production SQLite durability and fresh vault construction")
-    config.addinivalue_line("markers", "fresh_vault: bypass the session basic-vault template")
+    global _session_durable
+    _session_durable = bool(config.getoption("--durable-sqlite"))
+    _set_sqlite_test_mode(durable=_session_durable)
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    durable = _session_durable or item.get_closest_marker("durability") is not None
+    _set_sqlite_test_mode(durable=durable)
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    _set_sqlite_test_mode(durable=_session_durable)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -65,18 +95,12 @@ def basic_vault_template(tmp_path_factory):
     # Copying a database with embedded template-root identities would silently
     # point tests at shared state. Scan text and SQLite bytes before enabling it.
     prefix = str(paths.root).encode()
-    assert all(prefix not in path.read_bytes() for path in paths.root.rglob("*") if path.is_file())
+    files_naming_root = [
+        str(path.relative_to(paths.root))
+        for path in paths.root.rglob("*")
+        if path.is_file() and prefix in path.read_bytes()
+    ]
+    assert not files_naming_root, f"template vault files embed their absolute root: {files_naming_root}"
     helpers._BASIC_VAULT_TEMPLATE = paths
     yield
     helpers._BASIC_VAULT_TEMPLATE = None
-
-
-@pytest.fixture(autouse=True)
-def sqlite_test_mode(request, basic_vault_template):
-    from tests import helpers
-    global _durability_active
-    _durability_active = bool(request.config.getoption("--durable-sqlite") or request.node.get_closest_marker("durability"))
-    helpers._FRESH_VAULTS = _durability_active or bool(request.node.get_closest_marker("fresh_vault"))
-    yield
-    _durability_active = False
-    helpers._FRESH_VAULTS = False

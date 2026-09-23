@@ -223,6 +223,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("policy_experiment_assignments", TableRole.RECEIPT),
     ("practice_attempts", TableRole.RAW_LEDGER),
     ("practice_item_quality_state", TableRole.DERIVED),
+    # Content-addressed copy of each practice-item revision the scheduler
+    # scored; selection decision features join to it by content hash.
+    ("practice_item_snapshots", TableRole.RECEIPT),
     # Migration 075 defines this as the active legacy compatibility projection;
     # activity_card_state is its partial successor.
     ("practice_item_state", TableRole.COMPAT),

@@ -169,8 +169,8 @@ def replay_learning_object(
         # [capabilities].residual_activation_enabled), so a rebuild reproduces
         # activation deterministically with the feature on or off.  The R2
         # umbrella disables this per-LO refresh and runs the vault-wide projector
-        # once after every LO has replayed; existing direct callers retain the
-        # historical behavior by default.
+        # once after every LO has replayed; direct callers refresh per LO by
+        # default.
         project_canonical_facet_state(vault, repository)
     return ReplayResult(
         learning_object_id=learning_object_id,
@@ -249,11 +249,11 @@ def record_content_recalibration(
     """Stamp the recalibration boundary AT the content change, not after it.
 
     Applying ingested content (new LOs, changed blueprints) moves the
-    vault-wide contract frontier, but nothing on the ingest path used to
-    record a rebuild — so the coverage-denominator delta sat armed until the
-    NEXT unrelated rebuild, which then narrated a recalibration at the wrong
-    time, attributed to a rebuild that did not cause it (and an LO-scoped
-    rebuild folded the whole vault-wide drift into its own marker).
+    vault-wide contract frontier. Without a marker at the apply, the
+    coverage-denominator delta would stay armed until the next unrelated
+    rebuild, which would narrate the recalibration at the wrong time and
+    attribute it to a rebuild that did not cause it (an LO-scoped rebuild
+    would fold the whole vault-wide drift into its own marker).
 
     Discipline is `integration_backfill`'s: apply → reload → rebuild the
     affected LOs → exactly one marker. The caller passes the RELOADED vault.
@@ -271,9 +271,15 @@ def record_content_recalibration(
     with_attempts = set(repository.learning_object_ids_with_attempts())
     replayable = [lo_id for lo_id in affected if lo_id in with_attempts]
     if replayable:
-        return rebuild_derived_state(
-            vault, repository, learning_object_ids=replayable, clock=clock
-        ).marker_id
+        # One write transaction: the replay clears each LO's derived rows before
+        # re-folding them, and a content apply runs inside an ingest job's write
+        # fence. Holding the write lock keeps a replacement worker from taking
+        # the lease between the clear and the re-fold, and any failure leaves
+        # the published projection untouched.
+        with repository.atomic():
+            return rebuild_derived_state(
+                vault, repository, learning_object_ids=replayable, clock=clock
+            ).marker_id
     from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
     from learnloop.learner.facet_diagnostics import coverage_denominator_version
 

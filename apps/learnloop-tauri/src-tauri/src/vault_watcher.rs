@@ -1,3 +1,4 @@
+use crate::errors::VAULT_CHANGED_CODE;
 use crate::sidecar::SidecarManager;
 use notify::{recommended_watcher, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -107,6 +108,9 @@ fn watch_loop(target_rx: Receiver<PathBuf>, app: AppHandle, sidecar: SidecarMana
             json!({"paths": &relative, "vaultRoot": active_root}),
         ) {
             Ok(value) => value,
+            // These paths belong to a vault that is no longer selected; the
+            // watcher is retargeted to the new vault separately.
+            Err(error) if error.code == VAULT_CHANGED_CODE => continue,
             Err(error) => json!({
                 "error": {
                     "code": error.code,

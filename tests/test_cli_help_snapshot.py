@@ -43,7 +43,7 @@ def _help_snapshot() -> dict[str, dict[str, str | int]]:
     return snapshot
 
 
-def test_recursive_cli_help_matches_reviewed_public_commands() -> None:
+def test_recursive_cli_help_matches_snapshot() -> None:
     expected = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     assert _help_snapshot() == expected
 

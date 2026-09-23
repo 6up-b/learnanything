@@ -11,6 +11,10 @@ use tauri::Manager;
 use vault_watcher::VaultWatcher;
 
 const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM";
+// Upper bound on one llmedia 206 body. Media elements request the remainder
+// with a follow-up range, so an open-ended `bytes=0-` never loads a whole clip
+// into memory at once.
+const MAX_MEDIA_RANGE_BYTES: u64 = 4 * 1024 * 1024;
 
 // llpdf://localhost/<store-file-name> serves original source bytes from the
 // vault's content-addressed store (canonical-sources/raw/). Streaming through a
@@ -119,34 +123,46 @@ fn serve_llmedia(
         .join("media")
         .join("animations")
         .join(name);
-    let mut file = match std::fs::File::open(&path) {
+    serve_media_file(&path, range_header)
+}
+
+fn media_read_failed() -> tauri::http::Response<Cow<'static, [u8]>> {
+    llmedia_response(500, b"could not read animation".to_vec(), None)
+}
+
+fn serve_media_file(
+    path: &std::path::Path,
+    range_header: Option<&str>,
+) -> tauri::http::Response<Cow<'static, [u8]>> {
+    let mut file = match std::fs::File::open(path) {
         Ok(file) => file,
         Err(_) => return llmedia_response(404, b"not in animation store".to_vec(), None),
     };
     let total = match file.metadata() {
         Ok(metadata) => metadata.len(),
-        Err(_) => return llmedia_response(500, b"could not read animation".to_vec(), None),
+        Err(_) => return media_read_failed(),
     };
     match slice_range(total, range_header) {
         None => {
             let mut bytes = Vec::new();
             if file.read_to_end(&mut bytes).is_err() {
-                return llmedia_response(500, b"could not read animation".to_vec(), None);
+                return media_read_failed();
             }
             llmedia_response(200, bytes, None)
-        },
+        }
         Some(Err(())) => llmedia_response(
             416,
             Vec::new(),
             Some(("Content-Range".into(), format!("bytes */{total}"))),
         ),
-        Some(Ok((start, end))) => {
+        Some(Ok((start, requested_end))) => {
+            let end = requested_end.min(start.saturating_add(MAX_MEDIA_RANGE_BYTES - 1));
             let Ok(length) = usize::try_from(end - start + 1) else {
                 return llmedia_response(416, Vec::new(), None);
             };
             let mut body = vec![0; length];
             if file.seek(SeekFrom::Start(start)).is_err() || file.read_exact(&mut body).is_err() {
-                return llmedia_response(500, b"could not read animation range".to_vec(), None);
+                return media_read_failed();
             }
             llmedia_response(
                 206,
@@ -570,6 +586,49 @@ mod tests {
             serve_llmedia(&manager, "/sha256-deadbeef.mp4", None).status(),
             404
         );
+    }
+
+    fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String {
+        response.headers()["Content-Range"].to_str().unwrap().to_string()
+    }
+
+    #[test]
+    fn llmedia_serves_bounded_ranges_from_a_real_file() {
+        let dir = std::env::temp_dir().join(format!("learnloop-llmedia-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("sha256-ab.mp4");
+        let total = MAX_MEDIA_RANGE_BYTES + 100;
+        let bytes: Vec<u8> = (0..total).map(|index| (index % 251) as u8).collect();
+        std::fs::write(&path, &bytes).unwrap();
+
+        let open_ended = serve_media_file(&path, Some("bytes=0-"));
+        assert_eq!(open_ended.status(), 206);
+        assert_eq!(open_ended.body().len() as u64, MAX_MEDIA_RANGE_BYTES);
+        assert_eq!(
+            content_range(&open_ended),
+            format!("bytes 0-{}/{total}", MAX_MEDIA_RANGE_BYTES - 1)
+        );
+
+        let remainder = serve_media_file(&path, Some(&format!("bytes={MAX_MEDIA_RANGE_BYTES}-")));
+        assert_eq!(remainder.status(), 206);
+        assert_eq!(remainder.body().as_ref(), &bytes[MAX_MEDIA_RANGE_BYTES as usize..]);
+        assert_eq!(
+            content_range(&remainder),
+            format!("bytes {MAX_MEDIA_RANGE_BYTES}-{}/{total}", total - 1)
+        );
+
+        let middle = serve_media_file(&path, Some("bytes=10-19"));
+        assert_eq!(middle.body().as_ref(), &bytes[10..20]);
+        assert_eq!(content_range(&middle), format!("bytes 10-19/{total}"));
+
+        let suffix = serve_media_file(&path, Some("bytes=-5"));
+        assert_eq!(suffix.body().as_ref(), &bytes[(total - 5) as usize..]);
+
+        let past_end = serve_media_file(&path, Some(&format!("bytes={total}-")));
+        assert_eq!(past_end.status(), 416);
+        assert_eq!(content_range(&past_end), format!("bytes */{total}"));
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

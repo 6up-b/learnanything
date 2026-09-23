@@ -16,8 +16,8 @@
     "sha256": "94e729af56daf93c8df2bf23e02a75cd185e2c93cfbd56574628e2581124cb04"
   },
   "adjudicate-remediation": {
-    "bytes": 2352,
-    "sha256": "4ada972e648d32d883d508d45a7ff28609a4fda3db4f9258608768f659459e62"
+    "bytes": 2522,
+    "sha256": "c97cd1cde73816b804436cde72e340fa6b72b06c42ba35a757aba07e0ef2a576"
   },
   "attempt": {
     "bytes": 3378,
@@ -344,8 +344,8 @@
     "sha256": "5c68ddd77a2cd20c1778c4bd6c72df458c92132af24fb9f66fc942b0aaeda8ab"
   },
   "independence-audit": {
-    "bytes": 1863,
-    "sha256": "03438b542f815d1b4c84f27541fedeef3634d9ebb878366f9f8d967100254632"
+    "bytes": 1782,
+    "sha256": "b740a5d11019873f15a8edbc8e9996ae8887d5ab72174246709b03624b05493f"
   },
   "inference-precheck": {
     "bytes": 1611,

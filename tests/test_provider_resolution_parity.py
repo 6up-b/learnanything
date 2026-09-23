@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import learnloop.ai.routing as routing
 import pytest
-from tests.source_inventory import source_ast, source_text
+from tests.ast_cache import source_ast, source_text
 from learnloop.ai.client import make_ai_provider_client_from_profile
 from learnloop.ai.providers.codex import SdkCodexClient
 from learnloop.ai.providers.codex_http import HttpCodexClient
@@ -160,18 +160,67 @@ def test_provider_resolution_config_matrix_is_uniform(
 
 
 @pytest.mark.parametrize(
-    ("payload", "unavailable", "expected_identity"),
-    [
-        ({}, set(), ("codex_low", "codex_sdk", "gpt-5.6-sol", "codex_low", None)),
-        ({"ai": {"routing": {"grading": "manual", "canonical_ingest": "manual"}}}, set(), ("manual", None, None, "manual", None)),
-    ], ids=("ready", "manual"),
+    ("payload", "unavailable"),
+    (
+        ({}, set()),
+        (
+            {
+                "ai": {
+                    "routing": {"grading": "named", "canonical_ingest": "named"},
+                    "providers": {
+                        "named": {"type": "codex_sdk", "model": "named-model"}
+                    },
+                }
+            },
+            set(),
+        ),
+        (
+            {
+                "ai": {
+                    "active_provider": "openrouter",
+                    "routing": {
+                        "grading": "openrouter",
+                        "canonical_ingest": "openrouter",
+                    },
+                }
+            },
+            set(),
+        ),
+        (
+            {
+                "ai": {
+                    "routing": {
+                        "grading": "primary",
+                        "canonical_ingest": "primary",
+                    },
+                    "fallback_provider": "backup",
+                    "providers": {
+                        "primary": {"type": "openrouter", "model": "primary-model"},
+                        "backup": {"type": "openai_chat", "model": "backup-model"},
+                    },
+                }
+            },
+            {"primary"},
+        ),
+        (
+            {
+                "ai": {
+                    "routing": {
+                        "grading": MANUAL_PROVIDER,
+                        "canonical_ingest": MANUAL_PROVIDER,
+                    },
+                }
+            },
+            set(),
+        ),
+    ),
+    ids=("codex-only", "named-profile", "openrouter-active", "fallback", "manual"),
 )
 def test_config_matrix_executes_all_six_production_resolution_paths(
     tmp_path,
     monkeypatch,
     payload,
     unavailable,
-    expected_identity,
 ) -> None:
     """Run the six adapters, not merely their shared root or their ASTs."""
 
@@ -220,9 +269,20 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
             resolved.fallback_from,
         )
 
-    expected = {task: expected_identity for task in ("grading", "canonical_ingest")}
-    if expected_identity[0] == "codex_low":
-        expected["canonical_ingest"] = ("codex_medium", "codex_sdk", "gpt-5.6-sol", "codex_medium", None)
+    # The composition root, run once per task before any adapter is patched,
+    # is the oracle: every adapter must resolve exactly what it resolves.
+    expected = {
+        task: identity(original_ready(tmp_path, config, task))
+        for task in ("grading", "canonical_ingest")
+    }
+    # Keep the oracle honest: each task resolves its routed provider, or the
+    # configured fallback when the routed one is unavailable.
+    for task, (provider_name, _type, _model, selected, fallback_from) in expected.items():
+        assert selected == getattr(config.ai.routing, task)
+        if selected in unavailable:
+            assert (provider_name, fallback_from) == (config.ai.fallback_provider, selected)
+        else:
+            assert (provider_name, fallback_from) == (selected, None)
     observed: list[tuple[str, tuple[object, ...]]] = []
 
     def recording_ready(root, parsed, task, **kwargs):

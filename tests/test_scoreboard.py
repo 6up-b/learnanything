@@ -849,6 +849,40 @@ def test_certification_replay_budget_bounds_the_answer_and_says_so(tmp_path):
     assert trace["evaluations"] == 0
 
 
+def test_certification_replay_prunes_past_an_adjudicated_attempt(tmp_path):
+    """An append-only adjudication on a later attempt must not abort prefix pruning."""
+
+    from datetime import timedelta
+
+    from learnloop.attempts.attempts import SelfGradeInput, complete_self_graded_attempt
+
+    vault, repository, _paths = _vault(tmp_path)
+    _attempt(vault, repository, "att_1", correctness_points=4)
+    later = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="U Sigma V^T"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=4),
+        clock=FrozenClock(NOW + timedelta(days=1)),
+    )
+    repository.record_false_remediation(
+        attempt_id=later.attempt_id,
+        value=True,
+        evidence_refs=[{"table": "practice_attempts", "id": later.attempt_id}],
+        author_kind="human",
+        verifier_version="test-v1",
+    )
+
+    from learnloop.diagnosis.scoreboard import _certified_at_cutoff
+
+    first_boundary = repository.fetch_practice_attempt("att_1")["created_at"]
+    scratch_dir = tmp_path / "scratch"
+    scratch_dir.mkdir()
+    certified = _certified_at_cutoff(vault, repository.sqlite_path, scratch_dir, first_boundary, 1)
+
+    assert certified == frozenset()
+
+
 def _certification(vault, repository):
     from learnloop.diagnosis.scoreboard import certification_efficiency_metrics
 
