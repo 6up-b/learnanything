@@ -6,8 +6,8 @@ status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
 last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+source_commit: 2a218baead1b47a34debd9464568936ff58f1c28
+source_commit_timestamp: "2026-09-23T15:42:12-04:00"
 source_paths:
   - pyproject.toml
   - src/learnloop/algorithm_versions.py
@@ -38,7 +38,7 @@ tags:
 | outcome labels | `learnloop-outcomes-v1` | `LABEL_VERSION` of the exported R_next/R_cold/Q/B/F labels and of adjudications |
 | selection policy | `composed_offer_v2` | `selection_policy` on every persisted slate; candidates carry `propensity_kind = unavailable_composed_offer` |
 | selection feature schema | `selection_features_v1` | shape of `decision_features` selection rows |
-| dataset export | `1` | `dataset_version` in an export's `manifest.json` |
+| dataset export | `2` | `dataset_version` in an export's `manifest.json`; version 2 records `split_policy`, and a manifest without it split by content family |
 | data-quality report | `1` | `report_version` of `learnloop data-quality` output |
 | documentation | `1.0.0` | initial architecture-vault release |
 | source inventory commit | `62fd1f6404cc…` | baseline commit plus current refactor worktree |

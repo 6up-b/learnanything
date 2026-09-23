@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/cli/source_set.py"
   - "src/learnloop/cli/surfaces.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:12:49-04:00"
+source_commit_timestamp: "2026-09-23T15:31:55-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.cli"

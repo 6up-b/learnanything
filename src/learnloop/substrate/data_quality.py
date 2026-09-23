@@ -52,7 +52,13 @@ def data_quality_report(sqlite_path: Path) -> dict[str, Any]:
         return inspect_collection(connection)
 
 
-def inspect_collection(connection: sqlite3.Connection) -> dict[str, Any]:
+def inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Coverage report over one connection.
+
+    `splits` is the per-label count summary of a dataset export, named by its
+    split policy; split assignment depends on export options, so a report
+    produced outside an export carries no `splits` entry.
+    """
     tables = table_names(connection)
     def read(table, columns=None, where=""):
         return rows(connection, table, columns=columns, where=where) if table in tables else []
@@ -137,7 +143,7 @@ def inspect_collection(connection: sqlite3.Connection) -> dict[str, Any]:
     adjudicated_attempts = [row["attempt_id"] for row in read("false_remediation_adjudications", ("attempt_id",))]
     current = [dict(counts) for key, counts in cohorts.items() if key[0] == COLLECTION_VERSION]
     violations = {name: sum(cohort.get(name, 0) for cohort in current) for name in ("invalid_offer_links", "missing_explicit_offer_links", "invalid_chosen_propensity", "completion_missing")}
-    return {
+    report = {
         "report_version": 1, "collection_version": COLLECTION_VERSION, "label_version": LABEL_VERSION,
         "schema_versions": sorted(row["version"] for row in read("schema_migrations")),
         "false_remediation_adjudications": {"records": len(adjudicated_attempts), "attempts": len(set(adjudicated_attempts))},
@@ -149,3 +155,6 @@ def inspect_collection(connection: sqlite3.Connection) -> dict[str, Any]:
         "cold_terminal_dispositions": dict(Counter(row["outcome"] for row in read("causal_cold_outcomes"))),
         "scope": {"current_version_only_alerts": True, "missing_measurements_are_zero": False, "viewing": "A draft or delivery receipt does not establish learner attention.", "retention": "Delayed unassisted observational retention; coldness requires a separate qualified receipt.", "legacy_provider_usage": "Agent-run zero counters do not establish zero cost."},
     }
+    if splits is not None:
+        report["splits"] = splits
+    return report

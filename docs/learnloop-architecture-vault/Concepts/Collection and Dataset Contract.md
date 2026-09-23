@@ -8,8 +8,8 @@ status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
 last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+source_commit: 2a218baead1b47a34debd9464568936ff58f1c28
+source_commit_timestamp: "2026-09-23T15:42:12-04:00"
 source_paths:
   - src/learnloop/outcome_contract.py
   - src/learnloop/db/stores/collection.py
@@ -44,6 +44,8 @@ LearnLoop records enough provenance on every attempt and every scheduler decisio
 |---|---|---|
 | `COLLECTION_VERSION` | `learnloop-events-v1` | [[practice_attempts]] and [[scheduler_slates]] (written explicitly by the repository), [[scheduler_offer_receipts]] and [[false_remediation_adjudications]] (written explicitly by the collection store), [[submission_intents]], [[attempt_completion_work]] and [[model_call_receipts]] (column default in migrations 159–161) |
 | `LABEL_VERSION` | `learnloop-outcomes-v1` | every exported outcome record and every adjudication |
+
+`DATASET_VERSION` in `src/learnloop/substrate/dataset.py` is `2`, written as `dataset_version` in an export's `manifest.json`. Version 2 adds `split_policy`; a manifest without `split_policy` (version 1) split by content family, as the `content` policy does.
 
 Attempt and slate rows written before migration 161 carry the column default `legacy-unversioned`. The data-quality report raises alerts (`current_version_violations`) only for the current collection version; older cohorts are reported but not judged.
 
@@ -100,14 +102,30 @@ Delayed unassisted retention (`R_next`) is distinct from a certified cold measur
 
 ## Dataset splits
 
-`split_assignments` assigns each attempt to a chronological split without splitting a content family:
+`split_assignments` labels every attempt under one of two named policies, chosen with `dataset-export --split-policy` and recorded in the manifest. The policies support different evaluation claims, so neither is a stricter version of the other.
 
-- **Families** are connected components (union-find) over the attempt's item, its learning object, `recipes[].blueprint_id` from the item's [[assessment_contract_versions]], `evidence_fingerprint.source_family` and `evidence_fingerprint.shared_stimulus_id`, and cited source spans from [[entity_source_links]] (`practice_item` and `learning_object` rows that are not `removed` and have a locator, keyed by source or revision plus locator). `surface_family` is a presentation-format label and never joins families. `group_hash` is the SHA-256 of the component's smallest key, so it is independent of input order.
-- **Eligibility** is `evidence_origin = "human"` with at least one content-lineage key (`content_provenance = true`). Only eligible attempts set the 70% and 85% timestamp cutoffs (over distinct timestamps, so a batch at one instant never straddles a cut) and the buckets a family occupies.
-- **Labels:** `unavailable_origin`, `unavailable_provenance`, `quarantined_boundary_overlap` (the family's eligible attempts span a cutoff), or the chronological `train`/`validation`/`test` bucket.
+**Shared rules.** Only eligible attempts set cutoffs and occupy buckets: `evidence_origin = "human"` with at least one content-lineage key (`content_provenance = true`). Content lineage is `recipes[].blueprint_id` from the item's [[assessment_contract_versions]], `evidence_fingerprint.source_family` and `evidence_fingerprint.shared_stimulus_id`, and cited source spans from [[entity_source_links]] (`practice_item` and `learning_object` rows that are not `removed` and have a locator, keyed by source or revision plus locator). Ineligible attempts stay in the export as `unavailable_origin` or `unavailable_provenance`. Cutoffs fall at the 70% and 85% points of the distinct eligible timestamps, so a batch recorded at one instant never straddles a cut. `temporal` computes those indices with integer arithmetic (`n * 70 // 100`, so 90 distinct times give 63 training times) and reads a timestamp without an offset as UTC; `content` keeps its original arithmetic and parsing so its exports are unchanged. Rows are ordered by timestamp then id and do not depend on input order or the Python hash seed.
 
-> [!warning] A single learner may have no holdout
-> One learner revisits the same material over time, so most families straddle a cutoff. On a copy of `fixtures/linear_algebra` with all 70 attempts treated as human, the split gives 23 `train`, 47 quarantined and 0 validation/test rows. Whether the learning object should group or only stratify the split is an open design decision.
+| Policy | Groups and cutoffs | Extra label | Supports | Does not support |
+|---|---|---|---|---|
+| `temporal` (default) | The learning object stratifies and does not group: each learning object's own eligible history sets its cutoffs. `group_hash` is the SHA-256 of `lo:<learning_object_id>`. | `quarantined_embargo`: a validation or test attempt less than the embargo after the learning object's last training attempt. An attempt exactly the embargo after it is held out. | Forecasting a known learner's next outcome on content they have already practised. | Generalization to unseen content or other learners. Items sharing a stimulus, blueprint or source span can fall on both sides of a cutoff. |
+| `content` | Families are connected components (union-find) over the item, its learning object and its content-lineage keys; `surface_family` is a presentation-format label and never joins families. One set of cutoffs covers all eligible attempts. `group_hash` is the SHA-256 of the component's smallest key. | `quarantined_boundary_overlap`: the family's eligible attempts span a cutoff. | Generalization to content whose family never appeared in training. | Forecasting a known learner on practised content; one learner who revisits material can leave no held-out rows. |
+
+`--embargo` is a duration (`7d` by default; `36h`, `90m`, `30s` or `0`) and applies only to `temporal`; it is measured from the latest eligible training attempt of the same learning object, and a duration too large to represent is refused. It is a duration rather than an attempt count because the leak it guards against is short-term memory of the training attempts, which decays with time rather than with the number of intervening attempts. A learning object whose eligible attempts share one distinct timestamp has no training rows and lands wholly in `test`.
+
+> [!warning] Temporal cutoffs differ per learning object
+> A training row on one learning object can postdate a held-out row on another. A model that pools across learning objects must build each row's features only from history before that row's timestamp.
+
+Measured on a copy of `fixtures/linear_algebra` with all 70 attempts treated as human (8 learning objects, 5 to 12 attempts each, over 5.6 days):
+
+| Policy | Train | Validation | Test | Quarantined |
+|---|---:|---:|---:|---:|
+| `content` | 23 | 0 | 0 | 47 boundary overlap |
+| `temporal`, `--embargo 0` | 45 | 10 | 15 | 0 |
+| `temporal`, `--embargo 1d` | 45 | 1 | 3 | 21 embargo |
+| `temporal`, default `7d` | 45 | 0 | 0 | 25 embargo |
+
+The fixture's whole history is shorter than the default embargo, so every held-out row is embargoed. In a vault with months of practice per learning object, only the held-out attempts in the week after each learning object's last training attempt are embargoed.
 
 ## Commands
 
@@ -115,7 +133,7 @@ Delayed unassisted retention (`R_next`) is distinct from a certified cold measur
 |---|---|
 | `learnloop data-quality [--vault PATH]` | Always prints JSON. Opens the database read-only inside one read transaction and reports attempt cohorts by collection version, entry surface and origin (offer links, propensities, durations, grading and contract coverage, completion rows), model-call cohorts, retention-label rejections, cold-opportunity progress, cold terminal dispositions, adjudication counts, and current-version violations. |
 | `learnloop doctor --data-quality [--vault PATH]` | Prints the same report and returns without running the doctor checks; `--fix-state` and `--ai` are ignored with it. |
-| `learnloop dataset-export OUTPUT [--vault PATH]` | Refuses an existing `OUTPUT`. See below. |
+| `learnloop dataset-export OUTPUT [--split-policy temporal\|content] [--embargo DURATION] [--vault PATH]` | Refuses an existing `OUTPUT`, an unknown policy or a malformed embargo, and prints the output path, snapshot hash, artifact count, split policy and split counts. See below. |
 | `learnloop adjudicate-remediation ATTEMPT_ID --false-remediation/--appropriate-remediation --evidence FILE --verifier-version TEXT [--author-kind human\|machine] [--vault PATH]` | Opens the vault through the locked, migrating opener and appends one adjudication; `--author-kind` defaults to `human`. `FILE` is a JSON list of `{table, id}` references. Bad input exits 1 with a one-line message. |
 
 ### What an export contains
@@ -124,7 +142,7 @@ Delayed unassisted retention (`R_next`) is distinct from a certified cold measur
 
 - one JSONL per table whose role is RAW_LEDGER or RECEIPT, plus the captured workflow tables `proposed_patches`, `proposed_patch_items`, `synthesis_runs`, `model_work_checkpoints`, `ingest_batches`, `ingest_jobs` and `attempt_completion_work`;
 - `outcome_contract.jsonl` (the labels above) and `split_assignments.jsonl`;
-- `manifest.json`: dataset, collection and label versions, SHA-256 of the label code, snapshot and schema, migration list, per-artifact row counts and hashes, source asset hashes (assets are referenced, not copied), the inclusion rule, the split rule, and the data-quality report as `missingness`.
+- `manifest.json`: dataset, collection and label versions, SHA-256 of the label code, snapshot and schema, migration list, per-artifact row counts and hashes, source asset hashes (assets are referenced, not copied), the inclusion rule, `split_policy`, `split_parameters` (`{"embargo_seconds": …}` for `temporal`, empty for `content`), `splits` (the policy's rule, the claim it does and does not support, and a note that a version 1 manifest without `split_policy` used the content policy), and the data-quality report as `missingness`. Only the export's copy of the report carries `splits`: `{split_policy, parameters, counts}` with rows per split label. `learnloop data-quality` omits it, because assignment depends on export options.
 
 Each JSONL is hashed while written and fsynced; the snapshot is fsynced; the manifest is written to `manifest.json.tmp`, fsynced, renamed into place, and the directory is fsynced. The manifest is therefore the completion marker. Any failure removes the directory the export created.
 
