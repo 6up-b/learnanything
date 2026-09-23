@@ -668,6 +668,22 @@ class _InjectedLineageFault(RuntimeError):
     prove the raw-event transaction rolls back as one unit (§7.4 fault injection)."""
 
 
+def _commit_or_roll_back(connection: sqlite3.Connection) -> None:
+    """Commit, or end the transaction before re-raising a failed commit.
+
+    A COMMIT that fails (``database is locked`` while a reader holds its
+    SHARED lock past the busy timeout) leaves SQLite's transaction open. On a
+    connection that outlives the caller, the next commit would then publish
+    work whose scope already reported failure.
+    """
+
+    try:
+        connection.commit()
+    except BaseException:
+        connection.rollback()
+        raise
+
+
 class _PinnedConnection:
     """Proxy that hands the same SQLite connection to every repository call.
 
@@ -677,7 +693,8 @@ class _PinnedConnection:
     that once per call, which dominates their runtime. ``Repository.pinned()``
     keeps one connection alive for the block and hands out this proxy, which
     mimics a raw connection's context-manager semantics (commit on clean exit,
-    rollback on error) without closing the underlying handle.
+    rollback on error) without closing the underlying handle. The other
+    connection proxies (owned, atomic, ingest-guarded) live in ``db/scopes.py``.
     """
 
     def __init__(self, connection: sqlite3.Connection) -> None:
@@ -750,16 +767,27 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
 
     @contextmanager
     def atomic(self) -> Iterator[None]:
-        """Commit a local operation once, including its nested store writes."""
+        """Commit a local operation once, including its nested store writes.
+
+        Inside another ``atomic()`` the block becomes a savepoint of the owning
+        transaction. Otherwise it runs one ``BEGIN IMMEDIATE`` transaction on
+        the pinned connection when a pin is active, or on a connection of its
+        own. The transaction always ends before the block's exception or the
+        commit failure propagates, because a pinned connection outlives this
+        scope and the next write on it would otherwise publish the work.
+        """
         from learnloop.db.scopes import AtomicConnection
 
-        previous = getattr(self._pin, "connection", None)
-        if isinstance(previous, AtomicConnection):
-            with previous:
+        current = getattr(self._pin, "connection", None)
+        if isinstance(current, AtomicConnection):
+            with current:
                 yield
             return
-        raw = previous._connection if previous is not None else connect(
-            self.sqlite_path, read_only=self._read_only
+        owns_connection = current is None
+        raw = (
+            connect(self.sqlite_path, read_only=self._read_only)
+            if owns_connection
+            else current._connection
         )
         if raw.in_transaction:
             raise RuntimeError("Repository.atomic() requires no unrelated pending transaction")
@@ -771,11 +799,10 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             except BaseException:
                 raw.rollback()
                 raise
-            else:
-                raw.commit()
+            _commit_or_roll_back(raw)
         finally:
-            self._pin.connection = previous
-            if previous is None:
+            self._pin.connection = current
+            if owns_connection:
                 raw.close()
 
     @contextmanager
@@ -784,7 +811,9 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
 
         Purely a performance measure: repository calls behave as they do
         unpinned, they just skip the per-call schema parse. Nested pins reuse the
-        outermost connection; other threads keep opening their own.
+        outermost connection; other threads keep opening their own. Work left
+        uncommitted on the connection commits when the block succeeds and rolls
+        back when it raises.
         """
 
         if getattr(self._pin, "connection", None) is not None:
@@ -794,12 +823,14 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         self._pin.connection = _PinnedConnection(raw)
         try:
             yield
+        except BaseException:
+            raw.rollback()
+            raise
+        else:
+            _commit_or_roll_back(raw)
         finally:
             self._pin.connection = None
-            try:
-                raw.commit()
-            finally:
-                raw.close()
+            raw.close()
 
     def practice_item_state(self, practice_item_id: str) -> PracticeItemState | None:
         with self.connection() as connection:
