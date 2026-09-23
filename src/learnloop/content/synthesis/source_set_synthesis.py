@@ -2022,6 +2022,69 @@ def revalidate_synthesis_candidate(
     return result
 
 
+@dataclass
+class _SynthesisBudget:
+    """One synthesis run's spend against its ingest token budgets.
+
+    Input is a preflight estimate of every full request (instructions, schema
+    and context), topped up by provider-reported input when that is larger.
+    Output is charged per pass as the larger of the result-size estimate and
+    the provider's report. With ``unlimited`` set, spend is still counted for
+    the usage record but no limit is enforced.
+    """
+
+    budgets: Any
+    unlimited: bool
+    calls: int = 0
+    input_tokens_estimate: int = 0
+    output_tokens_spent: int = 0
+
+    def input_ceiling(self) -> int | None:
+        return None if self.unlimited else self.budgets.synthesis_total_input_ceiling
+
+    def remaining_output(self) -> int | None:
+        return None if self.unlimited else max(0, self.budgets.synthesis_output_tokens - self.output_tokens_spent)
+
+    def check_base_passes(self, needed: int) -> None:
+        ceiling = self.input_ceiling()
+        if ceiling is not None and needed > ceiling:
+            raise StudyMapError(
+                "budget_exceeded",
+                f"Uncached synthesis base passes need about {needed} input tokens, over the "
+                f"total-input ceiling of {ceiling}. Each pass counts the full request: "
+                "instructions, output schema, brief, registry index and the shard's inventories. "
+                "Narrow the source scope or raise synthesis_total_input_ceiling.",
+            )
+
+    def check_next_pass_input(self, tokens: int, *, reserve: int) -> None:
+        """``reserve`` holds back the input of base passes still to run."""
+
+        ceiling = self.input_ceiling()
+        if ceiling is not None and self.input_tokens_estimate + tokens + reserve > ceiling:
+            raise StudyMapError("budget_exceeded", "The next synthesis pass would exceed the total-input ceiling; completed passes are saved.")
+
+    def pass_output_limit(self) -> int | None:
+        if self.unlimited:
+            return None
+        limit = min(self.budgets.synthesis_shard_output_tokens, self.budgets.synthesis_output_tokens - self.output_tokens_spent)
+        if limit <= 0:
+            raise StudyMapError("budget_exceeded", "The synthesis output budget is exhausted; completed passes are saved.")
+        return limit
+
+    def charge_pass(self, *, estimated_input: int, reported_input: int, output: int) -> None:
+        self.calls += 1
+        self.input_tokens_estimate += max(estimated_input, reported_input)
+        self.output_tokens_spent += output
+
+    def check_shard_output(self, result: Any) -> None:
+        if not self.unlimited and _result_tokens(result) > self.budgets.synthesis_shard_output_tokens:
+            raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
+
+    def check_merged_output(self, merged: Any, message: str) -> None:
+        if not self.unlimited and _result_tokens(merged) > self.budgets.synthesis_output_tokens:
+            raise StudyMapError("budget_exceeded", message)
+
+
 def _run_synthesis(
     transport, repository, inputs, vault, source_set, brief, budgets, *, clock,
     client: Any = None, provider: str | None = None, model: str | None = None,
@@ -2033,10 +2096,8 @@ def _run_synthesis(
     merged = None
     span_request_count = 0
     resolved_hashes: list[str] = []
-    calls = 0
     reused_shards = 0
-    input_tokens_estimate = 0
-    output_tokens_spent = 0
+    spend = _SynthesisBudget(budgets, unlimited=unlimited_token_budget)
     schema = SourceSetSynthesis.model_json_schema()
     settings = {**model_settings(client or transport), "provider": provider, "model": model}
 
@@ -2068,37 +2129,20 @@ def _run_synthesis(
     for ordinal, shard, _, cached in shard_states:
         key, tokens = pass_request(base_context(ordinal, shard))
         base_reserves[ordinal] = 0 if cached or repository.model_checkpoint(key) else tokens
-    base_input_needed = sum(base_reserves.values())
-    if not unlimited_token_budget and base_input_needed > budgets.synthesis_total_input_ceiling:
-        raise StudyMapError(
-            "budget_exceeded",
-            f"Uncached synthesis base passes need about {base_input_needed} input tokens, over the "
-            f"total-input ceiling of {budgets.synthesis_total_input_ceiling}. Each pass counts the full "
-            "request: instructions, output schema, brief, registry index and the shard's inventories. "
-            "Narrow the source scope or raise synthesis_total_input_ceiling.",
-        )
+    spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
-        nonlocal calls, input_tokens_estimate, output_tokens_spent
         key, tokens = pass_request(context)
         checkpoint = repository.model_checkpoint(key)
         if checkpoint:
             return SourceSetSynthesis.model_validate(checkpoint["result"])
-        # Estimate the entire request, including the schema and fixed context.
-        # Provider-reported usage is recorded separately; this is a preflight.
-        if not unlimited_token_budget and input_tokens_estimate + tokens + future_input_reserve > budgets.synthesis_total_input_ceiling:
-            raise StudyMapError("budget_exceeded", "The next synthesis pass would exceed the total-input ceiling; completed passes are saved.")
-        output_limit = None if unlimited_token_budget else min(budgets.synthesis_shard_output_tokens, budgets.synthesis_output_tokens - output_tokens_spent)
-        if output_limit is not None and output_limit <= 0:
-            raise StudyMapError("budget_exceeded", "The synthesis output budget is exhausted; completed passes are saved.")
-        input_tokens_estimate += tokens
+        spend.check_next_pass_input(tokens, reserve=future_input_reserve)
+        output_limit = spend.pass_output_limit()
         meter = UsageMeter(client or transport)
         with generation_limit(output_limit):
             result = request_source_set_synthesis(transport, context)
-        calls += 1
-        input_tokens_estimate += max(0, meter.reported().input_tokens - tokens)
         output_charge = meter.output_charge(_result_tokens(result))
-        output_tokens_spent += output_charge
+        spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
         # Save before the budget check. The key does not include the budget:
         # a validated pass is reusable under any budget, and it is already paid.
         repository.save_model_checkpoint(key, purpose="synthesis_pass", result=result.model_dump(mode="json"), usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
@@ -2126,11 +2170,7 @@ def _run_synthesis(
         context = base_context(ordinal, shard)
         future_reserve = sum(tokens for next_ordinal, tokens in base_reserves.items() if next_ordinal > ordinal)
         result = run_pass(context, future_input_reserve=future_reserve)
-        if (
-            not unlimited_token_budget
-            and _result_tokens(result) > budgets.synthesis_shard_output_tokens
-        ):
-            raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
+        spend.check_shard_output(result)
         shard_span_requests = 0
         shard_hashes: list[str] = []
         requests = [r if isinstance(r, dict) else r.model_dump() for r in getattr(result, "span_requests", []) or []]
@@ -2152,11 +2192,7 @@ def _run_synthesis(
             # Reserve the remaining base shards before spending on optional
             # evidence expansion. Re-check before every subsequent base call.
             result = run_pass(context, future_input_reserve=future_reserve)
-            if (
-                not unlimited_token_budget
-                and _result_tokens(result) > budgets.synthesis_shard_output_tokens
-            ):
-                raise StudyMapError("budget_exceeded", "A synthesis shard exceeded its output budget.")
+            spend.check_shard_output(result)
         span_request_count += shard_span_requests
         resolved_hashes.extend(shard_hashes)
         # Checkpoint AFTER the output-budget check so an oversized shard is
@@ -2173,8 +2209,7 @@ def _run_synthesis(
         )
         result = _namespace_synthesis_shard(result, ordinal)
         merged = _merge_synthesis(merged, result) if merged is not None else result
-        if not unlimited_token_budget and _result_tokens(merged) > budgets.synthesis_output_tokens:
-            raise StudyMapError("budget_exceeded", "Merged synthesis exceeded its total output budget; completed shards are saved.")
+        spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget; completed shards are saved.")
 
     if merged is None:
         merged = SourceSetSynthesis()
@@ -2183,25 +2218,19 @@ def _run_synthesis(
     merged, structuring_usage = _model_graph_structuring(
         merged, client, source_set, inputs, repository, vault,
         shard_count=len(shards),
-        input_tokens_estimate=input_tokens_estimate,
-        total_input_ceiling=(
-            None if unlimited_token_budget else budgets.synthesis_total_input_ceiling
-        ),
-        output_budget_tokens=None if unlimited_token_budget else max(0, budgets.synthesis_output_tokens - output_tokens_spent),
+        input_tokens_estimate=spend.input_tokens_estimate,
+        total_input_ceiling=spend.input_ceiling(),
+        output_budget_tokens=spend.remaining_output(),
         progress=progress,
     )
-    calls += int(structuring_usage.pop("calls", 0))
-    input_tokens_estimate += int(structuring_usage.pop("input_tokens_estimate", 0))
+    spend.calls += int(structuring_usage.pop("calls", 0))
+    spend.input_tokens_estimate += int(structuring_usage.pop("input_tokens_estimate", 0))
     usage.update(structuring_usage)
-    if (
-        not unlimited_token_budget
-        and _result_tokens(merged) > budgets.synthesis_output_tokens
-    ):
-        raise StudyMapError("budget_exceeded", "Merged synthesis exceeded its total output budget.")
+    spend.check_merged_output(merged, "Merged synthesis exceeded its total output budget.")
     usage.update({
-        "calls": calls,
-        "input_tokens_estimate": input_tokens_estimate,
-        "output_tokens_charged": output_tokens_spent,
+        "calls": spend.calls,
+        "input_tokens_estimate": spend.input_tokens_estimate,
+        "output_tokens_charged": spend.output_tokens_spent,
         "shard_count": len(shards),
         "reused_shards": reused_shards,
     })
