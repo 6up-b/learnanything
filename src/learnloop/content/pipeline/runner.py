@@ -1,7 +1,6 @@
 """Durable ingest runner (spec_source_ingestion_v2 §6.2).
 
-A repository-backed, leased drain that replaces the old in-memory job manager.
-Work survives restarts: batches/jobs/dependencies live in SQLite, exactly one
+A repository-backed, leased drain. Work survives restarts: batches/jobs/dependencies live in SQLite, exactly one
 vault-writing worker drains at a time under a lease, and explicitly compatible
 DB-only work may use a bounded parallel lane. Every stage is independently
 resumable along the checkpoint ladder::
@@ -15,8 +14,10 @@ Design invariants (mirrors §6.2 and §14):
   downstream job ``blocked`` (never silently ``failed``).
 - ``waiting_for_input`` holds NO lease, so a question to the user cannot block the
   drain of other eligible jobs.
-- Lease = ``worker_id`` + ``heartbeat_at``; on startup an expired ``running`` lease
-  is recovered to ``failed(interrupted)`` and its ``queued`` siblings resume.
+- Lease = ``worker_id`` + ``attempt_count`` + ``heartbeat_at``. An expired
+  ``running`` lease is recovered to ``failed(interrupted)`` at startup and on
+  drain ticks, and its ``queued`` siblings resume. An attempt whose handler is
+  still running in this process is never expired here.
 - Retries are keyed by the stage idempotency hash (asset hash for import,
   extraction_request_hash for extract — reusing the M1 hash model), so a retry
   reuses a completed revision/extraction instead of duplicating it.
@@ -32,18 +33,22 @@ this same object.
 
 from __future__ import annotations
 
+import logging
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.repositories import Repository
+from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
+from learnloop.db.stores.ingest_queue import JobOwner
 from learnloop.ids import new_ulid
-from learnloop.db.scopes import JobOwnershipLost
-from learnloop.vault_lock import vault_mutation_lock
+from learnloop.vault_lock import DEFAULT_TIMEOUT_S, VaultLockTimeout, vault_mutation_lock
 
 # The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
 CHECKPOINT_LADDER: tuple[str, ...] = (
@@ -59,13 +64,28 @@ CHECKPOINT_LADDER: tuple[str, ...] = (
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _UNFINISHED_STATUSES = frozenset({"failed", "blocked", "cancelled"})
 
+_LOG = logging.getLogger(__name__)
+
+# After a failed heartbeat (typically "database is locked" behind a long
+# writer) the next attempt comes sooner than the regular interval, so one
+# failure costs seconds of lease rather than a whole interval.
+_HEARTBEAT_RETRY_SECONDS = 1.0
+
+# Every drain tick expires stale leases at most this often.
+_LEASE_EXPIRY_INTERVAL_SECONDS = 1.0
+# Claims, startup recovery and resume wait this long for another vault
+# writer, then defer rather than fail. A drain tick's lease expiry is retried
+# on the next tick, so it waits only briefly instead of stalling the lane.
+_LEASE_LOCK_TIMEOUT_S = DEFAULT_TIMEOUT_S
+_TICK_EXPIRY_LOCK_TIMEOUT_S = 0.5
+
 
 def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
-    """Correct legacy rung jobs whose result contradicted their queue status.
+    """The status to present for a job, correcting contradictory rung rows.
 
-    Older rung-variant handlers returned ``{"status": "failed"}`` normally, so
-    the generic runner persisted the outer job as completed. Preserve the raw
-    record for audit while presenting and retrying it as the failure it was.
+    A rung-variant row can be ``completed`` while its result reports
+    ``{"status": "failed"}``. Keep the raw record for audit, but present and
+    retry it as the failure it was.
     """
 
     status = str(job.get("status") or "")
@@ -154,7 +174,7 @@ class FetchedBytes:
     # Human-readable metadata captured during the fetch phase, when the source
     # kind exposes it cheaply (e.g. a YouTube video's title + channel via oEmbed).
     # Absent (None/()) for sources with no knowable metadata — the import then
-    # falls back to the URL title as before.
+    # falls back to the URL title.
     title: str | None = None
     authors: tuple[str, ...] = ()
 
@@ -323,6 +343,10 @@ class JobContext:
     def job_id(self) -> str:
         return self.job["id"]
 
+    @property
+    def owner(self) -> JobOwner:
+        return JobOwner(self.worker_id, self.job["attempt_count"])
+
     def report(
         self,
         phase: str,
@@ -342,8 +366,7 @@ class JobContext:
         self._phase = phase
         owned = self.repo.heartbeat_ingest_job(
             self.job_id,
-            worker_id=self.worker_id,
-            attempt_count=self.job.get('attempt_count'),
+            owner=self.owner,
             phase=phase,
             message=message or _phase_message(phase),
             current_window=current_window,
@@ -351,9 +374,7 @@ class JobContext:
             clock=self.clock,
         )
         if not owned:
-            from learnloop.db.scopes import JobOwnershipLost
-
-            raise JobOwnershipLost(f'Job {self.job_id} is owned by another attempt')
+            raise JobOwnershipLost(f"Job {self.job_id} is owned by another attempt")
 
     def record_usage(self, usage: Mapping[str, Any]) -> None:
         """Add one call's usage to the running per-attempt sum (§6.2)."""
@@ -394,6 +415,46 @@ class JobSpec:
     depends_on: tuple[int, ...] = ()
 
 
+class _LiveAttempts:
+    """Job attempts whose handler is executing in this process.
+
+    A lease exists to detect a dead worker. While the thread running an attempt
+    is alive in this process the attempt is not dead, however old its
+    heartbeat is (a suspended laptop, a heartbeat stuck behind a long writer).
+    Recovery in this process consults the registry so it never fails work this
+    process is still doing. Other processes cannot see it and rely on the
+    lease alone.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._attempts: set[tuple[Path, str, str, int]] = set()
+
+    @contextmanager
+    def running(
+        self, database: Path, job_id: str, worker_id: str, attempt_count: int
+    ) -> Iterator[None]:
+        key = (database, job_id, worker_id, attempt_count)
+        with self._lock:
+            self._attempts.add(key)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._attempts.discard(key)
+
+    def contains(
+        self, database: Path, job_id: str, worker_id: str | None, attempt_count: int
+    ) -> bool:
+        if worker_id is None:
+            return False
+        with self._lock:
+            return (database, job_id, worker_id, attempt_count) in self._attempts
+
+
+_LIVE_ATTEMPTS = _LiveAttempts()
+
+
 # ---------------------------------------------------------------------------
 # The runner
 # ---------------------------------------------------------------------------
@@ -421,32 +482,44 @@ class IngestRunner:
             **dict(handlers or {}),
         }
         self.services = services or RunnerServices()
+        # The heartbeat thread renews the lease every interval and retries a
+        # failed renewal after _HEARTBEAT_RETRY_SECONDS, so with the defaults
+        # a lease survives several consecutive failed renewals. Provider call
+        # length does not matter: renewal runs beside the handler.
         self.lease_ttl_seconds = lease_ttl_seconds
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._database = Path(repo.sqlite_path).resolve()
+        self._last_lease_expiry_at: Any = None
         self._interrupt_lock = threading.RLock()
-        self._active_interrupts: dict[str, Callable[[], Any]] = {}
+        # Keyed by attempt: lanes share one runner and worker id, so a job
+        # resumed onto another lane must not share its predecessor's entry.
+        self._active_interrupts: dict[tuple[str, int], Callable[[], Any]] = {}
 
     def active_interruptible_jobs(self) -> list[dict[str, Any]]:
         """Return running jobs that currently own an interruptible AI client."""
 
         with self._interrupt_lock:
-            job_ids = list(self._active_interrupts)
+            attempts = list(self._active_interrupts)
         jobs: list[dict[str, Any]] = []
-        for job_id in job_ids:
+        for job_id, attempt_count in attempts:
             job = self.repo.get_ingest_job(job_id)
-            if job is not None and job.get("status") == "running":
+            if (
+                job is not None
+                and job.get("status") == "running"
+                and job.get("attempt_count") == attempt_count
+            ):
                 jobs.append(job)
         return jobs
 
     def interrupt_job(self, job_id: str) -> bool:
         """Cancel a batch and interrupt the selected job's active provider call."""
 
-        with self._interrupt_lock:
-            interrupt = self._active_interrupts.get(job_id)
-        if interrupt is None:
-            return False
         job = self.repo.get_ingest_job(job_id)
         if job is None or job.get("status") != "running":
+            return False
+        with self._interrupt_lock:
+            interrupt = self._active_interrupts.get((job_id, job["attempt_count"]))
+        if interrupt is None:
             return False
         # Cancel queued siblings too, matching the existing batch-cancel contract
         # and preventing dependants of the interrupted job from remaining queued.
@@ -454,16 +527,16 @@ class IngestRunner:
         interrupt()
         return True
 
-    def _bind_job_interruptible(self, job_id: str, client: Any) -> None:
+    def _bind_job_interruptible(self, job_id: str, attempt_count: int, client: Any) -> None:
         interrupt = interrupt_callback(client)
         if interrupt is None:
             return
         with self._interrupt_lock:
-            self._active_interrupts[job_id] = interrupt
+            self._active_interrupts[(job_id, attempt_count)] = interrupt
 
-    def _clear_job_interruptible(self, job_id: str) -> None:
+    def _clear_job_interruptible(self, job_id: str, attempt_count: int) -> None:
         with self._interrupt_lock:
-            self._active_interrupts.pop(job_id, None)
+            self._active_interrupts.pop((job_id, attempt_count), None)
 
     # -- enqueue -----------------------------------------------------------
 
@@ -513,23 +586,51 @@ class IngestRunner:
     # -- recovery / drive --------------------------------------------------
 
     def recover_stale_leases(self) -> list[str]:
-        """Startup recovery (§6.2): expired ``running`` leases -> ``failed(interrupted)``;
-        their queued siblings simply resume. Returns the recovered job ids."""
+        """Startup recovery (§6.2), run when a host opens the vault.
 
-        with vault_mutation_lock(self.vault_root, purpose='ingest_lease_recovery'):
-            return self._recover_stale_leases_locked()
+        Expired ``running`` leases become ``failed(interrupted)`` and their
+        queued siblings resume; then synthesis runs abandoned by an earlier
+        process are finalized. Returns the recovered job ids. When another
+        writer holds the vault lock past ``_LEASE_LOCK_TIMEOUT_S``, recovery is
+        skipped and returns ``[]``; the drain expires leases on its next tick.
+        """
 
-    def _recover_stale_leases_locked(self) -> list[str]:
-        self._last_recovery_at = self.clock.now()
+        try:
+            with vault_mutation_lock(
+                self.vault_root, purpose="ingest_lease_recovery", timeout_s=_LEASE_LOCK_TIMEOUT_S
+            ):
+                recovered = self._expire_stale_leases_locked()
+                self._finalize_abandoned_synthesis_runs_locked()
+        except VaultLockTimeout:
+            _LOG.warning("Skipped ingest lease recovery: the vault lock is busy", exc_info=True)
+            return []
+        return recovered
+
+    def _expire_stale_leases(self, *, lock_timeout_s: float) -> list[str] | None:
+        """Expire running leases older than the TTL, or return None if the
+        vault lock stayed busy for ``lock_timeout_s``."""
+
+        try:
+            with vault_mutation_lock(
+                self.vault_root, purpose="ingest_lease_recovery", timeout_s=lock_timeout_s
+            ):
+                return self._expire_stale_leases_locked()
+        except VaultLockTimeout:
+            return None
+
+    def _expire_stale_leases_locked(self) -> list[str]:
+        self._last_lease_expiry_at = self.clock.now()
         cutoff = self._lease_cutoff_iso()
         recovered: list[str] = []
         for job in self.repo.expired_running_ingest_jobs(cutoff):
-            changed = self.repo.finish_ingest_job(
+            if _LIVE_ATTEMPTS.contains(
+                self._database, job["id"], job.get("worker_id"), job["attempt_count"]
+            ):
+                continue
+            changed = self.repo.expire_ingest_lease(
                 job["id"],
-                status="failed",
-                worker_id=job.get('worker_id'),
-                attempt_count=job['attempt_count'],
-                expected_status='running',
+                worker_id=job.get("worker_id"),
+                attempt_count=job["attempt_count"],
                 lease_cutoff_iso=cutoff,
                 phase="failed",
                 message="Interrupted before completion",
@@ -541,10 +642,18 @@ class IngestRunner:
             recovered.append(job["id"])
             self._propagate_blocks(job["batch_id"])
             self._refresh_batch(job["batch_id"])
-        # Startup hygiene: historical error paths left synthesis_runs rows in
-        # 'created'/'running' forever. Finalize abandoned rows — but never while
-        # any synthesis job still holds a live lease (its run row is legitimately
-        # non-terminal mid-flight).
+        return recovered
+
+    def _finalize_abandoned_synthesis_runs_locked(self) -> None:
+        """Finalize non-terminal synthesis runs older than the lease cutoff.
+
+        Runs only at startup: synchronous RPC and CLI synthesis runs have no
+        ingest job lease, so a periodic sweep would fail one that is still
+        executing. A synthesis job with a live lease also suspends the sweep,
+        because its run row is legitimately non-terminal mid-flight.
+        """
+
+        cutoff = self._lease_cutoff_iso()
         live_synthesis = any(
             job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
             and job["status"] == "running"
@@ -553,7 +662,12 @@ class IngestRunner:
         )
         if not live_synthesis:
             self.repo.finalize_stale_synthesis_runs(before_iso=cutoff, clock=self.clock)
-        return recovered
+
+    def _lease_expiry_due(self) -> bool:
+        last = self._last_lease_expiry_at
+        if last is None:
+            return True
+        return (self.clock.now() - last).total_seconds() >= _LEASE_EXPIRY_INTERVAL_SECONDS
 
     def run_next(
         self,
@@ -564,24 +678,34 @@ class IngestRunner:
         max_parallel: int | None = None,
     ) -> bool:
         """Claim and run one eligible job. Returns False when nothing was run
-        (no eligible job, or another worker holds the drain lease)."""
+        (no eligible job, another worker holds the drain lease, or another
+        writer held the vault lock past the claim timeout)."""
 
-        last_recovery = getattr(self, '_last_recovery_at', None)
-        if last_recovery is None or (self.clock.now() - last_recovery).total_seconds() >= 1:
-            self.recover_stale_leases()
-        with vault_mutation_lock(self.vault_root, purpose='ingest_lease_claim'):
-            job = self.repo.claim_next_ingest_job(
-                worker_id=self.worker_id,
-                now_iso=utc_now_iso(self.clock),
-                lease_cutoff_iso=self._lease_cutoff_iso(),
-                eligible_job_types=eligible_job_types,
-                compatible_running_job_types=compatible_running_job_types,
-                allow_parallel=allow_parallel,
-                max_parallel=max_parallel,
-            )
+        if self._lease_expiry_due():
+            # Skipped when the vault lock is busy; retried on the next tick.
+            self._expire_stale_leases(lock_timeout_s=_TICK_EXPIRY_LOCK_TIMEOUT_S)
+        try:
+            with vault_mutation_lock(
+                self.vault_root, purpose="ingest_lease_claim", timeout_s=_LEASE_LOCK_TIMEOUT_S
+            ):
+                job = self.repo.claim_next_ingest_job(
+                    worker_id=self.worker_id,
+                    now_iso=utc_now_iso(self.clock),
+                    lease_cutoff_iso=self._lease_cutoff_iso(),
+                    eligible_job_types=eligible_job_types,
+                    compatible_running_job_types=compatible_running_job_types,
+                    allow_parallel=allow_parallel,
+                    max_parallel=max_parallel,
+                )
+        except VaultLockTimeout:
+            _LOG.info("Ingest claim deferred: the vault lock is busy")
+            return False
         if job is None:
             return False
-        self._run_claimed(job)
+        with _LIVE_ATTEMPTS.running(
+            self._database, job["id"], self.worker_id, job["attempt_count"]
+        ):
+            self._run_claimed(job)
         return True
 
     def drain(
@@ -617,7 +741,7 @@ class IngestRunner:
         self.repo.request_ingest_batch_cancel(batch_id)
         for job in self.repo.ingest_jobs_for_batch(batch_id):
             if job["status"] in {"queued", "blocked", "waiting_for_input"}:
-                self.repo.finish_ingest_job(
+                self.repo.transition_unleased_ingest_job(
                     job["id"],
                     status="cancelled",
                     phase="cancelled",
@@ -636,7 +760,9 @@ class IngestRunner:
         attempt and claim remain untouched; only generation-owned state resets.
         """
 
-        self.recover_stale_leases()
+        # Fail this batch's expired running jobs first so they are requeued
+        # below. A busy vault lock skips that; the drain expires them later.
+        self._expire_stale_leases(lock_timeout_s=_LEASE_LOCK_TIMEOUT_S)
         batch = self.repo.get_ingest_batch(batch_id)
         if batch is None:
             raise IngestRunnerError(f"batch '{batch_id}' does not exist.")
@@ -662,11 +788,10 @@ class IngestRunner:
 
     def _run_claimed(self, job: dict[str, Any]) -> None:
         batch_id = job["batch_id"]
+        owner = JobOwner(self.worker_id, job["attempt_count"])
+
         def finish(job_id, **values):
-            return self.repo.finish_ingest_job(
-                job_id, worker_id=self.worker_id, attempt_count=job['attempt_count'],
-                expected_status='running', **values,
-            )
+            return self.repo.finish_owned_ingest_job(job_id, owner=owner, **values)
 
         self.repo.update_ingest_batch_status(batch_id, "running", mark_started=True, clock=self.clock)
         ctx = JobContext(
@@ -677,7 +802,9 @@ class IngestRunner:
             worker_id=self.worker_id,
             services=self.services,
             _usage=dict(job.get("usage") or {}),
-            _bind_interruptible=lambda client: self._bind_job_interruptible(job["id"], client),
+            _bind_interruptible=lambda client: self._bind_job_interruptible(
+                job["id"], job["attempt_count"], client
+            ),
         )
         if ctx.cancelled():
             finish(
@@ -698,24 +825,25 @@ class IngestRunner:
             heartbeat_stop = threading.Event()
             heartbeat_thread = threading.Thread(
                 target=self._heartbeat_while_running,
-                args=(job["id"], heartbeat_stop, job["attempt_count"]),
+                args=(job["id"], heartbeat_stop, ctx.owner),
                 name=f"ingest-heartbeat-{job['id']}",
                 daemon=True,
             )
             heartbeat_thread.start()
             try:
-                from learnloop.db.scopes import guard_ingest_writes
-                from learnloop.ai.execution import observe_model_calls
-
-                with guard_ingest_writes(self.repo.sqlite_path, job['id'], self.worker_id, job['attempt_count']), observe_model_calls(
-                    lambda action, event: self.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=job['id'])
+                with guard_ingest_writes(
+                    self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
+                ), observe_model_calls(
+                    lambda action, event: self.repo.record_model_event(
+                        action, event, owner_kind="ingest_job", owner_id=job["id"]
+                    )
                 ):
                     result = handler(ctx)
             finally:
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=1)
         except JobOwnershipLost:
-            self._clear_job_interruptible(job['id'])
+            self._clear_job_interruptible(job["id"], job["attempt_count"])
             return
         except JobCancelled:
             finish(
@@ -799,25 +927,32 @@ class IngestRunner:
                 )
                 if completed and job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
                     self.repo.bump_queue_revision(clock=self.clock)
-        self._clear_job_interruptible(job["id"])
+        self._clear_job_interruptible(job["id"], job["attempt_count"])
         self._refresh_batch(batch_id)
 
-    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, attempt_count: int | None = None) -> None:
-        """Keep a blocking extractor/LLM stage's lease alive until it returns."""
+    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None:
+        """Keep a blocking extractor/LLM stage's lease alive until it returns.
+
+        A failed renewal is logged and retried; only a definitive ownership
+        loss ends the loop, because a dead heartbeat thread would let the
+        lease expire under a handler that is still working.
+        """
 
         interval = max(0.01, self.heartbeat_interval_seconds)
-        while not stop.wait(interval):
-            owned = self.repo.heartbeat_ingest_job(
-                job_id,
-                worker_id=self.worker_id,
-                attempt_count=attempt_count,
-                clock=self.clock,
-            )
+        wait_seconds = interval
+        while not stop.wait(wait_seconds):
+            try:
+                owned = self.repo.heartbeat_ingest_job(job_id, owner=owner, clock=self.clock)
+            except Exception:  # noqa: BLE001 - renewal must outlive transient DB errors
+                _LOG.warning("Lease renewal for ingest job %s failed; retrying", job_id, exc_info=True)
+                wait_seconds = min(interval, _HEARTBEAT_RETRY_SECONDS)
+                continue
+            wait_seconds = interval
             if not owned:
                 # Stop only this runner's transport. Cancelling the batch here
                 # would cancel the replacement owner's valid work as well.
                 with self._interrupt_lock:
-                    interrupt = self._active_interrupts.get(job_id)
+                    interrupt = self._active_interrupts.get((job_id, owner.attempt_count))
                 if interrupt is not None:
                     interrupt()
                 return
@@ -836,7 +971,7 @@ class IngestRunner:
                 for dep_id in self.repo.ingest_job_dependency_ids(job["id"]):
                     dep = jobs.get(dep_id)
                     if dep is not None and dep["status"] in _UNFINISHED_STATUSES:
-                        self.repo.finish_ingest_job(
+                        self.repo.transition_unleased_ingest_job(
                             job["id"],
                             status="blocked",
                             phase="blocked",

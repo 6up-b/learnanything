@@ -30,6 +30,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
+from pydantic import ValidationError
+
 from learnloop.ai.execution import content_key, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
@@ -2126,14 +2128,15 @@ def _run_synthesis(
     base_reserves = {}
     for ordinal, shard, _, cached in shard_states:
         key, tokens = pass_request(base_context(ordinal, shard))
-        base_reserves[ordinal] = 0 if cached or repository.model_checkpoint(key) else tokens
+        reusable = cached or _checkpointed_pass(repository, key) is not None
+        base_reserves[ordinal] = 0 if reusable else tokens
     spend.check_base_passes(sum(base_reserves.values()))
 
     def run_pass(context, *, future_input_reserve=0):
         key, tokens = pass_request(context)
-        checkpoint = repository.model_checkpoint(key)
-        if checkpoint:
-            return SourceSetSynthesis.model_validate(checkpoint["result"])
+        checkpointed = _checkpointed_pass(repository, key)
+        if checkpointed is not None:
+            return checkpointed
         spend.check_next_pass_input(tokens, reserve=future_input_reserve)
         output_limit = spend.pass_output_limit()
         meter = UsageMeter(client or transport)
@@ -2233,6 +2236,23 @@ def _run_synthesis(
         "reused_shards": reused_shards,
     })
     return merged, span_request_count, resolved_hashes, usage
+
+
+def _checkpointed_pass(repository: Repository, key: str) -> SourceSetSynthesis | None:
+    """Return a saved synthesis pass, discarding one that no longer validates.
+
+    Checkpoints are write-once, so an unreadable pass would otherwise fail
+    every retry, and the budget preflight would count it as already paid.
+    """
+
+    checkpoint = repository.model_checkpoint(key)
+    if checkpoint is None:
+        return None
+    try:
+        return SourceSetSynthesis.model_validate(checkpoint["result"])
+    except ValidationError:
+        repository.discard_model_checkpoint(key)
+        return None
 
 
 def _synthesis_pass_key(prompt: str, schema: dict[str, Any], settings: dict[str, Any]) -> str:

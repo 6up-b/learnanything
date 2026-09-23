@@ -2,13 +2,13 @@
 
 Acquisition/provider defaults and domain handlers live here, separate from the
 leased queue state machine in :mod:`learnloop.content.pipeline.runner`. The
-durable host replaced the old in-memory/subprocess job manager. Its sidecar-facing
-API (``start``/``get``/``list``/
-``cancel``/``needs_reload``/``mark_reloaded``/``shutdown``) is unchanged, but the
-job now lives in the durable queue (``ingest_batches``/``ingest_jobs``): a single
-``legacy_ingest`` batch that survives restarts. A background drain thread hosts
-the runner while the app is open; on next open, ``IngestRunner.recover_stale_leases``
-resumes anything left unfinished.
+durable host (:class:`DurableIngestJobs`) exposes the sidecar-facing API
+(``start``/``get``/``list``/``cancel``/``needs_reload``/``mark_reloaded``/
+``shutdown``) over the durable queue (``ingest_batches``/``ingest_jobs``), so a
+single-source ingest is a batch that survives restarts. A background drain
+thread hosts the runner while the app is open. Opening the vault runs
+``IngestRunner.recover_stale_leases``, and each drain tick expires stale leases,
+so work a dead worker left ``running`` fails as interrupted and can be resumed.
 
 Determinism: ``bind(..., background=False)`` disables the thread so tests drain
 synchronously via ``drain_foreground()`` with stubbed :class:`RunnerServices`.
@@ -23,6 +23,7 @@ import os
 import queue
 import re
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence
@@ -58,6 +59,10 @@ from learnloop.content.pipeline.runner import (
 # Handler execution defaults remain here with the concrete jobs they govern.
 _MAX_INVENTORY_WORKERS = 2
 INGEST_CODEX_TIMEOUT_SECONDS = 8 * 60
+# The parallel inventory loop wakes on every worker request or completion,
+# so this only bounds how late a batch cancellation is noticed. Each check
+# opens two connections (job and batch), so polling faster costs runner CPU.
+_INVENTORY_CANCEL_POLL_SECONDS = 0.25
 
 _LEGACY_PHASE_TO_LADDER = {
     "preparing": "acquired",
@@ -871,7 +876,7 @@ def default_run_legacy_ingest(
     progress: Callable[[str, dict[str, Any]], None] | None,
     clock: Clock | None,
     ir_markdown: str | None = None,
-    ir_extraction_id: str | None = None,
+    resume_extraction_id: str | None = None,
     **_ignored: Any,
 ) -> Any:
     """Run the legacy one-shot pipeline in-process with a ready provider client.
@@ -902,7 +907,7 @@ def default_run_legacy_ingest(
         codex_revision=getattr(runtime, "actual_revision", None),
         purpose=purpose,
         ir_markdown=ir_markdown,
-        ir_extraction_id=ir_extraction_id,
+        resume_extraction_id=resume_extraction_id,
         clock=clock,
         progress=progress,
     )
@@ -1127,6 +1132,83 @@ class _InventoryInterruptGroup:
         return capability == INTERRUPT
 
 
+class _RunnerMailbox:
+    """Carry inventory workers' requests to the runner thread and back.
+
+    Workers own provider clients, but every SQL write runs on the runner
+    thread, where the job's ownership fence and progress reporting live. A
+    worker posts a callback and waits for the runner to answer it. Once the
+    runner closes the mailbox nothing answers any more, so every unanswered
+    and later request fails with :class:`JobCancelled` instead of waiting
+    forever on a runner that has stopped.
+    """
+
+    _ANSWER_POLL_SECONDS = 0.25
+
+    def __init__(self) -> None:
+        # ``None`` is a wake-up with nothing to answer.
+        self._requests: queue.SimpleQueue[
+            tuple[Callable[[], Any], concurrent.futures.Future] | None
+        ] = queue.SimpleQueue()
+        self._closed = threading.Event()
+
+    def call(self, callback: Callable[[], Any]) -> Any:
+        """Worker side: run ``callback`` on the runner thread; return its result."""
+
+        answer: concurrent.futures.Future = concurrent.futures.Future()
+        self._requests.put((callback, answer))
+        while not answer.done():
+            if self._closed.is_set():
+                raise JobCancelled()
+            concurrent.futures.wait((answer,), timeout=self._ANSWER_POLL_SECONDS)
+        return answer.result()
+
+    def wake(self, *_ignored: Any) -> None:
+        """Wake a runner waiting in :meth:`answer_pending` (a worker finished)."""
+
+        self._requests.put(None)
+
+    def answer_pending(self, *, wait_seconds: float = 0.0) -> BaseException | None:
+        """Runner side: answer every queued request; return the first failure.
+
+        Waits up to ``wait_seconds`` for the first request or wake-up, then
+        answers whatever else is already queued without waiting.
+        """
+
+        first_failure: BaseException | None = None
+        timeout = wait_seconds
+        while True:
+            try:
+                if timeout > 0:
+                    request = self._requests.get(timeout=timeout)
+                else:
+                    request = self._requests.get_nowait()
+            except queue.Empty:
+                return first_failure
+            timeout = 0.0
+            if request is None:
+                continue
+            callback, answer = request
+            try:
+                answer.set_result(callback())
+            except BaseException as exc:
+                answer.set_exception(exc)
+                first_failure = first_failure or exc
+
+    def close(self) -> None:
+        """Runner side: stop answering and fail every unanswered request."""
+
+        self._closed.set()
+        while True:
+            try:
+                request = self._requests.get_nowait()
+            except queue.Empty:
+                return
+            if request is not None:
+                _callback, answer = request
+                answer.set_exception(JobCancelled())
+
+
 def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     """inventory: role-aware per-unit inventories for the selected units (§7).
 
@@ -1190,7 +1272,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     results_by_index: dict[int, InventoryResult] = {}
     work_by_index: dict[int, PreparedInventory] = {}
 
-    def prepare(index: int, provider_identity: tuple[str, str]) -> None:
+    def prepare(index: int, provider_identity: tuple[str, str], client: Any = None) -> None:
         spec = specs[index]
         resolved = prepare_unit_inventory(
             ctx.repo,
@@ -1199,6 +1281,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             unit_ids=spec["unit_ids"],
             role=str(spec.get("role") or "reference"),
             profile=spec.get("profile"),
+            client=client,
             provider=provider_identity[0],
             model=provider_identity[1],
             input_budget_tokens=budget,
@@ -1220,13 +1303,14 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             warm_client = ctx.services.inventory_client(
                 ctx, bind_interruptible=False
             )
-        actual_identity = inventory_client_identity(warm_client)
-        if actual_identity != identity:
-            # Runtime routing may have selected the configured fallback. Recheck
-            # those misses under the identity that will actually produce them.
-            for index in list(work_by_index):
-                prepare(index, actual_identity)
-            identity = actual_identity
+        # Prepare the misses again with the client that will run them. Window
+        # checkpoint keys include its settings (endpoint, reasoning effort),
+        # matching run_unit_inventory's keys for the same inputs, and runtime
+        # routing may have selected the configured fallback, whose identity
+        # the unit inventory cache must be checked under.
+        identity = inventory_client_identity(warm_client)
+        for index in list(work_by_index):
+            prepare(index, identity, warm_client)
 
     if work_by_index:
         worker_count = min(_MAX_INVENTORY_WORKERS, len(work_by_index))
@@ -1248,31 +1332,26 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
 
         interrupt_group = _InventoryInterruptGroup()
         ctx.bind_interruptible(interrupt_group)
-        events: queue.SimpleQueue = queue.SimpleQueue()
+        mailbox = _RunnerMailbox()
         stopped = threading.Event()
         total_model_windows = sum(len(prepared.windows) for prepared in work_by_index.values())
         completed_model_windows = 0
         ctx.report("inventoried", message="Inventorying uncached units", current_window=0, total_windows=total_model_windows)
-
-        def on_runner(callback):
-            receipt = concurrent.futures.Future()
-            events.put((callback, receipt))
-            return receipt.result()
 
         def run_unit(client, index, prepared):
             interrupt_group.add(client)
             def observe(action, event):
                 if action == "start" and stopped.is_set():
                     raise JobCancelled()
-                return on_runner(lambda: ctx.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=ctx.job["id"]))
+                return mailbox.call(lambda: ctx.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=ctx.job["id"]))
             def checkpoint(key, result, usage):
-                on_runner(lambda: ctx.repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage))
+                mailbox.call(lambda: ctx.repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage))
             def report_window(current, total):
                 def report():
                     nonlocal completed_model_windows
                     completed_model_windows += 1
                     ctx.report("inventoried", message=f"Inventoried {prepared.unit_id} window {current} of {total}", current_window=completed_model_windows, total_windows=total_model_windows)
-                on_runner(report)
+                mailbox.call(report)
                 if stopped.is_set():
                     raise JobCancelled()
             try:
@@ -1283,47 +1362,57 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
                 interrupt_group.discard(client)
 
         work = iter(sorted(work_by_index.items()))
-        failure = None
+        failure: BaseException | None = None
         with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="learnloop-inventory") as executor:
-            pending = {}
+            pending: dict[concurrent.futures.Future, Any] = {}
             def submit(client):
                 item = next(work, None)
                 if item is not None:
                     index, prepared = item
-                    pending[executor.submit(copy_context().run, run_unit, client, index, prepared)] = client
-            for client in clients:
-                submit(client)
-            while pending:
-                done, _ = concurrent.futures.wait(pending, timeout=0.05, return_when=concurrent.futures.FIRST_COMPLETED)
-                while not events.empty():
-                    callback, receipt = events.get_nowait()
-                    try:
-                        receipt.set_result(callback())
-                    except BaseException as exc:
-                        receipt.set_exception(exc)
-                        failure = failure or exc
-                try:
-                    if ctx.cancelled():
-                        raise JobCancelled()
-                except BaseException as exc:
-                    failure = failure or exc
-                free_clients = []
-                for future in done:
-                    free_clients.append(pending.pop(future))
-                    try:
-                        index, prepared, execution = future.result()
-                        result = persist_prepared_inventory(ctx.repo, prepared, execution, clock=ctx.clock)
-                        ctx.record_usage(dict(result.usage or {}))
-                        results_by_index[index] = result
-                    except BaseException as exc:
-                        failure = failure or exc
-                if failure is not None:
-                    if not stopped.is_set():
-                        stopped.set()
-                        interrupt_group.interrupt()
-                else:
-                    for client in free_clients:
-                        submit(client)
+                    future = executor.submit(copy_context().run, run_unit, client, index, prepared)
+                    future.add_done_callback(mailbox.wake)
+                    pending[future] = client
+            try:
+                for client in clients:
+                    submit(client)
+                next_cancel_check = time.monotonic()
+                while pending:
+                    answer_failure = mailbox.answer_pending(wait_seconds=_INVENTORY_CANCEL_POLL_SECONDS)
+                    failure = failure or answer_failure
+                    if time.monotonic() >= next_cancel_check:
+                        next_cancel_check = time.monotonic() + _INVENTORY_CANCEL_POLL_SECONDS
+                        try:
+                            if ctx.cancelled():
+                                raise JobCancelled()
+                        except BaseException as exc:
+                            failure = failure or exc
+                    done = [future for future in pending if future.done()]
+                    free_clients = []
+                    for future in done:
+                        free_clients.append(pending.pop(future))
+                        try:
+                            index, prepared, execution = future.result()
+                            result = persist_prepared_inventory(ctx.repo, prepared, execution, clock=ctx.clock)
+                            ctx.record_usage(dict(result.usage or {}))
+                            results_by_index[index] = result
+                        except BaseException as exc:
+                            failure = failure or exc
+                    if failure is not None:
+                        if not stopped.is_set():
+                            stopped.set()
+                            interrupt_group.interrupt()
+                    else:
+                        for client in free_clients:
+                            submit(client)
+            finally:
+                if pending:
+                    # The loop ended with workers still running, e.g. on a
+                    # KeyboardInterrupt raised on this thread. Stop their
+                    # provider calls; closing the mailbox releases any worker
+                    # waiting for an answer, so the executor can join them.
+                    stopped.set()
+                    interrupt_group.interrupt()
+                mailbox.close()
             if failure is not None:
                 raise failure
 
@@ -1809,9 +1898,16 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
     # M3.5 v2-lite: when this legacy_ingest depends on a completed import job, the
     # source was already extracted once into a Document IR. Feed synthesis the IR's
     # display rendering (selected units only, if a selection was persisted) rather
-    # than re-fetching/re-extracting. No import dependency (legacy call path) →
-    # ir_markdown is None and the pipeline keeps its byte-identical legacy behavior.
-    ir_markdown = _legacy_ir_markdown(ctx)
+    # than re-extracting. No import dependency (legacy call path) → ir_markdown
+    # is None and the pipeline keeps its byte-identical legacy behavior.
+    extraction_id = _legacy_ir_extraction_id(ctx)
+    ir_markdown = _legacy_ir_markdown(ctx, extraction_id)
+    # The first attempt fetches the source again: the fetch carries caption
+    # cues, arXiv native locators, authors, license and labels that the IR
+    # does not. A retry synthesizes from the import's retained bytes and IR
+    # instead, so it still works when the source moved or went offline.
+    is_retry = int(ctx.job.get("attempt_count") or 1) > 1
+    resume_extraction_id = extraction_id if is_retry and ir_markdown is not None else None
 
     def _progress(phase: str, details: dict[str, Any]) -> None:
         ladder = _LEGACY_PHASE_TO_LADDER.get(phase, "acquired")
@@ -1828,7 +1924,7 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
         subject_id=subject_id,
         mode=mode,
         ir_markdown=ir_markdown,
-        **({"ir_extraction_id": _legacy_ir_extraction_id(ctx)} if ir_markdown is not None else {}),
+        **({"resume_extraction_id": resume_extraction_id} if resume_extraction_id else {}),
         progress=_progress,
         clock=ctx.clock,
     )
@@ -1852,8 +1948,7 @@ def _legacy_ir_extraction_id(ctx: JobContext) -> str | None:
     return extraction_id
 
 
-
-def _legacy_ir_markdown(ctx: JobContext) -> str | None:
+def _legacy_ir_markdown(ctx: JobContext, extraction_id: str | None) -> str | None:
     """Render the IR from this job's completed ``import`` dependency, if any (§2.3).
 
     Returns the display markdown for the extraction the import stage produced,
@@ -1863,7 +1958,6 @@ def _legacy_ir_markdown(ctx: JobContext) -> str | None:
 
     from learnloop.ingest.ir import render_ir_markdown
 
-    extraction_id = _legacy_ir_extraction_id(ctx)
     if extraction_id is None:
         return None
 
@@ -2447,7 +2541,7 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
         if use_video_model:
             video_client = ctx.services.video_client(ctx)
     except IngestRunnerError as exc:
-        # A provider that cannot be built used to leave the row wedged in
+        # A provider that cannot be built would leave the row wedged in
         # "queued"; mark it failed so the inspector shows why.
         if row is not None and row.get("status") in ("queued", "generating"):
             ctx.repo.update_concept_animation(
@@ -2572,8 +2666,8 @@ class DurableIngestJobs:
         self._work_available = threading.Event()
         self._quick_check_work_available = threading.Event()
         # Demand-paged reader synthesis: the same worker thread drains queued
-        # reader_background_requests with a real model client (spec §6.4 — the
-        # drain was previously never invoked, so requests sat queued forever).
+        # reader_background_requests with a real model client (spec §6.4);
+        # nothing else drains them, so without it they would stay queued.
         self._reader_synth_client_factory: Any = None
         self._reader_client: Any = None
         self._reader_client_checked = False

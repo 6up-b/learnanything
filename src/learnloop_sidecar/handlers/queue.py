@@ -93,7 +93,8 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     )
     slate_id = queue[0].scheduler_slate_id if queue else None
     # Teach-back items dead-end without their AI provider, so they are dropped
-    # from the offer and the final offer records the filtering.
+    # from the offered queue while it is down. The filtered list is what
+    # finalize_scheduler_offer records as offered.
     queue = filter_unready_teach_back_items(
         vault, queue, grading_provider_override=ctx.grading_provider_override
     )

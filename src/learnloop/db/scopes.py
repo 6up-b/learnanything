@@ -11,7 +11,7 @@ from pathlib import Path
 from functools import wraps
 from inspect import signature
 from typing import Any
-from learnloop.db.stores.ingest_queue import owns_ingest_job
+from learnloop.db.stores.ingest_queue import JobOwner, owns_ingest_job
 
 
 class JobOwnershipLost(RuntimeError):
@@ -22,23 +22,52 @@ class JobOwnershipLost(RuntimeError):
 class _JobGuard:
     path: Path
     job_id: str
-    worker_id: str
-    attempt_count: int
+    owner: JobOwner
 
     def check(self, connection):
-        if not owns_ingest_job(connection, self.job_id, self.worker_id, self.attempt_count):
-            raise JobOwnershipLost(f'Job {self.job_id} no longer owns attempt {self.attempt_count}')
+        if not owns_ingest_job(connection, self.job_id, self.owner):
+            raise JobOwnershipLost(
+                f'Job {self.job_id} no longer owns attempt {self.owner.attempt_count}'
+            )
 
 
 _job_guard: ContextVar[_JobGuard | None] = ContextVar('ingest_write_guard', default=None)
 
+_LEADING_COMMENTS = re.compile(r'\A(?:\s+|--[^\n]*(?:\n|$)|/\*.*?\*/)*', re.S)
+_WRITE_VERBS = frozenset({'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'ALTER', 'DROP'})
+_STRING_LITERALS = re.compile(r"'(?:[^']|'')*'")
+# The DML forms a CTE body can end in. REPLACE must be followed by INTO so the
+# replace() string function in a read does not count.
+_CTE_WRITE = re.compile(
+    r'\b(?:INSERT|REPLACE)\s+(?:OR\s+\w+\s+)?INTO\b|\bUPDATE\b|\bDELETE\s+FROM\b',
+    re.I,
+)
+
+
+def _is_write_statement(sql: str) -> bool:
+    """Whether a statement can modify the database.
+
+    A ``WITH`` statement is a write only when it ends in DML; a CTE ``SELECT``
+    is a read and must not take the write lock or an ownership check.
+    """
+
+    statement = _LEADING_COMMENTS.sub('', sql)
+    verb = statement.split(None, 1)[0].upper() if statement else ''
+    if verb == 'WITH':
+        return _CTE_WRITE.search(_STRING_LITERALS.sub("''", statement)) is not None
+    return verb in _WRITE_VERBS
+
 
 @contextmanager
-def allow_late_model_observation():
-    """Only the receipt store uses this to finish a previously started call.
+def allow_late_model_records():
+    """Let the model-call store record paid work after its job lost ownership.
 
     Losing a job's lease removes publication authority, but does not erase
-    billable work. The store must constrain the update to its own started ID.
+    billable work. Only two writes use this: finishing a receipt the attempt
+    itself started (constrained to that receipt's id and owner), and saving a
+    validated checkpoint. Checkpoints are write-once, keyed by their inputs
+    and never canonical state, so a late one is exactly the work a successor
+    would otherwise pay for again.
     """
     token = _job_guard.set(None)
     try:
@@ -52,7 +81,7 @@ def guard_ingest_writes(path, job_id, worker_id, attempt_count):
     """Fence all repositories for this database on the current worker thread."""
     from learnloop.vault_lock import guard_vault_mutations
 
-    guard = _JobGuard(Path(path).resolve(), job_id, worker_id, attempt_count)
+    guard = _JobGuard(Path(path).resolve(), job_id, JobOwner(worker_id, attempt_count))
     token = _job_guard.set(guard)
 
     def check_vault(_root):
@@ -97,15 +126,16 @@ class _GuardedConnection:
         self._checked = False
 
     def _before(self, sql):
-        statement = re.sub(r'\A(?:\s+|--[^\n]*(?:\n|$)|/\*.*?\*/)*', '', sql, flags=re.S)
-        verb = statement.split(None, 1)[0].upper() if statement else ''
-        if verb in {'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'WITH', 'CREATE', 'ALTER', 'DROP'}:
+        if _is_write_statement(sql):
             if not self._connection.in_transaction:
                 self._connection.execute('BEGIN IMMEDIATE')
                 self._checked = False
             if not self._checked:
                 self._guard.check(self._connection)
                 self._checked = True
+            return
+        statement = _LEADING_COMMENTS.sub('', sql)
+        verb = statement.split(None, 1)[0].upper() if statement else ''
         if verb in {'COMMIT', 'ROLLBACK', 'END'}:
             self._checked = False
 
@@ -187,7 +217,7 @@ class OwnedConnection:
 
 
 class AtomicConnection:
-    """Keep legacy per-method commits inside an owning transaction.
+    """Keep store methods' own commits inside an owning transaction.
 
     Explicit BEGIN/COMMIT pairs become savepoints. Context managers get their
     own savepoint, so a caught inner exception rolls back only that operation.

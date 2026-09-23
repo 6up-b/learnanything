@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import os
+import stat
 from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -91,3 +96,41 @@ def test_backfill_statuses(tmp_path):
 
     status, path = backfill_original(tmp_path, digest="sha256:feed", original_uri="https://ex/gone.pdf")
     assert status == "missing" and path is None
+
+
+def test_stored_original_is_world_readable_under_the_default_umask(tmp_path):
+    previous = os.umask(0o022)
+    try:
+        stored = store_original_bytes(tmp_path, "sha256:mode", b"original bytes")
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE(stored.stat().st_mode) == 0o644
+
+
+def test_failed_original_write_leaves_no_temporary_file(tmp_path, monkeypatch):
+    def failing_fsync(_descriptor):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(os, "fsync", failing_fsync)
+    with pytest.raises(OSError):
+        store_original_bytes(tmp_path, "sha256:full-disk", b"original bytes")
+    raw_dir = canonical_source_raw_path(tmp_path, "sha256:full-disk").parent
+    assert list(raw_dir.iterdir()) == []
+
+
+def test_original_bytes_are_synced_before_they_become_visible(tmp_path, monkeypatch):
+    events = []
+    real_fsync, real_replace = os.fsync, Path.replace
+
+    def recording_fsync(descriptor):
+        events.append("fsync")
+        return real_fsync(descriptor)
+
+    def recording_replace(path, target):
+        events.append("rename")
+        return real_replace(path, target)
+
+    monkeypatch.setattr(os, "fsync", recording_fsync)
+    monkeypatch.setattr(Path, "replace", recording_replace)
+    store_original_bytes(tmp_path, "sha256:durable", b"original bytes")
+    assert events == ["fsync", "rename"]

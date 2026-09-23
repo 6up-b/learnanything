@@ -1,20 +1,19 @@
 """Managed store for original source bytes (``canonical-sources/raw/``).
 
-The source layer was deliberately byte-store-free: revisions recorded only
-``asset_hash`` + ``original_uri`` and re-extraction re-fetched. Live-source
-viewers (the embedded PDF reader) need the original bytes reliably available
-even after the user's file moves or an URL goes stale, so registration now
-retains a content-addressed copy at ``VaultPaths.canonical_source_raw_path``
-(declared for exactly this purpose and previously unwired). ``original_uri``
-remains the honest record of provenance; the store is a vault-owned copy whose
-filename commits to the bytes (``sha256-<hex>``), so a stored file can always
-be verified against its revision's ``asset_hash``.
+Revisions record ``asset_hash`` + ``original_uri``. Live-source viewers (the
+embedded PDF reader) and resumed ingests need the original bytes even after
+the user's file moves or a URL goes stale, so registration retains a
+content-addressed copy at ``VaultPaths.canonical_source_raw_path``.
+``original_uri`` remains the record of provenance; the store is a vault-owned
+copy whose filename commits to the bytes (``sha256-<hex>``), so a stored file
+can always be verified against its revision's ``asset_hash``.
 """
 
 from __future__ import annotations
 
+import os
+import uuid
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from learnloop.ingest.hashing import asset_hash
 
@@ -28,24 +27,29 @@ def canonical_source_raw_path(root: Path, asset_hash_value: str) -> Path:
 
 
 def store_original_bytes(vault_root: Path, digest: str, raw_bytes: bytes) -> Path:
-    """Write bytes into the content-addressed store (idempotent, atomic)."""
+    """Write bytes into the content-addressed store (idempotent, atomic).
+
+    Each writer uses its own temporary name, so concurrent imports of the same
+    content never rename or remove a file another writer is still filling. The
+    bytes are synced before the rename: a stored file is trusted by name alone,
+    so a power loss must not leave a truncated file under the final name.
+    """
 
     path = canonical_source_raw_path(vault_root, digest)
-    if not path.is_file():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        # Concurrent imports of the same content must not share a temporary
-        # name: one writer replacing it used to strand the other writer.
-        with NamedTemporaryFile(dir=path.parent, prefix=path.name + ".", suffix=".tmp", delete=False) as handle:
-            tmp = Path(handle.name)
-            try:
-                handle.write(raw_bytes)
-            except BaseException:
-                tmp.unlink(missing_ok=True)
-                raise
-        try:
-            tmp.replace(path)
-        finally:
-            tmp.unlink(missing_ok=True)
+    if path.is_file():
+        return path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        # 0o644 is filtered by the process umask, like any other vault file.
+        descriptor = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(raw_bytes)
+            handle.flush()
+            os.fsync(handle.fileno())
+        tmp.replace(path)
+    finally:
+        tmp.unlink(missing_ok=True)
     return path
 
 

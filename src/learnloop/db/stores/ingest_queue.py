@@ -14,18 +14,32 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, utc_now_iso
 
 
-def owns_ingest_job(connection, job_id: str, worker_id: str, attempt_count: int) -> bool:
+@dataclass(frozen=True)
+class JobOwner:
+    """One claimed attempt of an ingest job.
+
+    Every claim increments ``attempt_count``, so a worker that claims a job
+    again after losing it is a different owner and cannot act for the old
+    attempt.
+    """
+
+    worker_id: str
+    attempt_count: int
+
+
+def owns_ingest_job(connection, job_id: str, owner: JobOwner) -> bool:
     """Check a write fence inside the caller's existing transaction."""
     row = connection.execute(
         "SELECT status, worker_id, attempt_count FROM ingest_jobs WHERE id=?",
         (job_id,),
     ).fetchone()
-    return row is not None and tuple(row) == ("running", worker_id, attempt_count)
+    return row is not None and tuple(row) == ("running", owner.worker_id, owner.attempt_count)
 
 
 def _json(data: Any) -> str:
@@ -302,7 +316,7 @@ class IngestQueueStoreMixin:
         read/DB-only job lane into bounded parallelism and identify job types
         that are safe to coexist with the single vault-writing lane. A
         ``running`` job whose heartbeat predates ``lease_cutoff_iso`` is treated
-        as dead; startup recovery converts it to failed(interrupted).
+        as dead; ``IngestRunner`` lease expiry converts it to failed(interrupted).
         """
 
         eligible = tuple(
@@ -402,14 +416,15 @@ class IngestQueueStoreMixin:
         self,
         job_id: str,
         *,
-        worker_id: str,
-        attempt_count: int | None = None,
+        owner: JobOwner,
         phase: str | None = None,
         message: str | None = None,
         current_window: int | None = None,
         total_windows: int | None = None,
         clock: Clock | None = None,
     ) -> bool:
+        """Renew ``owner``'s lease; False when the attempt no longer owns the job."""
+
         now = utc_now_iso(clock)
         with self.connection() as connection:
             cursor = connection.execute(
@@ -420,24 +435,77 @@ class IngestQueueStoreMixin:
                        message = COALESCE(?, message),
                        current_window = COALESCE(?, current_window),
                        total_windows = COALESCE(?, total_windows)
-                 WHERE id = ? AND worker_id = ? AND status = 'running'
-                   AND (? IS NULL OR attempt_count = ?)
+                 WHERE id = ? AND status = 'running'
+                   AND worker_id = ? AND attempt_count = ?
                 """,
-                (now, phase, message, current_window, total_windows, job_id, worker_id,
-                 attempt_count, attempt_count),
+                (now, phase, message, current_window, total_windows, job_id,
+                 owner.worker_id, owner.attempt_count),
             )
             connection.commit()
             return cursor.rowcount == 1
 
-    def finish_ingest_job(
+    def finish_owned_ingest_job(
+        self, job_id: str, *, owner: JobOwner, status: str, **fields: Any
+    ) -> bool:
+        """Move ``owner``'s running attempt to ``status``.
+
+        Returns False (and writes nothing) when the attempt no longer owns the
+        job. ``fields`` are the optional columns of :meth:`_update_ingest_job_state`.
+        """
+
+        return self._update_ingest_job_state(
+            job_id,
+            status=status,
+            where="status = 'running' AND worker_id = ? AND attempt_count = ?",
+            where_params=(owner.worker_id, owner.attempt_count),
+            **fields,
+        )
+
+    def expire_ingest_lease(
+        self,
+        job_id: str,
+        *,
+        worker_id: str | None,
+        attempt_count: int,
+        lease_cutoff_iso: str,
+        **fields: Any,
+    ) -> bool:
+        """Fail the running attempt identified by ``worker_id``/``attempt_count``
+        if its heartbeat still predates ``lease_cutoff_iso``.
+
+        The attempt is named as the caller read it, so a heartbeat or a new
+        claim since that read makes this a no-op that returns False.
+        """
+
+        return self._update_ingest_job_state(
+            job_id,
+            status="failed",
+            where=(
+                "status = 'running' AND worker_id IS ? AND attempt_count = ?"
+                " AND (heartbeat_at IS NULL OR heartbeat_at < ?)"
+            ),
+            where_params=(worker_id, attempt_count, lease_cutoff_iso),
+            **fields,
+        )
+
+    def transition_unleased_ingest_job(self, job_id: str, *, status: str, **fields: Any) -> bool:
+        """Move a job that holds no lease (queued, blocked, waiting) to ``status``.
+
+        A running job holds a lease and is left untouched; only its owner or
+        lease expiry may finish it.
+        """
+
+        return self._update_ingest_job_state(
+            job_id, status=status, where="worker_id IS NULL", where_params=(), **fields
+        )
+
+    def _update_ingest_job_state(
         self,
         job_id: str,
         *,
         status: str,
-        worker_id: str | None = None,
-        attempt_count: int | None = None,
-        expected_status: str | None = None,
-        lease_cutoff_iso: str | None = None,
+        where: str,
+        where_params: Sequence[Any],
         phase: str | None = None,
         message: str | None = None,
         result: Mapping[str, Any] | None = None,
@@ -449,20 +517,11 @@ class IngestQueueStoreMixin:
         total_windows: int | None = None,
         clock: Clock | None = None,
     ) -> bool:
-        """Conditionally finish an owned attempt or transition an unleased job.
-
-        A worker must supply both its identity and claimed generation. Calls
-        without an owner can only transition rows that hold no lease.
-        """
-
-        if worker_id is not None and attempt_count is None:
-            raise ValueError('finishing an owned job requires its attempt_count')
-
         now = utc_now_iso(clock)
         finished_at = None if clear_finished else now
         with self.connection() as connection:
             cursor = connection.execute(
-                """
+                f"""
                 UPDATE ingest_jobs
                    SET status = ?,
                        phase = COALESCE(?, phase),
@@ -475,11 +534,7 @@ class IngestQueueStoreMixin:
                        worker_id = CASE WHEN ? THEN NULL ELSE worker_id END,
                        heartbeat_at = CASE WHEN ? THEN NULL ELSE heartbeat_at END,
                        finished_at = ?
-                 WHERE id = ?
-                   AND ((? IS NULL AND worker_id IS NULL) OR worker_id = ?)
-                   AND (? IS NULL OR attempt_count = ?)
-                   AND (? IS NULL OR status = ?)
-                   AND (? IS NULL OR heartbeat_at IS NULL OR heartbeat_at < ?)
+                 WHERE id = ? AND {where}
                 """,
                 (
                     status,
@@ -494,8 +549,7 @@ class IngestQueueStoreMixin:
                     1 if release_lease else 0,
                     finished_at,
                     job_id,
-                    worker_id, worker_id, attempt_count, attempt_count,
-                    expected_status, expected_status, lease_cutoff_iso, lease_cutoff_iso,
+                    *where_params,
                 ),
             )
             connection.commit()

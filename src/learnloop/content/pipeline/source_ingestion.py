@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from learnloop.ai.execution import content_key
-
 import hashlib
 import json
 import re
@@ -13,7 +11,10 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Literal
 
+from pydantic import ValidationError
+
 from learnloop.ai.client import AIProviderClient
+from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import PdfIngestConfig
 from learnloop.content.pipeline.ai_contracts import (
@@ -36,6 +37,7 @@ from learnloop.content.proposals.proposals import auto_apply_rows, proposal_item
 from learnloop.vault.loader import add_subject, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_markdown_with_frontmatter, write_yaml
+from learnloop.vault_lock import vault_mutation_lock
 
 KindOption = Literal["auto", "website_page", "youtube_video", "arxiv_html", "textbook_chapter"]
 IngestProgress = Callable[[str, dict[str, Any]], None]
@@ -180,7 +182,7 @@ def ingest_canonical_source(
     pdf_engine: str | None = None,
     pdf_use_llm: bool | None = None,
     ir_markdown: str | None = None,
-    ir_extraction_id: str | None = None,
+    resume_extraction_id: str | None = None,
     clock: Clock | None = None,
     progress: IngestProgress | None = None,
 ) -> IngestResult:
@@ -201,11 +203,13 @@ def ingest_canonical_source(
     if resolved_kind == "textbook_chapter":
         _validate_textbook_targets(vault, subject_id, target_learning_object_ids)
 
-    if ir_markdown is not None and ir_extraction_id is not None:
-        # Explicit revision resume: use the exact retained acquisition and IR,
-        # even if the original URL/file changed or is no longer available.
+    if ir_markdown is not None and resume_extraction_id is not None:
+        # Resume from the import's retained original bytes and IR, even if the
+        # original URL/file changed or is no longer available. Nothing is
+        # fetched, so fetch-only metadata (caption cues, arXiv labels, authors,
+        # license) is absent and chunking follows the IR markdown.
         repository = Repository(paths.sqlite_path)
-        extraction = repository.get_extraction_run(ir_extraction_id)
+        extraction = repository.get_extraction_run(resume_extraction_id)
         revision = repository.get_source_revision(extraction["revision_id"]) if extraction else None
         artifact = repository.get_source_artifact(revision["source_id"]) if revision else None
         from learnloop.ingest.originals import stored_original_path
@@ -237,8 +241,9 @@ def ingest_canonical_source(
     # IR for this source, synthesis builds its chunk context from the IR's
     # deterministic display rendering (respecting a persisted unit selection)
     # instead of the legacy extraction. Sources without an IR pass ``ir_markdown``
-    # as None and keep the legacy markdown byte-for-byte. Caption-based sources
-    # (YouTube) still chunk from their cues, so only the display body is swapped.
+    # as None and keep the legacy markdown byte-for-byte. A fetched caption-based
+    # source (YouTube) still chunks from its cues, so only the display body is
+    # swapped.
     if ir_markdown is not None:
         normalized = replace(normalized, markdown=ir_markdown)
     content_hash = source_content_hash(normalized.markdown)
@@ -494,10 +499,8 @@ def _run_ingest_windows(
             instructions=instructions,
         )
         key = content_key({"purpose": "legacy_ingest_window", "prompt": canonical_ingest_prompt(context), "schema": AuthoringProposal.model_json_schema(), "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)})
-        checkpoint = repository.model_checkpoint(key)
-        if checkpoint:
-            proposal = AuthoringProposal.model_validate(checkpoint["result"])
-        else:
+        proposal = _checkpointed_window_proposal(repository, key)
+        if proposal is None:
             if usage is not None:
                 usage["calls"] = usage.get("calls", 0) + 1
             proposal = request_canonical_ingest(client, context)
@@ -996,6 +999,23 @@ def register_canonical_source(
     *,
     clock: Clock | None = None,
 ) -> RegisteredSource:
+    # The source note is published vault state. Under the vault lock an ingest
+    # job that lost its lease is refused before it writes.
+    with vault_mutation_lock(root, purpose="canonical_source_register"):
+        return _register_canonical_source_locked(
+            root, subject_id, source, raw_bytes, content_hash, clock=clock
+        )
+
+
+def _register_canonical_source_locked(
+    root: Path,
+    subject_id: str,
+    source: NormalizedSource,
+    raw_bytes: bytes,
+    content_hash: str,
+    *,
+    clock: Clock | None,
+) -> RegisteredSource:
     vault = load_vault(root)
     existing = _existing_registered_source(vault, source.kind, source.canonical_uri, content_hash)
     if existing is not None:
@@ -1040,6 +1060,19 @@ def register_canonical_source(
         subject_id=subject_id,
         canonical_source=canonical_source,
     )
+
+
+def _checkpointed_window_proposal(repository: Repository, key: str) -> AuthoringProposal | None:
+    """Return a window's saved proposal, discarding one that no longer validates."""
+
+    checkpoint = repository.model_checkpoint(key)
+    if checkpoint is None:
+        return None
+    try:
+        return AuthoringProposal.model_validate(checkpoint["result"])
+    except ValidationError:
+        repository.discard_model_checkpoint(key)
+        return None
 
 
 def merge_window_proposals(proposals: list[AuthoringProposal]) -> AuthoringProposal:
@@ -1855,6 +1888,30 @@ def _resolve_subject(
 
 
 def _establish_goal_linkage(
+    root: Path,
+    subject_id: str,
+    title: str,
+    proposal: AuthoringProposal,
+    *,
+    goal_id: str | None,
+    default_priority: float,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    # goals.yaml is a read-modify-write shared with other goal writers, and an
+    # ingest job that lost its lease must not publish into it.
+    with vault_mutation_lock(root, purpose="canonical_ingest_goal_linkage"):
+        return _establish_goal_linkage_locked(
+            root,
+            subject_id,
+            title,
+            proposal,
+            goal_id=goal_id,
+            default_priority=default_priority,
+            clock=clock,
+        )
+
+
+def _establish_goal_linkage_locked(
     root: Path,
     subject_id: str,
     title: str,
