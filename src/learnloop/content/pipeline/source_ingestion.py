@@ -180,7 +180,7 @@ def ingest_canonical_source(
     pdf_engine: str | None = None,
     pdf_use_llm: bool | None = None,
     ir_markdown: str | None = None,
-    ir_extraction_id: str | None = None,
+    resume_extraction_id: str | None = None,
     clock: Clock | None = None,
     progress: IngestProgress | None = None,
 ) -> IngestResult:
@@ -201,11 +201,13 @@ def ingest_canonical_source(
     if resolved_kind == "textbook_chapter":
         _validate_textbook_targets(vault, subject_id, target_learning_object_ids)
 
-    if ir_markdown is not None and ir_extraction_id is not None:
-        # Explicit revision resume: use the exact retained acquisition and IR,
-        # even if the original URL/file changed or is no longer available.
+    if ir_markdown is not None and resume_extraction_id is not None:
+        # Resume from the import's retained original bytes and IR, even if the
+        # original URL/file changed or is no longer available. Nothing is
+        # fetched, so fetch-only metadata (caption cues, arXiv labels, authors,
+        # license) is absent and chunking follows the IR markdown.
         repository = Repository(paths.sqlite_path)
-        extraction = repository.get_extraction_run(ir_extraction_id)
+        extraction = repository.get_extraction_run(resume_extraction_id)
         revision = repository.get_source_revision(extraction["revision_id"]) if extraction else None
         artifact = repository.get_source_artifact(revision["source_id"]) if revision else None
         from learnloop.ingest.originals import stored_original_path
@@ -237,8 +239,9 @@ def ingest_canonical_source(
     # IR for this source, synthesis builds its chunk context from the IR's
     # deterministic display rendering (respecting a persisted unit selection)
     # instead of the legacy extraction. Sources without an IR pass ``ir_markdown``
-    # as None and keep the legacy markdown byte-for-byte. Caption-based sources
-    # (YouTube) still chunk from their cues, so only the display body is swapped.
+    # as None and keep the legacy markdown byte-for-byte. A fetched caption-based
+    # source (YouTube) still chunks from its cues, so only the display body is
+    # swapped.
     if ir_markdown is not None:
         normalized = replace(normalized, markdown=ir_markdown)
     content_hash = source_content_hash(normalized.markdown)

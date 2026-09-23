@@ -13,6 +13,8 @@ codex client is the house ``_FakeCanonicalClient``.
 
 from __future__ import annotations
 
+import json
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.extractors.normalizers import markdown_to_ir
@@ -23,8 +25,10 @@ from learnloop.content.pipeline.runner import (
     JobSpec,
     RunnerServices,
 )
-from learnloop.content.pipeline.source_ingestion import ingest_canonical_source
+from learnloop.content.pipeline import source_ingestion
+from learnloop.content.pipeline.source_ingestion import FetchResult, ingest_canonical_source
 from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+from learnloop.vault.yaml_io import read_markdown_with_frontmatter
 
 from tests.helpers import NOW, create_basic_vault
 from tests.test_source_ingestion import _FakeCanonicalClient, _source_file
@@ -238,3 +242,192 @@ def test_legacy_path_without_ir_unchanged(tmp_path):
 
     runner_chunks = [chunk.text for chunk in runner_client.calls[0].chunks]
     assert runner_chunks == oracle_chunks
+
+
+# ---------------------------------------------------------------------------
+# Fetch-only metadata on the import → legacy_ingest path
+# ---------------------------------------------------------------------------
+
+_ARXIV_URL = "https://arxiv.org/html/1706.03762v7"
+_YOUTUBE_URL = "https://www.youtube.com/watch?v=abc123"
+_THEOREM = "Theorem 2.1. Every attention layer is differentiable."
+
+
+def _youtube_captions() -> FetchResult:
+    cues = [
+        {"start": 90.0, "duration": 35.0, "text": SENTINEL_A},
+        {"start": 125.0, "duration": 20.0, "text": SENTINEL_B},
+    ]
+    return FetchResult(
+        raw_bytes=json.dumps({"video_id": "abc123", "cues": cues}).encode("utf-8"),
+        content_type="application/json",
+        original_uri=_YOUTUBE_URL,
+        retrieved_at=NOW,
+    )
+
+
+def _arxiv_page() -> FetchResult:
+    html = f"""
+    <html>
+      <head>
+        <title>Attention Is All You Need</title>
+        <meta name="citation_author" content="A. Researcher" />
+      </head>
+      <body>
+        <h1>Abstract</h1>
+        <p>{SENTINEL_A}</p>
+        <h1>Results</h1>
+        <p id="thm-main">{_THEOREM}</p>
+        <p>{SENTINEL_B}</p>
+      </body>
+    </html>
+    """
+    return FetchResult(
+        raw_bytes=html.encode("utf-8"),
+        content_type="text/html",
+        original_uri=_ARXIV_URL,
+        fetch_uri=_ARXIV_URL,
+        retrieved_at=NOW,
+    )
+
+
+def _drain_import_then_legacy(tmp_path, monkeypatch, *, source, fetched, ir_markdown, client):
+    """Run import → legacy_ingest with the legacy fetch served by ``fetched``.
+
+    Returns the runner, the batch id and the list of legacy fetch calls.
+    """
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    fetch_calls: list[str] = []
+
+    def legacy_fetch(root, fetch_source_arg, **kwargs):
+        fetch_calls.append(fetch_source_arg)
+        return fetched
+
+    monkeypatch.setattr(source_ingestion, "fetch_source", legacy_fetch)
+
+    def import_fetch(source, category, ctx):
+        return FetchedBytes(
+            raw_bytes=fetched.raw_bytes,
+            content_type=fetched.content_type,
+            original_uri=source,
+            retrieved_at=NOW,
+        )
+
+    def import_extract(fetched_bytes, category, ctx):
+        return markdown_to_ir(ir_markdown, title="Imported source", extractor_name="text")
+
+    def run_legacy(*, vault_root, source, subject_id, mode, progress, clock, **pipeline_kwargs):
+        # Forward whatever the job hands the pipeline, as the default service does.
+        return ingest_canonical_source(
+            vault_root,
+            source,
+            client,
+            subject_id=subject_id,
+            clock=clock,
+            progress=progress,
+            **pipeline_kwargs,
+        )
+
+    runner = IngestRunner(
+        Repository(vault_root / "state.sqlite"),
+        vault_root=vault_root,
+        worker_id="w1",
+        clock=FrozenClock(NOW),
+        services=RunnerServices(fetch=import_fetch, extract=import_extract, run_legacy_ingest=run_legacy),
+    )
+    batch_id = runner.enqueue_batch(
+        "legacy_ingest",
+        [
+            JobSpec("import", {"source": source, "subject_id": "linear-algebra"}),
+            JobSpec(
+                "legacy_ingest",
+                {"source": source, "subject_id": "linear-algebra", "mode": "canonical"},
+                depends_on=(0,),
+            ),
+        ],
+        subject_id="linear-algebra",
+    )
+    runner.drain()
+    return runner, batch_id, fetch_calls
+
+
+def _legacy_job(runner, batch_id):
+    return next(job for job in runner.repo.ingest_jobs_for_batch(batch_id) if job["job_type"] == "legacy_ingest")
+
+
+def _source_note(vault_root, note_id):
+    path = next(vault_root.rglob(f"{note_id}.md"))
+    metadata, _body = read_markdown_with_frontmatter(path)
+    return metadata["canonical_source"]
+
+
+def test_v2lite_youtube_ingest_keeps_caption_timestamp_locators(tmp_path, monkeypatch):
+    client = _FakeCanonicalClient()
+    runner, batch_id, fetch_calls = _drain_import_then_legacy(
+        tmp_path,
+        monkeypatch,
+        source=_YOUTUBE_URL,
+        fetched=_youtube_captions(),
+        ir_markdown=f"# Transcript\n\n{SENTINEL_A}\n\n{SENTINEL_B}\n",
+        client=client,
+    )
+
+    assert _legacy_job(runner, batch_id)["status"] == "completed"
+    assert fetch_calls == [_YOUTUBE_URL]
+    assert [chunk.locator for chunk in client.calls[0].chunks] == ["t=90.0-125.0", "t=125.0-145.0"]
+
+
+def test_v2lite_arxiv_ingest_keeps_native_locators_and_source_metadata(tmp_path, monkeypatch):
+    client = _FakeCanonicalClient()
+    runner, batch_id, fetch_calls = _drain_import_then_legacy(
+        tmp_path,
+        monkeypatch,
+        source=_ARXIV_URL,
+        fetched=_arxiv_page(),
+        ir_markdown=f"# Abstract\n\n{SENTINEL_A}\n\n# Results\n\n{_THEOREM}\n\n{SENTINEL_B}\n",
+        client=client,
+    )
+
+    job = _legacy_job(runner, batch_id)
+    assert job["status"] == "completed"
+    assert fetch_calls == [_ARXIV_URL]
+    assert any(chunk.locator == "thm:2.1" for chunk in client.calls[0].chunks)
+    canonical_source = _source_note(tmp_path / "vault", job["result"]["source_note_id"])
+    assert canonical_source["authors"] == ["A. Researcher"]
+    assert canonical_source["labels"]["arxiv_id"] == "1706.03762v7"
+
+
+def test_v2lite_retry_resumes_from_retained_bytes_without_fetching(tmp_path, monkeypatch):
+    class FailsOnce(_FakeCanonicalClient):
+        def run_canonical_ingest(self, context):
+            if not self.calls:
+                self.calls.append(context)
+                raise RuntimeError("provider dropped the connection")
+            return super().run_canonical_ingest(context)
+
+    client = FailsOnce()
+    runner, batch_id, fetch_calls = _drain_import_then_legacy(
+        tmp_path,
+        monkeypatch,
+        source=_YOUTUBE_URL,
+        fetched=_youtube_captions(),
+        ir_markdown=f"# Transcript\n\n{SENTINEL_A}\n\n{SENTINEL_B}\n",
+        client=client,
+    )
+    assert _legacy_job(runner, batch_id)["status"] == "failed"
+    assert fetch_calls == [_YOUTUBE_URL]
+
+    def offline(*_args, **_kwargs):
+        raise AssertionError("a retry must not fetch the source again")
+
+    monkeypatch.setattr(source_ingestion, "fetch_source", offline)
+    runner.resume_batch(batch_id)
+    runner.drain()
+
+    job = _legacy_job(runner, batch_id)
+    assert job["status"] == "completed"
+    assert job["attempt_count"] == 2
+    retried_context = "\n".join(chunk.text for chunk in client.calls[-1].chunks)
+    assert SENTINEL_A in retried_context and SENTINEL_B in retried_context

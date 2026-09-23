@@ -871,7 +871,7 @@ def default_run_legacy_ingest(
     progress: Callable[[str, dict[str, Any]], None] | None,
     clock: Clock | None,
     ir_markdown: str | None = None,
-    ir_extraction_id: str | None = None,
+    resume_extraction_id: str | None = None,
     **_ignored: Any,
 ) -> Any:
     """Run the legacy one-shot pipeline in-process with a ready provider client.
@@ -902,7 +902,7 @@ def default_run_legacy_ingest(
         codex_revision=getattr(runtime, "actual_revision", None),
         purpose=purpose,
         ir_markdown=ir_markdown,
-        ir_extraction_id=ir_extraction_id,
+        resume_extraction_id=resume_extraction_id,
         clock=clock,
         progress=progress,
     )
@@ -1809,9 +1809,16 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
     # M3.5 v2-lite: when this legacy_ingest depends on a completed import job, the
     # source was already extracted once into a Document IR. Feed synthesis the IR's
     # display rendering (selected units only, if a selection was persisted) rather
-    # than re-fetching/re-extracting. No import dependency (legacy call path) →
-    # ir_markdown is None and the pipeline keeps its byte-identical legacy behavior.
-    ir_markdown = _legacy_ir_markdown(ctx)
+    # than re-extracting. No import dependency (legacy call path) → ir_markdown
+    # is None and the pipeline keeps its byte-identical legacy behavior.
+    extraction_id = _legacy_ir_extraction_id(ctx)
+    ir_markdown = _legacy_ir_markdown(ctx, extraction_id)
+    # The first attempt fetches the source again: the fetch carries caption
+    # cues, arXiv native locators, authors, license and labels that the IR
+    # does not. A retry synthesizes from the import's retained bytes and IR
+    # instead, so it still works when the source moved or went offline.
+    is_retry = int(ctx.job.get("attempt_count") or 1) > 1
+    resume_extraction_id = extraction_id if is_retry and ir_markdown is not None else None
 
     def _progress(phase: str, details: dict[str, Any]) -> None:
         ladder = _LEGACY_PHASE_TO_LADDER.get(phase, "acquired")
@@ -1828,7 +1835,7 @@ def handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]:
         subject_id=subject_id,
         mode=mode,
         ir_markdown=ir_markdown,
-        **({"ir_extraction_id": _legacy_ir_extraction_id(ctx)} if ir_markdown is not None else {}),
+        **({"resume_extraction_id": resume_extraction_id} if resume_extraction_id else {}),
         progress=_progress,
         clock=ctx.clock,
     )
@@ -1852,8 +1859,7 @@ def _legacy_ir_extraction_id(ctx: JobContext) -> str | None:
     return extraction_id
 
 
-
-def _legacy_ir_markdown(ctx: JobContext) -> str | None:
+def _legacy_ir_markdown(ctx: JobContext, extraction_id: str | None) -> str | None:
     """Render the IR from this job's completed ``import`` dependency, if any (§2.3).
 
     Returns the display markdown for the extraction the import stage produced,
@@ -1863,7 +1869,6 @@ def _legacy_ir_markdown(ctx: JobContext) -> str | None:
 
     from learnloop.ingest.ir import render_ir_markdown
 
-    extraction_id = _legacy_ir_extraction_id(ctx)
     if extraction_id is None:
         return None
 
