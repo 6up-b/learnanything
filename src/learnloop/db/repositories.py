@@ -668,20 +668,22 @@ class _InjectedLineageFault(RuntimeError):
     prove the raw-event transaction rolls back as one unit (§7.4 fault injection)."""
 
 
-def _commit_or_roll_back(connection: sqlite3.Connection) -> None:
-    """Commit, or end the transaction before re-raising a failed commit.
+def _roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> bool:
+    """Roll back after ``failure`` without replacing it; report success.
 
-    A COMMIT that fails (``database is locked`` while a reader holds its
-    SHARED lock past the busy timeout) leaves SQLite's transaction open. On a
-    connection that outlives the caller, the next commit would then publish
-    work whose scope already reported failure.
+    A failed COMMIT (``database is locked`` while a reader holds its SHARED
+    lock past the busy timeout) leaves SQLite's transaction open, so the
+    failure path must roll back. If the rollback fails as well, the caller
+    still sees the original failure, with the rollback error attached as a
+    note, and must stop using the connection: its transaction is still open.
     """
 
     try:
-        connection.commit()
-    except BaseException:
         connection.rollback()
-        raise
+    except BaseException as rollback_error:
+        failure.add_note(f"Rolling back after this failure also failed: {rollback_error!r}")
+        return False
+    return True
 
 
 class _PinnedConnection:
@@ -699,33 +701,67 @@ class _PinnedConnection:
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
+        self._invalidated = False
+
+    @property
+    def invalidated(self) -> bool:
+        return self._invalidated
+
+    def invalidate(self) -> None:
+        """Close the handle whose failed transaction could not be rolled back.
+
+        Closing discards the open transaction, and every later use through the
+        pin raises instead of committing work whose scope reported failure.
+        """
+
+        self._invalidated = True
+        self._connection.close()
+
+    def _require_valid(self) -> None:
+        if self._invalidated:
+            raise sqlite3.ProgrammingError(
+                "pinned connection was closed after a failed rollback"
+            )
 
     def __getattr__(self, name: str) -> Any:
+        if name in {"_connection", "_invalidated"}:
+            # Only reached before __init__ has run (copying, unpickling).
+            raise AttributeError(name)
+        self._require_valid()
         return getattr(self._connection, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Callers that drive their own transactions assign isolation_level; that
         # has to reach the real connection, not shadow it on the proxy.
-        if name == "_connection":
+        if name in {"_connection", "_invalidated"}:
             super().__setattr__(name, value)
         else:
+            self._require_valid()
             setattr(self._connection, name, value)
 
     def __enter__(self) -> sqlite3.Connection:
+        self._require_valid()
         return self._connection
 
     def __exit__(self, exc_type, exc, traceback) -> bool:
-        if exc_type is None:
+        if exc is not None:
+            if not _roll_back_after(self._connection, exc):
+                self.invalidate()
+            return False
+        try:
             self._connection.commit()
-        else:
-            self._connection.rollback()
+        except BaseException as failure:
+            if not _roll_back_after(self._connection, failure):
+                self.invalidate()
+            raise
         return False
 
     def close(self) -> None:
         # Call sites that drive their own transactions (isolation_level = None,
         # explicit BEGIN) close the connection when done. Under a pin it outlives
         # them, so closing only restores the default transaction handling.
-        self._connection.isolation_level = ""
+        if not self._invalidated:
+            self._connection.isolation_level = ""
 
 
 class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin):
@@ -772,9 +808,11 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         Inside another ``atomic()`` the block becomes a savepoint of the owning
         transaction. Otherwise it runs one ``BEGIN IMMEDIATE`` transaction on
         the pinned connection when a pin is active, or on a connection of its
-        own. The transaction always ends before the block's exception or the
-        commit failure propagates, because a pinned connection outlives this
-        scope and the next write on it would otherwise publish the work.
+        own. A block exception or a failed commit rolls the transaction back
+        before propagating, because a pinned connection outlives this scope and
+        the next write on it would otherwise publish the work. If that rollback
+        also fails, the original exception still propagates and a borrowed
+        pinned connection is closed, so nothing can commit the failed work.
         """
         from learnloop.db.scopes import AtomicConnection
 
@@ -796,10 +834,12 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             self._pin.connection = AtomicConnection(raw)
             try:
                 yield
-            except BaseException:
-                raw.rollback()
+                raw.commit()
+            except BaseException as failure:
+                rolled_back = _roll_back_after(raw, failure)
+                if not rolled_back and not owns_connection:
+                    current.invalidate()
                 raise
-            _commit_or_roll_back(raw)
         finally:
             self._pin.connection = current
             if owns_connection:
@@ -812,22 +852,27 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         Purely a performance measure: repository calls behave as they do
         unpinned, they just skip the per-call schema parse. Nested pins reuse the
         outermost connection; other threads keep opening their own. Work left
-        uncommitted on the connection commits when the block succeeds and rolls
-        back when it raises.
+        uncommitted on the connection commits when the block succeeds and is
+        rolled back when it raises; closing the connection discards it even if
+        that rollback fails.
         """
 
         if getattr(self._pin, "connection", None) is not None:
             yield
             return
         raw = connect(self.sqlite_path, read_only=self._read_only)
-        self._pin.connection = _PinnedConnection(raw)
+        pin = _PinnedConnection(raw)
+        self._pin.connection = pin
         try:
             yield
-        except BaseException:
-            raw.rollback()
+            # An invalidated pin was closed with its failed work discarded, and
+            # that failure already reached the caller.
+            if not pin.invalidated:
+                raw.commit()
+        except BaseException as failure:
+            if not pin.invalidated:
+                _roll_back_after(raw, failure)
             raise
-        else:
-            _commit_or_roll_back(raw)
         finally:
             self._pin.connection = None
             raw.close()

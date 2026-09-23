@@ -64,19 +64,27 @@ def test_unpinned_repository_connection_closes_after_context(tmp_path):
 
 
 class _CommitFailsWhenArmed(sqlite3.Connection):
-    """A connection whose next COMMIT fails the way a busy database does.
+    """A connection whose next COMMIT (or ROLLBACK) fails when armed.
 
-    SQLite leaves the transaction open when COMMIT returns SQLITE_BUSY; raising
-    before the real commit reproduces exactly that state.
+    SQLite leaves the transaction open when COMMIT returns SQLITE_BUSY or a
+    ROLLBACK hits an I/O error; raising before the real call reproduces
+    exactly that state.
     """
 
     fail_next_commit = False
+    fail_next_rollback = False
 
     def commit(self) -> None:
         if self.fail_next_commit:
             self.fail_next_commit = False
             raise sqlite3.OperationalError("database is locked")
         super().commit()
+
+    def rollback(self) -> None:
+        if self.fail_next_rollback:
+            self.fail_next_rollback = False
+            raise sqlite3.OperationalError("disk I/O error")
+        super().rollback()
 
 
 def _scope_table_repository(path, monkeypatch) -> Repository:
@@ -130,3 +138,28 @@ def test_pin_rolls_back_uncommitted_work_when_its_block_raises(tmp_path, monkeyp
             repository.connection().execute("INSERT INTO scope_test VALUES (2)")
             raise ValueError("interrupted")
     assert _committed_values(path) == [1]
+
+
+@pytest.mark.parametrize("failing_step", ["commit", "block"])
+def test_failed_rollback_keeps_the_original_error_and_publishes_nothing(tmp_path, monkeypatch, failing_step):
+    path = tmp_path / "state.sqlite"
+    repository = _scope_table_repository(path, monkeypatch)
+    expected = "database is locked" if failing_step == "commit" else "interrupted"
+    with repository.pinned():
+        pinned_raw = repository.connection()._connection
+        with pytest.raises((sqlite3.OperationalError, ValueError), match=expected) as raised:
+            with repository.atomic():
+                with repository.connection() as connection:
+                    connection.execute("INSERT INTO scope_test VALUES (1)")
+                pinned_raw.fail_next_rollback = True
+                if failing_step == "commit":
+                    pinned_raw.fail_next_commit = True
+                else:
+                    raise ValueError("interrupted")
+        assert any("disk I/O error" in note for note in raised.value.__notes__)
+        # The caller caught the failure; nothing it does through the pin can
+        # now commit the failed row.
+        with pytest.raises(sqlite3.ProgrammingError, match="failed rollback"):
+            with repository.connection() as connection:
+                connection.execute("INSERT INTO scope_test VALUES (2)")
+    assert _committed_values(path) == []
