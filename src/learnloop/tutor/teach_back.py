@@ -40,7 +40,6 @@ from typing import Any, Mapping
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.runs import finish_agent_run
 from learnloop.ai.transport import OperationClient, execute_structured_operation
-from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
 from learnloop.tutor.ai_contracts import (
     TeachBackAuthoring,
     TeachBackAuthoringContext,
@@ -53,7 +52,11 @@ from learnloop.tutor.ai_contracts import (
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
+# GRADING_PROMPT_VERSION comes through attempts.attempts: the frozen
+# cross-package import contract admits only the attempts.attempts and
+# attempts.grading edges from this module.
 from learnloop.attempts.attempts import (
+    GRADING_PROMPT_VERSION,
     ApplyAttemptInput,
     AttemptDraft,
     AttemptResult,
