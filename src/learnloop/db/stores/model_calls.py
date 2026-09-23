@@ -15,9 +15,9 @@ class ModelCallStoreMixin:
         if action == "finish":
             fields = ("status", "finished_at", "input_tokens", "output_tokens", "cached_input_tokens", "cache_write_tokens", "reasoning_tokens", "cost", "provider_response_id", "resolved_model", "usage_json", "finish_reason", "error_type", "output_text")
             # This call already owns a durable start. A late response may
-            # finalize only that receipt, never a checkpoint or canonical row.
-            # Use a separate short connection so a borrowed job fence cannot
-            # drop known usage after takeover.
+            # finalize only that receipt, never a canonical row. Use a separate
+            # short connection so a borrowed job fence cannot drop known usage
+            # after takeover.
             with allow_late_model_records(), closing(connect(self.sqlite_path, read_only=self._read_only)) as connection, connection:
                 connection.execute(
                     f"UPDATE model_call_receipts SET {','.join(f'{field}=?' for field in fields)} WHERE id=? AND status='started' AND owner_kind=? AND owner_id=?",

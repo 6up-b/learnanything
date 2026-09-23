@@ -35,6 +35,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from pydantic import ValidationError
+
 from learnloop.clock import Clock
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.ai.execution import content_key, generation_limit, model_settings
@@ -689,8 +691,31 @@ def prepare_unit_inventory(
         prompt_version=prompt_version,
         schema_version=schema_version,
         window_keys=keys,
-        cached_windows=tuple(repo.model_checkpoint(key) for key in keys),
+        cached_windows=tuple(
+            _reusable_window_checkpoint(repo, key, valid_span_ids) for key in keys
+        ),
     )
+
+
+def _reusable_window_checkpoint(
+    repo: Repository, key: str, valid_span_ids: frozenset[str]
+) -> dict[str, Any] | None:
+    """Return a saved inventory window, discarding one that no longer validates.
+
+    Checkpoints are write-once, so a stored window that fails today's model or
+    span checks would otherwise fail every retry of its unit.
+    """
+
+    checkpoint = repo.model_checkpoint(key)
+    if checkpoint is None:
+        return None
+    try:
+        window = SourceUnitInventory.model_validate(checkpoint["result"])
+        validate_inventory(window, set(valid_span_ids))
+    except (ValidationError, InventoryValidationError):
+        repo.discard_model_checkpoint(key)
+        return None
+    return checkpoint
 
 
 def inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str:
