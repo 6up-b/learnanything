@@ -32,6 +32,30 @@ class _JobGuard:
 
 _job_guard: ContextVar[_JobGuard | None] = ContextVar('ingest_write_guard', default=None)
 
+_LEADING_COMMENTS = re.compile(r'\A(?:\s+|--[^\n]*(?:\n|$)|/\*.*?\*/)*', re.S)
+_WRITE_VERBS = frozenset({'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'ALTER', 'DROP'})
+_STRING_LITERALS = re.compile(r"'(?:[^']|'')*'")
+# The DML forms a CTE body can end in. REPLACE must be followed by INTO so the
+# replace() string function in a read does not count.
+_CTE_WRITE = re.compile(
+    r'\b(?:INSERT|REPLACE)\s+(?:OR\s+\w+\s+)?INTO\b|\bUPDATE\b|\bDELETE\s+FROM\b',
+    re.I,
+)
+
+
+def _is_write_statement(sql: str) -> bool:
+    """Whether a statement can modify the database.
+
+    A ``WITH`` statement is a write only when it ends in DML; a CTE ``SELECT``
+    is a read and must not take the write lock or an ownership check.
+    """
+
+    statement = _LEADING_COMMENTS.sub('', sql)
+    verb = statement.split(None, 1)[0].upper() if statement else ''
+    if verb == 'WITH':
+        return _CTE_WRITE.search(_STRING_LITERALS.sub("''", statement)) is not None
+    return verb in _WRITE_VERBS
+
 
 @contextmanager
 def allow_late_model_records():
@@ -101,15 +125,16 @@ class _GuardedConnection:
         self._checked = False
 
     def _before(self, sql):
-        statement = re.sub(r'\A(?:\s+|--[^\n]*(?:\n|$)|/\*.*?\*/)*', '', sql, flags=re.S)
-        verb = statement.split(None, 1)[0].upper() if statement else ''
-        if verb in {'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'WITH', 'CREATE', 'ALTER', 'DROP'}:
+        if _is_write_statement(sql):
             if not self._connection.in_transaction:
                 self._connection.execute('BEGIN IMMEDIATE')
                 self._checked = False
             if not self._checked:
                 self._guard.check(self._connection)
                 self._checked = True
+            return
+        statement = _LEADING_COMMENTS.sub('', sql)
+        verb = statement.split(None, 1)[0].upper() if statement else ''
         if verb in {'COMMIT', 'ROLLBACK', 'END'}:
             self._checked = False
 

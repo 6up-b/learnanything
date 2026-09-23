@@ -217,3 +217,25 @@ def test_a_replaced_attempt_still_saves_its_paid_checkpoint(tmp_path):
         with pytest.raises(JobOwnershipLost):
             runner.repo.update_ingest_job_payload(old['id'], {'stale': True})
     assert runner.repo.model_checkpoint('window-key') == {'result': {'paid': True}, 'usage': {}}
+
+
+def test_a_cte_read_is_not_fenced_but_a_cte_write_is(tmp_path):
+    runner = _runner(tmp_path, handlers={'fake': _ok_handler({})})
+    runner.enqueue_batch('import', [JobSpec('fake')])
+    old = _claim(runner.repo, 'old', 0)
+    runner.clock = _clock(180)
+    runner.recover_stale_leases()
+    with guard_ingest_writes(runner.repo.sqlite_path, old['id'], 'old', 1):
+        with runner.repo.connection() as connection:
+            rows = connection.execute(
+                "WITH ids AS (SELECT id FROM ingest_jobs) "
+                "SELECT replace(id, 'ijob_', '') FROM ids WHERE 'update' <> 'delete from'"
+            ).fetchall()
+            assert len(rows) == 1
+            # A read takes no write lock, so it cannot wait behind a writer.
+            assert not connection.in_transaction
+            with pytest.raises(JobOwnershipLost):
+                connection.execute(
+                    "WITH ids AS (SELECT id FROM ingest_jobs) "
+                    "UPDATE ingest_jobs SET message = 'stale' WHERE id IN (SELECT id FROM ids)"
+                )
