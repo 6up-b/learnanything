@@ -722,12 +722,15 @@ def execute_prepared_inventory(
         window_tokens = max(1, len(assigned.model_dump_json()) // _CHARS_PER_TOKEN)
         if not cached:
             window_tokens = max(window_tokens, after.output_tokens - before.output_tokens)
+        # Save before the budget check. The key does not include the budget:
+        # a window that validated is reusable whatever budget the retry runs
+        # under, and it has already been paid for.
+        if not cached and checkpoint is not None and prepared.window_keys:
+            checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
         if remaining_output is not None:
             remaining_output -= window_tokens
             if remaining_output < 0:
                 raise InventoryValidationError("inventory output exceeded its configured token budget")
-        if not cached and checkpoint is not None and prepared.window_keys:
-            checkpoint(prepared.window_keys[ordinal - 1], assigned, {"output_tokens_estimate": window_tokens})
         per_window.append(assigned)
         if progress is not None:
             progress(ordinal, total_windows)

@@ -2105,9 +2105,11 @@ def _run_synthesis(
         input_tokens_estimate += max(0, after.input_tokens - before.input_tokens - tokens)
         output_charge = max(_result_tokens(result), after.output_tokens - before.output_tokens)
         output_tokens_spent += output_charge
+        # Save before the budget check. The key does not include the budget:
+        # a validated pass is reusable under any budget, and it is already paid.
+        repository.save_model_checkpoint(key, purpose="synthesis_pass", result=result.model_dump(mode="json"), usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
         if output_limit is not None and output_charge > output_limit:
             raise StudyMapError("budget_exceeded", "A synthesis pass exceeded its output budget.")
-        repository.save_model_checkpoint(key, purpose="synthesis_pass", result=result.model_dump(mode="json"), usage={"input_tokens_estimate": tokens, "output_tokens_estimate": _result_tokens(result)})
         return result
 
     for ordinal, shard, shard_key, cached in shard_states:

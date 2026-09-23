@@ -633,6 +633,24 @@ def test_non_ascii_output_is_charged_by_characters_not_escapes(tmp_path):
     assert result.proposal_id is not None
 
 
+def test_over_budget_pass_is_checkpointed_and_reused_under_a_larger_budget(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+
+    def builder(context, _n):
+        return _default_payload(context).model_copy(update={"summary": "long summary " * 400})
+
+    client = FakeSynthesisClient(builder=builder)
+    with pytest.raises(StudyMapError, match="exceeded its output budget"):
+        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK,
+                         budget_overrides={"synthesis_shard_output_tokens": 100})
+    assert len(client.calls) == 1
+
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
+
+    assert result.proposal_id is not None
+    assert len(client.calls) == 1
+
+
 def test_legacy_vault_acceptance_refused(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False, mvp07=False)
     client = FakeSynthesisClient()
