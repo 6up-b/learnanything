@@ -6,9 +6,9 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/ops/doctor.py
   - src/learnloop/migration_coordinator.py
@@ -48,6 +48,8 @@ uv run learnloop doctor --ai --json --vault "$VAULT"
 ```
 
 An unavailable optional provider can coexist with a structurally clean vault; inspect `ai_runtime` separately from `clean`.
+
+`uv run learnloop doctor --data-quality --vault "$VAULT"` prints the collection-coverage report of `learnloop data-quality` and returns without running the doctor checks, so `--fix-state` and `--ai` have no effect with it. See [[Collection and Dataset Contract#Commands]].
 
 ## Interpret severity before acting
 
