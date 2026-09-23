@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
-from learnloop.ai.execution import model_call
+from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.ai.multimodal import (
     MediaTranscript,
     MediaTranscriptionContext,
@@ -32,7 +32,7 @@ from learnloop.ai.transport import (
     STRUCTURED_COMPLETION,
     StructuredRequest,
 )
-from learnloop.ai.usage import TokenUsageAccounting, usage_from_chat_response
+from learnloop.ai.usage import TokenUsageAccounting, receipt_fields_from_chat_response, usage_from_chat_response
 from learnloop.config import AIProviderConfig
 
 logger = logging.getLogger(__name__)
@@ -289,17 +289,25 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
                 request_error = exc
                 receipt.update(status="failed", error_type=type(exc).__name__)
             else:
-                usage = usage_from_chat_response(response)
-                self.record_token_usage(*usage)
-                timeout, budget = _request_options.get()
-                if budget is not None:
-                    content = response.choices[0].message.content or ""
-                    spent = usage[1] or max(1, (len(content) + 3) // 4)
-                    _request_options.set((timeout, max(0, budget - spent)))
+                # Meter before anything inspects the body: a truncated or
+                # unparseable response was still paid for.
+                self._meter_response(response)
                 if getattr(response.choices[0], "finish_reason", None) == "length":
                     raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
                 return response
         raise _RequestFailed(request_error)
+
+    def _meter_response(self, response: Any) -> None:
+        """Record usage on the receipt and the run, and spend the request budget."""
+
+        report_call_usage(receipt_fields_from_chat_response(response))
+        input_tokens, output_tokens = usage_from_chat_response(response)
+        self.record_token_usage(input_tokens, output_tokens)
+        timeout, budget = _request_options.get()
+        if budget is not None:
+            content = response.choices[0].message.content or ""
+            spent = output_tokens or max(1, (len(content) + 3) // 4)
+            _request_options.set((timeout, max(0, budget - spent)))
 
     def _retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None:
         """Seconds to wait before the next attempt, or None to give up."""

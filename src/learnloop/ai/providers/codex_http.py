@@ -10,10 +10,11 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIProviderUnavailable, CodexUnavailable
+from learnloop.ai.execution import report_call_usage
 from learnloop.ai.providers.codex import _log_codex_debug, codex_config_from_ai_profile
 from learnloop.ai.schemas import describe_wire_validation_error
 from learnloop.ai.transport import StructuredRequest, WireResult, prompt_safe
-from learnloop.ai.usage import TokenUsageAccounting, usage_from_chat_response
+from learnloop.ai.usage import TokenUsageAccounting, receipt_fields_from_chat_response, usage_from_chat_response
 from learnloop.config import AIProviderConfig, CodexConfig
 
 #: Transport-level keys an app-server may report beside a flat proposal body.
@@ -170,6 +171,7 @@ class HttpCodexClient(TokenUsageAccounting):
         # A7: the adapter contract does not require a `usage` object, so this is
         # opportunistic — an app-server that reports one in the OpenAI shape gets
         # metered, one that does not leaves the run's actual_* columns at 0.
+        report_call_usage(receipt_fields_from_chat_response(decoded))
         self.record_token_usage(*usage_from_chat_response(decoded))
         _log_codex_debug(
             "codex.http.response",
