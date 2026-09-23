@@ -26,7 +26,7 @@ class ModelCallStoreMixin:
             return
         with self.connection() as connection:
             if action == "start":
-                fields = ("id", "parent_call_id", "purpose", "provider", "model", "endpoint", "prompt_hash", "schema_hash", "input_text", "schema_json", "output_budget_tokens", "started_at")
+                fields = ("id", "parent_call_id", "purpose", "provider", "model", "endpoint", "prompt_hash", "schema_hash", "input_text", "schema_json", "budget_json", "output_budget_tokens", "started_at")
                 connection.execute(
                     f"INSERT INTO model_call_receipts ({','.join(fields)},owner_kind,owner_id,status) VALUES ({','.join('?' for _ in fields)},?,?,'started')",
                     (*(event.get(field) for field in fields), owner_kind, owner_id),

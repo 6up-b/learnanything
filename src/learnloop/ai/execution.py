@@ -25,6 +25,7 @@ _observer: ContextVar[Callable[[str, dict[str, Any]], Any] | None] = ContextVar(
 _parent: ContextVar[str | None] = ContextVar("model_call_parent", default=None)
 _output_limit: ContextVar[int | None] = ContextVar("model_output_limit", default=None)
 _metadata: ContextVar[dict[str, Any] | None] = ContextVar("model_call_metadata", default=None)
+_budgets: ContextVar[dict[str, Any] | None] = ContextVar("model_call_budgets", default=None)
 
 
 def report_call_usage(values: dict[str, Any]) -> None:
@@ -88,6 +89,21 @@ def record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str
 
 
 @contextmanager
+def declared_budgets(budgets: dict[str, Any]):
+    """Record the token budgets an operation runs under on its root receipts.
+
+    Budgets can be overridden per request, so the vault's configuration at
+    report time is not evidence of the budgets a past run was held to.
+    """
+
+    token = _budgets.set(dict(budgets))
+    try:
+        yield
+    finally:
+        _budgets.reset(token)
+
+
+@contextmanager
 def generation_limit(output_tokens: int | None):
     if output_tokens is not None and output_tokens <= 0:
         raise ValueError("No output token budget remains")
@@ -123,13 +139,16 @@ def model_call(client: Any, *, purpose: str, prompt: Any = None, schema: Any = N
         return
     call_id = f"call_{uuid4().hex}"
     profile = getattr(client, "profile", None) or getattr(client, "config", None)
+    is_root = _parent.get() is None
+    budgets = _budgets.get()
     observer("start", {
         "id": call_id, "parent_call_id": _parent.get(), "purpose": purpose,
         "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None) or getattr(profile, "model", None),
         "endpoint": getattr(profile, "base_url", None) or getattr(client, "default_base_url", None),
         "prompt_hash": content_key(prompt), "schema_hash": content_key(schema),
-        "input_text": prompt if isinstance(prompt, str) and _parent.get() is None else None,
-        "schema_json": json.dumps(schema, sort_keys=True) if _parent.get() is None else None,
+        "input_text": prompt if isinstance(prompt, str) and is_root else None,
+        "schema_json": json.dumps(schema, sort_keys=True) if is_root else None,
+        "budget_json": json.dumps(budgets, sort_keys=True) if is_root and budgets is not None else None,
         "output_budget_tokens": budget, "started_at": datetime.now(timezone.utc).isoformat(),
     })
     token = _parent.set(call_id)

@@ -118,6 +118,8 @@ def _render_purposes(groups: list[dict[str, Any]]) -> list[str]:
 
 
 def _ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str:
+    if budget is None:
+        return f"{_number(value)} (no {name})"
     if value is None:
         return f"- ({name} {_number(budget)})"
     share = f"{ratio:.2f}" if ratio is not None else "-"
@@ -125,16 +127,19 @@ def _ratio_text(value: int | None, ratio: float | None, budget: int | None, name
 
 
 def _render_synthesis_runs(section: dict[str, Any]) -> list[str]:
-    lines = ["Synthesis runs (measured tokens against the effective [ingest.budgets])"]
+    lines = ["Synthesis runs (measured tokens against the budgets each run ran under)"]
     runs = section["runs"]
     if not runs:
         return [*lines, "  No synthesis runs.", ""]
-    budgets = section["budgets"]
     for run in runs:
         passes = run["passes"]
         ratios = run["budget_ratios"]
+        budgets = run["budgets"]
+        budget_note = "unlimited, " if budgets.get("unlimited") else ""
+        budget_note += "budgets from its receipts" if run["budget_source"] == "receipt" else "budgets from the current config"
         lines += [
-            f"  {run['owner_kind']} {run['owner_id']}  started {run['started_at'] or '?'}",
+            f"  {run['owner_kind']} {run['owner_id']}",
+            f"    started {run['started_at'] or '?'}; {budget_note}",
             f"    {passes['source_set_synthesis']} synthesis + {passes['concept_graph_structuring']} structuring passes, "
             f"{run['requests']} requests ({run['requests_without_usage']} without usage)",
             f"    input   {_ratio_text(run['input_tokens'], ratios['input_to_total_input_ceiling'], budgets['synthesis_total_input_ceiling'], 'total ceiling')}",

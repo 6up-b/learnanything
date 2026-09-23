@@ -17,6 +17,7 @@ from collections import Counter
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import datetime
+import json
 import math
 from pathlib import Path
 import sqlite3
@@ -48,7 +49,7 @@ STATUSES = ("completed", "failed", "truncated", "interrupted", "started")
 
 _RECEIPT_COLUMNS = (
     "id", "parent_call_id", "owner_kind", "owner_id", "purpose", "provider", "model", "status",
-    "started_at", "finished_at", *TOKEN_FIELDS, "cost",
+    "started_at", "finished_at", *TOKEN_FIELDS, "cost", "budget_json",
 )
 
 
@@ -131,7 +132,7 @@ def build_usage_report(
             "unknown_usage": "NULL usage is unknown, never zero. Each statistic reports how many requests it covers as 'known'.",
             "percentiles": "Median is the middle value; p95 is the nearest-rank 95th percentile.",
             "synthesis_runs": "A run is the synthesis and graph-structuring operations that share one receipt owner (an ingest job or a sidecar request). Token totals sum the known usage of their requests.",
-            "budget_ratios": "Ratios divide measured tokens by the vault's current effective [ingest.budgets]. A run may have been given other budgets for that one request.",
+            "budget_ratios": "Ratios divide measured tokens by the budgets the run recorded on its receipts (budget_source 'receipt'); runs whose receipts carry no budgets fall back to the vault's current effective [ingest.budgets] (budget_source 'config').",
         },
     }
 
@@ -221,12 +222,30 @@ def _synthesis_runs(in_scope_roots: set[str], chains: _Chains, budgets: Mapping[
         root = chains.by_id[root_id]
         if root["purpose"] in SYNTHESIS_RUN_PURPOSES:
             runs.setdefault((str(root["owner_kind"]), str(root["owner_id"])), []).append(root)
-    summaries = [_synthesis_run(owner, roots, chains, budgets) for owner, roots in runs.items()]
+    config_budgets = {field: budgets.get(field) for field in SYNTHESIS_BUDGET_FIELDS}
+    summaries = [_synthesis_run(owner, roots, chains, config_budgets) for owner, roots in runs.items()]
     summaries.sort(key=lambda run: (run["started_at"] or "", run["owner_kind"], run["owner_id"]))
-    return {"budgets": {field: budgets.get(field) for field in SYNTHESIS_BUDGET_FIELDS}, "runs": summaries}
+    return {"config_budgets": config_budgets, "runs": summaries}
 
 
-def _synthesis_run(owner: tuple[str, str], roots: list[dict[str, Any]], chains: _Chains, budgets: Mapping[str, int | None]) -> dict[str, Any]:
+def _run_budgets(roots: list[dict[str, Any]], config_budgets: Mapping[str, int | None]) -> tuple[dict[str, Any], str]:
+    """The budgets the run declared on its receipts, else the current config.
+
+    An unlimited run declares only its shard input size, so its other ratios
+    stay empty: no ceiling was in force.
+    """
+
+    for root in sorted(roots, key=lambda root: (root.get("started_at") or "", root["id"])):
+        if root.get("budget_json"):
+            declared = json.loads(root["budget_json"])
+            budgets = {field: declared.get(field) for field in SYNTHESIS_BUDGET_FIELDS}
+            budgets["unlimited"] = bool(declared.get("unlimited", False))
+            return budgets, "receipt"
+    return {**config_budgets, "unlimited": False}, "config"
+
+
+def _synthesis_run(owner: tuple[str, str], roots: list[dict[str, Any]], chains: _Chains, config_budgets: Mapping[str, int | None]) -> dict[str, Any]:
+    budgets, budget_source = _run_budgets(roots, config_budgets)
     requests: list[dict[str, Any]] = []
     shard_pass_inputs: list[int | None] = []
     shard_pass_outputs: list[int | None] = []
@@ -254,6 +273,8 @@ def _synthesis_run(owner: tuple[str, str], roots: list[dict[str, Any]], chains: 
         "output_tokens": output_tokens,
         "largest_pass_input_tokens": largest_pass_input,
         "largest_pass_output_tokens": largest_pass_output,
+        "budgets": budgets,
+        "budget_source": budget_source,
         "budget_ratios": {
             "input_to_total_input_ceiling": _ratio(input_tokens, budgets.get("synthesis_total_input_ceiling")),
             "output_to_output_ceiling": _ratio(output_tokens, budgets.get("synthesis_output_tokens")),

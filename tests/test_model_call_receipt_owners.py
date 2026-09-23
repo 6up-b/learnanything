@@ -18,7 +18,7 @@ from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
 def _receipts(sqlite_path):
     with connect(sqlite_path) as connection:
         return [dict(row) for row in connection.execute(
-            "SELECT owner_kind, owner_id, purpose, status, input_tokens, output_tokens "
+            "SELECT owner_kind, owner_id, purpose, status, input_tokens, output_tokens, budget_json "
             "FROM model_call_receipts ORDER BY started_at"
         )]
 
@@ -31,7 +31,7 @@ class _UsageReportingSynthesisClient(FakeSynthesisClient):
         return super().complete(request)
 
 
-def test_cli_synthesize_records_receipts_with_usage(tmp_path, monkeypatch):
+def test_cli_synthesize_records_receipts_with_usage_and_budgets(tmp_path, monkeypatch):
     import learnloop.cli as cli_module
     from learnloop.cli import app
 
@@ -49,6 +49,12 @@ def test_cli_synthesize_records_receipts_with_usage(tmp_path, monkeypatch):
         assert row["owner_kind"] == "cli"
         assert row["owner_id"].startswith("synthesize:")
         assert (row["status"], row["input_tokens"], row["output_tokens"]) == ("completed", 1200, 300)
+        assert json.loads(row["budget_json"]) == {
+            "synthesis_shard_input_tokens": 40000,
+            "synthesis_shard_output_tokens": 10000,
+            "synthesis_total_input_ceiling": 48000,
+            "synthesis_output_tokens": 16000,
+        }
     # One command run is one owner.
     assert len({row["owner_id"] for row in passes}) == 1
 

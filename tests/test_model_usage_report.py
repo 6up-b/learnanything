@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from learnloop.ai.execution import observe_model_calls, report_call_usage
+from learnloop.ai.execution import declared_budgets, observe_model_calls, report_call_usage
 from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import STRUCTURED_COMPLETION, execute_structured_operation
@@ -102,7 +102,7 @@ def test_empty_vault_reports_no_usage_and_keeps_the_schema(vault):
     report = _report(paths)
     assert report["totals"] == {"receipts": 0, "operations": 0, "requests": 0}
     assert report["by_purpose"] == [] and report["coverage"] == []
-    assert report["synthesis_runs"] == {"budgets": DEFAULT_BUDGETS, "runs": []}
+    assert report["synthesis_runs"] == {"config_budgets": DEFAULT_BUDGETS, "runs": []}
     assert report["report_version"] == 1
 
 
@@ -192,6 +192,35 @@ def test_synthesis_runs_compare_measured_tokens_with_the_budgets(vault):
     assert second["budget_ratios"]["input_to_total_input_ceiling"] is None
 
 
+def test_runs_are_compared_with_the_budgets_recorded_on_their_receipts(vault, monkeypatch):
+    paths, repository = vault
+    declared = {**DEFAULT_BUDGETS, "synthesis_total_input_ceiling": 72000}
+    client = _openai_client(monkeypatch, [ANSWER], [_usage(36000, 8000)])
+    with _observed(repository, "job-1"), declared_budgets(declared):
+        _run(client, SYNTHESIS_PASS_PURPOSE)
+    with _observed(repository, "job-2"), declared_budgets({"unlimited": True, "synthesis_shard_input_tokens": 40000}):
+        _run(_ReportingTransport({"input_tokens": 50000, "output_tokens": 20000}), SYNTHESIS_PASS_PURPOSE)
+    with _observed(repository, "job-3"):
+        _run(_ReportingTransport({"input_tokens": 24000, "output_tokens": 8000}), SYNTHESIS_PASS_PURPOSE)
+
+    with repository.connection() as connection:
+        recorded = dict(connection.execute(
+            "SELECT purpose, budget_json FROM model_call_receipts WHERE owner_id='job-1'"
+        ).fetchall())
+    # Only the operation's own receipt carries the budgets, not its requests.
+    assert recorded["chat_request"] is None
+    assert recorded[SYNTHESIS_PASS_PURPOSE] is not None
+
+    declared_run, unlimited_run, config_run = _report(paths)["synthesis_runs"]["runs"]
+    assert declared_run["budget_source"] == "receipt"
+    assert declared_run["budget_ratios"]["input_to_total_input_ceiling"] == 0.5
+    assert unlimited_run["budgets"]["unlimited"] is True
+    assert unlimited_run["budget_ratios"]["input_to_total_input_ceiling"] is None
+    assert unlimited_run["budget_ratios"]["largest_pass_input_to_shard_input"] == 1.25
+    assert config_run["budget_source"] == "config"
+    assert config_run["budget_ratios"]["input_to_total_input_ceiling"] == 0.5
+
+
 def test_purpose_prefix_and_since_filter_whole_chains(vault, monkeypatch):
     paths, repository = vault
     early = _openai_client(monkeypatch, [ANSWER], [_usage(10, 1)])
@@ -266,7 +295,7 @@ def test_cli_reads_budgets_from_the_effective_config_and_opens_read_only(vault):
     result = _cli("usage", "--vault", paths.root, "--json", "--purpose", "source")
     assert result.exit_code == 0, result.output
     report = json.loads(result.output)
-    assert report["synthesis_runs"]["budgets"]["synthesis_total_input_ceiling"] == 72000
+    assert report["synthesis_runs"]["config_budgets"]["synthesis_total_input_ceiling"] == 72000
     assert report["synthesis_runs"]["runs"][0]["budget_ratios"]["input_to_total_input_ceiling"] == 0.5
     assert report["filters"]["purpose_prefix"] == "source"
 
