@@ -172,7 +172,7 @@ A `legacy_ingest` job that follows a completed import fetches the source again o
 
 ### Worker ownership and lease recovery
 
-Each claim of a job increments `ingest_jobs.attempt_count`; the pair of `worker_id` and `attempt_count` (`JobOwner`) is the owner of that attempt. A handler runs inside `guard_ingest_writes`: every SQLite write on the worker thread first checks, inside its own write transaction, that the job row is still `running` with that worker and attempt, and every `vault_mutation_lock` block (vault-file publication, including the source note written by `register_canonical_source` and the goal linkage) runs the same check under the vault lock. An attempt that lost ownership raises `JobOwnershipLost`, publishes nothing further, and leaves the job to its successor.
+Each claim of a job increments `ingest_jobs.attempt_count`; the pair of `worker_id` and `attempt_count` (`JobOwner`) is the owner of that attempt. A handler runs inside `guard_ingest_writes`: every SQLite write on the worker thread first checks, inside its own write transaction, that the job row is still `running` with that worker and attempt, and every `vault_mutation_lock` block (vault-file publication, including a new subject created for the source, the source note written by `register_canonical_source` and the goal linkage) runs the same check under the vault lock. An attempt that lost ownership raises `JobOwnershipLost`, publishes nothing further, and leaves the job to its successor.
 
 | Mechanism | Behavior |
 |---|---|
