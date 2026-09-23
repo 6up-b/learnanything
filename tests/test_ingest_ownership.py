@@ -30,8 +30,8 @@ def test_stale_worker_cannot_finish_or_publish_after_replacement(tmp_path):
     completed = replacement.repo.get_ingest_job(old['id'])
     assert completed['status'] == 'completed'
     assert completed['attempt_count'] == 2
-    assert not runner.repo.finish_ingest_job(
-        old['id'], worker_id='old', attempt_count=1, expected_status='running',
+    assert not runner.repo.finish_owned_ingest_job(
+        old['id'], owner=JobOwner('old', 1),
         status='completed', result={'stale': True}, clock=_clock(181),
     )
     assert not runner.repo.heartbeat_ingest_job(old['id'], owner=JobOwner('old', 1))

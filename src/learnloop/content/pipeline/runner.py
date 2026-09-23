@@ -625,12 +625,10 @@ class IngestRunner:
                 self._database, job["id"], job.get("worker_id"), job["attempt_count"]
             ):
                 continue
-            changed = self.repo.finish_ingest_job(
+            changed = self.repo.expire_ingest_lease(
                 job["id"],
-                status="failed",
-                worker_id=job.get('worker_id'),
-                attempt_count=job['attempt_count'],
-                expected_status='running',
+                worker_id=job.get("worker_id"),
+                attempt_count=job["attempt_count"],
                 lease_cutoff_iso=cutoff,
                 phase="failed",
                 message="Interrupted before completion",
@@ -741,7 +739,7 @@ class IngestRunner:
         self.repo.request_ingest_batch_cancel(batch_id)
         for job in self.repo.ingest_jobs_for_batch(batch_id):
             if job["status"] in {"queued", "blocked", "waiting_for_input"}:
-                self.repo.finish_ingest_job(
+                self.repo.transition_unleased_ingest_job(
                     job["id"],
                     status="cancelled",
                     phase="cancelled",
@@ -788,11 +786,10 @@ class IngestRunner:
 
     def _run_claimed(self, job: dict[str, Any]) -> None:
         batch_id = job["batch_id"]
+        owner = JobOwner(self.worker_id, job["attempt_count"])
+
         def finish(job_id, **values):
-            return self.repo.finish_ingest_job(
-                job_id, worker_id=self.worker_id, attempt_count=job['attempt_count'],
-                expected_status='running', **values,
-            )
+            return self.repo.finish_owned_ingest_job(job_id, owner=owner, **values)
 
         self.repo.update_ingest_batch_status(batch_id, "running", mark_started=True, clock=self.clock)
         ctx = JobContext(
@@ -971,7 +968,7 @@ class IngestRunner:
                 for dep_id in self.repo.ingest_job_dependency_ids(job["id"]):
                     dep = jobs.get(dep_id)
                     if dep is not None and dep["status"] in _UNFINISHED_STATUSES:
-                        self.repo.finish_ingest_job(
+                        self.repo.transition_unleased_ingest_job(
                             job["id"],
                             status="blocked",
                             phase="blocked",
