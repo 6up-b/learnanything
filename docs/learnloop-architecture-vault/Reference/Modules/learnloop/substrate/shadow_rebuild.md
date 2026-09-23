@@ -130,6 +130,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
+  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
   - `test_shadow_rebuild_rejects_unknown_override_without_touching_live_db`
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`

@@ -80,6 +80,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `CANONICAL_STATE_VERSIONS`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`, `P0_SUCCESSOR_VERSIONS`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 
@@ -101,7 +102,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -111,6 +112,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_assessment_service_reexports_neutral_algorithm_versions`
 - [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_every_canonical_version_refuses_legacy_facet_state_write`
+- [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
+  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
 - [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
 
 ## Modification guidance

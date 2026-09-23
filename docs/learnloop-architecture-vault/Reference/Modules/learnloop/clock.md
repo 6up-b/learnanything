@@ -796,6 +796,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_resolved_diagnosis_writes_no_note`
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_notes_are_append_only_and_reject_untyped_refusals`
+- [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_mvp09_upgrade.py](../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
   - `test_upgrade_to_mvp09_is_immediate_successor_only`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/serializers.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/serializers.py"
-source_commit: "1fed548460f8fda8571b24332121c348bb2907b7"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_commit: "37baf8665f70ebe6eb3a6aecab2d279476f37c48"
+source_commit_timestamp: "2026-09-23T15:56:08-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py) |
-| Source lines | 1158 |
+| Source lines | 1160 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `1fed548460f8fda8571b24332121c348bb2907b7` |
-| Commit timestamp | `2026-09-23T12:27:35-04:00` |
+| Source commit | `37baf8665f70ebe6eb3a6aecab2d279476f37c48` |
+| Commit timestamp | `2026-09-23T15:56:08-04:00` |
 
 ## Public API
 
@@ -69,21 +69,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `latest_scheduler_explanation_dto(record: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 156)
 - `item_presentation(item: PracticeItem) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 182) — Everything the learner must SEE to answer ``item``, as ONE structure.
 - `practice_item_detail(vault: LoadedVault, repository: Repository, practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 279)
-- `practice_item_attempts(repository: Repository, practice_item_id: str, max_points: int, limit: int=10) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 405) — Recent attempts on a Practice Item, newest first — the inspector's attempt-history table.
-- `learning_object_detail(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 429)
-- `resolve_concept_id(vault: LoadedVault, reference: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 499) — Resolve an exact concept id or an unambiguous title/alias reference.
-- `concept_reference_dto(vault: LoadedVault, reference: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 515)
-- `concept_detail(vault: LoadedVault, concept_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 526)
-- `attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 576)
-- `feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 710)
-- `intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 887)
-- `criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 911)
-- `error_event_dto(vault: LoadedVault, row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 931)
-- `mastery_before_dto(surprise: dict[str, Any], mastery_after: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 949) — Reconstruct the pre-attempt mastery posterior for the Belief-update panel.
-- `mastery_step_dto(repository: Repository, attempt_id: str, observed_correctness: float | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 981) — Why the posterior moved this far: the observation-weight factor chain.
-- `surprise_dto(row: dict[str, Any], followup_threshold_nats: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1018)
-- `practice_item_state_dto(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1038)
-- `rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1054) — The resolved rubric, criteria dumped WHOLE.
+- `practice_item_attempts(repository: Repository, practice_item_id: str, max_points: int, limit: int=10) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 407) — Recent attempts on a Practice Item, newest first — the inspector's attempt-history table.
+- `learning_object_detail(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 431)
+- `resolve_concept_id(vault: LoadedVault, reference: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 501) — Resolve an exact concept id or an unambiguous title/alias reference.
+- `concept_reference_dto(vault: LoadedVault, reference: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 517)
+- `concept_detail(vault: LoadedVault, concept_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 528)
+- `attempt_detail(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 578)
+- `feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 712)
+- `intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 889)
+- `criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 913)
+- `error_event_dto(vault: LoadedVault, row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 933)
+- `mastery_before_dto(surprise: dict[str, Any], mastery_after: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 951) — Reconstruct the pre-attempt mastery posterior for the Belief-update panel.
+- `mastery_step_dto(repository: Repository, attempt_id: str, observed_correctness: float | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 983) — Why the posterior moved this far: the observation-weight factor chain.
+- `surprise_dto(row: dict[str, Any], followup_threshold_nats: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1020)
+- `practice_item_state_dto(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1040)
+- `rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1056) — The resolved rubric, criteria dumped WHOLE.
 
 ### Module constants
 
@@ -94,16 +94,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_followup_kind(scheduled: ScheduledItem) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 47)
 - `_scheduled_item_dto(vault: LoadedVault, scheduled: ScheduledItem, *, state: PracticeItemState | None, mastery: MasteryState | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 96)
-- `_learning_object_confusable_concepts(vault: LoadedVault, repository: Repository, learning_object_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 462)
-- `_normalize_concept_reference(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 572)
-- `_cold_check_result(vault: LoadedVault, repository: Repository, attempt: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 613) — What the cold check this attempt just spent turned out to say.
-- `_candidate_error_types(vault: LoadedVault, concept: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1075) — Error taxonomy the self-grade form offers per under-credited criterion.
-- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1103)
-- `_rubric_for_item(vault: LoadedVault, item: PracticeItem) -> Rubric | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1110)
-- `_primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1117)
-- `_due_status(scheduled: ScheduledItem, due_at: str | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1122)
-- `_legacy_feedback_metadata(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1137)
-- `_rating_from_score(score: int, rubric: Rubric | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1149)
+- `_learning_object_confusable_concepts(vault: LoadedVault, repository: Repository, learning_object_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 464)
+- `_normalize_concept_reference(value: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 574)
+- `_cold_check_result(vault: LoadedVault, repository: Repository, attempt: dict[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 615) — What the cold check this attempt just spent turned out to say.
+- `_candidate_error_types(vault: LoadedVault, concept: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1077) — Error taxonomy the self-grade form offers per under-credited criterion.
+- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1105)
+- `_rubric_for_item(vault: LoadedVault, item: PracticeItem) -> Rubric | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1112)
+- `_primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1119)
+- `_due_status(scheduled: ScheduledItem, due_at: str | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1124)
+- `_legacy_feedback_metadata(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1139)
+- `_rating_from_score(score: int, rubric: Rubric | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1151)
 
 ## Who imports or calls it
 
@@ -131,7 +131,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `pinned_repository_call`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `causal_episode_for_attempt`, `claim_checked_feedback`; calls `causal_episode_for_attempt`, `claim_checked_feedback`
 - [[Reference/Modules/learnloop/diagnosis/guided_redo|learnloop.diagnosis.guided_redo]] — imports `guided_redo_available`; calls `guided_redo_available`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `KM_ALGORITHM_VERSION`, `snapshot_for_presentation`; calls `snapshot_for_presentation`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `CANONICAL_STATE_VERSIONS`, `snapshot_for_presentation`; calls `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `display_mastery`, `sigmoid`; calls `display_mastery`, `sigmoid`
 - [[Reference/Modules/learnloop/learner/mastery_step_attribution|learnloop.learner.mastery_step_attribution]] — imports `explain_mastery_step`; calls `explain_mastery_step`
 - [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]] — imports `resolve_source_refs`; calls `resolve_source_refs`

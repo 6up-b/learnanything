@@ -233,6 +233,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
 - [tests/test_minimal_repair_selection_a1.py](../../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
+- [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_persona_gate.py](../../../../../../tests/test_persona_gate.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../../tests/test_probe_targeting.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import

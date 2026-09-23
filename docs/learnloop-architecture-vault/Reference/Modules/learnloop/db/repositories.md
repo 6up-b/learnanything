@@ -1862,6 +1862,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_notes_are_append_only_and_reject_untyped_refusals`
   - `test_report_surfaces_the_abstention_rate`
+- [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
+  - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
+  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`
@@ -2183,6 +2186,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_missing_diagnostic_receipt_recovers_only_from_durable_completion`
   - `test_recovery_after_the_session_ended_inserts_no_session_followups`
   - `test_reopening_an_item_from_a_refreshed_queue_keeps_its_original_offer`
+  - `test_serving_an_item_snapshots_its_contract_on_the_init_version`
   - `test_sidecar_calibration_session_lifecycle`
   - `test_sidecar_dialogue_microprobe_turn_flow`
   - `test_sidecar_dont_know_retains_checkpoint_until_client_acknowledges`

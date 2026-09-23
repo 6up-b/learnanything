@@ -149,6 +149,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_scheduler.py`
+- `tests/test_sidecar_teach_back.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`

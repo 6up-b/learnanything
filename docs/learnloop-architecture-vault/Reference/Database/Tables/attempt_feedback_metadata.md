@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`
+- `tests/test_sim_teach_back.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_common_repair_delivery.py`
@@ -140,6 +141,8 @@ Indexes and uniqueness:
 - `tests/test_reveal_ledger.py`
 - `tests/test_scoreboard.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_sidecar_teach_back.py`
+- `tests/test_teach_back.py`
 - `tests/test_tui_feedback.py`
 - `tests/test_tui_practice.py`
 

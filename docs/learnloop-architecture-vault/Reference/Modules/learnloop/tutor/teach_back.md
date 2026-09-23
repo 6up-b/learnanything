@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/teach_back.py"
 source_paths:
   - "src/learnloop/tutor/teach_back.py"
-source_commit: "fad603474ade4c91d81a570cb21960ce4ebb5db0"
-source_commit_timestamp: "2026-09-23T15:39:36-04:00"
+source_commit: "6881ed330e2ef2a2f50d51d6f98d68d0845a8c59"
+source_commit_timestamp: "2026-09-23T15:55:52-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -55,8 +55,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `fad603474ade4c91d81a570cb21960ce4ebb5db0` |
-| Commit timestamp | `2026-09-23T15:39:36-04:00` |
+| Source commit | `6881ed330e2ef2a2f50d51d6f98d68d0845a8c59` |
+| Commit timestamp | `2026-09-23T15:55:52-04:00` |
 
 ## Public API
 
@@ -126,7 +126,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `OperationClient`, `execute_structured_operation`; calls `execute_structured_operation`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `AttemptResult`, `AttemptValidationError`, `GRADING_PROMPT_VERSION`, `GradeAttribution`, `ResolvedGrade`, `_agent_run_provider_fields`, `apply_attempt`; calls `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `_agent_run_provider_fields`, `apply_attempt`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `ApplyAttemptInput`, `AttemptDraft`, `AttemptResult`, `AttemptValidationError`, `GRADING_PROMPT_VERSION`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`; calls `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `agent_run_provider_fields`, `apply_attempt`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `GradingValidationError`, `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`; calls `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`

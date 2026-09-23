@@ -187,6 +187,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_irt_end_to_end.py](../../../../../../tests/test_irt_end_to_end.py) — direct import
 - [tests/test_item_authoring.py](../../../../../../tests/test_item_authoring.py) — direct import
   - `test_retire_item_reuses_loaded_vault_and_clears_serving_backdoors`
+- [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_reject_accepted_concept_create_blocks_when_referenced`
 - [tests/test_patch_compiler.py](../../../../../../tests/test_patch_compiler.py) — direct import
