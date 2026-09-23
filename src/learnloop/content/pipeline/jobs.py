@@ -1272,7 +1272,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     results_by_index: dict[int, InventoryResult] = {}
     work_by_index: dict[int, PreparedInventory] = {}
 
-    def prepare(index: int, provider_identity: tuple[str, str]) -> None:
+    def prepare(index: int, provider_identity: tuple[str, str], client: Any = None) -> None:
         spec = specs[index]
         resolved = prepare_unit_inventory(
             ctx.repo,
@@ -1281,6 +1281,7 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             unit_ids=spec["unit_ids"],
             role=str(spec.get("role") or "reference"),
             profile=spec.get("profile"),
+            client=client,
             provider=provider_identity[0],
             model=provider_identity[1],
             input_budget_tokens=budget,
@@ -1302,13 +1303,14 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
             warm_client = ctx.services.inventory_client(
                 ctx, bind_interruptible=False
             )
-        actual_identity = inventory_client_identity(warm_client)
-        if actual_identity != identity:
-            # Runtime routing may have selected the configured fallback. Recheck
-            # those misses under the identity that will actually produce them.
-            for index in list(work_by_index):
-                prepare(index, actual_identity)
-            identity = actual_identity
+        # Prepare the misses again with the client that will run them. Window
+        # checkpoint keys include its settings (endpoint, reasoning effort),
+        # matching run_unit_inventory's keys for the same inputs, and runtime
+        # routing may have selected the configured fallback, whose identity
+        # the unit inventory cache must be checked under.
+        identity = inventory_client_identity(warm_client)
+        for index in list(work_by_index):
+            prepare(index, identity, warm_client)
 
     if work_by_index:
         worker_count = min(_MAX_INVENTORY_WORKERS, len(work_by_index))
