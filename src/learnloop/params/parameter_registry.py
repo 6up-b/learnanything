@@ -20,8 +20,7 @@ Classification method: config leaves are covered by explicit ordered rules
 with a rationale, and a *future* unmatched numeric field fails the audit loudly
 (no open-ended allowlist -- §6). Module-level constants are declared explicitly.
 
-Interpretation notes (U-022 v2, owner decision 2026-07-19; documented in the spec
-change log):
+Interpretation notes (U-022 v2; documented in the spec change log):
   * The single "sensitivity certificate" concept is split into two artifacts.
     COVERAGE (``sensitivity_certificate_id``) is descriptive and required for EVERY
     ``active`` decision parameter regardless of status -- it documents where in the
@@ -347,7 +346,7 @@ _reg_const("substrate_cutover:PURPOSE_ADAPTERS_LIVE_FROM", "version", kind="stru
            "reads; legacy vaults keep the purpose-blind path + characterization pins (owner "
            "decision 2026-07-19).")
 
-# familiarity (P1 step 6, spec_p1_shared_substrate §4.2/§4.3, owner decision A.4).
+# familiarity (P1 step 6, spec_p1_shared_substrate §4.2/§4.3).
 # familiarity_projection_v1 is a deterministic monotone heuristic; every coefficient
 # / threshold that can change evidence or rotation is a registered decision param.
 _reg_const("familiarity:TIGHT_KINSHIP_THRESHOLD", "threshold", owner="familiarity",
@@ -479,7 +478,7 @@ _reg_const("grading:FIREWALL_FRACTION_EPSILON", "constraint", kind="structural",
            owner="grading", rationale="floating-point tolerance for the full-credit firewall "
            "comparison; a numerical identity rather than a decision knob.")
 
-# progression (P1 step 8, spec_p1_shared_substrate §4.3/§5.5, owner decision A.4).
+# progression (P1 step 8, spec_p1_shared_substrate §4.3/§5.5).
 _reg_const("progression:MAX_EFFECTIVE_MASS_PER_CLUSTER", "constraint", owner="progression",
            rationale="§4.3 family evidence cap: max total effective independent mass per "
            "target x capability x angle neighborhood; variants in one family cannot certify alone. "

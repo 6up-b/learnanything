@@ -16,7 +16,7 @@ import json
 import math
 import re
 from collections import defaultdict
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault, SourceRef, learning_object_facet_union
@@ -310,15 +310,74 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
     if ir is None:
         raise ValueError(f"extraction has no IR: {extraction_id!r}")
 
-    blocks = sorted(ir.blocks, key=lambda block: block.ordinal)
-    note_ids = _canonical_note_ids(vault, artifact)
+    section_rows, block_by_span, span_to_section = extraction_sections(ir)
+    passages_by_section, passage_goal_candidates = _passages_by_section(
+        vault,
+        repository,
+        source_id=source_id,
+        extraction_id=extraction_id,
+        note_ids=_canonical_note_ids(vault, artifact),
+        blocks=sorted(ir.blocks, key=lambda block: block.ordinal),
+        block_by_span=block_by_span,
+        span_to_section=span_to_section,
+    )
+    # The extraction's stable source identifiers, which a reviewed placement or
+    # a golden-path run may have been pinned against.
+    source_revs = {
+        str(run.get("revision_id") or ""),
+        str((revision or {}).get("id") or ""),
+        str((revision or {}).get("asset_hash") or ""),
+        source_id,
+    }
+    question_by_section, placement_goal_candidates = _reviewed_placement_questions(
+        vault, repository, source_revs=source_revs, section_rows=section_rows,
+    )
+    _add_auto_authored_questions(
+        repository,
+        extraction_id=extraction_id,
+        question_by_section=question_by_section,
+        passages_by_section=passages_by_section,
+    )
+    sections = _assembled_sections(section_rows, passages_by_section, question_by_section)
+    return {
+        "source_id": source_id,
+        "extraction_id": extraction_id,
+        "personalized": any(section["question"] or section["suggested_passages"] for section in sections),
+        "selection_basis": "reviewed boundary placements + local learner state + active goal + source provenance",
+        "goal_context": _goal_context([*passage_goal_candidates, *placement_goal_candidates]),
+        "sections": sections,
+    }
+
+
+def _goal_candidate(goal: Any, golden_run: Mapping[str, Any] | None, score: float) -> dict[str, Any]:
+    return {
+        "goal_id": goal.id if goal is not None else None,
+        "goal_title": goal.title if goal is not None else None,
+        "golden_path_run_id": golden_run.get("id") if golden_run else None,
+        "target_contract_version_id": golden_run.get("goal_contract_version_id") if golden_run else None,
+        "score": score,
+    }
+
+
+def _passages_by_section(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    source_id: str,
+    extraction_id: str,
+    note_ids: set[str],
+    blocks: list[Any],
+    block_by_span: dict[str, Any],
+    span_to_section: dict[str, str],
+) -> tuple[dict[str, dict[str, dict[str, Any]]], list[dict[str, Any]]]:
+    """Passages that active, source-grounded Practice Items cite, keyed by section then span.
+
+    A span cited by several items keeps its highest-scoring passage. Also
+    returns one goal candidate per grounded item for the plan's goal context.
+    """
 
     passages_by_section: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
-    question_by_section: dict[str, dict[str, Any]] = {}
-    context_candidates: list[dict[str, Any]] = []
-
-    section_rows, block_by_span, span_to_section = extraction_sections(ir)
-
+    goal_candidates: list[dict[str, Any]] = []
     for item in vault.practice_items.values():
         if getattr(item, "status", "active") != "active":
             continue
@@ -347,13 +406,7 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
             score += 1.0
 
         golden_run = repository.golden_path_run_for_goal(goal.id) if goal is not None else None
-        context_candidates.append({
-            "goal_id": goal.id if goal is not None else None,
-            "goal_title": goal.title if goal is not None else None,
-            "golden_path_run_id": golden_run.get("id") if golden_run else None,
-            "target_contract_version_id": golden_run.get("goal_contract_version_id") if golden_run else None,
-            "score": score,
-        })
+        goal_candidates.append(_goal_candidate(goal, golden_run, score))
         section_ids = {span_to_section[span_id] for span_id in ref_spans if span_id in span_to_section}
         for section_id in section_ids:
             for span_id in ref_spans:
@@ -372,18 +425,22 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
                 }
                 if existing is None or passage["score"] > existing["score"]:
                     passages_by_section[section_id][span_id] = passage
+    return passages_by_section, goal_candidates
 
-    # P3 §5.1 / P2 §7.6: read static, reviewed placements.  Active-goal runs are
-    # used only to recover a pinned blueprint whose semantic source revision is
-    # one of this extraction's stable source identifiers.
-    source_revs = {
-        str(run.get("revision_id") or ""),
-        str((revision or {}).get("id") or ""),
-        str((revision or {}).get("asset_hash") or ""),
-        source_id,
-    }
-    unit_ids = {str(section["id"]) for section in section_rows}
-    pinned_versions: list[str] = []
+
+def _pinned_blueprint_goals(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    source_revs: set[str],
+    unit_ids: set[str],
+) -> dict[str, Any]:
+    """Active goals whose golden-path run pins a blueprint to this source, by blueprint version.
+
+    Active-goal runs are used only to recover a pinned blueprint whose semantic
+    source revision is one of this extraction's stable source identifiers.
+    """
+
     goal_by_blueprint: dict[str, Any] = {}
     for goal in vault.goals:
         if goal.status != "active":
@@ -397,14 +454,33 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
         ):
             version_id = str(golden_run.get("blueprint_version_id") or "")
             if version_id:
-                pinned_versions.append(version_id)
                 goal_by_blueprint[version_id] = goal
+    return goal_by_blueprint
 
+
+def _reviewed_placement_questions(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    source_revs: set[str],
+    section_rows: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """One owner-reviewed question per section, from static reviewed placements (P3 §5.1 / P2 §7.6).
+
+    Also returns one goal candidate per placed question for the plan's goal context.
+    """
+
+    unit_ids = {str(section["id"]) for section in section_rows}
+    goal_by_blueprint = _pinned_blueprint_goals(
+        vault, repository, source_revs=source_revs, unit_ids=unit_ids,
+    )
     placement_rows = repository.reviewed_reading_question_placements(
         source_revs=sorted(source_revs),
         unit_ids=sorted(unit_ids),
-        blueprint_version_ids=pinned_versions,
+        blueprint_version_ids=list(goal_by_blueprint),
     )
+    question_by_section: dict[str, dict[str, Any]] = {}
+    goal_candidates: list[dict[str, Any]] = []
     for row in placement_rows:
         placement_event_id = str(row.get("placement_event_id") or "")
         if not placement_event_id or _placement_suppressed(repository, placement_event_id):
@@ -463,18 +539,25 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
             "blueprint_version_id": row.get("blueprint_version_id"),
             "placement": "owner_reviewed",
         }
-        context_candidates.append({
-            "goal_id": goal.id if goal is not None else None,
-            "goal_title": goal.title if goal is not None else None,
-            "golden_path_run_id": golden_run.get("id") if golden_run else None,
-            "target_contract_version_id": golden_run.get("goal_contract_version_id") if golden_run else None,
-            "score": latent_boost + (4.0 * float(goal.priority) if goal is not None else 0.0),
-        })
+        goal_score = latent_boost + (4.0 * float(goal.priority) if goal is not None else 0.0)
+        goal_candidates.append(_goal_candidate(goal, golden_run, goal_score))
+    return question_by_section, goal_candidates
 
-    # Auto-authored fallback (quick-check producer): sections without an
-    # owner-reviewed placement show the section's NEWEST authored question, and
-    # only while it is still ``proposed`` — an answered/dismissed/escalated
-    # newest row consumes the section rather than resurfacing an older one.
+
+def _add_auto_authored_questions(
+    repository: Repository,
+    *,
+    extraction_id: str,
+    question_by_section: dict[str, dict[str, Any]],
+    passages_by_section: dict[str, dict[str, dict[str, Any]]],
+) -> None:
+    """Fill sections that have no owner-reviewed question with their authored quick check.
+
+    A section shows its NEWEST authored question, and only while it is still
+    ``proposed``: an answered, dismissed or escalated newest row consumes the
+    section rather than resurfacing an older one.
+    """
+
     decided_sections: set[str] = set()
     for row in repository.reader_authored_questions_for_extraction(extraction_id):
         section_id = str(row.get("section_id") or "")
@@ -518,16 +601,28 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
             ),
         }
 
-    goal_context = None
-    goal_candidates = [candidate for candidate in context_candidates if candidate["goal_id"]]
-    if goal_candidates:
-        best_goal = max(goal_candidates, key=lambda candidate: (candidate["score"], candidate["goal_id"]))
-        goal_context = {
-            "goal_id": best_goal["goal_id"],
-            "title": best_goal["goal_title"],
-            "golden_path_run_id": best_goal["golden_path_run_id"],
-            "target_contract_version_id": best_goal["target_contract_version_id"],
-        }
+
+def _goal_context(goal_candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The highest-scoring goal any passage or question supports (ties to the larger goal id)."""
+
+    with_goal = [candidate for candidate in goal_candidates if candidate["goal_id"]]
+    if not with_goal:
+        return None
+    best_goal = max(with_goal, key=lambda candidate: (candidate["score"], candidate["goal_id"]))
+    return {
+        "goal_id": best_goal["goal_id"],
+        "title": best_goal["goal_title"],
+        "golden_path_run_id": best_goal["golden_path_run_id"],
+        "target_contract_version_id": best_goal["target_contract_version_id"],
+    }
+
+
+def _assembled_sections(
+    section_rows: list[dict[str, Any]],
+    passages_by_section: dict[str, dict[str, dict[str, Any]]],
+    question_by_section: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Each section with its question and its three best passages (scores stripped)."""
 
     sections: list[dict[str, Any]] = []
     for section in section_rows:
@@ -542,12 +637,4 @@ def build_guide_plan(vault: LoadedVault, repository: Repository, *, extraction_i
             "question": question_by_section.get(section["id"]),
             "suggested_passages": passages,
         })
-
-    return {
-        "source_id": source_id,
-        "extraction_id": extraction_id,
-        "personalized": any(section["question"] or section["suggested_passages"] for section in sections),
-        "selection_basis": "reviewed boundary placements + local learner state + active goal + source provenance",
-        "goal_context": goal_context,
-        "sections": sections,
-    }
+    return sections

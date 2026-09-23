@@ -129,9 +129,8 @@ _WAYPOINT_BY_SLUG = {w.slug: w for w in DEFAULT_TRAJECTORY}
 # generate whole-task work without a learner-reviewed depth envelope.
 _WAYPOINT_SLUG_BY_CAPABILITY: dict[str, str] = {w.capability: w.slug for w in DEFAULT_TRAJECTORY}
 
-# Retired slugs -> their replacement, so stored rung-variant requests and item
-# annotations written before the selected-response waypoint was removed still
-# resolve instead of raising.
+# Retired waypoint slugs map to their replacement so stored rung-variant
+# requests and item annotations still resolve.
 _RETIRED_WAYPOINT_SLUGS = {"recognize": "recall"}
 
 
