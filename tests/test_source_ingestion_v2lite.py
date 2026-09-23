@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.ingest.extractors.normalizers import markdown_to_ir
@@ -431,3 +433,30 @@ def test_v2lite_retry_resumes_from_retained_bytes_without_fetching(tmp_path, mon
     assert job["attempt_count"] == 2
     retried_context = "\n".join(chunk.text for chunk in client.calls[-1].chunks)
     assert SENTINEL_A in retried_context and SENTINEL_B in retried_context
+
+
+def test_legacy_window_checkpoint_that_no_longer_validates_is_discarded(tmp_path, monkeypatch):
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    source = str(_source_file(tmp_path))
+    client = _FakeCanonicalClient()
+    original_auto_apply = source_ingestion.auto_apply_rows
+
+    def fail_after_windows(*_args, **_kwargs):
+        raise RuntimeError("apply failed after the window was paid for")
+
+    monkeypatch.setattr(source_ingestion, "auto_apply_rows", fail_after_windows)
+    with pytest.raises(RuntimeError):
+        ingest_canonical_source(vault_root, source, client, subject_id="linear-algebra", clock=FrozenClock(NOW))
+    repository = Repository(vault_root / "state.sqlite")
+    with repository.connection() as connection:
+        connection.execute("UPDATE model_work_checkpoints SET result_json = '{\"items\": \"not a list\"}'")
+    monkeypatch.setattr(source_ingestion, "auto_apply_rows", original_auto_apply)
+
+    result = ingest_canonical_source(vault_root, source, client, subject_id="linear-algebra", clock=FrozenClock(NOW))
+
+    assert result.codex_calls == 1
+    assert len(client.calls) == 2
+    with repository.connection() as connection:
+        stored = connection.execute("SELECT result_json FROM model_work_checkpoints").fetchall()
+    assert len(stored) == 1 and "not a list" not in stored[0][0]

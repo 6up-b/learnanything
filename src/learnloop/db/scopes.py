@@ -34,11 +34,15 @@ _job_guard: ContextVar[_JobGuard | None] = ContextVar('ingest_write_guard', defa
 
 
 @contextmanager
-def allow_late_model_observation():
-    """Only the receipt store uses this to finish a previously started call.
+def allow_late_model_records():
+    """Let the model-call store record paid work after its job lost ownership.
 
     Losing a job's lease removes publication authority, but does not erase
-    billable work. The store must constrain the update to its own started ID.
+    billable work. Only two writes use this: finishing a receipt the attempt
+    itself started (constrained to that receipt's id and owner), and saving a
+    validated checkpoint. Checkpoints are write-once, keyed by their inputs
+    and never canonical state, so a late one is exactly the work a successor
+    would otherwise pay for again.
     """
     token = _job_guard.set(None)
     try:

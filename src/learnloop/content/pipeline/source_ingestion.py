@@ -13,6 +13,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Literal
 
+from pydantic import ValidationError
+
 from learnloop.ai.client import AIProviderClient
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import PdfIngestConfig
@@ -497,10 +499,8 @@ def _run_ingest_windows(
             instructions=instructions,
         )
         key = content_key({"purpose": "legacy_ingest_window", "prompt": canonical_ingest_prompt(context), "schema": AuthoringProposal.model_json_schema(), "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None)})
-        checkpoint = repository.model_checkpoint(key)
-        if checkpoint:
-            proposal = AuthoringProposal.model_validate(checkpoint["result"])
-        else:
+        proposal = _checkpointed_window_proposal(repository, key)
+        if proposal is None:
             if usage is not None:
                 usage["calls"] = usage.get("calls", 0) + 1
             proposal = request_canonical_ingest(client, context)
@@ -1043,6 +1043,19 @@ def register_canonical_source(
         subject_id=subject_id,
         canonical_source=canonical_source,
     )
+
+
+def _checkpointed_window_proposal(repository: Repository, key: str) -> AuthoringProposal | None:
+    """Return a window's saved proposal, discarding one that no longer validates."""
+
+    checkpoint = repository.model_checkpoint(key)
+    if checkpoint is None:
+        return None
+    try:
+        return AuthoringProposal.model_validate(checkpoint["result"])
+    except ValidationError:
+        repository.discard_model_checkpoint(key)
+        return None
 
 
 def merge_window_proposals(proposals: list[AuthoringProposal]) -> AuthoringProposal:

@@ -204,3 +204,16 @@ def test_a_replaced_attempt_interrupts_only_its_own_transport(tmp_path):
     # Cancelling the job still reaches the live attempt's transport.
     assert runner.interrupt_job(second['id'])
     assert live_transport.interrupted
+
+
+def test_a_replaced_attempt_still_saves_its_paid_checkpoint(tmp_path):
+    runner = _runner(tmp_path, handlers={'fake': _ok_handler({})})
+    runner.enqueue_batch('import', [JobSpec('fake')])
+    old = _claim(runner.repo, 'old', 0)
+    runner.clock = _clock(180)
+    assert runner.recover_stale_leases() == [old['id']]
+    with guard_ingest_writes(runner.repo.sqlite_path, old['id'], 'old', 1):
+        runner.repo.save_model_checkpoint('window-key', purpose='inventory_window', result={'paid': True})
+        with pytest.raises(JobOwnershipLost):
+            runner.repo.update_ingest_job_payload(old['id'], {'stale': True})
+    assert runner.repo.model_checkpoint('window-key') == {'result': {'paid': True}, 'usage': {}}
