@@ -5,14 +5,18 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - pyproject.toml
   - src/learnloop/algorithm_versions.py
   - src/learnloop/config/schema.py
   - migrations
+  - src/learnloop/outcome_contract.py
+  - src/learnloop/scheduling/scheduler.py
+  - src/learnloop/substrate/dataset.py
+  - src/learnloop/substrate/data_quality.py
 tags:
   - learnloop/reference
   - learnloop/version
@@ -29,7 +33,13 @@ tags:
 | canonical projection base | `mvp-0.8` semantics | inherited by mvp-0.9 |
 | knowledge-model activation | `mvp-0.7` | canonical state/contracts boundary |
 | config schema | `2` | emitted `learnloop.toml`; schema 1 accepted |
-| SQLite migration head | `156` | current schema ledger maximum |
+| SQLite migration head | `164` | current schema ledger maximum |
+| collection | `learnloop-events-v1` | `COLLECTION_VERSION` stamped on attempts, slates, offer receipts, submission intents, completion work, model-call receipts and adjudications; attempt and slate rows written before migration 161 read `legacy-unversioned` |
+| outcome labels | `learnloop-outcomes-v1` | `LABEL_VERSION` of the exported R_next/R_cold/Q/B/F labels and of adjudications |
+| selection policy | `composed_offer_v2` | `selection_policy` on every persisted slate; candidates carry `propensity_kind = unavailable_composed_offer` |
+| selection feature schema | `selection_features_v1` | shape of `decision_features` selection rows |
+| dataset export | `1` | `dataset_version` in an export's `manifest.json` |
+| data-quality report | `1` | `report_version` of `learnloop data-quality` output |
 | documentation | `1.0.0` | initial architecture-vault release |
 | source inventory commit | `62fd1f6404cc…` | baseline commit plus current refactor worktree |
 
@@ -45,5 +55,6 @@ Assessment contracts, prompt contracts, AI prompt versions, probe families, goal
 - Algorithm semantics: [[Algorithm Versions and Reproducibility#Change protocol]].
 - Config/schema: [[Configuration]] and [[ADR-006 Schema-v2 config with one-way compatibility]].
 - SQLite: [[State and Persistence#Open modes and migrations]].
+- Collection, label, selection and export versions: [[Collection and Dataset Contract]].
 - Documentation metadata: [[Documentation Conventions#Frontmatter contract]].
 

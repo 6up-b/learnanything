@@ -6,9 +6,9 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-18
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - docs/specs/documentation.md
   - src/learnloop/attempts/attempts.py
@@ -137,7 +137,7 @@ These controls prevent double-counting and distinguish teaching from measurement
 
 [[Scheduling and Selection]] separates hard eligibility from reward. Common score components are forgetting risk, recent error, active-goal frontier value, and normalized probe information gain. The final ordering also enforces held-out quarantine, diagnostic freshness, requested-item floors, goal quotas, staged-controller ownership, follow-up precedence, and session caps.
 
-Every slate can persist explanations and propensities, enabling prequential evaluation instead of only anecdotal debugging.
+Every saved slate persists explanations, candidate components and decision-time features, and the adapter records the exact offer it showed, so a selection can be explained and audited from the record instead of only debugged anecdotally. Composed offers record no selection propensity (`propensity_kind = unavailable_composed_offer`), so they do not support off-policy estimates; see [[Scheduling and Selection#Explainability and evaluation]] and [[Collection and Dataset Contract]].
 
 ## Diagnosis and repair
 

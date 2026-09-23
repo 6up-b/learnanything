@@ -36,7 +36,7 @@ See [[Data and State Map#^authority-map]] and [[Vault Lifecycle]].
 
 ## Table roles
 
-`learnloop.db.table_roles.TABLE_ROLES` exactly matches the 251 migration-head user tables. Classification is explicit rather than inferred from a suffix:
+`learnloop.db.table_roles.TABLE_ROLES` exactly matches the 259 migration-head user tables. Classification is explicit rather than inferred from a suffix:
 
 | Role | Policy |
 |---|---|
@@ -81,6 +81,8 @@ flowchart LR
 ```
 
 The exact order is instrumented by `tests/test_attempt_write_order.py`. Post-attempt work may schedule cold probes, persist feedback metadata, or mint intervention needs, but cannot precede accepted evidence.
+
+The attempt transaction ends by writing `attempt_completion_work` (WORKFLOW role): the applied result and, while the row is `pending`, the probe episode the attempt was applied under. Post-attempt completion marks the row `completed` with the frozen learner route in the same transaction as the follow-up writes. A pending row is therefore an interrupted completion, which a retry of the same submission id resumes from the saved result without regrading; see [[Continue a Learning Cycle#After a lost submission response]].
 
 ^attempt-write-order
 

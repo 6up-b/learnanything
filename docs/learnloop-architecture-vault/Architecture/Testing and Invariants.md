@@ -5,12 +5,14 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-18
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - tests
   - pyproject.toml
+  - tests/conftest.py
+  - apps/learnloop-tauri/vitest.config.mjs
   - docs/specs/REFACTOR_PROPOSAL.md
 tags:
   - learnloop/architecture
@@ -34,17 +36,25 @@ Tests are part of the architecture. LearnLoop uses example tests for local rules
 | table-role exactness | migration-head schema and registry match bidirectionally |
 | rebuild golden | every derived column reproduces, stale rows clear, all attempts accounted, one receipt |
 | shadow isolation | semantic diff on copy; live DB hash unchanged |
-| CLI help snapshot | 168 root/group/command surfaces |
+| CLI help snapshot | 171 root/group/command surfaces |
 | sidecar JSON snapshot | protocol output for queue/practice/reader |
 | migration process tests | two-process serialization, death rollback, FK restoration |
+| attempt completion recovery | a committed grade keeps its provenance through recovery, and concurrent recoveries normalize an attempt once (`tests/test_attempt_completion.py`) |
+| ingest ownership fence | a replaced attempt cannot finish or publish, and the heartbeat survives transient database errors (`tests/test_ingest_ownership.py`) |
+| repository scopes | pinned/atomic transactions roll back on failure and publish nothing (`tests/test_repository_scopes.py`) |
+| durability lane | `@pytest.mark.durability` / `--durable-sqlite` run tests and fixtures of every scope with production SQLite pragmas and fresh vaults (`tests/test_sqlite_test_mode.py`) |
+| vault template equivalence | the per-session basic-vault copy equals a fresh build (`tests/test_vault_template.py`) |
+| desktop lifecycle tests | vitest + jsdom tests beside the React sources (`npm test`) |
 
 ## Verification commands
 
 ```bash
 .venv/bin/pytest -q
+.venv/bin/pytest -q -m durability
 .venv/bin/lint-imports --no-cache
 .venv/bin/python -m compileall -q src scripts tests
 git diff --check
+(cd apps/learnloop-tauri && npm test)
 ```
 
 These commands define the current verification procedure. A dated CI/release artifact—not this conceptual note—must own any claim about a particular full-suite count; see [[Refactor Status#Verification]].

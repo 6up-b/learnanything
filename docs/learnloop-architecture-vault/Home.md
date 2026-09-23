@@ -5,9 +5,9 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-18
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - docs/specs/ARCHITECTURE.md
   - README.md
@@ -40,7 +40,7 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 | [[Module Catalog]] | you know a package/module name and want callers/dependencies/tests |
 | [[Desktop Module Catalog]] | you know a TypeScript, TSX, or Rust desktop source file and want its role and edges |
 | [[Database Catalog]] | you know a table name and want its function/status/owner |
-| [[Design Decision Index]] | you want the reasoning behind a boundary or compatibility choice |
+| [[Design Decision Index]] | you want the reasoning behind a boundary or compatibility choice, such as [[ADR-014 SQLite stays in DELETE journal mode]] |
 | [[Documentation Dashboard]] | you want live status/version tracking and review queues |
 
 ## Core system notes
@@ -48,6 +48,7 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 - [[Learning System]] — intent, feedback loop, belief layers, and safety boundaries.
 - [[AI Architecture]] — routing, transports, feature contracts, manual mode, provenance.
 - [[State and Persistence]] — SQLite roles, write authority, rebuild, shadow evaluation.
+- [[Collection and Dataset Contract]] — offer provenance, collection versions, outcome labels, splits, adjudications, and the dataset export.
 - [[Learner State and Projections]] — the measured, inferred, claimed, predictive, and memory views exposed from evidence.
 - [[Content Pipeline]] — source acquisition, immutable revisions, IR, inventory, synthesis.
 - [[Adapter Architecture]] — CLI, Textual TUI, and JSON-RPC sidecar.
