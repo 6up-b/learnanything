@@ -11,6 +11,7 @@ from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import ActiveErrorEvent, PracticeItemState, Repository
 from learnloop.db.scopes import pinned_repository_call
+from learnloop.outcome_contract import COLLECTION_VERSION
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.substrate.instrument_serving import unservable_reason
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS, forgetting_curve
@@ -624,7 +625,7 @@ def build_due_queue(
                         "facets": [asdict(value) if is_dataclass(value) else value for value in facet_states_by_lo.get(lo_id, [])],
                     },
                     "item_demand_vector": decision_item.model_dump(mode="json"),
-                    "context": {"collection_version": "learnloop-events-v1", "selection_policy": "composed_offer_v2", "selected": explanation["components"].get("selected"), "components": dict(explanation["components"])},
+                    "context": {"collection_version": COLLECTION_VERSION, "selection_policy": "composed_offer_v2", "selected": explanation["components"].get("selected"), "components": dict(explanation["components"])},
                 }
         slate_id = repository.record_scheduler_slate(
             explanations,
