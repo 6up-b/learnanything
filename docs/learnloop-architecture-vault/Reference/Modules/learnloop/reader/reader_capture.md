@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_capture.py"
 source_paths:
   - "src/learnloop/reader/reader_capture.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.reader"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -64,7 +64,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `invoke_preset(repository: Repository, *, preset: str, source_id: str, revision_id: str, extraction_id: str, client_idempotency_key: str, raw_selection: Mapping[str, Any] | None=None, render_view_id: str | None=None, learner_text: str='', what_i_think_is_going_on: str | None=None, session_id: str | None=None, subject_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_capture.py), line 245) — The three-action / nine-preset palette (§5.2).
 - `drain_outbox(repository: Repository, *, limit: int=100, convert: Callable[[Repository, Mapping[str, Any]], str | None]=_default_convert, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_capture.py), line 396) — Drain pending outbox rows idempotently.
 - `outbox_status(repository: Repository, *, client_idempotency_key: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_capture.py), line 422)
-- `retry_outbox(repository: Repository, *, outbox_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_capture.py), line 427) — Reset a failed row to pending for the next drain (capture already durable).
 
 ### Module constants
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/selection_rewards.py"
 source_paths:
   - "src/learnloop/scheduling/selection_rewards.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -106,7 +106,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `ability_vector`, `item_demand_vector`, `predicted_correctness_from_vectors`; statically calls `ability_vector`, `item_demand_vector`, `predicted_correctness_from_vectors`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `predicted_facet_recall`; statically calls `predicted_facet_recall`
 - [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] — imports `predicted_facet_recall`; statically calls `predicted_facet_recall`
-- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerIntent`, `score_selection_reward`; statically calls `score_selection_reward`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `SchedulerIntent`, `ability_vector`, `item_demand_vector`, `score_selection_reward`; statically calls `ability_vector`, `item_demand_vector`, `score_selection_reward`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `predicted_facet_recall`; statically calls `predicted_facet_recall`
 
 ## Dependencies
@@ -140,6 +140,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_selection_decision_features_reference_the_item_and_stay_compact`
 - [tests/test_goal_frontier.py](../../../../../../tests/test_goal_frontier.py) — direct import
   - `test_repair_reward_includes_goal_frontier_term`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import

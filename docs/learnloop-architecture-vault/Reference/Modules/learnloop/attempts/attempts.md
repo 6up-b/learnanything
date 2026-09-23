@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/attempts.py"
 source_paths:
   - "src/learnloop/attempts/attempts.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "18e074a6f785e305c513ab1ebcfcfb0b253342db"
+source_commit_timestamp: "2026-09-23T12:51:27-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -50,100 +50,104 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py) |
-| Source lines | 3313 |
+| Source lines | 3496 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `18e074a6f785e305c513ab1ebcfcfb0b253342db` |
+| Commit timestamp | `2026-09-23T12:51:27-04:00` |
 
 ## Public API
 
-- `class AttemptDraft` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 129)
-- `class SelfGradeErrorAttribution` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 175) — One learner-attributed error from the self-grade form (spec §"self-grade").
-- `class SelfGradeInput` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 190)
-- `class GradeAttribution` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 200)
-- `class ResolvedGrade` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 234)
-- `class AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 262)
-  - `as_dict(self) -> dict[str, object]` (line 302; public)
-- `class ApplyAttemptInput` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 331) — Resolved attempt payload consumed by the shared attempt step.
-- `class AttemptPriorState` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 352) — Prior learner/item state read once before computing one attempt.
-  - `facet_recall_state(self, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 366; public)
-  - `facet_recall_by_scope(self, facets: Iterable[str], practice_item_id: str) -> dict[tuple[str, str | None], FacetRecallState | None]` (line 371; public)
-- `class AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 380) — Computed attempt outputs before they are persisted.
-- `class AttemptServiceNotReady(RuntimeError)` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 403)
-- `class AttemptValidationError(ValueError)` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 407)
-- `complete_attempt_with_codex_fallback(vault: LoadedVault, repository: Repository, draft: AttemptDraft, fallback_grade: SelfGradeInput, *, runtime: CodexRuntimeReport, codex_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 421)
-- `complete_attempt_with_ai_fallback(vault: LoadedVault, repository: Repository, draft: AttemptDraft, fallback_grade: SelfGradeInput, *, runtime: AIRuntimeReport, ai_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 445)
-- `complete_attempt_with_codex_required(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, runtime: CodexRuntimeReport, codex_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 557)
-- `complete_attempt_with_ai_required(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, runtime: AIRuntimeReport, ai_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 578)
-- `complete_self_graded_attempt(vault: LoadedVault, repository: Repository, draft: AttemptDraft, grade: SelfGradeInput, *, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 720)
-- `complete_codex_graded_attempt(vault: LoadedVault, repository: Repository, draft: AttemptDraft, proposal: GradingProposal, *, attempt_id: str | None=None, agent_run_id: str | None=None, grading_source: str='codex', diagnostic_sample_support: float | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 802)
-- `replay_existing_attempt(vault: LoadedVault, repository: Repository, attempt: dict, *, clock: Clock | None=None, error_event_ids: list[str] | None=None, error_events: list[dict[str, Any]] | None=None, error_attributions: list[GradeAttribution] | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 868) — Recompute derived state for a persisted attempt without re-grading it.
-- `reveal_total_for_submission(repository: Repository, practice_item_id: str, *, until: str | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1103) — Summed answer exposure on this item since the learner last attempted it.
-- `auto_primed_draft(repository: Repository, draft: AttemptDraft, *, clock: Clock | None=None) -> tuple[AttemptDraft, float]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1117) — Force ``primed`` on a draft whose answer has already been handed over.
-- `apply_attempt(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1350) — Apply one resolved attempt through the shared learner-state pipeline.
-- `compute_attempt_application(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, *, clock: Clock | None=None, prior_state: AttemptPriorState | None=None) -> AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1623) — Compute the rows and result for one resolved attempt without persisting.
-- `load_attempt_prior_state(vault: LoadedVault, repository: Repository, *, learning_object_id: str, practice_item_id: str, facets: Iterable[str], now_iso: str) -> AttemptPriorState` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2148) — Read the prior-state snapshot used by one attempt computation.
-- `resolved_codex_grade(validated: ValidatedCodexGrade, *, agent_run_id: str | None, clock: Clock | None, manual_review_reason: str | None=None) -> ResolvedGrade` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3081)
-- `calculate_rubric_score(rubric: Rubric, criterion_points: dict[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3209)
-- `fsrs_rating_for_attempt(item: PracticeItem, rubric_score: int, max_points: int, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3231) — FSRS rating for a graded attempt: score binning + the item's hint cap.
+- `class AttemptDraft` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 130)
+- `class SelfGradeErrorAttribution` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 184) — One learner-attributed error from the self-grade form (spec §"self-grade").
+- `class SelfGradeInput` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 199)
+- `class GradeAttribution` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 209)
+- `class ResolvedGrade` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 243)
+- `class AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 271)
+  - `as_dict(self) -> dict[str, object]` (line 311; public)
+  - `from_dict(cls, saved: Mapping[str, Any]) -> AttemptResult` (line 339; public) — Rebuild a result saved with :meth:`as_dict`.
+- `class ApplyAttemptInput` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 354) — Resolved attempt payload consumed by the shared attempt step.
+- `class AttemptPriorState` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 384) — Prior learner/item state read once before computing one attempt.
+  - `facet_recall_state(self, facet_id: str, practice_item_id: str | None=None) -> FacetRecallState | None` (line 398; public)
+  - `facet_recall_by_scope(self, facets: Iterable[str], practice_item_id: str) -> dict[tuple[str, str | None], FacetRecallState | None]` (line 403; public)
+- `class AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 412) — Computed attempt outputs before they are persisted.
+- `class AttemptServiceNotReady(RuntimeError)` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 435)
+- `class AttemptValidationError(ValueError)` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 439)
+- `complete_attempt_with_codex_fallback(vault: LoadedVault, repository: Repository, draft: AttemptDraft, fallback_grade: SelfGradeInput, *, runtime: CodexRuntimeReport, codex_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 453)
+- `complete_attempt_with_ai_fallback(vault: LoadedVault, repository: Repository, draft: AttemptDraft, fallback_grade: SelfGradeInput, *, runtime: AIRuntimeReport, ai_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 477)
+- `complete_attempt_with_codex_required(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, runtime: CodexRuntimeReport, codex_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 646)
+- `complete_attempt_with_ai_required(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, runtime: AIRuntimeReport, ai_client: AIProviderClient | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 667)
+- `complete_self_graded_attempt(vault: LoadedVault, repository: Repository, draft: AttemptDraft, grade: SelfGradeInput, *, fallback_reason: str | None=None, fallback_agent_run_id: str | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 809) — Record the learner's self-grade.
+- `complete_codex_graded_attempt(vault: LoadedVault, repository: Repository, draft: AttemptDraft, proposal: GradingProposal, *, attempt_id: str | None=None, agent_run_id: str | None=None, grading_source: str='codex', diagnostic_sample_support: float | None=None, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 901)
+- `replay_existing_attempt(vault: LoadedVault, repository: Repository, attempt: dict, *, clock: Clock | None=None, error_event_ids: list[str] | None=None, error_events: list[dict[str, Any]] | None=None, error_attributions: list[GradeAttribution] | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 968) — Recompute derived state for a persisted attempt without re-grading it.
+- `reveal_total_for_submission(repository: Repository, practice_item_id: str, *, until: str | None=None) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1195) — Summed answer exposure on this item since the learner last attempted it.
+- `auto_primed_draft(repository: Repository, draft: AttemptDraft, *, clock: Clock | None=None) -> tuple[AttemptDraft, float]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1209) — Force ``primed`` on a draft whose answer has already been handed over.
+- `apply_attempt(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1459) — Apply one resolved attempt through the shared learner-state pipeline.
+- `compute_attempt_application(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, *, clock: Clock | None=None, prior_state: AttemptPriorState | None=None) -> AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1796) — Compute the rows and result for one resolved attempt without persisting.
+- `load_attempt_prior_state(vault: LoadedVault, repository: Repository, *, learning_object_id: str, practice_item_id: str, facets: Iterable[str], now_iso: str) -> AttemptPriorState` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2323) — Read the prior-state snapshot used by one attempt computation.
+- `resolved_codex_grade(validated: ValidatedCodexGrade, *, agent_run_id: str | None, clock: Clock | None, manual_review_reason: str | None=None) -> ResolvedGrade` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3264)
+- `calculate_rubric_score(rubric: Rubric, criterion_points: dict[str, float], fatal_errors: list[str]) -> int` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3392)
+- `fsrs_rating_for_attempt(item: PracticeItem, rubric_score: int, max_points: int, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3414) — FSRS rating for a graded attempt: score binning + the item's hint cap.
 
 ### Module constants
 
-- `DONT_KNOW_ERROR_TYPE` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 108)
-- `SCAFFOLD_FAILURE_ERROR_TYPE` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 109)
-- `AUTO_PRIME_REVEAL_THRESHOLD` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 125)
-- `COLD_FOLLOWUP_TASK_KINDS` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 416)
+- `DONT_KNOW_ERROR_TYPE` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 109)
+- `SCAFFOLD_FAILURE_ERROR_TYPE` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 110)
+- `AUTO_PRIME_REVEAL_THRESHOLD` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 126)
+- `COLD_FOLLOWUP_TASK_KINDS` ([src/learnloop/attempts/attempts.py](../../../../../../src/learnloop/attempts/attempts.py), line 448)
 
 ## Internal implementation anchors
 
-- `_complete_attempt_with_agent_fallback(vault: LoadedVault, repository: Repository, draft: AttemptDraft, fallback_grade: SelfGradeInput, *, runtime, ai_client: AIProviderClient | None=None, grading_source: str, missing_client_reason: str, failure_prefix: str, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 469)
-- `_try_deterministic_grade(vault: LoadedVault, repository: Repository, draft: AttemptDraft, item, rubric, *, clock: Clock | None=None) -> AttemptResult | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 599) — Grade an unambiguous option-letter selection without the model grader.
-- `_complete_attempt_with_agent_required(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, runtime, ai_client: AIProviderClient | None=None, grading_source: str, missing_client_reason: str, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 638)
-- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 951)
-- `_diagnostic_augmentation_setting(vault: LoadedVault, key: str, default: int | bool) -> int | bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 967) — Read the optional forward-compatible config block.
-- `_augmented_grading_context(vault: LoadedVault, repository: Repository, item: PracticeItem, context: Any) -> Any` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 993)
-- `_run_augmented_diagnosis(vault: LoadedVault, client: AIProviderClient, context: Any) -> Any` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1021)
-- `_record_diagnostic_augmentation(repository: Repository, *, attempt_id: str, context: Any, consensus: Any, client: AIProviderClient, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1049) — Telemetry must not be able to turn a committed grade into a failure.
-- `_with_source(result: AttemptResult, *, grading_source: str, agent_run_id: str | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1080)
-- `_with_fallback(result: AttemptResult, reason: str, *, agent_run_id: str | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1084)
-- `_assessment_contract(repository: Repository, draft: AttemptDraft) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1088)
-- `_resolve_attempt_target(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, replay: bool=False, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1151)
-- `_dual_write_grade_channel(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, application: 'AttemptApplication', *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1242) — P0.2 dual-write (spec_p0_measurement_correctness §4.1, §7.2): append a raw grade event + calibrated interpretation alongside the legacy attempt summary.
-- `_persist_repair_mapping_source(repository: Repository, result: AttemptResult, stored: Mapping[str, Any], *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1308) — Make the authored repair suggestions durable on EVERY attempt path.
-- `_project_canonical_belief(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1575) — Recompute the canonical shared belief cache after an attempt (mvp-0.7).
-- `_validate_probe_presentation(repository: Repository, application: AttemptApplication, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1592) — Pre-persist §5.4 validation: an invalid, mismatched, ended, or already consumed presentation reference is stripped so the attempt records as incidental evidence (and the unique presentation index never rejects the row).
-- `_stamp_observation_lineage(vault: LoadedVault, repository: Repository, application: AttemptApplication, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1651) — Snapshot the assessment contract and stamp observation ids (KM §5.2).
-- `_criterion_correlation_group(item: PracticeItem, criterion_id: str) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1829)
-- `_persist_attempt_application(repository: Repository, application: AttemptApplication, *, replace_existing: bool, write_legacy_facet_state: bool=True) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1839)
-- `_discrimination_profile_telemetry(match) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1885) — A5's per-attempt tally, from the ONE implementation of the arm vocabulary.
-- `_record_discrimination_profile_match(repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1898) — Persist the attempt's A5 judgement (Meas §3.A5, migration 143).
-- `_record_error_hunt_outcome(repository: Repository, application: AttemptApplication, *, vault: LoadedVault | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1953) — Persist the attempt's A3 outcome and mint the §10 misconception candidate.
-- `_record_exercised_facets(repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2024) — Append the attempt's A6 trace observations (Meas §3.A6, migration 141).
-- `_record_grading_clarification(repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2065) — Persist the grader's clarification request, if it made a licensed one.
-- `_auto_resolve_clean_error_events(vault: LoadedVault, repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2103) — Close the loop on stale error events (config ``[misconceptions]``).
-- `_compute_resolved_grade_application(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, attempt_id: str, grade: ResolvedGrade, clock: Clock | None=None, error_event_ids_override: list[str] | None=None, prior_state: AttemptPriorState | None=None, replay: bool=False, grading_source: str='self') -> AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2206)
-- `_self_grade_attributions(vault: LoadedVault, fatal_errors: list[str], error_type: str | None, error_attributions: list[SelfGradeErrorAttribution] | None=None) -> list[GradeAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2823) — Resolve the learner's self-grade selections into the same flat ``GradeAttribution`` list Codex grading produces.
-- `_canonicalized_grade_attributions(vault: LoadedVault, attributions: list[GradeAttribution]) -> list[GradeAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2876)
-- `_primary_error_type(attributions: list[GradeAttribution]) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2924)
-- `_attempt_manual_review_reason(existing: str | None, draft: AttemptDraft) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2930)
-- `_dont_know_error_type(vault: LoadedVault, hints_used: int) -> str` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2938)
-- `_error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) -> dict[str, object] | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2948)
-- `_replay_error_attributions(vault: LoadedVault, error_type: str | None, *, error_events: list[dict[str, Any]] | None=None) -> list[GradeAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2992)
-- `_validated_criterion_points(rubric: Rubric, points: dict[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3162)
-- `_validated_self_grade_attributions(rubric: Rubric, attributions: list[SelfGradeErrorAttribution] | None) -> list[SelfGradeErrorAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3178) — Validate per-criterion self-grade error picks before they are resolved.
-- `_validate_fatal_errors(rubric: Rubric, fatal_errors: list[str]) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3202)
-- `_evidence_coverage(item: PracticeItem, criterion_points: dict[str, float]) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3222)
-- `_hint_dampening(item: PracticeItem, hints_used: int) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3226)
-- `_capped_rating(rating: Rating, item: PracticeItem, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3241)
-- `_hint_policy_value(mapping: dict[int | str, object], hints_used: int) -> object | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3249)
-- `_rating_from_cap(value: object) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3267)
-- `_memory_state(state: PracticeItemState | None) -> MemoryState | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3286)
-- `_elapsed_days(state: PracticeItemState | None, observed_at) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3297)
-- `_error_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3306)
-- `_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3311)
+- `_complete_attempt_with_agent_fallback(vault: LoadedVault, repository: Repository, draft: AttemptDraft, fallback_grade: SelfGradeInput, *, runtime, ai_client: AIProviderClient | None=None, grading_source: str, missing_client_reason: str, failure_prefix: str, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 501)
+- `_finish_superseded_grading_run(repository: Repository, agent_run_id: str, ai_client: AIProviderClient, error: sqlite3.IntegrityError, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 595) — Close a grading run whose attempt the database refused.
+- `_finish_run_after_grading_error(repository: Repository, agent_run_id: str, ai_client: AIProviderClient, attempt_id: str, error: Exception, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 617) — Close the grading run after an error; return whether its grade committed.
+- `_try_deterministic_grade(vault: LoadedVault, repository: Repository, draft: AttemptDraft, item, rubric, *, clock: Clock | None=None) -> AttemptResult | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 688) — Grade an unambiguous option-letter selection without the model grader.
+- `_complete_attempt_with_agent_required(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, runtime, ai_client: AIProviderClient | None=None, grading_source: str, missing_client_reason: str, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 727)
+- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1051)
+- `_diagnostic_augmentation_setting(vault: LoadedVault, key: str, default: int | bool) -> int | bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1067) — Read the optional forward-compatible config block.
+- `_augmented_grading_context(vault: LoadedVault, repository: Repository, item: PracticeItem, context: Any) -> Any` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1093)
+- `_run_augmented_diagnosis(vault: LoadedVault, client: AIProviderClient, context: Any) -> Any` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1121)
+- `_record_diagnostic_augmentation(repository: Repository, *, attempt_id: str, context: Any, consensus: Any, client: AIProviderClient, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1149) — Telemetry must not be able to turn a committed grade into a failure.
+- `_assessment_contract(repository: Repository, draft: AttemptDraft) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1180)
+- `_resolve_attempt_target(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, replay: bool=False, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1243)
+- `_dual_write_grade_channel(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, application: 'AttemptApplication', *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1334) — P0.2 dual-write (spec_p0_measurement_correctness §4.1, §7.2): append a raw grade event + calibrated interpretation alongside the legacy attempt summary.
+- `_persist_repair_mapping_source(repository: Repository, result: AttemptResult, stored: Mapping[str, Any], *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1400) — Keep a replayed attempt's authored repair suggestions durable.
+- `_persist_new_grade_feedback(repository: Repository, result: AttemptResult, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1438) — Write the feedback metadata of a newly applied grade.
+- `_apply_attempt_in_transaction(vault: LoadedVault, repository: Repository, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> AttemptResult` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1488) — Compute and persist one attempt; the caller owns the transaction.
+- `_save_completion_work(repository: Repository, draft: AttemptDraft, result: AttemptResult, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1708) — Save the applied result in the attempt's own transaction.
+- `_project_canonical_belief(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1748) — Recompute the canonical shared belief cache after an attempt (mvp-0.7).
+- `_validate_probe_presentation(repository: Repository, application: AttemptApplication, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1765) — Pre-persist §5.4 validation: an invalid, mismatched, ended, or already consumed presentation reference is stripped so the attempt records as incidental evidence (and the unique presentation index never rejects the row).
+- `_stamp_observation_lineage(vault: LoadedVault, repository: Repository, application: AttemptApplication, attempt: ApplyAttemptInput, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 1826) — Snapshot the assessment contract and stamp observation ids (KM §5.2).
+- `_criterion_correlation_group(item: PracticeItem, criterion_id: str) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2004)
+- `_persist_attempt_application(repository: Repository, application: AttemptApplication, *, replace_existing: bool, write_legacy_facet_state: bool=True) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2014)
+- `_discrimination_profile_telemetry(match) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2060) — A5's per-attempt tally, from the ONE implementation of the arm vocabulary.
+- `_record_discrimination_profile_match(repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2073) — Persist the attempt's A5 judgement (Meas §3.A5, migration 143).
+- `_record_error_hunt_outcome(repository: Repository, application: AttemptApplication, *, vault: LoadedVault | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2128) — Persist the attempt's A3 outcome and mint the §10 misconception candidate.
+- `_record_exercised_facets(repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> int` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2199) — Append the attempt's A6 trace observations (Meas §3.A6, migration 141).
+- `_record_grading_clarification(repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2240) — Persist the grader's clarification request, if it made a licensed one.
+- `_auto_resolve_clean_error_events(vault: LoadedVault, repository: Repository, application: AttemptApplication, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2278) — Close the loop on stale error events (config ``[misconceptions]``).
+- `_compute_resolved_grade_application(vault: LoadedVault, repository: Repository, draft: AttemptDraft, *, attempt_id: str, grade: ResolvedGrade, clock: Clock | None=None, error_event_ids_override: list[str] | None=None, prior_state: AttemptPriorState | None=None, replay: bool=False, grading_source: str='self', agent_run_id: str | None=None, fallback_reason: str | None=None) -> AttemptApplication` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 2381)
+- `_self_grade_attributions(vault: LoadedVault, fatal_errors: list[str], error_type: str | None, error_attributions: list[SelfGradeErrorAttribution] | None=None) -> list[GradeAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3006) — Resolve the learner's self-grade selections into the same flat ``GradeAttribution`` list Codex grading produces.
+- `_canonicalized_grade_attributions(vault: LoadedVault, attributions: list[GradeAttribution]) -> list[GradeAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3059)
+- `_primary_error_type(attributions: list[GradeAttribution]) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3107)
+- `_attempt_manual_review_reason(existing: str | None, draft: AttemptDraft) -> str | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3113)
+- `_dont_know_error_type(vault: LoadedVault, hints_used: int) -> str` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3121)
+- `_error_event_repair_plan(vault: LoadedVault, attribution: GradeAttribution) -> dict[str, object] | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3131)
+- `_replay_error_attributions(vault: LoadedVault, error_type: str | None, *, error_events: list[dict[str, Any]] | None=None) -> list[GradeAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3175)
+- `_validated_criterion_points(rubric: Rubric, points: dict[str, float]) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3345)
+- `_validated_self_grade_attributions(rubric: Rubric, attributions: list[SelfGradeErrorAttribution] | None) -> list[SelfGradeErrorAttribution]` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3361) — Validate per-criterion self-grade error picks before they are resolved.
+- `_validate_fatal_errors(rubric: Rubric, fatal_errors: list[str]) -> None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3385)
+- `_evidence_coverage(item: PracticeItem, criterion_points: dict[str, float]) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3405)
+- `_hint_dampening(item: PracticeItem, hints_used: int) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3409)
+- `_capped_rating(rating: Rating, item: PracticeItem, hints_used: int) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3424)
+- `_hint_policy_value(mapping: dict[int | str, object], hints_used: int) -> object | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3432)
+- `_rating_from_cap(value: object) -> Rating` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3450)
+- `_memory_state(state: PracticeItemState | None) -> MemoryState | None` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3469)
+- `_elapsed_days(state: PracticeItemState | None, observed_at) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3480)
+- `_error_severity(vault: LoadedVault, error_type: str) -> float` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3489)
+- `_is_misconception(vault: LoadedVault, error_type: str) -> bool` ([source](../../../../../../src/learnloop/attempts/attempts.py), line 3494)
 
 ## Who imports or calls it
 
@@ -151,6 +155,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]] — imports `AttemptDraft`, `AttemptResult`, `SelfGradeInput`, `complete_self_graded_attempt`; statically calls `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`
+- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `AttemptResult`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `GradeAttribution`; statically calls `GradeAttribution`
 - [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]] — imports `resolved_codex_grade`; statically calls `resolved_codex_grade`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `AttemptDraft`, `AttemptValidationError`, `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_codex_fallback`
@@ -168,7 +173,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`; statically calls `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `ApplyAttemptInput`, `AttemptDraft`, `AttemptResult`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`; statically calls `ApplyAttemptInput`, `AttemptDraft`, `AttemptValidationError`, `GradeAttribution`, `ResolvedGrade`, `apply_attempt`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `resolved_codex_grade`; statically calls `resolved_codex_grade`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `AttemptDraft`, `AttemptValidationError`, `SelfGradeErrorAttribution`, `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_ai_required`, `complete_attempt_with_codex_fallback`, `complete_attempt_with_codex_required`, `complete_self_graded_attempt`; statically calls `AttemptDraft`, `SelfGradeErrorAttribution`, `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_ai_required`, `complete_attempt_with_codex_fallback`, `complete_attempt_with_codex_required`, `complete_self_graded_attempt`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `AttemptDraft`, `AttemptResult`, `AttemptValidationError`, `SelfGradeErrorAttribution`, `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_ai_required`, `complete_attempt_with_codex_fallback`, `complete_attempt_with_codex_required`, `complete_self_graded_attempt`; statically calls `AttemptDraft`, `SelfGradeErrorAttribution`, `SelfGradeInput`, `complete_attempt_with_ai_fallback`, `complete_attempt_with_ai_required`, `complete_attempt_with_codex_fallback`, `complete_attempt_with_codex_required`, `complete_self_graded_attempt`
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `AttemptValidationError`
 
 ## Dependencies
@@ -218,7 +223,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `datetime`, `json`, `logging`, `typing`
+- Standard library: `__future__`, `dataclasses`, `datetime`, `json`, `logging`, `sqlite3`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -228,7 +233,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/observations|learnloop.attempts.observations]], [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -244,6 +249,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_mvp07_attempt_stamps_observation_lineage`
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
+  - `test_block_closing_diagnostic_answer_keeps_grader_provenance`
+  - `test_committed_model_grade_keeps_its_provenance_through_recovery`
+  - `test_grading_run_that_loses_a_submission_race_is_closed`
+  - `test_pipeline_keeps_one_hypothesis_version_with_grader_provenance`
+  - `test_saved_result_loads_across_field_changes`
+  - `test_self_grade_fallback_records_why_and_which_run_failed`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -300,6 +312,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence`
   - `test_codex_recall_wording_uses_recall_failure_not_new_error_type`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+- [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
+  - `test_export_preserves_censored_repair_disposition_as_distinct_from_failure`
 - [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — direct import
   - `test_learner_derived_hypothesis_defaults_learner_state_and_offer_survives`
   - `test_receipted_divergence_skips_the_consultation_entirely`
@@ -324,6 +339,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_adjudication.py](../../../../../../tests/test_diagnosis_adjudication.py) — direct import
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
+  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
 - [tests/test_diagnostic_probe_single_use.py](../../../../../../tests/test_diagnostic_probe_single_use.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
@@ -335,6 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_error_hunt_items.py](../../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
   - `test_gate_section_counts_manual_false_negatives`
+  - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
 - [tests/test_exam_pool.py](../../../../../../tests/test_exam_pool.py) — direct import
   - `test_only_never_attempted_items_are_reservable`
@@ -360,6 +377,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_known_gap_facet_is_never_on_track`
 - [tests/test_goal_series.py](../../../../../../tests/test_goal_series.py) — direct import
   - `test_series_reflects_evidence_arriving_over_time`
+  - `test_series_replays_past_an_adjudicated_attempt`
   - `test_series_replays_past_non_cascading_attempt_references`
   - `test_series_shares_one_replay_across_unchanged_checkpoints`
 - [tests/test_grade_resolution_pipeline.py](../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
@@ -387,6 +405,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
+- [tests/test_migrations.py](../../../../../../tests/test_migrations.py) — direct import
+  - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_minimal_repair_selection_a1.py](../../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
   - `test_the_persisted_repair_class_is_the_structurally_selected_one`
 - [tests/test_misconception_resolution.py](../../../../../../tests/test_misconception_resolution.py) — direct import
@@ -474,6 +494,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_probe_eig_uses_prospective_familiarity_discount`
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
   - `test_censored_learning_objects_are_reported_and_excluded_from_the_mean`
+  - `test_certification_replay_prunes_past_an_adjudicated_attempt`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_no_promotion_when_label_already_rubric_fatal`
 - [tests/test_self_grade.py](../../../../../../tests/test_self_grade.py) — direct import
@@ -496,6 +517,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — direct import
+  - `test_committed_model_grade_is_not_regraded_when_a_later_step_fails`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
 
 ## Modification guidance

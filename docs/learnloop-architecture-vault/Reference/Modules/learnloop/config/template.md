@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/config/template.py"
 source_paths:
   - "src/learnloop/config/template.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "5862283573210deb4a97f060d7ce2b0b0b0eefcf"
+source_commit_timestamp: "2026-09-03T10:49:04-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.config"
 layer: "infrastructure"
 concepts:
@@ -50,24 +50,24 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py) |
-| Source lines | 796 |
+| Source lines | 798 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `5862283573210deb4a97f060d7ce2b0b0b0eefcf` |
+| Commit timestamp | `2026-09-03T10:49:04-07:00` |
 
 ## Public API
 
-- `write_default_config(path: Path) -> None` ([source](../../../../../../src/learnloop/config/template.py), line 760) — Write the decision-only template without replacing an existing file.
-- `effective_defaults_fingerprint(config: LearnLoopConfig | None=None) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 768) — Content address of the complete effective defaults for a new vault.
+- `write_default_config(path: Path) -> None` ([source](../../../../../../src/learnloop/config/template.py), line 762) — Write the decision-only template without replacing an existing file.
+- `effective_defaults_fingerprint(config: LearnLoopConfig | None=None) -> str` ([source](../../../../../../src/learnloop/config/template.py), line 770) — Content address of the complete effective defaults for a new vault.
 
 ### Module constants
 
 - `LEGACY_DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 17)
-- `DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 700)
-- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 755)
+- `DEFAULT_CONFIG_TEXT` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 703)
+- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` ([src/learnloop/config/template.py](../../../../../../src/learnloop/config/template.py), line 757)
 
 ### Explicit exports
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/source_append.py"
 source_paths:
   - "src/learnloop/content/synthesis/source_append.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "ee2e43120c2b814eb8b6a849efaa1ac08260ad69"
+source_commit_timestamp: "2026-09-03T21:40:18-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -51,43 +51,44 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py) |
-| Source lines | 674 |
+| Source lines | 729 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `ee2e43120c2b814eb8b6a849efaa1ac08260ad69` |
+| Commit timestamp | `2026-09-03T21:40:18-07:00` |
 
 ## Public API
 
-- `request_append_reconciliation(client: StructuredTransport, context: AppendReconciliationContext) -> AppendReconciliation` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 70) — Reconcile one bounded append context through the shared transport.
-- `subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 83) — The bootstrap-vs-append discriminator (§8/§10).
-- `class AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 100)
-  - `as_dict(self) -> dict[str, Any]` (line 117; public)
-- `append_source(root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None=None, change_kind: str='source_added', revision_diff: dict[str, Any] | None=None, brief: dict[str, Any] | None=None, auto_apply: bool=True, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 140) — Run bounded append reconciliation and (by policy) auto-apply routine items.
+- `request_append_reconciliation(client: StructuredTransport, context: AppendReconciliationContext) -> AppendReconciliation` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 71) — Reconcile one bounded append context through the shared transport.
+- `subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 84) — The bootstrap-vs-append discriminator (§8/§10).
+- `class AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 101)
+  - `as_dict(self) -> dict[str, Any]` (line 118; public)
+- `append_source(root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None=None, change_kind: str='source_added', revision_diff: dict[str, Any] | None=None, brief: dict[str, Any] | None=None, auto_apply: bool=True, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 141) — Run bounded append reconciliation and (by policy) auto-apply routine items.
 
 ### Module constants
 
-- `APPEND_AGENT_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 66)
-- `APPEND_PROPOSAL_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 67)
-- `_AUTO_APPLY_RELATIONS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 96)
+- `APPEND_AGENT_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 67)
+- `APPEND_PROPOSAL_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 68)
+- `_AUTO_APPLY_RELATIONS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 97)
 
 ## Internal implementation anchors
 
-- `_append(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None, change_kind: str, revision_diff: dict[str, Any], brief: dict[str, Any], auto_apply: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 170)
-- `_run_reconciliation(client, repository, inputs, new_inventories, neighborhood, source_set, subject_id, change_kind, revision_diff, brief, budgets, *, clock, unlimited_token_budget: bool=False)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 413)
-- `_output_tokens(result: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 446)
-- `_normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id, items_off: bool=False)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 456) — Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
-- `_relation_for_intent(intent: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 591)
-- `_hash_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 599)
-- `_target_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 603)
-- `_auto_applies(payload, gate_refs, vault, current_hash, target_type) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 609) — §10.3 auto-apply predicate for a provenance_link.
-- `_span_yaml(span, inputs) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 639)
-- `_count(rows) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 646)
-- `_snapshot(repository: Repository, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 656)
-- `_link_count(repository: Repository) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 666)
-- `_diff_from_snapshot(repository, vault_after, before, patch_id) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 671)
+- `_append(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None, change_kind: str, revision_diff: dict[str, Any], brief: dict[str, Any], auto_apply: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 171)
+- `_run_reconciliation(client, repository, inputs, new_inventories, neighborhood, source_set, subject_id, change_kind, revision_diff, brief, budgets, *, clock, unlimited_token_budget: bool=False)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 428)
+- `_output_tokens(result: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 461)
+- `_normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id, items_off: bool=False)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 471) — Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
+- `_span_problem(span: dict[str, Any], inputs) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 626) — Why a provenance_link's cited span cannot attach, or None when it can.
+- `_relation_for_intent(intent: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 646)
+- `_hash_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 654)
+- `_target_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 658)
+- `_auto_applies(payload, gate_refs, vault, current_hash, target_type) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 664) — §10.3 auto-apply predicate for a provenance_link.
+- `_span_yaml(span, inputs) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 694)
+- `_count(rows) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 701)
+- `_snapshot(repository: Repository, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 711)
+- `_link_count(repository: Repository) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 721)
+- `_diff_from_snapshot(repository, vault_after, before, patch_id) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 726)
 
 ## Who imports or calls it
 
@@ -115,6 +116,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/synthesis/study_map_diff|learnloop.content.synthesis.study_map_diff]] — imports `compute_study_map_diff`; calls `compute_study_map_diff`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] — imports `GateItem`, `GateProposal`, `ProvenanceRef`, `run_synthesis_gates`; calls `GateItem`, `GateProposal`, `run_synthesis_gates`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] — imports `agent_run_input_context_hash`, `build_manifest`, `persist_manifest`; calls `agent_run_input_context_hash`, `build_manifest`, `persist_manifest`
+- [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `digest_for_append`, `generate_vault_epigraphs`; calls `digest_for_append`, `generate_vault_epigraphs`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
@@ -146,6 +148,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_append_respects_items_off`
 - [tests/test_source_append.py](../../../../../../../tests/test_source_append.py) — direct import
   - `test_append_budget_overrides_reach_the_manifest`
+  - `test_append_epigraph_failure_leaves_the_append_unchanged`
+  - `test_append_persists_vault_epigraphs`
   - `test_append_provenance_link_auto_applies_without_rewriting_lo_yaml`
   - `test_append_vocabulary_auto_apply_rules`
   - `test_conflict_accept_creates_open_row_reject_creates_none`
@@ -153,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_n_sources_append_linear_inventory_and_bounded_context`
   - `test_narrow_adjunct_deterministically_drops_model_restructures`
   - `test_post_append_near_duplicate_is_aliased_at_mint_and_never_auto_merged`
+  - `test_provenance_link_span_without_a_unit_id_still_resolves`
+  - `test_provenance_links_without_a_resolvable_span_are_dropped_not_hard_failed`
   - `test_replay_identical_after_append_apply`
   - `test_specialized_side_effects_recover_idempotently`
   - `test_study_map_diff_reports_changes`

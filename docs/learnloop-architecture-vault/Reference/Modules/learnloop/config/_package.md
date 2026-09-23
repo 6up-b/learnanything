@@ -11,9 +11,9 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:47:57-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.config"
 layer: "infrastructure"
 concepts:
@@ -48,10 +48,10 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 46 | 43 |
+| [[Reference/Modules/learnloop/config/__init__|learnloop.config]] | [[Reference/Modules/learnloop/config/__init__#^module-purpose|purpose]] | `ACTIVE` | 48 | 44 |
 | [[Reference/Modules/learnloop/config/compat|learnloop.config.compat]] | [[Reference/Modules/learnloop/config/compat#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
-| [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
+| [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] | [[Reference/Modules/learnloop/config/loader#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] | [[Reference/Modules/learnloop/config/schema#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/config/template|learnloop.config.template]] | [[Reference/Modules/learnloop/config/template#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 
 ## Cross-package dependencies
@@ -60,15 +60,15 @@ For system intent, use [[Configuration]], [[Architecture Overview]].
 
 ### Packages that import this package
 
+- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 6 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
-- [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 3 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 4 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 3 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 3 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 3 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 3 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 2 static module edges
@@ -88,25 +88,25 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.config"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
+    n_learnloop_ai_providers["learnloop.ai.providers"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_ai_providers["learnloop.ai.providers"]
-    n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_ops["learnloop.ops"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_attempts["learnloop.attempts"]
+    n_learnloop_ops["learnloop.ops"]
     n_learnloop_scheduling["learnloop.scheduling"]
+    n_learnloop_ai_providers -->|6| center
+    n_learnloop_ai -->|5| center
     n_learnloop_diagnosis -->|5| center
-    n_learnloop_ai -->|4| center
     n_learnloop_content_pipeline -->|4| center
     n_learnloop_learner -->|4| center
-    n_learnloop_ai_providers -->|3| center
+    n_learnloop_vault -->|4| center
+    n_learnloop_sidecar_handlers -->|4| center
     n_learnloop_attempts -->|3| center
     n_learnloop_ops -->|3| center
-    n_learnloop_vault -->|3| center
-    n_learnloop_sidecar_handlers -->|3| center
     n_learnloop_scheduling -->|2| center
 ```
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/db/connection.py"
 source_paths:
   - "src/learnloop/db/connection.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.db"
 layer: "infrastructure"
 concepts:
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py) |
-| Source lines | 26 |
+| Source lines | 30 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `0395ae32f9e2e40d1cb98b38402631299a94003f` |
+| Commit timestamp | `2026-09-07T12:49:13-04:00` |
 
 ## Public API
 
@@ -74,12 +74,16 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `connect`; statically calls `connect`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `guarded_connection`; calls `guarded_connection`
 
 ### Platform and third-party dependencies
 
@@ -93,7 +97,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]].
+Static participation evidence comes from [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]], [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]], [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -118,6 +122,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import
   - `test_failed_with_feedback_appends_practice_successor_proposal`
   - `test_render_marks_unrepresentative_when_head_support_moved`
+- [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_production_lane_and_live_backup_preserve_committed_state`
+  - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
+  - `test_selection_decision_features_reference_the_item_and_stay_compact`
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
   - `test_migration_018_allows_exam_evidence_on_existing_db`
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import
@@ -148,6 +156,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_facet_diagnostic_schema_is_available`
   - `test_first_error_cleanup_is_semantically_demoted_not_learned`
   - `test_fresh_db_applies_all_migrations`
+  - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
   - `test_misconception_migration_applies_on_pre_025_db`
   - `test_misconception_registry_schema_is_available`
   - `test_open_text_migration_preserves_existing_attempts_and_foreign_keys`
@@ -186,17 +195,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_question_promotions_schema_available_on_fresh_db`
   - `test_requested_practice_item_ids_orders_oldest_first_and_excludes_attempted`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
+  - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
   - `test_umbrella_accounts_for_every_raw_attempt_and_records_one_receipt`
+- [tests/test_repository_scopes.py](../../../../../../tests/test_repository_scopes.py) — direct import
+  - `test_atomic_scope_rolls_back_nested_commits_and_serializes_writers`
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
+- [tests/test_sqlite_test_mode.py](../../../../../../tests/test_sqlite_test_mode.py) — direct import
 - [tests/test_table_roles.py](../../../../../../tests/test_table_roles.py) — direct import
   - `test_migration_head_user_tables_match_role_registry_exactly`
   - `test_synthetic_unclassified_table_fails_registry_check`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
   - `test_migration_020_allows_teach_back_on_existing_db`
   - `test_regrade_teach_back_attempt_without_evidence_falls_back_to_core`
+- [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
+  - `test_vault_epigraphs_rows_are_immutable`
 
 ## Modification guidance
 

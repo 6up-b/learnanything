@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/animation.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/animation.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "e97d2e15256a04b74ec95b6da207772675f3f8f2"
+source_commit_timestamp: "2026-09-03T10:31:35-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -53,27 +53,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/animation.py](../../../../../../src/learnloop_sidecar/handlers/animation.py) |
-| Source lines | 139 |
+| Source lines | 176 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `e97d2e15256a04b74ec95b6da207772675f3f8f2` |
+| Commit timestamp | `2026-09-03T10:31:35-07:00` |
 
 ## Public API
 
-- `get_animation_runtime(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 54)
-- `class RequestConceptAnimationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 75)
-- `request_concept_animation(ctx: SidecarContext, params: RequestConceptAnimationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 82)
-- `class ConceptAnimationStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 117)
-- `get_concept_animation_status(ctx: SidecarContext, params: ConceptAnimationStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 122)
-- `class ConceptAnimationsForConceptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 130)
-- `list_concept_animations(ctx: SidecarContext, params: ConceptAnimationsForConceptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 136)
+- `get_animation_runtime(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 71)
+- `class RequestConceptAnimationInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 106)
+- `request_concept_animation(ctx: SidecarContext, params: RequestConceptAnimationInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 113)
+- `class ConceptAnimationStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 154)
+- `get_concept_animation_status(ctx: SidecarContext, params: ConceptAnimationStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 159)
+- `class ConceptAnimationsForConceptInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 167)
+- `list_concept_animations(ctx: SidecarContext, params: ConceptAnimationsForConceptInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 173)
 
 ## Internal implementation anchors
 
-- `_animation_row_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 28)
+- `_json_field(raw: Any, default: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 31)
+- `_animation_row_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/animation.py), line 40)
 
 ## Who imports or calls it
 
@@ -87,7 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`; calls `provider_for_task`
-- [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `ConceptAnimationError`, `manim_runtime`, `request_concept_animation`, `resolve_manim_command`; calls `manim_runtime`, `request_concept_animation`, `resolve_manim_command`
+- [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `ConceptAnimationError`, `manim_runtime`, `request_concept_animation`, `resolve_manim_command`, `video_generation_readiness`; calls `manim_runtime`, `request_concept_animation`, `resolve_manim_command`, `video_generation_readiness`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
@@ -95,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `typing`
+- Standard library: `__future__`, `json`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

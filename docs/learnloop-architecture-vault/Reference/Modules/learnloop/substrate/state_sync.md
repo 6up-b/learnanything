@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/state_sync.py"
 source_paths:
   - "src/learnloop/substrate/state_sync.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -129,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_mvp07_attempt_stamps_observation_lineage`
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -188,6 +189,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_maintenance_regrades_pending_self_grade_when_codex_ready`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
+  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
 - [tests/test_diagnostic_probe_freshness.py](../../../../../../tests/test_diagnostic_probe_freshness.py) — direct import
   - `test_a_fresh_replacement_surface_resolves_the_pending_need`
 - [tests/test_diagnostic_probe_single_use.py](../../../../../../tests/test_diagnostic_probe_single_use.py) — direct import

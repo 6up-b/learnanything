@@ -10,8 +10,8 @@ area: "TypeScript"
 source_path: "apps/learnloop-tauri/src/queueEvents.ts"
 source_paths:
   - "apps/learnloop-tauri/src/queueEvents.ts"
-source_commit: "388f3ce6b9e89c35532881182dabb2d08272d445"
-source_commit_timestamp: "2026-07-24T09:24:46-04:00"
+source_commit: "ad991418ef3cb163828f9b1cf1ad9da9cce7549a"
+source_commit_timestamp: "2026-09-03T10:55:39-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/queueEvents.ts](../../../../../apps/learnloop-tauri/src/queueEvents.ts) |
-| Source lines | 10 |
+| Source lines | 19 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/_area|TypeScript]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `388f3ce6b9e89c35532881182dabb2d08272d445` |
-| Commit timestamp | `2026-07-24T09:24:46-04:00` |
+| Source commit | `ad991418ef3cb163828f9b1cf1ad9da9cce7549a` |
+| Commit timestamp | `2026-09-03T10:55:39-07:00` |
 
 ## Activation and status evidence
 
@@ -60,12 +60,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function notifyQueueChanged(): void` — function, line 3
-- `export function subscribeQueueChanged(listener: ()` — function, line 7
+- `export function notifyQueueChanged(): void` — function, line 11
+- `export function subscribeQueueChanged(listener: ()` — function, line 16
 
 ## Internal implementation anchors
 
-- `const QUEUE_CHANGED_EVENT = "learnloop:queue-changed"` — const, line 1
+- `const QUEUE_CHANGED_EVENT = "learnloop:queue-changed"` — const, line 4
 
 ## Who imports or calls it
 
@@ -76,13 +76,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `notifyQueueChanged`; references `notifyQueueChanged`
 - [[Reference/Desktop/TypeScript/components/QuestionQueue|src/components/QuestionQueue.tsx]] — import-or-re-export: `notifyQueueChanged`, `subscribeQueueChanged`; references `notifyQueueChanged`, `subscribeQueueChanged`
 - [[Reference/Desktop/TypeScript/screens/ProposalsScreen|src/screens/ProposalsScreen.tsx]] — import-or-re-export: `notifyQueueChanged`; references `notifyQueueChanged`
-- [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `notifyQueueChanged`, `subscribeQueueChanged`; references `notifyQueueChanged`, `subscribeQueueChanged`
+- [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `notifyQueueChanged`; references `notifyQueueChanged`
 
 ## Dependencies
 
 ### Desktop source modules
 
-No local TypeScript/TSX or Rust module dependency was detected.
+- [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export; imports `invalidate`
+- [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
 
 ### Assets, platform, and third-party dependencies
 
@@ -104,7 +105,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Modification guidance
 
 - Change this source at its stated ownership boundary, then check every inbound consumer and outbound dependency listed above.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

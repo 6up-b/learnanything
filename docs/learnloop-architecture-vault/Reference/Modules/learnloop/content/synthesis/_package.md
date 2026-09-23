@@ -23,10 +23,11 @@ source_paths:
   - "src/learnloop/content/synthesis/synthesis_eval.py"
   - "src/learnloop/content/synthesis/synthesis_gates.py"
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
+  - "src/learnloop/content/synthesis/vault_epigraphs.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:54:18-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -63,7 +64,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/synthesis/__init__|learnloop.content.synthesis]] | [[Reference/Modules/learnloop/content/synthesis/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 4 | 9 |
+| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
 | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] | [[Reference/Modules/learnloop/content/synthesis/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup|learnloop.content.synthesis.coverage_rollup]] | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -73,22 +74,23 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] | [[Reference/Modules/learnloop/content/synthesis/source_append#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/content/synthesis/source_coverage|learnloop.content.synthesis.source_coverage]] | [[Reference/Modules/learnloop/content/synthesis/source_coverage#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] | [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
-| [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory#^module-purpose|purpose]] | `ACTIVE` | 5 | 8 |
+| [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] | [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis#^module-purpose|purpose]] | `ACTIVE` | 4 | 18 |
+| [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
 | [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_selection#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
 | [[Reference/Modules/learnloop/content/synthesis/study_map_diff|learnloop.content.synthesis.study_map_diff]] | [[Reference/Modules/learnloop/content/synthesis/study_map_diff#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval|learnloop.content.synthesis.synthesis_eval]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_eval#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates|learnloop.content.synthesis.synthesis_gates]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_gates#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
-| [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] | [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] | [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 17 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 8 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 18 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 13 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 6 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 6 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 3 static module edges
@@ -117,21 +119,21 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.content.synthesis"]
     n_learnloop_vault["learnloop.vault"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop["learnloop"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_db["learnloop.db"]
-    n_learnloop_ai["learnloop.ai"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_curriculum["learnloop.curriculum"]
-    center -->|17| n_learnloop_vault
+    center -->|18| n_learnloop_vault
+    center -->|13| n_learnloop_ai
     n_learnloop -->|1| center
-    center -->|9| n_learnloop
+    center -->|11| n_learnloop
     n_learnloop_cli -->|10| center
-    center -->|9| n_learnloop_db
-    center -->|8| n_learnloop_ai
+    center -->|10| n_learnloop_db
     n_learnloop_sidecar_handlers -->|8| center
     n_learnloop_content_sources -->|1| center
     center -->|6| n_learnloop_content_sources

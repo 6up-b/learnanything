@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/openai_chat.py"
 source_paths:
   - "src/learnloop/ai/providers/openai_chat.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "c8380692deed1903626f67efd5804067a25db401"
+source_commit_timestamp: "2026-09-23T12:25:12-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -51,38 +51,51 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py) |
-| Source lines | 269 |
+| Source lines | 416 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c8380692deed1903626f67efd5804067a25db401` |
+| Commit timestamp | `2026-09-23T12:25:12-04:00` |
 
 ## Public API
 
-- `class OpenAIChatProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 42)
-  - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 49; internal)
-  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 76; public) — Execute one validated structured request with one bounded repair.
-  - `supports(self, capability: str) -> bool` (line 100; public)
-  - `run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript` (line 110; public) — Native-multimodal audio → timestamped transcript ([ingest.native]).
-  - `run_media_markdown(self, context: PdfExtractionContextNative) -> str` (line 129; public) — Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine "native").
-  - `_run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any` (line 153; internal)
-  - `_chat(self, prompt: str, model_type: type[BaseModel] | None=None) -> str` (line 164; internal)
-  - `_chat_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel] | None=None, *, use_response_format: bool=True) -> str` (line 173; internal)
-  - `_create_with_retry(self, kwargs: dict[str, Any]) -> Any` (line 204; internal)
-  - `_response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None` (line 224; internal)
-  - `_reasoning_kwargs(self) -> dict[str, Any]` (line 241; internal)
-  - `_default_headers(self) -> dict[str, str] | None` (line 253; internal)
+- `class OpenAIChatProviderClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 62)
+  - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 69; internal)
+  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 103; public) — Execute one validated structured request with one bounded repair.
+  - `supports(self, capability: str) -> bool` (line 118; public)
+  - `run_media_transcription(self, context: MediaTranscriptionContext) -> MediaTranscript` (line 128; public) — Native-multimodal audio → timestamped transcript ([ingest.native]).
+  - `run_media_markdown(self, context: PdfExtractionContextNative) -> str` (line 147; public) — Native-multimodal PDF → GitHub-flavored Markdown ([ingest.pdf] engine "native").
+  - `_run_json_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel]) -> Any` (line 171; internal)
+  - `_chat(self, prompt: str, model_type: type[BaseModel] | None=None) -> str` (line 182; internal)
+  - `_system_prompt(self, model_type: type[BaseModel]) -> str` (line 191; internal) — The system turn for a first structured attempt.
+  - `_chat_messages(self, messages: list[dict[str, Any]], model_type: type[BaseModel] | None=None, *, use_response_format: bool=True) -> str` (line 214; internal)
+  - `_create_with_retry(self, kwargs: dict[str, Any]) -> Any` (line 244; internal)
+  - `_send_once(self, kwargs: dict[str, Any]) -> Any` (line 270; internal) — One physical request under its own receipt.
+  - `_meter_response(self, response: Any) -> None` (line 295; internal) — Record usage on the receipt and the run, and spend the request budget.
+  - `_retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None` (line 307; internal) — Seconds to wait before the next attempt, or None to give up.
+  - `_is_retryable(self, error: Exception) -> bool` (line 328; internal)
+  - `_response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None` (line 336; internal)
+  - `_reasoning_kwargs(self) -> dict[str, Any]` (line 356; internal)
+  - `_default_headers(self) -> dict[str, str] | None` (line 368; internal)
 
 ### Module constants
 
-- `_RETRY_DELAYS_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 39)
+- `_MAX_ATTEMPTS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 44)
+- `_BACKOFF_BASE_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 45)
+- `_BACKOFF_CAP_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 46)
+- `_RETRY_AFTER_CAP_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 48)
+- `_MIN_ATTEMPT_SECONDS` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 50)
+- `_RETRYABLE_STATUS_CODES` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 52)
+- `_JSON_ONLY_SYSTEM_PROMPT` ([src/learnloop/ai/providers/openai_chat.py](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 58)
 
 ## Internal implementation anchors
 
-- `_is_retryable(exc: Exception) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 257)
-- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 264)
+- `class _RequestFailed(Exception)` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 372) — The provider request itself failed; ``error`` is what it raised.
+- `_retry_after_seconds(error: Exception) -> float | None` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 380) — The server's requested pause from ``retry-after-ms`` or ``Retry-After``.
+- `_prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 401)
+- `_repair_prompt(text: str, model_type: type[BaseModel]) -> str` ([source](../../../../../../../src/learnloop/ai/providers/openai_chat.py), line 411)
 
 ## Who imports or calls it
 
@@ -96,16 +109,17 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInvalidOutput`, `CodexUnavailable`; calls `AIInvalidOutput`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInvalidOutput`, `AIOutputTruncated`, `CodexUnavailable`; calls `AIInvalidOutput`, `AIOutputTruncated`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `model_call`, `report_call_usage`; calls `model_call`, `report_call_usage`
 - [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] — imports `MediaTranscript`, `MediaTranscriptionContext`, `PdfExtractionContextNative`, `audio_content_parts`, `media_transcription_prompt`, `pdf_content_parts`, `pdf_markdown_prompt`, `strip_markdown_fences`; calls `audio_content_parts`, `media_transcription_prompt`, `pdf_content_parts`, `pdf_markdown_prompt`, `strip_markdown_fences`
 - [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] — imports `strict_output_schema`; calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `MEDIA_MARKDOWN`, `MEDIA_TRANSCRIPTION`, `STRUCTURED_COMPLETION`, `StructuredRequest`
-- [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `usage_from_chat_response`; calls `usage_from_chat_response`
+- [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `json`, `logging`, `os`, `sys`, `time`, `typing`
+- Standard library: `__future__`, `contextvars`, `email`, `json`, `logging`, `os`, `random`, `time`, `typing`
 - Third party: `openai`, `pydantic`
 
 ## Larger workflow participation
@@ -125,6 +139,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chat_client_accumulates_usage_across_calls_and_resets_on_consume`
   - `test_chat_client_counts_tokens_of_a_call_whose_body_is_unusable`
   - `test_chat_client_survives_a_response_with_no_usage`
+- [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
+  - `test_retry_policy_records_each_failed_request_with_unknown_usage`
+  - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_multimodal_client.py](../../../../../../../tests/test_multimodal_client.py) — direct import
   - `test_empty_markdown_raises`
   - `test_run_media_markdown_sends_file_part_and_suppresses_response_format`
@@ -132,9 +149,19 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_run_media_transcription_repairs_invalid_json_text_only`
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_chat_does_not_retry_non_retryable_errors`
-  - `test_chat_retries_rate_limited_requests_with_backoff`
+  - `test_chat_gives_up_when_retry_after_outlasts_the_deadline`
+  - `test_chat_honours_retry_after`
+  - `test_chat_jitter_spreads_retry_delays_below_the_ceiling`
+  - `test_chat_retries_connection_failures_and_timeouts`
+  - `test_chat_retries_rate_limited_requests_with_jittered_backoff`
+  - `test_chat_retries_share_one_deadline`
+  - `test_chat_retry_count_stays_bounded`
   - `test_extended_method_repairs_invalid_json_once`
+  - `test_failed_receipt_finish_keeps_the_paid_response`
+  - `test_json_object_route_carries_the_output_schema_in_the_system_turn`
   - `test_json_schema_response_format_sends_strict_per_request_schema`
+  - `test_json_schema_route_does_not_duplicate_the_schema_in_the_prompt`
+  - `test_observer_control_exceptions_propagate_unchanged`
   - `test_openai_chat_client_repairs_invalid_json_once`
   - `test_openai_chat_client_sends_deepseek_json_request`
   - `test_openai_chat_transport_runs_extended_requests`

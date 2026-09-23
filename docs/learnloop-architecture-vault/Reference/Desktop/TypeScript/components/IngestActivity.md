@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/IngestActivity.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/IngestActivity.tsx"
-source_commit: "64d39668a1d275c2910f98388ac612ae5391d694"
-source_commit_timestamp: "2026-07-27T19:00:47-05:00"
+source_commit: "b5f9be2f5838e3c6f4592ffabd14891e8a1652d3"
+source_commit_timestamp: "2026-09-03T18:41:30-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/IngestActivity.tsx](../../../../../../apps/learnloop-tauri/src/components/IngestActivity.tsx) |
-| Source lines | 786 |
+| Source lines | 789 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `64d39668a1d275c2910f98388ac612ae5391d694` |
-| Commit timestamp | `2026-07-27T19:00:47-05:00` |
+| Source commit | `b5f9be2f5838e3c6f4592ffabd14891e8a1652d3` |
+| Commit timestamp | `2026-09-03T18:41:30-07:00` |
 
 ## Activation and status evidence
 
@@ -125,23 +125,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function JobRow(` — function, line 606
 - `const borderColor = STATUS_COLOR[job.status]` — const, line 607
 - `function synthesisRecoveryMessage(code?: string): string` — function, line 638
-- `function IngestErrorPanel(` — function, line 651
-- `const diagnostics = error.details?.diagnostics ?? []` — const, line 652
-- `const hardFailures = diagnostics.filter((item)` — const, line 653
-- `function CheckpointLadder(` — function, line 692
-- `const activeIndex = phase ? ladder.indexOf(phase) : -1` — const, line 701
-- `const finished = status === "completed"` — const, line 705
-- `const done = activeIndex >= 0 && (index < activeIndex || (finished && index === activeIndex))` — const, line 709
-- `const current = !finished && index === activeIndex` — const, line 710
-- `const failed = current && (status === "failed" || status === "blocked" || status === "cancelled")` — const, line 711
-- `const color = failed ? COLOR.red : current ? COLOR.cyan : done ? COLOR.green : COLOR.textFaint` — const, line 712
-- `function TokenBars(` — function, line 727
-- `const keys = Array.from(new Set([...Object.keys(usage ||` — const, line 728
-- `const actual = usage?.[key] ?? 0` — const, line 733
-- `const est = estimate?.[key] ?? 0` — const, line 734
-- `const denom = Math.max(actual, est, 1)` — const, line 735
-- `const actualPct = Math.min(100, (actual / denom) * 100)` — const, line 736
-- `function WaitingCard(` — function, line 754
+- `function IngestErrorPanel(` — function, line 654
+- `const diagnostics = error.details?.diagnostics ?? []` — const, line 655
+- `const hardFailures = diagnostics.filter((item)` — const, line 656
+- `function CheckpointLadder(` — function, line 695
+- `const activeIndex = phase ? ladder.indexOf(phase) : -1` — const, line 704
+- `const finished = status === "completed"` — const, line 708
+- `const done = activeIndex >= 0 && (index < activeIndex || (finished && index === activeIndex))` — const, line 712
+- `const current = !finished && index === activeIndex` — const, line 713
+- `const failed = current && (status === "failed" || status === "blocked" || status === "cancelled")` — const, line 714
+- `const color = failed ? COLOR.red : current ? COLOR.cyan : done ? COLOR.green : COLOR.textFaint` — const, line 715
+- `function TokenBars(` — function, line 730
+- `const keys = Array.from(new Set([...Object.keys(usage ||` — const, line 731
+- `const actual = usage?.[key] ?? 0` — const, line 736
+- `const est = estimate?.[key] ?? 0` — const, line 737
+- `const denom = Math.max(actual, est, 1)` — const, line 738
+- `const actualPct = Math.min(100, (actual / denom) * 100)` — const, line 739
+- `function WaitingCard(` — function, line 757
 
 ## Who imports or calls it
 
@@ -182,7 +182,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
 - When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

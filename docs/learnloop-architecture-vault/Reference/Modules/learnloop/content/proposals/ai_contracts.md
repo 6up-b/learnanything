@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/proposals/ai_contracts.py"
 source_paths:
   - "src/learnloop/content/proposals/ai_contracts.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.proposals"
 layer: "domain"
 concepts:
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -174,8 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_persist_authoring_proposal_records_agent_run`
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_authoring_payload_rejects_unknown_attempt_type`
-  - `test_codex_authoring_schema_is_strict_response_format_compatible`
   - `test_sdk_authoring_path_passes_strict_schema_to_codex`
+  - `test_strict_schema_preserves_a_field_named_title`
   - `test_trace_recipe_dependencies_travel_as_pairs`
   - `test_undeclared_field_inside_a_proposal_item_names_the_payload_model`
   - `test_undeclared_wire_field_is_rejected_by_name`

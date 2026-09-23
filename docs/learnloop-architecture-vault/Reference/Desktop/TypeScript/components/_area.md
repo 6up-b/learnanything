@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
+source_commit_timestamp: "2026-09-23T14:05:41-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -59,11 +59,12 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/InspectorOverlay|InspectorOverlay.tsx]] | `ACTIVE` | Provides the reusable `InspectorOverlay` interaction surface used by one or more desktop workflows. | 11 | 1 |
 | [[Reference/Desktop/TypeScript/components/ItemPresentation|ItemPresentation.tsx]] | `ACTIVE` | Provides the reusable `ItemPresentation` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/KnowledgeModel|KnowledgeModel.tsx]] | `ACTIVE` | Provides the reusable `KnowledgeModel` interaction surface used by one or more desktop workflows. | 4 | 5 |
+| [[Reference/Desktop/TypeScript/components/NativeMediaSettings|NativeMediaSettings.tsx]] | `ACTIVE` | Provides the reusable `NativeMediaSettings` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/NewVaultWizard|NewVaultWizard.tsx]] | `ACTIVE` | Provides the reusable `NewVaultWizard` interaction surface used by one or more desktop workflows. | 10 | 1 |
 | [[Reference/Desktop/TypeScript/components/OpenInSource|OpenInSource.tsx]] | `ACTIVE` | Provides the reusable `OpenInSource` interaction surface used by one or more desktop workflows. | 3 | 5 |
 | [[Reference/Desktop/TypeScript/components/OutlineAndPlan|OutlineAndPlan.tsx]] | `ACTIVE` | Provides the reusable `OutlineAndPlan` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/PageRangeSelector|PageRangeSelector.tsx]] | `ACTIVE` | Provides the reusable `PageRangeSelector` interaction surface used by one or more desktop workflows. | 1 | 3 |
-| [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/components/PdfReaderPane|PdfReaderPane.tsx]] | `ACTIVE` | Provides the reusable `PdfReaderPane` interaction surface used by one or more desktop workflows. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/components/ProbeBlockResult|ProbeBlockResult.tsx]] | `ACTIVE` | Provides the reusable `ProbeBlockResult` interaction surface used by one or more desktop workflows. | 8 | 2 |
 | [[Reference/Desktop/TypeScript/components/ProvenancePanel|ProvenancePanel.tsx]] | `ACTIVE` | Provides the reusable `ProvenancePanel` interaction surface used by one or more desktop workflows. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/components/QuestionQueue|QuestionQueue.tsx]] | `ACTIVE` | Provides the reusable `QuestionQueue` interaction surface used by one or more desktop workflows. | 7 | 1 |
@@ -72,14 +73,15 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/RepairAffordances|RepairAffordances.tsx]] | `ACTIVE` | Provides the reusable `RepairAffordances` interaction surface used by one or more desktop workflows. | 3 | 2 |
 | [[Reference/Desktop/TypeScript/components/RepairTrace|RepairTrace.tsx]] | `ACTIVE` | Provides the reusable `RepairTrace` interaction surface used by one or more desktop workflows. | 3 | 3 |
 | [[Reference/Desktop/TypeScript/components/SessionFinishHud|SessionFinishHud.tsx]] | `ACTIVE` | Provides the reusable `SessionFinishHud` interaction surface used by one or more desktop workflows. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|SourceLibrarySidebar.tsx]] | `ACTIVE` | Provides the reusable `SourceLibrarySidebar` interaction surface used by one or more desktop workflows. | 6 | 1 |
+| [[Reference/Desktop/TypeScript/components/SourceLibrarySidebar|SourceLibrarySidebar.tsx]] | `ACTIVE` | Provides the reusable `SourceLibrarySidebar` interaction surface used by one or more desktop workflows. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/components/StudyMapBriefWizard|StudyMapBriefWizard.tsx]] | `ACTIVE` | Provides the reusable `StudyMapBriefWizard` interaction surface used by one or more desktop workflows. | 2 | 4 |
 | [[Reference/Desktop/TypeScript/components/TrackRecordView|TrackRecordView.tsx]] | `ACTIVE` | Provides the reusable `TrackRecordView` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/WhyDiagnosisOverlay|WhyDiagnosisOverlay.tsx]] | `ACTIVE` | Provides the reusable `WhyDiagnosisOverlay` interaction surface used by one or more desktop workflows. | 4 | 1 |
 | [[Reference/Desktop/TypeScript/components/WriteCardDialog|WriteCardDialog.tsx]] | `ACTIVE` | Provides the reusable `WriteCardDialog` interaction surface used by one or more desktop workflows. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/components/highlight|highlight.tsx]] | `ACTIVE` | Provides the reusable `highlight` interaction surface used by one or more desktop workflows. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/components/pdfDocumentCache|pdfDocumentCache.ts]] | `ACTIVE` | Provides shared `pdfDocumentCache` state or utility behavior for desktop components. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/components/sourceTail|sourceTail.ts]] | `ACTIVE` | Provides shared `sourceTail` state or utility behavior for desktop components. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 70 |
+| [[Reference/Desktop/TypeScript/components/term|term.tsx]] | `ACTIVE` | Provides the reusable `term` interaction surface used by one or more desktop workflows. | 0 | 71 |
 | [[Reference/Desktop/TypeScript/components/ui|ui.tsx]] | `ACTIVE` | Provides the reusable `ui` interaction surface used by one or more desktop workflows. | 1 | 18 |
 | [[Reference/Desktop/TypeScript/components/useSourceFileDrop|useSourceFileDrop.ts]] | `ACTIVE` | Provides shared `useSourceFileDrop` state or utility behavior for desktop components. | 0 | 3 |
 

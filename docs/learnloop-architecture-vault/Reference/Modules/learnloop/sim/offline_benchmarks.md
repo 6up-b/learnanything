@@ -11,7 +11,7 @@ source_commit: "b19e81d9993c28e995049da1aa16f8d316d56d68"
 source_commit_timestamp: "2026-07-13T13:41:22-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.sim"
 layer: "simulation"
 concepts:

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/replay.py"
 source_paths:
   - "src/learnloop/substrate/replay.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "c5041f9734520f787d3ae03a116626d91173446f"
+source_commit_timestamp: "2026-09-23T12:13:48-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.substrate"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/replay.py](../../../../../../src/learnloop/substrate/replay.py) |
-| Source lines | 289 |
+| Source lines | 295 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c5041f9734520f787d3ae03a116626d91173446f` |
+| Commit timestamp | `2026-09-23T12:13:48-04:00` |
 
 ## Public API
 
@@ -149,6 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_misconception_resolution.py](../../../../../../tests/test_misconception_resolution.py) — direct import
   - `test_replay_reproduces_auto_resolution`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
+  - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
 - [tests/test_replay.py](../../../../../../tests/test_replay.py) — direct import
   - `test_learning_object_replay_matches_live_state_and_is_idempotent`

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/depth_edge_authoring.py"
 source_paths:
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -54,16 +54,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
 - `class DepthEdgeAuthoringError(ValueError)` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 52)
 - `request_depth_edge_instances(client: StructuredTransport, context: DepthEdgeInstanceContext) -> DepthEdgeInstanceBatch` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 56) — Author depth-edge candidates through the shared transport.
 - `create_edge_template(repository: Repository, *, template_slug: str, body: Mapping[str, Any], domain_scope: Mapping[str, Any] | None=None, clock: Clock | None=None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 74) — Create a template with its version 1 (status ``draft``).
-- `append_template_version(repository: Repository, *, template_slug: str, body: Mapping[str, Any], clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 100)
 - `review_edge_template(repository: Repository, *, version_id: str, status: str, reviewed_by: str='owner', clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 122)
 - `author_edge_instances(repository: Repository, client: Any, *, commitment_id: str, template_version_ids: list[str], count: int=1, author: str='codex', clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 155) — LLM-author edge instances from reviewed templates; each is immediately gated and stored ``admitted`` or ``rejected`` with its full admission report.
 - `admit_edge_instance(repository: Repository, *, instance: Mapping[str, Any], template_version: Mapping[str, Any], envelope_row: Mapping[str, Any]) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_edge_authoring.py), line 253) — The six §5.7-adjacent admission gates over one candidate edge instance.

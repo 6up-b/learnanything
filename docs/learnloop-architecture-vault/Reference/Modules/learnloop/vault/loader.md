@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/vault/loader.py"
 source_paths:
   - "src/learnloop/vault/loader.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "07139e5b79e712debfc7983abd1f6a3995c534ee"
+source_commit_timestamp: "2026-09-23T12:22:50-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -49,36 +49,36 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py) |
-| Source lines | 438 |
+| Source lines | 453 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `07139e5b79e712debfc7983abd1f6a3995c534ee` |
+| Commit timestamp | `2026-09-23T12:22:50-04:00` |
 
 ## Public API
 
-- `load_vault(root: Path | None=None) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 66)
-- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 255) — Parse one Practice Item through the canonical full-loader path.
-- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 315)
-- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 365)
-- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 405)
+- `load_vault(root: Path | None=None, *, read_yaml_file: YamlFileReader=read_yaml_data) -> LoadedVault` ([source](../../../../../../src/learnloop/vault/loader.py), line 73) — Parse every vault file into a ``LoadedVault``; problems become ``issues``.
+- `load_practice_item_file(path: Path, loaded: LoadedVault, *, issues: list[DoctorIssue] | None=None, read_yaml_file: YamlFileReader=read_yaml_data) -> PracticeItem | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 268) — Parse one Practice Item through the canonical full-loader path.
+- `init_vault(root: Path, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 330)
+- `add_subject(root: Path, subject_id: str, title: str, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 380)
+- `add_note(root: Path, subject_id: str, note_id: str, title: str, body: str, *, source_type: str='learner_note', related_los: list[str] | None=None, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/loader.py), line 420)
 
 ### Module constants
 
-- `T` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 38)
-- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 281)
+- `T` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 39)
+- `DEFAULT_ERROR_TYPE_SEEDS` ([src/learnloop/vault/loader.py](../../../../../../src/learnloop/vault/loader.py), line 296)
 
 ## Internal implementation anchors
 
-- `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 41)
-- `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 51)
-- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 128)
-- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 172)
-- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 191)
-- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 216)
-- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 225)
+- `_load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue], read_yaml_file: YamlFileReader=read_yaml_data) -> T | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 43)
+- `_load_markdown_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> tuple[T | None, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 58)
+- `_load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 141)
+- `_load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None` ([source](../../../../../../src/learnloop/vault/loader.py), line 185)
+- `_validate_loaded_vault(loaded: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/loader.py), line 204)
+- `_facet_aliases(facets_file: EvidenceFacetsFile) -> dict[str, str]` ([source](../../../../../../src/learnloop/vault/loader.py), line 229)
+- `_canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem) -> PracticeItem` ([source](../../../../../../src/learnloop/vault/loader.py), line 238)
 
 ## Who imports or calls it
 
@@ -140,11 +140,11 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] — imports `semantic_fingerprint`; calls `semantic_fingerprint`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `Note`, `PracticeItem`, `RelationsFile`, `SourceSetsFile`, `Subject`, `SubjectMetadata`; calls `ConceptGraph`, `DoctorIssue`, `LoadedVault`, `Subject`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`, `find_vault_root`; calls `VaultPaths`, `find_vault_root`
-- [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_markdown_with_frontmatter`, `read_yaml`, `write_markdown_with_frontmatter`, `write_yaml`; calls `read_markdown_with_frontmatter`, `read_yaml`, `write_markdown_with_frontmatter`, `write_yaml`
+- [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] — imports `read_markdown_frontmatter_data`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; calls `read_markdown_frontmatter_data`, `write_markdown_with_frontmatter`, `write_yaml`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `pathlib`, `typing`
+- Standard library: `__future__`, `collections`, `pathlib`, `typing`
 - Third party: `pydantic`, `ruamel`
 
 ## Larger workflow participation
@@ -201,6 +201,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_detect_contract_drift_and_doctor_surface`
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
+  - `test_block_closing_diagnostic_answer_keeps_grader_provenance`
 - [tests/test_attempt_write_order.py](../../../../../../tests/test_attempt_write_order.py) — direct import
   - `test_canonical_attempt_write_order_is_receipt_grade_evidence_state_then_post`
 - [tests/test_attempts.py](../../../../../../tests/test_attempts.py) — direct import
@@ -354,8 +356,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_runtime.py](../../../../../../tests/test_codex_runtime.py) — direct import
   - `test_doctor_only_checks_provider_health_when_explicitly_requested`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
+- [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
+  - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
+  - `test_export_preserves_censored_repair_disposition_as_distinct_from_failure`
+  - `test_final_offer_refuses_filtered_and_cross_session_candidates`
+  - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
+  - `test_selection_decision_features_reference_the_item_and_stay_compact`
+  - `test_writers_stamp_the_current_collection_version`
 - [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
+  - `test_request_video_model_requires_a_ready_route`
+  - `test_storyboard_total_is_checked_on_the_clamped_durations`
 - [tests/test_concepts.py](../../../../../../tests/test_concepts.py) — direct import
   - `test_merge_concepts_cli_json`
   - `test_merge_concepts_dry_run_does_not_write`
@@ -459,6 +471,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
   - `test_commissioning_rejects_same_family_before_persona_generation`
   - `test_licensed_b1_runs_blind_and_never_writes_a_learner_attempt`
+  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
   - `test_same_model_family_invalidates_b1_without_running_diagnostician`
 - [tests/test_diagnostic_gate.py](../../../../../../tests/test_diagnostic_gate.py) — direct import
   - `test_backfill_creates_row_for_keyed_pair`
@@ -622,15 +635,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_inference_precheck.py](../../../../../../tests/test_inference_precheck.py) — direct import
   - `test_b1_counts_exactly_mismatch_above_and_combined_union_deduplicates`
   - `test_b3_requires_a_directly_reachable_downstream_anchor`
+  - `test_declared_prerequisite_without_a_graph_edge_is_reported_missing`
+  - `test_fully_reachable_upstream_contract_has_no_gap_to_convert`
+  - `test_hard_edge_sources_name_the_edge_anchor_and_both_learning_objects`
   - `test_path_specific_is_conditional_not_a_guaranteed_conversion`
   - `test_report_is_static_deterministic_and_empty_contracts_are_not_perfect`
   - `test_untyped_and_instructional_edges_convert_nothing`
+  - `test_upstream_without_a_contract_converts_nothing`
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — direct import
   - `test_apply_stamps_coverage_boundary_and_later_rebuilds_add_nothing`
   - `test_canonical_lane_does_not_auto_apply_gated_items`
   - `test_omitted_component_capability_defaults_with_diagnostic`
   - `test_reachability_summary_reports_minted_cells`
   - `test_record_content_recalibration_ignores_unknown_los`
+- [tests/test_ingest_ownership.py](../../../../../../tests/test_ingest_ownership.py) — direct import
+  - `test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks`
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`
 - [tests/test_init.py](../../../../../../tests/test_init.py) — direct import
@@ -682,6 +701,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — direct import
   - `test_dismiss_and_snooze_do_not_change_curriculum`
@@ -695,6 +715,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rank_on_the_real_linear_algebra_fixture`
   - `test_registry_view_rank_counts_items_and_criteria`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
+- [tests/test_migrations.py](../../../../../../tests/test_migrations.py) — direct import
+  - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_minimal_repair_selection_a1.py](../../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
   - `test_the_persisted_repair_class_is_the_structurally_selected_one`
 - [tests/test_misconception_registry.py](../../../../../../tests/test_misconception_registry.py) — direct import
@@ -873,7 +895,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_quick_check.py](../../../../../../tests/test_reader_quick_check.py) — direct import
   - `test_escalate_mints_practice_item_with_span_provenance`
 - [tests/test_rebuild_orchestrator.py](../../../../../../tests/test_rebuild_orchestrator.py) — direct import
+  - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
   - `test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_clear`
+  - `test_live_rebuild_completeness_failure_publishes_nothing`
+  - `test_live_rebuild_failure_preserves_all_published_state`
   - `test_same_version_full_rebuild_is_semantically_idempotent_on_golden_fixture`
   - `test_umbrella_accounts_for_every_raw_attempt_and_records_one_receipt`
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
@@ -923,7 +948,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scheduler_candidate_logs_are_retained_per_configured_limit`
   - `test_scheduler_orders_eligible_items_by_selection_reward_before_id`
   - `test_scheduler_persists_bounded_reward_debug_and_rejected_candidates`
-  - `test_scheduler_persists_selection_propensity_and_exploration_flag`
+  - `test_scheduler_preserves_draw_diagnostics_without_claiming_final_propensity`
   - `test_scheduler_scores_due_goal_item`
   - `test_scheduler_selects_item_on_weak_canonical_facet_boundary`
   - `test_unrecognised_followup_action_reports_the_lane_it_lands_on`
@@ -974,9 +999,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_list_source_conflicts_enriches_extraction_ids`
 - [tests/test_sidecar_blueprint_picker.py](../../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
+  - `test_configured_manual_grading_is_ready`
   - `test_inspector_opens_probe_episode_drilldown`
   - `test_knowledge_field_is_recipe_topological_and_uses_pooled_ready`
-  - `test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key`
+  - `test_missing_diagnostic_receipt_recovers_only_from_durable_completion`
   - `test_sidecar_create_vault_initializes_fresh_vault`
   - `test_sidecar_get_facet_mastery_shape_on_fixture_vault`
   - `test_sidecar_get_knowledge_map_deterministic_and_geometric`
@@ -1046,6 +1072,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_bootstrap_canonicalizes_prerequisite_and_confusable_concepts`
   - `test_bootstrap_end_to_end_applies_learnable_map`
   - `test_bootstrap_mints_concept_for_unanchored_learning_object`
+  - `test_cached_generation_resume_creates_goal_without_new_model_calls`
+  - `test_cached_generation_resumes_apply_after_failure_without_new_model_calls`
+  - `test_exam_prep_apply_creates_goal_wired_to_applied_facets`
   - `test_exam_shifts_blueprint_distribution`
   - `test_graph_structuring_relations_become_concept_edges`
   - `test_integration_at_coordination_is_kept_but_flagged`
@@ -1056,6 +1085,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_locked_subject_bootstrap_refusal`
   - `test_replay_identical_after_apply`
   - `test_revalidate_saved_candidate_completes_without_model`
+  - `test_revalidation_creates_the_exam_goal_from_the_manifest_brief`
 - [tests/test_source_sets.py](../../../../../../tests/test_source_sets.py) — direct import
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`
@@ -1105,7 +1135,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_qa.py](../../../../../../tests/test_tutor_qa.py) — direct import
   - `test_ask_question_library_context_and_daily_limit`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_vault_epigraphs.py](../../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_writer.py](../../../../../../tests/test_vault_writer.py) — direct import
+  - `test_registry_writers_do_not_parse_the_whole_vault`
   - `test_writer_preserves_unknown_keys_and_timestamps`
   - `test_writer_refuses_implicit_entity_moves`
   - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`

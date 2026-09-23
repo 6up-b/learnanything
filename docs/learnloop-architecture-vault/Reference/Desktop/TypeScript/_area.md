@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
+source_commit_timestamp: "2026-09-23T14:05:41-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -41,9 +41,9 @@ The React renderer entry point and cross-cutting frontend modules.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/errors|errors.ts]] | `ACTIVE` | Turns unknown renderer failures into the user-facing desktop error contract. | 1 | 12 |
+| [[Reference/Desktop/TypeScript/errors|errors.ts]] | `ACTIVE` | Turns unknown renderer failures into the user-facing desktop error contract. | 1 | 16 |
 | [[Reference/Desktop/TypeScript/main|main.tsx]] | `ACTIVE` | Bootstraps React, applies the persisted palette before first paint, and mounts the desktop application shell. | 1 | 0 |
-| [[Reference/Desktop/TypeScript/queueEvents|queueEvents.ts]] | `ACTIVE` | Provides the in-window event boundary that tells independent surfaces the practice queue changed. | 0 | 5 |
+| [[Reference/Desktop/TypeScript/queueEvents|queueEvents.ts]] | `ACTIVE` | Provides the in-window event boundary that tells independent surfaces the practice queue changed. | 2 | 5 |
 | [[Reference/Desktop/TypeScript/vite-env.d|vite-env.d.ts]] | `ACTIVE` | Adds Vite's ambient client declarations to the TypeScript compilation unit. | 0 | 0 |
 
 ## Modification guidance

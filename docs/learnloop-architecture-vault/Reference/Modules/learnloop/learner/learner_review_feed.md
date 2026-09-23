@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/learner_review_feed.py"
 source_paths:
   - "src/learnloop/learner/learner_review_feed.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "0298e9141d2bc9833ea2440ee24fe2e96f3d7115"
+source_commit_timestamp: "2026-09-23T12:33:33-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,21 +50,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/learner_review_feed.py](../../../../../../src/learnloop/learner/learner_review_feed.py) |
-| Source lines | 220 |
+| Source lines | 268 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `0298e9141d2bc9833ea2440ee24fe2e96f3d7115` |
+| Commit timestamp | `2026-09-23T12:33:33-04:00` |
 
 ## Public API
 
-- `build_learner_review_feed(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 31)
+- `build_learner_review_feed(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 33) — The Review screen's changelog (newest first) and standing working hypotheses.
 
 ## Internal implementation anchors
 
-- `_empty_belief_change() -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 14) — Zeroed belief-change fields shared by system-authored changelog entries.
+- `_empty_belief_change() -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 15) — Zeroed belief-change fields shared by system-authored changelog entries.
+- `_session_entries(vault: LoadedVault, repository: Repository) -> tuple[list[dict[str, Any]], list[tuple[str, str]]]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 51) — One entry per review session, plus each finished session's [started_at, ended_at].
+- `_out_of_session_regrade_entries(vault: LoadedVault, repository: Repository, session_windows: list[tuple[str, str]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 103) — System-authored regrade entries for regrades applied OUTSIDE any session window.
+- `_recalibration_entries(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 156) — One entry per algorithm-version bump.
+- `_belief_withdrawal_entries(repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 193) — An explicit retraction for each belief the learner was SHOWN and that was withdrawn.
+- `_working_hypotheses(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/learner_review_feed.py), line 239) — Active or resolving misconceptions with a correction to show, most severe first.
 
 ## Who imports or calls it
 
@@ -78,6 +83,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `pinned_repository_call`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `misconception_status_history`; calls `misconception_status_history`
 - [[Reference/Modules/learnloop/learner/session_learning_diff|learnloop.learner.session_learning_diff]] — imports `session_learning_diffs`; calls `session_learning_diffs`
 - [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] — imports `surfaced_belief_corrections`; calls `surfaced_belief_corrections`
@@ -108,6 +114,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_coverage_denominator_boundary.py](../../../../../../tests/test_coverage_denominator_boundary.py) — direct import
   - `test_apply_writes_one_boundary_and_a_rerun_writes_none`
 - [tests/test_durable_promotion_arms.py](../../../../../../tests/test_durable_promotion_arms.py) — direct import
+- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
   - `test_review_feed_bulk_loads_timeline_history_once`
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import

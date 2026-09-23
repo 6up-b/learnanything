@@ -10,8 +10,8 @@ area: "TypeScript/render"
 source_path: "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/render/MarkdownMath.tsx"
-source_commit: "f0052f7260eb63224bd103193929a03fd54660d6"
-source_commit_timestamp: "2026-07-21T15:03:22-04:00"
+source_commit: "ad991418ef3cb163828f9b1cf1ad9da9cce7549a"
+source_commit_timestamp: "2026-09-03T10:55:39-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/render/MarkdownMath.tsx](../../../../../../apps/learnloop-tauri/src/render/MarkdownMath.tsx) |
-| Source lines | 32 |
+| Source lines | 41 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/render/_area|TypeScript/render]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `f0052f7260eb63224bd103193929a03fd54660d6` |
-| Commit timestamp | `2026-07-21T15:03:22-04:00` |
+| Source commit | `ad991418ef3cb163828f9b1cf1ad9da9cce7549a` |
+| Commit timestamp | `2026-09-03T10:55:39-07:00` |
 
 ## Activation and status evidence
 
@@ -60,13 +60,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function normalizeMathDelimiters(value: string): string` — function, line 19
-- `export function MarkdownMath(` — function, line 26
+- `export function normalizeMathDelimiters(value: string): string` — function, line 20
+- `export const MarkdownMath = memo(function MarkdownMath(` — const, line 35
 
 ## Internal implementation anchors
 
-- `const CODE_SEGMENT = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/g` — const, line 11
-- `function rewriteDelimiters(text: string): string` — function, line 13
+- `const CODE_SEGMENT = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]*`)/g` — const, line 12
+- `function rewriteDelimiters(text: string): string` — function, line 14
+- `type MarkdownProps = ComponentProps<typeof ReactMarkdown>` — type, line 31
+- `const REMARK_PLUGINS: MarkdownProps["remarkPlugins"] = [remarkGfm, remarkMath]` — const, line 32
+- `const REHYPE_PLUGINS: MarkdownProps["rehypePlugins"] = [rehypeKatex]` — const, line 33
 
 ## Who imports or calls it
 
@@ -97,7 +100,7 @@ No local TypeScript/TSX or Rust module dependency was detected.
 
 ### Assets, platform, and third-party dependencies
 
-- Imported packages/crates: `katex/dist/katex.min.css`, `react-markdown`, `rehype-katex`, `remark-gfm`, `remark-math`
+- Imported packages/crates: `katex/dist/katex.min.css`, `react`, `react-markdown`, `rehype-katex`, `remark-gfm`, `remark-math`
 
 ## Larger desktop and workflow participation
 
@@ -109,12 +112,12 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
 
 ## Modification guidance
 
 - Change this source at its stated ownership boundary, then check every inbound consumer and outbound dependency listed above.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

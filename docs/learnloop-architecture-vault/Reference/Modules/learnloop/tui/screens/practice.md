@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/screens/practice.py"
 source_paths:
   - "src/learnloop/tui/screens/practice.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "4b93c6683f782f476861dce3cab58e2967943edf"
+source_commit_timestamp: "2026-09-23T12:51:27-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -50,64 +50,64 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py) |
-| Source lines | 489 |
+| Source lines | 503 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `4b93c6683f782f476861dce3cab58e2967943edf` |
+| Commit timestamp | `2026-09-23T12:51:27-04:00` |
 
 ## Public API
 
-- `class PracticeScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 38) — Focused practice card for a single Practice Item.
-  - `__init__(self, state: TuiState, item: ScheduledItem)` (line 66; internal)
-  - `_resolve_probe_contract(self) -> None` (line 79; internal)
-  - `compose(self) -> ComposeResult` (line 115; public)
-  - `on_mount(self) -> None` (line 156; public)
-  - `on_screen_resume(self) -> None` (line 160; public)
-  - `watch_hints_used(self, value: int) -> None` (line 164; public)
-  - `answer(self) -> str` (line 172; public)
-  - `set_answer(self, text: str) -> None` (line 175; public)
-  - `reveal_hint(self) -> None` (line 179; public)
-  - `async open_feedback(self)` (line 191; public)
-  - `dont_know(self)` (line 198; public)
-  - `_draft(self, attempt_type: str | None=None) -> AttemptDraft` (line 220; internal)
-  - `async action_submit(self) -> None` (line 237; public)
-  - `action_hint(self) -> None` (line 241; public)
-  - `action_stop_diagnosing(self) -> None` (line 244; public) — `Stop diagnosing and teach me` (§3): end measurement, start tutoring.
-  - `action_dont_know(self) -> None` (line 257; public)
-  - `action_skip(self) -> None` (line 260; public)
-  - `action_back(self) -> None` (line 263; public)
-  - `on_text_area_changed(self, event: TextArea.Changed) -> None` (line 267; public)
-  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 270; public)
-  - `_refresh_answer_meta(self, text: str) -> None` (line 275; internal)
-  - `_breadcrumb_content(self) -> Content` (line 282; internal)
-  - `_breadcrumb_meta_content(self) -> Content` (line 291; internal)
-  - `_card_title_content(self) -> Content` (line 298; internal)
-  - `_card_pills_content(self) -> Content` (line 306; internal)
-  - `_probe_content(self) -> Content` (line 314; internal)
-  - `_hints_content(self) -> Content` (line 337; internal)
-  - `_mastery_content(self) -> Content` (line 351; internal)
-  - `_attempt_row_content(self) -> Content` (line 371; internal)
-  - `_why_text_content(self) -> Content` (line 388; internal)
-  - `_why_metrics_content(self) -> Content` (line 398; internal)
-  - `_is_probe(self) -> bool` (line 420; internal)
-  - `_primary_subject(self) -> str` (line 425; internal)
-  - `_difficulty(self) -> float` (line 429; internal)
-  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 439; internal)
-  - `_queue_position(self) -> tuple[int, int]` (line 447; internal)
-  - `_attempt_number(self) -> int` (line 455; internal)
+- `class PracticeScreen(Screen)` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 39) — Focused practice card for a single Practice Item.
+  - `__init__(self, state: TuiState, item: ScheduledItem)` (line 67; internal)
+  - `_resolve_probe_contract(self) -> None` (line 86; internal)
+  - `compose(self) -> ComposeResult` (line 122; public)
+  - `on_mount(self) -> None` (line 163; public)
+  - `on_screen_resume(self) -> None` (line 167; public)
+  - `watch_hints_used(self, value: int) -> None` (line 171; public)
+  - `answer(self) -> str` (line 179; public)
+  - `set_answer(self, text: str) -> None` (line 182; public)
+  - `reveal_hint(self) -> None` (line 186; public)
+  - `async open_feedback(self)` (line 198; public)
+  - `dont_know(self)` (line 205; public)
+  - `_draft(self, attempt_type: str | None=None) -> AttemptDraft` (line 231; internal)
+  - `async action_submit(self) -> None` (line 251; public)
+  - `action_hint(self) -> None` (line 255; public)
+  - `action_stop_diagnosing(self) -> None` (line 258; public) — `Stop diagnosing and teach me` (§3): end measurement, start tutoring.
+  - `action_dont_know(self) -> None` (line 271; public)
+  - `action_skip(self) -> None` (line 274; public)
+  - `action_back(self) -> None` (line 277; public)
+  - `on_text_area_changed(self, event: TextArea.Changed) -> None` (line 281; public)
+  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 284; public)
+  - `_refresh_answer_meta(self, text: str) -> None` (line 289; internal)
+  - `_breadcrumb_content(self) -> Content` (line 296; internal)
+  - `_breadcrumb_meta_content(self) -> Content` (line 305; internal)
+  - `_card_title_content(self) -> Content` (line 312; internal)
+  - `_card_pills_content(self) -> Content` (line 320; internal)
+  - `_probe_content(self) -> Content` (line 328; internal)
+  - `_hints_content(self) -> Content` (line 351; internal)
+  - `_mastery_content(self) -> Content` (line 365; internal)
+  - `_attempt_row_content(self) -> Content` (line 385; internal)
+  - `_why_text_content(self) -> Content` (line 402; internal)
+  - `_why_metrics_content(self) -> Content` (line 412; internal)
+  - `_is_probe(self) -> bool` (line 434; internal)
+  - `_primary_subject(self) -> str` (line 439; internal)
+  - `_difficulty(self) -> float` (line 443; internal)
+  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 453; internal)
+  - `_queue_position(self) -> tuple[int, int]` (line 461; internal)
+  - `_attempt_number(self) -> int` (line 469; internal)
 
 ### Module constants
 
-- `_RATING_CAPS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 34)
-- `_RATING_CAP_VARIANTS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 35)
+- `_RATING_CAPS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 35)
+- `_RATING_CAP_VARIANTS` ([src/learnloop/tui/screens/practice.py](../../../../../../../src/learnloop/tui/screens/practice.py), line 36)
 
 ## Internal implementation anchors
 
-- `_join(parts: list[Content], sep: str=' ') -> Content` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 462)
-- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 471)
+- `_join(parts: list[Content], sep: str=' ') -> Content` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 476)
+- `_relative(iso: str, now: datetime) -> str` ([source](../../../../../../../src/learnloop/tui/screens/practice.py), line 485)
 
 ## Who imports or calls it
 
@@ -123,8 +123,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `ready_client_for_task`; calls `ready_client_for_task`
 - [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] — imports `default_attempt_type`; calls `default_attempt_type`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`; calls `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`
-- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `run_post_attempt_pipeline`; calls `run_post_attempt_pipeline`
+- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `committed_submission_result`, `run_post_attempt_pipeline`; calls `committed_submission_result`, `run_post_attempt_pipeline`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `commit_item_presentation`, `episode_contract`, `episode_hypothesis_set`, `probe_serving_block_reason`, `stop_diagnosing_and_teach`; calls `commit_item_presentation`, `episode_contract`, `episode_hypothesis_set`, `probe_serving_block_reason`, `stop_diagnosing_and_teach`
+- [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `sigmoid`; calls `sigmoid`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `ScheduledItem`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `FeedbackScreen`; calls `FeedbackScreen`

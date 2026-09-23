@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/golden_path_run.py"
 source_paths:
   - "src/learnloop/curriculum/golden_path_run.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -69,7 +69,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, Any]` (line 145; public)
 - `class AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 150)
   - `as_dict(self) -> dict[str, Any]` (line 158; public)
-- `next_feasible_action(state: RunState) -> NextAction` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 162) — The transparent staged policy's next canonical action from a state (§4.2).
 - `project_run(repository: Repository, run_id: str) -> RunState` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 180) — Fold the event log into the current run state (§4.1).
 - `advance(repository: Repository, run_id: str, *, to_state: str, reason: str, idempotency_key: str, expected_head_event_id: str | None=None, evidence_ids: Sequence[str] | None=None, selected_activity: Mapping[str, Any] | None=None, feasible_alternatives: Sequence[str] | None=None, predecessor_milestone: str | None=None, successor_milestone: str | None=None, policy_calibration: Mapping[str, Any] | None=None, burden: Mapping[str, Any] | None=None, clock: Clock | None=None) -> AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 230) — Append exactly one transition (§4.1).
 - `advance_canonical(repository: Repository, run_id: str, *, idempotency_key: str, clock: Clock | None=None, **extra: Any) -> AdvanceResult` ([source](../../../../../../src/learnloop/curriculum/golden_path_run.py), line 350) — Convenience: advance along the canonical happy-path successor (§4.2).

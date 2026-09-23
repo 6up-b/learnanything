@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
+source_commit_timestamp: "2026-09-23T14:05:41-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -37,10 +37,10 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/Rust/commands|commands.rs]] | `ACTIVE` | Implements the native command boundary, adapting Tauri invocations to typed JSON-RPC calls on the Python sidecar. | 3 | 1 |
-| [[Reference/Desktop/Rust/errors|errors.rs]] | `ACTIVE` | Defines the serializable native command error contract and distinguishes retryable application failures from invalidated transports. | 0 | 3 |
+| [[Reference/Desktop/Rust/errors|errors.rs]] | `ACTIVE` | Defines the serializable native command error contract and distinguishes retryable application failures from invalidated transports. | 0 | 4 |
 | [[Reference/Desktop/Rust/main|main.rs]] | `ACTIVE` | Bootstraps the native Tauri runtime, registers protocols and commands, and composes the sidecar and vault watcher. | 4 | 0 |
 | [[Reference/Desktop/Rust/sidecar|sidecar.rs]] | `ACTIVE` | Owns the Python sidecar child process, vault selection, JSON-RPC request lifecycle, timeout, restart, and isolated long-running calls. | 1 | 3 |
-| [[Reference/Desktop/Rust/vault_watcher|vault_watcher.rs]] | `ACTIVE` | Coalesces native filesystem mutations and asks the Python authority to refresh the selected vault before notifying the renderer. | 1 | 2 |
+| [[Reference/Desktop/Rust/vault_watcher|vault_watcher.rs]] | `ACTIVE` | Coalesces native filesystem mutations and asks the Python authority to refresh the selected vault before notifying the renderer. | 2 | 2 |
 
 ## Modification guidance
 

@@ -18,9 +18,9 @@ source_paths:
   - "src/learnloop/content/sources/source_outline.py"
   - "src/learnloop/content/sources/source_refs.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-03T10:49:04-07:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.sources"
 layer: "domain"
 concepts:

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ids.py"
 source_paths:
   - "src/learnloop/ids.py"
-source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
-source_commit_timestamp: "2026-05-19T19:15:00-04:00"
+source_commit: "c4362d4fca798bc863e812baa3bff22db8eb28c1"
+source_commit_timestamp: "2026-09-23T12:04:50-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop"
 layer: "primitive"
 concepts:
@@ -50,27 +50,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ids.py](../../../../../src/learnloop/ids.py) |
-| Source lines | 39 |
+| Source lines | 72 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `primitive` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7` |
-| Commit timestamp | `2026-05-19T19:15:00-04:00` |
+| Source commit | `c4362d4fca798bc863e812baa3bff22db8eb28c1` |
+| Commit timestamp | `2026-09-23T12:04:50-04:00` |
 
 ## Public API
 
-- `new_ulid() -> str` ([source](../../../../../src/learnloop/ids.py), line 17) — Generate a ULID-like sortable identifier without an external runtime dependency.
-- `kebab_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 25)
-- `snake_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 38)
+- `new_ulid() -> str` ([source](../../../../../src/learnloop/ids.py), line 35) — Generate a ULID that sorts after every ULID this process generated before it.
+- `kebab_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 58)
+- `snake_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 71)
 
 ### Module constants
 
-- `_CROCKFORD` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 6)
+- `_CROCKFORD` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 7)
+- `_TIMESTAMP_MASK` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 18)
+- `_RANDOMNESS_BITS` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 19)
+- `_RANDOMNESS_MAX` ([src/learnloop/ids.py](../../../../../src/learnloop/ids.py), line 20)
 
 ## Internal implementation anchors
 
-- `_encode_crockford(value: int, length: int) -> str` ([source](../../../../../src/learnloop/ids.py), line 9)
+- `_encode_crockford(value: int, length: int) -> str` ([source](../../../../../src/learnloop/ids.py), line 10)
+- `_wall_clock_ms() -> int` ([source](../../../../../src/learnloop/ids.py), line 31)
 
 ## Who imports or calls it
 
@@ -106,6 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/curriculum/graph_edit_proposals|learnloop.curriculum.graph_edit_proposals]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/curriculum/subject_registry|learnloop.curriculum.subject_registry]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_augmentation|learnloop.diagnosis.diagnostic_augmentation]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/diagnosis/error_taxonomy|learnloop.diagnosis.error_taxonomy]] — imports `new_ulid`; statically calls `new_ulid`
@@ -124,11 +129,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/scheduling/shadow_components|learnloop.scheduling.shadow_components]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `kebab_case`, `snake_case`; statically calls `kebab_case`, `snake_case`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `new_ulid`; statically calls `new_ulid`
 
 ## Dependencies
 
@@ -138,7 +145,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `secrets`, `time`
+- Standard library: `__future__`, `secrets`, `threading`, `time`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -148,7 +155,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 47 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 50 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -160,6 +167,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_deferred_regrade_rewrites_summary_but_posterior_does_not_follow`
 - [tests/test_characterization_probe_replay.py](../../../../../tests/test_characterization_probe_replay.py) — direct import
 - [tests/test_goal_contracts.py](../../../../../tests/test_goal_contracts.py) — direct import
+- [tests/test_ids.py](../../../../../tests/test_ids.py) — direct import
+  - `test_a_new_millisecond_restarts_from_fresh_randomness`
+  - `test_ulid_moves_to_the_next_millisecond_when_randomness_is_exhausted`
+  - `test_ulids_minted_in_one_millisecond_sort_in_creation_order`
+  - `test_ulids_stay_ordered_when_the_wall_clock_steps_backwards`
 - [tests/test_misconception_registry.py](../../../../../tests/test_misconception_registry.py) — direct import
   - `test_discriminating_item_has_higher_eig`
 - [tests/test_p2_acceptance.py](../../../../../tests/test_p2_acceptance.py) — direct import

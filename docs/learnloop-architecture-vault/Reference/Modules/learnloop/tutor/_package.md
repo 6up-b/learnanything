@@ -14,9 +14,9 @@ source_paths:
   - "src/learnloop/tutor/teach_back.py"
   - "src/learnloop/tutor/tutor_qa.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:27:35-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.tutor"
 layer: "domain"
 concepts:

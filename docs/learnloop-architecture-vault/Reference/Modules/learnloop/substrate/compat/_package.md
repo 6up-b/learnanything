@@ -10,9 +10,9 @@ source_paths:
   - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.substrate.compat"
 layer: "domain"
 concepts:

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/config/compat.py"
 source_paths:
   - "src/learnloop/config/compat.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "df36567be6701733d162bffc27ac2a72c43d872a"
+source_commit_timestamp: "2026-09-03T10:49:58-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.config"
 layer: "infrastructure"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/compat.py](../../../../../../src/learnloop/config/compat.py) |
-| Source lines | 303 |
+| Source lines | 323 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `df36567be6701733d162bffc27ac2a72c43d872a` |
+| Commit timestamp | `2026-09-03T10:49:58-07:00` |
 
 ## Public API
 
@@ -65,8 +65,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `normalize_provider_profile(value: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 72) — Canonicalize provider type aliases before union discrimination.
 - `normalize_ai_input(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 85) — Normalize every named provider while preserving non-mapping inputs.
 - `normalize_config_input(data: Any) -> Any` ([source](../../../../../../src/learnloop/config/compat.py), line 100) — Translate accepted legacy shapes into the canonical schema input.
-- `ai_provider_from_codex(config: CodexConfig) -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/compat.py), line 191) — Translate the deprecated Codex runtime object to a typed profile.
-- `codex_config_view(config: LearnLoopConfig) -> CodexConfig` ([source](../../../../../../src/learnloop/config/compat.py), line 223) — Build the non-serialized ``config.codex`` compatibility alias.
+- `ai_provider_from_codex(config: CodexConfig) -> AIProviderConfig` ([source](../../../../../../src/learnloop/config/compat.py), line 211) — Translate the deprecated Codex runtime object to a typed profile.
+- `codex_config_view(config: LearnLoopConfig) -> CodexConfig` ([source](../../../../../../src/learnloop/config/compat.py), line 243) — Build the non-serialized ``config.codex`` compatibility alias.
 
 ### Module constants
 
@@ -86,9 +86,9 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 
 ## Internal implementation anchors
 
-- `_provider_profile_from_legacy_codex(value: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 234)
-- `_profile_from_legacy_openrouter_audio(audio: dict[str, Any], providers: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 242)
-- `_normalize_codex_aliases(ai: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 265)
+- `_provider_profile_from_legacy_codex(value: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 254)
+- `_profile_from_legacy_openrouter_audio(audio: dict[str, Any], providers: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 262)
+- `_normalize_codex_aliases(ai: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/compat.py), line 285)
 
 ## Who imports or calls it
 

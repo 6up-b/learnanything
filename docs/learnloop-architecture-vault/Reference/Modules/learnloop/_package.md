@@ -16,11 +16,12 @@ source_paths:
   - "src/learnloop/ids.py"
   - "src/learnloop/migration_coordinator.py"
   - "src/learnloop/numeric.py"
+  - "src/learnloop/outcome_contract.py"
   - "src/learnloop/vault_lock.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:27:35-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop"
 layer: "coordination"
 concepts:
@@ -62,11 +63,12 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 181 | 260 |
-| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 52 | 16 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 185 | 266 |
+| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 55 | 17 |
 | [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] | [[Reference/Modules/learnloop/migration_coordinator#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/numeric|learnloop.numeric]] | [[Reference/Modules/learnloop/numeric#^module-purpose|purpose]] | `ACTIVE` | 18 | 2 |
-| [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] | [[Reference/Modules/learnloop/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
+| [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] | [[Reference/Modules/learnloop/outcome_contract#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
+| [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] | [[Reference/Modules/learnloop/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 8 | 1 |
 
 ## Child package maps
 
@@ -107,31 +109,31 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 46 static module edges
-- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 30 static module edges
+- [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 31 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 22 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 22 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 17 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 14 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 12 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 11 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 8 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 7 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 6 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 5 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 2 static module edges
+- [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 1 static module edge
-- [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 1 static module edge
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -145,23 +147,24 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_goals["learnloop.goals"]
     n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_goals["learnloop.goals"]
+    n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_diagnosis -->|46| center
-    n_learnloop_scheduling -->|30| center
+    n_learnloop_scheduling -->|31| center
     n_learnloop_attempts -->|22| center
     n_learnloop_curriculum -->|22| center
     n_learnloop_learner -->|17| center
     center -->|1| n_learnloop_learner
+    n_learnloop_substrate -->|15| center
     n_learnloop_goals -->|14| center
-    n_learnloop_substrate -->|12| center
+    n_learnloop_content_synthesis -->|11| center
+    center -->|1| n_learnloop_content_synthesis
     n_learnloop_reader -->|11| center
     n_learnloop_vault -->|8| center
     center -->|3| n_learnloop_vault
-    n_learnloop_content_authoring -->|10| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

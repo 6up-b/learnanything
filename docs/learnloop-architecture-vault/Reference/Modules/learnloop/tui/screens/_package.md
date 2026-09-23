@@ -11,9 +11,9 @@ source_paths:
   - "src/learnloop/tui/screens/start.py"
   - "src/learnloop/tui/screens/today.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:51:27-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.tui.screens"
 layer: "adapter"
 concepts:
@@ -63,8 +63,8 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 3 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 3 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 2 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 
 ### Packages that import this package
@@ -83,8 +83,8 @@ flowchart LR
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_ai["learnloop.ai"]
     n_learnloop["learnloop"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop_config["learnloop.config"]
     n_learnloop_tui -->|1| center
     center -->|8| n_learnloop_tui
@@ -92,8 +92,8 @@ flowchart LR
     center -->|4| n_learnloop_scheduling
     center -->|3| n_learnloop_diagnosis
     center -->|3| n_learnloop_learner
+    center -->|2| n_learnloop
     center -->|2| n_learnloop_ai
-    center -->|1| n_learnloop
     center -->|1| n_learnloop_config
 ```
 

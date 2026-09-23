@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/commitments.py"
 source_paths:
   - "src/learnloop/curriculum/commitments.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -86,12 +86,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `retire(repository: Repository, *, commitment_id: str, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 708)
 - `satisfy_single_check(repository: Repository, *, commitment_id: str, administration_id: str | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 717) — One eligible delayed cold administration satisfies a ``test_me_later`` commitment (§3.1): ``one_check_pending`` -> ``satisfied``, never an open-ended review obligation.
 - `record_milestone_reached(repository: Repository, *, commitment_id: str, milestone_slug: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 738) — Append ``depth_milestone_reached``: an achievement fact over the existing authored envelope.
-- `record_depth_transition_committed(repository: Repository, *, commitment_id: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 763) — Append ``depth_transition_committed``: an activation fact over the existing authored envelope (A.3).
-- `attach_family(repository: Repository, *, commitment_id: str, family_id: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 785)
-- `detach_family(repository: Repository, *, commitment_id: str, family_id: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 795)
 - `resolve_disposition(repository: Repository, commitment_id: str) -> str` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 809) — Fold ``commitment_events`` to one disposition (§3.1).
 - `resolve_head(repository: Repository, commitment_id: str) -> CommitmentVersion` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 836)
-- `load_commitment(repository: Repository, commitment_id: str) -> Commitment` ([source](../../../../../../src/learnloop/curriculum/commitments.py), line 840)
 
 ### Module constants
 

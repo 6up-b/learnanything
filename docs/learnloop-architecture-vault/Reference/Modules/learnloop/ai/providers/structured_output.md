@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/structured_output.py"
 source_paths:
   - "src/learnloop/ai/providers/structured_output.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -115,11 +115,11 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_codex_runtime.py](../../../../../../../tests/test_codex_runtime.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_deferred_regrade.py](../../../../../../../tests/test_deferred_regrade.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_e2e_codex_mock.py](../../../../../../../tests/test_e2e_codex_mock.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
+- [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_learner_review_system_entries.py](../../../../../../../tests/test_learner_review_system_entries.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
-- [tests/test_teach_back.py](../../../../../../../tests/test_teach_back.py) — imports consumer [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]]
 
 ## Modification guidance
 

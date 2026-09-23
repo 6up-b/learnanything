@@ -11,7 +11,7 @@ source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
 source_commit_timestamp: "2026-05-28T11:36:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop_sidecar"
 layer: "adapter"
 concepts:
@@ -124,6 +124,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_common_repair_delivery.py](../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
 - [tests/test_reveal_ledger.py](../../../../../tests/test_reveal_ledger.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]]
 - [tests/test_causal_repair_sidecar_rpcs.py](../../../../../tests/test_causal_repair_sidecar_rpcs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
+- [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]]
 - [tests/test_probe_orchestration_remainder.py](../../../../../tests/test_probe_orchestration_remainder.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
 - [tests/test_probe_remint.py](../../../../../tests/test_probe_remint.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
 - [tests/test_provenance_service.py](../../../../../tests/test_provenance_service.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
@@ -132,7 +133,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
 - [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
 - [tests/test_sidecar_blueprint_picker.py](../../../../../tests/test_sidecar_blueprint_picker.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
-- [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — imports consumer [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]]
 
 ## Modification guidance
 

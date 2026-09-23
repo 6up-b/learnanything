@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/db/migrate.py"
 source_paths:
   - "src/learnloop/db/migrate.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.db"
 layer: "infrastructure"
 concepts:
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -156,6 +156,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_facet_diagnostic_schema_is_available`
   - `test_first_error_cleanup_is_semantically_demoted_not_learned`
   - `test_fresh_db_applies_all_migrations`
+  - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
   - `test_migrations_are_idempotent`
   - `test_misconception_migration_applies_on_pre_025_db`
   - `test_misconception_registry_schema_is_available`

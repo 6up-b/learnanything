@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/depth_transition.py"
 source_paths:
   - "src/learnloop/curriculum/depth_transition.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "05458003f67c22e36f7c5afc327496383a5f0fc2"
+source_commit_timestamp: "2026-09-23T12:30:12-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,32 +49,31 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/depth_transition.py](../../../../../../src/learnloop/curriculum/depth_transition.py) |
-| Source lines | 308 |
+| Source lines | 289 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `05458003f67c22e36f7c5afc327496383a5f0fc2` |
+| Commit timestamp | `2026-09-23T12:30:12-04:00` |
 
 ## Public API
 
-- `class TransitionProposal` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 40) — A non-activating outcome: the transition was refused, deferred to suggest_next, or requires authoring.
-  - `committed(self) -> bool` (line 51; public)
-  - `as_dict(self) -> dict[str, Any]` (line 54; public)
-- `class TransitionReceipt` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 66) — A committed one-edge transition (§5.7 step 7).
-  - `committed(self) -> bool` (line 79; public)
-  - `as_dict(self) -> dict[str, Any]` (line 82; public)
-- `commit_one_edge(repository: Repository, *, commitment_id: str, milestone: str, selected_edge_id: str, evidence_receipt: Mapping[str, Any], goal_id: str | None=None, proposed_contract_body: Mapping[str, Any] | None=None, progression_decision: Mapping[str, Any] | None=None, fork_edit: Mapping[str, Any] | None=None, scheduler_algorithm_version: str='fsrs6', live_activation_enabled: bool | None=None, author: str='controller', clock: Clock | None=None) -> TransitionReceipt | TransitionProposal` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 116) — Commit at most one reviewed inside-envelope depth edge (§5.7).
+- `class TransitionProposal` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 41) — A non-activating outcome: the transition was refused, deferred to suggest_next, or requires authoring.
+  - `committed(self) -> bool` (line 52; public)
+  - `as_dict(self) -> dict[str, Any]` (line 55; public)
+- `class TransitionReceipt` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 67) — A committed one-edge transition (§5.7 step 7).
+  - `committed(self) -> bool` (line 80; public)
+  - `as_dict(self) -> dict[str, Any]` (line 83; public)
+- `commit_one_edge(repository: Repository, *, commitment_id: str, milestone: str, selected_edge_id: str, evidence_receipt: Mapping[str, Any], goal_id: str | None=None, proposed_contract_body: Mapping[str, Any] | None=None, progression_decision: Mapping[str, Any] | None=None, fork_edit: Mapping[str, Any] | None=None, scheduler_algorithm_version: str='fsrs6', live_activation_enabled: bool | None=None, author: str='controller', clock: Clock | None=None) -> TransitionReceipt | TransitionProposal` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 97) — Commit at most one reviewed inside-envelope depth edge (§5.7).
 
 ### Module constants
 
-- `LIVE_ACTIVATION_ENABLED` ([src/learnloop/curriculum/depth_transition.py](../../../../../../src/learnloop/curriculum/depth_transition.py), line 36)
+- `LIVE_ACTIVATION_ENABLED` ([src/learnloop/curriculum/depth_transition.py](../../../../../../src/learnloop/curriculum/depth_transition.py), line 37)
 
 ## Internal implementation anchors
 
-- `_resolve_policy(repository: Repository, policy_version_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 96)
-- `_reviewed_edges(repository: Repository, envelope_version_id: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_transition.py), line 105)
+No private top-level function or class definition is declared in this file.
 
 ## Who imports or calls it
 
@@ -91,6 +90,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `module`; calls `resolve_head`
+- [[Reference/Modules/learnloop/curriculum/depth_envelopes|learnloop.curriculum.depth_envelopes]] — imports `depth_policy`, `envelope_edges`; calls `depth_policy`, `envelope_edges`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `module`; calls `append_authorized_depth_successor`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -99,7 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `json`, `typing`
+- Standard library: `__future__`, `dataclasses`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

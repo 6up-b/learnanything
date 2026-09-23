@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/sim/diagnostic_validation.py"
 source_paths:
   - "src/learnloop/sim/diagnostic_validation.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "e60a0e7483883c54f90a66010ede37deb0b11513"
+source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.sim"
 layer: "simulation"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sim/diagnostic_validation.py](../../../../../../src/learnloop/sim/diagnostic_validation.py) |
-| Source lines | 482 |
+| Source lines | 485 |
 | Owning package | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] |
 | Architecture layer | `simulation` |
 | Refactor status | `EVALUATION` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `e60a0e7483883c54f90a66010ede37deb0b11513` |
+| Commit timestamp | `2026-09-23T12:27:35-04:00` |
 
 > [!note] Evaluation-only authority
 > This module computes shadow, audit, or offline evidence. Its outputs do not directly choose learner-facing actions unless a governed promotion path says otherwise.
@@ -129,7 +129,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_sim_probe_validation.py](../../../../../../tests/test_sim_probe_validation.py) — direct import
   - `test_planted_confuses_with_is_diagnosed_within_budget`
-  - `test_planted_types_pass_the_checkpoint_gate`
 
 ## Modification guidance
 

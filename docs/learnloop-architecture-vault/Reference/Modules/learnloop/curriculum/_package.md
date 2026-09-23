@@ -13,6 +13,7 @@ source_paths:
   - "src/learnloop/curriculum/confusable_concepts.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
+  - "src/learnloop/curriculum/depth_envelopes.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
@@ -28,9 +29,9 @@ source_paths:
   - "src/learnloop/curriculum/subject_registry.py"
   - "src/learnloop/curriculum/task_blueprints.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:47:57-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -73,6 +74,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]] | [[Reference/Modules/learnloop/curriculum/confusable_concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] | [[Reference/Modules/learnloop/curriculum/curriculum_locks#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
 | [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]] | [[Reference/Modules/learnloop/curriculum/depth_edge_authoring#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/curriculum/depth_envelopes|learnloop.curriculum.depth_envelopes]] | [[Reference/Modules/learnloop/curriculum/depth_envelopes#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] | [[Reference/Modules/learnloop/curriculum/depth_rungs#^module-purpose|purpose]] | `ACTIVE` | 7 | 2 |
 | [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] | [[Reference/Modules/learnloop/curriculum/depth_transition#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] | [[Reference/Modules/learnloop/curriculum/golden_path_assessment#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
@@ -93,7 +95,7 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 22 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 19 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 20 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 19 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 18 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
@@ -134,7 +136,7 @@ flowchart LR
     n_learnloop_content_proposals["learnloop.content.proposals"]
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
     center -->|22| n_learnloop
-    center -->|19| n_learnloop_db
+    center -->|20| n_learnloop_db
     center -->|19| n_learnloop_substrate
     center -->|18| n_learnloop_vault
     n_learnloop_sidecar_handlers -->|15| center

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/runtime.py"
 source_paths:
   - "src/learnloop/ai/runtime.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -87,6 +87,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AIRuntimeReport`, `legacy_codex_status`; statically calls `legacy_codex_status`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `legacy_codex_status`; statically calls `legacy_codex_status`
+- [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `AIRuntimeReport`
 - [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] — imports `check_ai_runtime`; statically calls `check_ai_runtime`
@@ -110,7 +111,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] and 3 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -127,13 +128,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openrouter_runtime_requires_api_key`
 - [tests/test_attempt_ai_flow.py](../../../../../../tests/test_attempt_ai_flow.py) — direct import
   - `test_attempt_ai_flow_records_provider_model_and_ai_source`
+- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
 - [tests/test_deferred_regrade.py](../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_ai_regrade_records_provider_and_ai_origin`
 - [tests/test_diagnostic_augmentation.py](../../../../../../tests/test_diagnostic_augmentation.py) — direct import
   - `test_c3_k1_leaves_no_sample_support_on_the_stored_attribution`
+  - `test_post_commit_receipt_failure_never_records_a_fallback_attempt`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
   - `test_provider_resolution_config_matrix_is_uniform`
+- [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — direct import
+  - `test_committed_model_grade_is_not_regraded_when_a_later_step_fails`
 
 ## Modification guidance
 

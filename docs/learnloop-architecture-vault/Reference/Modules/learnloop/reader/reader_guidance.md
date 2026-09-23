@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_guidance.py"
 source_paths:
   - "src/learnloop/reader/reader_guidance.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "9ac3a83cd1a6ce8be755a6f88f4a7f4bd49d49b7"
+source_commit_timestamp: "2026-09-23T12:42:30-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.reader"
 layer: "domain"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_guidance.py](../../../../../../src/learnloop/reader/reader_guidance.py) |
-| Source lines | 553 |
+| Source lines | 640 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `9ac3a83cd1a6ce8be755a6f88f4a7f4bd49d49b7` |
+| Commit timestamp | `2026-09-23T12:42:30-04:00` |
 
 ## Public API
 
@@ -85,6 +85,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_placement_phase(placement: dict[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 191)
 - `_placement_section(placement: dict[str, Any], *, blueprint_unit_id: str, sections: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 200)
 - `_placement_suppressed(repository: Repository, placement_event_id: str) -> bool` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 237) — Honor the learner's durable "don't bring this back" control.
+- `_goal_candidate(goal: Any, golden_run: Mapping[str, Any] | None, score: float) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 352)
+- `_passages_by_section(vault: LoadedVault, repository: Repository, *, source_id: str, extraction_id: str, note_ids: set[str], blocks: list[Any], block_by_span: dict[str, Any], span_to_section: dict[str, str]) -> tuple[dict[str, dict[str, dict[str, Any]]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 362) — Passages that active, source-grounded Practice Items cite, keyed by section then span.
+- `_pinned_blueprint_goals(vault: LoadedVault, repository: Repository, *, source_revs: set[str], unit_ids: set[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 431) — Active goals whose golden-path run pins a blueprint to this source, by blueprint version.
+- `_reviewed_placement_questions(vault: LoadedVault, repository: Repository, *, source_revs: set[str], section_rows: list[dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 461) — One owner-reviewed question per section, from static reviewed placements (P3 §5.1 / P2 §7.6).
+- `_add_auto_authored_questions(repository: Repository, *, extraction_id: str, question_by_section: dict[str, dict[str, Any]], passages_by_section: dict[str, dict[str, dict[str, Any]]]) -> None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 547) — Fill sections that have no owner-reviewed question with their authored quick check.
+- `_goal_context(goal_candidates: list[dict[str, Any]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 605) — The highest-scoring goal any passage or question supports (ties to the larger goal id).
+- `_assembled_sections(section_rows: list[dict[str, Any]], passages_by_section: dict[str, dict[str, dict[str, Any]]], question_by_section: dict[str, dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_guidance.py), line 620) — Each section with its question and its three best passages (scores stripped).
 
 ## Who imports or calls it
 

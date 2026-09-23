@@ -32,9 +32,9 @@ source_paths:
   - "src/learnloop/learner/session_learning_diff.py"
   - "src/learnloop/learner/surfaced_beliefs.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:47:57-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -73,25 +73,25 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] | [[Reference/Modules/learnloop/learner/assessment_contracts#^module-purpose|purpose]] | `ACTIVE` | 19 | 3 |
 | [[Reference/Modules/learnloop/learner/blueprint_projection|learnloop.learner.blueprint_projection]] | [[Reference/Modules/learnloop/learner/blueprint_projection#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/learner/calibration|learnloop.learner.calibration]] | [[Reference/Modules/learnloop/learner/calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] | [[Reference/Modules/learnloop/learner/capability_grid#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
+| [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]] | [[Reference/Modules/learnloop/learner/capability_grid#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] | [[Reference/Modules/learnloop/learner/capability_mapping#^module-purpose|purpose]] | `ACTIVE` | 19 | 3 |
 | [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] | [[Reference/Modules/learnloop/learner/contract_reachability#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
-| [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] | [[Reference/Modules/learnloop/learner/facet_diagnostics#^module-purpose|purpose]] | `ACTIVE` | 19 | 5 |
-| [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] | [[Reference/Modules/learnloop/learner/facet_evidence_timeline#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
-| [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] | [[Reference/Modules/learnloop/learner/facet_state_reader#^module-purpose|purpose]] | `ACTIVE` | 21 | 1 |
+| [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] | [[Reference/Modules/learnloop/learner/facet_diagnostics#^module-purpose|purpose]] | `ACTIVE` | 19 | 6 |
+| [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] | [[Reference/Modules/learnloop/learner/facet_evidence_timeline#^module-purpose|purpose]] | `ACTIVE` | 3 | 8 |
+| [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] | [[Reference/Modules/learnloop/learner/facet_state_reader#^module-purpose|purpose]] | `ACTIVE` | 21 | 2 |
 | [[Reference/Modules/learnloop/learner/familiarity|learnloop.learner.familiarity]] | [[Reference/Modules/learnloop/learner/familiarity#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
 | [[Reference/Modules/learnloop/learner/hypothesis_claims|learnloop.learner.hypothesis_claims]] | [[Reference/Modules/learnloop/learner/hypothesis_claims#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] | [[Reference/Modules/learnloop/learner/identifiability#^module-purpose|purpose]] | `ACTIVE` | 9 | 5 |
 | [[Reference/Modules/learnloop/learner/independence_audit|learnloop.learner.independence_audit]] | [[Reference/Modules/learnloop/learner/independence_audit#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/learner/inference_precheck|learnloop.learner.inference_precheck]] | [[Reference/Modules/learnloop/learner/inference_precheck#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] | [[Reference/Modules/learnloop/learner/learner_profile#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
-| [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] | [[Reference/Modules/learnloop/learner/learner_review_feed#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
+| [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] | [[Reference/Modules/learnloop/learner/learner_review_feed#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] | [[Reference/Modules/learnloop/learner/mastery#^module-purpose|purpose]] | `ACTIVE` | 27 | 12 |
 | [[Reference/Modules/learnloop/learner/mastery_step_attribution|learnloop.learner.mastery_step_attribution]] | [[Reference/Modules/learnloop/learner/mastery_step_attribution#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/learner/measurement_state|learnloop.learner.measurement_state]] | [[Reference/Modules/learnloop/learner/measurement_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/learner/overconfidence|learnloop.learner.overconfidence]] | [[Reference/Modules/learnloop/learner/overconfidence#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] | [[Reference/Modules/learnloop/learner/recall_calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] | [[Reference/Modules/learnloop/learner/recall_coverage#^module-purpose|purpose]] | `ACTIVE` | 9 | 7 |
+| [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] | [[Reference/Modules/learnloop/learner/recall_coverage#^module-purpose|purpose]] | `ACTIVE` | 9 | 9 |
 | [[Reference/Modules/learnloop/learner/residual_diagnostics|learnloop.learner.residual_diagnostics]] | [[Reference/Modules/learnloop/learner/residual_diagnostics#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/learner/session_learning_diff|learnloop.learner.session_learning_diff]] | [[Reference/Modules/learnloop/learner/session_learning_diff#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/learner/surfaced_beliefs|learnloop.learner.surfaced_beliefs]] | [[Reference/Modules/learnloop/learner/surfaced_beliefs#^module-purpose|purpose]] | `ACTIVE` | 8 | 3 |
@@ -101,8 +101,8 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 23 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 20 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 17 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 15 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
@@ -149,9 +149,9 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_goals["learnloop.goals"]
     n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop["learnloop"]
-    n_learnloop_db["learnloop.db"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_sidecar_handlers -->|28| center
@@ -162,11 +162,11 @@ flowchart LR
     center -->|6| n_learnloop_goals
     n_learnloop_substrate -->|16| center
     center -->|5| n_learnloop_substrate
+    center -->|20| n_learnloop_db
     n_learnloop_attempts -->|13| center
     center -->|6| n_learnloop_attempts
     n_learnloop -->|1| center
     center -->|17| n_learnloop
-    center -->|15| n_learnloop_db
     n_learnloop_scheduling -->|10| center
     center -->|1| n_learnloop_scheduling
     n_learnloop_content_authoring -->|9| center

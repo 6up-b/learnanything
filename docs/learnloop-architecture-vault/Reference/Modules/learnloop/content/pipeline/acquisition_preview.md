@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/acquisition_preview.py"
 source_paths:
   - "src/learnloop/content/pipeline/acquisition_preview.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "16a65f509f6d2167529fa5cc82464351c2dffc30"
+source_commit_timestamp: "2026-09-03T10:49:04-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.pipeline"
 layer: "domain"
 concepts:
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/acquisition_preview.py](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py) |
-| Source lines | 206 |
+| Source lines | 231 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `16a65f509f6d2167529fa5cc82464351c2dffc30` |
+| Commit timestamp | `2026-09-03T10:49:04-07:00` |
 
 ## Public API
 
@@ -78,8 +78,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - `_configured_extractor(category: str, config: LearnLoopConfig) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py), line 140)
 - `_potential_external(category: str, config: LearnLoopConfig) -> list[dict]` ([source](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py), line 157)
-- `_annotate_local(item: AcquisitionItem, normalized_uri: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py), line 192)
-- `_annotate_existing(item: AcquisitionItem, repo: Repository, category: str, normalized_uri: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py), line 202)
+- `_annotate_local(item: AcquisitionItem, normalized_uri: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py), line 217)
+- `_annotate_existing(item: AcquisitionItem, repo: Repository, category: str, normalized_uri: str) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/acquisition_preview.py), line 227)
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] — imports `native_modality_readiness`; calls `native_modality_readiness`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] — imports `marker_available`; calls `marker_available`

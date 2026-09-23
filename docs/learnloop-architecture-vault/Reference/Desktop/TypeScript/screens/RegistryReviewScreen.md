@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx"
-source_commit: "6fd60ddcf8feb8dd53c30194b9a24de4b94720dc"
-source_commit_timestamp: "2026-07-26T17:17:50-04:00"
+source_commit: "8afe46254010114346f91d8643dc3ff29d8d8fe2"
+source_commit_timestamp: "2026-09-03T10:56:04-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/RegistryReviewScreen.tsx) |
-| Source lines | 276 |
+| Source lines | 254 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `6fd60ddcf8feb8dd53c30194b9a24de4b94720dc` |
-| Commit timestamp | `2026-07-26T17:17:50-04:00` |
+| Source commit | `8afe46254010114346f91d8643dc3ff29d8d8fe2` |
+| Commit timestamp | `2026-09-03T10:56:04-07:00` |
 
 ## Activation and status evidence
 
@@ -60,32 +60,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function RegistryReviewScreen(` — function, line 12
+- `export function RegistryReviewScreen(` — function, line 14
 
 ## Internal implementation anchors
 
-- `const load = useCallback(()` — const, line 28
-- `let cancelled = false` — let, line 33
-- `const cleanup = load()` — const, line 56
-- `const proposeMerge = async (retiredFacetId: string, survivingFacetId: string, needId?: string | null)` — const, line 60
-- `const facetOptions = useMemo(()` — const, line 72
-- `function MeasurementRankRow(` — function, line 124
-- `const ratio = rank.rankRatio == null ? "—" : rank.rankRatio.toFixed(2)` — const, line 125
-- `function WarningRow(` — function, line 160
-- `const canCoarsen = warning.kind === "coarsen_distinction" && warning.facetIds.length === 2` — const, line 161
-- `function FacetCard(` — function, line 179
-- `const others = facetOptions.filter((id)` — const, line 182
-- `const accent = card.status === "reviewed" ? COLOR.greenSoft : card.status === "proposed" ? COLOR.amber : COLOR.textFaint` — const, line 185
-- `const lockDetail = card.lockReasons[0]?.detail` — const, line 186
-- `function ListBlock(` — function, line 254
-- `const smallBtn: CSSProperties =` — const, line 268
+- `const registryQuery = useCachedQuery( subjectId ? ["get_subject_registry", subjectId] : null, ()` — const, line 27
+- `const registry: SubjectRegistryDto | null = registryQuery.data ?? null` — const, line 32
+- `const loading = registryQuery.loading` — const, line 33
+- `const error = actionError ?? registryQuery.error?.message ?? null` — const, line 35
+- `const proposeMerge = async (retiredFacetId: string, survivingFacetId: string, needId?: string | null)` — const, line 38
+- `const facetOptions = useMemo(()` — const, line 50
+- `function MeasurementRankRow(` — function, line 102
+- `const ratio = rank.rankRatio == null ? "—" : rank.rankRatio.toFixed(2)` — const, line 103
+- `function WarningRow(` — function, line 138
+- `const canCoarsen = warning.kind === "coarsen_distinction" && warning.facetIds.length === 2` — const, line 139
+- `function FacetCard(` — function, line 157
+- `const others = facetOptions.filter((id)` — const, line 160
+- `const accent = card.status === "reviewed" ? COLOR.greenSoft : card.status === "proposed" ? COLOR.amber : COLOR.textFaint` — const, line 163
+- `const lockDetail = card.lockReasons[0]?.detail` — const, line 164
+- `function ListBlock(` — function, line 232
+- `const smallBtn: CSSProperties =` — const, line 246
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `RegistryReviewScreen`; references `RegistryReviewScreen`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — dynamic import: dynamic import; no named call claim
 
 ## Dependencies
 
@@ -93,6 +94,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `FacetContractCardDto`, `IdentifiabilityWarningDto`, `MeasurementRankDto`, `SubjectRegistryDto`
+- [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/components/ProvenancePanel|src/components/ProvenancePanel.tsx]] — import-or-re-export; imports `ProvenancePanel`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermSelect`
 
@@ -118,7 +121,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
 - When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

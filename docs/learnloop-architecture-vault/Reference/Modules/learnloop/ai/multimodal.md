@@ -11,7 +11,7 @@ source_commit: "7c9ea1996ff427e558b5071afa4e1106865f8cc0"
 source_commit_timestamp: "2026-07-22T21:50:40-05:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:

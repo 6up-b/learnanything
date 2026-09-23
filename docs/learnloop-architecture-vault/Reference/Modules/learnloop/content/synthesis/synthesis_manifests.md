@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/synthesis_manifests.py"
 source_paths:
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.synthesis"
 layer: "domain"
 concepts:
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -113,6 +113,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_ingest_ownership.py](../../../../../../../tests/test_ingest_ownership.py) — direct import
+  - `test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks`
 - [tests/test_synthesis_manifests.py](../../../../../../../tests/test_synthesis_manifests.py) — direct import
   - `test_persist_manifest_is_idempotent_and_seam_documented`
 - [tests/test_synthesis_runs_repo.py](../../../../../../../tests/test_synthesis_runs_repo.py) — direct import

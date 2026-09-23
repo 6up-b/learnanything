@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/evaluation.py"
 source_paths:
   - "src/learnloop/scheduling/evaluation.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "c52c29f47d7ec8fa7c451e985ced66024bb495ab"
+source_commit_timestamp: "2026-09-23T12:09:45-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,44 +50,45 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py) |
-| Source lines | 520 |
+| Source lines | 568 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c52c29f47d7ec8fa7c451e985ced66024bb495ab` |
+| Commit timestamp | `2026-09-23T12:09:45-04:00` |
 
 ## Public API
 
-- `brier_score(pairs: list[tuple[float, float]]) -> float` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 29)
-- `log_loss(pairs: list[tuple[float, float]], *, clip: float=_CLIP) -> float` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 35) — Cross-entropy with soft targets in [0, 1].
-- `class CalibrationBin` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 48)
-  - `as_dict(self) -> dict[str, Any]` (line 55; public)
-- `ece_equal_width(pairs: list[tuple[float, float]], *, bins: int=10) -> tuple[float, list[CalibrationBin]]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 65)
-- `class EvalReport` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 90)
-  - `as_dict(self) -> dict[str, Any]` (line 97; public)
-  - `format_text(self) -> str` (line 106; public)
-- `build_eval_report(vault: LoadedVault, repository: Repository, *, sections: set[str], bins: int=10) -> EvalReport` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 121)
+- `brier_score(pairs: list[tuple[float, float]]) -> float` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 30)
+- `log_loss(pairs: list[tuple[float, float]], *, clip: float=_CLIP) -> float` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 36) — Cross-entropy with soft targets in [0, 1].
+- `class CalibrationBin` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 49)
+  - `as_dict(self) -> dict[str, Any]` (line 56; public)
+- `ece_equal_width(pairs: list[tuple[float, float]], *, bins: int=10) -> tuple[float, list[CalibrationBin]]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 66)
+- `class EvalReport` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 91)
+  - `as_dict(self) -> dict[str, Any]` (line 98; public)
+  - `format_text(self) -> str` (line 107; public)
+- `build_eval_report(vault: LoadedVault, repository: Repository, *, sections: set[str], bins: int=10) -> EvalReport` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 122)
 
 ### Module constants
 
-- `_CLIP` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 23)
-- `_COVERAGE_Z80` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 169)
-- `_COLD_ATTEMPT_COUNT` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 170)
+- `_CLIP` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 24)
+- `_COVERAGE_Z80` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 170)
+- `_COLD_ATTEMPT_COUNT` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 171)
+- `UNAVAILABLE_PROPENSITY_REASON` ([src/learnloop/scheduling/evaluation.py](../../../../../../src/learnloop/scheduling/evaluation.py), line 395)
 
 ## Internal implementation anchors
 
-- `_predictions_section(repository: Repository, *, bins: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 137)
-- `_coverage_section(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 173) — Prospective 80% predictive-interval coverage, sliced cold vs warm.
-- `_gates_section(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 239)
-- `_retention_section(vault: LoadedVault, repository: Repository, *, bins: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 307)
-- `_propensity_section(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 383)
-- `_format_predictions(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 413)
-- `_format_coverage(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 436)
-- `_format_gates(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 455)
-- `_format_retention(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 484)
-- `_format_propensity(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 505)
+- `_predictions_section(repository: Repository, *, bins: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 138)
+- `_coverage_section(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 174) — Prospective 80% predictive-interval coverage, sliced cold vs warm.
+- `_gates_section(vault: LoadedVault, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 240)
+- `_retention_section(vault: LoadedVault, repository: Repository, *, bins: int) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 308)
+- `_propensity_section(repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 402) — Off-policy readiness of the logged selection propensities.
+- `_format_predictions(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 459)
+- `_format_coverage(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 482)
+- `_format_gates(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 501)
+- `_format_retention(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 530)
+- `_format_propensity(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/evaluation.py), line 551)
 
 ## Who imports or calls it
 
@@ -104,8 +105,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/numeric|learnloop.numeric]] — imports `percentiles`; calls `percentiles`
+- [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `LABEL_VERSION`, `retention_exclusions`; calls `retention_exclusions`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `MemoryState`, `apply_review`, `forgetting_curve`; calls `apply_review`, `forgetting_curve`
+- [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `UNAVAILABLE_PROPENSITY_KIND`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies
@@ -132,6 +135,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ece_two_known_bins`
   - `test_gate_section_counts_manual_false_negatives`
   - `test_log_loss_hand_computed_and_clipped`
+  - `test_propensity_readiness_is_judged_only_on_recorded_propensities`
+  - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
 
 ## Modification guidance

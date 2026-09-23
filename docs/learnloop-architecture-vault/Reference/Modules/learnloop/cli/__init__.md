@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/__init__.py"
 source_paths:
   - "src/learnloop/cli/__init__.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/__init__.py](../../../../../../src/learnloop/cli/__init__.py) |
-| Source lines | 53 |
+| Source lines | 54 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `0395ae32f9e2e40d1cb98b38402631299a94003f` |
+| Commit timestamp | `2026-09-07T12:49:13-04:00` |
 
 ## Public API
 
@@ -87,6 +87,7 @@ No live LearnLoop module directly imports this module in the static graph.
 - [[Reference/Modules/learnloop/cli/config|learnloop.cli.config]] — imports `module`
 - [[Reference/Modules/learnloop/cli/contracts|learnloop.cli.contracts]] — imports `module`
 - [[Reference/Modules/learnloop/cli/controller|learnloop.cli.controller]] — imports `module`
+- [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `module`
 - [[Reference/Modules/learnloop/cli/depth|learnloop.cli.depth]] — imports `module`
 - [[Reference/Modules/learnloop/cli/diagnosis|learnloop.cli.diagnosis]] — imports `module`
 - [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]] — imports `module`

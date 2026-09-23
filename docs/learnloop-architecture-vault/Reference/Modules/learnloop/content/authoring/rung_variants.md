@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/rung_variants.py"
 source_paths:
   - "src/learnloop/content/authoring/rung_variants.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "cc67c31a673873b42177915389e1e11d90c97e03"
+source_commit_timestamp: "2026-09-23T12:30:18-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.authoring"
 layer: "domain"
 concepts:
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py) |
-| Source lines | 885 |
+| Source lines | 890 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `cc67c31a673873b42177915389e1e11d90c97e03` |
+| Commit timestamp | `2026-09-23T12:30:18-04:00` |
 
 ## Public API
 
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `audit_variant_manipulation_contract(repository: Repository, source_item: PracticeItem, candidate_payload: dict[str, Any], *, adversarial_review: dict[str, Any] | None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 235) — P2 shared diff audit for harder/easier/rung-shift siblings.
 - `resolve_item_waypoint(vault: LoadedVault, repository: Repository, item: PracticeItem) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 293) — The default-trajectory waypoint this item most plausibly sits at.
 - `request_rung_variant(vault: LoadedVault, repository: Repository, *, practice_item_id: str, direction: str, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 357) — Record a re-rung request and write its evidence package.
-- `generate_rung_variant(root, client: Any, *, request_id: str, repository: Repository | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 560) — Author the requested variant: one grounded sibling item at the target waypoint, rung-gated, with deterministic facet/fingerprint/capability stamping.
+- `generate_rung_variant(root, client: Any, *, request_id: str, repository: Repository | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 565) — Author the requested variant: one grounded sibling item at the target waypoint, rung-gated, with deterministic facet/fingerprint/capability stamping.
 
 ### Module constants
 
@@ -79,10 +79,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Internal implementation anchors
 
 - `_variant_kind(source_item: PracticeItem, rung: RungTarget, direction: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 268) — A rung whose demanded point moves against direction is a trajectory shift.
-- `_target_rung(vault: LoadedVault, repository: Repository, item: PracticeItem, source_slug: str, direction: str) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 507)
-- `_rebuild_rung(repository: Repository, request: dict[str, Any]) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 793)
-- `_variant_instructions(plan: Any, source_item: PracticeItem, rung: RungTarget, request: dict[str, Any], extra: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 815)
-- `_created_item_row(repository: Repository, patch_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 876) — (proposal_row_id, practice_item_id) of the created variant, or None.
+- `_target_rung(vault: LoadedVault, repository: Repository, item: PracticeItem, source_slug: str, direction: str) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 512)
+- `_rebuild_rung(repository: Repository, request: dict[str, Any]) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 798)
+- `_variant_instructions(plan: Any, source_item: PracticeItem, rung: RungTarget, request: dict[str, Any], extra: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 820)
+- `_created_item_row(repository: Repository, patch_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 881) — (proposal_row_id, practice_item_id) of the created variant, or None.
 
 ## Who imports or calls it
 
@@ -132,6 +132,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_attempt_completion.py](../../../../../../../tests/test_attempt_completion.py) — direct import
+  - `test_rung_variant_request_completes_at_apply_and_is_tagged`
 - [tests/test_causal_attribution_p0.py](../../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_variant_direction_audit_is_symmetric`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import

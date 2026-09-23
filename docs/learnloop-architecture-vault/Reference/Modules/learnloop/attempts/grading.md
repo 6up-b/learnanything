@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/grading.py"
 source_paths:
   - "src/learnloop/attempts/grading.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -234,8 +234,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retrieval_boundary_is_mechanism_based_and_domain_neutral`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_chat_does_not_retry_non_retryable_errors`
-  - `test_chat_retries_rate_limited_requests_with_backoff`
+  - `test_chat_gives_up_when_retry_after_outlasts_the_deadline`
+  - `test_chat_honours_retry_after`
+  - `test_chat_jitter_spreads_retry_delays_below_the_ceiling`
+  - `test_chat_retries_connection_failures_and_timeouts`
+  - `test_chat_retries_rate_limited_requests_with_jittered_backoff`
+  - `test_chat_retries_share_one_deadline`
+  - `test_chat_retry_count_stays_bounded`
+  - `test_failed_receipt_finish_keeps_the_paid_response`
+  - `test_json_object_route_carries_the_output_schema_in_the_system_turn`
   - `test_json_schema_response_format_sends_strict_per_request_schema`
+  - `test_json_schema_route_does_not_duplicate_the_schema_in_the_prompt`
+  - `test_observer_control_exceptions_propagate_unchanged`
   - `test_openai_chat_client_repairs_invalid_json_once`
   - `test_openai_chat_client_sends_deepseek_json_request`
 - [tests/test_openrouter_client.py](../../../../../../tests/test_openrouter_client.py) — direct import

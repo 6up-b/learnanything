@@ -11,7 +11,7 @@ source_commit: "4a28c9635f24945d78366fa26212db7488d82545"
 source_commit_timestamp: "2026-05-28T11:36:12-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.tui"
 layer: "adapter"
 concepts:
@@ -115,9 +115,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_tui_app_shows_error_screen_for_missing_vault`
   - `test_tui_today_screen_renders_queue_details_and_refreshes`
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — direct import
+  - `test_committed_model_grade_is_not_regraded_when_a_later_step_fails`
   - `test_feedback_screen_reads_visible_self_grade_controls`
   - `test_feedback_submit_matches_cli_attempt_and_updates_state`
   - `test_feedback_submit_uses_codex_grading_when_runtime_ready`
+  - `test_tui_retry_resumes_a_committed_grade_instead_of_recording_another`
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
   - `test_practice_screen_collects_answer_and_opens_feedback`
   - `test_practice_screen_dont_know_runs_shared_post_attempt_pipeline`

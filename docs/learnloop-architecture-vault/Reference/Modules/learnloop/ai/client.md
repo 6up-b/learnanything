@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/client.py"
 source_paths:
   - "src/learnloop/ai/client.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "6dfc42162e7125f567956ea6377b49f19af38621"
+source_commit_timestamp: "2026-09-02T21:39:34-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -40,7 +40,7 @@ Up: [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps client behavior inside its owning package, [[Reference/Modules/learnloop/ai/_package|learnloop.ai]]. Its public surface centers on `make_ai_provider_client`, `make_ai_provider_client_from_profile`.
+This module keeps client behavior inside its owning package, [[Reference/Modules/learnloop/ai/_package|learnloop.ai]]. Its public surface centers on `make_ai_provider_client`, `make_ai_provider_client_from_profile`, `make_video_generation_client`.
 
 The authoritative system-level explanation remains in [[AI Architecture]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -51,18 +51,19 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/client.py](../../../../../../src/learnloop/ai/client.py) |
-| Source lines | 57 |
+| Source lines | 85 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `6dfc42162e7125f567956ea6377b49f19af38621` |
+| Commit timestamp | `2026-09-02T21:39:34-07:00` |
 
 ## Public API
 
 - `make_ai_provider_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str | None=None, timeout_seconds: int | None=None) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 17)
 - `make_ai_provider_client_from_profile(provider_name: str, profile: AIProviderConfig, vault_root: Path) -> AIProviderClient` ([source](../../../../../../src/learnloop/ai/client.py), line 35)
+- `make_video_generation_client(config: LearnLoopConfig, vault_root: Path, *, provider_name: str, http: Any=None) -> Any` ([source](../../../../../../src/learnloop/ai/client.py), line 60) — Build the text-to-video client for an OpenRouter profile.
 
 ## Internal implementation anchors
 
@@ -77,6 +78,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AIProviderClient`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `AIProviderClient`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `AIProviderClient`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `make_video_generation_client`; statically calls `make_video_generation_client`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `AIProviderClient`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `AIProviderClient`
 
@@ -89,6 +91,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `HttpAdapterProviderClient`; calls `HttpAdapterProviderClient`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `OpenAIChatProviderClient`; calls `OpenAIChatProviderClient`
 - [[Reference/Modules/learnloop/ai/providers/openrouter|learnloop.ai.providers.openrouter]] — imports `OpenRouterProviderClient`; calls `OpenRouterProviderClient`
+- [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] — imports `OpenRouterVideoClient`; calls `OpenRouterVideoClient`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `OperationClient`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`, `LearnLoopConfig`
 
@@ -104,7 +107,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -114,6 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_global_ai_timeout_is_applied_to_codex_sdk_profiles`
 - [tests/test_openrouter_client.py](../../../../../../tests/test_openrouter_client.py) — direct import
   - `test_make_ai_provider_client_dispatches_openrouter`
+- [tests/test_openrouter_video_client.py](../../../../../../tests/test_openrouter_video_client.py) — direct import
+  - `test_factory_requires_an_openrouter_profile`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_named_codex_profile_identity_survives_provider_construction`
 

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/authoring/ai_contracts.py"
 source_paths:
   - "src/learnloop/content/authoring/ai_contracts.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "6dfc42162e7125f567956ea6377b49f19af38621"
+source_commit_timestamp: "2026-09-02T21:39:34-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.authoring"
 layer: "domain"
 concepts:
@@ -51,32 +51,39 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py) |
-| Source lines | 193 |
+| Source lines | 382 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `6dfc42162e7125f567956ea6377b49f19af38621` |
+| Commit timestamp | `2026-09-02T21:39:34-07:00` |
 
 ## Public API
 
 - `class ExerciseAuthoredItem(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 20) — One selected textbook exercise completed into a full PracticeItem contract (reader exercise import).
 - `class ExerciseAuthoringContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 68)
 - `class ConceptAnimationContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 80)
-- `class ExerciseAuthoring(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 90)
-- `class ManimAnimation(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 95)
-- `exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 180)
-- `concept_animation_prompt(context: ConceptAnimationContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 188)
+- `class ExerciseAuthoring(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 98)
+- `class ManimAnimation(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 103)
+- `class VideoStoryboardContext` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 111)
+- `class VideoShot(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 128)
+- `class VideoStoryboard(WireModel)` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 134)
+- `exercise_authoring_prompt(context: ExerciseAuthoringContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 361)
+- `concept_animation_prompt(context: ConceptAnimationContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 369)
+- `video_storyboard_prompt(context: VideoStoryboardContext) -> str` ([source](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 377)
 
 ### Module constants
 
 - `BANNED_RESPONSE_MODES` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 55)
 - `LOW_MASTERY_RESPONSE_MODES` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 60)
-- `EXERCISE_AUTHORING_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 102)
-- `CONCEPT_ANIMATION_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 103)
-- `EXERCISE_AUTHORING_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 105)
-- `CONCEPT_ANIMATION_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 150)
+- `EXERCISE_AUTHORING_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 140)
+- `CONCEPT_ANIMATION_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 141)
+- `VIDEO_STORYBOARD_PROMPT_VERSION` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 142)
+- `EXERCISE_AUTHORING_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 144)
+- `CONCEPT_ANIMATION_SCENE_SCAFFOLD` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 193)
+- `CONCEPT_ANIMATION_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 249)
+- `VIDEO_STORYBOARD_PROMPT` ([src/learnloop/content/authoring/ai_contracts.py](../../../../../../../src/learnloop/content/authoring/ai_contracts.py), line 316)
 
 ## Internal implementation anchors
 
@@ -88,7 +95,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] — imports `BANNED_RESPONSE_MODES`, `LOW_MASTERY_RESPONSE_MODES`
-- [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `CONCEPT_ANIMATION_PROMPT_VERSION`, `ConceptAnimationContext`, `ManimAnimation`, `concept_animation_prompt`; statically calls `ConceptAnimationContext`, `concept_animation_prompt`
+- [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `CONCEPT_ANIMATION_PROMPT_VERSION`, `CONCEPT_ANIMATION_SCENE_SCAFFOLD`, `ConceptAnimationContext`, `ManimAnimation`, `VIDEO_STORYBOARD_PROMPT_VERSION`, `VideoStoryboard`, `VideoStoryboardContext`, `concept_animation_prompt`, `video_storyboard_prompt`; statically calls `ConceptAnimationContext`, `VideoStoryboardContext`, `concept_animation_prompt`, `video_storyboard_prompt`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `ExerciseAuthoring`, `ExerciseAuthoringContext`, `exercise_authoring_prompt`; statically calls `ExerciseAuthoringContext`, `exercise_authoring_prompt`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `BANNED_RESPONSE_MODES`, `LOW_MASTERY_RESPONSE_MODES`
 
@@ -124,6 +131,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_prompt_interpolates_the_shared_vocabulary`
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../../tests/test_concept_animation_service.py) — direct import
+- [tests/test_concept_animation_validator.py](../../../../../../../tests/test_concept_animation_validator.py) — direct import
+  - `test_scaffold_passes_validator`
 - [tests/test_exercise_authoring.py](../../../../../../../tests/test_exercise_authoring.py) — direct import
   - `test_coordination_without_whole_task_is_left_unstamped`
   - `test_edited_capture_quote_becomes_the_exercise_surface`

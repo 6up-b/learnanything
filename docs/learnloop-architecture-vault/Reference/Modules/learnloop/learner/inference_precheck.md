@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/inference_precheck.py"
 source_paths:
   - "src/learnloop/learner/inference_precheck.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "fa47105485871d148098d0025ab42e8da7ba6c29"
+source_commit_timestamp: "2026-09-23T12:36:54-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/inference_precheck.py](../../../../../../src/learnloop/learner/inference_precheck.py) |
-| Source lines | 543 |
+| Source lines | 578 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `fa47105485871d148098d0025ab42e8da7ba6c29` |
+| Commit timestamp | `2026-09-23T12:36:54-04:00` |
 
 ## Public API
 
@@ -82,7 +82,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `_rule_summary(self, rows: tuple[DominanceConversion | EntailmentConversion, ...]) -> dict[str, Any]` (line 211; internal)
   - `summary(self) -> dict[str, Any]` (line 226; public)
   - `as_dict(self) -> dict[str, Any]` (line 266; public)
-- `analyze_inference_precheck(vault: LoadedVault, *, reachability: ContractReachabilityReport | None=None) -> InferencePrecheckReport` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 521) — Price B1 and B3 against the current static contract-cell baseline.
+- `analyze_inference_precheck(vault: LoadedVault, *, reachability: ContractReachabilityReport | None=None) -> InferencePrecheckReport` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 558) — Price B1 and B3 against the current static contract-cell baseline.
 
 ## Internal implementation anchors
 
@@ -91,7 +91,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_dominance_conversions(vault: LoadedVault, baseline: ContractReachabilityReport) -> tuple[DominanceConversion, ...]` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 297)
 - `_reachable_by_learning_object(baseline: ContractReachabilityReport) -> dict[str, tuple[CellReachability, ...]]` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 331)
 - `_contract_by_learning_object(baseline: ContractReachabilityReport) -> dict[str, tuple[CellReachability, ...]]` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 344)
-- `_entailment_conversions(vault: LoadedVault, baseline: ContractReachabilityReport) -> tuple[tuple[EntailmentConversion, ...], tuple[PrerequisiteAudit, ...], int, int]` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 356)
+- `class _DeclaredPrerequisite` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 357) — One downstream LO's declared prerequisite concept and the cells around it.
+- `class _EntailmentAnalysis(NamedTuple)` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 398)
+- `_declared_prerequisites(vault: LoadedVault, baseline: ContractReachabilityReport) -> Iterator[_DeclaredPrerequisite]` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 405) — Every (downstream LO, prerequisite concept) pair, in LO id then concept order.
+- `_edge_disposition(modality: str, prerequisite: _DeclaredPrerequisite) -> PrerequisiteDisposition` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 442) — Whether one typed prerequisite edge can convert its upstream gaps, and if not why.
+- `_entailment_conversions(vault: LoadedVault, baseline: ContractReachabilityReport) -> _EntailmentAnalysis` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 459)
+- `_merged_conversions(hard_sources: dict[tuple[str, str, str], list[EntailmentSource]], conditional_sources: dict[tuple[str, str, str], list[EntailmentSource]], baseline: ContractReachabilityReport) -> tuple[EntailmentConversion, ...]` ([source](../../../../../../src/learnloop/learner/inference_precheck.py), line 521) — One conversion per upstream cell, conditional only when no hard edge reaches it.
 
 ## Who imports or calls it
 
@@ -129,9 +134,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_inference_precheck.py](../../../../../../tests/test_inference_precheck.py) — direct import
   - `test_b1_counts_exactly_mismatch_above_and_combined_union_deduplicates`
   - `test_b3_requires_a_directly_reachable_downstream_anchor`
+  - `test_declared_prerequisite_without_a_graph_edge_is_reported_missing`
+  - `test_fully_reachable_upstream_contract_has_no_gap_to_convert`
+  - `test_hard_edge_sources_name_the_edge_anchor_and_both_learning_objects`
   - `test_path_specific_is_conditional_not_a_guaranteed_conversion`
   - `test_report_is_static_deterministic_and_empty_contracts_are_not_perfect`
   - `test_untyped_and_instructional_edges_convert_nothing`
+  - `test_upstream_without_a_contract_converts_nothing`
 
 ## Modification guidance
 

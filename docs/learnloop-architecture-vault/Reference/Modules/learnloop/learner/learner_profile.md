@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/learner_profile.py"
 source_paths:
   - "src/learnloop/learner/learner_profile.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -116,13 +116,13 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_exam_readiness_and_conflict.py](../../../../../../tests/test_exam_readiness_and_conflict.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_facet_mint_gate.py](../../../../../../tests/test_facet_mint_gate.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
+- [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
+- [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
+- [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_practice_leakage.py](../../../../../../tests/test_practice_leakage.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_source_append.py](../../../../../../tests/test_source_append.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_source_outcome_analytics.py](../../../../../../tests/test_source_outcome_analytics.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 
 ## Modification guidance
 

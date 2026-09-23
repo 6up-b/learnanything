@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/diagnosis/followups.py"
 source_paths:
   - "src/learnloop/diagnosis/followups.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "18e074a6f785e305c513ab1ebcfcfb0b253342db"
+source_commit_timestamp: "2026-09-23T12:51:27-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.diagnosis"
 layer: "domain"
 concepts:
@@ -50,69 +50,70 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py) |
-| Source lines | 2149 |
+| Source lines | 2166 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `18e074a6f785e305c513ab1ebcfcfb0b253342db` |
+| Commit timestamp | `2026-09-23T12:51:27-04:00` |
 
 ## Public API
 
-- `common_repair_messages() -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 58) — Learner copy per skip verb, keyed by the recorded decision.
-- `class FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 92)
-- `class InterventionSelection` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 107)
-- `class AttemptFacetTargets` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 139) — Facet evidence roles for follow-up routing.
-- `evaluate_intervention_followup(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, practice_item_id: str, surprise_direction: str, bayesian_surprise: float, grader_confidence: float | None, error_event_written: bool, max_error_severity: float=0.0, repeated_same_item_failure: bool | None=None, repeated_same_facet_failure: bool | None=None, probe_unfamiliar_probability: float | None=None, target_facets: list[str] | None=None, failed_facets: list[str] | None=None, bad_item_suspicion: float=0.0, available_minutes: int | None=None, session_id: str | None=None, session_interventions_for_lo: int=0, probe_phase_active: bool=False, lo_independent_evidence_mass: float=0.0, lo_raw_attempt_count: int=0, manual_override: bool=False, clock: Clock | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 151) — Intervention follow-up evaluator from the recall-coverage spec.
-- `evaluate_negative_surprise_followup(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, practice_item_id: str, surprise_direction: str, bayesian_surprise: float, grader_confidence: float | None, error_event_written: bool, available_minutes: int | None=None, clock: Clock | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 451) — Decide whether a negative-surprise follow-up Practice Item should fire.
-- `evaluate_attempt_intervention_followup(vault: LoadedVault, repository: Repository, *, result: Any, available_minutes: int | None=None, session_id: str | None=None, manual_override: bool=False, ai_client: Any=None, suppress_insertion_reason: str | None=None, clock: Clock | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 491) — Run the full post-attempt intervention policy for one attempt result.
-- `run_deferred_block_repair_hooks(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, session_id: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 624) — §5.7 block-end resumption of the deferred per-attempt causal hooks.
-- `common_repair_recommendation(repository: Repository, attempt_id: str, *, probe_need: Any, fallback_misconception_id: str='', surface: str='feedback_common_repair', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 851) — Journey B read: the already-decided common-repair card for one attempt.
-- `current_same_item_failure_streak(repository: Repository, practice_item_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2001) — Trailing attempt-level failure streak for one Practice Item.
-- `current_same_facet_failure_streak(vault: LoadedVault, repository: Repository, learning_object_id: str, facets: list[str]) -> int` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2017) — Largest current aggregate failure streak among the target facets.
+- `common_repair_messages() -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 60) — Learner copy per skip verb, keyed by the recorded decision.
+- `class FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 94)
+- `class InterventionSelection` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 109)
+- `class AttemptFacetTargets` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 141) — Facet evidence roles for follow-up routing.
+- `evaluate_intervention_followup(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, practice_item_id: str, surprise_direction: str, bayesian_surprise: float, grader_confidence: float | None, error_event_written: bool, max_error_severity: float=0.0, repeated_same_item_failure: bool | None=None, repeated_same_facet_failure: bool | None=None, probe_unfamiliar_probability: float | None=None, target_facets: list[str] | None=None, failed_facets: list[str] | None=None, bad_item_suspicion: float=0.0, available_minutes: int | None=None, session_id: str | None=None, session_interventions_for_lo: int=0, probe_phase_active: bool=False, lo_independent_evidence_mass: float=0.0, lo_raw_attempt_count: int=0, manual_override: bool=False, clock: Clock | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 153) — Intervention follow-up evaluator from the recall-coverage spec.
+- `evaluate_negative_surprise_followup(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, practice_item_id: str, surprise_direction: str, bayesian_surprise: float, grader_confidence: float | None, error_event_written: bool, available_minutes: int | None=None, clock: Clock | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 453) — Decide whether a negative-surprise follow-up Practice Item should fire.
+- `evaluate_attempt_intervention_followup(vault: LoadedVault, repository: Repository, *, result: Any, available_minutes: int | None=None, session_id: str | None=None, manual_override: bool=False, ai_client: Any=None, suppress_insertion_reason: str | None=None, normalization_prepared: bool=False, applied_probe_episode_id: str | None | object=CURRENT_EPISODE, clock: Clock | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 493) — Run the full post-attempt intervention policy for one attempt result.
+- `run_deferred_block_repair_hooks(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, session_id: str | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 641) — §5.7 block-end resumption of the deferred per-attempt causal hooks.
+- `common_repair_recommendation(repository: Repository, attempt_id: str, *, probe_need: Any, fallback_misconception_id: str='', surface: str='feedback_common_repair', clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 868) — Journey B read: the already-decided common-repair card for one attempt.
+- `current_same_item_failure_streak(repository: Repository, practice_item_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2018) — Trailing attempt-level failure streak for one Practice Item.
+- `current_same_facet_failure_streak(vault: LoadedVault, repository: Repository, learning_object_id: str, facets: list[str]) -> int` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2034) — Largest current aggregate failure streak among the target facets.
 
 ### Module constants
 
 - `FOLLOWUP_ACTION` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 43)
 - `INTERVENTION_ACTION` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 44)
-- `COMMON_REPAIR_DECISIONS` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 51)
-- `INTENT_PRIORITY` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 82)
+- `CURRENT_EPISODE` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 46)
+- `COMMON_REPAIR_DECISIONS` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 53)
+- `INTENT_PRIORITY` ([src/learnloop/diagnosis/followups.py](../../../../../../src/learnloop/diagnosis/followups.py), line 84)
 
 ## Internal implementation anchors
 
-- `_run_causal_orchestrator_hooks(vault: LoadedVault, repository: Repository, result: Any, *, session_id: str | None=None, clock: Clock | None=None, include_cold_verification: bool=True) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 669) — Live-path P2 hooks: the machine-check producer and cold verification.
-- `_consult_common_repair(vault: LoadedVault, repository: Repository, result: Any, *, session_id: str | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 772) — Journey B delivery: consult the repair lane once, post-attempt.
-- `_probe_unfamiliar_probability(vault: LoadedVault, repository: Repository, result: Any, probe_state: Any) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 927)
-- `_facet_targets_from_debug(debug_payload: dict[str, Any]) -> AttemptFacetTargets` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 966)
-- `_max_error_severity(debug_payload: dict[str, Any], error_events: list[dict[str, Any]]) -> float` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 996)
-- `_session_interventions_for_lo(repository: Repository, session_id: str | None, learning_object_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1004)
-- `_decision(triggered: bool, practice_item_id: str | None, reason: str, triggered_actions: list[str], suppressed_actions: list[str], *, intent: str | None=None, need_id: str | None=None, gate_diagnostics: dict[str, Any] | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1026)
-- `_build_gate_diagnostics(*, outcome: str, decisive_reason: str, natural_trigger_reasons: list[str], triggered_reasons: list[str], would_suppress: list[str], manual_override: bool, bayesian_surprise: float, surprise_direction: str, grader_confidence: float | None, max_error_severity: float, probe_unfamiliar_probability: float | None, session_interventions_for_lo: int, available_minutes: int | None, target_facets: list[str], config: Any, thresholds: dict[str, ResolvedThreshold], gate_mode: str='cascade', score_result: GateScoreResult | None=None, item_failure_count: float | None=None, facet_failure_count: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1049) — Per-attempt record of why the follow-up gate did (or did not) fire.
-- `_threshold_fields(threshold: ResolvedThreshold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1125)
-- `_decisive_signal(reason: str, *, bayesian_surprise: float, surprise_direction: str, grader_confidence: float | None, max_error_severity: float, probe_unfamiliar_probability: float | None, session_interventions_for_lo: int, available_minutes: int | None, config: Any, thresholds: dict[str, ResolvedThreshold], score_result: GateScoreResult | None=None, item_failure_count: float | None=None, facet_failure_count: float | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1134) — Describe the single signal that decided this follow-up outcome.
-- `_choose_intent(reasons: list[str], *, probe_phase_active: bool, lo_independent_evidence_mass: float, cold_start_min_lo_evidence: float) -> str` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1279)
-- `_canonical_target_facets(vault: LoadedVault, facets: list[str]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1297)
-- `_active_misconceptions(repository: Repository, learning_object_id: str, *, attempt_id: str | None, gate_facets: set[str], tau_severe_error: float) -> list[MisconceptionRecord]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1301) — Active registry beliefs that gate diagnostic routing (spec §4.1).
-- `_demonstrated_facets(vault: LoadedVault, repository: Repository, learning_object_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1336) — Facets the learner has already passed, snapshotted for review (spec §5.3).
-- `_augment_diagnostic_focus_with_misconceptions(diagnostic_focus: dict[str, Any] | None, vault: LoadedVault, repository: Repository, *, active_mcs: list[MisconceptionRecord], learning_object_id: str, source_practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1360) — Snapshot belief + §5.3 prerequisite context into the need's focus (spec §4).
-- `_misconception_discrimination(repository: Repository, vault: LoadedVault, item: PracticeItem, rubric: Any, hypothesis_set: Any, active_mcs: list[MisconceptionRecord], tau_power: float) -> tuple[bool, float, float]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1388) — ``(discriminates, best_J_lb, misconception_eig)`` for a candidate (spec §4.1).
-- `_choose_intervention_item(vault: LoadedVault, repository: Repository, *, attempt_id: str | None, learning_object_id: str, exclude_practice_item_id: str, target_facets: list[str], failed_facets: list[str], intent: str, max_error_severity: float, tau_severe_error: float=0.0, clock: Clock | None=None) -> InterventionSelection` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1438)
-- `_jaccard(left: set[str], right: set[str]) -> float` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1777)
-- `_target_precision(candidate_support: set[str], diagnostic_gate_facets: set[str]) -> float` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1783)
-- `_build_diagnostic_focus(vault: LoadedVault, repository: Repository, *, attempt_id: str | None, failed_facets: list[str], diagnostic_states: list[Any], max_error_severity: float, fallback_dominant_target_facet: str | None, question_signal: QuestionSignal | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1789)
-- `_is_known_gap_state(state: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1984)
-- `_attempt_target_facets(repository: Repository, practice_item_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1994)
-- `_attempt_is_failure(attempt: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2039)
-- `_record_followup_decision_features(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, selection: InterventionSelection, outcome: str, need_id: str | None, selected_item_id: str | None, manual_trigger: dict[str, Any] | None=None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2047)
-- `_now_iso(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2147)
+- `_run_causal_orchestrator_hooks(vault: LoadedVault, repository: Repository, result: Any, *, session_id: str | None=None, clock: Clock | None=None, include_cold_verification: bool=True) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 686) — Live-path P2 hooks: the machine-check producer and cold verification.
+- `_consult_common_repair(vault: LoadedVault, repository: Repository, result: Any, *, session_id: str | None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 789) — Journey B delivery: consult the repair lane once, post-attempt.
+- `_probe_unfamiliar_probability(vault: LoadedVault, repository: Repository, result: Any, probe_state: Any) -> float | None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 944)
+- `_facet_targets_from_debug(debug_payload: dict[str, Any]) -> AttemptFacetTargets` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 983)
+- `_max_error_severity(debug_payload: dict[str, Any], error_events: list[dict[str, Any]]) -> float` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1013)
+- `_session_interventions_for_lo(repository: Repository, session_id: str | None, learning_object_id: str) -> int` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1021)
+- `_decision(triggered: bool, practice_item_id: str | None, reason: str, triggered_actions: list[str], suppressed_actions: list[str], *, intent: str | None=None, need_id: str | None=None, gate_diagnostics: dict[str, Any] | None=None) -> FollowupDecision` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1043)
+- `_build_gate_diagnostics(*, outcome: str, decisive_reason: str, natural_trigger_reasons: list[str], triggered_reasons: list[str], would_suppress: list[str], manual_override: bool, bayesian_surprise: float, surprise_direction: str, grader_confidence: float | None, max_error_severity: float, probe_unfamiliar_probability: float | None, session_interventions_for_lo: int, available_minutes: int | None, target_facets: list[str], config: Any, thresholds: dict[str, ResolvedThreshold], gate_mode: str='cascade', score_result: GateScoreResult | None=None, item_failure_count: float | None=None, facet_failure_count: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1066) — Per-attempt record of why the follow-up gate did (or did not) fire.
+- `_threshold_fields(threshold: ResolvedThreshold) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1142)
+- `_decisive_signal(reason: str, *, bayesian_surprise: float, surprise_direction: str, grader_confidence: float | None, max_error_severity: float, probe_unfamiliar_probability: float | None, session_interventions_for_lo: int, available_minutes: int | None, config: Any, thresholds: dict[str, ResolvedThreshold], score_result: GateScoreResult | None=None, item_failure_count: float | None=None, facet_failure_count: float | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1151) — Describe the single signal that decided this follow-up outcome.
+- `_choose_intent(reasons: list[str], *, probe_phase_active: bool, lo_independent_evidence_mass: float, cold_start_min_lo_evidence: float) -> str` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1296)
+- `_canonical_target_facets(vault: LoadedVault, facets: list[str]) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1314)
+- `_active_misconceptions(repository: Repository, learning_object_id: str, *, attempt_id: str | None, gate_facets: set[str], tau_severe_error: float) -> list[MisconceptionRecord]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1318) — Active registry beliefs that gate diagnostic routing (spec §4.1).
+- `_demonstrated_facets(vault: LoadedVault, repository: Repository, learning_object_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1353) — Facets the learner has already passed, snapshotted for review (spec §5.3).
+- `_augment_diagnostic_focus_with_misconceptions(diagnostic_focus: dict[str, Any] | None, vault: LoadedVault, repository: Repository, *, active_mcs: list[MisconceptionRecord], learning_object_id: str, source_practice_item_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1377) — Snapshot belief + §5.3 prerequisite context into the need's focus (spec §4).
+- `_misconception_discrimination(repository: Repository, vault: LoadedVault, item: PracticeItem, rubric: Any, hypothesis_set: Any, active_mcs: list[MisconceptionRecord], tau_power: float) -> tuple[bool, float, float]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1405) — ``(discriminates, best_J_lb, misconception_eig)`` for a candidate (spec §4.1).
+- `_choose_intervention_item(vault: LoadedVault, repository: Repository, *, attempt_id: str | None, learning_object_id: str, exclude_practice_item_id: str, target_facets: list[str], failed_facets: list[str], intent: str, max_error_severity: float, tau_severe_error: float=0.0, clock: Clock | None=None) -> InterventionSelection` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1455)
+- `_jaccard(left: set[str], right: set[str]) -> float` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1794)
+- `_target_precision(candidate_support: set[str], diagnostic_gate_facets: set[str]) -> float` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1800)
+- `_build_diagnostic_focus(vault: LoadedVault, repository: Repository, *, attempt_id: str | None, failed_facets: list[str], diagnostic_states: list[Any], max_error_severity: float, fallback_dominant_target_facet: str | None, question_signal: QuestionSignal | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 1806)
+- `_is_known_gap_state(state: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2001)
+- `_attempt_target_facets(repository: Repository, practice_item_id: str) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2011)
+- `_attempt_is_failure(attempt: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2056)
+- `_record_followup_decision_features(vault: LoadedVault, repository: Repository, *, attempt_id: str, learning_object_id: str, selection: InterventionSelection, outcome: str, need_id: str | None, selected_item_id: str | None, manual_trigger: dict[str, Any] | None=None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2064)
+- `_now_iso(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/diagnosis/followups.py), line 2164)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `FollowupDecision`, `evaluate_attempt_intervention_followup`; statically calls `evaluate_attempt_intervention_followup`
+- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `FollowupDecision`, `evaluate_attempt_intervention_followup`, `normalize_and_resolve_attempt`; statically calls `evaluate_attempt_intervention_followup`, `normalize_and_resolve_attempt`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `current_same_facet_failure_streak`, `current_same_item_failure_streak`; statically calls `current_same_facet_failure_streak`, `current_same_item_failure_streak`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `common_repair_recommendation`, `run_deferred_block_repair_hooks`; statically calls `common_repair_recommendation`, `run_deferred_block_repair_hooks`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `FollowupDecision`, `evaluate_intervention_followup`; statically calls `evaluate_intervention_followup`

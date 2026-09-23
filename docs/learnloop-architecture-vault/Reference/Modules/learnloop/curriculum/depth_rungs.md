@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/depth_rungs.py"
 source_paths:
   - "src/learnloop/curriculum/depth_rungs.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "2f1331ce04afea51266eaa93ae26b8c5ef72517a"
+source_commit_timestamp: "2026-09-23T12:47:57-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -49,29 +49,29 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py) |
-| Source lines | 659 |
+| Source lines | 658 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `2f1331ce04afea51266eaa93ae26b8c5ef72517a` |
+| Commit timestamp | `2026-09-23T12:47:57-04:00` |
 
 ## Public API
 
 - `class RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 47)
   - `as_dict(self) -> dict[str, Any]` (line 62; public)
 - `class Waypoint` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 79)
-- `resolve_waypoint_slug(slug: str) -> str` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 138) — Canonical slug for ``slug``, mapping retired waypoints forward.
-- `trajectory_slugs() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 144) — Ordered waypoint slugs of the built-in trajectory (easiest first).
-- `adjacent_slug(slug: str, direction: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 150) — The waypoint one step easier/harder on the default trajectory, or None at the trajectory bounds (deeper than select_method needs an envelope).
-- `waypoint_rung(repository: Repository, slug: str) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 164) — A RungTarget for one default-trajectory waypoint (public seam for rung_variants and other callers; keeps them off module-private names).
-- `waypoint_slug_for_capability(capability: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 174) — The default-trajectory waypoint that authors AT ``capability``, or ``None``.
-- `capability_rung(repository: Repository, capability: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 189) — A RungTarget authoring AT ``capability``, or ``None`` when none exists.
-- `select_rung(vault, repository: Repository, *, learning_object_id: str, mastery_mean: float | None, evidence_count: int=0, claimed_level: float | None=None, commitment_id: str | None=None) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 229) — Pick the generation waypoint for one learning object.
-- `project_task_contract(repository: Repository, contract: Mapping[str, Any], schema_version_id: str) -> tuple[str, dict[str, Any], dict[str, dict[str, Any]]] | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 437) — Project a milestone ``task_contract_json`` into (capability, point vector, bounds), or None when any piece is malformed (no partial rungs).
-- `rung_float_proxies(rung: RungTarget) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 498) — Legacy float bands consistent with the rung, so the two vocabularies (task features vs retrieval_demand/transfer_distance/scaffold_level) cannot silently drift.
-- `validate_item_against_rung(repository: Repository, *, payload: Mapping[str, Any], rung: RungTarget) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 539) — Deterministic admission check of one generated-item payload against its rung.
+- `resolve_waypoint_slug(slug: str) -> str` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 137) — Canonical slug for ``slug``, mapping retired waypoints forward.
+- `trajectory_slugs() -> tuple[str, ...]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 143) — Ordered waypoint slugs of the built-in trajectory (easiest first).
+- `adjacent_slug(slug: str, direction: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 149) — The waypoint one step easier/harder on the default trajectory, or None at the trajectory bounds (deeper than select_method needs an envelope).
+- `waypoint_rung(repository: Repository, slug: str) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 163) — A RungTarget for one default-trajectory waypoint (public seam for rung_variants and other callers; keeps them off module-private names).
+- `waypoint_slug_for_capability(capability: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 173) — The default-trajectory waypoint that authors AT ``capability``, or ``None``.
+- `capability_rung(repository: Repository, capability: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 188) — A RungTarget authoring AT ``capability``, or ``None`` when none exists.
+- `select_rung(vault, repository: Repository, *, learning_object_id: str, mastery_mean: float | None, evidence_count: int=0, claimed_level: float | None=None, commitment_id: str | None=None) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 228) — Pick the generation waypoint for one learning object.
+- `project_task_contract(repository: Repository, contract: Mapping[str, Any], schema_version_id: str) -> tuple[str, dict[str, Any], dict[str, dict[str, Any]]] | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 436) — Project a milestone ``task_contract_json`` into (capability, point vector, bounds), or None when any piece is malformed (no partial rungs).
+- `rung_float_proxies(rung: RungTarget) -> dict[str, tuple[float, float]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 497) — Legacy float bands consistent with the rung, so the two vocabularies (task features vs retrieval_demand/transfer_distance/scaffold_level) cannot silently drift.
+- `validate_item_against_rung(repository: Repository, *, payload: Mapping[str, Any], rung: RungTarget) -> list[GateDiagnostic]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 538) — Deterministic admission check of one generated-item payload against its rung.
 
 ### Module constants
 
@@ -83,20 +83,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `DEFAULT_TRAJECTORY` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 101)
 - `_WAYPOINT_BY_SLUG` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 124)
 - `_WAYPOINT_SLUG_BY_CAPABILITY` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 130)
-- `_RETIRED_WAYPOINT_SLUGS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 135)
-- `UNCERTAIN_EVIDENCE_COUNT` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 314)
-- `UNCERTAIN_OPTIMISM_STEPS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 315)
-- `_RUNG_BY_HYPOTHESIS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 327)
-- `_HYPOTHESIS_COMPLETION_REASONS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 336)
+- `_RETIRED_WAYPOINT_SLUGS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 134)
+- `UNCERTAIN_EVIDENCE_COUNT` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 313)
+- `UNCERTAIN_OPTIMISM_STEPS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 314)
+- `_RUNG_BY_HYPOTHESIS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 326)
+- `_HYPOTHESIS_COMPLETION_REASONS` ([src/learnloop/curriculum/depth_rungs.py](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 335)
 
 ## Internal implementation anchors
 
-- `_default_bounds(features: Mapping[str, Any]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 205) — Point-target bounds: max equals the target on every declared dimension — the generated item may not exceed the waypoint's hardness anywhere.
-- `_waypoint_target(waypoint: Waypoint, schema_version_id: str, *, fallback_reason: str | None=None) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 212)
-- `_uncertainty_optimism(evidence_count: int) -> int` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 318) — Waypoints to climb past the point estimate when evidence is thin.
-- `_rung_from_episode_hypothesis(repository: Repository, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 339) — Entry slug from the LO's latest trusted completed probe episode, or None.
-- `_milestone_rung(repository: Repository, commitment_id: str, schema_version_id: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 354) — Project the commitment's NEXT milestone into a RungTarget, or None.
-- `_reached_milestones(repository: Repository, commitment_id: str) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 415)
+- `_default_bounds(features: Mapping[str, Any]) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 204) — Point-target bounds: max equals the target on every declared dimension — the generated item may not exceed the waypoint's hardness anywhere.
+- `_waypoint_target(waypoint: Waypoint, schema_version_id: str, *, fallback_reason: str | None=None) -> RungTarget` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 211)
+- `_uncertainty_optimism(evidence_count: int) -> int` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 317) — Waypoints to climb past the point estimate when evidence is thin.
+- `_rung_from_episode_hypothesis(repository: Repository, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 338) — Entry slug from the LO's latest trusted completed probe episode, or None.
+- `_milestone_rung(repository: Repository, commitment_id: str, schema_version_id: str) -> RungTarget | None` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 353) — Project the commitment's NEXT milestone into a RungTarget, or None.
+- `_reached_milestones(repository: Repository, commitment_id: str) -> list[str]` ([source](../../../../../../src/learnloop/curriculum/depth_rungs.py), line 414)
 
 ## Who imports or calls it
 
