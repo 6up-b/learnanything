@@ -103,7 +103,7 @@ def test_empty_vault_reports_no_usage_and_keeps_the_schema(vault):
     assert report["totals"] == {"receipts": 0, "operations": 0, "requests": 0}
     assert report["by_purpose"] == [] and report["coverage"] == []
     assert report["synthesis_runs"] == {"config_budgets": DEFAULT_BUDGETS, "runs": []}
-    assert report["report_version"] == 1
+    assert report["report_version"] == 2
 
 
 def test_openai_requests_are_attributed_to_their_root_purpose(vault, monkeypatch):

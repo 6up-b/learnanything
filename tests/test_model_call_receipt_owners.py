@@ -5,6 +5,7 @@ import asyncio
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 
 from typer.testing import CliRunner
@@ -187,3 +188,62 @@ class _UsageReportingGradingServer:
                 self.wfile.write(raw)
 
         return Handler
+
+
+def test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded(tmp_path, monkeypatch):
+    """A paid call must not fail because its receipt cannot be written."""
+
+    import shutil
+
+    from learnloop.ai.schemas import WireModel
+    from learnloop.ai.transport import STRUCTURED_COMPLETION, execute_structured_operation
+    from learnloop.cli import app
+    from learnloop.cli.runtime import _root
+    from learnloop.db.migrate import applied_versions, apply_migrations, discover_migrations
+
+    paths = create_basic_vault(tmp_path / "vault")
+    paths.sqlite_path.unlink()
+    through_164 = tmp_path / "through_164"
+    through_164.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 164:
+            shutil.copy2(migration.path, through_164 / migration.path.name)
+    apply_migrations(paths.sqlite_path, migrations_dir=through_164)
+
+    class Answer(WireModel):
+        answer: str
+
+    class Transport:
+        provider_name = "codex_http"
+        model = "codex-test"
+
+        def supports(self, capability):
+            return capability == STRUCTURED_COMPLETION
+
+        def complete(self, request):
+            report_call_usage({"input_tokens": 10, "output_tokens": 2})
+            return Answer(answer="ok")
+
+    answers = []
+
+    # A command that calls a model before anything opens (and migrates) the
+    # database: it only resolves its vault root.
+    monkeypatch.setattr(app, "registered_commands", list(app.registered_commands))
+
+    @app.command("receipt-schema-probe")
+    def probe(vault: Path) -> None:
+        _root(vault)
+        for _ in range(2):
+            answers.append(execute_structured_operation(Transport(), purpose="probe", prompt="p", result_model=Answer).answer)
+
+    result = CliRunner().invoke(app, ["receipt-schema-probe", str(paths.root)])
+
+    assert result.exit_code == 0, result.output
+    assert answers == ["ok", "ok"]
+    assert max(applied_versions(paths.sqlite_path)) == 164
+    with connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT count(*) FROM model_call_receipts").fetchone()[0] == 0
+    notices = [line for line in result.stderr.splitlines() if "not recorded" in line]
+    assert len(notices) == 1
+    assert "migration 164" in notices[0] and "receipts need 165" in notices[0]
+    assert f"learnloop upgrade --vault {paths.root}" in notices[0]

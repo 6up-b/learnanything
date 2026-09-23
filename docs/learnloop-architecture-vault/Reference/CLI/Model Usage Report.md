@@ -35,7 +35,7 @@ tags:
 
 ```bash
 uv run learnloop usage --vault "$VAULT"                  # terminal summary
-uv run learnloop usage --vault "$VAULT" --json           # stable JSON (report_version 1)
+uv run learnloop usage --vault "$VAULT" --json           # stable JSON (report_version 2)
 uv run learnloop usage --vault "$VAULT" --since 2026-09-01 --purpose source_set
 ```
 
@@ -64,6 +64,7 @@ NULL usage means the provider did not report it; it is not zero. Each token stat
 ## Limits
 
 - Receipts exist only where an observer is installed. That covers every sidecar RPC, the ingest runner and its inventory workers, each drained reader preset request, every CLI command run (`owner_kind` `cli`, owner id `<command path>:<ulid>`) and each TUI session (`owner_kind` `tui`). See [[AI Architecture#Provenance and usage]].
+- A CLI command whose vault database is below migration 165 cannot record receipts. Its model calls still run. The command prints one line to stderr naming the current migration and asking you to run `learnloop upgrade --vault <root>`.
 - The budgets govern the synthesis code's own pre-request estimates. The report divides the provider's reported tokens by the same budgets, so a ratio near 1 means the run came close to its ceiling. It does not mean the run was refused.
 
 ## Related notes

@@ -18,6 +18,7 @@ from typing import Any, Iterator
 import click
 
 from learnloop.ai.execution import observe_model_calls
+from learnloop.db.migrate import applied_versions
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.vault.loader import load_vault
@@ -25,6 +26,8 @@ from learnloop.vault.paths import VaultPaths, find_vault_root
 
 
 CLI_OWNER_KIND = "cli"
+# The migration that gives model_call_receipts every column the start write sets.
+RECEIPT_SCHEMA_VERSION = 165
 
 _current: ContextVar["CommandReceipts | None"] = ContextVar("cli_command_receipts", default=None)
 
@@ -38,6 +41,7 @@ class CommandReceipts:
         self._owner_id: str | None = None
         self._vault_root: Path | None = None
         self._repository: Repository | None = None
+        self._recording_unavailable = False
 
     @property
     def owner_id(self) -> str:
@@ -58,21 +62,43 @@ class CommandReceipts:
         if self._vault_root != vault_root:
             self._vault_root = vault_root
             self._repository = None
+            self._recording_unavailable = False
 
     def bind_repository(self, repository: Repository) -> None:
         self._repository = repository
 
     def record(self, action: str, event: dict[str, Any]) -> None:
-        self._store().record_model_event(action, event, owner_kind=CLI_OWNER_KIND, owner_id=self.owner_id)
+        store = self._store()
+        if store is None:
+            return
+        store.record_model_event(action, event, owner_kind=CLI_OWNER_KIND, owner_id=self.owner_id)
 
-    def _store(self) -> Repository:
-        if self._repository is None:
+    def _store(self) -> Repository | None:
+        """The repository to record into, or None when receipts cannot be kept.
+
+        A paid model call must never fail because bookkeeping is unavailable,
+        so a database below the receipt schema turns recording off for this
+        run, with one notice, instead of failing the call's start write.
+        """
+
+        if self._repository is None and not self._recording_unavailable:
             vault_root = self._vault_root or find_vault_root(Path.cwd())
             loaded = load_vault(vault_root)
+            sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+            applied = applied_versions(sqlite_path)
+            if RECEIPT_SCHEMA_VERSION not in applied:
+                self._recording_unavailable = True
+                current = max(applied, default=0)
+                click.echo(
+                    f"learnloop: model calls in this command are not recorded: the vault database is at "
+                    f"migration {current} and receipts need {RECEIPT_SCHEMA_VERSION}. "
+                    f"Run `learnloop upgrade --vault {loaded.root}`.",
+                    err=True,
+                )
+                return None
             # Attach without migrating: the vault mutation lock that migration
-            # takes may already be held by this command, and a command that
-            # calls a model has opened (and so migrated) the database already.
-            self._repository = Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path)
+            # takes may already be held by this command.
+            self._repository = Repository.attach(sqlite_path)
         return self._repository
 
 

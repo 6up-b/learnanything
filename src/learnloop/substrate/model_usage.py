@@ -28,7 +28,7 @@ from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 
 
-REPORT_VERSION = 1
+REPORT_VERSION = 2
 
 # The purposes a study-map synthesis run passes to its structured operations
 # (content.synthesis.source_set_synthesis). Base and span-follow-up shard passes
