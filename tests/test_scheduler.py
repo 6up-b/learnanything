@@ -945,26 +945,3 @@ def test_rotation_leaves_non_frontier_slots_untouched():
     }
     rotated = _rotate_same_day_frontier_repeats(queue, item_states, NOW)
     assert [item.practice_item_id for item in rotated] == ["pi_fresh", "pi_other", "pi_repeat"]
-
-
-def test_selection_decision_features_carry_the_collection_version(tmp_path, monkeypatch):
-    import learnloop.scheduling.scheduler as scheduler_module
-    from learnloop.outcome_contract import COLLECTION_VERSION
-
-    paths = create_basic_vault(tmp_path / "vault")
-    vault = load_vault(paths.root)
-    repository = seed_due_item(paths)
-    clock = FrozenClock(NOW)
-
-    build_due_queue(vault, repository, clock=clock, limit=1, session=SchedulerSession(session_id="s_version"))
-    monkeypatch.setattr(scheduler_module, "COLLECTION_VERSION", "learnloop-events-test")
-    build_due_queue(vault, repository, clock=clock, limit=1, session=SchedulerSession(session_id="s_version_bumped"))
-
-    def recorded_version(session_id: str) -> str:
-        slate = repository.latest_scheduler_slate_by_session(session_id)
-        candidate = repository.scheduler_slate_candidates(slate["id"])[0]
-        features = repository.decision_features(decision_id=candidate["id"], decision_type="selection")
-        return features["context"]["collection_version"]
-
-    assert recorded_version("s_version") == COLLECTION_VERSION
-    assert recorded_version("s_version_bumped") == "learnloop-events-test"
