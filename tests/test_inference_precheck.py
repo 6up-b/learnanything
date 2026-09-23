@@ -259,3 +259,78 @@ def test_cli_exposes_stable_machine_and_human_precheck(tmp_path):
     assert "B1 capability dominance: 1 cell(s) converted" in human.stdout
     assert "B3 prerequisite entailment: 2 hard-edge cell(s) converted" in human.stdout
     assert "Combined, deduplicated: 2 guaranteed" in human.stdout
+
+
+def _set_upstream_contract(paths, all_of):
+    upstream_path = paths.learning_object_path("linear-algebra", UPSTREAM_LO)
+    upstream = read_yaml(upstream_path)
+    upstream["blueprints"] = (
+        [
+            {
+                "id": "bp_upstream",
+                "recipes": [{"id": "r_upstream", "composition": "conjunctive", "all_of": all_of}],
+            }
+        ]
+        if all_of
+        else []
+    )
+    write_yaml(upstream_path, upstream)
+
+
+def test_declared_prerequisite_without_a_graph_edge_is_reported_missing(tmp_path):
+    paths = _precheck_vault(tmp_path, modality="hard")
+    write_yaml(paths.relations_path, {"schema_version": 1, "edges": []})
+
+    report = analyze_inference_precheck(load_vault(paths.root))
+    b3 = report.summary()["prerequisite_entailment"]
+
+    assert b3["cells_converted"] == 0
+    assert b3["disposition_counts"] == {"MISSING_GRAPH_EDGE": 1}
+    assert [row.edge_id for row in report.prerequisite_audit] == [None]
+
+
+def test_upstream_without_a_contract_converts_nothing(tmp_path):
+    paths = _precheck_vault(tmp_path, modality="hard")
+    _set_upstream_contract(paths, [])
+
+    b3 = analyze_inference_precheck(load_vault(paths.root)).summary()["prerequisite_entailment"]
+
+    assert b3["cells_converted"] == 0
+    assert b3["disposition_counts"] == {"NO_UPSTREAM_CONTRACT": 1}
+
+
+def test_fully_reachable_upstream_contract_has_no_gap_to_convert(tmp_path):
+    paths = _precheck_vault(tmp_path, modality="hard")
+    _set_upstream_contract(
+        paths,
+        [{"facet": "recall", "capability": "schema_interpretation", "modality": "hard"}],
+    )
+
+    b3 = analyze_inference_precheck(load_vault(paths.root)).summary()["prerequisite_entailment"]
+
+    assert b3["cells_converted"] == 0
+    assert b3["disposition_counts"] == {"NO_UPSTREAM_GAP": 1}
+
+
+def test_hard_edge_sources_name_the_edge_anchor_and_both_learning_objects(tmp_path):
+    paths = _precheck_vault(tmp_path, modality="hard")
+
+    report = analyze_inference_precheck(load_vault(paths.root))
+
+    # Ordered by learning object, then capability, then facet.
+    assert [row.cell.key for row in report.entailment] == [
+        (UPSTREAM_LO, "unobserved_upstream", "procedure_execution"),
+        (UPSTREAM_LO, "recall", "retrieval"),
+    ]
+    for row in report.entailment:
+        assert row.conditional_only is False
+        (source,) = row.sources
+        assert source.edge_id == "edge_upstream_downstream"
+        assert source.modality == "hard"
+        assert source.upstream_learning_object_id == UPSTREAM_LO
+        assert source.downstream_learning_object_id == DOWNSTREAM_LO
+        assert source.downstream_anchor_cells == (
+            (DOWNSTREAM_LO, "downstream_execution", "procedure_execution"),
+        )
+        assert source.downstream_instrument_ids == ("pi_downstream",)
+    assert report.summary()["prerequisite_entailment"]["disposition_counts"] == {"CONVERTS": 1}

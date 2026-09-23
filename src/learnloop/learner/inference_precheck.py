@@ -30,7 +30,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator, NamedTuple
 
 from learnloop.learner.contract_reachability import (
     CAPABILITY_RANK,
@@ -353,15 +353,113 @@ def _contract_by_learning_object(
     }
 
 
+@dataclass(frozen=True)
+class _DeclaredPrerequisite:
+    """One downstream LO's declared prerequisite concept and the cells around it."""
+
+    downstream_learning_object_id: str
+    source_concept_id: str
+    target_concept_id: str
+    upstream_learning_object_ids: tuple[str, ...]
+    # Directly reachable downstream cells: the observation B3 would carry up.
+    anchors: tuple[CellReachability, ...]
+    # Every contract cell of the upstream learning objects, and the unreachable ones.
+    upstream_contract_rows: tuple[CellReachability, ...]
+    gaps: tuple[CellReachability, ...]
+
+    def audit(self, *, edge_id: str | None, modality: str, disposition: PrerequisiteDisposition) -> PrerequisiteAudit:
+        return PrerequisiteAudit(
+            downstream_learning_object_id=self.downstream_learning_object_id,
+            source_concept_id=self.source_concept_id,
+            target_concept_id=self.target_concept_id,
+            edge_id=edge_id,
+            modality=modality,
+            disposition=disposition,
+            upstream_learning_object_ids=self.upstream_learning_object_ids,
+            downstream_anchor_cell_count=len(self.anchors),
+            target_gap_count=len(self.gaps),
+        )
+
+    def entailment_source(self, edge: ConceptEdge, modality: str, gap: CellReachability) -> EntailmentSource:
+        return EntailmentSource(
+            edge_id=edge.id,
+            modality=modality,
+            source_concept_id=self.source_concept_id,
+            target_concept_id=self.target_concept_id,
+            upstream_learning_object_id=gap.cell.learning_object_id,
+            downstream_learning_object_id=self.downstream_learning_object_id,
+            downstream_anchor_cells=tuple(row.cell.key for row in self.anchors),
+            downstream_instrument_ids=tuple(
+                sorted({item_id for row in self.anchors for item_id in row.matching_instrument_ids})
+            ),
+        )
+
+
+class _EntailmentAnalysis(NamedTuple):
+    conversions: tuple[EntailmentConversion, ...]
+    prerequisite_audit: tuple[PrerequisiteAudit, ...]
+    prerequisite_edge_count: int
+    unreferenced_edge_count: int
+
+
+def _declared_prerequisites(
+    vault: LoadedVault,
+    baseline: ContractReachabilityReport,
+) -> Iterator[_DeclaredPrerequisite]:
+    """Every (downstream LO, prerequisite concept) pair, in LO id then concept order."""
+
+    learning_objects_by_concept: dict[str, list[str]] = defaultdict(list)
+    for learning_object in vault.learning_objects.values():
+        learning_objects_by_concept[learning_object.concept].append(learning_object.id)
+    for ids in learning_objects_by_concept.values():
+        ids.sort()
+    reachable_by_lo = _reachable_by_learning_object(baseline)
+    contract_by_lo = _contract_by_learning_object(baseline)
+
+    for downstream in sorted(vault.learning_objects.values(), key=lambda lo: lo.id):
+        for source_concept_id in sorted(set(downstream.prerequisites)):
+            upstream_ids = tuple(learning_objects_by_concept.get(source_concept_id, ()))
+            upstream_contract_rows = tuple(
+                row
+                for upstream_id in upstream_ids
+                for row in contract_by_lo.get(upstream_id, ())
+            )
+            yield _DeclaredPrerequisite(
+                downstream_learning_object_id=downstream.id,
+                source_concept_id=source_concept_id,
+                target_concept_id=downstream.concept,
+                upstream_learning_object_ids=upstream_ids,
+                anchors=reachable_by_lo.get(downstream.id, ()),
+                upstream_contract_rows=upstream_contract_rows,
+                gaps=tuple(
+                    row
+                    for row in upstream_contract_rows
+                    if row.verdict is not ReachabilityVerdict.REACHABLE
+                ),
+            )
+
+
+def _edge_disposition(modality: str, prerequisite: _DeclaredPrerequisite) -> PrerequisiteDisposition:
+    """Whether one typed prerequisite edge can convert its upstream gaps, and if not why."""
+
+    ineligible = _ineligible_disposition(modality)
+    if ineligible is not None:
+        return ineligible
+    if not prerequisite.upstream_learning_object_ids or not prerequisite.upstream_contract_rows:
+        return PrerequisiteDisposition.NO_UPSTREAM_CONTRACT
+    if not prerequisite.anchors:
+        return PrerequisiteDisposition.NO_DOWNSTREAM_DIRECT_ANCHOR
+    if not prerequisite.gaps:
+        return PrerequisiteDisposition.NO_UPSTREAM_GAP
+    if modality == "path_specific":
+        return PrerequisiteDisposition.CONDITIONAL_ON_PATH
+    return PrerequisiteDisposition.CONVERTS
+
+
 def _entailment_conversions(
     vault: LoadedVault,
     baseline: ContractReachabilityReport,
-) -> tuple[
-    tuple[EntailmentConversion, ...],
-    tuple[PrerequisiteAudit, ...],
-    int,
-    int,
-]:
+) -> _EntailmentAnalysis:
     prerequisite_edges = tuple(
         edge for edge in vault.edges if edge.relation_type == "prerequisite"
     )
@@ -369,111 +467,65 @@ def _entailment_conversions(
     for edge in prerequisite_edges:
         edges_by_pair[(edge.source, edge.target)].append(edge)
 
-    learning_objects_by_concept: dict[str, list[str]] = defaultdict(list)
-    for learning_object in vault.learning_objects.values():
-        learning_objects_by_concept[learning_object.concept].append(learning_object.id)
-    for ids in learning_objects_by_concept.values():
-        ids.sort()
-
-    reachable_by_lo = _reachable_by_learning_object(baseline)
-    contract_by_lo = _contract_by_learning_object(baseline)
     audit: list[PrerequisiteAudit] = []
     hard_sources: dict[tuple[str, str, str], list[EntailmentSource]] = defaultdict(list)
     conditional_sources: dict[tuple[str, str, str], list[EntailmentSource]] = defaultdict(list)
-    rows_by_key = {row.cell.key: row for row in baseline.cells}
     referenced_edge_ids: set[str] = set()
 
-    for downstream in sorted(vault.learning_objects.values(), key=lambda lo: lo.id):
-        for source_concept_id in sorted(set(downstream.prerequisites)):
-            target_concept_id = downstream.concept
-            matching_edges = tuple(
-                sorted(
-                    edges_by_pair.get((source_concept_id, target_concept_id), ()),
-                    key=lambda edge: edge.id,
+    for prerequisite in _declared_prerequisites(vault, baseline):
+        matching_edges = sorted(
+            edges_by_pair.get((prerequisite.source_concept_id, prerequisite.target_concept_id), ()),
+            key=lambda edge: edge.id,
+        )
+        if not matching_edges:
+            audit.append(
+                prerequisite.audit(
+                    edge_id=None,
+                    modality="untyped",
+                    disposition=PrerequisiteDisposition.MISSING_GRAPH_EDGE,
                 )
             )
-            upstream_ids = tuple(learning_objects_by_concept.get(source_concept_id, ()))
-            anchors = reachable_by_lo.get(downstream.id, ())
-            anchor_keys = tuple(row.cell.key for row in anchors)
-            anchor_instruments = tuple(
-                sorted({item_id for row in anchors for item_id in row.matching_instrument_ids})
-            )
-            target_rows = tuple(
-                row
-                for upstream_id in upstream_ids
-                for row in contract_by_lo.get(upstream_id, ())
-            )
-            gaps = tuple(
-                row for row in target_rows if row.verdict is not ReachabilityVerdict.REACHABLE
-            )
+            continue
 
-            if not matching_edges:
-                audit.append(
-                    PrerequisiteAudit(
-                        downstream_learning_object_id=downstream.id,
-                        source_concept_id=source_concept_id,
-                        target_concept_id=target_concept_id,
-                        edge_id=None,
-                        modality="untyped",
-                        disposition=PrerequisiteDisposition.MISSING_GRAPH_EDGE,
-                        upstream_learning_object_ids=upstream_ids,
-                        downstream_anchor_cell_count=len(anchors),
-                        target_gap_count=len(gaps),
-                    )
-                )
+        for edge in matching_edges:
+            referenced_edge_ids.add(edge.id)
+            modality = _edge_modality(edge)
+            disposition = _edge_disposition(modality, prerequisite)
+            audit.append(prerequisite.audit(edge_id=edge.id, modality=modality, disposition=disposition))
+            if disposition is PrerequisiteDisposition.CONVERTS:
+                destination = hard_sources
+            elif disposition is PrerequisiteDisposition.CONDITIONAL_ON_PATH:
+                destination = conditional_sources
+            else:
                 continue
+            for gap in prerequisite.gaps:
+                destination[gap.cell.key].append(prerequisite.entailment_source(edge, modality, gap))
 
-            for edge in matching_edges:
-                referenced_edge_ids.add(edge.id)
-                modality = _edge_modality(edge)
-                disposition = _ineligible_disposition(modality)
-                if disposition is None:
-                    if not upstream_ids or not target_rows:
-                        disposition = PrerequisiteDisposition.NO_UPSTREAM_CONTRACT
-                    elif not anchors:
-                        disposition = PrerequisiteDisposition.NO_DOWNSTREAM_DIRECT_ANCHOR
-                    elif not gaps:
-                        disposition = PrerequisiteDisposition.NO_UPSTREAM_GAP
-                    elif modality == "path_specific":
-                        disposition = PrerequisiteDisposition.CONDITIONAL_ON_PATH
-                    else:
-                        disposition = PrerequisiteDisposition.CONVERTS
-                audit.append(
-                    PrerequisiteAudit(
-                        downstream_learning_object_id=downstream.id,
-                        source_concept_id=source_concept_id,
-                        target_concept_id=target_concept_id,
-                        edge_id=edge.id,
-                        modality=modality,
-                        disposition=disposition,
-                        upstream_learning_object_ids=upstream_ids,
-                        downstream_anchor_cell_count=len(anchors),
-                        target_gap_count=len(gaps),
-                    )
-                )
-                if disposition not in {
-                    PrerequisiteDisposition.CONVERTS,
-                    PrerequisiteDisposition.CONDITIONAL_ON_PATH,
-                }:
-                    continue
-                destination = (
-                    conditional_sources
-                    if disposition is PrerequisiteDisposition.CONDITIONAL_ON_PATH
-                    else hard_sources
-                )
-                for target in gaps:
-                    source = EntailmentSource(
-                        edge_id=edge.id,
-                        modality=modality,
-                        source_concept_id=source_concept_id,
-                        target_concept_id=target_concept_id,
-                        upstream_learning_object_id=target.cell.learning_object_id,
-                        downstream_learning_object_id=downstream.id,
-                        downstream_anchor_cells=anchor_keys,
-                        downstream_instrument_ids=anchor_instruments,
-                    )
-                    destination[target.cell.key].append(source)
+    return _EntailmentAnalysis(
+        conversions=_merged_conversions(hard_sources, conditional_sources, baseline),
+        prerequisite_audit=tuple(
+            sorted(
+                audit,
+                key=lambda row: (
+                    row.downstream_learning_object_id,
+                    row.source_concept_id,
+                    row.edge_id or "",
+                ),
+            )
+        ),
+        prerequisite_edge_count=len(prerequisite_edges),
+        unreferenced_edge_count=len(prerequisite_edges) - len(referenced_edge_ids),
+    )
 
+
+def _merged_conversions(
+    hard_sources: dict[tuple[str, str, str], list[EntailmentSource]],
+    conditional_sources: dict[tuple[str, str, str], list[EntailmentSource]],
+    baseline: ContractReachabilityReport,
+) -> tuple[EntailmentConversion, ...]:
+    """One conversion per upstream cell, conditional only when no hard edge reaches it."""
+
+    rows_by_key = {row.cell.key: row for row in baseline.cells}
     conversions: list[EntailmentConversion] = []
     for key in sorted(
         set(hard_sources) | set(conditional_sources),
@@ -500,22 +552,7 @@ def _entailment_conversions(
                 conditional_only=not hard,
             )
         )
-
-    return (
-        tuple(conversions),
-        tuple(
-            sorted(
-                audit,
-                key=lambda row: (
-                    row.downstream_learning_object_id,
-                    row.source_concept_id,
-                    row.edge_id or "",
-                ),
-            )
-        ),
-        len(prerequisite_edges),
-        len(prerequisite_edges) - len(referenced_edge_ids),
-    )
+    return tuple(conversions)
 
 
 def analyze_inference_precheck(
@@ -530,14 +567,12 @@ def analyze_inference_precheck(
     """
 
     baseline = reachability or analyze_contract_reachability(vault)
-    entailment, audit, graph_edges, unreferenced = _entailment_conversions(
-        vault, baseline
-    )
+    entailment = _entailment_conversions(vault, baseline)
     return InferencePrecheckReport(
         baseline=baseline,
         dominance=_dominance_conversions(vault, baseline),
-        entailment=entailment,
-        prerequisite_audit=audit,
-        prerequisite_graph_edge_count=graph_edges,
-        prerequisite_graph_edges_unreferenced=unreferenced,
+        entailment=entailment.conversions,
+        prerequisite_audit=entailment.prerequisite_audit,
+        prerequisite_graph_edge_count=entailment.prerequisite_edge_count,
+        prerequisite_graph_edges_unreferenced=entailment.unreferenced_edge_count,
     )
