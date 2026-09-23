@@ -1940,11 +1940,15 @@ export interface TeachBackStateDto {
   planned: TeachBackPlannedDto[];
   turns: TeachBackTurnDto[];
   askedCount: number;
+  /** The queue offer the conversation answers, linked to the graded attempt. */
+  schedulerCandidateId?: string | null;
 }
 
 export interface StartTeachBackInput {
   sessionId: string;
   practiceItemId: string;
+  /** The queue offer the item was opened from, as on submitAttempt. */
+  schedulerCandidateId?: string | null;
 }
 
 export interface StartTeachBackResult {
@@ -1961,6 +1965,7 @@ export interface StartTeachBackResult {
 export interface SubmitTeachBackTurnInput {
   sessionId: string;
   practiceItemId: string;
+  schedulerCandidateId?: string | null;
   answerMd: string;
   /** Grade the transcript now instead of asking further questions. */
   finish?: boolean;

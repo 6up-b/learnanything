@@ -941,6 +941,7 @@ export function PracticeScreen({
               key={item.id}
               session={session}
               item={item}
+              schedulerCandidateId={schedulerCandidateId}
               restoredState={
                 restoredTeachBack && restoredTeachBack.practiceItemId === item.id ? restoredTeachBack : null
               }
@@ -1159,6 +1160,7 @@ export function PracticeScreen({
 function TeachBackConversation({
   session,
   item,
+  schedulerCandidateId,
   restoredState,
   onFeedback,
   onCheckpointCleared,
@@ -1166,6 +1168,9 @@ function TeachBackConversation({
 }: {
   session: SessionSnapshot;
   item: PracticeItemDetail;
+  // The queue offer the item was opened from; the sidecar links the graded
+  // attempt to it, so both conversation calls carry it.
+  schedulerCandidateId: string | null;
   restoredState: TeachBackStateDto | null;
   onFeedback: (attemptId: string) => void;
   onCheckpointCleared: () => void;
@@ -1194,7 +1199,7 @@ function TeachBackConversation({
     setInlineError(null);
     setStartFailed(false);
     api
-      .startTeachBack({ sessionId: session.sessionId, practiceItemId: item.id })
+      .startTeachBack({ sessionId: session.sessionId, practiceItemId: item.id, schedulerCandidateId })
       .then((result) => {
         // start is idempotent server-side and returns the authoritative
         // conversation state (the in-progress one when checkpointed, empty
@@ -1208,7 +1213,7 @@ function TeachBackConversation({
         setStartFailed(true);
         setInlineError(errorMessage(error, "Could not start the teach-back conversation."));
       });
-  }, [session.sessionId, item.id]);
+  }, [session.sessionId, item.id, schedulerCandidateId]);
 
   useEffect(() => {
     // Always sync with the server on mount; the restored snapshot (seeded into
@@ -1235,6 +1240,7 @@ function TeachBackConversation({
       const result = await api.submitTeachBackTurn({
         sessionId: session.sessionId,
         practiceItemId: item.id,
+        schedulerCandidateId,
         answerMd: text,
         finish
       });
