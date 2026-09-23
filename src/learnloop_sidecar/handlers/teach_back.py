@@ -33,6 +33,7 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import (
     MANUAL_PROVIDER,
+    grading_source_for_provider,
     provider_label,
     ready_grading_provider,
     ready_teach_back_provider,
@@ -315,7 +316,9 @@ def _finish(
             client,
             session_id=params.session_id,
             latency_seconds=params.latency_seconds,
-            agent_run_id=state.conversation_id,
+            conversation_id=state.conversation_id,
+            grading_source=grading_source_for_provider(provider_name),
+            runtime=runtime,
             entry_surface="desktop_teach_back",
             evidence_origin="human",
         )

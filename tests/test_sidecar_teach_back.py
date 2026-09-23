@@ -319,6 +319,14 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
         attempt = repository.fetch_practice_attempt(attempt_id)
         assert attempt["attempt_type"] == "teach_back"
         assert attempt["hints_used"] == 0
+        # The transcript was graded by the model, not through the self-grade
+        # lane: the source is the grading provider's and the run is recorded.
+        assert final["gradingSource"] == "codex"
+        metadata = repository.fetch_attempt_feedback_metadata(attempt_id)
+        assert metadata["grading_source"] == "codex"
+        assert metadata["agent_run_id"] == final["agentRunId"]
+        grading_run = repository.agent_run(final["agentRunId"])
+        assert (grading_run["purpose"], grading_run["status"]) == ("grading", "completed")
         # The checkpoint was cleared in the same call that recorded the attempt.
         assert repository.fetch_session_checkpoint(session_id) is None
 

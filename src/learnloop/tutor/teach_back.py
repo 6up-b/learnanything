@@ -38,7 +38,9 @@ from dataclasses import asdict, dataclass, field, replace as dataclass_replace
 from typing import Any, Mapping
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.ai.runs import finish_agent_run
 from learnloop.ai.transport import OperationClient, execute_structured_operation
+from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
 from learnloop.tutor.ai_contracts import (
     TeachBackAuthoring,
     TeachBackAuthoringContext,
@@ -58,12 +60,14 @@ from learnloop.attempts.attempts import (
     AttemptValidationError,
     GradeAttribution,
     ResolvedGrade,
+    _agent_run_provider_fields,
     apply_attempt,
 )
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.attempts.grading import (
     GradingValidationError,
     build_grading_context,
+    grading_context_hash,
     resolved_rubric,
     request_grading_proposal,
     validate_codex_grading_proposal,
@@ -167,8 +171,8 @@ class TeachBackState:
     # Stable id for the whole conversation, generated in ``begin_teach_back``.
     # Persisted on the recorded attempt's evidence rows so a retried finish can
     # find the already-recorded attempt instead of grading the transcript twice.
-    # Optional for backward compatibility with checkpoints written before it
-    # existed (those simply skip the dedup lookup).
+    # Optional because checkpoints written before it existed carry none (those
+    # simply skip the dedup lookup).
     conversation_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -489,7 +493,9 @@ def finish_teach_back(
     *,
     session_id: str | None = None,
     latency_seconds: int | None = None,
-    agent_run_id: str | None = None,
+    conversation_id: str | None = None,
+    grading_source: str = "ai",
+    runtime: Any | None = None,
     entry_surface: str = "unspecified",
     evidence_origin: str = "unknown",
     awaits_completion: bool = True,
@@ -507,6 +513,18 @@ def finish_teach_back(
     questions asked than planned (provider failure mid-conversation); with no
     answered follow-up at all, the opening explanation is graded against the
     core-tier criteria.
+
+    The grade is a model grade, so it is applied under ``grading_source``
+    (``"ai"`` or ``"codex"``, named from the grading provider the same way the
+    practice path names it) with the grading run recorded as an agent run:
+    the observation lane, the grade channel and the attempt's feedback
+    metadata then treat it like any other model-graded attempt. ``runtime``
+    supplies the run's provider fields when the client does not carry them.
+
+    ``conversation_id`` is stamped on the evidence rows as their
+    ``agent_run_id``; it is the key a retried finish looks the recorded
+    attempt up by, so it must stay stable across finishes of one
+    conversation, which a fresh grading run id is not.
     """
 
     item = vault.practice_items.get(state.practice_item_id)
@@ -528,6 +546,84 @@ def finish_teach_back(
         vault, item, attempt_id=attempt_id, learner_answer_md=transcript_md
     )
     context = restrict_grading_context_to_criteria(context, item, rubric, asked_criteria)
+    grading_run_id = repository.insert_agent_run(
+        {
+            "id": new_ulid(),
+            "purpose": "grading",
+            **_agent_run_provider_fields(client, runtime),
+            "prompt_template": "grading",
+            "prompt_version": GRADING_PROMPT_VERSION,
+            "input_context_hash": grading_context_hash(context),
+            "output_schema": "GradingProposal",
+            "started_at": utc_now_iso(clock),
+            "status": "running",
+        }
+    )
+    try:
+        result, graded_criterion_ids = _grade_and_apply_transcript(
+            vault,
+            repository,
+            client,
+            item=item,
+            rubric=rubric,
+            asked=asked,
+            asked_criteria=asked_criteria,
+            context=context,
+            attempt_id=attempt_id,
+            draft=AttemptDraft(
+                practice_item_id=item.id,
+                learner_answer_md=transcript_md,
+                attempt_type=TEACH_BACK_ATTEMPT_TYPE,
+                hints_used=0,
+                latency_seconds=latency_seconds,
+                session_id=session_id,
+                entry_surface=entry_surface,
+                evidence_origin=evidence_origin,
+                awaits_completion=awaits_completion,
+            ),
+            conversation_id=conversation_id,
+            grading_source=grading_source,
+            grading_run_id=grading_run_id,
+            clock=clock,
+        )
+    except Exception as exc:
+        finish_agent_run(
+            repository, grading_run_id, client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
+        raise
+    finish_agent_run(repository, grading_run_id, client, clock=clock)
+    return TeachBackFinishResult(
+        attempt=result,
+        transcript_md=transcript_md,
+        asked_criterion_ids=list(asked),
+        graded_criterion_ids=graded_criterion_ids,
+    )
+
+
+def _grade_and_apply_transcript(
+    vault: LoadedVault,
+    repository: Repository,
+    client: Any,
+    *,
+    item: PracticeItem,
+    rubric: Rubric,
+    asked: list[str],
+    asked_criteria: list[RubricCriterion],
+    context: Any,
+    attempt_id: str,
+    draft: AttemptDraft,
+    conversation_id: str | None,
+    grading_source: str,
+    grading_run_id: str,
+    clock: Clock | None,
+) -> tuple[AttemptResult, list[str]]:
+    """Request the grade for the restricted context and record the attempt.
+
+    Returns the attempt result and the sorted ids of the criteria that were
+    graded (the asked criteria the grader returned evidence for).
+    """
+
     proposal = request_grading_proposal(client, context)
     try:
         validated = validate_codex_grading_proposal(
@@ -535,7 +631,7 @@ def finish_teach_back(
             attempt_id=attempt_id,
             item=item,
             vault=vault,
-            learner_answer_md=transcript_md,
+            learner_answer_md=draft.learner_answer_md,
         )
     except GradingValidationError as exc:
         raise AttemptValidationError(str(exc)) from exc
@@ -554,7 +650,7 @@ def finish_teach_back(
             "points_awarded": evidence.points_awarded,
             "evidence": evidence.evidence,
             "notes": evidence.notes,
-            "agent_run_id": agent_run_id,
+            "agent_run_id": conversation_id,
             "local_grader_id": None,
             "grader_tier": 3,
             "learner_confidence": evidence.learner_confidence,
@@ -584,29 +680,19 @@ def finish_teach_back(
         repair_suggestions=list(validated.repair_suggestions or []),
         fatal_errors=list(validated.fatal_errors),
     )
-    draft = AttemptDraft(
-        practice_item_id=item.id,
-        learner_answer_md=transcript_md,
-        attempt_type=TEACH_BACK_ATTEMPT_TYPE,
-        hints_used=0,
-        latency_seconds=latency_seconds,
-        session_id=session_id,
-        entry_surface=entry_surface,
-        evidence_origin=evidence_origin,
-        awaits_completion=awaits_completion,
-    )
     result = apply_attempt(
         vault,
         repository,
-        ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade),
+        ApplyAttemptInput(
+            draft=draft,
+            attempt_id=attempt_id,
+            grade=grade,
+            grading_source=grading_source,
+            grading_agent_run_id=grading_run_id,
+        ),
         clock=clock,
     )
-    return TeachBackFinishResult(
-        attempt=result,
-        transcript_md=transcript_md,
-        asked_criterion_ids=list(asked),
-        graded_criterion_ids=sorted(criterion_points),
-    )
+    return result, sorted(criterion_points)
 
 
 def core_criteria(rubric: Rubric) -> list[RubricCriterion]:
