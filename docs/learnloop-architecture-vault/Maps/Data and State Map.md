@@ -58,7 +58,7 @@ Authored files and captured observations are authorities. Derived state can be d
 - [[ADR-014 SQLite stays in DELETE journal mode]] — why the store keeps rollback journaling for now.
 - [[Collection and Dataset Contract]] — offer provenance, labels, splits, and the dataset export.
 
-## Status counts at migration head 164
+## Status counts at migration head 165
 
 | Role | Tables | Rebuild behavior |
 |---|---:|---|

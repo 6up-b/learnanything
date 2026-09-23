@@ -4,9 +4,9 @@ status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
 config_schema_version: 2
-schema_head: 164
-source_commit: "4c90f78eda7658ba68ab007af3fbf7ca5e066631"
-source_commit_timestamp: "2026-09-23T15:34:02-04:00"
+schema_head: 165
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop usage"
@@ -16,7 +16,11 @@ source_paths:
   - "src/learnloop/cli/data.py"
   - "src/learnloop/ai/execution.py"
   - "src/learnloop/reader/reader_requests.py"
+  - "src/learnloop/cli/receipts.py"
+  - "src/learnloop/tui/state.py"
+  - "migrations/165_model_call_budgets.sql"
   - "tests/test_model_usage_report.py"
+  - "tests/test_model_call_receipt_owners.py"
 tags:
   - "learnloop/cli/inspection"
   - "learnloop/ai/usage"
@@ -51,12 +55,15 @@ NULL usage means the provider did not report it; it is not zero. Each token stat
    - status counts (`completed`, `failed`, `truncated`, `interrupted`, and `started` for unfinished);
    - mean, median, nearest-rank p95 and max for input, output, cached-input, cache-write and reasoning tokens;
    - total cost where the provider reported it.
-2. **`synthesis_runs`**: the `source_set_synthesis` and `concept_graph_structuring` operations that share one receipt owner (an ingest job or a sidecar request). Each run lists its passes, total input and output tokens, and its largest synthesis pass. These are divided by the vault's effective `[ingest.budgets]`: `synthesis_total_input_ceiling`, `synthesis_output_tokens`, `synthesis_shard_input_tokens` and `synthesis_shard_output_tokens`. A run that was given other budgets for one request is still compared with the current configuration.
+2. **`synthesis_runs`**: the `source_set_synthesis` and `concept_graph_structuring` operations that share one receipt owner (an ingest job, a sidecar request or a CLI command run). Each run lists its passes, total input and output tokens, and its largest synthesis pass. These are divided by the run's budgets: `synthesis_total_input_ceiling`, `synthesis_output_tokens`, `synthesis_shard_input_tokens` and `synthesis_shard_output_tokens`.
+   - The budgets come from the run's own receipts (`budget_source: "receipt"`). `create_study_map` records the budgets in force, including per-request overrides, in `model_call_receipts.budget_json` on each operation's root receipt.
+   - A run whose receipts carry no budgets is compared with the vault's current effective `[ingest.budgets]` (`budget_source: "config"`).
+   - An unlimited run records only its shard input size, so its ceiling ratios are empty.
 3. **`coverage`**: request counts by root purpose, request purpose and provider. When a completed request reports no usage, the provider path is not reporting it. The terminal summary lists only the groups with such gaps.
 
 ## Limits
 
-- Receipts exist only where an observer is installed: every sidecar RPC, the ingest runner and its inventory workers, each drained reader preset request, and CLI practice grading. Other direct CLI and TUI model calls leave no receipt, so they are missing from this report (see [[AI Architecture#Provenance and usage]]).
+- Receipts exist only where an observer is installed. That covers every sidecar RPC, the ingest runner and its inventory workers, each drained reader preset request, every CLI command run (`owner_kind` `cli`, owner id `<command path>:<ulid>`) and each TUI session (`owner_kind` `tui`). See [[AI Architecture#Provenance and usage]].
 - The budgets govern the synthesis code's own pre-request estimates. The report divides the provider's reported tokens by the same budgets, so a ratio near 1 means the run came close to its ceiling. It does not mean the run was refused.
 
 ## Related notes

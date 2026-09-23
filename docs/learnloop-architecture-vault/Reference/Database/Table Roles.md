@@ -3,7 +3,7 @@ title: "Table Roles"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-schema_head: 164
+schema_head: 165
 source_commit: "0622ea164f76ad7e1d62a00afda51473dbcd992e"
 source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 last_verified: "2026-09-23"
