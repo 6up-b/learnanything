@@ -1556,12 +1556,7 @@ def _create_study_map(
             manifest_hash=manifest_hash, proposal_id=(batch or {}).get("id"), reused=True,
         )
         if apply and result.proposal_id:
-            from learnloop.content.proposals.patches import apply_accepted_items
-            apply_accepted_items(root, result.proposal_id, clock=clock)
-            result.applied = True
-            if create_goal and _is_exam_prep(brief):
-                facets = [str((row.get("edited_payload") or row.get("payload") or {}).get("id") or "") for row in repository.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
-                result.goal_id = _create_goal_from_brief(root, brief, facets, clock=clock, provenance_key=result.proposal_id)
+            _apply_and_wire_goal(root, repository, result, brief=brief, create_goal=create_goal, clock=clock)
         return result
 
     lock_reasons = _bootstrap_lock_refusal(vault, repository)
@@ -1662,13 +1657,10 @@ def _create_study_map(
     # 6. optional acceptance + goal wiring (learnable map requires mvp-0.7; the
     #    compilers enforce the bootstrap evidence refusal on a legacy vault).
     if apply:
-        from learnloop.content.proposals.patches import apply_accepted_items
-
-        _notify(progress, "apply", "Applying the study map")
-        apply_accepted_items(root, patch_id, clock=clock)
-        result.applied = True
-        if create_goal and _is_exam_prep(brief):
-            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock, provenance_key=patch_id)
+        _apply_and_wire_goal(
+            root, repository, result, brief=brief, create_goal=create_goal, clock=clock,
+            facet_ids=normalized.facet_ids, progress=progress,
+        )
 
     # 7. best-effort Start-screen epigraphs about the freshly synthesized
     #    material. Never raises; nothing here can change `result`. Sits after
@@ -2023,14 +2015,10 @@ def revalidate_synthesis_candidate(
         generation_needs=generation_needs, candidate_repairs=repair_log,
     )
     if apply:
-        from learnloop.content.proposals.patches import apply_accepted_items
-
-        _notify(progress, "apply", "Applying the study map")
-        apply_accepted_items(root, patch_id, clock=clock)
-        result.applied = True
-        brief = dict(manifest.get("brief") or {})
-        if create_goal and _is_exam_prep(brief):
-            result.goal_id = _create_goal_from_brief(root, brief, normalized.facet_ids, clock=clock, provenance_key=patch_id)
+        _apply_and_wire_goal(
+            root, repository, result, brief=dict(manifest.get("brief") or {}), create_goal=create_goal,
+            clock=clock, facet_ids=normalized.facet_ids, progress=progress,
+        )
     return result
 
 
@@ -2708,6 +2696,40 @@ def _count_items(rows: list[dict[str, Any]]) -> dict[str, int]:
 def _is_exam_prep(brief: dict[str, Any]) -> bool:
     outcome = str(brief.get("outcome") or brief.get("assessment_alignment_intent") or "").lower()
     return "exam" in outcome or bool(brief.get("exam_preparation"))
+
+
+def _apply_and_wire_goal(
+    root: Path,
+    repository: Repository,
+    result: StudyMapResult,
+    *,
+    brief: dict[str, Any],
+    create_goal: bool,
+    clock: Clock | None,
+    facet_ids: list[str] | None = None,
+    progress: ProgressFn | None = None,
+) -> None:
+    """Accept the proposal, then create the exam-prep Goal when asked.
+
+    ``facet_ids`` are the freshly normalized facets; a reused run has none in
+    hand, so they are read back from the persisted proposal items.
+    """
+
+    from learnloop.content.proposals.patches import apply_accepted_items
+
+    proposal_id = str(result.proposal_id)
+    _notify(progress, "apply", "Applying the study map")
+    apply_accepted_items(root, proposal_id, clock=clock)
+    result.applied = True
+    if not (create_goal and _is_exam_prep(brief)):
+        return
+    if facet_ids is None:
+        facet_ids = [
+            str((row.get("edited_payload") or row.get("payload") or {}).get("id") or "")
+            for row in repository.proposal_items(proposal_id)
+            if row["item_type"] == "facet"
+        ]
+    result.goal_id = _create_goal_from_brief(root, brief, facet_ids, clock=clock, provenance_key=proposal_id)
 
 
 def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None = None) -> str | None:

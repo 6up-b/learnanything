@@ -1013,6 +1013,28 @@ def test_revalidate_saved_candidate_completes_without_model(tmp_path, monkeypatc
     assert "facet_symmetry_definition" in applied.evidence_facets
 
 
+def test_revalidation_creates_the_exam_goal_from_the_manifest_brief(tmp_path, monkeypatch):
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
+
+    root, repo = _setup(tmp_path, with_exam=False)
+
+    def explode(self, batch, rows):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(Repository, "persist_proposal_batch", explode)
+    with pytest.raises(RuntimeError, match="disk full"):
+        create_study_map(root, "set_la", client=FakeSynthesisClient(), brief={"outcome": "exam"},
+                         repository=repo, clock=_CLOCK)
+    monkeypatch.undo()
+    with repo.connection() as connection:
+        run_id = connection.execute("SELECT id FROM synthesis_runs ORDER BY created_at DESC, id DESC LIMIT 1").fetchone()["id"]
+
+    result = revalidate_synthesis_candidate(root, run_id, apply=True, create_goal=True, repository=repo, clock=_CLOCK)
+
+    assert result.applied is True and result.goal_id is not None
+    assert [goal.id for goal in load_vault(root).goals] == [result.goal_id]
+
+
 def test_revalidate_requires_a_preserved_candidate(tmp_path):
     from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
 
