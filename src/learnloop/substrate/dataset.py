@@ -14,6 +14,7 @@ import shutil
 import sqlite3
 from typing import Any
 
+from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
@@ -30,6 +31,10 @@ _CAPTURED_WORKFLOW_TABLES = frozenset({
     "ingest_jobs",
     "attempt_completion_work",
 })
+
+# Version 2 adds `split_policy` with the temporal default; a manifest without
+# `split_policy` was split by content family.
+DATASET_VERSION = 2
 
 _SPLIT_ATTEMPT_COLUMNS = ("id", "practice_item_id", "learning_object_id", "created_at", "evidence_origin")
 _SOURCE_LINK_ENTITY_TYPES = ("practice_item", "learning_object")
@@ -98,6 +103,11 @@ _SPLIT_RULES = {
 }
 
 
+_UNVERSIONED_SPLIT_NOTE = (
+    "A dataset_version 1 manifest has no split_policy field; its split_assignments use the content policy."
+)
+
+
 def parse_embargo(text: str) -> timedelta:
     """Parse an embargo duration such as `7d`, `36h`, `90m`, `30s` or `0`."""
     normalized = text.strip().lower()
@@ -107,7 +117,10 @@ def parse_embargo(text: str) -> timedelta:
     if match is None:
         raise ValueError(f"Embargo must be a duration such as 7d, 36h, 90m, 30s or 0; got {text!r}.")
     amount, unit = match.groups()
-    return timedelta(seconds=float(amount) * _EMBARGO_UNITS[unit])
+    try:
+        return timedelta(seconds=float(amount) * _EMBARGO_UNITS[unit])
+    except OverflowError:
+        raise ValueError(f"Embargo duration {text!r} is too large.") from None
 
 
 def _check_split_policy(policy: str, embargo: timedelta) -> None:
@@ -192,6 +205,29 @@ def _chronological_cutoffs(times: list[datetime]) -> tuple[datetime | None, date
         return None, None
     last = len(distinct) - 1
     return distinct[min(last, int(len(distinct) * 0.7))], distinct[min(last, int(len(distinct) * 0.85))]
+
+
+def _temporal_cutoffs(times: list[datetime]) -> tuple[datetime | None, datetime | None]:
+    """The 70% and 85% timestamps of one learning object's distinct times.
+
+    Integer arithmetic keeps the percentile exact (90 distinct times give 63
+    training times; `90 * 0.7` truncates to 62), and equal timestamps share a
+    bucket as in `_chronological_cutoffs`.
+    """
+    distinct = sorted(set(times))
+    if not distinct:
+        return None, None
+    last = len(distinct) - 1
+    return distinct[min(last, len(distinct) * 70 // 100)], distinct[min(last, len(distinct) * 85 // 100)]
+
+
+def _utc_timestamp(value: str) -> datetime:
+    """A timestamp in UTC, reading a value without an offset as UTC rather
+    than as the host's local time, so assignments do not depend on the host zone."""
+    parsed = parse_utc(value)
+    if parsed is None:
+        raise ValueError("An attempt has no created_at timestamp.")
+    return parsed
 
 
 def _chronological_bucket(when: datetime, first: datetime | None, second: datetime | None) -> str:
@@ -299,16 +335,17 @@ def _temporal_splits(
     """Chronological splits within each learning object, with an embargo.
 
     Each learning object's own eligible history sets its 70% and 85% cutoffs.
-    A held-out attempt closer than `embargo` to that learning object's last
-    training attempt is still inside the short-term memory of the training
-    rows, so it is quarantined rather than scored as a forecast.
+    The embargo is measured from the latest eligible training attempt of the
+    same learning object: a validation or test attempt less than `embargo`
+    after it is still inside the short-term memory of that training row, so it
+    is quarantined rather than scored as a forecast.
     """
     eligible_times_by_learning_object: dict[str, list[datetime]] = defaultdict(list)
     for attempt in attempts:
         if _is_eligible(attempt, lineage_by_attempt[attempt["id"]]):
-            eligible_times_by_learning_object[attempt["learning_object_id"]].append(_timestamp(attempt["created_at"]))
+            eligible_times_by_learning_object[attempt["learning_object_id"]].append(_utc_timestamp(attempt["created_at"]))
     cutoffs_by_learning_object = {
-        learning_object: _chronological_cutoffs(times)
+        learning_object: _temporal_cutoffs(times)
         for learning_object, times in eligible_times_by_learning_object.items()
     }
     last_training_time_by_learning_object: dict[str, datetime] = {}
@@ -319,10 +356,10 @@ def _temporal_splits(
             last_training_time_by_learning_object[learning_object] = max(training_times)
 
     assignments = []
-    for attempt in _chronological_order(attempts):
+    for attempt in sorted(attempts, key=lambda row: (_utc_timestamp(row["created_at"]), row["id"])):
         learning_object = attempt["learning_object_id"]
         lineage = lineage_by_attempt[attempt["id"]]
-        when = _timestamp(attempt["created_at"])
+        when = _utc_timestamp(attempt["created_at"])
         first, second = cutoffs_by_learning_object.get(learning_object, (None, None))
         chronological = _chronological_bucket(when, first, second)
         stratum = hashlib.sha256(f"lo:{learning_object}".encode()).hexdigest()
@@ -635,7 +672,7 @@ def _export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo:
     exported = _export_snapshot(snapshot, output, split_policy=split_policy, embargo=embargo)
     _fsync_file(snapshot)
     manifest = {
-        "dataset_version": 1,
+        "dataset_version": DATASET_VERSION,
         "collection_version": COLLECTION_VERSION,
         "label_version": LABEL_VERSION,
         "label_code_sha256": {"dataset.py": _hash_file(Path(__file__)), "outcome_contract.py": _hash_file(Path(__file__).parents[1] / "outcome_contract.py")},
@@ -650,7 +687,7 @@ def _export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo:
         "inclusion": {"tables": exported["included"], "rejected_and_failed_candidates": True, "projection_tables_are_training_inputs": False, "source_assets": "Referenced by hash; not copied."},
         "split_policy": split_policy,
         "split_parameters": split_policy_parameters(split_policy, embargo),
-        "splits": split_policy_description(split_policy),
+        "splits": split_policy_description(split_policy) + " " + _UNVERSIONED_SPLIT_NOTE,
         "missingness": exported["quality"],
     }
     _write_manifest(output, manifest)

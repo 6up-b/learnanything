@@ -353,12 +353,52 @@ def test_split_assignments_are_independent_of_the_python_hash_seed():
     assert len(outputs) == 1
 
 
+def test_temporal_cutoffs_use_exact_integer_percentiles():
+    # 90 distinct days: 70% is 63 training days and 85% is 76, which float
+    # truncation of 90 * 0.7 (62.99...) would round down to 62.
+    attempts = [
+        {"id": f"{day:03d}", "practice_item_id": f"item{day}", "learning_object_id": "lo", "created_at": (NOW + timedelta(days=day)).isoformat(), "evidence_origin": "human"}
+        for day in range(90)
+    ]
+    contracts = [{"practice_item_id": row["practice_item_id"], "contract_json": json.dumps(_blueprint("bp"))} for row in attempts]
+    assignments = split_assignments(attempts, contracts, embargo=timedelta(0))
+    assert Counter(row["split"] for row in assignments) == Counter(train=63, validation=13, test=14)
+
+
+def test_temporal_split_reads_offsetless_timestamps_as_utc_on_any_host():
+    import os
+    import subprocess
+    import sys
+
+    # Read as UTC, the offsetless attempt (10:00) precedes the aware one
+    # (12:00Z). Read in Los Angeles local time it would be 18:00Z and follow it.
+    attempts = [
+        {"id": "naive", "practice_item_id": "item-naive", "learning_object_id": "lo", "created_at": "2026-01-01T10:00:00", "evidence_origin": "human"},
+        {"id": "aware", "practice_item_id": "item-aware", "learning_object_id": "lo", "created_at": "2026-01-01T12:00:00Z", "evidence_origin": "human"},
+    ]
+    contracts = [{"practice_item_id": row["practice_item_id"], "contract_json": json.dumps(_blueprint("bp"))} for row in attempts]
+    script = (
+        "import json, sys\n"
+        "from datetime import timedelta\n"
+        "from learnloop.substrate.dataset import split_assignments\n"
+        "attempts, contracts = json.load(sys.stdin)\n"
+        "print(json.dumps({row['attempt_id']: row['split'] for row in split_assignments(attempts, contracts, embargo=timedelta(0))}, sort_keys=True))\n"
+    )
+    outputs = set()
+    for zone in ("UTC", "America/Los_Angeles", "Asia/Tokyo"):
+        environment = {**os.environ, "TZ": zone}
+        result = subprocess.run([sys.executable, "-c", script], input=json.dumps([attempts, contracts]), capture_output=True, text=True, env=environment, check=True)
+        outputs.add(result.stdout)
+    assert len(outputs) == 1
+    assert json.loads(outputs.pop()) == {"naive": "train", "aware": "test"}
+
+
 @pytest.mark.parametrize(("text", "seconds"), [("7d", 604800), ("36h", 129600), ("90m", 5400), ("30s", 30), ("0", 0), ("1.5d", 129600)])
 def test_parse_embargo_reads_durations(text, seconds):
     assert parse_embargo(text) == timedelta(seconds=seconds)
 
 
-@pytest.mark.parametrize("text", ["7", "-1d", "week", "7 days", ""])
+@pytest.mark.parametrize("text", ["7", "-1d", "week", "7 days", "", "1000000000d", "9" * 400 + "s"])
 def test_parse_embargo_refuses_other_text(text):
     with pytest.raises(ValueError, match="duration"):
         parse_embargo(text)
@@ -672,8 +712,10 @@ def test_dataset_export_records_the_split_policy(tmp_path, arguments, policy, pa
     result = _cli("dataset-export", output, *arguments, "--vault", paths.root)
     assert result.exit_code == 0, result.output
     manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["dataset_version"] == 2
     assert manifest["split_policy"] == policy
     assert manifest["split_parameters"] == parameters
+    assert "A dataset_version 1 manifest has no split_policy field; its split_assignments use the content policy." in manifest["splits"]
     assert "supports claims about" in manifest["splits"] and "does not support claims about" in manifest["splits"]
     splits = manifest["missingness"]["splits"]
     assert splits["split_policy"] == policy
@@ -685,6 +727,7 @@ def test_dataset_export_records_the_split_policy(tmp_path, arguments, policy, pa
 @pytest.mark.parametrize(("arguments", "message"), [
     (("--split-policy", "random"), "Split policy"),
     (("--embargo", "a week"), "duration"),
+    (("--embargo", "1000000000d"), "too large"),
 ])
 def test_dataset_export_cli_refuses_a_bad_split_option_before_writing(tmp_path, arguments, message):
     paths = create_basic_vault(tmp_path / "vault")
