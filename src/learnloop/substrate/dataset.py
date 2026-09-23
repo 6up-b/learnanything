@@ -4,11 +4,12 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sqlite3
 from typing import Any
@@ -63,6 +64,72 @@ def _timestamp(value: str) -> datetime:
 # --------------------------------------------------------------------------
 # Splits
 # --------------------------------------------------------------------------
+
+# `temporal` forecasts a known learner on content they have practised;
+# `content` holds out whole content families to test generalization.
+SPLIT_POLICIES = ("temporal", "content")
+DEFAULT_SPLIT_POLICY = "temporal"
+DEFAULT_EMBARGO = timedelta(days=7)
+
+_EMBARGO_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+_EMBARGO_PATTERN = re.compile(r"(\d+(?:\.\d+)?)([smhd])")
+
+_SPLIT_RULES = {
+    "temporal": (
+        "Temporal policy: the learning object stratifies the split and does not group it. Each learning object's eligible "
+        "attempts (human origin with content provenance) are split at the 70% and 85% points of that learning object's own "
+        "distinct timestamps, so attempts at one instant share a bucket, and a learning object with a single distinct "
+        "timestamp lands wholly in test. A validation or test attempt less than embargo_seconds after the learning object's "
+        "last training attempt is quarantined_embargo. This supports claims about forecasting a known learner's next outcome "
+        "on content they have already practised. It does not support claims about unseen content or other learners: items "
+        "that share a stimulus, blueprint or source span can fall on both sides of a cutoff, so held-out rows are not "
+        "content-independent of training. Cutoffs differ per learning object, so a training row on one learning object can "
+        "postdate a held-out row on another; features must use only history before each row's timestamp."
+    ),
+    "content": (
+        "Content policy: families join items, learning objects, blueprints, fingerprint source families and shared stimuli, "
+        "and cited source spans; surface_family is a format label and never joins families. Eligible attempts (human origin "
+        "with content provenance) fall into 70/15/15 chronological buckets over all distinct timestamps, and a family whose "
+        "eligible attempts span a cutoff is quarantined_boundary_overlap. This supports claims about generalization to "
+        "content whose family never appeared in training. It does not support claims about forecasting a known learner on "
+        "content they have practised, and one learner who revisits the same material over time can leave few or no "
+        "held-out rows."
+    ),
+}
+
+
+def parse_embargo(text: str) -> timedelta:
+    """Parse an embargo duration such as `7d`, `36h`, `90m`, `30s` or `0`."""
+    normalized = text.strip().lower()
+    if normalized == "0":
+        return timedelta(0)
+    match = _EMBARGO_PATTERN.fullmatch(normalized)
+    if match is None:
+        raise ValueError(f"Embargo must be a duration such as 7d, 36h, 90m, 30s or 0; got {text!r}.")
+    amount, unit = match.groups()
+    return timedelta(seconds=float(amount) * _EMBARGO_UNITS[unit])
+
+
+def _check_split_policy(policy: str, embargo: timedelta) -> None:
+    if policy not in SPLIT_POLICIES:
+        raise ValueError(f"Split policy must be one of {', '.join(SPLIT_POLICIES)}; got {policy!r}.")
+    if embargo < timedelta(0):
+        raise ValueError("Embargo must not be negative.")
+
+
+def split_policy_parameters(policy: str, embargo: timedelta = DEFAULT_EMBARGO) -> dict[str, Any]:
+    """The parameters a policy actually uses, for the manifest and quality report."""
+    _check_split_policy(policy, embargo)
+    if policy == "content":
+        return {}
+    seconds = embargo.total_seconds()
+    return {"embargo_seconds": int(seconds) if seconds.is_integer() else seconds}
+
+
+def split_policy_description(policy: str) -> str:
+    """The split rule and the evaluation claim it does and does not support."""
+    _check_split_policy(policy, timedelta(0))
+    return _SPLIT_RULES[policy]
 
 
 def _contract_lineage(contract: dict[str, Any]) -> set[str]:
@@ -135,32 +202,12 @@ def _chronological_bucket(when: datetime, first: datetime | None, second: dateti
     return "test"
 
 
-def _split_label(row: dict[str, Any], buckets: dict[str, set[str]]) -> str:
-    if row["evidence_origin"] != "human":
-        return "unavailable_origin"
-    if not row["content_provenance"]:
-        return "unavailable_provenance"
-    if len(buckets[row["group_hash"]]) > 1:
-        return "quarantined_boundary_overlap"
-    return row["chronological_split"]
-
-
-def split_assignments(
+def _content_lineage_by_attempt(
     attempts: list[dict[str, Any]],
     contracts: list[dict[str, Any]],
-    source_links: Iterable[dict[str, Any]] = (),
-) -> list[dict[str, Any]]:
-    """Assign attempts to chronological splits without splitting a content family.
-
-    A family is the connected component of items, learning objects, authored
-    blueprints, evidence-fingerprint source families or shared stimuli, and
-    cited source spans. Only eligible attempts (human origin with content
-    provenance) define the time cutoffs and the buckets a family occupies; a
-    family whose eligible attempts span a cutoff is quarantined. Ineligible
-    attempts stay in the export with an `unavailable_*` split. For one learner
-    who revisits the same material over time this can leave no evaluable
-    holdout, and the export says so rather than leaking a family across splits.
-    """
+    source_links: Iterable[dict[str, Any]],
+) -> dict[str, set[str]]:
+    """Each attempt's content-lineage keys from its item and learning object."""
     lineage_by_item: dict[str, set[str]] = defaultdict(set)
     for contract in contracts:
         lineage_by_item[contract["practice_item_id"]].update(_contract_lineage(json.loads(contract["contract_json"])))
@@ -173,38 +220,159 @@ def split_assignments(
             lineage_by_item[link["entity_id"]].add(key)
         elif link["entity_type"] == "learning_object":
             lineage_by_learning_object[link["entity_id"]].add(key)
+    return {
+        attempt["id"]: lineage_by_item[attempt["practice_item_id"]] | lineage_by_learning_object[attempt["learning_object_id"]]
+        for attempt in attempts
+    }
 
+
+def _is_eligible(attempt: dict[str, Any], lineage: set[str]) -> bool:
+    """Only human attempts whose content can be traced define cutoffs and buckets."""
+    return attempt.get("evidence_origin") == "human" and bool(lineage)
+
+
+def _ineligible_label(attempt: dict[str, Any]) -> str:
+    if attempt.get("evidence_origin") != "human":
+        return "unavailable_origin"
+    return "unavailable_provenance"
+
+
+def _chronological_order(attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(attempts, key=lambda row: (_timestamp(row["created_at"]), row["id"]))
+
+
+def _assignment_row(attempt: dict[str, Any], group_hash: str, chronological: str, lineage: set[str]) -> dict[str, Any]:
+    return {
+        "attempt_id": attempt["id"],
+        "group_hash": group_hash,
+        "chronological_split": chronological,
+        "evidence_origin": attempt.get("evidence_origin", "unknown"),
+        "content_provenance": bool(lineage),
+    }
+
+
+def _content_family_splits(attempts: list[dict[str, Any]], lineage_by_attempt: dict[str, set[str]]) -> list[dict[str, Any]]:
+    """Whole content families per global chronological bucket.
+
+    A family is the connected component of items, learning objects, authored
+    blueprints, evidence-fingerprint source families or shared stimuli, and
+    cited source spans. A family whose eligible attempts span a cutoff is
+    quarantined, so no family contributes to two splits.
+    """
     groups = _LineageGroups()
-    content_lineage: dict[str, set[str]] = {}
     for attempt in attempts:
         item_node = f"item:{attempt['practice_item_id']}"
-        lineage = lineage_by_item[attempt["practice_item_id"]] | lineage_by_learning_object[attempt["learning_object_id"]]
-        content_lineage[attempt["id"]] = lineage
         groups.union(item_node, f"lo:{attempt['learning_object_id']}")
-        for key in lineage:
+        for key in lineage_by_attempt[attempt["id"]]:
             groups.union(item_node, key)
 
-    def eligible(attempt: dict[str, Any]) -> bool:
-        return attempt.get("evidence_origin") == "human" and bool(content_lineage[attempt["id"]])
-
-    first, second = _chronological_cutoffs([_timestamp(attempt["created_at"]) for attempt in attempts if eligible(attempt)])
+    eligible_times = [
+        _timestamp(attempt["created_at"])
+        for attempt in attempts
+        if _is_eligible(attempt, lineage_by_attempt[attempt["id"]])
+    ]
+    first, second = _chronological_cutoffs(eligible_times)
     assignments = []
-    buckets: dict[str, set[str]] = defaultdict(set)
-    for attempt in sorted(attempts, key=lambda row: (_timestamp(row["created_at"]), row["id"])):
-        group = hashlib.sha256(groups.find(f"item:{attempt['practice_item_id']}").encode()).hexdigest()
+    buckets_by_family: dict[str, set[str]] = defaultdict(set)
+    for attempt in _chronological_order(attempts):
+        lineage = lineage_by_attempt[attempt["id"]]
+        family = hashlib.sha256(groups.find(f"item:{attempt['practice_item_id']}").encode()).hexdigest()
         chronological = _chronological_bucket(_timestamp(attempt["created_at"]), first, second)
-        if eligible(attempt):
-            buckets[group].add(chronological)
-        assignments.append({
-            "attempt_id": attempt["id"],
-            "group_hash": group,
-            "chronological_split": chronological,
-            "evidence_origin": attempt.get("evidence_origin", "unknown"),
-            "content_provenance": bool(content_lineage[attempt["id"]]),
-        })
+        row = _assignment_row(attempt, family, chronological, lineage)
+        if _is_eligible(attempt, lineage):
+            buckets_by_family[family].add(chronological)
+        else:
+            row["split"] = _ineligible_label(attempt)
+        assignments.append(row)
     for row in assignments:
-        row["split"] = _split_label(row, buckets)
+        if "split" not in row:
+            spans_a_cutoff = len(buckets_by_family[row["group_hash"]]) > 1
+            row["split"] = "quarantined_boundary_overlap" if spans_a_cutoff else row["chronological_split"]
     return assignments
+
+
+def _temporal_splits(
+    attempts: list[dict[str, Any]],
+    lineage_by_attempt: dict[str, set[str]],
+    embargo: timedelta,
+) -> list[dict[str, Any]]:
+    """Chronological splits within each learning object, with an embargo.
+
+    Each learning object's own eligible history sets its 70% and 85% cutoffs.
+    A held-out attempt closer than `embargo` to that learning object's last
+    training attempt is still inside the short-term memory of the training
+    rows, so it is quarantined rather than scored as a forecast.
+    """
+    eligible_times_by_learning_object: dict[str, list[datetime]] = defaultdict(list)
+    for attempt in attempts:
+        if _is_eligible(attempt, lineage_by_attempt[attempt["id"]]):
+            eligible_times_by_learning_object[attempt["learning_object_id"]].append(_timestamp(attempt["created_at"]))
+    cutoffs_by_learning_object = {
+        learning_object: _chronological_cutoffs(times)
+        for learning_object, times in eligible_times_by_learning_object.items()
+    }
+    last_training_time_by_learning_object: dict[str, datetime] = {}
+    for learning_object, times in eligible_times_by_learning_object.items():
+        first, _second = cutoffs_by_learning_object[learning_object]
+        training_times = [when for when in times if first is not None and when < first]
+        if training_times:
+            last_training_time_by_learning_object[learning_object] = max(training_times)
+
+    assignments = []
+    for attempt in _chronological_order(attempts):
+        learning_object = attempt["learning_object_id"]
+        lineage = lineage_by_attempt[attempt["id"]]
+        when = _timestamp(attempt["created_at"])
+        first, second = cutoffs_by_learning_object.get(learning_object, (None, None))
+        chronological = _chronological_bucket(when, first, second)
+        stratum = hashlib.sha256(f"lo:{learning_object}".encode()).hexdigest()
+        row = _assignment_row(attempt, stratum, chronological, lineage)
+        last_training_time = last_training_time_by_learning_object.get(learning_object)
+        if not _is_eligible(attempt, lineage):
+            row["split"] = _ineligible_label(attempt)
+        elif chronological != "train" and last_training_time is not None and when - last_training_time < embargo:
+            row["split"] = "quarantined_embargo"
+        else:
+            row["split"] = chronological
+        assignments.append(row)
+    return assignments
+
+
+def split_assignments(
+    attempts: list[dict[str, Any]],
+    contracts: list[dict[str, Any]],
+    source_links: Iterable[dict[str, Any]] = (),
+    *,
+    policy: str = DEFAULT_SPLIT_POLICY,
+    embargo: timedelta = DEFAULT_EMBARGO,
+) -> list[dict[str, Any]]:
+    """Assign attempts to train, validation and test under a named policy.
+
+    `temporal` splits each learning object's history chronologically with an
+    embargo after its last training attempt; `group_hash` is the learning
+    object. `content` keeps whole content families in one global chronological
+    bucket; `group_hash` is the family. Under both, only eligible attempts
+    (human origin with content provenance) set cutoffs, and ineligible attempts
+    stay in the export with an `unavailable_*` split. Rows are ordered by
+    timestamp then id, so the result does not depend on input order.
+    """
+    _check_split_policy(policy, embargo)
+    lineage_by_attempt = _content_lineage_by_attempt(attempts, contracts, source_links)
+    if policy == "content":
+        return _content_family_splits(attempts, lineage_by_attempt)
+    return _temporal_splits(attempts, lineage_by_attempt, embargo)
+
+
+def split_counts(assignments: Iterable[dict[str, Any]], policy: str, embargo: timedelta = DEFAULT_EMBARGO) -> dict[str, Any]:
+    """Rows per split label, named by the policy that produced them."""
+    counts: dict[str, int] = defaultdict(int)
+    for row in assignments:
+        counts[row["split"]] += 1
+    return {
+        "split_policy": policy,
+        "parameters": split_policy_parameters(policy, embargo),
+        "counts": dict(sorted(counts.items())),
+    }
 
 
 # --------------------------------------------------------------------------
@@ -405,7 +573,7 @@ def _split_source_links(connection: sqlite3.Connection, tables: set[str]) -> lis
     return [dict(row) for row in connection.execute(query, _SOURCE_LINK_ENTITY_TYPES)]
 
 
-def _export_snapshot(snapshot: Path, output: Path) -> dict[str, Any]:
+def _export_snapshot(snapshot: Path, output: Path, *, split_policy: str, embargo: timedelta) -> dict[str, Any]:
     artifacts: dict[str, Any] = {}
 
     def export_rows(name: str, values: Iterable[Any]) -> None:
@@ -420,8 +588,9 @@ def _export_snapshot(snapshot: Path, output: Path) -> dict[str, Any]:
         export_rows("outcome_contract", outcome_records(connection))
         attempts = rows(connection, "practice_attempts", columns=_SPLIT_ATTEMPT_COLUMNS)
         contracts = rows(connection, "assessment_contract_versions", columns=("practice_item_id", "contract_json")) if "assessment_contract_versions" in tables else []
-        export_rows("split_assignments", split_assignments(attempts, contracts, _split_source_links(connection, tables)))
-        quality = inspect_collection(connection)
+        assignments = split_assignments(attempts, contracts, _split_source_links(connection, tables), policy=split_policy, embargo=embargo)
+        export_rows("split_assignments", assignments)
+        quality = inspect_collection(connection, splits=split_counts(assignments, split_policy, embargo))
         schema = [dict(row) for row in connection.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY type,name")]
         versions = sorted(rows(connection, "schema_migrations"), key=lambda row: row["version"]) if "schema_migrations" in tables else []
         asset_hashes = sorted({row[0] for row in connection.execute("SELECT DISTINCT asset_hash FROM source_revisions")}) if "source_revisions" in tables else []
@@ -435,26 +604,35 @@ def _export_snapshot(snapshot: Path, output: Path) -> dict[str, Any]:
     }
 
 
-def export_dataset(sqlite_path: Path, output: Path) -> dict[str, Any]:
+def export_dataset(
+    sqlite_path: Path,
+    output: Path,
+    *,
+    split_policy: str = DEFAULT_SPLIT_POLICY,
+    embargo: timedelta = DEFAULT_EMBARGO,
+) -> dict[str, Any]:
     """Back up `sqlite_path` into a new `output` directory and export from the copy.
 
     `manifest.json` is written last and atomically, so its presence marks a
     complete export. On any failure the partially written directory is removed.
+    An unknown split policy or a negative embargo is refused before `output`
+    is created.
     """
+    _check_split_policy(split_policy, embargo)
     output.mkdir(parents=True, exist_ok=False)
     try:
-        return _export_into(sqlite_path, output)
+        return _export_into(sqlite_path, output, split_policy=split_policy, embargo=embargo)
     except BaseException:
         shutil.rmtree(output, ignore_errors=True)
         raise
 
 
-def _export_into(sqlite_path: Path, output: Path) -> dict[str, Any]:
+def _export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo: timedelta) -> dict[str, Any]:
     snapshot = output / "snapshot.sqlite"
     started = datetime.now(timezone.utc).isoformat()
     with closing(connect(sqlite_path, read_only=True)) as source, closing(sqlite3.connect(snapshot)) as destination:
         source.backup(destination, pages=256, sleep=0.05)
-    exported = _export_snapshot(snapshot, output)
+    exported = _export_snapshot(snapshot, output, split_policy=split_policy, embargo=embargo)
     _fsync_file(snapshot)
     manifest = {
         "dataset_version": 1,
@@ -470,11 +648,9 @@ def _export_into(sqlite_path: Path, output: Path) -> dict[str, Any]:
         "artifacts": exported["artifacts"],
         "source_asset_hashes": exported["source_asset_hashes"],
         "inclusion": {"tables": exported["included"], "rejected_and_failed_candidates": True, "projection_tables_are_training_inputs": False, "source_assets": "Referenced by hash; not copied."},
-        "splits": (
-            "70/15/15 chronological timestamp buckets over eligible attempts (human origin with content provenance); "
-            "families join items, learning objects, blueprints, fingerprint source families and shared stimuli, and cited source spans; "
-            "a family spanning a boundary is quarantined; surface_family is a format label and never joins families."
-        ),
+        "split_policy": split_policy,
+        "split_parameters": split_policy_parameters(split_policy, embargo),
+        "splits": split_policy_description(split_policy),
         "missingness": exported["quality"],
     }
     _write_manifest(output, manifest)

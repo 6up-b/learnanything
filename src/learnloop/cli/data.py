@@ -10,7 +10,7 @@ import typer
 from learnloop.cli.app import app
 from learnloop.cli.runtime import _dump, _load_vault_or_exit, _root
 from learnloop.substrate.data_quality import data_quality_report
-from learnloop.substrate.dataset import export_dataset
+from learnloop.substrate.dataset import DEFAULT_SPLIT_POLICY, export_dataset, parse_embargo
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
@@ -38,18 +38,34 @@ def data_quality(
     typer.echo(_dump(data_quality_report(_sqlite_path(_loaded_vault(vault)))))
 
 
+_SPLIT_POLICY_HELP = (
+    "temporal (default): splits each learning object's own history 70/15/15 by time and quarantines held-out attempts "
+    "less than --embargo after its last training attempt, for forecasting a known learner on practised content. "
+    "content: keeps each content family (items, learning objects, blueprints, source families and spans) in one "
+    "global time bucket and quarantines families that span a cutoff, for generalization to unseen content."
+)
+
+
 @app.command("dataset-export")
 def dataset_export(
     output: Annotated[Path, typer.Argument(help="New local output directory.")],
+    split_policy: Annotated[str, typer.Option("--split-policy", help=_SPLIT_POLICY_HELP)] = DEFAULT_SPLIT_POLICY,
+    embargo: Annotated[str, typer.Option("--embargo", help="Temporal policy only: a duration such as 7d, 36h, 90m, 30s or 0 (no embargo).")] = "7d",
     vault: Annotated[Path | None, typer.Option("--vault")] = None,
 ) -> None:
     """Back up an active database and export evidence, labels and split metadata."""
     sqlite_path = _sqlite_path(_loaded_vault(vault))
     try:
-        manifest = export_dataset(sqlite_path, output)
+        manifest = export_dataset(sqlite_path, output, split_policy=split_policy, embargo=parse_embargo(embargo))
     except (OSError, ValueError, sqlite3.Error) as exc:
         raise _fail(exc) from exc
-    typer.echo(_dump({"output": str(output.resolve()), "snapshot_sha256": manifest["snapshot_sha256"], "artifacts": len(manifest["artifacts"])}))
+    typer.echo(_dump({
+        "output": str(output.resolve()),
+        "snapshot_sha256": manifest["snapshot_sha256"],
+        "artifacts": len(manifest["artifacts"]),
+        "split_policy": manifest["split_policy"],
+        "split_counts": manifest["missingness"]["splits"]["counts"],
+    }))
 
 
 @app.command("adjudicate-remediation")

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+from datetime import timedelta
 import hashlib
 import json
 import sqlite3
@@ -14,7 +16,7 @@ from learnloop.outcome_contract import COLLECTION_VERSION, retention_exclusions
 from learnloop.scheduling.scheduler import SELECTION_FEATURE_SCHEMA, SchedulerSession, build_due_queue
 from learnloop.scheduling.selection_rewards import item_demand_vector
 from learnloop.substrate.data_quality import data_quality_report
-from learnloop.substrate.dataset import export_dataset, split_assignments
+from learnloop.substrate.dataset import DEFAULT_EMBARGO, export_dataset, parse_embargo, split_assignments
 from learnloop.substrate.dataset import outcome_records
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault, seed_due_item
@@ -173,7 +175,7 @@ def _blueprint(name):
 
 def test_split_assignments_quarantine_content_families_across_time_boundaries():
     attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint("shared" if index in {0, 19} else f"bp{index}"))
-    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts)}
+    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts, policy="content")}
     assert assignments["00"]["group_hash"] == assignments["19"]["group_hash"]
     assert assignments["00"]["split"] == assignments["19"]["split"] == "quarantined_boundary_overlap"
     assert max(key for key, row in assignments.items() if row["split"] == "train") < min(key for key, row in assignments.items() if row["split"] == "test")
@@ -181,7 +183,7 @@ def test_split_assignments_quarantine_content_families_across_time_boundaries():
 
 def test_split_assignments_never_join_families_through_a_surface_format_label():
     attempts, contracts = _split_rows(20, lineage=lambda index: {**_blueprint(f"bp{index}"), "surface_family": "verbal_option_recognition"})
-    assignments = split_assignments(attempts, contracts)
+    assignments = split_assignments(attempts, contracts, policy="content")
     assert len({row["group_hash"] for row in assignments}) == 20
     assert not any(row["split"] == "quarantined_boundary_overlap" for row in assignments)
 
@@ -193,7 +195,7 @@ def test_independent_content_families_both_land_in_splits():
         attempt["learning_object_id"] = "lo_a"
     for attempt in attempts[17:]:
         attempt["learning_object_id"] = "lo_b"
-    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts)}
+    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts, policy="content")}
     assert {assignments[f"{index:02d}"]["split"] for index in range(10)} == {"train"}
     assert {assignments[f"{index:02d}"]["split"] for index in range(17, 20)} == {"test"}
     assert assignments["00"]["group_hash"] != assignments["19"]["group_hash"]
@@ -202,34 +204,177 @@ def test_independent_content_families_both_land_in_splits():
 def test_source_spans_join_learning_objects_into_one_family():
     attempts, contracts = _split_rows(2, lineage=lambda index: {})
     links = [{"entity_type": "learning_object", "entity_id": row["learning_object_id"], "source_id": "src", "revision_id": "rev", "locator": "span:ext/s1", "status": "current"} for row in attempts]
-    joined = split_assignments(attempts, contracts, links)
+    joined = split_assignments(attempts, contracts, links, policy="content")
     assert joined[0]["group_hash"] == joined[1]["group_hash"]
     assert all(row["content_provenance"] for row in joined)
-    unlinked = split_assignments(attempts, contracts)
-    assert {row["split"] for row in unlinked} == {"unavailable_provenance"}
+    for policy in ("content", "temporal"):
+        unlinked = split_assignments(attempts, contracts, policy=policy)
+        assert {row["split"] for row in unlinked} == {"unavailable_provenance"}
 
 
 def test_non_human_attempts_do_not_quarantine_a_human_family():
     attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint(f"bp{index}"))
     simulated = {"id": "sim", "practice_item_id": "item0", "learning_object_id": "lo0", "created_at": "2026-02-01T00:00:00Z", "evidence_origin": "simulator"}
-    assignments = {row["attempt_id"]: row for row in split_assignments([*attempts, simulated], contracts)}
+    assignments = {row["attempt_id"]: row for row in split_assignments([*attempts, simulated], contracts, policy="content")}
     assert assignments["00"]["split"] == "train"
     assert assignments["sim"]["split"] == "unavailable_origin"
     assert assignments["sim"]["group_hash"] == assignments["00"]["group_hash"]
 
 
-def test_split_assignments_are_independent_of_input_order():
+def test_non_human_attempts_do_not_move_a_learning_objects_temporal_cutoffs():
+    attempts, contracts = _two_learning_object_history()
+    expected = split_assignments(attempts, contracts, embargo=timedelta(0))
+    simulated = {"id": "sim", "practice_item_id": "a-item0", "learning_object_id": "lo_a", "created_at": "2026-03-01T00:00:00Z", "evidence_origin": "simulator"}
+    assignments = split_assignments([*attempts, simulated], contracts, embargo=timedelta(0))
+    assert [row for row in assignments if row["attempt_id"] != "sim"] == expected
+    assert next(row for row in assignments if row["attempt_id"] == "sim")["split"] == "unavailable_origin"
+
+
+def _two_learning_object_history():
+    """Two learning objects practised on the same ten days, each item once.
+
+    `lo_a` is practised at midnight and `lo_b` at noon, and every item has its
+    own blueprint, so each learning object's history is one content family.
+    """
+    attempts = []
+    for day in range(10):
+        for learning_object, hour in (("lo_a", "00"), ("lo_b", "12")):
+            prefix = learning_object[-1]
+            attempts.append({
+                "id": f"{prefix}{day}",
+                "practice_item_id": f"{prefix}-item{day}",
+                "learning_object_id": learning_object,
+                "created_at": f"2026-01-{day + 1:02d}T{hour}:00:00Z",
+                "evidence_origin": "human",
+            })
+    contracts = [{"practice_item_id": row["practice_item_id"], "contract_json": json.dumps(_blueprint(row["practice_item_id"]))} for row in attempts]
+    return attempts, contracts
+
+
+def _splits_by_learning_object(assignments):
+    by_learning_object = {"a": Counter(), "b": Counter()}
+    for row in assignments:
+        by_learning_object[row["attempt_id"][0]][row["split"]] += 1
+    return by_learning_object
+
+
+def test_temporal_policy_splits_each_learning_objects_own_history():
+    attempts, contracts = _two_learning_object_history()
+    assignments = split_assignments(attempts, contracts, policy="temporal", embargo=timedelta(0))
+    by_id = {row["attempt_id"]: row for row in assignments}
+    # Ten distinct days per learning object: 7 train, 1 validation, 2 test.
+    assert _splits_by_learning_object(assignments) == {
+        "a": Counter(train=7, validation=1, test=2),
+        "b": Counter(train=7, validation=1, test=2),
+    }
+    assert [by_id[f"a{day}"]["split"] for day in range(10)] == ["train"] * 7 + ["validation"] + ["test"] * 2
+    assert by_id["a0"]["group_hash"] == hashlib.sha256(b"lo:lo_a").hexdigest()
+    assert len({row["group_hash"] for row in assignments}) == 2
+
+
+def test_temporal_policy_default_embargo_quarantines_holdouts_near_training():
+    attempts, contracts = _two_learning_object_history()
+    assignments = split_assignments(attempts, contracts)
+    assert DEFAULT_EMBARGO == timedelta(days=7)
+    # Days 8 to 10 are within seven days of the last training attempt on day 7.
+    assert _splits_by_learning_object(assignments) == {
+        "a": Counter(train=7, quarantined_embargo=3),
+        "b": Counter(train=7, quarantined_embargo=3),
+    }
+
+
+def test_content_policy_quarantines_learning_objects_revisited_across_cutoffs():
+    attempts, contracts = _two_learning_object_history()
+    assignments = split_assignments(attempts, contracts, policy="content")
+    assert _splits_by_learning_object(assignments) == {
+        "a": Counter(quarantined_boundary_overlap=10),
+        "b": Counter(quarantined_boundary_overlap=10),
+    }
+    assert len({row["group_hash"] for row in assignments}) == 2
+
+
+@pytest.mark.parametrize(("embargo_seconds", "expected"), [
+    (86400, "validation"),
+    (86400 + 1, "quarantined_embargo"),
+    (86400 - 1, "validation"),
+], ids=["exactly_at_embargo", "just_inside_embargo", "just_outside_embargo"])
+def test_temporal_embargo_boundary(embargo_seconds, expected):
+    # The validation attempt on day 8 is exactly one day after the last training attempt.
+    attempts, contracts = _two_learning_object_history()
+    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts, embargo=timedelta(seconds=embargo_seconds))}
+    assert assignments["a6"]["split"] == "train"
+    assert assignments["a7"]["chronological_split"] == "validation"
+    assert assignments["a7"]["split"] == expected
+
+
+def test_temporal_policy_keeps_equal_timestamps_in_one_bucket():
+    attempts, contracts = _two_learning_object_history()
+    # Days 7 and 8 of lo_a (indexes 6 and 7) become one batch at a single instant.
+    batch_time = "2026-01-07T00:00:00Z"
+    for attempt in attempts:
+        if attempt["id"] in {"a6", "a7"}:
+            attempt["created_at"] = batch_time
+    assignments = {row["attempt_id"]: row for row in split_assignments(attempts, contracts, embargo=timedelta(0))}
+    assert assignments["a6"]["chronological_split"] == assignments["a7"]["chronological_split"]
+
+
+@pytest.mark.parametrize("policy", ["content", "temporal"])
+def test_split_assignments_are_independent_of_input_order(policy):
     import random
 
     attempts, contracts = _split_rows(20, lineage=lambda index: _blueprint(f"bp{index % 4}"))
-    expected = split_assignments(attempts, contracts)
+    for index, attempt in enumerate(attempts):
+        attempt["learning_object_id"] = f"lo{index % 3}"
+    expected = split_assignments(attempts, contracts, policy=policy, embargo=timedelta(days=1))
     shuffled_attempts, shuffled_contracts = list(attempts), list(contracts)
     random.Random(7).shuffle(shuffled_attempts)
     random.Random(8).shuffle(shuffled_contracts)
-    assert split_assignments(shuffled_attempts, shuffled_contracts) == expected
+    assert split_assignments(shuffled_attempts, shuffled_contracts, policy=policy, embargo=timedelta(days=1)) == expected
 
 
-def test_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_families(tmp_path):
+def test_split_assignments_are_independent_of_the_python_hash_seed():
+    import os
+    import subprocess
+    import sys
+
+    attempts, contracts = _two_learning_object_history()
+    script = (
+        "import json, sys\n"
+        "from datetime import timedelta\n"
+        "from learnloop.substrate.dataset import split_assignments\n"
+        "attempts, contracts = json.load(sys.stdin)\n"
+        "print(json.dumps({policy: split_assignments(attempts, contracts, policy=policy, embargo=timedelta(hours=30)) for policy in ('content', 'temporal')}, sort_keys=True))\n"
+    )
+    outputs = set()
+    for seed in ("0", "1", "4242"):
+        environment = {**os.environ, "PYTHONHASHSEED": seed}
+        result = subprocess.run([sys.executable, "-c", script], input=json.dumps([attempts, contracts]), capture_output=True, text=True, env=environment, check=True)
+        outputs.add(result.stdout)
+    assert len(outputs) == 1
+
+
+@pytest.mark.parametrize(("text", "seconds"), [("7d", 604800), ("36h", 129600), ("90m", 5400), ("30s", 30), ("0", 0), ("1.5d", 129600)])
+def test_parse_embargo_reads_durations(text, seconds):
+    assert parse_embargo(text) == timedelta(seconds=seconds)
+
+
+@pytest.mark.parametrize("text", ["7", "-1d", "week", "7 days", ""])
+def test_parse_embargo_refuses_other_text(text):
+    with pytest.raises(ValueError, match="duration"):
+        parse_embargo(text)
+
+
+def test_split_assignments_refuse_an_unknown_policy_or_negative_embargo():
+    attempts, contracts = _two_learning_object_history()
+    with pytest.raises(ValueError, match="policy"):
+        split_assignments(attempts, contracts, policy="random")
+    with pytest.raises(ValueError, match="negative"):
+        split_assignments(attempts, contracts, embargo=timedelta(seconds=-1))
+
+
+def _linear_algebra_fixture_split_inputs(tmp_path):
+    """Attempts, contracts and source links from a copy of the fixture, with
+    every attempt treated as human because the fixture predates evidence origin."""
     import shutil
     from pathlib import Path
 
@@ -244,13 +389,30 @@ def test_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_families(tmp_p
         attempts = rows(connection, "practice_attempts", columns=("id", "practice_item_id", "learning_object_id", "created_at"))
         for attempt in attempts:
             attempt["evidence_origin"] = "human"
-        assignments = split_assignments(attempts, rows(connection, "assessment_contract_versions"), _split_source_links(connection, table_names(connection)))
+        return attempts, rows(connection, "assessment_contract_versions"), _split_source_links(connection, table_names(connection))
     finally:
         connection.close()
+
+
+def test_content_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_families(tmp_path):
+    attempts, contracts, links = _linear_algebra_fixture_split_inputs(tmp_path)
+    assignments = split_assignments(attempts, contracts, links, policy="content")
     learning_objects = {attempt["learning_object_id"] for attempt in attempts}
     assert len({row["group_hash"] for row in assignments}) >= len(learning_objects) - 2
-    assert not any(row["split"] == "unavailable_provenance" for row in assignments)
-    assert any(row["split"] == "train" for row in assignments)
+    assert Counter(row["split"] for row in assignments) == Counter(train=23, quarantined_boundary_overlap=47)
+
+
+def test_temporal_split_on_a_copy_of_the_linear_algebra_fixture_has_holdouts(tmp_path):
+    attempts, contracts, links = _linear_algebra_fixture_split_inputs(tmp_path)
+
+    def counts(embargo):
+        return Counter(row["split"] for row in split_assignments(attempts, contracts, links, policy="temporal", embargo=embargo))
+
+    assert counts(timedelta(0)) == Counter(train=45, validation=10, test=15)
+    assert counts(timedelta(days=1)) == Counter(train=45, quarantined_embargo=21, validation=1, test=3)
+    # The fixture's whole history spans under six days, so the seven-day
+    # default embargo quarantines every held-out attempt.
+    assert counts(DEFAULT_EMBARGO) == Counter(train=45, quarantined_embargo=25)
 
 
 @pytest.mark.durability
@@ -495,6 +657,49 @@ def test_dataset_export_cli_refuses_an_existing_output_directory(tmp_path):
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
     assert (output / "keep.txt").read_text(encoding="utf-8") == "mine"
+
+
+@pytest.mark.parametrize(("arguments", "policy", "parameters"), [
+    ((), "temporal", {"embargo_seconds": 604800}),
+    (("--embargo", "36h"), "temporal", {"embargo_seconds": 129600}),
+    (("--split-policy", "content"), "content", {}),
+])
+def test_dataset_export_records_the_split_policy(tmp_path, arguments, policy, parameters):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    _self_graded_attempt(paths, repository)
+    output = tmp_path / "dataset"
+    result = _cli("dataset-export", output, *arguments, "--vault", paths.root)
+    assert result.exit_code == 0, result.output
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["split_policy"] == policy
+    assert manifest["split_parameters"] == parameters
+    assert "supports claims about" in manifest["splits"] and "does not support claims about" in manifest["splits"]
+    splits = manifest["missingness"]["splits"]
+    assert splits["split_policy"] == policy
+    assert splits["parameters"] == parameters
+    assert sum(splits["counts"].values()) == manifest["artifacts"]["split_assignments.jsonl"]["rows"] == 1
+    assert json.loads(result.stdout)["split_policy"] == policy
+
+
+@pytest.mark.parametrize(("arguments", "message"), [
+    (("--split-policy", "random"), "Split policy"),
+    (("--embargo", "a week"), "duration"),
+])
+def test_dataset_export_cli_refuses_a_bad_split_option_before_writing(tmp_path, arguments, message):
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    output = tmp_path / "dataset"
+    result = _cli("dataset-export", output, *arguments, "--vault", paths.root)
+    assert result.exit_code == 1
+    assert message in result.stderr
+    assert not output.exists()
+
+
+def test_data_quality_report_outside_an_export_names_no_split_policy(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    assert "splits" not in data_quality_report(paths.sqlite_path)
 
 
 def test_writers_stamp_the_current_collection_version(tmp_path, monkeypatch):
