@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/runner.py"
 source_paths:
   - "src/learnloop/content/pipeline/runner.py"
-source_commit: "4c00dc55d956abf57d4202863b629b9567104c34"
-source_commit_timestamp: "2026-09-23T12:46:21-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.content.pipeline"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py) |
-| Source lines | 1062 |
+| Source lines | 1058 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `4c00dc55d956abf57d4202863b629b9567104c34` |
-| Commit timestamp | `2026-09-23T12:46:21-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
+| Commit timestamp | `2026-09-23T15:44:12-04:00` |
 
 ## Public API
 
@@ -110,11 +110,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `cancel_batch(self, batch_id: str) -> None` (line 736; public) — Request cancellation.
   - `resume_batch(self, batch_id: str) -> None` (line 754; public) — Resume a partially-complete or cancelled batch: only unfinished jobs (failed/blocked/cancelled) are re-queued; completed jobs are preserved, so a resume creates new attempts only for what did not finish (§6.2).
   - `_run_claimed(self, job: dict[str, Any]) -> None` (line 789; internal)
-  - `_heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None` (line 933; internal) — Keep a blocking extractor/LLM stage's lease alive until it returns.
-  - `_propagate_blocks(self, batch_id: str) -> None` (line 960; internal) — Mark every downstream queued job blocked when a dependency failed, blocked, or was cancelled — to a fixpoint (§6.2).
-  - `_refresh_batch(self, batch_id: str) -> None` (line 988; internal)
-  - `_lease_cutoff_iso(self) -> str` (line 998; internal)
-- `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1011) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
+  - `_heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None` (line 929; internal) — Keep a blocking extractor/LLM stage's lease alive until it returns.
+  - `_propagate_blocks(self, batch_id: str) -> None` (line 956; internal) — Mark every downstream queued job blocked when a dependency failed, blocked, or was cancelled — to a fixpoint (§6.2).
+  - `_refresh_batch(self, batch_id: str) -> None` (line 984; internal)
+  - `_lease_cutoff_iso(self) -> str` (line 994; internal)
+- `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1007) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
 
 ### Module constants
 
@@ -130,16 +130,16 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `KNOWN_JOB_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 107)
 - `_QUEUE_AFFECTING_JOB_TYPES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 124)
 - `_LIVE_ATTEMPTS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 455)
-- `_PHASE_MESSAGES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1036)
+- `_PHASE_MESSAGES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1032)
 
 ## Internal implementation anchors
 
 - `_job_defaults() -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 310) — Load concrete ingest jobs only when a default seam is actually used.
 - `class _LiveAttempts` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 418) — Job attempts whose handler is executing in this process.
-- `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1004)
-- `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1047)
-- `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1051)
-- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1057)
+- `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1000)
+- `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1043)
+- `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1047)
+- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1053)
 
 ## Who imports or calls it
 
@@ -154,7 +154,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `observe_model_calls`; calls `observe_model_calls`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `interrupt_callback`; calls `interrupt_callback`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `utc_now_iso`; calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`; calls `append`, `get`, `values`

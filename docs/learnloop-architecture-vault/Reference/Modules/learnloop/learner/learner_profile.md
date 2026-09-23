@@ -120,9 +120,9 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_inventory_merge_parallel.py](../../../../../../tests/test_inventory_merge_parallel.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_maintenance_feed.py](../../../../../../tests/test_maintenance_feed.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
+- [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 - [tests/test_practice_leakage.py](../../../../../../tests/test_practice_leakage.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
-- [tests/test_revision_refresh.py](../../../../../../tests/test_revision_refresh.py) — imports consumer [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]]
 
 ## Modification guidance
 

@@ -1098,6 +1098,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `Repository`
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `Repository`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `ActiveErrorEvent`, `MasteryState`
+- [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `Repository`; statically calls `Repository`
 - [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]] — imports `Repository`
@@ -1338,7 +1339,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] and 211 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] and 212 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1762,6 +1763,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pre_first_practice_doctor_watermark`
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — direct import
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
+  - `test_background_reader_drain_records_model_call_receipts`
   - `test_bind_premarks_previously_completed_apply_jobs`
   - `test_cancelled_job_reaches_terminal_state`
   - `test_import_batch_is_not_a_build_and_its_ladder_says_so`
@@ -1862,6 +1864,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_notes_are_append_only_and_reject_untyped_refusals`
   - `test_report_surfaces_the_abstention_rate`
+- [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`

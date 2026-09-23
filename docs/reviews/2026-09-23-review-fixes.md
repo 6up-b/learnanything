@@ -18,7 +18,7 @@ On September 23, ten reviews covered branch `fix/review-recovery-and-telemetry` 
 | PyYAML dependency | none (on the branch) | `0622ea1` | 1 |
 | Documentation | on `fix/pr5-docs` | commits after `0622ea1` | — |
 
-Migrations 159–163 are unchanged from `210621a`. Migration 164 is new, and the schema-head fixture is now `fixtures/migration_head_164`.
+Migrations 159–163 are unchanged from `210621a`. Migrations 164 and 165 are new, and the schema-head fixture is now `fixtures/migration_head_165`.
 
 ## Attempts, sidecar recovery and TUI
 
@@ -106,6 +106,8 @@ Fixed:
 - **Provider-resolution tests.** The provider-resolution matrix tests again cover codex-only, named-profile, openrouter, fallback and manual.
 
 **Budget ceiling (F5), confirmed and not changed.** With the default budgets (40k shard input, 48k total ceiling), a near-full single shard fails the complete-request preflight once the registry holds about 230 ids. The fixed overhead is about 6,126 tokens and each id adds about 9.8. Packing shards to leave room for the overhead made the total larger (51,952 tokens with 0 ids). The refusal now states the estimate and the ceiling. Changing the default budgets is an owner decision.
+
+**Measured usage (follow-up).** `learnloop usage` reports tokens per request by root purpose, provider and model, and compares each synthesis run's measured input and output with the four synthesis budgets as ratios. It also lists provider paths whose completed requests report no usage. The drained reader preset requests had written no receipts; each one now owns its receipts (`owner_kind` `reader_request`). Direct CLI and TUI model calls had written none either. Every CLI command run now owns its receipts (`owner_kind` `cli`), and so does each TUI session (`owner_kind` `tui`). Migration 165 adds `model_call_receipts.budget_json`, so each synthesis run is compared with the budgets it actually ran under. The synthesis budgets will be revisited from this report once real runs have been recorded. See [Model Usage Report](../learnloop-architecture-vault/Reference/CLI/Model%20Usage%20Report.md).
 
 See [AI Architecture](../learnloop-architecture-vault/Architecture/AI%20Architecture.md).
 

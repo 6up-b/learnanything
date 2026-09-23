@@ -32,7 +32,7 @@ from typing import Any, Callable
 
 from pydantic import ValidationError
 
-from learnloop.ai.execution import content_key, generation_limit, model_settings
+from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
@@ -1507,6 +1507,21 @@ def _create_study_map(
     inputs = _collect_inputs(repository, vault, source_set)
     budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
+    token_budget = (
+        {
+            "unlimited": True,
+            # This remains a context-window shard size, not a spend ceiling.
+            "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
+        }
+        if unlimited_token_budget
+        else {
+            "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
+            "synthesis_shard_output_tokens": budgets.synthesis_shard_output_tokens,
+            "synthesis_total_input_ceiling": budgets.synthesis_total_input_ceiling,
+            "synthesis_output_tokens": budgets.synthesis_output_tokens,
+        }
+    )
+
     # 2. immutable manifest BEFORE the agent run.
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
     model = getattr(client, "model", None)
@@ -1523,20 +1538,7 @@ def _create_study_map(
         provider=provider,
         model=model,
         assessment_schema_version=(inputs.exam_profile or {}).get("schema_version") if inputs.exam_profile else None,
-        token_budget=(
-            {
-                "unlimited": True,
-                # This remains a context-window shard size, not a spend ceiling.
-                "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
-            }
-            if unlimited_token_budget
-            else {
-                "synthesis_shard_input_tokens": budgets.synthesis_shard_input_tokens,
-                "synthesis_shard_output_tokens": budgets.synthesis_shard_output_tokens,
-                "synthesis_total_input_ceiling": budgets.synthesis_total_input_ceiling,
-                "synthesis_output_tokens": budgets.synthesis_output_tokens,
-            }
-        ),
+        token_budget=token_budget,
         clock=clock,
     )
     manifest_hash = manifest["manifest_hash"]
@@ -1595,12 +1597,13 @@ def _create_study_map(
     # drain would return zeros and erase the cost already recorded.
     token_usage = TokenUsage()
     try:
-        merged, span_request_count, resolved_hashes, usage = _run_synthesis(
-            client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
-            client=client, provider=provider, model=model,
-            manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
-            progress=progress,
-        )
+        with declared_budgets(token_budget):
+            merged, span_request_count, resolved_hashes, usage = _run_synthesis(
+                client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
+                client=client, provider=provider, model=model,
+                manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
+                progress=progress,
+            )
         token_usage = consume_client_usage(client)
         repository.save_synthesis_candidate(
             synthesis_run_id,

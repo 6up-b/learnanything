@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from learnloop.ai.execution import observe_model_calls
-
+from learnloop.cli.receipts import command_receipts
 from learnloop.cli.runtime import *  # noqa: F401,F403
 
 
@@ -19,6 +18,14 @@ def _ready_provider_for_task(*args, **kwargs):
 
 
 app = typer.Typer(no_args_is_help=True, help="LearnLoop local adaptive learning vault.")
+
+
+@app.callback()
+def _record_command_model_calls(ctx: typer.Context) -> None:
+    # Every model call a command makes leaves a receipt owned by this run.
+    # (A docstring here would replace the application help text.)
+    ctx.with_resource(command_receipts(ctx.invoked_subcommand or "learnloop"))
+
 
 @app.command()
 def init(
@@ -2883,82 +2890,80 @@ def attempt(
     vault_root = _root(vault)
     loaded = load_vault(vault_root)
     repository = _repository(loaded.root)
-    call_owner = new_ulid()
-    with observe_model_calls(lambda action, event: repository.record_model_event(action, event, owner_kind="cli_attempt", owner_id=call_owner)):
-        sync_vault_state(loaded, repository)
-        item = loaded.practice_items.get(practice_item_id)
-        if item is None:
-            typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
-            raise typer.Exit(code=1)
-        rubric = loaded.rubric_for_item(item)
-        answer_text = answer if answer is not None else typer.prompt("Answer", default="")
-        points = _parse_points(criterion_points)
-        if not points and rubric is not None:
-            for criterion in rubric.criteria:
-                raw = typer.prompt(f"{criterion.id} points", default="0")
-                try:
-                    points[criterion.id] = float(raw)
-                except ValueError:
-                    typer.echo(f"{criterion.id} points must be numeric.", err=True)
-                    raise typer.Exit(code=1)
-        try:
-            resolved_attempt_type = attempt_type or default_attempt_type(item.attempt_types_allowed)
-            draft = AttemptDraft(
-                entry_surface="cli_practice",
-                evidence_origin="human",
-                practice_item_id=practice_item_id,
-                learner_answer_md=answer_text,
-                attempt_type=resolved_attempt_type,
-                hints_used=hints_used,
-                session_id=session_id,
-            )
-            fallback_grade = SelfGradeInput(
-                criterion_points=points,
-                fatal_errors=_split_items(fatal_errors),
-                confidence=confidence,
-                error_type=error_type,
-            )
-            provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "grading", ai_provider)
-            if provider_name not in CODEX_PROVIDER_NAMES:
-                result = complete_attempt_with_ai_fallback(
-                    loaded,
-                    repository,
-                    draft,
-                    fallback_grade,
-                    runtime=runtime,
-                    ai_client=client if runtime.ready else None,
-                )
-            else:
-                result = complete_attempt_with_codex_fallback(
-                    loaded,
-                    repository,
-                    draft,
-                    fallback_grade,
-                    runtime=runtime,
-                    codex_client=client if runtime.ready else None,
-                )
-        except (AttemptValidationError, ValueError) as exc:
-            if json_output:
-                typer.echo(_dump({"version": 1, "error": "validation_error", "message": str(exc)}))
-            else:
-                typer.echo(str(exc), err=True)
-            raise typer.Exit(code=1)
-        run_post_attempt_pipeline(
-            loaded,
-            repository,
-            result=result,
+    sync_vault_state(loaded, repository)
+    item = loaded.practice_items.get(practice_item_id)
+    if item is None:
+        typer.echo(f"No Practice Item found for {practice_item_id}.", err=True)
+        raise typer.Exit(code=1)
+    rubric = loaded.rubric_for_item(item)
+    answer_text = answer if answer is not None else typer.prompt("Answer", default="")
+    points = _parse_points(criterion_points)
+    if not points and rubric is not None:
+        for criterion in rubric.criteria:
+            raw = typer.prompt(f"{criterion.id} points", default="0")
+            try:
+                points[criterion.id] = float(raw)
+            except ValueError:
+                typer.echo(f"{criterion.id} points must be numeric.", err=True)
+                raise typer.Exit(code=1)
+    try:
+        resolved_attempt_type = attempt_type or default_attempt_type(item.attempt_types_allowed)
+        draft = AttemptDraft(
+            entry_surface="cli_practice",
+            evidence_origin="human",
+            practice_item_id=practice_item_id,
+            learner_answer_md=answer_text,
+            attempt_type=resolved_attempt_type,
+            hints_used=hints_used,
             session_id=session_id,
-            self_grade=fallback_grade,
-            ai_client=client if runtime.ready else None,
-            available_minutes=available_minutes,
         )
+        fallback_grade = SelfGradeInput(
+            criterion_points=points,
+            fatal_errors=_split_items(fatal_errors),
+            confidence=confidence,
+            error_type=error_type,
+        )
+        provider_name, runtime, client = _ready_provider_for_task(vault_root, loaded.config, "grading", ai_provider)
+        if provider_name not in CODEX_PROVIDER_NAMES:
+            result = complete_attempt_with_ai_fallback(
+                loaded,
+                repository,
+                draft,
+                fallback_grade,
+                runtime=runtime,
+                ai_client=client if runtime.ready else None,
+            )
+        else:
+            result = complete_attempt_with_codex_fallback(
+                loaded,
+                repository,
+                draft,
+                fallback_grade,
+                runtime=runtime,
+                codex_client=client if runtime.ready else None,
+            )
+    except (AttemptValidationError, ValueError) as exc:
         if json_output:
-            typer.echo(_dump({"version": 1, "attempt": result.as_dict()}))
-            return
-        typer.echo(
-            f"Recorded {result.attempt_id}: score={result.rubric_score} "
-            f"rating={result.fsrs_rating} due={result.due_at} mastery={result.mastery_mean:.2f}"
-        )
+            typer.echo(_dump({"version": 1, "error": "validation_error", "message": str(exc)}))
+        else:
+            typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1)
+    run_post_attempt_pipeline(
+        loaded,
+        repository,
+        result=result,
+        session_id=session_id,
+        self_grade=fallback_grade,
+        ai_client=client if runtime.ready else None,
+        available_minutes=available_minutes,
+    )
+    if json_output:
+        typer.echo(_dump({"version": 1, "attempt": result.as_dict()}))
+        return
+    typer.echo(
+        f"Recorded {result.attempt_id}: score={result.rubric_score} "
+        f"rating={result.fsrs_rating} due={result.due_at} mastery={result.mastery_mean:.2f}"
+    )
 
 @app.command()
 def today(

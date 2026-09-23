@@ -76,7 +76,7 @@ def test_repository_carries_a_fixture_at_the_current_migration_head():
     fixture = (
         Path(__file__).resolve().parents[1]
         / "fixtures"
-        / "migration_head_164"
+        / "migration_head_165"
         / "state.sqlite"
     )
 
@@ -1007,7 +1007,9 @@ def test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications(tmp_p
         assert connection.execute("PRAGMA foreign_key_list(false_remediation_adjudications)").fetchall()
         adjudications_before = [dict(row) for row in connection.execute("SELECT * FROM false_remediation_adjudications")]
 
-    assert [migration.version for migration in apply_migrations(paths.sqlite_path)] == [164]
+    assert [migration.version for migration in apply_migrations(paths.sqlite_path)] == [
+        migration.version for migration in discover_migrations() if migration.version > 163
+    ]
 
     with connect(paths.sqlite_path) as connection:
         assert connection.execute("PRAGMA foreign_key_list(false_remediation_adjudications)").fetchall() == []

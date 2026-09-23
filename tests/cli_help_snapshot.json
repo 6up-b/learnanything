@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 20527,
-    "sha256": "88a394ed98d944da830399f30ff95f0cff8545e7b8ab1d62cde4c2598c6b6138"
+    "bytes": 20782,
+    "sha256": "36c4ca75e85ee51e998d109207b3aff5c8d8777710b586d04be88f78bcc24698"
   },
   "accept": {
     "bytes": 1593,
@@ -678,6 +678,10 @@
   "upgrade": {
     "bytes": 1701,
     "sha256": "93fd6b357e9201632e4b6277eaf4475c3d2f91aacf19c3f7ac1a34b6a22dcfb9"
+  },
+  "usage": {
+    "bytes": 1546,
+    "sha256": "c544de5d2f6834946bbe5502c07326bd728364cffb95025172ffeb0598d9e1fb"
   },
   "why": {
     "bytes": 1508,

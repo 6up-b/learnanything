@@ -123,6 +123,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_provider_timeout_override_reaches_codex_sdk_client`
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — direct import
   - `test_ascii_spinner_writes_elapsed_status_for_tty`
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
+  - `test_cli_synthesize_records_receipts_with_usage_and_budgets`
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — direct import
   - `test_parse_mode_mix_rejects_malformed`
   - `test_parse_mode_mix_valid`

@@ -110,6 +110,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_e2e_tui.py](../../../../../../tests/test_e2e_tui.py) — direct import
   - `test_tui_end_to_end_self_graded_practice`
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
+  - `test_tui_grading_records_receipts_with_usage`
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — direct import
   - `test_tui_app_launches_start_screen_and_syncs_state`
   - `test_tui_app_shows_error_screen_for_missing_vault`

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data.py"
 source_paths:
   - "src/learnloop/cli/data.py"
-source_commit: "97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b"
-source_commit_timestamp: "2026-09-23T15:31:55-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.cli"
@@ -52,29 +52,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py) |
-| Source lines | 90 |
+| Source lines | 219 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b` |
-| Commit timestamp | `2026-09-23T15:31:55-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
+| Commit timestamp | `2026-09-23T15:44:12-04:00` |
 
 ## Public API
 
-- `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 34) — Read-only JSON coverage report, with current-version denominators.
-- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], split_policy: Annotated[str, typer.Option('--split-policy', help=_SPLIT_POLICY_HELP)]=DEFAULT_SPLIT_POLICY, embargo: Annotated[str, typer.Option('--embargo', help='Temporal policy only: a duration such as 7d, 36h, 90m, 30s or 0 (no embargo).')]='7d', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 50) — Back up an active database and export evidence, labels and split metadata.
-- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 72) — Append an evidence-backed label; corrections append another adjudication.
+- `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 37) — Read-only JSON coverage report, with current-version denominators.
+- `usage(vault: Annotated[Path | None, typer.Option('--vault')]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit the stable JSON report.')]=False, since: Annotated[str | None, typer.Option('--since', help='Only operations started at or after this ISO date or time (UTC when no offset).')]=None, purpose: Annotated[str | None, typer.Option('--purpose', help='Only operations whose root purpose starts with this prefix.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 53) — Read-only token and cost report from model-call receipts, with synthesis budget ratios.
+- `render_usage_report(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 80) — A terminal-width summary of the JSON report, section by section.
+- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], split_policy: Annotated[str, typer.Option('--split-policy', help=_SPLIT_POLICY_HELP)]=DEFAULT_SPLIT_POLICY, embargo: Annotated[str, typer.Option('--embargo', help='Temporal policy only: a duration such as 7d, 36h, 90m, 30s or 0 (no embargo).')]='7d', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 179) — Back up an active database and export evidence, labels and split metadata.
+- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 201) — Append an evidence-backed label; corrections append another adjudication.
 
 ### Module constants
 
-- `_SPLIT_POLICY_HELP` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 41)
+- `_SPLIT_POLICY_HELP` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 44)
+- `_TOKEN_LABELS` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 71)
 
 ## Internal implementation anchors
 
-- `_loaded_vault(vault: Path | None) -> LoadedVault` ([source](../../../../../../src/learnloop/cli/data.py), line 20)
-- `_sqlite_path(loaded: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/cli/data.py), line 24)
-- `_fail(exc: BaseException) -> typer.Exit` ([source](../../../../../../src/learnloop/cli/data.py), line 28)
+- `_loaded_vault(vault: Path | None) -> LoadedVault` ([source](../../../../../../src/learnloop/cli/data.py), line 23)
+- `_sqlite_path(loaded: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/cli/data.py), line 27)
+- `_fail(exc: BaseException) -> typer.Exit` ([source](../../../../../../src/learnloop/cli/data.py), line 31)
+- `_usage_heading(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 89)
+- `_number(value: Any) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 96)
+- `_render_purposes(groups: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 104)
+- `_ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 129)
+- `_render_synthesis_runs(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 138)
+- `_render_coverage(rows: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 163)
 
 ## Who imports or calls it
 
@@ -89,8 +98,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `app`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `_dump`, `_load_vault_or_exit`, `_root`; calls `_dump`, `_load_vault_or_exit`, `_root`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `data_quality_report`; calls `data_quality_report`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `DEFAULT_SPLIT_POLICY`, `export_dataset`, `parse_embargo`; calls `export_dataset`, `parse_embargo`
+- [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] — imports `SYNTHESIS_BUDGET_FIELDS`, `model_usage_report`; calls `model_usage_report`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`
@@ -120,6 +131,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 
 ## Modification guidance

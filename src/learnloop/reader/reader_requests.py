@@ -19,6 +19,7 @@ import hashlib
 import json
 from typing import Any, Callable, Mapping, Sequence
 
+from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.reader.ai_contracts import (
     ReaderPresetSynthesis,
@@ -386,23 +387,27 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
             version = (head or {}).get("version") or {}
             learner_text = str(version.get("learner_text") or "")
 
-        result = request_reader_preset_synthesis(
-            client,
-            ReaderPresetSynthesisContext(
-                preset=str(request.get("preset") or ""),
-                selected_text=str(window.get("selected_text") or ""),
-                selection_edited=bool(window.get("selection_edited")),
-                selected_span_ids=[str(span) for span in window.get("selected_span_ids") or []],
-                learner_text=learner_text,
-                section_path=list(window.get("section_path") or []),
-                section_paths=[
-                    list(path)
-                    for path in window.get("section_paths") or []
-                    if isinstance(path, list)
-                ],
-                blocks=blocks,
-            ),
-        )
+        # The drain runs on a long-lived worker thread (or inside whichever RPC
+        # nudged it), so no caller context owns this call. The request does:
+        # its receipts carry the request id whichever thread drains it.
+        with record_model_calls(repository, owner_kind="reader_request", owner_id=str(request["id"])):
+            result = request_reader_preset_synthesis(
+                client,
+                ReaderPresetSynthesisContext(
+                    preset=str(request.get("preset") or ""),
+                    selected_text=str(window.get("selected_text") or ""),
+                    selection_edited=bool(window.get("selection_edited")),
+                    selected_span_ids=[str(span) for span in window.get("selected_span_ids") or []],
+                    learner_text=learner_text,
+                    section_path=list(window.get("section_path") or []),
+                    section_paths=[
+                        list(path)
+                        for path in window.get("section_paths") or []
+                        if isinstance(path, list)
+                    ],
+                    blocks=blocks,
+                ),
+            )
         content_md = (result.content_md or "").strip()
         if not content_md:
             raise ReaderRequestError("the model returned empty preset content")

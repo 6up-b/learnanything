@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/server.py"
 source_paths:
   - "src/learnloop_sidecar/server.py"
-source_commit: "7353a4204e5cc8ca4a15010a78ac3f84b8295617"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop_sidecar"
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py) |
-| Source lines | 211 |
+| Source lines | 207 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `7353a4204e5cc8ca4a15010a78ac3f84b8295617` |
-| Commit timestamp | `2026-09-23T12:27:35-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
+| Commit timestamp | `2026-09-23T15:44:12-04:00` |
 
 ## Public API
 
@@ -74,12 +74,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 48)
 - `_observed_model_calls(ctx: SidecarContext, method_name: str, params: Any)` ([source](../../../../../src/learnloop_sidecar/server.py), line 106) — Record every model call the handler makes, owned by its submission or RPC.
-- `_busy_error(exc: Exception) -> SidecarError | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 122) — Map lock contention to a retryable error; None for any other failure.
-- `_internal_error(request_id: Any, method_name: str, started: float) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/server.py), line 146)
-- `_elapsed_ms(started: float) -> float` ([source](../../../../../src/learnloop_sidecar/server.py), line 163)
-- `_write(stdout: TextIO, response: dict[str, Any]) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 167)
-- `_request_id(request: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 191)
-- `_safe_validation_errors(exc: ValidationError) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/server.py), line 195) — Return actionable Pydantic diagnostics without echoing request values.
+- `_busy_error(exc: Exception) -> SidecarError | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 118) — Map lock contention to a retryable error; None for any other failure.
+- `_internal_error(request_id: Any, method_name: str, started: float) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/server.py), line 142)
+- `_elapsed_ms(started: float) -> float` ([source](../../../../../src/learnloop_sidecar/server.py), line 159)
+- `_write(stdout: TextIO, response: dict[str, Any]) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 163)
+- `_request_id(request: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 187)
+- `_safe_validation_errors(exc: ValidationError) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/server.py), line 191) — Return actionable Pydantic diagnostics without echoing request values.
 
 ## Who imports or calls it
 
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `observe_model_calls`; calls `observe_model_calls`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
 - [[Reference/Modules/learnloop/attempts/completion_lock|learnloop.attempts.completion_lock]] — imports `AttemptCompletionBusy`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`; calls `SidecarContext`
@@ -140,9 +140,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_append.py](../../../../../tests/test_sidecar_append.py) — direct import
 - [tests/test_sidecar_blueprint_picker.py](../../../../../tests/test_sidecar_blueprint_picker.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
-  - `test_model_call_receipts_are_owned_by_the_normalized_submission_key`
-  - `test_sidecar_canonical_codex_profile_wins_when_legacy_input_differs`
-  - `test_sidecar_submit_attempt_falls_back_to_codex_when_routed_ai_unavailable`
 - [tests/test_sidecar_diagnostic.py](../../../../../tests/test_sidecar_diagnostic.py) — direct import
 - [tests/test_sidecar_epigraphs.py](../../../../../tests/test_sidecar_epigraphs.py) — direct import
 - [tests/test_sidecar_golden_path.py](../../../../../tests/test_sidecar_golden_path.py) — direct import

@@ -55,9 +55,9 @@ For system intent, use [[State and Persistence]].
 | [[Reference/Modules/learnloop/vault/__init__|learnloop.vault]] | [[Reference/Modules/learnloop/vault/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] | [[Reference/Modules/learnloop/vault/facet_fingerprint#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] | [[Reference/Modules/learnloop/vault/hashes#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
-| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 39 | 286 |
+| [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] | [[Reference/Modules/learnloop/vault/loader#^module-purpose|purpose]] | `ACTIVE` | 40 | 286 |
 | [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] | [[Reference/Modules/learnloop/vault/models#^module-purpose|purpose]] | `ACTIVE` | 149 | 29 |
-| [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 36 | 42 |
+| [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] | [[Reference/Modules/learnloop/vault/paths#^module-purpose|purpose]] | `ACTIVE` | 37 | 42 |
 | [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] | [[Reference/Modules/learnloop/vault/repository#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
 | [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] | [[Reference/Modules/learnloop/vault/writer#^module-purpose|purpose]] | `ACTIVE` | 16 | 69 |
 | [[Reference/Modules/learnloop/vault/yaml_io|learnloop.vault.yaml_io]] | [[Reference/Modules/learnloop/vault/yaml_io#^module-purpose|purpose]] | `ACTIVE` | 17 | 75 |
@@ -79,8 +79,8 @@ For system intent, use [[State and Persistence]].
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 18 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 18 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 14 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 14 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 14 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 12 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 11 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 10 static module edges
@@ -110,8 +110,8 @@ flowchart LR
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_goals["learnloop.goals"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_goals["learnloop.goals"]
     n_learnloop["learnloop"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_diagnosis -->|41| center
@@ -120,8 +120,8 @@ flowchart LR
     n_learnloop_content_synthesis -->|18| center
     n_learnloop_curriculum -->|18| center
     n_learnloop_attempts -->|14| center
+    n_learnloop_cli -->|14| center
     n_learnloop_goals -->|14| center
-    n_learnloop_cli -->|12| center
     n_learnloop -->|3| center
     center -->|8| n_learnloop
     n_learnloop_ops -->|11| center

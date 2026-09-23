@@ -105,6 +105,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_e2e_tui.py](../../../../../../tests/test_e2e_tui.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]

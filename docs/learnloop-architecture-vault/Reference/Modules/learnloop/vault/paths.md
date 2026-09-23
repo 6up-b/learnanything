@@ -96,6 +96,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `VaultPaths`, `find_vault_root`; statically calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `VaultPaths`, `find_vault_root`; statically calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `VaultPaths`, `animation_video_path`; statically calls `VaultPaths`, `animation_video_path`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -153,7 +154,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] and 31 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] and 32 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

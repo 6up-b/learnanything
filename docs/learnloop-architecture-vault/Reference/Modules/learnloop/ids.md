@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `kebab_case`; statically calls `kebab_case`
+- [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `new_ulid`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `new_ulid`; statically calls `new_ulid`
@@ -130,6 +131,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `kebab_case`, `snake_case`; statically calls `kebab_case`, `snake_case`
@@ -155,7 +157,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 50 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] and 52 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

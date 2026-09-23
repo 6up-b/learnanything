@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
-source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 164
+schema_head: 165
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,8 +19,10 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
+  - "src/learnloop/cli/data.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/dataset.py"
+  - "src/learnloop/substrate/model_usage.py"
   - "src/learnloop_sidecar/handlers/ingest.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/jobs.py"
@@ -122,6 +124,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_migrations.py`
+- `tests/test_model_usage_report.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_source_append.py`

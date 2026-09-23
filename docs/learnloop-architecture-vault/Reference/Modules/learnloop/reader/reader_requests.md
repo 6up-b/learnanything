@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_requests.py"
 source_paths:
   - "src/learnloop/reader/reader_requests.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.reader"
@@ -49,42 +49,42 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py) |
-| Source lines | 559 |
+| Source lines | 564 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
+| Commit timestamp | `2026-09-23T15:44:12-04:00` |
 
 ## Public API
 
-- `class ReaderRequestError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 63) — Domain error for the demand-paged synthesis service.
-- `request_reader_preset_synthesis(client: StructuredTransport, context: ReaderPresetSynthesisContext) -> ReaderPresetSynthesis` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 67) — Synthesize one reader preset through the shared transport.
-- `neighborhood(repository: Repository, *, extraction_id: str, span_id: str, selected_span_ids: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 80) — Resolve the bounded union around every selected source block (§6.3).
-- `request_key(*, revision_id: str, window: Mapping[str, Any], preset: str, provider: str, model: str, config_hash: str, inventory_profile: str='semantic') -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 145) — Canonical idempotency key over {revision, window, preset, inventory schema + profile, synthesis/output schema, prompt+provider+model, config/policy} (§6.2).
-- `enqueue_request(repository: Repository, *, source_id: str, revision_id: str, extraction_id: str, span_id: str, preset: str, provider: str='stub', model: str='stub-1', config_hash: str='', inventory_profile: str='semantic', annotation_id: str | None=None, commitment_id: str | None=None, client_idempotency_key: str | None=None, selected_text: str='', selection_edited: bool=False, selected_span_ids: Sequence[str]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 185) — Enqueue a demand-paged synthesis request (§6).
-- `request_status(repository: Repository, *, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 281)
-- `cancel_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 296)
-- `retry_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 300)
-- `model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 357) — Build the real ``synthesize`` seam for :func:`drain_requests`.
-- `drain_requests(repository: Repository, *, worker_id: str='reader-synth', lease_seconds: int=120, limit: int=100, synthesize: Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 499) — Drain queued requests under a fenced lease.
+- `class ReaderRequestError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 64) — Domain error for the demand-paged synthesis service.
+- `request_reader_preset_synthesis(client: StructuredTransport, context: ReaderPresetSynthesisContext) -> ReaderPresetSynthesis` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 68) — Synthesize one reader preset through the shared transport.
+- `neighborhood(repository: Repository, *, extraction_id: str, span_id: str, selected_span_ids: Sequence[str]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 81) — Resolve the bounded union around every selected source block (§6.3).
+- `request_key(*, revision_id: str, window: Mapping[str, Any], preset: str, provider: str, model: str, config_hash: str, inventory_profile: str='semantic') -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 146) — Canonical idempotency key over {revision, window, preset, inventory schema + profile, synthesis/output schema, prompt+provider+model, config/policy} (§6.2).
+- `enqueue_request(repository: Repository, *, source_id: str, revision_id: str, extraction_id: str, span_id: str, preset: str, provider: str='stub', model: str='stub-1', config_hash: str='', inventory_profile: str='semantic', annotation_id: str | None=None, commitment_id: str | None=None, client_idempotency_key: str | None=None, selected_text: str='', selection_edited: bool=False, selected_span_ids: Sequence[str]=(), clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 186) — Enqueue a demand-paged synthesis request (§6).
+- `request_status(repository: Repository, *, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 282)
+- `cancel_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 297)
+- `retry_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 301)
+- `model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 358) — Build the real ``synthesize`` seam for :func:`drain_requests`.
+- `drain_requests(repository: Repository, *, worker_id: str='reader-synth', lease_seconds: int=120, limit: int=100, synthesize: Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 504) — Drain queued requests under a fenced lease.
 
 ### Module constants
 
-- `PRIORITY_BAND` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 38)
-- `MAX_ADJACENT_BLOCKS` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 40)
-- `TOKEN_CAP` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 42)
-- `INVENTORY_SCHEMA_VERSION` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 45)
-- `SYNTHESIS_SCHEMA_VERSION` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 46)
-- `PROMPT_VERSION` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 47)
-- `_PRESET_OBJECT_TYPE` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 51)
+- `PRIORITY_BAND` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 39)
+- `MAX_ADJACENT_BLOCKS` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 41)
+- `TOKEN_CAP` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 43)
+- `INVENTORY_SCHEMA_VERSION` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 46)
+- `SYNTHESIS_SCHEMA_VERSION` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 47)
+- `PROMPT_VERSION` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 48)
+- `_PRESET_OBJECT_TYPE` ([src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py), line 52)
 
 ## Internal implementation anchors
 
-- `_land_proposals(repository: Repository, request: Mapping[str, Any], clock: Clock | None, *, object_type: str, exact_text: str, content: Mapping[str, Any], span_ids: list[str], model_provenance: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 304) — Land one synthesis result as the reviewable §6.4 artifact pair: a PROPOSED source object + canonical mapping proposal (+ commitment mapping for commit-class presets).
-- `_deterministic_synthesis(repository: Repository, request: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 460) — Deterministic, no-LLM synthesis producing a PROPOSED source object + canonical mapping proposal (the reviewable artifact, §6.4).
-- `_plus_seconds(now_iso: str, seconds: int) -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 556)
+- `_land_proposals(repository: Repository, request: Mapping[str, Any], clock: Clock | None, *, object_type: str, exact_text: str, content: Mapping[str, Any], span_ids: list[str], model_provenance: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 305) — Land one synthesis result as the reviewable §6.4 artifact pair: a PROPOSED source object + canonical mapping proposal (+ commitment mapping for commit-class presets).
+- `_deterministic_synthesis(repository: Repository, request: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 465) — Deterministic, no-LLM synthesis producing a PROPOSED source object + canonical mapping proposal (the reviewable artifact, §6.4).
+- `_plus_seconds(now_iso: str, seconds: int) -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 561)
 
 ## Who imports or calls it
 
@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
@@ -126,6 +127,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sdk_reader_preset_regenerates_when_app_server_rejects_hex_escape`
   - `test_sdk_reader_preset_repairs_invalid_unicode_json_once`
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
+  - `test_background_reader_drain_records_model_call_receipts`
   - `test_kick_reader_drain_leaves_requests_queued_without_provider`
   - `test_kick_reader_drain_runs_model_synthesis_foreground`
 - [tests/test_reader_requests.py](../../../../../../tests/test_reader_requests.py) — direct import

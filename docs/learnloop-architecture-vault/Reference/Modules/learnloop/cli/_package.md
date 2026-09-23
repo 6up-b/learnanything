@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/ingest_batches.py"
   - "src/learnloop/cli/questions.py"
+  - "src/learnloop/cli/receipts.py"
   - "src/learnloop/cli/registry.py"
   - "src/learnloop/cli/render.py"
   - "src/learnloop/cli/runtime.py"
@@ -30,7 +31,7 @@ source_paths:
   - "src/learnloop/cli/source_set.py"
   - "src/learnloop/cli/surfaces.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:31:55-04:00"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.cli"
@@ -69,8 +70,8 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]] | [[Reference/Modules/learnloop/cli/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 3 |
-| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 36 |
+| [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]] | [[Reference/Modules/learnloop/cli/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 4 |
+| [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] | [[Reference/Modules/learnloop/cli/app#^module-purpose|purpose]] | `ACTIVE` | 3 | 38 |
 | [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]] | [[Reference/Modules/learnloop/cli/calibration#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]] | [[Reference/Modules/learnloop/cli/card#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]] | [[Reference/Modules/learnloop/cli/claims#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -87,9 +88,10 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] | [[Reference/Modules/learnloop/cli/grading#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/ingest_batches|learnloop.cli.ingest_batches]] | [[Reference/Modules/learnloop/cli/ingest_batches#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/questions|learnloop.cli.questions]] | [[Reference/Modules/learnloop/cli/questions#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
+| [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] | [[Reference/Modules/learnloop/cli/receipts#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/cli/registry|learnloop.cli.registry]] | [[Reference/Modules/learnloop/cli/registry#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/render|learnloop.cli.render]] | [[Reference/Modules/learnloop/cli/render#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] | [[Reference/Modules/learnloop/cli/runtime#^module-purpose|purpose]] | `ACTIVE` | 21 | 1 |
+| [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] | [[Reference/Modules/learnloop/cli/runtime#^module-purpose|purpose]] | `ACTIVE` | 21 | 2 |
 | [[Reference/Modules/learnloop/cli/sim|learnloop.cli.sim]] | [[Reference/Modules/learnloop/cli/sim#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] | [[Reference/Modules/learnloop/cli/source_set#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/cli/surfaces|learnloop.cli.surfaces]] | [[Reference/Modules/learnloop/cli/surfaces#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -99,13 +101,13 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 23 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 12 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 10 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 8 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 8 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 8 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 7 static module edges
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 7 static module edges
@@ -115,10 +117,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 4 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 3 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 2 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 1 static module edge
 
 ### Packages that import this package
@@ -133,24 +135,24 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
-    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_content_synthesis["learnloop.content.synthesis"]
+    n_learnloop_attempts["learnloop.attempts"]
     n_learnloop["learnloop"]
+    n_learnloop_content_synthesis["learnloop.content.synthesis"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_scheduling["learnloop.scheduling"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_goals["learnloop.goals"]
     center -->|23| n_learnloop_diagnosis
+    center -->|14| n_learnloop_vault
     center -->|12| n_learnloop_attempts
-    center -->|12| n_learnloop_vault
-    center -->|10| n_learnloop_content_synthesis
     n_learnloop -->|1| center
-    center -->|7| n_learnloop
+    center -->|9| n_learnloop
+    center -->|10| n_learnloop_content_synthesis
+    center -->|9| n_learnloop_substrate
     center -->|8| n_learnloop_learner
     center -->|8| n_learnloop_scheduling
-    center -->|8| n_learnloop_substrate
     center -->|7| n_learnloop_content_authoring
     center -->|7| n_learnloop_goals
 ```

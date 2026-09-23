@@ -624,6 +624,42 @@ def test_kick_reader_drain_runs_model_synthesis_foreground(tmp_path):
     assert len(client.calls) == 1
 
 
+def test_background_reader_drain_records_model_call_receipts(tmp_path):
+    """The long-lived drain thread has no request context, so each reader
+    request owns its receipts instead of inheriting an RPC's observer."""
+
+    import time
+
+    from learnloop.reader import reader_requests as RR
+    from tests.test_reader_requests import _FakePresetClient, _ingest
+
+    repo = Repository(tmp_path / "state.sqlite")
+    _ingest(repo)
+    queued = RR.enqueue_request(repo, source_id="src1", revision_id="rev1", extraction_id="ext1",
+                                span_id="s1", preset="worked_example")
+    client = _FakePresetClient()
+    jobs = DurableIngestJobs()
+    jobs.bind(repo, tmp_path, background=True, poll_interval_seconds=0.05,
+              reader_synth_client_factory=lambda: client)
+    try:
+        jobs.kick_reader_drain()
+        deadline = time.monotonic() + 10
+        while repo.get_reader_request(queued["request_id"])["status"] == "queued" and time.monotonic() < deadline:
+            time.sleep(0.05)
+    finally:
+        jobs.shutdown()
+
+    assert repo.get_reader_request(queued["request_id"])["status"] == "complete"
+    with repo.connection() as connection:
+        receipts = [dict(row) for row in connection.execute(
+            "SELECT purpose, status, owner_kind, owner_id FROM model_call_receipts"
+        )]
+    assert receipts == [{
+        "purpose": "reader_preset_synthesis", "status": "completed",
+        "owner_kind": "reader_request", "owner_id": queued["request_id"],
+    }]
+
+
 def test_kick_reader_drain_leaves_requests_queued_without_provider(tmp_path):
     from learnloop.reader import reader_requests as RR
     from tests.test_reader_requests import _ingest

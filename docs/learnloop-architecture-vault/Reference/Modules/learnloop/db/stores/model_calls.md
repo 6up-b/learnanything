@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/model_calls.py"
 source_paths:
   - "src/learnloop/db/stores/model_calls.py"
-source_commit: "5f7340aaf0366e30dca27f6cfc233dae3e37c850"
-source_commit_timestamp: "2026-09-23T12:54:18-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.db.stores"
@@ -55,9 +55,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `5f7340aaf0366e30dca27f6cfc233dae3e37c850` |
-| Commit timestamp | `2026-09-23T12:54:18-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
+| Commit timestamp | `2026-09-23T15:44:12-04:00` |
 
 ## Public API
 

@@ -936,7 +936,6 @@ def test_model_call_receipts_are_owned_by_the_normalized_submission_key(tmp_path
     from contextlib import contextmanager
     from dataclasses import replace
 
-    from learnloop_sidecar import server
     from learnloop_sidecar.registry import METHOD_REGISTRY
 
     root = tmp_path / "vault"
@@ -954,7 +953,9 @@ def test_model_call_receipts_are_owned_by_the_normalized_submission_key(tmp_path
         observers.append(observer)
         yield
 
-    monkeypatch.setattr(server, "observe_model_calls", capture)
+    from learnloop.ai import execution
+
+    monkeypatch.setattr(execution, "observe_model_calls", capture)
     spec = METHOD_REGISTRY["recover_practice_submission"]
     monkeypatch.setitem(
         METHOD_REGISTRY, "recover_practice_submission",

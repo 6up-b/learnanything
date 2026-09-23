@@ -63,8 +63,8 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/attempt_types|learnloop.attempt_types]] | [[Reference/Modules/learnloop/attempt_types#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] | [[Reference/Modules/learnloop/bootstrap#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/causal_activity_policy|learnloop.causal_activity_policy]] | [[Reference/Modules/learnloop/causal_activity_policy#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 186 | 266 |
-| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 55 | 17 |
+| [[Reference/Modules/learnloop/clock|learnloop.clock]] | [[Reference/Modules/learnloop/clock#^module-purpose|purpose]] | `ACTIVE` | 188 | 266 |
+| [[Reference/Modules/learnloop/ids|learnloop.ids]] | [[Reference/Modules/learnloop/ids#^module-purpose|purpose]] | `ACTIVE` | 57 | 17 |
 | [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] | [[Reference/Modules/learnloop/migration_coordinator#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/numeric|learnloop.numeric]] | [[Reference/Modules/learnloop/numeric#^module-purpose|purpose]] | `ACTIVE` | 18 | 2 |
 | [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] | [[Reference/Modules/learnloop/outcome_contract#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
@@ -113,17 +113,17 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 22 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 22 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 17 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 16 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 17 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 11 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 10 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 9 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 9 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 8 static module edges
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 5 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 5 static module edges
@@ -134,6 +134,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
+- [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -158,7 +159,7 @@ flowchart LR
     n_learnloop_curriculum -->|22| center
     n_learnloop_learner -->|17| center
     center -->|1| n_learnloop_learner
-    n_learnloop_substrate -->|16| center
+    n_learnloop_substrate -->|17| center
     n_learnloop_goals -->|14| center
     n_learnloop_content_synthesis -->|11| center
     center -->|1| n_learnloop_content_synthesis

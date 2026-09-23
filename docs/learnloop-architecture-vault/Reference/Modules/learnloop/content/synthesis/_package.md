@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
   - "src/learnloop/content/synthesis/vault_epigraphs.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:54:18-04:00"
+source_commit_timestamp: "2026-09-23T15:44:12-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.content.synthesis"
@@ -74,7 +74,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] | [[Reference/Modules/learnloop/content/synthesis/source_append#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/content/synthesis/source_coverage|learnloop.content.synthesis.source_coverage]] | [[Reference/Modules/learnloop/content/synthesis/source_coverage#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] | [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis#^module-purpose|purpose]] | `ACTIVE` | 4 | 18 |
+| [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] | [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis#^module-purpose|purpose]] | `ACTIVE` | 4 | 19 |
 | [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory#^module-purpose|purpose]] | `ACTIVE` | 5 | 10 |
 | [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] | [[Reference/Modules/learnloop/content/synthesis/source_unit_selection#^module-purpose|purpose]] | `ACTIVE` | 6 | 6 |
 | [[Reference/Modules/learnloop/content/synthesis/study_map_diff|learnloop.content.synthesis.study_map_diff]] | [[Reference/Modules/learnloop/content/synthesis/study_map_diff#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
