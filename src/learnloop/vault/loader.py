@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 from ruamel.yaml.error import YAMLError
@@ -36,13 +37,19 @@ from learnloop.vault.yaml_io import (
 )
 
 T = TypeVar("T", bound=BaseModel)
+YamlFileReader = Callable[[Path], dict[str, Any]]
 
 
-def _load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> T | None:
+def _load_yaml_model(
+    path: Path,
+    model: type[T],
+    issues: list[DoctorIssue],
+    read_yaml_file: YamlFileReader = read_yaml_data,
+) -> T | None:
     if not path.exists():
         return None
     try:
-        return model.model_validate(read_yaml_data(path))
+        return model.model_validate(read_yaml_file(path))
     except (OSError, ValueError, ValidationError, YAMLError) as exc:
         issues.append(DoctorIssue("yaml:invalid", f"{path.name} could not be loaded: {exc}", path))
         return None
@@ -63,34 +70,40 @@ def _load_markdown_model(
         return None, ""
 
 
-def load_vault(root: Path | None = None) -> LoadedVault:
+def load_vault(root: Path | None = None, *, read_yaml_file: YamlFileReader = read_yaml_data) -> LoadedVault:
+    """Parse every vault file into a ``LoadedVault``; problems become ``issues``.
+
+    ``read_yaml_file`` lets a caller that has already parsed the same files
+    (doctor) hand in its parsed copies.
+    """
+
     vault_root = root.resolve() if root else find_vault_root(Path.cwd())
     config = load_config(vault_root / "learnloop.toml")
     paths = VaultPaths(vault_root, config)
     issues: list[DoctorIssue] = []
     loaded = LoadedVault(root=vault_root, config=config, issues=issues)
 
-    concepts_file = _load_yaml_model(paths.concepts_path, ConceptsFile, issues)
+    concepts_file = _load_yaml_model(paths.concepts_path, ConceptsFile, issues, read_yaml_file)
     if concepts_file:
         loaded.concepts = concepts_file.concepts
 
-    relations_file = _load_yaml_model(paths.relations_path, RelationsFile, issues)
+    relations_file = _load_yaml_model(paths.relations_path, RelationsFile, issues, read_yaml_file)
     if relations_file:
         loaded.edges = relations_file.edges
 
-    goals_file = _load_yaml_model(paths.goals_path, GoalsFile, issues)
+    goals_file = _load_yaml_model(paths.goals_path, GoalsFile, issues, read_yaml_file)
     if goals_file:
         loaded.goals = goals_file.goals
 
-    source_sets_file = _load_yaml_model(paths.source_sets_path, SourceSetsFile, issues)
+    source_sets_file = _load_yaml_model(paths.source_sets_path, SourceSetsFile, issues, read_yaml_file)
     if source_sets_file:
         loaded.source_sets = source_sets_file.source_sets
 
-    error_types_file = _load_yaml_model(paths.error_types_path, ErrorTypesFile, issues)
+    error_types_file = _load_yaml_model(paths.error_types_path, ErrorTypesFile, issues, read_yaml_file)
     if error_types_file:
         loaded.error_types = {error_type.id: error_type for error_type in error_types_file.error_types}
 
-    facets_file = _load_yaml_model(paths.facets_path, EvidenceFacetsFile, issues)
+    facets_file = _load_yaml_model(paths.facets_path, EvidenceFacetsFile, issues, read_yaml_file)
     if facets_file:
         for facet in facets_file.facets:
             if not facet.semantic_fingerprint:
@@ -101,7 +114,7 @@ def load_vault(root: Path | None = None) -> LoadedVault:
     rubrics_root = vault_root / "rubrics"
     if rubrics_root.exists():
         for rubric_path in sorted(rubrics_root.glob("*.yaml")):
-            default_rubric = _load_yaml_model(rubric_path, DefaultRubric, issues)
+            default_rubric = _load_yaml_model(rubric_path, DefaultRubric, issues, read_yaml_file)
             if default_rubric is None:
                 continue
             practice_mode = default_rubric.applies_to.practice_mode
@@ -119,13 +132,13 @@ def load_vault(root: Path | None = None) -> LoadedVault:
     subjects_root = vault_root / "subjects"
     if subjects_root.exists():
         for subject_dir in sorted(path for path in subjects_root.iterdir() if path.is_dir()):
-            _load_subject_dir(subject_dir, loaded)
+            _load_subject_dir(subject_dir, loaded, read_yaml_file)
 
     _validate_loaded_vault(loaded)
     return loaded
 
 
-def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
+def _load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: YamlFileReader) -> None:
     subject_id = subject_dir.name
     subject_md = subject_dir / "subject.md"
     metadata, body = _load_markdown_model(subject_md, SubjectMetadata, loaded.issues)
@@ -134,7 +147,7 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
         return
 
     graph_path = subject_dir / "concept-graph.yaml"
-    graph = _load_yaml_model(graph_path, ConceptGraph, loaded.issues)
+    graph = _load_yaml_model(graph_path, ConceptGraph, loaded.issues, read_yaml_file)
     if graph is None:
         graph = ConceptGraph(subject=metadata.id)
         loaded.issues.append(DoctorIssue("subject:missing_graph", f"Missing concept-graph.yaml for {subject_id}", graph_path))
@@ -142,7 +155,7 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
     loaded.subjects[metadata.id] = Subject(metadata=metadata, body=body, graph=graph, path=subject_md)
 
     for lo_path in sorted((subject_dir / "learning-objects").glob("*.yaml")):
-        learning_object = _load_yaml_model(lo_path, LearningObject, loaded.issues)
+        learning_object = _load_yaml_model(lo_path, LearningObject, loaded.issues, read_yaml_file)
         if learning_object:
             if learning_object.id in loaded.learning_objects:
                 loaded.issues.append(DoctorIssue("learning_object:duplicate_id", f"Duplicate learning object id {learning_object.id}", lo_path))
@@ -157,7 +170,7 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
                 )
 
     for pi_path in sorted((subject_dir / "practice-items").glob("*.yaml")):
-        practice_item = load_practice_item_file(pi_path, loaded)
+        practice_item = load_practice_item_file(pi_path, loaded, read_yaml_file=read_yaml_file)
         if practice_item:
             if practice_item.id in loaded.practice_items:
                 loaded.issues.append(DoctorIssue("practice_item:duplicate_id", f"Duplicate practice item id {practice_item.id}", pi_path))
@@ -257,6 +270,7 @@ def load_practice_item_file(
     loaded: LoadedVault,
     *,
     issues: list[DoctorIssue] | None = None,
+    read_yaml_file: YamlFileReader = read_yaml_data,
 ) -> PracticeItem | None:
     """Parse one Practice Item through the canonical full-loader path."""
 
@@ -264,6 +278,7 @@ def load_practice_item_file(
         path,
         PracticeItem,
         loaded.issues if issues is None else issues,
+        read_yaml_file,
     )
     return (
         _canonicalized_practice_item_facets(loaded, item)

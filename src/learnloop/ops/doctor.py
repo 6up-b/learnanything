@@ -140,9 +140,10 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
             codex_runtime = ai_runtime
 
     paths = VaultPaths(vault_root, config)
+    parsed_yaml = _ParsedYamlFiles()
     _check_layout(paths, issues)
-    _check_schema_versions(paths, issues)
-    _check_unknown_yaml_keys(paths, issues)
+    _check_schema_versions(paths, issues, parsed_yaml)
+    _check_unknown_yaml_keys(paths, issues, parsed_yaml)
     if fix_state:
         migrate_vault(paths.root, paths.sqlite_path)
     database_readable = _check_sqlite(paths, issues)
@@ -181,8 +182,11 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         fix_state=fix_state,
     )
 
+    if fix_state:
+        # Apply-intent recovery may have rewritten vault files since they were parsed.
+        parsed_yaml.clear()
     try:
-        vault = load_vault(vault_root)
+        vault = load_vault(vault_root, read_yaml_file=parsed_yaml.read)
     except Exception as exc:
         issues.append(_issue("error", "vault:load_failed", f"Vault could not be loaded: {exc}", vault_root))
         return DoctorReport(
@@ -423,26 +427,57 @@ def _check_layout(paths: VaultPaths, issues: list[HealthIssue]) -> None:
             issues.append(_issue("error", "layout:missing_file", f"Required YAML file is missing: {file_path.relative_to(paths.root)}", file_path))
 
 
-def _check_schema_versions(paths: VaultPaths, issues: list[HealthIssue]) -> None:
+class _ParsedYamlFiles:
+    """Each vault YAML file parsed once per doctor run.
+
+    The schema-version check, the unknown-key check and ``load_vault`` read the
+    same files. A parse failure is remembered and re-raised so every reader
+    reports it exactly as a fresh parse would.
+    """
+
+    def __init__(self) -> None:
+        self._results: dict[Path, dict[str, Any] | Exception] = {}
+
+    def read(self, path: Path) -> dict[str, Any]:
+        if path not in self._results:
+            try:
+                self._results[path] = read_yaml_data(path)
+            except Exception as exc:
+                self._results[path] = exc
+        result = self._results[path]
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    def clear(self) -> None:
+        self._results.clear()
+
+
+def _check_schema_versions(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None:
     for file_path in [paths.concepts_path, paths.relations_path, paths.error_types_path]:
-        _check_yaml_schema(file_path, issues)
+        _check_yaml_schema(file_path, issues, parsed_yaml)
     # The canonical facet registry has a v2 semantic-contract format; legacy
     # v1 registries remain readable during migration.
-    _check_yaml_schema(paths.facets_path, issues, supported={1, 2})
+    _check_yaml_schema(paths.facets_path, issues, parsed_yaml, supported={1, 2})
     # goals.yaml v1 (concept_anchors) still loads via the legacy converter.
-    _check_yaml_schema(paths.goals_path, issues, supported={1, 2})
+    _check_yaml_schema(paths.goals_path, issues, parsed_yaml, supported={1, 2})
     for file_path in sorted((paths.root / "subjects").glob("*/concept-graph.yaml")):
-        _check_yaml_schema(file_path, issues)
+        _check_yaml_schema(file_path, issues, parsed_yaml)
     for folder in ["learning-objects", "practice-items"]:
         for file_path in sorted((paths.root / "subjects").glob(f"*/{folder}/*.yaml")):
-            _check_yaml_schema(file_path, issues)
+            _check_yaml_schema(file_path, issues, parsed_yaml)
 
 
-def _check_yaml_schema(path: Path, issues: list[HealthIssue], supported: set[int] = frozenset({1})) -> None:
+def _check_yaml_schema(
+    path: Path,
+    issues: list[HealthIssue],
+    parsed_yaml: _ParsedYamlFiles,
+    supported: set[int] = frozenset({1}),
+) -> None:
     if not path.exists():
         return
     try:
-        data = read_yaml_data(path)
+        data = parsed_yaml.read(path)
     except Exception as exc:
         issues.append(_issue("error", "yaml:invalid", f"{path.name} could not be parsed: {exc}", path))
         return
@@ -458,7 +493,7 @@ def _check_yaml_schema(path: Path, issues: list[HealthIssue], supported: set[int
         )
 
 
-def _check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue]) -> None:
+def _check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue], parsed_yaml: _ParsedYamlFiles) -> None:
     yaml_models: list[tuple[Path, type[BaseModel]]] = [
         (paths.concepts_path, ConceptsFile),
         (paths.relations_path, RelationsFile),
@@ -483,18 +518,19 @@ def _check_unknown_yaml_keys(paths: VaultPaths, issues: list[HealthIssue]) -> No
         for file_path in sorted((paths.root / "rubrics").glob("*.yaml"))
     )
     for file_path, model in yaml_models:
-        _check_unknown_yaml_keys_for_file(file_path, model, issues)
+        _check_unknown_yaml_keys_for_file(file_path, model, issues, parsed_yaml)
 
 
 def _check_unknown_yaml_keys_for_file(
     path: Path,
     model: type[BaseModel],
     issues: list[HealthIssue],
+    parsed_yaml: _ParsedYamlFiles,
 ) -> None:
     if not path.exists():
         return
     try:
-        data = read_yaml_data(path)
+        data = parsed_yaml.read(path)
     except Exception:
         return
     if isinstance(data, dict):
