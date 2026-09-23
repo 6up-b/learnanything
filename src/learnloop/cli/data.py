@@ -3,14 +3,16 @@ from __future__ import annotations
 
 from pathlib import Path
 import sqlite3
-from typing import Annotated
+from typing import Annotated, Any
 import json
 import typer
 
 from learnloop.cli.app import app
 from learnloop.cli.runtime import _dump, _load_vault_or_exit, _root
+from learnloop.clock import parse_utc
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import export_dataset
+from learnloop.substrate.model_usage import SYNTHESIS_BUDGET_FIELDS, model_usage_report
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
@@ -36,6 +38,127 @@ def data_quality(
 ) -> None:
     """Read-only JSON coverage report, with current-version denominators."""
     typer.echo(_dump(data_quality_report(_sqlite_path(_loaded_vault(vault)))))
+
+
+@app.command("usage")
+def usage(
+    vault: Annotated[Path | None, typer.Option("--vault")] = None,
+    json_output: Annotated[bool, typer.Option("--json", help="Emit the stable JSON report.")] = False,
+    since: Annotated[str | None, typer.Option("--since", help="Only operations started at or after this ISO date or time (UTC when no offset).")] = None,
+    purpose: Annotated[str | None, typer.Option("--purpose", help="Only operations whose root purpose starts with this prefix.")] = None,
+) -> None:
+    """Read-only token and cost report from model-call receipts, with synthesis budget ratios."""
+    try:
+        since_at = parse_utc(since) if since else None
+    except ValueError as exc:
+        raise typer.BadParameter(f"--since must be an ISO date or time: {exc}") from exc
+    loaded = _loaded_vault(vault)
+    budgets_config = loaded.config.ingest.budgets
+    budgets = {field: getattr(budgets_config, field, None) for field in SYNTHESIS_BUDGET_FIELDS}
+    report = model_usage_report(_sqlite_path(loaded), budgets=budgets, since=since_at, purpose_prefix=purpose)
+    typer.echo(_dump(report) if json_output else render_usage_report(report))
+
+
+_TOKEN_LABELS = (
+    ("input_tokens", "input"),
+    ("output_tokens", "output"),
+    ("cached_input_tokens", "cached input"),
+    ("cache_write_tokens", "cache write"),
+    ("reasoning_tokens", "reasoning"),
+)
+
+
+def render_usage_report(report: dict[str, Any]) -> str:
+    """A terminal-width summary of the JSON report, section by section."""
+    lines = [_usage_heading(report), ""]
+    lines += _render_purposes(report["by_purpose"])
+    lines += _render_synthesis_runs(report["synthesis_runs"])
+    lines += _render_coverage(report["coverage"])
+    return "\n".join(lines).rstrip()
+
+
+def _usage_heading(report: dict[str, Any]) -> str:
+    totals = report["totals"]
+    filters = [f"{name} {value}" for name, value in (("since", report["filters"]["since"]), ("purpose", report["filters"]["purpose_prefix"])) if value]
+    scope = f" ({', '.join(filters)})" if filters else ""
+    return f"Model usage{scope}: {totals['requests']} requests in {totals['operations']} operations"
+
+
+def _number(value: Any) -> str:
+    if value is None:
+        return "-"
+    if isinstance(value, float) and not value.is_integer():
+        return f"{value:,.1f}"
+    return f"{int(value):,}"
+
+
+def _render_purposes(groups: list[dict[str, Any]]) -> list[str]:
+    lines = ["By purpose (tokens per request)"]
+    if not groups:
+        return [*lines, "  No model-call receipts.", ""]
+    for group in groups:
+        statuses = group["statuses"]
+        cost = group["cost"]
+        cost_text = f"cost {cost['total']:.4f} ({cost['known']} known)" if cost["known"] else "cost unknown"
+        lines += [
+            f"  {group['purpose']}  {group['provider'] or '?'} / {group['model'] or '?'}",
+            f"    {group['requests']} requests in {group['operations']} operations; "
+            f"usage unknown for {group['usage_unknown']}; {cost_text}",
+            f"    status: {statuses['completed']} completed, {statuses['failed']} failed, {statuses['truncated']} truncated, "
+            f"{statuses['interrupted']} interrupted, {statuses['started']} unfinished",
+            f"    {'tokens':<14}{'known':>7}{'mean':>11}{'median':>11}{'p95':>11}{'max':>11}",
+        ]
+        for field, label in _TOKEN_LABELS:
+            stats = group["tokens"][field]
+            if field == "cache_write_tokens" and not stats["known"]:
+                continue
+            lines.append(f"    {label:<14}{stats['known']:>7}" + "".join(f"{_number(stats[key]):>11}" for key in ("mean", "median", "p95", "max")))
+        lines.append("")
+    return lines
+
+
+def _ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str:
+    if value is None:
+        return f"- ({name} {_number(budget)})"
+    share = f"{ratio:.2f}" if ratio is not None else "-"
+    return f"{_number(value)} = {share} of {name} {_number(budget)}"
+
+
+def _render_synthesis_runs(section: dict[str, Any]) -> list[str]:
+    lines = ["Synthesis runs (measured tokens against the effective [ingest.budgets])"]
+    runs = section["runs"]
+    if not runs:
+        return [*lines, "  No synthesis runs.", ""]
+    budgets = section["budgets"]
+    for run in runs:
+        passes = run["passes"]
+        ratios = run["budget_ratios"]
+        lines += [
+            f"  {run['owner_kind']} {run['owner_id']}  started {run['started_at'] or '?'}",
+            f"    {passes['source_set_synthesis']} synthesis + {passes['concept_graph_structuring']} structuring passes, "
+            f"{run['requests']} requests ({run['requests_without_usage']} without usage)",
+            f"    input   {_ratio_text(run['input_tokens'], ratios['input_to_total_input_ceiling'], budgets['synthesis_total_input_ceiling'], 'total ceiling')}",
+            f"            largest pass {_ratio_text(run['largest_pass_input_tokens'], ratios['largest_pass_input_to_shard_input'], budgets['synthesis_shard_input_tokens'], 'shard')}",
+            f"    output  {_ratio_text(run['output_tokens'], ratios['output_to_output_ceiling'], budgets['synthesis_output_tokens'], 'total ceiling')}",
+            f"            largest pass {_ratio_text(run['largest_pass_output_tokens'], ratios['largest_pass_output_to_shard_output'], budgets['synthesis_shard_output_tokens'], 'shard')}",
+        ]
+    lines.append("")
+    return lines
+
+
+def _render_coverage(rows: list[dict[str, Any]]) -> list[str]:
+    lines = ["Usage coverage of completed requests"]
+    gaps = [row for row in rows if row["completed_usage_coverage"] in {"none", "partial"}]
+    if not rows:
+        return [*lines, "  No requests."]
+    if not gaps:
+        return [*lines, "  Every completed request reported usage."]
+    for row in gaps:
+        lines += [
+            f"  {row['purpose']} / {row['request_purpose']} / {row['provider'] or '?'}",
+            f"    {row['completed_without_usage']} of {row['completed_requests']} completed requests reported no usage",
+        ]
+    return lines
 
 
 @app.command("dataset-export")
