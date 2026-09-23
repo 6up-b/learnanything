@@ -391,7 +391,7 @@ def test_same_vault_rebind_preserves_kill_codex_interrupt_handle(tmp_path):
             return capability == INTERRUPT
 
     client = InterruptibleClient()
-    original_runner._bind_job_interruptible(claimed["id"], client)
+    original_runner._bind_job_interruptible(claimed["id"], claimed["attempt_count"], client)
 
     # Applying-job polling reloads SidecarContext while the next writer job can
     # already be in its model call. A same-vault bind must not orphan its handle.

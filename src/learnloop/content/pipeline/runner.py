@@ -478,29 +478,35 @@ class IngestRunner:
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
         self._database = Path(repo.sqlite_path).resolve()
         self._interrupt_lock = threading.RLock()
-        self._active_interrupts: dict[str, Callable[[], Any]] = {}
+        # Keyed by attempt: lanes share one runner and worker id, so a job
+        # resumed onto another lane must not share its predecessor's entry.
+        self._active_interrupts: dict[tuple[str, int], Callable[[], Any]] = {}
 
     def active_interruptible_jobs(self) -> list[dict[str, Any]]:
         """Return running jobs that currently own an interruptible AI client."""
 
         with self._interrupt_lock:
-            job_ids = list(self._active_interrupts)
+            attempts = list(self._active_interrupts)
         jobs: list[dict[str, Any]] = []
-        for job_id in job_ids:
+        for job_id, attempt_count in attempts:
             job = self.repo.get_ingest_job(job_id)
-            if job is not None and job.get("status") == "running":
+            if (
+                job is not None
+                and job.get("status") == "running"
+                and job.get("attempt_count") == attempt_count
+            ):
                 jobs.append(job)
         return jobs
 
     def interrupt_job(self, job_id: str) -> bool:
         """Cancel a batch and interrupt the selected job's active provider call."""
 
-        with self._interrupt_lock:
-            interrupt = self._active_interrupts.get(job_id)
-        if interrupt is None:
-            return False
         job = self.repo.get_ingest_job(job_id)
         if job is None or job.get("status") != "running":
+            return False
+        with self._interrupt_lock:
+            interrupt = self._active_interrupts.get((job_id, job["attempt_count"]))
+        if interrupt is None:
             return False
         # Cancel queued siblings too, matching the existing batch-cancel contract
         # and preventing dependants of the interrupted job from remaining queued.
@@ -508,16 +514,16 @@ class IngestRunner:
         interrupt()
         return True
 
-    def _bind_job_interruptible(self, job_id: str, client: Any) -> None:
+    def _bind_job_interruptible(self, job_id: str, attempt_count: int, client: Any) -> None:
         interrupt = interrupt_callback(client)
         if interrupt is None:
             return
         with self._interrupt_lock:
-            self._active_interrupts[job_id] = interrupt
+            self._active_interrupts[(job_id, attempt_count)] = interrupt
 
-    def _clear_job_interruptible(self, job_id: str) -> None:
+    def _clear_job_interruptible(self, job_id: str, attempt_count: int) -> None:
         with self._interrupt_lock:
-            self._active_interrupts.pop(job_id, None)
+            self._active_interrupts.pop((job_id, attempt_count), None)
 
     # -- enqueue -----------------------------------------------------------
 
@@ -738,7 +744,9 @@ class IngestRunner:
             worker_id=self.worker_id,
             services=self.services,
             _usage=dict(job.get("usage") or {}),
-            _bind_interruptible=lambda client: self._bind_job_interruptible(job["id"], client),
+            _bind_interruptible=lambda client: self._bind_job_interruptible(
+                job["id"], job["attempt_count"], client
+            ),
         )
         if ctx.cancelled():
             finish(
@@ -776,7 +784,7 @@ class IngestRunner:
                 heartbeat_stop.set()
                 heartbeat_thread.join(timeout=1)
         except JobOwnershipLost:
-            self._clear_job_interruptible(job['id'])
+            self._clear_job_interruptible(job["id"], job["attempt_count"])
             return
         except JobCancelled:
             finish(
@@ -860,10 +868,10 @@ class IngestRunner:
                 )
                 if completed and job["job_type"] in _QUEUE_AFFECTING_JOB_TYPES:
                     self.repo.bump_queue_revision(clock=self.clock)
-        self._clear_job_interruptible(job["id"])
+        self._clear_job_interruptible(job["id"], job["attempt_count"])
         self._refresh_batch(batch_id)
 
-    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, attempt_count: int | None = None) -> None:
+    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, attempt_count: int) -> None:
         """Keep a blocking extractor/LLM stage's lease alive until it returns.
 
         A failed renewal is logged and retried; only a definitive ownership
@@ -890,7 +898,7 @@ class IngestRunner:
                 # Stop only this runner's transport. Cancelling the batch here
                 # would cancel the replacement owner's valid work as well.
                 with self._interrupt_lock:
-                    interrupt = self._active_interrupts.get(job_id)
+                    interrupt = self._active_interrupts.get((job_id, attempt_count))
                 if interrupt is not None:
                     interrupt()
                 return

@@ -162,3 +162,45 @@ def test_recovery_in_the_same_process_never_fails_a_live_attempt(tmp_path):
     assert outcome['recovered'] == []
     assert job['status'] == 'completed'
     assert job['payload'] == {'published': True}
+
+
+def test_a_replaced_attempt_interrupts_only_its_own_transport(tmp_path):
+    import threading
+
+    from learnloop.ai.transport import INTERRUPT
+
+    class Transport:
+        def __init__(self):
+            self.interrupted = False
+
+        def interrupt(self):
+            self.interrupted = True
+
+        def supports(self, capability):
+            return capability == INTERRUPT
+
+    runner = _runner(tmp_path, handlers={'fake': _ok_handler({})})
+    batch = runner.enqueue_batch('import', [JobSpec('fake')])
+    first = _claim(runner.repo, runner.worker_id, 0)
+    stale_transport = Transport()
+    runner._bind_job_interruptible(first['id'], 1, stale_transport)
+    # The first attempt's lease expires; another lane of the same runner
+    # claims the resumed job as attempt 2.
+    runner.clock = _clock(180)
+    runner.resume_batch(batch)
+    second = _claim(runner.repo, runner.worker_id, 180)
+    assert second['attempt_count'] == 2
+    live_transport = Transport()
+    runner._bind_job_interruptible(second['id'], 2, live_transport)
+
+    # The first attempt's heartbeat observes the loss and stops its own call.
+    runner.heartbeat_interval_seconds = 0.01
+    stop = threading.Event()
+    runner._heartbeat_while_running(first['id'], stop, 1)
+    runner._clear_job_interruptible(first['id'], 1)
+    assert stale_transport.interrupted
+    assert not live_transport.interrupted
+
+    # Cancelling the job still reaches the live attempt's transport.
+    assert runner.interrupt_job(second['id'])
+    assert live_transport.interrupted
