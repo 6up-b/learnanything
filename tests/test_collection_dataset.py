@@ -415,3 +415,26 @@ def test_dataset_export_cli_refuses_an_existing_output_directory(tmp_path):
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
     assert (output / "keep.txt").read_text(encoding="utf-8") == "mine"
+
+
+def test_writers_stamp_the_current_collection_version(tmp_path, monkeypatch):
+    import learnloop.db.repositories as repositories
+    import learnloop.db.stores.collection as collection_store
+
+    monkeypatch.setattr(repositories, "COLLECTION_VERSION", "learnloop-events-test")
+    monkeypatch.setattr(collection_store, "COLLECTION_VERSION", "learnloop-events-test")
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offer = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    repository.finalize_scheduler_offer(offer.scheduler_slate_id, [offer.scheduler_candidate_id])
+    attempt = _self_graded_attempt(paths, repository)
+    with repository.connection() as connection:
+        versions = {
+            "slate": connection.execute("SELECT collection_version FROM scheduler_slates WHERE id=?", (offer.scheduler_slate_id,)).fetchone()[0],
+            "offer": connection.execute("SELECT collection_version FROM scheduler_offer_receipts WHERE slate_id=?", (offer.scheduler_slate_id,)).fetchone()[0],
+            "attempt": connection.execute("SELECT collection_version FROM practice_attempts WHERE id=?", (attempt.attempt_id,)).fetchone()[0],
+        }
+    assert versions == {"slate": "learnloop-events-test", "offer": "learnloop-events-test", "attempt": "learnloop-events-test"}
