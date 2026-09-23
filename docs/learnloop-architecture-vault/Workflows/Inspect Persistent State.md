@@ -164,9 +164,10 @@ uv run learnloop why <practice-item-id> --json --vault "$VAULT"
 uv run learnloop ingest-batches show <batch-id> --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 uv run learnloop data-quality --vault "$VAULT"
+uv run learnloop usage --vault "$VAULT"
 ```
 
-These resolve filesystem configuration and SQLite state together. `data-quality` always prints JSON from one read-only transaction: collection coverage by version, entry surface and origin, offer and grade links, completion rows, model-call receipts and label exclusions. `learnloop dataset-export <new-dir>` writes a full snapshot plus every ledger and receipt table; treat its output as the vault itself (see [[Privacy and Trust Boundaries]]).
+These resolve filesystem configuration and SQLite state together. `data-quality` always prints JSON from one read-only transaction: collection coverage by version, entry surface and origin, offer and grade links, completion rows, model-call receipts and label exclusions. `usage` summarizes model-call tokens, cost and synthesis budget ratios from the same receipts (see [[Model Usage Report]]). `learnloop dataset-export <new-dir>` writes a full snapshot plus every ledger and receipt table; treat its output as the vault itself (see [[Privacy and Trust Boundaries]]).
 
 ## Decide the next action
 

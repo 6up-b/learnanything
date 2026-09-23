@@ -107,6 +107,8 @@ Fixed:
 
 **Budget ceiling (F5), confirmed and not changed.** With the default budgets (40k shard input, 48k total ceiling), a near-full single shard fails the complete-request preflight once the registry holds about 230 ids. The fixed overhead is about 6,126 tokens and each id adds about 9.8. Packing shards to leave room for the overhead made the total larger (51,952 tokens with 0 ids). The refusal now states the estimate and the ceiling. Changing the default budgets is an owner decision.
 
+**Measured usage (follow-up).** `learnloop usage` reports tokens per request by root purpose, provider and model, and compares each synthesis run's measured input and output with the four synthesis budgets as ratios. It also lists provider paths whose completed requests report no usage. The drained reader preset requests had written no receipts; each one now owns its receipts (`owner_kind` `reader_request`). The synthesis budgets will be revisited from this report once real runs have been recorded. See [Model Usage Report](../learnloop-architecture-vault/Reference/CLI/Model%20Usage%20Report.md).
+
 See [AI Architecture](../learnloop-architecture-vault/Architecture/AI%20Architecture.md).
 
 ## Database, substrate and scheduling
