@@ -235,6 +235,10 @@ class FeedbackScreen(Screen):
     async def auto_submit_ai(self) -> AttemptResult | None:
         if self.graded:
             return self.result
+        committed = self._committed_result()
+        if committed is not None:
+            self._complete_result(committed)
+            return committed
         provider_name, runtime, client = self._grading_provider()
         if not runtime.ready or client is None:
             self.query_one("#grading-status", TextStatic).update(

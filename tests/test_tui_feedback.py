@@ -241,3 +241,65 @@ def test_committed_model_grade_is_not_regraded_when_a_later_step_fails(tmp_path,
     assert resubmitted.attempt_id == graded.attempt_id
     assert len(client.contexts) == 1
     assert [row["id"] for row in Repository(paths.sqlite_path).list_attempt_history()] == [graded.attempt_id]
+
+
+
+def _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch):
+    """Commit a model grade for the practice screen's answer whose later step fails.
+
+    Stands in for an earlier grading call whose screen state was lost.
+    """
+
+    from learnloop.attempts import attempts
+    from learnloop.attempts.attempts import complete_attempt_with_ai_required
+
+    def fail(*args, **kwargs):
+        raise ValueError("interrupted augmentation receipt")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(attempts, "_record_diagnostic_augmentation", fail)
+        with pytest.raises(ValueError):
+            complete_attempt_with_ai_required(
+                practice.state.vault, practice.state.repository, practice._draft(),
+                runtime=runtime, ai_client=client,
+            )
+
+
+def _grading_fake(monkeypatch):
+    from learnloop.ai.runtime import AIRuntimeReport
+    from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
+
+    client = _SequenceDiagnostician([lambda context: _proposal(context.attempt_id)] * 3)
+    runtime = AIRuntimeReport(status="ready", active_provider="diagnostician", provider_type="openai_chat", model="claude-4")
+    monkeypatch.setattr(FeedbackScreen, "_grading_provider", lambda self: ("diagnostician", runtime, client))
+    return client, runtime
+
+
+@pytest.mark.parametrize("retry", ["auto_grade", "dont_know"])
+def test_tui_retry_resumes_a_committed_grade_instead_of_recording_another(tmp_path, monkeypatch, retry):
+    client, runtime = _grading_fake(monkeypatch)
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    seed_due_item(paths)
+
+    async def scenario():
+        app = LearnLoopApp(vault_root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            await today.open_practice()
+            await pilot.pause()
+            practice = app.screen
+            practice.set_answer("A = U Sigma")
+            _commit_grade_behind_the_screen(practice, client, runtime, monkeypatch)
+            if retry == "dont_know":
+                return practice.dont_know()
+            # A fresh feedback screen rebuilds the draft from the practice screen.
+            feedback = await practice.open_feedback()
+            await pilot.pause()
+            return await feedback.auto_submit_ai()
+
+    resumed = asyncio.run(scenario())
+    assert resumed is not None and resumed.grading_source == "ai"
+    assert len(client.contexts) == 1
+    assert [row["id"] for row in Repository(paths.sqlite_path).list_attempt_history()] == [resumed.attempt_id]
