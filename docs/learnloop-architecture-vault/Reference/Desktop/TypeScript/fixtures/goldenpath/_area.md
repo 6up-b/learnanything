@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/fixtures/goldenpath"
-source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
-source_commit_timestamp: "2026-09-23T14:05:41-04:00"
+source_commit: "02c3e6e10f5ca37e16cef05657ee693b33502fb7"
+source_commit_timestamp: "2026-07-21T13:26:14-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

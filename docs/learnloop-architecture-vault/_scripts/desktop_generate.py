@@ -16,6 +16,7 @@ import subprocess
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -1013,8 +1014,6 @@ def rendered_files() -> dict[Path, str]:
         rendered[note_path(info.source, info.language)] = render_module(info, infos, inbound, direct_tests)
 
     areas = sorted({info.area for info in infos.values()})
-    head = run_git("show", "-s", "--format=%H%n%cI", "HEAD").splitlines()
-    head_commit, head_timestamp = head[0], head[1]
     inbound_counts = {path: len(consumers) for path, consumers in inbound.items()}
     for area in areas:
         members = [info for info in infos.values() if info.area == area]
@@ -1023,12 +1022,23 @@ def rendered_files() -> dict[Path, str]:
             candidate for candidate in areas
             if candidate.startswith(prefix) and "/" not in candidate[len(prefix):]
         )
-        body = render_area(area, members, children, head_commit, head_timestamp)
+        # Area and catalog notes cite the newest commit among the sources they
+        # describe, not HEAD, so a documentation-only commit leaves them current.
+        area_commit, area_timestamp = latest_provenance(
+            info for info in infos.values() if info.area == area or info.area.startswith(prefix)
+        )
+        body = render_area(area, members, children, area_commit, area_timestamp)
         for info in members:
             body = body.replace(f"{{INBOUND:{info.source_path}}}", str(inbound_counts.get(info.source, 0)))
         rendered[area_note_path(area)] = body
-    rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas, head_commit, head_timestamp)
+    catalog_commit, catalog_timestamp = latest_provenance(infos.values())
+    rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas, catalog_commit, catalog_timestamp)
     return rendered
+
+
+def latest_provenance(infos: Iterable[SourceInfo]) -> tuple[str, str]:
+    newest = max(infos, key=lambda info: (datetime.fromisoformat(info.commit_timestamp), info.commit))
+    return newest.commit, newest.commit_timestamp
 
 
 def main() -> int:

@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/api"
-source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
-source_commit_timestamp: "2026-09-23T14:05:41-04:00"
+source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
+source_commit_timestamp: "2026-09-07T12:49:13-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

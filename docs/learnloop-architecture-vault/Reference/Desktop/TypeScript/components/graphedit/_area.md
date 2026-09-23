@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components/graphedit"
-source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
-source_commit_timestamp: "2026-09-23T14:05:41-04:00"
+source_commit: "96eb5c906aa28df898ce8a4485b0817efcf154bd"
+source_commit_timestamp: "2026-07-14T23:16:00-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:

@@ -6,8 +6,8 @@ refactor_status: "ACTIVE"
 version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src/components/recipeedit"
-source_commit: "b0a5685663ea4ce3beff013662d6d78dd5e1a10c"
-source_commit_timestamp: "2026-09-23T14:05:41-04:00"
+source_commit: "324e21708f4ec712cc669086f5a261efa70f57ff"
+source_commit_timestamp: "2026-07-15T11:03:42-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
