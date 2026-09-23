@@ -908,3 +908,12 @@ def _set_hint_coverage_dampening(paths: VaultPaths, mapping: dict[str, float]) -
     data = read_yaml(path)
     data["hint_policy"]["coverage_surface_dampening_by_hint"] = mapping
     write_yaml(path, data)
+
+
+def test_facet_tokens_split_ids_into_words_without_stop_words():
+    from learnloop.learner.recall_coverage import _facet_tokens
+
+    assert _facet_tokens("frobenius-norm_of the Matrix") == {"frobenius", "norm", "matrix"}
+    assert _facet_tokens("Spectral-Norm") == {"spectral", "norm"}
+    assert _facet_tokens("singular-value decomposition") == {"singular", "value", "decomposition"}
+    assert _facet_tokens("") == set()

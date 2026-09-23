@@ -883,22 +883,14 @@ _GENERIC_FACET_TOKENS = {
 }
 
 
+_FACET_TOKEN_STOP_WORDS = frozenset({"a", "an", "and", "by", "is", "of", "or", "that", "the", "to"})
+
+
 def _facet_tokens(value: str) -> set[str]:
-    aliases = {
-        "frobenius": "frobenius",
-        "frobenius-norm": "frobenius",
-        "norm": "norm",
-        "singular": "singular",
-        "singular-value": "singular",
-        "spectral": "spectral",
-        "spectral-norm": "spectral",
-    }
-    tokens = {
-        aliases.get(token, token)
-        for token in re.findall(r"[a-z0-9]+", value.lower().replace("_", " ").replace("-", " "))
-        if token
-    }
-    return tokens - {"a", "an", "and", "by", "is", "of", "or", "that", "the", "to"}
+    """Lower-case alphanumeric words of a facet id or text, without stop words."""
+
+    words = re.findall(r"[a-z0-9]+", value.lower().replace("_", " ").replace("-", " "))
+    return set(words) - _FACET_TOKEN_STOP_WORDS
 
 
 def _practice_mode_default(item: PracticeItem, evidence: EvidenceConfig | None = None) -> float:
