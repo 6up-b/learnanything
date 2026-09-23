@@ -19,8 +19,9 @@ contracts.
 
 from __future__ import annotations
 
-import threading
 import json
+import math
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -300,7 +301,6 @@ def _optional_tokens(value: Any) -> int | None:
 
 
 def _optional_cost(value: Any) -> float | None:
-    import math
     try:
         cost = float(value)
         return cost if math.isfinite(cost) and cost >= 0 else None

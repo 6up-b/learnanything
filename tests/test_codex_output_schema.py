@@ -453,11 +453,10 @@ _STRICT_SUPPORTED_KEYWORDS = {
 
 @pytest.mark.parametrize("model", _public_schema_models(), ids=lambda model: model.__name__)
 def test_every_codex_schema_uses_only_strict_supported_keywords(model):
-    """Guard every schema, not the three that happened to get hand-written tests.
+    """Every public schema may use only strict-mode keywords.
 
-    A discriminated union shipped `oneOf`/`discriminator` into GradingProposal
-    and broke every grading call at request time; the per-model tests below all
-    passed because none of them looked for composition keywords.
+    Composition keywords such as `oneOf`/`discriminator` break requests at call
+    time, so they must never reach a wire schema.
     """
 
     schema = strict_output_schema(model)

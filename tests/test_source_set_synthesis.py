@@ -812,8 +812,8 @@ def test_cross_shard_same_title_concepts_consolidate_deterministically(tmp_path)
     assert result.item_counts["concept"] == 1
     # Plan item 5.4 / Meas D2: the two shards emit byte-identical facets, so the
     # mint gate aliases shard 2's copies into shard 1's rather than minting 4 rows
-    # for 2 atoms. This assertion used to read 4 — that was the near-duplicate
-    # firehose D2 exists to stop, visible here at its smallest scale.
+    # for 2 atoms: the near-duplicate firehose D2 exists to stop, at its
+    # smallest scale.
     assert result.item_counts["facet"] == 2
     aliased = [
         d for d in result.gate_diagnostics
@@ -1242,10 +1242,9 @@ def test_integration_below_coordination_is_kept_silently(tmp_path):
 def test_integration_capability_has_no_schema_default():
     """Absence must be representable — on EVERY slot, not only integration.
 
-    The parse-time `retrieval` default on ordinary components made "the model
-    did not choose" unobservable (a defaulted capability is a contract cell
-    nobody authored); normalization now defaults it WITH a review diagnostic
-    instead of pydantic defaulting it silently."""
+    A parse-time default would make "the model did not choose" unobservable (a
+    defaulted capability is a contract cell nobody authored); normalization
+    defaults it WITH a review diagnostic instead."""
     assert SynthIntegrationComponent().capability is None
     assert SynthRecipeComponent().capability is None
     assert SynthCriterionTarget().capability is None

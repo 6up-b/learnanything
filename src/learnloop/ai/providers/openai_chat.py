@@ -236,11 +236,6 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             kwargs["max_tokens"] = min(limits)
         kwargs.update(self._reasoning_kwargs())
         response = self._create_with_retry(kwargs)
-        # A7: meter before touching the body. Everything below can raise
-        # (empty content, and upstream a validation failure that triggers a
-        # second billed repair round) and those tokens were still spent.
-        if getattr(response.choices[0], "finish_reason", None) == "length":
-            raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
         content = response.choices[0].message.content
         if not isinstance(content, str) or not content.strip():
             raise CodexUnavailable(f"{self.provider_name} returned an empty response")
@@ -339,10 +334,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         return status_code in _RETRYABLE_STATUS_CODES or status_code >= 500
 
     def _response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None:
-        # `complete()` now consults this before the first turn (to decide
-        # whether the schema must ride in the prompt), so a profile that
-        # declares no response_format at all must read as "nothing on the
-        # wire" rather than fail the request.
+        # Consulted before the first turn to decide whether the schema must
+        # ride in the prompt; a profile without response_format sends nothing
+        # on the wire.
         configured = (getattr(self.profile, "response_format", None) or "").strip()
         if not configured:
             return None

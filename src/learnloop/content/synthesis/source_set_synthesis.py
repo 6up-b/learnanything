@@ -23,8 +23,6 @@ proposed_patch_items -> apply_accepted_items.
 
 from __future__ import annotations
 
-from learnloop.ai.execution import content_key, generation_limit, model_settings
-
 import json
 import re
 from dataclasses import dataclass, field
@@ -32,6 +30,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
+from learnloop.ai.execution import content_key, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
@@ -737,10 +736,7 @@ def _normalize(
             "error_signatures": f.get("error_signatures") or [],
             "instructional_repairs": f.get("instructional_repairs") or [],
             "aliases": f.get("aliases") or [],
-            # D2: "Today source_set_synthesis mints one facet per extracted claim
-            # at status: 'reviewed' ... nothing structural preventing a
-            # near-duplicate." The mint gate below decides this value now; the
-            # literal here is only the pre-gate default.
+            # Pre-gate default; the D2 mint gate below decides the final status.
             "status": "reviewed",
             "provenance": {"origin": "sourceset_synthesis", "source_refs": yaml_refs},
         }
@@ -961,8 +957,8 @@ def _normalize(
                     fclient = cm.get("facet_client_id") or ""
                     facet_id = facet_client_to_id.get(fclient) or cm.get("facet") or ""
                     # D3's discipline extended to ordinary components: the schema
-                    # no longer defaults `capability` at parse time, so "the model
-                    # did not choose" is observable here. An `all_of`/`any_of`
+                    # does not default `capability`, so an unchosen capability is
+                    # observable here. An `all_of`/`any_of`
                     # component always observes *something*, so the honest remedy
                     # is default-and-flag rather than drop — but a defaulted
                     # capability is still a contract cell nobody authored, and it
@@ -1506,7 +1502,6 @@ def _create_study_map(
     if resolved_mode != "bootstrap":
         raise StudyMapError("unsupported_mode", f"mode '{mode}' is not supported by create_study_map (append is ING M7).")
 
-    # 1. lock check — typed refusal for a locked subject.
     inputs = _collect_inputs(repository, vault, source_set)
     budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
@@ -1559,6 +1554,9 @@ def _create_study_map(
             _apply_and_wire_goal(root, repository, result, brief=brief, create_goal=create_goal, clock=clock)
         return result
 
+    # 1. lock check — typed refusal for a locked subject. It follows the cache
+    # lookup because a reused run only re-applies, and apply re-checks locks
+    # under the vault mutation lock.
     lock_reasons = _bootstrap_lock_refusal(vault, repository)
     if lock_reasons:
         raise StudyMapError(
@@ -1764,9 +1762,9 @@ def _gate_and_persist(
     # Stage-5.3/6 instrument gates over the practice-item rows, via the one
     # shared composition every authoring lane runs (`authoring_gates`). The §8.7
     # gates above check provenance/scope/structure; these check whether an item
-    # measures anything, and this lane used to skip them entirely — an item
-    # authored at ingest reached review with no persona/selected-response/pair
-    # judgement at all. Row-level verdicts, never batch aborts: a refused item
+    # measures anything, so an item authored at ingest reaches review with its
+    # persona/selected-response/pair judgement. Row-level verdicts, never batch
+    # aborts: a refused item
     # persists as `invalid` (acceptance refuses it) rather than discarding the
     # paid-for synthesis. `grading_client=None` (revalidation) falls back to the
     # deterministic persona rule; missing persona material stays a typed

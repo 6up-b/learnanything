@@ -1,7 +1,6 @@
 """Codex SDK structured transport and runtime integration."""
 
 from __future__ import annotations
-from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
 
 import json
 import logging
@@ -39,6 +38,7 @@ from learnloop.ai.schemas import (
 )
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.transport import INTERRUPT, STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
 from learnloop.ai.usage import TokenUsageAccounting, UsageMeter, receipt_fields_from_codex_turn, usage_from_codex_turn
 from learnloop.config import AIProviderConfig, CodexConfig
 
