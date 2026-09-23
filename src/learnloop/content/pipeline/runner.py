@@ -1,7 +1,6 @@
 """Durable ingest runner (spec_source_ingestion_v2 §6.2).
 
-A repository-backed, leased drain that replaces the old in-memory job manager.
-Work survives restarts: batches/jobs/dependencies live in SQLite, exactly one
+A repository-backed, leased drain. Work survives restarts: batches/jobs/dependencies live in SQLite, exactly one
 vault-writing worker drains at a time under a lease, and explicitly compatible
 DB-only work may use a bounded parallel lane. Every stage is independently
 resumable along the checkpoint ladder::
@@ -15,8 +14,10 @@ Design invariants (mirrors §6.2 and §14):
   downstream job ``blocked`` (never silently ``failed``).
 - ``waiting_for_input`` holds NO lease, so a question to the user cannot block the
   drain of other eligible jobs.
-- Lease = ``worker_id`` + ``heartbeat_at``; on startup an expired ``running`` lease
-  is recovered to ``failed(interrupted)`` and its ``queued`` siblings resume.
+- Lease = ``worker_id`` + ``attempt_count`` + ``heartbeat_at``. An expired
+  ``running`` lease is recovered to ``failed(interrupted)`` at startup and on
+  drain ticks, and its ``queued`` siblings resume. An attempt whose handler is
+  still running in this process is never expired here.
 - Retries are keyed by the stage idempotency hash (asset hash for import,
   extraction_request_hash for extract — reusing the M1 hash model), so a retry
   reuses a completed revision/extraction instead of duplicating it.
@@ -41,9 +42,10 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
+from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.repositories import Repository
-from learnloop.db.scopes import JobOwnershipLost
+from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
 from learnloop.db.stores.ingest_queue import JobOwner
 from learnloop.ids import new_ulid
 from learnloop.vault_lock import DEFAULT_TIMEOUT_S, VaultLockTimeout, vault_mutation_lock
@@ -79,11 +81,11 @@ _TICK_EXPIRY_LOCK_TIMEOUT_S = 0.5
 
 
 def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
-    """Correct legacy rung jobs whose result contradicted their queue status.
+    """The status to present for a job, correcting contradictory rung rows.
 
-    Older rung-variant handlers returned ``{"status": "failed"}`` normally, so
-    the generic runner persisted the outer job as completed. Preserve the raw
-    record for audit while presenting and retrying it as the failure it was.
+    A rung-variant row can be ``completed`` while its result reports
+    ``{"status": "failed"}``. Keep the raw record for audit, but present and
+    retry it as the failure it was.
     """
 
     status = str(job.get("status") or "")
@@ -172,7 +174,7 @@ class FetchedBytes:
     # Human-readable metadata captured during the fetch phase, when the source
     # kind exposes it cheaply (e.g. a YouTube video's title + channel via oEmbed).
     # Absent (None/()) for sources with no knowable metadata — the import then
-    # falls back to the URL title as before.
+    # falls back to the URL title.
     title: str | None = None
     authors: tuple[str, ...] = ()
 
@@ -829,11 +831,12 @@ class IngestRunner:
             )
             heartbeat_thread.start()
             try:
-                from learnloop.db.scopes import guard_ingest_writes
-                from learnloop.ai.execution import observe_model_calls
-
-                with guard_ingest_writes(self.repo.sqlite_path, job['id'], self.worker_id, job['attempt_count']), observe_model_calls(
-                    lambda action, event: self.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=job['id'])
+                with guard_ingest_writes(
+                    self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
+                ), observe_model_calls(
+                    lambda action, event: self.repo.record_model_event(
+                        action, event, owner_kind="ingest_job", owner_id=job["id"]
+                    )
                 ):
                     result = handler(ctx)
             finally:

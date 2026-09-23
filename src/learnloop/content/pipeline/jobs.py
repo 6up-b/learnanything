@@ -2,13 +2,13 @@
 
 Acquisition/provider defaults and domain handlers live here, separate from the
 leased queue state machine in :mod:`learnloop.content.pipeline.runner`. The
-durable host replaced the old in-memory/subprocess job manager. Its sidecar-facing
-API (``start``/``get``/``list``/
-``cancel``/``needs_reload``/``mark_reloaded``/``shutdown``) is unchanged, but the
-job now lives in the durable queue (``ingest_batches``/``ingest_jobs``): a single
-``legacy_ingest`` batch that survives restarts. A background drain thread hosts
-the runner while the app is open; on next open, ``IngestRunner.recover_stale_leases``
-resumes anything left unfinished.
+durable host (:class:`DurableIngestJobs`) exposes the sidecar-facing API
+(``start``/``get``/``list``/``cancel``/``needs_reload``/``mark_reloaded``/
+``shutdown``) over the durable queue (``ingest_batches``/``ingest_jobs``), so a
+single-source ingest is a batch that survives restarts. A background drain
+thread hosts the runner while the app is open. Opening the vault runs
+``IngestRunner.recover_stale_leases``, and each drain tick expires stale leases,
+so work a dead worker left ``running`` fails as interrupted and can be resumed.
 
 Determinism: ``bind(..., background=False)`` disables the thread so tests drain
 synchronously via ``drain_foreground()`` with stubbed :class:`RunnerServices`.
@@ -2539,7 +2539,7 @@ def handle_concept_animation(ctx: JobContext) -> dict[str, Any]:
         if use_video_model:
             video_client = ctx.services.video_client(ctx)
     except IngestRunnerError as exc:
-        # A provider that cannot be built used to leave the row wedged in
+        # A provider that cannot be built would leave the row wedged in
         # "queued"; mark it failed so the inspector shows why.
         if row is not None and row.get("status") in ("queued", "generating"):
             ctx.repo.update_concept_animation(
@@ -2664,8 +2664,8 @@ class DurableIngestJobs:
         self._work_available = threading.Event()
         self._quick_check_work_available = threading.Event()
         # Demand-paged reader synthesis: the same worker thread drains queued
-        # reader_background_requests with a real model client (spec §6.4 — the
-        # drain was previously never invoked, so requests sat queued forever).
+        # reader_background_requests with a real model client (spec §6.4);
+        # nothing else drains them, so without it they would stay queued.
         self._reader_synth_client_factory: Any = None
         self._reader_client: Any = None
         self._reader_client_checked = False

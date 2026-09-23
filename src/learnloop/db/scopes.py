@@ -217,7 +217,7 @@ class OwnedConnection:
 
 
 class AtomicConnection:
-    """Keep legacy per-method commits inside an owning transaction.
+    """Keep store methods' own commits inside an owning transaction.
 
     Explicit BEGIN/COMMIT pairs become savepoints. Context managers get their
     own savepoint, so a caught inner exception rolls back only that operation.

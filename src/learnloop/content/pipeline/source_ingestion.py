@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from learnloop.ai.execution import content_key
-
 import hashlib
 import json
 import re
@@ -16,6 +14,7 @@ from typing import Any, Callable, Literal
 from pydantic import ValidationError
 
 from learnloop.ai.client import AIProviderClient
+from learnloop.ai.execution import content_key
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import PdfIngestConfig
 from learnloop.content.pipeline.ai_contracts import (
