@@ -128,6 +128,31 @@ def snapshot_client_usage(client: Any | None) -> TokenUsage:
     return usage if isinstance(usage, TokenUsage) else TokenUsage()
 
 
+class UsageMeter:
+    """Provider-reported usage of the calls a client made since the meter started.
+
+    Budgets charge a call the larger of a local estimate and what the provider
+    reported: the estimate covers providers that report nothing, the report
+    covers hidden output such as reasoning tokens. Reading never drains the
+    client's run-level accounting.
+    """
+
+    def __init__(self, client: Any | None):
+        self._client = client
+        self._start = snapshot_client_usage(client)
+
+    def reported(self) -> TokenUsage:
+        now = snapshot_client_usage(self._client)
+        return TokenUsage(
+            input_tokens=now.input_tokens - self._start.input_tokens,
+            output_tokens=now.output_tokens - self._start.output_tokens,
+            calls=now.calls - self._start.calls,
+        )
+
+    def output_charge(self, estimate: int) -> int:
+        return max(estimate, self.reported().output_tokens)
+
+
 def consume_client_usage(client: Any | None) -> TokenUsage:
     """Drain ``client``'s accumulator, tolerating clients that have none.
 

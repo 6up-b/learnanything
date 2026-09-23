@@ -75,7 +75,7 @@ from learnloop.content.synthesis.synthesis_manifests import (
     build_manifest,
     persist_manifest,
 )
-from learnloop.ai.usage import TokenUsage, consume_client_usage, snapshot_client_usage
+from learnloop.ai.usage import TokenUsage, UsageMeter, consume_client_usage
 from learnloop.content.synthesis.vault_epigraphs import (
     digest_from_proposal_rows,
     generate_vault_epigraphs,
@@ -2092,13 +2092,12 @@ def _run_synthesis(
         if output_limit is not None and output_limit <= 0:
             raise StudyMapError("budget_exceeded", "The synthesis output budget is exhausted; completed passes are saved.")
         input_tokens_estimate += tokens
-        before = snapshot_client_usage(client or transport)
+        meter = UsageMeter(client or transport)
         with generation_limit(output_limit):
             result = request_source_set_synthesis(transport, context)
         calls += 1
-        after = snapshot_client_usage(client or transport)
-        input_tokens_estimate += max(0, after.input_tokens - before.input_tokens - tokens)
-        output_charge = max(_result_tokens(result), after.output_tokens - before.output_tokens)
+        input_tokens_estimate += max(0, meter.reported().input_tokens - tokens)
+        output_charge = meter.output_charge(_result_tokens(result))
         output_tokens_spent += output_charge
         # Save before the budget check. The key does not include the budget:
         # a validated pass is reusable under any budget, and it is already paid.

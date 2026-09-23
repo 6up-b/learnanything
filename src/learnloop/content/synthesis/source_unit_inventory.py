@@ -38,7 +38,7 @@ from typing import Any, Callable, Mapping
 from learnloop.clock import Clock
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.ai.execution import content_key, generation_limit, model_settings
-from learnloop.ai.usage import snapshot_client_usage
+from learnloop.ai.usage import UsageMeter
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
     SourceUnitInventory,
@@ -743,18 +743,17 @@ def execute_prepared_inventory(
         else:
             if remaining_output is not None and remaining_output <= 0:
                 raise InventoryValidationError("inventory output budget exhausted before the next window")
-            before = snapshot_client_usage(client)
+            meter = UsageMeter(client)
             with generation_limit(remaining_output):
                 raw = request_source_unit_inventory(client, context)
-            after = snapshot_client_usage(client)
-            usage["input_tokens_estimate"] += max(1, len(source_unit_inventory_prompt(context)) // _CHARS_PER_TOKEN, after.input_tokens - before.input_tokens)
+            usage["input_tokens_estimate"] += max(1, len(source_unit_inventory_prompt(context)) // _CHARS_PER_TOKEN, meter.reported().input_tokens)
             assigned = assign_deterministic_ids(raw, unit_id=prepared.unit_id, window_ordinal=window["window_ordinal"])
             assigned.semantic_hash = prepared.semantic_hash
             usage["calls"] += 1
         validate_inventory(assigned, set(prepared.valid_span_ids))
         window_tokens = max(1, len(assigned.model_dump_json()) // _CHARS_PER_TOKEN)
         if not cached:
-            window_tokens = max(window_tokens, after.output_tokens - before.output_tokens)
+            window_tokens = meter.output_charge(window_tokens)
         # Save before the budget check. The key does not include the budget:
         # a window that validated is reusable whatever budget the retry runs
         # under, and it has already been paid for.
