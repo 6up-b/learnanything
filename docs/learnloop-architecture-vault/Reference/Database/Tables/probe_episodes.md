@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 163
+schema_head: 164
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -29,7 +29,6 @@ source_paths:
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
-  - "src/learnloop/curriculum/depth_rungs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -127,6 +126,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
@@ -146,7 +146,6 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/state_signals.py`
 - `src/learnloop/sim/diagnostic_validation.py`
 - `src/learnloop/substrate/canonical_projection.py`
-- `src/learnloop/substrate/state_sync.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -154,6 +153,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_attempt_completion.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_characterization_probe_regrade.py`
@@ -172,7 +172,6 @@ Indexes and uniqueness:
 - `tests/test_probe_episodes.py`
 - `tests/test_probe_hierarchy.py`
 - `tests/test_probe_instance_generation.py`
-- `tests/test_probe_llm_instances.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

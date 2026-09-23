@@ -3,13 +3,13 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
   - "table assessment_contract_versions"
-schema_head: 163
+schema_head: 164
 table_name: "assessment_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_collection_dataset.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_measurement_corrections.py`
 

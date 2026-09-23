@@ -3,13 +3,13 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
   - "table agent_runs"
-schema_head: 163
+schema_head: 164
 table_name: "agent_runs"
 table_role: "receipt"
 functionality_status: "active"
@@ -139,6 +139,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_agent_run_tokens.py`
+- `tests/test_attempt_completion.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_migrations.py`
@@ -157,7 +158,6 @@ Indexes and uniqueness:
 - `tests/test_patch_applier.py`
 - `tests/test_practice_leakage.py`
 - `tests/test_repositories.py`
-- `tests/test_scoreboard.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

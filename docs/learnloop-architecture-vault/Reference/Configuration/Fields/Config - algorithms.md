@@ -3,9 +3,9 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
   - "[algorithms] configuration"
@@ -25,13 +25,13 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_answer_calibration_duel.py"
   - "tests/test_assessment_enforcement.py"
+  - "tests/test_attempt_completion.py"
   - "tests/test_canonical_projection_rollout.py"
   - "tests/test_causal_activity_policy.py"
   - "tests/test_causal_attribution_p2.py"
   - "tests/test_causal_factor_deferral.py"
   - "tests/test_causal_orchestrator.py"
   - "tests/test_causal_p2_acceptance.py"
-  - "tests/test_causal_probe_commissioning.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `algorithms.algorithm_version` | `"mvp-0.9"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/attempts/attempts.py:1603`; `src/learnloop/attempts/measurement_corrections.py:243` |
+| `algorithms.algorithm_version` | `"mvp-0.9"` | string | explicit template decision | Pins the replay/defaults namespace so historical evidence is interpreted by the algorithm that produced it. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:18`; `src/learnloop/attempts/attempts.py:1758`; `src/learnloop/attempts/measurement_corrections.py:243` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -66,13 +66,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_assessment_enforcement.py`
+- `tests/test_attempt_completion.py`
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_attribution_p2.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_p2_acceptance.py`
-- `tests/test_causal_probe_commissioning.py`
 
 ## Extension and modification guidance
 

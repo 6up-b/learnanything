@@ -3,13 +3,13 @@ title: "practice_item_quality_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_quality_state"
   - "table practice_item_quality_state"
-schema_head: 163
+schema_head: 164
 table_name: "practice_item_quality_state"
 table_role: "derived"
 functionality_status: "active"

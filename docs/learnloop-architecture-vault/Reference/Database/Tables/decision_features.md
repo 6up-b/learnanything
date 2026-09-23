@@ -3,13 +3,13 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
   - "table decision_features"
-schema_head: 163
+schema_head: 164
 table_name: "decision_features"
 table_role: "receipt"
 functionality_status: "active"
@@ -40,7 +40,7 @@ tags:
 
 ## Why it exists
 
-Gives decision feature a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `decision_type`, `algorithm_version`, making the operational relationship explicit. ^table-purpose
+Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `decision_type`, `algorithm_version`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
 > Training-dataset logging (spec_training_dataset_architecture.md §3.2, §3.3). Makes the scheduler decision log trainable by (1) freezing the decision-time feature inputs that are otherwise recomputed live, and (2) recording the selection propensity needed for off-policy estimation. No live algorithm behavior changes; these are append-only logging additions. (§3.2) Frozen decision-time feature snapshots. decision_id is a soft reference whose target table depends on decision_type: 'selection' -> scheduler_slate_candidates.id, 'probe' -> elicitation_events.id, 'grading' -> practice_attempts.id. No FK: the application validates the reference, matching the soft-reference convention.

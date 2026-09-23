@@ -3,9 +3,9 @@ title: "Config - tutor_promotion"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_promotion"
   - "[tutor_promotion] configuration"
@@ -49,7 +49,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `tutor_promotion.gap_declaration_solid_likelihood_ratio` | `0.35` | number | modeled default or validator seed | Sets the gap declaration solid likelihood ratio used by promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:596`; `src/learnloop/tutor/question_signal.py:175` |
 | `tutor_promotion.gap_declaration_likelihood_min_samples` | `12` | integer | modeled default or validator seed | Controls gap declaration likelihood min samples in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:597`; `src/learnloop/tutor/question_signal.py:193` |
 | `tutor_promotion.gap_need_ttl_days` | `21` | integer | modeled default or validator seed | Sets the gap need time-to-live duration in days for promotion of learner questions into claims, needs, and practice. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:598`; `src/learnloop/content/authoring/practice_generation.py:599` |
-| `tutor_promotion.requested_items_per_session` | `1` | integer | modeled default or validator seed | Controls requested items per session in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:599`; `src/learnloop/scheduling/scheduler.py:492` |
+| `tutor_promotion.requested_items_per_session` | `1` | integer | modeled default or validator seed | Controls requested items per session in promotion of learner questions into claims, needs, and practice, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:599`; `src/learnloop/scheduling/scheduler.py:504` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
