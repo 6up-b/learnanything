@@ -152,6 +152,7 @@ Fixed:
 
 - **Split families.** Families join through item, learning object, contract blueprint, evidence-fingerprint source family and shared stimulus, and cited source spans. `surface_family` never joins them.
 - **Split eligibility.** Only human attempts with content provenance set cutoffs and occupy buckets. The export field is `content_provenance`.
+- **Split policy.** The learning object stratifies the default split and does not group it. `dataset-export --split-policy` chooses between `temporal` (default) and `content`, and the manifest records `split_policy`, `split_parameters` and the claim each policy supports. `temporal` splits each learning object's own history 70/15/15 by time and labels a held-out attempt less than `--embargo` (a duration, default `7d`) after that learning object's last training attempt `quarantined_embargo`; it supports forecasting a known learner on practised content, and items sharing a stimulus or blueprint can cross its cutoffs. `content` is the family policy above, for generalization to unseen content. The export's data-quality report names the policy next to its split counts.
 - **Atomic export.** Artifacts are hashed while written and fsynced, and the manifest is published by atomic rename. A failed export removes its directory.
 - **Evidence references.** They resolve through the table's single-column primary key, so `submission_intents` and `scheduler_offer_receipts` can be cited.
 - **CLI.** `adjudicate-remediation` opens the vault through the locked opener. Bad input exits 1 with a one-line message.
@@ -165,6 +166,8 @@ Fixed:
 |---|---:|---:|---:|---:|
 | Before | 2 | 0 | 63 | 7 |
 | After | 6 | 23 | 47 | 0 |
+
+Those are `content` counts. On the same copy, `temporal` gives 45 train, 10 validation and 15 test with `--embargo 0`, and 45 train, 1 validation, 3 test and 21 embargoed with `--embargo 1d`. The fixture spans 5.6 days, so the default `7d` embargo quarantines all 25 held-out rows.
 
 The SQLite benchmark was re-run on 2026-09-23 on btrfs:
 
@@ -332,7 +335,6 @@ All four vault validators pass at the head of the documentation branch.
 
 **Collection**
 
-- A single-learner vault can have no validation or test rows; whether the learning object should group or only stratify the split is undecided.
 - `doctor --data-quality` ignores `--fix-state` and `--ai` (A6).
 - `submission_intents.scheduler_candidate_id` has no partial unique index (A3).
 - Adjudication evidence need not relate to the adjudicated attempt (A4).
