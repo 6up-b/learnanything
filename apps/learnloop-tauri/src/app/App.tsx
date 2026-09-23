@@ -34,6 +34,7 @@ import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from 
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
 import { schedulerCandidateForServe, type PracticeOffer } from "./practiceOffer";
+import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { errorMessage } from "../errors";
 
@@ -1030,7 +1031,9 @@ export function App() {
             {toast}
           </div>
         ) : null}
-        <Suspense fallback={<div role="status">Loading…</div>}>{renderBody()}</Suspense>
+        <ScreenErrorBoundary resetKey={tab}>
+          <Suspense fallback={<div role="status">Loading…</div>}>{renderBody()}</Suspense>
+        </ScreenErrorBoundary>
       </TerminalFrame>
       {settingsOpen ? (
         <SettingsOverlay
