@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import learnloop.ai.routing as routing
 import pytest
-from tests.source_inventory import source_ast, source_text
+from tests.ast_cache import source_ast, source_text
 from learnloop.ai.client import make_ai_provider_client_from_profile
 from learnloop.ai.providers.codex import SdkCodexClient
 from learnloop.ai.providers.codex_http import HttpCodexClient

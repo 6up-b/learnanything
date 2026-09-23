@@ -7,7 +7,7 @@ import importlib
 import pkgutil
 import re
 from pathlib import Path
-from tests.source_inventory import source_ast, source_text, python_files
+from tests.ast_cache import source_ast, source_text, python_files
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
