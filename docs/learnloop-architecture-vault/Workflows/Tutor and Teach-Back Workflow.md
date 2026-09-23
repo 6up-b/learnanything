@@ -80,6 +80,10 @@ Manual mode cannot grade a teach-back transcript. Items requiring teach-back are
 
 Each learner answer is checkpointed before the provider asks the next question. On finish, the complete transcript is recorded as one `attempt_type = teach_back` attempt; the conversation envelope is cleared from `session_checkpoints` after the attempt is committed.
 
+The finish is a model grade. The grading call is recorded in `agent_runs`, and the attempt is applied with the grading provider's source (`ai`, or `codex` for Codex providers), so `attempt_feedback_metadata` names that source and run and the grade takes the same observation lane as a model-graded practice attempt. Replay reads the source back from that metadata.
+
+A conversation opened from a queue offer sends the offer's `scheduler_candidate_id` on `start_teach_back` and `submit_teach_back_turn`. A newly carried offer is checked with the practice rule (a returned, unconsumed offer of the same item in the same session; anything else is a `validation_error`), the first one is kept in the checkpointed conversation state, and the finished attempt is linked to it. See [[Collection and Dataset Contract#Offers and scheduler decisions]].
+
 ```mermaid
 sequenceDiagram
     participant L as Learner
@@ -107,7 +111,7 @@ Checkpoint-before-call makes an outage resumable and prevents an unrecorded answ
 - If the provider fails between questions, completed turns remain checkpointed.
 - At the failure boundary the UI can offer saved retry or, where supported, grading of the partial transcript.
 - If grading is unavailable at finish, the transcript remains saved; LearnLoop does not accept a manual criterion total for it.
-- Once an attempt is committed, retry by the same submission identity returns that result rather than adding a second teach-back observation.
+- Once an attempt is committed, retrying the finish of the same conversation (keyed by its conversation id) returns that result rather than adding a second teach-back observation.
 
 ## Observable state
 
