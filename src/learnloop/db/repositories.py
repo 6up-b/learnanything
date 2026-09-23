@@ -8497,7 +8497,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                   selection_policy, session_context_json, config_snapshot_json,
                   algorithm_version, created_at, updated_at, collection_version
                 )
-                VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 'learnloop-events-v1')
+                VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     slate_id,
@@ -8512,6 +8512,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                     algorithm_version,
                     now,
                     now,
+                    COLLECTION_VERSION,
                 ),
             )
             for rank, explanation in enumerate(rows, start=1):
@@ -16869,7 +16870,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                 attempt.get("answer_confidence"),
                 attempt.get("submission_id"),
                 1 if attempt.get("declared_dont_know") else 0,
-                attempt.get("collection_version", "learnloop-events-v1"),
+                attempt.get("collection_version", COLLECTION_VERSION),
                 attempt.get("entry_surface", "unspecified"),
                 attempt.get("evidence_origin", "unknown"),
             ),

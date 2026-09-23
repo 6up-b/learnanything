@@ -10,8 +10,12 @@ export function useCloseWithFlush(flushDraft: () => Promise<unknown>, onError: (
     let unlisten: (() => void) | undefined;
     let closing = false;
     appWindow.onCloseRequested(async (event) => {
-      if (disposed || closing) return;
+      // A listener whose screen has unmounted has no draft to save; let the window close.
+      if (disposed) return;
+      // Tauri destroys the window after any handler that does not prevent the close, so a
+      // repeated close request must also be prevented while the first flush is still pending.
       event.preventDefault();
+      if (closing) return;
       closing = true;
       try {
         await flushDraft();

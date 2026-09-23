@@ -10,7 +10,17 @@ const { api } = vi.hoisted(() => ({ api: {
   getNextProbeItem: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onCloseRequested: async () => vi.fn() }) }));
+const windowApi = vi.hoisted(() => ({
+  closeHandler: null as null | ((event: { preventDefault: () => void }) => Promise<void>),
+  destroy: vi.fn(),
+}));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
+  onCloseRequested: async (handler: (event: { preventDefault: () => void }) => Promise<void>) => {
+    windowApi.closeHandler = handler;
+    return vi.fn();
+  },
+  destroy: windowApi.destroy,
+}) }));
 vi.mock("../render/MathLiveEditor", () => ({ MathLiveEditor: (props: { value: string; onChange: (value: string) => void; disabled: boolean }) => <textarea aria-label="answer" value={props.value} disabled={props.disabled} onChange={(event) => props.onChange(event.target.value)} /> }));
 vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: () => null }));
 vi.mock("../components/ItemPresentation", () => ({ ItemPresentation: () => <p>Question</p> }));
@@ -98,4 +108,55 @@ it("keeps the old vault and restores editing if the draft save fails", async () 
   await act(async () => { await expect(selectWithDraftFlush(select)).rejects.toThrow("disk unavailable"); });
   expect(select).not.toHaveBeenCalled();
   expect(screen.getByRole("textbox", { name: "answer" })).toBeTruthy();
+});
+
+it("reloads the item when a vault switch fails while a saved-submission recovery was pending", async () => {
+  const recovery = deferred<object>();
+  api.recoverPracticeSubmission.mockReturnValue(recovery.promise);
+  render(<PracticeScreen {...props()} restoredSubmissionId="saved-key" />);
+  const selectFails = async () => {
+    await recovery.promise;
+    throw new Error("bad vault");
+  };
+  let switching!: Promise<unknown>;
+  await act(async () => { switching = selectWithDraftFlush(selectFails).catch((error: unknown) => error); });
+  await act(async () => {
+    recovery.resolve({ status: "pending", result: null });
+    await switching;
+  });
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(api.recoverPracticeSubmission).toHaveBeenCalledTimes(2);
+  expect(api.getPracticeItem).toHaveBeenCalledOnce();
+});
+
+it("mirrors the draft to App when it unmounts during a vault switch", async () => {
+  const saved = deferred<object>();
+  api.savePracticeDraft.mockReturnValue(saved.promise);
+  const callbacks = props();
+  const view = render(<PracticeScreen {...callbacks} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  fireEvent.change(screen.getByRole("textbox", { name: "answer" }), { target: { value: "newest text" } });
+  let switching!: Promise<unknown>;
+  await act(async () => { switching = selectWithDraftFlush(vi.fn()).catch((error: unknown) => error); });
+  view.unmount();
+  expect(callbacks.onDraftSaved).toHaveBeenCalledWith(expect.objectContaining({ practiceItemId: "old-item", answerMd: "newest text" }));
+  await act(async () => { saved.resolve({}); await switching; });
+});
+
+it("waits for the vault switch's pending draft save before closing the window", async () => {
+  const saved = deferred<object>();
+  api.savePracticeDraft.mockReturnValue(saved.promise);
+  render(<PracticeScreen {...props()} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  fireEvent.change(screen.getByRole("textbox", { name: "answer" }), { target: { value: "unsaved" } });
+  let switching!: Promise<unknown>;
+  await act(async () => { switching = selectWithDraftFlush(vi.fn()).catch((error: unknown) => error); });
+  const closing = windowApi.closeHandler!({ preventDefault: vi.fn() });
+  await act(async () => {});
+  expect(windowApi.destroy).not.toHaveBeenCalled();
+  await act(async () => {
+    saved.resolve({});
+    await Promise.all([switching, closing]);
+  });
+  expect(windowApi.destroy).toHaveBeenCalledOnce();
 });

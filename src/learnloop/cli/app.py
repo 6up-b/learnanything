@@ -1176,12 +1176,11 @@ def independence_audit_command(
 ) -> None:
     """Re-judge beliefs promoted on "independent surface" (augmentation §8, causal §5.6b).
 
-    Arm (b) used to count distinct authored `surface_family` strings, which is
-    the parallel notion augmentation §8 forbids; it now recomputes groups with
-    `surface_group_id`, the one primitive. This re-checks beliefs promoted under
-    the old rule. `--apply` withdraws the invalid ones as `retired_misdiagnosed`,
-    which A6 narrates to the learner in the words they were shown — but only for
-    beliefs a presentation proves they actually saw. Always exits 0.
+    Recomputes independence with `surface_group_id` (augmentation §8) and
+    re-checks beliefs promoted on authored `surface_family` strings. `--apply`
+    withdraws the invalid ones as `retired_misdiagnosed`, which A6 narrates to
+    the learner in the words they were shown — but only for beliefs a
+    presentation proves they actually saw. Always exits 0.
     """
 
     from learnloop.learner.independence_audit import (

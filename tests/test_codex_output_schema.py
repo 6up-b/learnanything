@@ -453,11 +453,11 @@ _STRICT_SUPPORTED_KEYWORDS = {
 
 @pytest.mark.parametrize("model", _public_schema_models(), ids=lambda model: model.__name__)
 def test_every_codex_schema_uses_only_strict_supported_keywords(model):
-    """Guard every schema, not the three that happened to get hand-written tests.
+    """Every public wire schema stays inside the strict structured-output subset.
 
-    A discriminated union shipped `oneOf`/`discriminator` into GradingProposal
-    and broke every grading call at request time; the per-model tests below all
-    passed because none of them looked for composition keywords.
+    Strict structured output rejects any keyword outside this set (for example
+    `oneOf`/`discriminator`) at request time, and every object must close
+    `additionalProperties` and require all of its properties.
     """
 
     schema = strict_output_schema(model)
@@ -605,12 +605,11 @@ def test_trace_recipe_dependencies_travel_as_pairs():
 
 
 def test_undeclared_wire_field_is_rejected_by_name():
-    """The regression that would have caught F2 at authoring time.
+    """An undeclared provider field fails validation and names itself.
 
-    ``RubricCriterionPayload`` had no ``targets`` field; a provider that emitted
-    one had it deleted at validation with no error from either side, and the
-    resulting "an item can only ever fill one column" defect read as a design
-    decision for 43 attempts. An undeclared field must now name itself.
+    Silently dropping an unknown field (for example ``targets`` on
+    ``RubricCriterionPayload``) would discard provider output with no error
+    from either side, so the defect would look like a design decision.
     """
 
     with pytest.raises(ValidationError) as excinfo:
@@ -766,8 +765,8 @@ def _logged_event(records, event: str) -> dict:
 # --- outbound half of the same defect ---------------------------------------
 #
 # `WireModel` closes the INBOUND direction: a provider field the schema does not
-# declare is now an error instead of a silent drop. The prompt/context pair is
-# the same defect one level up and in the other direction. Every prompt builder
+# declare is an error. The prompt/context pair is the same defect one level up
+# and in the other direction. Every prompt builder
 # ships `asdict(context)` beside prose that names `context.<field>`; the prose
 # is a plain string, so a field removed from (or renamed on) the dataclass
 # leaves the instruction referring to a key that is no longer in the payload.

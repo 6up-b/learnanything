@@ -398,3 +398,26 @@ def test_grading_fallback_still_bills_the_failed_run(tmp_path):
     run = repository.agent_run(result.agent_run_id)
     assert run["status"] == "failed"
     assert (run["actual_input_tokens"], run["actual_output_tokens"]) == (2400, 310)
+
+
+def test_usage_readers_leave_the_open_receipt_alone():
+    """Reading usage is pure; recording it on a receipt is an explicit call."""
+
+    from learnloop.ai.execution import model_call, observe_model_calls, report_call_usage
+    from learnloop.ai.usage import receipt_fields_from_chat_response
+
+    response = {"id": "r1", "usage": {"prompt_tokens": 7, "completion_tokens": 3}, "choices": []}
+    finished = []
+
+    def observer(action, event):
+        if action == "finish":
+            finished.append(event)
+
+    with observe_model_calls(observer):
+        with model_call(types.SimpleNamespace(), purpose="read_only"):
+            assert usage_from_chat_response(response) == (7, 3)
+        with model_call(types.SimpleNamespace(), purpose="recorded"):
+            report_call_usage(receipt_fields_from_chat_response(response))
+
+    assert "input_tokens" not in finished[0]
+    assert (finished[1]["input_tokens"], finished[1]["output_tokens"], finished[1]["provider_response_id"]) == (7, 3, "r1")

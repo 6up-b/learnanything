@@ -544,6 +544,41 @@ def test_cached_generation_resumes_apply_after_failure_without_new_model_calls(t
     assert "facet_symmetry_definition" in load_vault(root).evidence_facets
 
 
+def test_exam_prep_apply_creates_goal_wired_to_applied_facets(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    result = create_study_map(
+        root, "set_la", client=FakeSynthesisClient(), brief={"outcome": "exam"},
+        repository=repo, clock=_CLOCK, apply=True, create_goal=True,
+    )
+
+    assert result.applied is True
+    assert result.goal_id is not None
+    goal = next(goal for goal in load_vault(root).goals if goal.id == result.goal_id)
+    assert set(goal.facet_scope.facets) == {"facet_symmetry_definition", "facet_spectral_applicability"}
+
+
+def test_cached_generation_resume_creates_goal_without_new_model_calls(tmp_path, monkeypatch):
+    from learnloop.content.proposals import patches
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = FakeSynthesisClient()
+    original = patches.apply_accepted_items
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("interrupted apply")
+    monkeypatch.setattr(patches, "apply_accepted_items", interrupted)
+    with pytest.raises(RuntimeError, match="interrupted apply"):
+        create_study_map(root, "set_la", client=client, brief={"outcome": "exam"},
+                         repository=repo, clock=_CLOCK, apply=True, create_goal=True)
+    paid_calls = len(client.calls)
+    monkeypatch.setattr(patches, "apply_accepted_items", original)
+
+    result = create_study_map(root, "set_la", client=client, brief={"outcome": "exam"},
+                              repository=repo, clock=_CLOCK, apply=True, create_goal=True)
+
+    assert result.reused and result.applied
+    assert len(client.calls) == paid_calls
+    assert [goal.id for goal in load_vault(root).goals] == [result.goal_id]
+
+
 def test_evidence_pass_retry_reuses_first_paid_pass(tmp_path):
     from learnloop.ai.errors import AITurnTimeout
     root, repo = _setup(tmp_path, with_exam=False)
@@ -565,9 +600,56 @@ def test_evidence_pass_retry_reuses_first_paid_pass(tmp_path):
 def test_complete_base_request_budget_is_checked_before_paying(tmp_path):
     root, repo = _setup_two_chapters(tmp_path)
     client = FakeSynthesisClient()
-    with pytest.raises(StudyMapError, match="ceiling"):
+    with pytest.raises(StudyMapError, match="ceiling") as exc:
         create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, budget_overrides={"synthesis_total_input_ceiling": 1})
     assert client.calls == []
+    assert "Narrow the source scope" in str(exc.value)
+
+
+def test_non_ascii_output_is_charged_by_characters_not_escapes(tmp_path):
+    from learnloop.content.synthesis.ai_contracts import SourceSetSynthesisContext
+    from learnloop.content.synthesis.source_set_synthesis import _result_tokens
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    summary = "∑ α β γ 特征向量 " * 400
+
+    def builder(context, _n):
+        return _default_payload(context).model_copy(update={"summary": summary})
+
+    payload = builder(SourceSetSynthesisContext(
+        source_set_id="s", subject_id="s", mode="bootstrap", brief={}, unit_inventories=[],
+        exam_profile={}, registry_index={}, resolved_spans=[], shard_ordinal=0, shard_count=1,
+    ), 1)
+    unescaped_tokens = len(json.dumps(payload.model_dump(mode="json"), ensure_ascii=False)) // 4
+    escaped_tokens = len(json.dumps(payload.model_dump(mode="json"))) // 4
+    assert _result_tokens(payload) == unescaped_tokens
+    budget = unescaped_tokens + 200
+    assert escaped_tokens > budget
+
+    result = create_study_map(
+        root, "set_la", client=FakeSynthesisClient(builder=builder), repository=repo, clock=_CLOCK,
+        budget_overrides={"synthesis_shard_output_tokens": budget, "synthesis_output_tokens": budget},
+    )
+
+    assert result.proposal_id is not None
+
+
+def test_over_budget_pass_is_checkpointed_and_reused_under_a_larger_budget(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+
+    def builder(context, _n):
+        return _default_payload(context).model_copy(update={"summary": "long summary " * 400})
+
+    client = FakeSynthesisClient(builder=builder)
+    with pytest.raises(StudyMapError, match="exceeded its output budget"):
+        create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK,
+                         budget_overrides={"synthesis_shard_output_tokens": 100})
+    assert len(client.calls) == 1
+
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK)
+
+    assert result.proposal_id is not None
+    assert len(client.calls) == 1
 
 
 def test_legacy_vault_acceptance_refused(tmp_path):
@@ -730,8 +812,8 @@ def test_cross_shard_same_title_concepts_consolidate_deterministically(tmp_path)
     assert result.item_counts["concept"] == 1
     # Plan item 5.4 / Meas D2: the two shards emit byte-identical facets, so the
     # mint gate aliases shard 2's copies into shard 1's rather than minting 4 rows
-    # for 2 atoms. This assertion used to read 4 — that was the near-duplicate
-    # firehose D2 exists to stop, visible here at its smallest scale.
+    # for 2 atoms: the near-duplicate firehose D2 exists to stop, at its
+    # smallest scale.
     assert result.item_counts["facet"] == 2
     aliased = [
         d for d in result.gate_diagnostics
@@ -929,6 +1011,28 @@ def test_revalidate_saved_candidate_completes_without_model(tmp_path, monkeypatc
     assert run["actual_usage"]["revalidations"] == 1
     applied = load_vault(root)
     assert "facet_symmetry_definition" in applied.evidence_facets
+
+
+def test_revalidation_creates_the_exam_goal_from_the_manifest_brief(tmp_path, monkeypatch):
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
+
+    root, repo = _setup(tmp_path, with_exam=False)
+
+    def explode(self, batch, rows):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(Repository, "persist_proposal_batch", explode)
+    with pytest.raises(RuntimeError, match="disk full"):
+        create_study_map(root, "set_la", client=FakeSynthesisClient(), brief={"outcome": "exam"},
+                         repository=repo, clock=_CLOCK)
+    monkeypatch.undo()
+    with repo.connection() as connection:
+        run_id = connection.execute("SELECT id FROM synthesis_runs ORDER BY created_at DESC, id DESC LIMIT 1").fetchone()["id"]
+
+    result = revalidate_synthesis_candidate(root, run_id, apply=True, create_goal=True, repository=repo, clock=_CLOCK)
+
+    assert result.applied is True and result.goal_id is not None
+    assert [goal.id for goal in load_vault(root).goals] == [result.goal_id]
 
 
 def test_revalidate_requires_a_preserved_candidate(tmp_path):
@@ -1138,10 +1242,9 @@ def test_integration_below_coordination_is_kept_silently(tmp_path):
 def test_integration_capability_has_no_schema_default():
     """Absence must be representable — on EVERY slot, not only integration.
 
-    The parse-time `retrieval` default on ordinary components made "the model
-    did not choose" unobservable (a defaulted capability is a contract cell
-    nobody authored); normalization now defaults it WITH a review diagnostic
-    instead of pydantic defaulting it silently."""
+    A parse-time default would make "the model did not choose" unobservable (a
+    defaulted capability is a contract cell nobody authored); normalization
+    defaults it WITH a review diagnostic instead."""
     assert SynthIntegrationComponent().capability is None
     assert SynthRecipeComponent().capability is None
     assert SynthCriterionTarget().capability is None

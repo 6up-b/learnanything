@@ -1,7 +1,6 @@
 """Codex SDK structured transport and runtime integration."""
 
 from __future__ import annotations
-from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit
 
 import json
 import logging
@@ -39,7 +38,8 @@ from learnloop.ai.schemas import (
 )
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.transport import INTERRUPT, STRUCTURED_COMPLETION, StructuredRequest
-from learnloop.ai.usage import TokenUsageAccounting, usage_from_codex_turn
+from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
+from learnloop.ai.usage import TokenUsageAccounting, UsageMeter, receipt_fields_from_codex_turn, usage_from_codex_turn
 from learnloop.config import AIProviderConfig, CodexConfig
 
 # Keep the established logger name while legacy imports are shims.
@@ -173,7 +173,7 @@ class SdkCodexClient(TokenUsageAccounting):
             nonlocal remaining
             if remaining is not None and remaining <= 0:
                 raise AIOutputTruncated("No generation budget remains for Codex JSON repair.")
-            before = self.snapshot_usage()
+            meter = UsageMeter(self)
             result = None
             try:
                 with generation_limit(remaining):
@@ -181,9 +181,8 @@ class SdkCodexClient(TokenUsageAccounting):
                 return result
             finally:
                 if remaining is not None:
-                    reported = self.snapshot_usage().output_tokens - before.output_tokens
                     estimate = max(1, (len(result) + 3) // 4) if result is not None else 0
-                    remaining = max(0, remaining - max(reported, estimate))
+                    remaining = max(0, remaining - meter.output_charge(estimate))
 
         try:
             text = run_turn(prompt, turn_purpose=purpose)
@@ -368,6 +367,7 @@ class SdkCodexClient(TokenUsageAccounting):
         # deadline/interrupt/empty-response checks below. A turn the learner
         # interrupted or that timed out still burned tokens, and a cost meter
         # that only counts clean completions understates every ratio built on it.
+        report_call_usage(receipt_fields_from_codex_turn(result))
         self.record_token_usage(*usage_from_codex_turn(result))
 
         if self._deadline_expired.is_set():
