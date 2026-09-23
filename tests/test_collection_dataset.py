@@ -12,6 +12,7 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
+from learnloop.db.storage import header_journal_mode
 from learnloop.outcome_contract import COLLECTION_VERSION, retention_exclusions
 from learnloop.scheduling.scheduler import SELECTION_FEATURE_SCHEMA, SchedulerSession, build_due_queue
 from learnloop.scheduling.selection_rewards import item_demand_vector
@@ -461,7 +462,7 @@ def test_production_lane_and_live_backup_preserve_committed_state(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     connection = connect(paths.sqlite_path)
     assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2
-    assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+    assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     connection.execute("CREATE TABLE backup_pair(id INTEGER PRIMARY KEY, value INTEGER)")
     connection.executemany("INSERT INTO backup_pair VALUES (?,0)", [(1,), (2,)])
     connection.commit()
@@ -494,6 +495,8 @@ def test_production_lane_and_live_backup_preserve_committed_state(tmp_path):
         values = [row[0] for row in snapshot.execute("SELECT value FROM backup_pair")]
         assert values[0] == values[1]
         assert snapshot.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+    assert header_journal_mode(tmp_path / "live-export" / "snapshot.sqlite") == "rollback"
+    assert sorted(path.name for path in (tmp_path / "live-export").glob("snapshot.sqlite*")) == ["snapshot.sqlite"]
 
 
 def test_export_preserves_censored_repair_disposition_as_distinct_from_failure(tmp_path):

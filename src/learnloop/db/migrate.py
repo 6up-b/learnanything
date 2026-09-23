@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -15,6 +16,15 @@ _FOREIGN_KEYS_OFF_RE = re.compile(
     r"^\s*PRAGMA\s+foreign_keys\s*=\s*OFF\s*;?\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
+
+# SQLite files that belong to a database named ``<name>``.  Beside a missing
+# database they are orphans, and SQLite would replay an orphaned ``-wal`` or
+# hot ``-journal`` into a new database created under the same name.
+_COMPANION_SUFFIXES = ("-wal", "-shm", "-journal")
+
+
+class JournalModeSwitchError(RuntimeError):
+    """The database could not be moved to WAL, so its journal mode is unchanged."""
 
 
 @dataclass(frozen=True)
@@ -43,7 +53,7 @@ def applied_versions(sqlite_path: Path) -> set[int]:
     sqlite_path = Path(sqlite_path)
     if not sqlite_path.exists():
         return set()
-    with connect(sqlite_path, read_only=True) as connection:
+    with closing(connect(sqlite_path, read_only=True)) as connection:
         exists = connection.execute(
             "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'schema_migrations'"
         ).fetchone()
@@ -63,13 +73,50 @@ def apply_migrations(
         return _apply_fresh(sqlite_path, migrations, clock)
     already_applied = applied_versions(sqlite_path)
     applied: list[Migration] = []
-    with connect(sqlite_path) as connection:
+    # Closed explicitly: an open WAL connection holds the database open, and a
+    # later exclusive operation in this process must not wait for the garbage
+    # collector to release it.
+    with closing(connect(sqlite_path)) as connection:
+        switch_to_wal(connection, sqlite_path)
         for migration in migrations:
             if migration.version in already_applied:
                 continue
             if _apply_incremental_migration(connection, migration, clock):
                 applied.append(migration)
     return applied
+
+
+def switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> None:
+    """Move a database to WAL journal mode once; a no-op when it is already WAL.
+
+    The journal mode lives in the database header, so this is a one-way upgrade
+    of the file rather than a connection setting.  Leaving a rollback journal
+    needs an exclusive lock: an idle connection elsewhere does not prevent it,
+    but one holding a read or write transaction does, and SQLite then reports
+    "database is locked" after the busy timeout.  Either failure raises with
+    the header unchanged, so the file is never left in an ambiguous mode.
+    """
+
+    current = str(connection.execute("PRAGMA journal_mode").fetchone()[0]).lower()
+    if current == "wal":
+        return
+    if connection.in_transaction:
+        raise JournalModeSwitchError(
+            f"cannot switch {sqlite_path} to WAL inside an open transaction"
+        )
+    try:
+        reported = str(connection.execute("PRAGMA journal_mode = WAL").fetchone()[0]).lower()
+    except sqlite3.OperationalError as error:
+        raise JournalModeSwitchError(
+            f"could not switch {sqlite_path} from {current} to WAL journal mode: "
+            f"another connection holds a transaction on it ({error}). Close other "
+            "LearnLoop processes using this vault and retry."
+        ) from error
+    if reported != "wal":
+        raise JournalModeSwitchError(
+            f"SQLite kept {sqlite_path} in {reported} journal mode; WAL needs a "
+            "local filesystem with shared-memory support"
+        )
 
 
 def _apply_incremental_migration(
@@ -175,18 +222,23 @@ def _apply_fresh(sqlite_path: Path, migrations: list[Migration], clock: Clock | 
     """Create a brand-new database with every migration, fast and atomically.
 
     ``executescript`` autocommits statement groups, so building a fresh schema
-    the durable way pays a rollback-journal create/delete plus an fsync per
-    migration — on Windows (where fsync is slow and on-access antivirus scans
-    every file operation) that made each vault creation take ~17s vs ~0.3s on
-    Linux. A FRESH database needs none of that durability: build it under a
-    temp name with the journal in memory and syncing off, fsync the finished
-    file once, and atomically rename into place. Existing databases (real
-    vault upgrades) keep the fully durable incremental path above; a crash
-    mid-creation leaves only a ``.tmp`` that the next attempt replaces."""
+    the durable way pays a journal write and an fsync per migration.  On
+    Windows, where fsync is slow and on-access antivirus scans every file
+    operation, that made each vault creation take about 17 s against 0.3 s on
+    Linux.  A fresh database needs none of that durability: it is built under
+    a temporary name with the journal in memory and syncing off, and a crash
+    mid-creation leaves only a ``.tmp`` that the next attempt replaces.
+
+    The finished build is switched to WAL on the same connection and that
+    connection is closed before the rename.  Closing the only connection of a
+    WAL database checkpoints it and deletes its ``-wal`` and ``-shm``, so the
+    renamed file is a complete WAL-mode database with no companion files and
+    there is no moment at which a WAL header and a ``-wal`` from different
+    files sit side by side.  The file is fsynced once and renamed into place.
+    """
 
     tmp_path = sqlite_path.with_name(sqlite_path.name + ".tmp")
-    if tmp_path.exists():
-        tmp_path.unlink()
+    _remove_companion_files(tmp_path, include_database=True)
     applied: list[Migration] = []
     connection = connect(tmp_path)
     try:
@@ -200,9 +252,29 @@ def _apply_fresh(sqlite_path: Path, migrations: list[Migration], clock: Clock | 
             )
             applied.append(migration)
         connection.commit()
+        switch_to_wal(connection, tmp_path)
     finally:
         connection.close()
+    live_companions = _existing_companion_files(tmp_path)
+    if live_companions:
+        names = ", ".join(path.name for path in live_companions)
+        raise RuntimeError(f"fresh database {tmp_path} still has companion files after close: {names}")
     with open(tmp_path, "rb+") as handle:
         os.fsync(handle.fileno())
+    _remove_companion_files(sqlite_path, include_database=False)
     tmp_path.replace(sqlite_path)
     return applied
+
+
+def _existing_companion_files(sqlite_path: Path) -> list[Path]:
+    candidates = (sqlite_path.with_name(sqlite_path.name + suffix) for suffix in _COMPANION_SUFFIXES)
+    return [path for path in candidates if path.exists()]
+
+
+def _remove_companion_files(sqlite_path: Path, *, include_database: bool) -> None:
+    """Delete companions of a database that does not exist (or is being replaced)."""
+
+    if include_database and sqlite_path.exists():
+        sqlite_path.unlink()
+    for companion in _existing_companion_files(sqlite_path):
+        companion.unlink()

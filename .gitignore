@@ -198,6 +198,11 @@ cython_debug/
 #/state.sqlite
 #/state.sqlite-*
 
+# SQLite WAL companions of any database (ADR-015): they exist only while a
+# connection is open and are never meaningful without their live database.
+*.sqlite-wal
+*.sqlite-shm
+
 # Local audit/scratch vaults
 /.audit_tmp_*/
 /.tmp_*/
