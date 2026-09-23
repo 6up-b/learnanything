@@ -32,11 +32,13 @@ this same object.
 
 from __future__ import annotations
 
+import logging
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.ai.transport import interrupt_callback
@@ -58,6 +60,13 @@ CHECKPOINT_LADDER: tuple[str, ...] = (
 
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 _UNFINISHED_STATUSES = frozenset({"failed", "blocked", "cancelled"})
+
+_LOG = logging.getLogger(__name__)
+
+# After a failed heartbeat (typically "database is locked" behind a long
+# writer) the next attempt comes sooner than the regular interval, so one
+# failure costs seconds of lease rather than a whole interval.
+_HEARTBEAT_RETRY_SECONDS = 1.0
 
 
 def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
@@ -394,6 +403,46 @@ class JobSpec:
     depends_on: tuple[int, ...] = ()
 
 
+class _LiveAttempts:
+    """Job attempts whose handler is executing in this process.
+
+    A lease exists to detect a dead worker. While the thread running an attempt
+    is alive in this process the attempt is not dead, however old its
+    heartbeat is (a suspended laptop, a heartbeat stuck behind a long writer).
+    Recovery in this process consults the registry so it never fails work this
+    process is still doing. Other processes cannot see it and rely on the
+    lease alone.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._attempts: set[tuple[Path, str, str, int]] = set()
+
+    @contextmanager
+    def running(
+        self, database: Path, job_id: str, worker_id: str, attempt_count: int
+    ) -> Iterator[None]:
+        key = (database, job_id, worker_id, attempt_count)
+        with self._lock:
+            self._attempts.add(key)
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._attempts.discard(key)
+
+    def contains(
+        self, database: Path, job_id: str, worker_id: str | None, attempt_count: int
+    ) -> bool:
+        if worker_id is None:
+            return False
+        with self._lock:
+            return (database, job_id, worker_id, attempt_count) in self._attempts
+
+
+_LIVE_ATTEMPTS = _LiveAttempts()
+
+
 # ---------------------------------------------------------------------------
 # The runner
 # ---------------------------------------------------------------------------
@@ -421,8 +470,13 @@ class IngestRunner:
             **dict(handlers or {}),
         }
         self.services = services or RunnerServices()
+        # The heartbeat thread renews the lease every interval and retries a
+        # failed renewal after _HEARTBEAT_RETRY_SECONDS, so with the defaults
+        # a lease survives several consecutive failed renewals. Provider call
+        # length does not matter: renewal runs beside the handler.
         self.lease_ttl_seconds = lease_ttl_seconds
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
+        self._database = Path(repo.sqlite_path).resolve()
         self._interrupt_lock = threading.RLock()
         self._active_interrupts: dict[str, Callable[[], Any]] = {}
 
@@ -524,6 +578,10 @@ class IngestRunner:
         cutoff = self._lease_cutoff_iso()
         recovered: list[str] = []
         for job in self.repo.expired_running_ingest_jobs(cutoff):
+            if _LIVE_ATTEMPTS.contains(
+                self._database, job["id"], job.get("worker_id"), job["attempt_count"]
+            ):
+                continue
             changed = self.repo.finish_ingest_job(
                 job["id"],
                 status="failed",
@@ -581,7 +639,10 @@ class IngestRunner:
             )
         if job is None:
             return False
-        self._run_claimed(job)
+        with _LIVE_ATTEMPTS.running(
+            self._database, job["id"], self.worker_id, job["attempt_count"]
+        ):
+            self._run_claimed(job)
         return True
 
     def drain(
@@ -803,16 +864,28 @@ class IngestRunner:
         self._refresh_batch(batch_id)
 
     def _heartbeat_while_running(self, job_id: str, stop: threading.Event, attempt_count: int | None = None) -> None:
-        """Keep a blocking extractor/LLM stage's lease alive until it returns."""
+        """Keep a blocking extractor/LLM stage's lease alive until it returns.
+
+        A failed renewal is logged and retried; only a definitive ownership
+        loss ends the loop, because a dead heartbeat thread would let the
+        lease expire under a handler that is still working.
+        """
 
         interval = max(0.01, self.heartbeat_interval_seconds)
-        while not stop.wait(interval):
-            owned = self.repo.heartbeat_ingest_job(
-                job_id,
-                worker_id=self.worker_id,
-                attempt_count=attempt_count,
-                clock=self.clock,
-            )
+        wait_seconds = interval
+        while not stop.wait(wait_seconds):
+            try:
+                owned = self.repo.heartbeat_ingest_job(
+                    job_id,
+                    worker_id=self.worker_id,
+                    attempt_count=attempt_count,
+                    clock=self.clock,
+                )
+            except Exception:  # noqa: BLE001 - renewal must outlive transient DB errors
+                _LOG.warning("Lease renewal for ingest job %s failed; retrying", job_id, exc_info=True)
+                wait_seconds = min(interval, _HEARTBEAT_RETRY_SECONDS)
+                continue
+            wait_seconds = interval
             if not owned:
                 # Stop only this runner's transport. Cancelling the batch here
                 # would cancel the replacement owner's valid work as well.

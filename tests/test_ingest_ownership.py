@@ -102,3 +102,63 @@ def test_fast_restart_reconciles_later_expiry_without_replacing_live_work(tmp_pa
         host._runner.resume_batch(batch)
         assert host.drain_foreground() == 1
         assert runner.repo.get_ingest_job(claimed['id'])['status'] == 'completed'
+
+
+def test_heartbeat_keeps_renewing_after_a_transient_database_error(tmp_path, monkeypatch):
+    import sqlite3
+    import threading
+
+    from learnloop.content.pipeline.runner import IngestRunner
+
+    repo = Repository(tmp_path / 'state.sqlite')
+    renewals_after_failure = threading.Event()
+    attempts = []
+    original = repo.heartbeat_ingest_job
+
+    def flaky_heartbeat(job_id, **kwargs):
+        attempts.append(job_id)
+        if len(attempts) == 1:
+            raise sqlite3.OperationalError('database is locked')
+        if len(attempts) >= 3:
+            renewals_after_failure.set()
+        return original(job_id, **kwargs)
+
+    monkeypatch.setattr(repo, 'heartbeat_ingest_job', flaky_heartbeat)
+
+    def long_provider_call(ctx):
+        # No ctx.report() here: only the heartbeat thread renews the lease.
+        assert renewals_after_failure.wait(5), 'heartbeat stopped after one failed renewal'
+        return {}
+
+    runner = IngestRunner(
+        repo, vault_root=tmp_path, worker_id='w', clock=_clock(0),
+        handlers={'fake': long_provider_call}, heartbeat_interval_seconds=0.01,
+    )
+    batch = runner.enqueue_batch('import', [JobSpec('fake')])
+    runner.drain()
+    assert repo.ingest_jobs_for_batch(batch)[0]['status'] == 'completed'
+
+
+def test_recovery_in_the_same_process_never_fails_a_live_attempt(tmp_path):
+    import threading
+
+    outcome = {}
+
+    def long_provider_call(ctx):
+        # Another lane of this process runs recovery long after the lease
+        # expired; no heartbeat renewed it in between.
+        other_lane = _runner(tmp_path, worker_id=ctx.worker_id, clock=_clock(600), handlers={})
+        lane = threading.Thread(target=lambda: outcome.update(recovered=other_lane.recover_stale_leases()))
+        lane.start()
+        lane.join()
+        ctx.repo.update_ingest_job_payload(ctx.job_id, {'published': True})
+        return {}
+
+    runner = _runner(tmp_path, handlers={'fake': long_provider_call})
+    runner.heartbeat_interval_seconds = 3600
+    batch = runner.enqueue_batch('import', [JobSpec('fake')])
+    runner.drain()
+    job = runner.repo.ingest_jobs_for_batch(batch)[0]
+    assert outcome['recovered'] == []
+    assert job['status'] == 'completed'
+    assert job['payload'] == {'published': True}
