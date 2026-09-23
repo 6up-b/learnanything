@@ -44,6 +44,10 @@ packages = ["src/learnloop", "src/learnloop_sidecar"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = ["--strict-markers"]
+markers = [
+  "durability: use production SQLite durability and fresh vault construction for the test and every fixture it first builds",
+]
 
 [dependency-groups]
 dev = [

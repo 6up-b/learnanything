@@ -15,11 +15,24 @@ from tempfile import TemporaryDirectory
 import threading
 import time
 
+# A busy failure is an operation that waited this long for the lock and then
+# gave up, so every counted failure is a stall of the full timeout.
+BUSY_TIMEOUT_SECONDS = 5
+
+
+def _percentiles(elapsed: list[float]) -> dict:
+    ordered = sorted(elapsed)
+    return {
+        "p50_ms": ordered[len(ordered) // 2],
+        "p95_ms": ordered[min(len(ordered) - 1, int(len(ordered) * 0.95))],
+        "max_ms": ordered[-1],
+    }
+
 
 def benchmark(directory: Path, mode: str, iterations: int) -> dict:
     path = directory / f"{mode}.sqlite"
     def connect():
-        connection = sqlite3.connect(path, timeout=5)
+        connection = sqlite3.connect(path, timeout=BUSY_TIMEOUT_SECONDS)
         connection.execute("PRAGMA synchronous=FULL")
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
@@ -55,20 +68,39 @@ def benchmark(directory: Path, mode: str, iterations: int) -> dict:
                 elapsed.append((time.perf_counter() - started) * 1000)
         finally:
             connection.close()
-        elapsed.sort()
-        return {"role": "writer" if writer else "reader", "operations": iterations, "busy_failures": locked, "p50_ms": elapsed[len(elapsed) // 2], "p95_ms": elapsed[min(len(elapsed) - 1, int(len(elapsed) * 0.95))], "max_ms": elapsed[-1]}
-    started = time.perf_counter()
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [executor.submit(worker, writer) for writer in (True, False, False)]
-        results = [future.result() for future in futures]
-    connection = connect()
+        return {"role": "writer" if writer else "reader", "operations": iterations, "busy_failures": locked, **_percentiles(elapsed)}
+    # Closing the last connection checkpoints and removes the WAL, so a
+    # connection held open across the run keeps the WAL for the checkpoint
+    # below to measure. It must read once to attach to the WAL index.
+    keeper = connect()
     try:
-        count = connection.execute("SELECT count(*) FROM events").fetchone()[0]
-        integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-        checkpoint = list(connection.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()) if mode == "WAL" else None
+        keeper.execute("SELECT count(*) FROM events").fetchone()
+        started = time.perf_counter()
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(worker, writer) for writer in (True, False, False)]
+            results = [future.result() for future in futures]
+        seconds = time.perf_counter() - started
+        count = keeper.execute("SELECT count(*) FROM events").fetchone()[0]
+        integrity = keeper.execute("PRAGMA integrity_check").fetchone()[0]
+        checkpoint = None
+        if mode == "WAL":
+            # TRUNCATE reports zero frames once it has emptied the log, so a
+            # PASSIVE pass measures the frames and TRUNCATE confirms the reset.
+            busy, log_frames, checkpointed_frames = keeper.execute("PRAGMA wal_checkpoint(PASSIVE)").fetchone()
+            truncate_busy = keeper.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()[0]
+            checkpoint = {"busy": busy, "log_frames": log_frames, "checkpointed_frames": checkpointed_frames, "truncate_busy": truncate_busy}
     finally:
-        connection.close()
-    return {"journal_mode": mode, "synchronous": "FULL", "seconds": time.perf_counter() - started, "workers": results, "acknowledged_rows": count, "integrity": integrity, "checkpoint": checkpoint}
+        keeper.close()
+    return {
+        "journal_mode": mode,
+        "synchronous": "FULL",
+        "busy_timeout_seconds": BUSY_TIMEOUT_SECONDS,
+        "seconds": seconds,
+        "workers": results,
+        "acknowledged_rows": count,
+        "integrity": integrity,
+        "checkpoint": checkpoint,
+    }
 
 
 def main():
@@ -79,7 +111,9 @@ def main():
     if args.iterations < 1:
         parser.error("iterations must be positive")
     with TemporaryDirectory(prefix="learnloop-sqlite-benchmark-", dir=args.directory) as directory:
-        print(json.dumps({"sqlite_version": sqlite3.sqlite_version, "platform": platform.platform(), "filesystem_path": str(Path(directory).parent), "results": [benchmark(Path(directory), mode, args.iterations) for mode in ("DELETE", "WAL")]}, indent=2))
+        results = [benchmark(Path(directory), mode, args.iterations) for mode in ("DELETE", "WAL")]
+        report = {"sqlite_version": sqlite3.sqlite_version, "platform": platform.platform(), "filesystem_path": str(Path(directory).parent), "results": results}
+        print(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":
