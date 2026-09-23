@@ -10,7 +10,7 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
-from learnloop.outcome_contract import retention_exclusions
+from learnloop.outcome_contract import COLLECTION_VERSION, retention_exclusions
 from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import export_dataset, split_assignments
@@ -140,3 +140,51 @@ def test_export_preserves_censored_repair_disposition_as_distinct_from_failure(t
         label = outcome_records(connection)[0]
     assert label["R_cold"] == [{"causal_outcome_id": "expired", "followup_task_id": "expired-task", "status": "right_censored_expired", "value": None, "verification_id": None, "label_kind": "repair_disposition"}]
     assert data_quality_report(paths.sqlite_path)["cold_terminal_dispositions"] == {"right_censored_expired": 1}
+
+
+def _self_graded_attempt(paths, repository, *, clock=None, evidence_origin="human"):
+    vault = load_vault(paths.root)
+    return complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="A factorization", evidence_origin=evidence_origin),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
+        clock=clock or FrozenClock(NOW),
+    )
+
+
+def test_adjudication_rejects_a_missing_attempt_with_a_value_error(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    with pytest.raises(ValueError, match="does not exist"):
+        repository.record_false_remediation(attempt_id="att_typo", value=True, evidence_refs=[{"table": "practice_attempts", "id": attempt.attempt_id}], author_kind="human", verifier_version="test-v1")
+
+
+@pytest.mark.parametrize("reference", [{"table": ["practice_attempts"], "id": "x"}, {"table": "practice_attempts", "id": 7}, "practice_attempts"])
+def test_adjudication_rejects_malformed_evidence_references(tmp_path, reference):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    with pytest.raises(ValueError, match="evidence reference"):
+        repository.record_false_remediation(attempt_id=attempt.attempt_id, value=True, evidence_refs=[reference], author_kind="human", verifier_version="test-v1")
+
+
+def test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offer = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    repository.finalize_scheduler_offer(offer.scheduler_slate_id, [offer.scheduler_candidate_id])
+    repository.bind_submission_offer(submission_id="sub-1", session_id=session, practice_item_id=offer.practice_item_id, scheduler_candidate_id=offer.scheduler_candidate_id)
+    attempt = _self_graded_attempt(paths, repository)
+    references = [{"table": "submission_intents", "id": "sub-1"}, {"table": "scheduler_offer_receipts", "id": offer.scheduler_slate_id}]
+    adjudication = repository.record_false_remediation(attempt_id=attempt.attempt_id, value=True, evidence_refs=references, author_kind="human", verifier_version="test-v1")
+    assert adjudication
+    with pytest.raises(ValueError, match=r"submission_intents\.submission_id='missing' does not exist"):
+        repository.record_false_remediation(attempt_id=attempt.attempt_id, value=True, evidence_refs=[{"table": "submission_intents", "id": "missing"}], author_kind="human", verifier_version="test-v1")
+    with repository.connection() as connection:
+        receipt_version = connection.execute("SELECT collection_version FROM scheduler_offer_receipts").fetchone()[0]
+    assert receipt_version == COLLECTION_VERSION
