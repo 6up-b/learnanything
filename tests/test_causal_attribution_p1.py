@@ -567,10 +567,19 @@ def test_common_repair_cover_requires_explicit_target_match(tmp_path):
     assert episode is not None
     cover = episode["receipt"]["common_repair_cover"]
     assert cover["covers_plausible_set"] is False
-    assert {value["target_ref"]["kind"]: value["covered"] for value in cover["matrix"]} == {
-        "facet_capability": True,
-        "answer_span": False,
-    }
+    # The matrix follows hypothesis creation order, which is the order of the
+    # candidate causes, so the receipt JSON is identical across runs.
+    hypotheses = repository.causal_hypotheses_for_attempt(result.attempt_id)
+    assert [value["hypothesis_id"] for value in cover["matrix"]] == [
+        value["id"] for value in hypotheses
+    ]
+    assert [
+        (value["target_ref"]["kind"], value["covered"])
+        for value in cover["matrix"]
+    ] == [
+        ("facet_capability", True),
+        ("answer_span", False),
+    ]
 
 
 def test_structural_selector_rejects_repairs_that_damage_a_passed_target():
