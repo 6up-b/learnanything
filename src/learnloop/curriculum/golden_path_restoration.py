@@ -26,7 +26,7 @@ while the gate is off; ``decline_depth_invitation`` logs the decision.
 
 from __future__ import annotations
 
-import json as _json_mod
+import json
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping
 
@@ -34,6 +34,7 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.curriculum import commitments as C
 from learnloop.curriculum import depth_transition as DT
+from learnloop.curriculum.depth_envelopes import envelope_edges
 from learnloop.diagnosis import diagnostic_pack as DP
 from learnloop.curriculum import golden_path_run as GPR
 from learnloop.substrate.activities import canonical_json
@@ -63,13 +64,10 @@ class RestorationReceipt:
 # Reviewed-edge helpers
 # ---------------------------------------------------------------------------
 
-def _reviewed_edges(repository: Repository, envelope_version_id: str | None) -> list[dict[str, Any]]:
-    if not envelope_version_id:
-        return []
-    row = repository.depth_envelope_version(envelope_version_id)
-    if row is None:
-        return []
-    return [e for e in _json_mod.loads(row["reviewed_edges_json"] or "[]") if e.get("reviewed")]
+def _reviewed_envelope_edges(repository: Repository, envelope_version_id: str | None) -> list[dict[str, Any]]:
+    """Only the edges on the envelope version that a reviewer approved."""
+
+    return [edge for edge in envelope_edges(repository, envelope_version_id) if edge.get("reviewed")]
 
 
 def _invited_edge_for_milestone(
@@ -81,7 +79,7 @@ def _invited_edge_for_milestone(
     is the fallback when no edge names this milestone explicitly. One edge per decision
     (§7.5) -- never a chained climb."""
 
-    edges = _reviewed_edges(repository, run["depth_envelope_version_id"])
+    edges = _reviewed_envelope_edges(repository, run["depth_envelope_version_id"])
     if not edges:
         return None
     for edge in edges:
@@ -95,7 +93,7 @@ def _invited_edge_for_milestone(
 
 def _blueprint_spec(repository: Repository, run: Mapping[str, Any]) -> dict[str, Any]:
     version = repository.task_blueprint_version(run["blueprint_version_id"])
-    return _json_mod.loads(version["spec_json"]) if version else {}
+    return json.loads(version["spec_json"]) if version else {}
 
 
 # ---------------------------------------------------------------------------
@@ -117,7 +115,7 @@ def boundary_diff(repository: Repository, *, run_id: str, result: Mapping[str, A
 
     snapshot = repository.latest_golden_path_artifact(run_id, kind="baseline_boundary")
     if snapshot is not None:
-        before = _json_mod.loads(snapshot["payload_json"])
+        before = json.loads(snapshot["payload_json"])
     else:
         before = DP.boundary_view(repository, run_id=run_id)
     before_by_cell = {(c["facet"], c["capability"]): c["status"] for c in before["cells"]}
@@ -207,7 +205,7 @@ def record_milestone_and_invite(
 
     existing = repository.latest_golden_path_artifact(run_id, kind="depth_invitation")
     if existing is not None:
-        return _json_mod.loads(existing["payload_json"])
+        return json.loads(existing["payload_json"])
 
     # Evaluate exactly one reviewed edge through the landed P1 transition service. With
     # the U-018 gate OFF this returns TransitionProposal(kind="suggest_next"): it runs
@@ -260,7 +258,7 @@ def restore(
     result_row = repository.latest_golden_path_artifact(run_id, kind="assessment_result")
     if result_row is None:
         raise ValueError(f"run {run_id}: cannot restore before the assessment is graded")
-    result = _json_mod.loads(result_row["payload_json"])
+    result = json.loads(result_row["payload_json"])
 
     # assessing -> restoring (idempotent). Restoration begins only after measurement.
     state = GPR.project_run(repository, run_id)
@@ -361,7 +359,7 @@ def accept_depth_invitation(
     invitation_row = repository.latest_golden_path_artifact(run_id, kind="depth_invitation")
     if invitation_row is None:
         raise ValueError(f"run {run_id}: no depth invitation to accept")
-    invitation = _json_mod.loads(invitation_row["payload_json"])
+    invitation = json.loads(invitation_row["payload_json"])
     edge = invitation["edge"]
 
     outcome = DT.commit_one_edge(
