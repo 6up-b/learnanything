@@ -31,16 +31,14 @@ from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 
 
-#: Reverse of the scheduler's follow-up reason table, kept only as a FALLBACK.
+#: Reverse of the scheduler's follow-up reason table, used only as a fallback.
 #: ``_insert_pending_followups`` routes three distinct ``action_type`` lanes onto
 #: one ``intervention_followup`` component, and ``ScheduledItem.followup_kind``
-#: now carries the originating lane directly. Queue rows built by other paths --
-#: notably tests and the TUI, which construct ``ScheduledItem`` by hand -- may
-#: still arrive without the field, and for those the plain-English reason the
-#: scheduler puts first is the only surviving carrier of the lane. That matters:
-#: a §5.7 certification cold probe is a held-out validity check on something
-#: already certified, not a repair retry, and collapsing the two makes the UI
-#: narrate a validity check as an intervention.
+#: carries the originating lane. ``ScheduledItem``s built without that field
+#: (tests) recover the lane from the plain-English reason the scheduler puts
+#: first. That matters: a §5.7 certification cold probe is a held-out validity
+#: check on something already certified, not a repair retry, and collapsing the
+#: two makes the UI narrate a validity check as an intervention.
 _FOLLOWUP_KIND_BY_REASON: dict[str, str] = {
     reason: kind for kind, reason in FOLLOWUP_REASONS.items()
 }
@@ -277,6 +275,7 @@ def item_presentation(item: PracticeItem) -> dict[str, Any]:
     return {"practice_item_id": item.id, "blocks": blocks}
 
 
+@pinned_repository_call
 def practice_item_detail(vault: LoadedVault, repository: Repository, practice_item_id: str) -> dict[str, Any]:
     item = _require_item(vault, practice_item_id)
     learning_object = vault.learning_object_for_item(item)
@@ -707,6 +706,7 @@ def _cold_check_result(
         return None
 
 
+@pinned_repository_call
 def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]:
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
