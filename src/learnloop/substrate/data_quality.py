@@ -13,14 +13,37 @@ from learnloop.db.connection import connect
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
 
 
+_ATTEMPT_COLUMNS = (
+    "id", "practice_item_id", "session_id", "scheduler_slate_id", "scheduler_candidate_id", "submission_id",
+    "correctness", "latency_seconds", "primed", "manual_review", "collection_version", "entry_surface", "evidence_origin",
+)
+_CANDIDATE_COLUMNS = ("id", "slate_id", "practice_item_id", "was_returned", "chosen_attempt_id", "selection_propensity")
+
+
 def table_names(connection: sqlite3.Connection) -> set[str]:
     return {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 
 
-def rows(connection: sqlite3.Connection, table: str) -> list[dict[str, Any]]:
-    # Table names only come from SQLite's own catalog or constant callers.
-    escaped = table.replace('"', '""')
-    return [dict(row) for row in connection.execute(f'SELECT * FROM "{escaped}"')]
+def _quote(identifier: str) -> str:
+    return '"' + identifier.replace('"', '""') + '"'
+
+
+def rows(connection: sqlite3.Connection, table: str, *, columns: tuple[str, ...] | None = None, where: str = "") -> list[dict[str, Any]]:
+    """Read a table as dicts, optionally narrowed to the named columns.
+
+    Requested columns absent from an older schema are omitted from the dicts,
+    so callers keep their `.get(..., default)` fallbacks. Table names and
+    `where` clauses only come from SQLite's own catalog or constant callers.
+    """
+    if columns is None:
+        selected = "*"
+    else:
+        present = {row[1] for row in connection.execute(f"PRAGMA table_info({_quote(table)})")}
+        selected = ",".join(_quote(column) for column in columns if column in present)
+    query = f"SELECT {selected} FROM {_quote(table)}"
+    if where:
+        query += f" WHERE {where}"
+    return [dict(row) for row in connection.execute(query)]
 
 
 def data_quality_report(sqlite_path: Path) -> dict[str, Any]:
@@ -31,14 +54,16 @@ def data_quality_report(sqlite_path: Path) -> dict[str, Any]:
 
 def inspect_collection(connection: sqlite3.Connection) -> dict[str, Any]:
     tables = table_names(connection)
-    def read(table):
-        return rows(connection, table) if table in tables else []
-    attempts = read("practice_attempts")
-    candidates = {row["id"]: row for row in read("scheduler_slate_candidates")}
-    slates = {row["id"]: row for row in read("scheduler_slates")}
-    intents = {row["submission_id"]: row for row in read("submission_intents")}
-    work = {row["attempt_id"]: row for row in read("attempt_completion_work")}
-    grades = read("grading_evidence")
+    def read(table, columns=None, where=""):
+        return rows(connection, table, columns=columns, where=where) if table in tables else []
+    attempts = read("practice_attempts", _ATTEMPT_COLUMNS)
+    # Only candidates an attempt links to can be checked, and the full table
+    # carries a JSON component blob per candidate.
+    candidates = {row["id"]: row for row in read("scheduler_slate_candidates", _CANDIDATE_COLUMNS, "id IN (SELECT scheduler_candidate_id FROM practice_attempts)")}
+    slates = {row["id"]: row for row in read("scheduler_slates", ("id", "session_id"))}
+    intents = {row["submission_id"]: row for row in read("submission_intents", ("submission_id", "scheduler_candidate_id"))}
+    work = {row["attempt_id"]: row for row in read("attempt_completion_work", ("attempt_id", "status"))}
+    grades = read("grading_evidence", ("attempt_id", "assessment_contract_version_id"))
     graded = {row["attempt_id"] for row in grades}
     contracts = {row["attempt_id"] for row in grades if row.get("assessment_contract_version_id")}
     cohorts: dict[tuple[str, str, str], Counter] = {}
@@ -109,12 +134,13 @@ def inspect_collection(connection: sqlite3.Connection) -> dict[str, Any]:
     decided = {row["measurement_opportunity_id"] for row in decisions}
     administered = {row.get("measurement_opportunity_id") for row in cold if row["stage"] == "administration"}
     finalized = {row.get("measurement_opportunity_id") for row in cold if row["stage"] == "final"}
+    adjudicated_attempts = [row["attempt_id"] for row in read("false_remediation_adjudications", ("attempt_id",))]
     current = [dict(counts) for key, counts in cohorts.items() if key[0] == COLLECTION_VERSION]
     violations = {name: sum(cohort.get(name, 0) for cohort in current) for name in ("invalid_offer_links", "missing_explicit_offer_links", "invalid_chosen_propensity", "completion_missing")}
     return {
         "report_version": 1, "collection_version": COLLECTION_VERSION, "label_version": LABEL_VERSION,
         "schema_versions": sorted(row["version"] for row in read("schema_migrations")),
-        "false_remediation_adjudications": {"records": len(read("false_remediation_adjudications")), "attempts": len({row["attempt_id"] for row in read("false_remediation_adjudications")})},
+        "false_remediation_adjudications": {"records": len(adjudicated_attempts), "attempts": len(set(adjudicated_attempts))},
         "generated_at": utc_now_iso(), "current_version_violations": violations,
         "attempt_cohorts": [dict(collection_version=key[0], entry_surface=key[1], evidence_origin=key[2], **dict(counts)) for key, counts in sorted(cohorts.items())],
         "model_call_cohorts": [dict(collection_version=key[0], provider=key[1], model=key[2], purpose=key[3], **dict(counts)) for key, counts in sorted(call_cohorts.items(), key=lambda entry: str(entry[0]))],
