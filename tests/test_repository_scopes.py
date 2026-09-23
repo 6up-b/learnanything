@@ -163,3 +163,23 @@ def test_failed_rollback_keeps_the_original_error_and_publishes_nothing(tmp_path
             with repository.connection() as connection:
                 connection.execute("INSERT INTO scope_test VALUES (2)")
     assert _committed_values(path) == []
+
+
+def test_failed_rollback_still_invalidates_the_pin_when_the_note_cannot_be_attached(tmp_path, monkeypatch):
+    path = tmp_path / "state.sqlite"
+    repository = _scope_table_repository(path, monkeypatch)
+    failure = ValueError("interrupted")
+    failure.__notes__ = "not a list, so add_note raises TypeError"
+    with repository.pinned():
+        pinned_raw = repository.connection()._connection
+        with pytest.raises(ValueError, match="interrupted") as raised:
+            with repository.atomic():
+                with repository.connection() as connection:
+                    connection.execute("INSERT INTO scope_test VALUES (1)")
+                pinned_raw.fail_next_rollback = True
+                raise failure
+        assert raised.value is failure
+        with pytest.raises(sqlite3.ProgrammingError, match="failed rollback"):
+            with repository.connection() as connection:
+                connection.execute("INSERT INTO scope_test VALUES (2)")
+    assert _committed_values(path) == []

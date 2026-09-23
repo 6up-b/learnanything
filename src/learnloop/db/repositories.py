@@ -681,7 +681,12 @@ def _roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> 
     try:
         connection.rollback()
     except BaseException as rollback_error:
-        failure.add_note(f"Rolling back after this failure also failed: {rollback_error!r}")
+        # The note is diagnostic only; a failure while attaching it must not
+        # stop the caller from invalidating the connection.
+        try:
+            failure.add_note(f"Rolling back after this failure also failed: {rollback_error!r}")
+        except Exception:
+            pass
         return False
     return True
 
