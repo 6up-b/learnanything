@@ -10,11 +10,16 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
+from functools import wraps
 import hashlib
 import json
+import logging
 from typing import Any, Callable
 from uuid import uuid4
-from functools import wraps
+
+from learnloop.ai.errors import AIInterrupted, AIOutputTruncated
+
+logger = logging.getLogger(__name__)
 
 _observer: ContextVar[Callable[[str, dict[str, Any]], Any] | None] = ContextVar("model_observer", default=None)
 _parent: ContextVar[str | None] = ContextVar("model_call_parent", default=None)
@@ -95,12 +100,35 @@ def model_call(client: Any, *, purpose: str, prompt: Any = None, schema: Any = N
     try:
         yield metadata
     except BaseException as exc:
-        from learnloop.ai.errors import AIInterrupted, AIOutputTruncated
-        metadata.update(status="truncated" if isinstance(exc, AIOutputTruncated) else "interrupted" if isinstance(exc, (AIInterrupted, KeyboardInterrupt)) else "failed", error_type=type(exc).__name__)
+        metadata.update(status=_failure_status(exc), error_type=type(exc).__name__)
         raise
     else:
-        metadata["status"] = "completed"
+        # A caller that handles a request failure itself (to classify it for
+        # retry) records status "failed" on the metadata and exits normally.
+        metadata.setdefault("status", "completed")
     finally:
         _parent.reset(token)
         _metadata.reset(metadata_token)
+        _record_finish(observer, call_id, metadata)
+
+
+def _failure_status(exc: BaseException) -> str:
+    if isinstance(exc, AIOutputTruncated):
+        return "truncated"
+    if isinstance(exc, (AIInterrupted, KeyboardInterrupt)):
+        return "interrupted"
+    return "failed"
+
+
+def _record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None:
+    """Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+
+    Raising here would discard a response that was already paid for, or replace
+    the call's own exception with a storage error. The receipt stays
+    ``started`` with unknown usage, which is the honest record of a lost finish.
+    """
+
+    try:
         observer("finish", {"id": call_id, "finished_at": datetime.now(timezone.utc).isoformat(), **metadata})
+    except Exception:
+        logger.exception("Could not record the outcome of model call %s; its receipt stays 'started'", call_id)

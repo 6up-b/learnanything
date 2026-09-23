@@ -68,7 +68,7 @@ from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.attempts.grading import request_grading_proposal
 from learnloop.config import AIProviderConfig
 
-from tests.openai_fakes import grading_json, install_fake_openai
+from tests.openai_fakes import FakeAPIConnectionError, grading_json, install_fake_openai
 
 
 def _deepseek_profile(**overrides) -> AIProviderConfig:
@@ -343,37 +343,201 @@ def test_json_schema_response_format_sends_strict_per_request_schema(monkeypatch
 
 
 class _FakeStatusError(Exception):
-    def __init__(self, status_code: int):
+    def __init__(self, status_code: int, headers: dict[str, str] | None = None):
         super().__init__(f"status {status_code}")
         self.status_code = status_code
+        self.response = types.SimpleNamespace(headers=headers or {})
 
 
-def test_chat_retries_rate_limited_requests_with_backoff(monkeypatch):
-    fake_openai = install_fake_openai(monkeypatch, _FakeStatusError(429), grading_json())
+class _FakeClock:
+    """Drives the retry loop's monotonic clock; sleeping advances it."""
+
+    def __init__(self):
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def _install_clock(monkeypatch, *, jitter: float = 0.0) -> _FakeClock:
+    clock = _FakeClock()
+    monkeypatch.setattr(openai_chat_module, "_monotonic", clock.monotonic)
+    monkeypatch.setattr(openai_chat_module, "_sleep", clock.sleep)
+    monkeypatch.setattr(openai_chat_module, "_random", lambda: jitter)
+    return clock
+
+
+def test_chat_retries_rate_limited_requests_with_jittered_backoff(monkeypatch):
+    fake_openai = install_fake_openai(monkeypatch, _FakeStatusError(429), _FakeStatusError(503), grading_json())
     monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
-    sleeps: list[float] = []
-    monkeypatch.setattr(openai_chat_module, "_sleep", sleeps.append)
+    clock = _install_clock(monkeypatch, jitter=1.0)
     client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
 
     proposal = request_grading_proposal(client, _grading_context())
 
     assert proposal.rubric_score == 4
-    assert len(fake_openai.instances[0].requests) == 2
-    assert sleeps == [openai_chat_module._RETRY_DELAYS_SECONDS[0]]
+    assert len(fake_openai.instances[0].requests) == 3
+    # Exponential ceilings of 1 s and 2 s; jitter scales each into [50%, 100%].
+    assert clock.sleeps == [1.0, 2.0]
+
+
+def test_chat_jitter_spreads_retry_delays_below_the_ceiling(monkeypatch):
+    install_fake_openai(monkeypatch, _FakeStatusError(429), grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    clock = _install_clock(monkeypatch, jitter=0.0)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+
+    request_grading_proposal(client, _grading_context())
+
+    assert clock.sleeps == [0.5]
 
 
 def test_chat_does_not_retry_non_retryable_errors(monkeypatch):
     fake_openai = install_fake_openai(monkeypatch, _FakeStatusError(401))
     monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
-    sleeps: list[float] = []
-    monkeypatch.setattr(openai_chat_module, "_sleep", sleeps.append)
+    clock = _install_clock(monkeypatch)
     client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
 
     with pytest.raises(CodexUnavailable):
         request_grading_proposal(client, _grading_context())
 
     assert len(fake_openai.instances[0].requests) == 1
-    assert sleeps == []
+    assert clock.sleeps == []
+
+
+@pytest.mark.parametrize("error_kind", ["sdk_connection", "reset", "timeout"])
+def test_chat_retries_connection_failures_and_timeouts(monkeypatch, error_kind):
+    errors = {
+        "sdk_connection": FakeAPIConnectionError("connection dropped"),
+        "reset": ConnectionResetError("reset by peer"),
+        "timeout": TimeoutError("read timed out"),
+    }
+    fake_openai = install_fake_openai(monkeypatch, errors[error_kind], grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+
+    proposal = request_grading_proposal(client, _grading_context())
+
+    assert proposal.rubric_score == 4
+    assert len(fake_openai.instances[0].requests) == 2
+
+
+def test_chat_retry_count_stays_bounded(monkeypatch):
+    fake_openai = install_fake_openai(monkeypatch, *[_FakeStatusError(503) for _ in range(5)])
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+
+    with pytest.raises(CodexUnavailable, match="status 503"):
+        request_grading_proposal(client, _grading_context())
+
+    assert len(fake_openai.instances[0].requests) == openai_chat_module._MAX_ATTEMPTS
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected_sleep"),
+    [({"retry-after": "7"}, 7.0), ({"retry-after-ms": "2500"}, 2.5)],
+)
+def test_chat_honours_retry_after(monkeypatch, headers, expected_sleep):
+    install_fake_openai(monkeypatch, _FakeStatusError(429, headers), grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    clock = _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+
+    request_grading_proposal(client, _grading_context())
+
+    assert clock.sleeps == [expected_sleep]
+
+
+def test_chat_gives_up_when_retry_after_outlasts_the_deadline(monkeypatch):
+    fake_openai = install_fake_openai(monkeypatch, _FakeStatusError(429, {"retry-after": "30"}), grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    clock = _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile(timeout_seconds=20))
+
+    with pytest.raises(CodexUnavailable, match="status 429"):
+        request_grading_proposal(client, _grading_context())
+
+    assert len(fake_openai.instances[0].requests) == 1
+    assert clock.sleeps == []
+
+
+def test_chat_retries_share_one_deadline(monkeypatch):
+    """Each attempt gets only the time left, and the loop stops before the
+    configured timeout rather than starting an attempt it cannot finish."""
+
+    install_fake_openai(monkeypatch)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    clock = _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile(timeout_seconds=10))
+    attempts: list[tuple[float, float]] = []
+
+    def slow_failure(**kwargs):
+        attempts.append((clock.now, kwargs["timeout"]))
+        clock.now += 6.0
+        raise _FakeStatusError(503)
+
+    client._client.chat.completions.create = slow_failure
+
+    with pytest.raises(CodexUnavailable):
+        request_grading_proposal(client, _grading_context())
+
+    # (start, timeout): the first attempt fails after 6 s, the 0.5 s backoff
+    # leaves 3.5 s for the second, and no third attempt starts past the deadline.
+    assert attempts == [(0.0, 10.0), (6.5, 3.5)]
+
+
+def test_observer_control_exceptions_propagate_unchanged(monkeypatch):
+    """A fenced receipt start that refuses the call (lost lease, cancelled job)
+    must reach the caller as itself, not as a provider failure."""
+
+    from learnloop.ai.execution import observe_model_calls
+    from learnloop.db.scopes import JobOwnershipLost
+
+    fake_openai = install_fake_openai(monkeypatch, grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+
+    def observer(action, event):
+        if action == "start" and event["purpose"] == "chat_request":
+            raise JobOwnershipLost("job moved to another worker")
+
+    with observe_model_calls(observer), pytest.raises(JobOwnershipLost):
+        request_grading_proposal(client, _grading_context())
+
+    assert fake_openai.instances[0].requests == []
+
+
+def test_failed_receipt_finish_keeps_the_paid_response(monkeypatch, caplog):
+    import sqlite3
+
+    from learnloop.ai.execution import observe_model_calls
+
+    fake_openai = install_fake_openai(monkeypatch, grading_json())
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "secret")
+    _install_clock(monkeypatch)
+    client = OpenAIChatProviderClient("deepseek_flash", _deepseek_profile())
+    events: list[tuple[str, str]] = []
+
+    def observer(action, event):
+        events.append((action, event["id"]))
+        if action == "finish":
+            raise sqlite3.OperationalError("database is locked")
+
+    with observe_model_calls(observer):
+        proposal = request_grading_proposal(client, _grading_context())
+
+    assert proposal.rubric_score == 4
+    assert len(fake_openai.instances[0].requests) == 1
+    assert [action for action, _ in events].count("finish") == 2
+    assert "stays 'started'" in caplog.text
 
 
 def test_json_object_route_carries_the_output_schema_in_the_system_turn(monkeypatch):

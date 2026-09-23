@@ -15,6 +15,10 @@ import sys
 import types
 
 
+class FakeAPIConnectionError(Exception):
+    """Stands in for the SDK's wrapper around transport failures."""
+
+
 def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions=(), usages=()):
     """``usages`` optionally supplies one usage object per queued response, in
     order, attached to the returned completion as ``.usage`` (A7 token
@@ -22,7 +26,7 @@ def install_fake_openai(monkeypatch, *responses: str | Exception, transcriptions
     response carries no ``usage`` attribute at all, which is the shape a
     provider that reports nothing produces."""
 
-    module = types.SimpleNamespace(instances=[])
+    module = types.SimpleNamespace(instances=[], APIConnectionError=FakeAPIConnectionError)
 
     class FakeOpenAI:
         def __init__(self, **kwargs):

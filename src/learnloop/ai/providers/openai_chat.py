@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import email.utils
 import json
 import logging
 import os
-import sys
+import random
 import time
 from contextvars import ContextVar
 from typing import Any
@@ -36,9 +37,24 @@ from learnloop.config import AIProviderConfig
 
 logger = logging.getLogger(__name__)
 
-# Module-level so tests can monkeypatch the backoff away.
+# Retry policy for one HTTP request. The SDK's own retries are disabled so
+# that every physical attempt opens its own receipt; the loop below owns them.
+# The configured request timeout bounds the whole loop, not each attempt, so a
+# caller's deadline (for example the sidecar's) is never exceeded by retries.
+_MAX_ATTEMPTS = 3
+_BACKOFF_BASE_SECONDS = 1.0
+_BACKOFF_CAP_SECONDS = 8.0
+# A server that asks for a longer pause than this is treated as unavailable.
+_RETRY_AFTER_CAP_SECONDS = 60.0
+# Starting an attempt with less time than this left cannot plausibly succeed.
+_MIN_ATTEMPT_SECONDS = 1.0
+# Request timeout, lock contention and rate limiting; every 5xx is retried too.
+_RETRYABLE_STATUS_CODES = frozenset({408, 409, 429})
+
+# Module-level so tests can replace time and randomness.
 _sleep = time.sleep
-_RETRY_DELAYS_SECONDS = (1.0, 4.0)
+_monotonic = time.monotonic
+_random = random.random
 _JSON_ONLY_SYSTEM_PROMPT = "Return only valid JSON. Do not include Markdown fences."
 _request_options: ContextVar[tuple[float | None, int | None]] = ContextVar("chat_request_options", default=(None, None))
 
@@ -64,9 +80,15 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         if not api_key:
             raise CodexUnavailable(f"Environment variable {api_key_env} is required for {provider_name}")
         try:
-            from openai import OpenAI
+            import openai
         except ImportError as exc:
             raise CodexUnavailable("The openai package is required for openai_chat providers.") from exc
+        # The SDK wraps every transport failure (reset, DNS, read timeout) in
+        # APIConnectionError; APITimeoutError is a subclass.
+        sdk_connection_error = getattr(openai, "APIConnectionError", None)
+        self._connection_errors: tuple[type[BaseException], ...] = (ConnectionError, TimeoutError) + (
+            (sdk_connection_error,) if isinstance(sdk_connection_error, type) else ()
+        )
         client_kwargs: dict[str, Any] = {
             "api_key": api_key,
             "base_url": base_url,
@@ -76,7 +98,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         headers = self._default_headers()
         if headers:
             client_kwargs["default_headers"] = headers
-        self._client = OpenAI(**client_kwargs)
+        self._client = openai.OpenAI(**client_kwargs)
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         """Execute one validated structured request with one bounded repair."""
@@ -225,37 +247,88 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         return content.strip()
 
     def _create_with_retry(self, kwargs: dict[str, Any]) -> Any:
-        for attempt in range(len(_RETRY_DELAYS_SECONDS) + 1):
+        request_timeout, _ = _request_options.get()
+        deadline_seconds = request_timeout if request_timeout is not None else self.profile.timeout_seconds
+        started = _monotonic()
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            attempt_kwargs = dict(kwargs)
+            if deadline_seconds is not None:
+                attempt_kwargs["timeout"] = max(_MIN_ATTEMPT_SECONDS, deadline_seconds - (_monotonic() - started))
             try:
-                with model_call(self, purpose="chat_request", prompt=kwargs.get("messages"), schema=kwargs.get("response_format"), budget=kwargs.get("max_tokens")):
-                    response = self._client.chat.completions.create(**kwargs)
-                    usage = usage_from_chat_response(response)
-                    self.record_token_usage(*usage)
-                    timeout, budget = _request_options.get()
-                    if budget is not None:
-                        content = response.choices[0].message.content or ""
-                        spent = usage[1] or max(1, (len(content) + 3) // 4)
-                        _request_options.set((timeout, max(0, budget - spent)))
-                    if getattr(response.choices[0], "finish_reason", None) == "length":
-                        raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
-                    return response
-            except AIOutputTruncated:
-                raise
+                return self._send_once(attempt_kwargs)
+            except _RequestFailed as failure:
+                error = failure.error
+            delay = self._retry_delay(error, attempt, started=started, deadline_seconds=deadline_seconds)
+            if delay is None:
+                logger.warning("AI provider %s (%s) request failed: %s", self.provider_name, self.model, error)
+                raise CodexUnavailable(str(error)) from error
+            logger.warning(
+                "AI provider %s (%s) request failed with retryable error, retrying in %.1fs: %s",
+                self.provider_name,
+                self.model,
+                delay,
+                error,
+            )
+            _sleep(delay)
+        raise AssertionError("unreachable: the final attempt either returns or raises")
+
+    def _send_once(self, kwargs: dict[str, Any]) -> Any:
+        """One physical request under its own receipt.
+
+        Only an exception raised by the provider request becomes ``_RequestFailed``
+        (a retry candidate). Anything the receipt observer raises, such as a job
+        that lost its lease or was cancelled before the request started,
+        propagates unchanged so the caller's control flow still sees it.
+        """
+
+        request_error: Exception | None = None
+        with model_call(self, purpose="chat_request", prompt=kwargs.get("messages"), schema=kwargs.get("response_format"), budget=kwargs.get("max_tokens")) as receipt:
+            try:
+                response = self._client.chat.completions.create(**kwargs)
             except Exception as exc:
-                if attempt < len(_RETRY_DELAYS_SECONDS) and _is_retryable(exc):
-                    logger.warning(
-                        "AI provider %s (%s) request failed with retryable error, retrying: %s",
-                        self.provider_name,
-                        self.model,
-                        exc,
-                    )
-                    _sleep(_RETRY_DELAYS_SECONDS[attempt])
-                    continue
-                logger.warning(
-                    "AI provider %s (%s) request failed: %s", self.provider_name, self.model, exc
-                )
-                raise CodexUnavailable(str(exc)) from exc
-        raise CodexUnavailable(f"{self.provider_name} request retries exhausted")
+                request_error = exc
+                receipt.update(status="failed", error_type=type(exc).__name__)
+            else:
+                usage = usage_from_chat_response(response)
+                self.record_token_usage(*usage)
+                timeout, budget = _request_options.get()
+                if budget is not None:
+                    content = response.choices[0].message.content or ""
+                    spent = usage[1] or max(1, (len(content) + 3) // 4)
+                    _request_options.set((timeout, max(0, budget - spent)))
+                if getattr(response.choices[0], "finish_reason", None) == "length":
+                    raise AIOutputTruncated(f"{self.provider_name} exhausted its output budget; increase the budget or reduce the window size.")
+                return response
+        raise _RequestFailed(request_error)
+
+    def _retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None:
+        """Seconds to wait before the next attempt, or None to give up."""
+
+        if attempt >= _MAX_ATTEMPTS or not self._is_retryable(error):
+            return None
+        retry_after = _retry_after_seconds(error)
+        if retry_after is not None:
+            if retry_after > _RETRY_AFTER_CAP_SECONDS:
+                return None
+            delay = retry_after
+        else:
+            # Jitter keeps parallel inventory workers that failed together from
+            # retrying in lockstep.
+            ceiling = min(_BACKOFF_CAP_SECONDS, _BACKOFF_BASE_SECONDS * 2 ** (attempt - 1))
+            delay = ceiling * (0.5 + 0.5 * _random())
+        if deadline_seconds is not None:
+            elapsed = _monotonic() - started
+            if elapsed + delay + _MIN_ATTEMPT_SECONDS > deadline_seconds:
+                return None
+        return delay
+
+    def _is_retryable(self, error: Exception) -> bool:
+        if isinstance(error, self._connection_errors):
+            return True
+        status_code = getattr(error, "status_code", None)
+        if not isinstance(status_code, int):
+            return False
+        return status_code in _RETRYABLE_STATUS_CODES or status_code >= 500
 
     def _response_format(self, model_type: type[BaseModel] | None) -> dict[str, Any] | None:
         # `complete()` now consults this before the first turn (to decide
@@ -294,11 +367,33 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         return None
 
 
-def _is_retryable(exc: Exception) -> bool:
-    status_code = getattr(exc, "status_code", None)
-    if not isinstance(status_code, int):
-        return False
-    return status_code == 429 or status_code >= 500
+class _RequestFailed(Exception):
+    """The provider request itself failed; ``error`` is what it raised."""
+
+    def __init__(self, error: Exception):
+        super().__init__(str(error))
+        self.error = error
+
+
+def _retry_after_seconds(error: Exception) -> float | None:
+    """The server's requested pause from ``retry-after-ms`` or ``Retry-After``.
+
+    ``Retry-After`` may be delta-seconds or an HTTP date.
+    """
+
+    headers = getattr(getattr(error, "response", None), "headers", None)
+    get_header = getattr(headers, "get", None)
+    if not callable(get_header):
+        return None
+    for name, scale in (("retry-after-ms", 0.001), ("retry-after", 1.0)):
+        try:
+            return max(0.0, float(get_header(name)) * scale)
+        except (TypeError, ValueError):
+            continue
+    parsed = email.utils.parsedate_tz(str(get_header("retry-after") or ""))
+    if parsed is None:
+        return None
+    return max(0.0, email.utils.mktime_tz(parsed) - time.time())
 
 
 def _prompt_schema(model_type: type[BaseModel]) -> dict[str, Any]:
