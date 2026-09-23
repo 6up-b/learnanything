@@ -333,3 +333,85 @@ def test_manifest_is_published_by_atomic_rename(tmp_path, monkeypatch):
     assert not (output / "manifest.json.tmp").exists()
     for name, artifact in manifest["artifacts"].items():
         assert hashlib.sha256((output / name).read_bytes()).hexdigest() == artifact["sha256"]
+
+
+def _cli(*args):
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+
+    return CliRunner().invoke(app, [str(arg) for arg in args])
+
+
+def _evidence_file(tmp_path, references):
+    path = tmp_path / "evidence.json"
+    path.write_text(json.dumps(references), encoding="utf-8")
+    return path
+
+
+def test_adjudicate_cli_records_through_the_locked_vault_opener(tmp_path, monkeypatch):
+    import learnloop.vault.repository as vault_repository
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    migrated = []
+    real_migrate = vault_repository.migrate_vault
+
+    def spy(*args, **kwargs):
+        migrated.append(args[0])
+        return real_migrate(*args, **kwargs)
+
+    monkeypatch.setattr(vault_repository, "migrate_vault", spy)
+    evidence = _evidence_file(tmp_path, [{"table": "practice_attempts", "id": attempt.attempt_id}])
+    result = _cli("adjudicate-remediation", attempt.attempt_id, "--false-remediation", "--evidence", evidence, "--verifier-version", "test-v1", "--vault", paths.root)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["adjudication_id"]
+    assert migrated == [paths.root]
+
+
+@pytest.mark.parametrize(("attempt_id", "references", "message"), [
+    ("att_typo", None, "does not exist"),
+    (None, [{"table": ["practice_attempts"], "id": "x"}], "string table"),
+    (None, [{"table": "submission_intents", "id": "missing"}], "does not exist"),
+    (None, {"table": "practice_attempts"}, "JSON list"),
+])
+def test_adjudicate_cli_reports_bad_input_without_a_traceback(tmp_path, attempt_id, references, message):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    attempt = _self_graded_attempt(paths, repository)
+    evidence = _evidence_file(tmp_path, references if references is not None else [{"table": "practice_attempts", "id": attempt.attempt_id}])
+    result = _cli("adjudicate-remediation", attempt_id or attempt.attempt_id, "--false-remediation", "--evidence", evidence, "--verifier-version", "test-v1", "--vault", paths.root)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert message in result.stderr
+
+
+def test_dataset_export_cli_reports_sqlite_errors_and_removes_partial_output(tmp_path, monkeypatch):
+    import learnloop.substrate.dataset as dataset
+
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+
+    def locked(connection):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(dataset, "outcome_records", locked)
+    output = tmp_path / "dataset"
+    result = _cli("dataset-export", output, "--vault", paths.root)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "database is locked" in result.stderr
+    assert not output.exists()
+
+
+def test_dataset_export_cli_refuses_an_existing_output_directory(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    seed_due_item(paths)
+    output = tmp_path / "dataset"
+    output.mkdir()
+    (output / "keep.txt").write_text("mine", encoding="utf-8")
+    result = _cli("dataset-export", output, "--vault", paths.root)
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert (output / "keep.txt").read_text(encoding="utf-8") == "mine"
