@@ -799,6 +799,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_resolved_diagnosis_writes_no_note`
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_notes_are_append_only_and_reject_untyped_refusals`
+- [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_mvp09_upgrade.py](../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
   - `test_upgrade_to_mvp09_is_immediate_successor_only`
@@ -1157,8 +1158,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ai_question_control_sequences_are_removed_from_live_and_restored_state`
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
   - `test_ensure_teach_back_item_mints_transfer_criterion`
+  - `test_failed_teach_back_grading_closes_its_run_as_failed`
   - `test_finish_and_rebuild_replay_reproduce_derived_state`
   - `test_finish_partial_grading_only_asked_criteria_produce_evidence`
+  - `test_finish_records_the_model_grading_source_and_its_grading_run`
   - `test_finish_with_no_answered_followup_grades_opening_against_core`
   - `test_fractional_asked_subset_is_a_view_not_an_authored_rubric`
   - `test_low_scoring_answers_are_just_low_scores`
@@ -1172,6 +1175,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_regrade_teach_back_attempt_without_evidence_falls_back_to_core`
   - `test_replay_teach_back_attempt_survives_practice_mode_change`
   - `test_scheduler_caps_teach_back_items_per_queue`
+  - `test_scheduler_offer_survives_the_checkpointed_state`
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
   - `test_state_json_round_trip`
   - `test_teach_back_stays_weakly_schedulable_on_solid_knowledge`

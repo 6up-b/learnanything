@@ -286,11 +286,13 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
     max_points = rubric.max_points if rubric is not None else 4
     assessment_contract_version_id = None
     from learnloop.learner.assessment_contracts import (
-        KM_ALGORITHM_VERSION,
+        CANONICAL_STATE_VERSIONS,
         snapshot_for_presentation,
     )
 
-    if vault.config.algorithms.algorithm_version == KM_ALGORITHM_VERSION:
+    # Every canonical-state version stamps grading evidence with the contract
+    # the learner was shown, so the snapshot is taken when the item is served.
+    if vault.config.algorithms.algorithm_version in CANONICAL_STATE_VERSIONS:
         assessment_contract_version_id = snapshot_for_presentation(
             repository, vault, item, rubric=rubric
         )

@@ -205,8 +205,19 @@ def test_runner_completes_session_with_teach_back_item(
             "SELECT attempt_type, practice_item_id FROM practice_attempts "
             "WHERE attempt_type = 'teach_back'"
         ).fetchall()
+        grading_run_providers = {
+            row["provider"]
+            for row in connection.execute(
+                "SELECT r.provider FROM attempt_feedback_metadata m "
+                "JOIN agent_runs r ON r.id = m.agent_run_id "
+                "JOIN practice_attempts a ON a.id = m.attempt_id "
+                "WHERE a.attempt_type = 'teach_back'"
+            )
+        }
     assert len(rows) == len(teach_attempts)
     assert all(row["practice_item_id"] == TEACH_ITEM_ID for row in rows)
+    # The simulated grader's runs are named for the simulator, not a provider.
+    assert grading_run_providers == {"simulator"}
     # Belief-vs-truth metrics include the teach_back item's LO like any other.
     belief_los = {
         entry["learning_object_id"]

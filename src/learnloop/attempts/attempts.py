@@ -71,11 +71,11 @@ from learnloop.learner.mastery import (
     update_item_difficulty,
     update_mastery_traced,
 )
+from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
     KM_ALGORITHM_VERSION,
-    P0_ALGORITHM_VERSION,
 )
 from learnloop.learner.facet_state_reader import (
     CanonicalFacetStateReader,
@@ -542,7 +542,7 @@ def _complete_attempt_with_agent_fallback(
         {
             "id": new_ulid(),
             "purpose": "grading",
-            **_agent_run_provider_fields(ai_client, runtime),
+            **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
             "input_context_hash": grading_context_hash(context),
@@ -765,7 +765,7 @@ def _complete_attempt_with_agent_required(
         {
             "id": new_ulid(),
             "purpose": "grading",
-            **_agent_run_provider_fields(ai_client, runtime),
+            **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
             "input_context_hash": grading_context_hash(context),
@@ -1048,7 +1048,9 @@ def replay_existing_attempt(
     )
 
 
-def _agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]:
+def agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]:
+    """Provider columns for a grading ``agent_runs`` row, client first, then runtime."""
+
     provider = getattr(client, "provider_name", None) or getattr(runtime, "active_provider", None) or "codex"
     provider_type = getattr(client, "provider_type", None) or getattr(runtime, "provider_type", None)
     model = getattr(client, "model", None) or getattr(runtime, "model", None)
@@ -1833,7 +1835,7 @@ def _stamp_observation_lineage(
 ) -> None:
     """Snapshot the assessment contract and stamp observation ids (KM §5.2).
 
-    Only runs on mvp-0.7 vaults, and only for freshly recorded grading evidence
+    Only runs on canonical-state vaults, and only for freshly recorded grading evidence
     (not the replace/replay path, which reuses stored rows). Legacy vaults skip
     this entirely, so mvp-0.6 replay reproduces byte-identical derived state.
     """
@@ -2478,19 +2480,20 @@ def _compute_resolved_grade_application(
     )
     # Prediction lane, mean-preserving (P1 revision): the mastery EKF keeps the
     # RAW rubric fraction as its observation y and consumes the calibrated grade
-    # channel only through Var[s(Z)|emission] added to measurement noise. The
-    # earlier soft-y substitution (y = E[s(Z)|emission]) shrank every observation
-    # toward the channel prior mean, which put a ~0.85 ceiling on a perfect score
-    # under the permanent heuristic prior and could move mastery AGAINST the
-    # observed direction on easy items (predicted p above the ceiling). Channel
-    # doubt now widens R — it never biases y. Certification is untouched:
-    # canonical projection consumes the channel through build_effective_observation.
-    # Deterministic and self grades are not channel-interpreted, so they keep the
-    # raw score and confidence with no extra noise.
+    # channel only through Var[s(Z)|emission] added to measurement noise. Using
+    # the channel mean as y (y = E[s(Z)|emission]) would shrink every
+    # observation toward the channel prior mean, capping a perfect score near
+    # 0.85 under the heuristic prior and moving mastery AGAINST the observed
+    # direction on easy items (predicted p above the cap), so channel doubt
+    # widens R and never biases y. Certification is untouched: canonical
+    # projection consumes the channel through build_effective_observation.
+    # Deterministic and self grades are not channel-interpreted, so they keep
+    # the raw score and confidence with no extra noise. Every P0-projection
+    # version (mvp-0.8 and its successors) takes this lane.
     grader_confidence_source = grade.grader_confidence
     interpretation_variance = 0.0
     if (
-        vault.config.algorithms.algorithm_version == P0_ALGORITHM_VERSION
+        vault.config.algorithms.algorithm_version in P0_PROJECTION_VERSIONS
         and draft.attempt_type != "dont_know"
         and grading_source in ("ai", "codex")
     ):

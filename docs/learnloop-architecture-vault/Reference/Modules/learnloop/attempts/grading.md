@@ -132,7 +132,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `resolved_rubric`; statically calls `resolved_rubric`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `resolved_rubric`; statically calls `resolved_rubric`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `resolved_rubric`; statically calls `resolved_rubric`
-- [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `GradingValidationError`, `build_grading_context`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`; statically calls `build_grading_context`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`
+- [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `GradingValidationError`, `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`; statically calls `build_grading_context`, `grading_context_hash`, `request_grading_proposal`, `resolved_rubric`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `GradingValidationError`, `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`; statically calls `build_grading_context`, `request_grading_proposal`, `validate_codex_grading_proposal`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `resolved_rubric`; statically calls `resolved_rubric`
 

@@ -319,6 +319,14 @@ def test_sidecar_teach_back_conversation_checkpoints_and_grades(tmp_path):
         attempt = repository.fetch_practice_attempt(attempt_id)
         assert attempt["attempt_type"] == "teach_back"
         assert attempt["hints_used"] == 0
+        # The transcript was graded by the model, not through the self-grade
+        # lane: the source is the grading provider's and the run is recorded.
+        assert final["gradingSource"] == "codex"
+        metadata = repository.fetch_attempt_feedback_metadata(attempt_id)
+        assert metadata["grading_source"] == "codex"
+        assert metadata["agent_run_id"] == final["agentRunId"]
+        grading_run = repository.agent_run(final["agentRunId"])
+        assert (grading_run["purpose"], grading_run["status"]) == ("grading", "completed")
         # The checkpoint was cleared in the same call that recorded the attempt.
         assert repository.fetch_session_checkpoint(session_id) is None
 
@@ -619,6 +627,119 @@ def test_sidecar_teach_back_finish_retry_returns_same_attempt(tmp_path):
         assert len(grading_calls) == 1
         # The retry cleared the restored checkpoint again.
         assert repository.fetch_session_checkpoint(session_id) is None
+    finally:
+        server.stop()
+
+
+def _queue_offer(vault_root, session_id: str, practice_item_id: str) -> str:
+    snapshot = _call(vault_root, "get_today_queue", {"sessionId": session_id})["result"]
+    return next(
+        item["schedulerCandidateId"]
+        for section in snapshot["sections"]
+        for item in section["items"]
+        if item["practiceItemId"] == practice_item_id
+    )
+
+
+def test_sidecar_teach_back_from_a_queue_offer_links_the_graded_attempt(tmp_path):
+    from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_checkpoint
+
+    server = _TeachBackServer()
+    server.start()
+    try:
+        vault_root, paths = _teach_vault(tmp_path, server.base_url)
+        session_id = _start_session(vault_root)
+        offer = _queue_offer(vault_root, session_id, TEACH_ITEM_ID)
+        conversation = {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID}
+
+        # Only the start call carries the offer; the conversation state keeps it.
+        started = _call(vault_root, "start_teach_back", {**conversation, "schedulerCandidateId": offer})
+        assert started["result"]["state"]["schedulerCandidateId"] == offer
+        _call(vault_root, "submit_teach_back_turn", {**conversation, "answerMd": "Opening explanation."})
+        repository = Repository(paths.sqlite_path)
+        saved_answer = repository.fetch_session_checkpoint(session_id)["current_answer"]
+        final = _call(
+            vault_root,
+            "submit_teach_back_turn",
+            {**conversation, "answerMd": "Answer to question one.", "finish": True},
+        )["result"]
+
+        attempt = repository.fetch_practice_attempt(final["attemptId"])
+        assert attempt["scheduler_candidate_id"] == offer
+        assert attempt["scheduler_slate_id"] is not None
+        with repository.connection() as connection:
+            chosen = connection.execute(
+                "SELECT chosen_attempt_id FROM scheduler_slate_candidates WHERE id = ?", (offer,)
+            ).fetchone()
+        assert chosen["chosen_attempt_id"] == final["attemptId"]
+
+        # A lost-response retry carrying the now-consumed offer still reaches
+        # the recorded attempt.
+        patch_checkpoint(
+            repository,
+            SessionCheckpointInput(
+                session_id=session_id,
+                current_practice_item_id=TEACH_ITEM_ID,
+                current_answer=saved_answer,
+            ),
+        )
+        retry = _call(
+            vault_root,
+            "submit_teach_back_turn",
+            {
+                **conversation,
+                "schedulerCandidateId": offer,
+                "answerMd": "Answer to question one.",
+                "finish": True,
+            },
+        )["result"]
+        assert retry["duplicateFinish"] is True
+        assert retry["attemptId"] == final["attemptId"]
+    finally:
+        server.stop()
+
+
+def test_sidecar_teach_back_rejects_an_offer_of_another_item_or_session(tmp_path):
+    server = _TeachBackServer()
+    server.start()
+    try:
+        vault_root, paths = _teach_vault(tmp_path, server.base_url)
+        session_id = _start_session(vault_root)
+        other_item_offer = _queue_offer(vault_root, session_id, "pi_svd_define_001")
+        this_session_offer = _queue_offer(vault_root, session_id, TEACH_ITEM_ID)
+        conversation = {"sessionId": session_id, "practiceItemId": TEACH_ITEM_ID}
+
+        for foreign in (other_item_offer, "not-an-offer"):
+            rejected = _call(vault_root, "start_teach_back", {**conversation, "schedulerCandidateId": foreign})
+            assert rejected["error"]["data"]["code"] == "validation_error"
+            assert "scheduler offer" in rejected["error"]["message"]
+
+        _call(vault_root, "start_teach_back", conversation)
+        rejected_turn = _call(
+            vault_root,
+            "submit_teach_back_turn",
+            {**conversation, "schedulerCandidateId": other_item_offer, "answerMd": "Opening."},
+        )
+        assert rejected_turn["error"]["data"]["code"] == "validation_error"
+        assert "scheduler offer" in rejected_turn["error"]["message"]
+        # The rejected turn recorded nothing.
+        state = _call(vault_root, "start_teach_back", conversation)["result"]["state"]
+        assert state["turns"] == []
+        assert state["schedulerCandidateId"] is None
+
+        # An offer of this item made to another session is foreign too.
+        next_session = _start_session(vault_root)
+        rejected_session = _call(
+            vault_root,
+            "start_teach_back",
+            {
+                "sessionId": next_session,
+                "practiceItemId": TEACH_ITEM_ID,
+                "schedulerCandidateId": this_session_offer,
+            },
+        )
+        assert rejected_session["error"]["data"]["code"] == "validation_error"
+        assert "scheduler offer" in rejected_session["error"]["message"]
     finally:
         server.stop()
 

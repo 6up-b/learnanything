@@ -730,6 +730,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_diagnostic_abstention_writes_a_note`
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_report_surfaces_the_abstention_rate`
+- [tests/test_model_grade_lane.py](../../../../../../tests/test_model_grade_lane.py) — direct import
+  - `test_ai_graded_practice_takes_the_soft_score_lane_on_the_init_version`
+  - `test_rebuild_moves_only_learning_objects_with_model_graded_attempts`
 - [tests/test_mvp09_upgrade.py](../../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_command_defaults_to_current_mvp09_target`
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`

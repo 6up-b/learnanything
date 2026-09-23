@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `rubric_from_contract`, `snapshot_for_presentation`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `rubric_from_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `P0_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `compile_assessment_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `CANONICAL_STATE_VERSIONS`
@@ -97,7 +97,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `CANONICAL_STATE_VERSIONS`, `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_SUCCESSOR_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `P0_PROJECTION_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `CANONICAL_STATE_VERSIONS`
-- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `KM_ALGORITHM_VERSION`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
+- [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `CANONICAL_STATE_VERSIONS`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
 
 ## Dependencies
 

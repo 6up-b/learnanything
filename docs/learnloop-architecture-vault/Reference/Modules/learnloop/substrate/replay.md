@@ -164,6 +164,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_finish_and_rebuild_replay_reproduce_derived_state`
   - `test_regrade_teach_back_attempt_restricts_to_graded_criteria`
   - `test_replay_teach_back_attempt_survives_practice_mode_change`
+  - `test_teach_back_grade_takes_the_model_grade_observation_lane`
 
 ## Modification guidance
 

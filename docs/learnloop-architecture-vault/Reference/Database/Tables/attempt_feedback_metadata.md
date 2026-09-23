@@ -3,8 +3,8 @@ title: "attempt_feedback_metadata"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50b84bb1b401a44d65419807c17d886fb50dc8f3"
-source_commit_timestamp: "2026-09-23T16:09:38-04:00"
+source_commit: "fd785c816e003afd5ad0baa77a24113ef2ac8559"
+source_commit_timestamp: "2026-09-23T16:11:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_feedback_metadata"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`
+- `tests/test_sim_teach_back.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_common_repair_delivery.py`
@@ -140,6 +141,8 @@ Indexes and uniqueness:
 - `tests/test_reveal_ledger.py`
 - `tests/test_scoreboard.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_sidecar_teach_back.py`
+- `tests/test_teach_back.py`
 - `tests/test_tui_feedback.py`
 - `tests/test_tui_practice.py`
 

@@ -14,7 +14,7 @@ source_paths:
   - "src/learnloop/tutor/teach_back.py"
   - "src/learnloop/tutor/tutor_qa.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_commit_timestamp: "2026-09-23T16:11:06-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.tutor"
@@ -66,8 +66,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 8 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 7 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 7 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 7 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
@@ -99,9 +99,9 @@ flowchart LR
     center["learnloop.tutor"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_ai["learnloop.ai"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop["learnloop"]
-    n_learnloop_ai["learnloop.ai"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
@@ -109,10 +109,10 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     center -->|10| n_learnloop_vault
     n_learnloop_sidecar_handlers -->|10| center
+    center -->|8| n_learnloop_ai
     n_learnloop_learner -->|1| center
     center -->|7| n_learnloop_learner
     center -->|7| n_learnloop
-    center -->|7| n_learnloop_ai
     n_learnloop_diagnosis -->|3| center
     center -->|4| n_learnloop_diagnosis
     center -->|6| n_learnloop_db

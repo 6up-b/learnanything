@@ -721,6 +721,9 @@ class _SimTeachBackClient:
     grades for every other attempt type.
     """
 
+    # Names the grading agent runs a simulated teach-back records.
+    provider_name = "simulator"
+
     def __init__(
         self,
         student: SyntheticStudent,

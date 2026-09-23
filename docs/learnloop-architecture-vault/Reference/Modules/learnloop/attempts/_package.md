@@ -30,7 +30,7 @@ source_paths:
   - "src/learnloop/attempts/surprise.py"
   - "src/learnloop/attempts/trace_evidence.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:51:27-04:00"
+source_commit_timestamp: "2026-09-23T16:11:06-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.attempts"
@@ -71,7 +71,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]] | [[Reference/Modules/learnloop/attempts/ability_transition#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]] | [[Reference/Modules/learnloop/attempts/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 8 | 23 |
 | [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]] | [[Reference/Modules/learnloop/attempts/attempt_trace#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 21 | 118 |
+| [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] | [[Reference/Modules/learnloop/attempts/attempts#^module-purpose|purpose]] | `ACTIVE` | 21 | 119 |
 | [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] | [[Reference/Modules/learnloop/attempts/calibration_streams#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] | [[Reference/Modules/learnloop/attempts/clarification#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] | [[Reference/Modules/learnloop/attempts/coldness_receipt#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
@@ -96,7 +96,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 22 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 23 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 20 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
@@ -149,7 +149,7 @@ flowchart LR
     n_learnloop_goals["learnloop.goals"]
     n_learnloop_diagnosis -->|20| center
     center -->|20| n_learnloop_diagnosis
-    center -->|22| n_learnloop
+    center -->|23| n_learnloop
     n_learnloop_learner -->|6| center
     center -->|13| n_learnloop_learner
     n_learnloop_substrate -->|5| center

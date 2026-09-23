@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/receipts.py"
 source_paths:
   - "src/learnloop/cli/receipts.py"
-source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
-source_commit_timestamp: "2026-09-23T15:44:12-04:00"
-source_worktree_state: "modified"
+source_commit: "5b1184a8a7c8932f6468766c2f59599d01f1b8cc"
+source_commit_timestamp: "2026-09-23T16:08:23-04:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.cli"
@@ -56,9 +56,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
-| Commit timestamp | `2026-09-23T15:44:12-04:00` |
+| Worktree state | `clean` |
+| Source commit | `5b1184a8a7c8932f6468766c2f59599d01f1b8cc` |
+| Commit timestamp | `2026-09-23T16:08:23-04:00` |
 
 ## Public API
 

@@ -901,6 +901,116 @@ def test_finish_and_rebuild_replay_reproduce_derived_state(tmp_path):
             assert observed == pytest.approx(expected)
 
 
+# ── the grade is a model grade ────────────────────────────────────────────────
+
+
+def test_finish_records_the_model_grading_source_and_its_grading_run(tmp_path):
+    _root, vault, repository = _setup(tmp_path)
+    clock = FrozenClock(NOW)
+    client = FakeTeachBackClient()
+    item = vault.practice_items[TEACH_ITEM_ID]
+    state = _run_conversation(vault, repository, item, client, answers=["ans 1"], clock=clock)
+
+    result = finish_teach_back(vault, repository, state, client, grading_source="codex", clock=clock)
+
+    attempt_id = result.attempt.attempt_id
+    assert result.attempt.grading_source == "codex"
+    grading_run_id = result.attempt.agent_run_id
+    assert grading_run_id is not None
+    metadata = repository.fetch_attempt_feedback_metadata(attempt_id)
+    assert metadata["grading_source"] == "codex"
+    assert metadata["agent_run_id"] == grading_run_id
+    assert metadata["fallback_reason"] is None
+    grading_run = repository.agent_run(grading_run_id)
+    assert grading_run["purpose"] == "grading"
+    assert grading_run["status"] == "completed"
+    assert grading_run["provider"] == "fake_teach_back"
+    assert grading_run["output_schema"] == "GradingProposal"
+
+
+def test_failed_teach_back_grading_closes_its_run_as_failed(tmp_path):
+    from learnloop.ai.errors import CodexUnavailable
+
+    class UnavailableGrader(FakeTeachBackClient):
+        def run_grading_proposal(self, context):
+            raise CodexUnavailable("grader offline")
+
+    _root, vault, repository = _setup(tmp_path)
+    clock = FrozenClock(NOW)
+    client = UnavailableGrader()
+    state = _run_conversation(
+        vault, repository, vault.practice_items[TEACH_ITEM_ID], client, answers=["ans 1"], clock=clock
+    )
+
+    with pytest.raises(CodexUnavailable):
+        finish_teach_back(vault, repository, state, client, clock=clock)
+
+    assert repository.list_attempts_by_learning_object(LO_ID) == []
+    with repository.connection() as connection:
+        runs = connection.execute(
+            "SELECT status, error_message FROM agent_runs WHERE purpose = 'grading'"
+        ).fetchall()
+    assert [(row["status"], row["error_message"]) for row in runs] == [("failed", "grader offline")]
+
+
+def _init_version_teach_back_mastery(tmp_path, grading_source: str):
+    """Mastery after one partially-correct teach-back graded under ``grading_source``."""
+
+    from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
+    from tests.helpers import use_init_algorithm_version
+
+    vault_root = tmp_path / grading_source / "vault"
+    paths = create_basic_vault(vault_root)
+    # The model-grade soft-score lane of the mastery update is keyed on the P0
+    # projection versions, which include the version a new vault is given.
+    version = use_init_algorithm_version(paths, tmp_path / grading_source / "init")
+    assert version in P0_PROJECTION_VERSIONS
+    clock = FrozenClock(NOW)
+    upsert_practice_item(vault_root, _teach_item_payload(), clock=clock)
+    vault = load_vault(vault_root)
+    repository = Repository(paths.sqlite_path)
+    client = FakeTeachBackClient(points_by_criterion={"core_definition": 0.5})
+    item = vault.practice_items[TEACH_ITEM_ID]
+    state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
+    finish_teach_back(vault, repository, state, client, grading_source=grading_source, clock=clock)
+    return vault, repository, repository.mastery_state(LO_ID)
+
+
+def test_teach_back_grade_takes_the_model_grade_observation_lane(tmp_path):
+    _vault, _repository, self_lane = _init_version_teach_back_mastery(tmp_path, "self")
+    vault, repository, model_lane = _init_version_teach_back_mastery(tmp_path, "ai")
+    prior_variance = 3.0
+
+    # Same transcript, same grade. The model lane adds the grade channel's
+    # interpretation variance to the measurement noise, so the update is
+    # smaller: less variance removed and a smaller mean shift.
+    assert self_lane.logit_variance < prior_variance
+    assert model_lane.logit_variance > self_lane.logit_variance
+    assert 0 < abs(model_lane.logit_mean) < abs(self_lane.logit_mean)
+
+    # Replay reads the lane from the stored feedback metadata and reproduces it.
+    rebuild_derived_state(vault, repository, learning_object_ids=[LO_ID])
+    replayed = repository.mastery_state(LO_ID)
+    assert replayed.logit_mean == pytest.approx(model_lane.logit_mean)
+    assert replayed.logit_variance == pytest.approx(model_lane.logit_variance)
+
+
+def test_scheduler_offer_survives_the_checkpointed_state(tmp_path):
+    _root, vault, repository = _setup(tmp_path)
+    state = begin_teach_back(
+        vault,
+        repository,
+        vault.practice_items[TEACH_ITEM_ID],
+        opening_md="SVD factors any matrix.",
+        scheduler_candidate_id="offer_1",
+        clock=FrozenClock(NOW),
+    )
+
+    restored = TeachBackState.from_json(state.to_json())
+
+    assert restored.scheduler_candidate_id == "offer_1"
+
+
 # ── regrade restricted to the originally graded criteria ─────────────────────
 
 

@@ -122,6 +122,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_session_counts_cold_checks_answered_and_confirmed_separately`
 - [tests/test_sidecar_teach_back.py](../../../../../../tests/test_sidecar_teach_back.py) — direct import
   - `test_sidecar_teach_back_finish_retry_returns_same_attempt`
+  - `test_sidecar_teach_back_from_a_queue_offer_links_the_graded_attempt`
   - `test_sidecar_teach_back_resume_merges_pending_learner_answer`
 
 ## Modification guidance

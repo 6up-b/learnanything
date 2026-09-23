@@ -7,6 +7,11 @@ session checkpoint's ``current_answer`` slot as ``{"mode": "teach_back",
 tables are needed. The finishing turn grades the whole transcript as ONE
 ``teach_back`` attempt and clears the checkpoint in the same call (mirroring
 ``submit_attempt``'s lost-response guarantee).
+
+A conversation opened from a queue offer carries that offer's
+``scheduler_candidate_id``. Like a practice submission, the offer is validated
+against the session and item when a call first carries it, kept in the
+checkpointed state, and linked to the graded attempt at finish.
 """
 
 from __future__ import annotations
@@ -33,6 +38,7 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.ai_providers import (
     MANUAL_PROVIDER,
+    grading_source_for_provider,
     provider_label,
     ready_grading_provider,
     ready_teach_back_provider,
@@ -107,11 +113,14 @@ def request_teach_back(ctx: SidecarContext, params: RequestTeachBackInput) -> di
 class StartTeachBackInput(ParamsModel):
     session_id: str
     practice_item_id: str
+    # The queue offer the learner opened the item from, as on submit_attempt.
+    scheduler_candidate_id: str | None = None
 
 
 class SubmitTeachBackTurnInput(ParamsModel):
     session_id: str
     practice_item_id: str
+    scheduler_candidate_id: str | None = None
     answer_md: str = ""
     # Client-requested early finish: grade whatever has been asked so far.
     finish: bool = False
@@ -142,8 +151,17 @@ def start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[s
     # its local copy, e.g. left the screen and came back) is returned as-is
     # instead of being wiped by a fresh plan.
     state = _load_state(repository, params.session_id, item.id)
+    bound_offer = state.scheduler_candidate_id if state is not None else None
+    offer = _conversation_offer(repository, params, bound_offer)
     if state is None:
-        state = TeachBackState(practice_item_id=item.id, planned=plan_followups(vault, repository, item))
+        state = TeachBackState(
+            practice_item_id=item.id,
+            planned=plan_followups(vault, repository, item),
+            scheduler_candidate_id=offer,
+        )
+        _persist_state(repository, params.session_id, state)
+    elif offer != bound_offer:
+        state.scheduler_candidate_id = offer
         _persist_state(repository, params.session_id, state)
     learning_object = vault.learning_object_for_item(item)
     return versioned(
@@ -174,13 +192,22 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
     _require_open_session(repository, params.session_id)
     item = _require_teach_back_item(vault, params.practice_item_id)
     state = _load_state(repository, params.session_id, item.id)
+    offer = _conversation_offer(
+        repository, params, state.scheduler_candidate_id if state is not None else None
+    )
     try:
         if state is None or not state.turns:
             # Fresh conversation (or the checkpoint envelope was lost): the
             # submitted text is the opening explanation. Planning is
             # deterministic given DB state, so re-planning here is safe.
             planned = state.planned if state is not None and state.planned else None
-            state = begin_teach_back(vault, repository, item, opening_md=params.answer_md)
+            state = begin_teach_back(
+                vault,
+                repository,
+                item,
+                opening_md=params.answer_md,
+                scheduler_candidate_id=offer,
+            )
             if planned is not None:
                 state.planned = planned
         elif state.turns[-1].role == "ai":
@@ -203,6 +230,7 @@ def submit_teach_back_turn(ctx: SidecarContext, params: SubmitTeachBackTurnInput
             )
     except TeachBackError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    state.scheduler_candidate_id = offer
     # Persist before calling the provider so the answered turn survives a crash.
     _persist_state(repository, params.session_id, state)
 
@@ -315,7 +343,9 @@ def _finish(
             client,
             session_id=params.session_id,
             latency_seconds=params.latency_seconds,
-            agent_run_id=state.conversation_id,
+            conversation_id=state.conversation_id,
+            grading_source=grading_source_for_provider(provider_name),
+            runtime=runtime,
             entry_surface="desktop_teach_back",
             evidence_origin="human",
         )
@@ -411,6 +441,36 @@ def _existing_attempt_payload(vault, repository, state: TeachBackState, attempt_
             "graded_criterion_ids": graded_criterion_ids,
         }
     )
+
+
+def _conversation_offer(repository, params, bound_offer: str | None) -> str | None:
+    """The scheduler offer this conversation answers, validating a new one.
+
+    The first offer a conversation carries wins, as the first offer bound to a
+    practice submission does: reopening the item from a refreshed queue
+    presents that queue's offer, which is accepted when it is a real,
+    unconsumed offer of this item in this session, and the original is kept.
+    An offer that is not one is rejected rather than dropped, so the attempt is
+    never silently recorded without the offer the client claimed.
+
+    The bound offer itself is not revalidated: once the graded attempt has
+    consumed it, a retried finish that carries it must still reach the
+    recorded-attempt lookup.
+    """
+
+    carried = params.scheduler_candidate_id
+    if carried is None or carried == bound_offer:
+        return bound_offer
+    try:
+        repository.bind_submission_offer(
+            submission_id=None,
+            session_id=params.session_id,
+            practice_item_id=params.practice_item_id,
+            scheduler_candidate_id=carried,
+        )
+    except ValueError as exc:
+        raise SidecarError("validation_error", str(exc)) from exc
+    return bound_offer if bound_offer is not None else carried
 
 
 def _require_teach_back_item(vault, practice_item_id: str):

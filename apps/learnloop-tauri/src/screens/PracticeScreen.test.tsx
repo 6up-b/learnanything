@@ -7,7 +7,7 @@ import { selectWithDraftFlush } from "../app/vaultTransition";
 const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
-  getNextProbeItem: vi.fn()
+  getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 const windowApi = vi.hoisted(() => ({
@@ -159,4 +159,31 @@ it("waits for the vault switch's pending draft save before closing the window", 
     await Promise.all([switching, closing]);
   });
   expect(windowApi.destroy).toHaveBeenCalledOnce();
+});
+
+it("carries the queue offer into both teach-back conversation calls", async () => {
+  api.getPracticeItem.mockResolvedValue({
+    id: "old-item", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "teach_back",
+    attemptTypesAllowed: ["teach_back"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null
+  });
+  api.startTeachBack.mockResolvedValue({
+    version: 1, practiceItemId: "old-item", prompt: "Teach it", learningObjectTitle: "Topic", budget: 2,
+    state: { version: 1, practiceItemId: "old-item", planned: [], turns: [], askedCount: 0 }
+  });
+  api.submitTeachBackTurn.mockResolvedValue({
+    version: 1, done: false, questionMd: "Why?", criterionId: "c1", tier: "core", facetTargets: [],
+    questionNumber: 1, remaining: 1, asked: 1, budget: 2,
+    state: {
+      version: 1, practiceItemId: "old-item", planned: [], askedCount: 1,
+      turns: [{ role: "learner", contentMd: "My explanation", criterionId: null }, { role: "ai", contentMd: "Why?", criterionId: "c1" }]
+    }
+  });
+  render(<PracticeScreen {...props()} />);
+  await waitFor(() => expect(api.startTeachBack).toHaveBeenCalledWith({ sessionId: "old-session", practiceItemId: "old-item", schedulerCandidateId: "old-offer" }));
+  fireEvent.change(await screen.findByRole("textbox", { name: "answer" }), { target: { value: "My explanation" } });
+  fireEvent.click(screen.getByRole("button", { name: /Start teaching/ }));
+  await waitFor(() => expect(api.submitTeachBackTurn).toHaveBeenCalledWith(expect.objectContaining({
+    sessionId: "old-session", practiceItemId: "old-item", schedulerCandidateId: "old-offer", answerMd: "My explanation"
+  })));
 });

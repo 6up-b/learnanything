@@ -176,6 +176,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ulids_stay_ordered_when_the_wall_clock_steps_backwards`
 - [tests/test_misconception_registry.py](../../../../../tests/test_misconception_registry.py) — direct import
   - `test_discriminating_item_has_higher_eig`
+- [tests/test_model_grade_lane.py](../../../../../tests/test_model_grade_lane.py) — direct import
 - [tests/test_p2_acceptance.py](../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../tests/test_p2_leakage_suite.py) — direct import
 - [tests/test_probe_audit.py](../../../../../tests/test_probe_audit.py) — direct import

@@ -3,8 +3,8 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50b84bb1b401a44d65419807c17d886fb50dc8f3"
-source_commit_timestamp: "2026-09-23T16:09:38-04:00"
+source_commit: "fd785c816e003afd5ad0baa77a24113ef2ac8559"
+source_commit_timestamp: "2026-09-23T16:11:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `tests/test_collection_dataset.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_measurement_corrections.py`
+- `tests/test_sidecar_contract.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

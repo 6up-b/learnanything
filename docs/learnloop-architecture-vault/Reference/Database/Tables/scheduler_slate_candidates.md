@@ -3,8 +3,8 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50b84bb1b401a44d65419807c17d886fb50dc8f3"
-source_commit_timestamp: "2026-09-23T16:09:38-04:00"
+source_commit: "fd785c816e003afd5ad0baa77a24113ef2ac8559"
+source_commit_timestamp: "2026-09-23T16:11:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
@@ -149,6 +149,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_scheduler.py`
+- `tests/test_sidecar_teach_back.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_codex_attempt_flow.py`

@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/screens/feedback.py"
 source_paths:
   - "src/learnloop/tui/screens/feedback.py"
-source_commit: "workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe"
-source_commit_timestamp: "2026-09-23T15:44:12-04:00"
-source_worktree_state: "modified"
+source_commit: "75d4474a6e5950eb79877fbbf5f0b46f6590926a"
+source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.tui.screens"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 9ce6979c3266f524d932441c8edd2331ee220bfe` |
-| Commit timestamp | `2026-09-23T15:44:12-04:00` |
+| Worktree state | `clean` |
+| Source commit | `75d4474a6e5950eb79877fbbf5f0b46f6590926a` |
+| Commit timestamp | `2026-09-23T15:53:13-04:00` |
 
 ## Public API
 

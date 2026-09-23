@@ -3,8 +3,8 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "50b84bb1b401a44d65419807c17d886fb50dc8f3"
-source_commit_timestamp: "2026-09-23T16:09:38-04:00"
+source_commit: "fd785c816e003afd5ad0baa77a24113ef2ac8559"
+source_commit_timestamp: "2026-09-23T16:11:06-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/ai/runs.py"
   - "src/learnloop/ai/usage.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/scoreboard.py"
-  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/regrade.py"
@@ -131,7 +131,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/missing_vocabulary.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/goals/certification_cold_probe.py`
-- `src/learnloop/tutor/tutor_qa.py`
+- `src/learnloop/tutor/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -145,8 +145,10 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_proposal_dependencies.py`
 - `tests/test_question_signal.py`
+- `tests/test_sim_teach_back.py`
 - `tests/test_source_ingestion.py`
 - `tests/test_synthesis_manifests.py`
+- `tests/test_teach_back.py`
 - `tests/test_agent_runs.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
@@ -156,8 +158,6 @@ Indexes and uniqueness:
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_missing_vocabulary_notes.py`
 - `tests/test_patch_applier.py`
-- `tests/test_practice_leakage.py`
-- `tests/test_repositories.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
