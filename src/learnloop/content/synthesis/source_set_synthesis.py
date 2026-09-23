@@ -23,7 +23,7 @@ proposed_patch_items -> apply_accepted_items.
 
 from __future__ import annotations
 
-from learnloop.ai.execution import content_key, generation_limit
+from learnloop.ai.execution import content_key, generation_limit, model_settings
 
 import json
 import re
@@ -2050,12 +2050,12 @@ def _run_synthesis(
     input_tokens_estimate = 0
     output_tokens_spent = 0
     schema = SourceSetSynthesis.model_json_schema()
+    settings = {**model_settings(client or transport), "provider": provider, "model": model}
 
     def pass_request(context):
         prompt = source_set_synthesis_prompt(context)
-        key = content_key({"purpose": "synthesis_pass", "prompt": prompt, "schema": schema, "provider": provider, "model": model})
         tokens = max(1, (len(prompt) + len(json.dumps(schema))) // 4)
-        return key, tokens
+        return _synthesis_pass_key(prompt, schema, settings), tokens
 
     def base_context(ordinal, shard):
         return SourceSetSynthesisContext(
@@ -2071,7 +2071,7 @@ def _run_synthesis(
         key = _shard_checkpoint_key(
             source_set=source_set, brief=brief, registry=registry,
             exam_profile=inputs.exam_profile, shard=shard,
-            ordinal=ordinal, count=len(shards), provider=provider, model=model,
+            ordinal=ordinal, count=len(shards), settings=settings,
         )
         cached = repository.synthesis_shard_result(key)
         shard_states.append((ordinal, shard, key, cached if cached and cached.get("output") else None))
@@ -2214,6 +2214,14 @@ def _run_synthesis(
     return merged, span_request_count, resolved_hashes, usage
 
 
+def _synthesis_pass_key(prompt: str, schema: dict[str, Any], settings: dict[str, Any]) -> str:
+    """Checkpoint identity of one synthesis pass: the exact prompt and schema
+    sent, and the provider settings that shape the answer. The output budget
+    is deliberately absent, so a validated pass is reusable under any budget."""
+
+    return content_key({"purpose": "synthesis_pass", "prompt": prompt, "schema": schema, "settings": settings})
+
+
 def _result_tokens(result: Any) -> int:
     """Rough output-token estimate: characters of the JSON the model wrote / 4.
 
@@ -2284,8 +2292,7 @@ def _shard_checkpoint_key(
     shard: list[dict[str, Any]],
     ordinal: int,
     count: int,
-    provider: str | None,
-    model: str | None,
+    settings: dict[str, Any],
 ) -> str:
     """Durable checkpoint identity for one synthesis shard.
 
@@ -2293,16 +2300,16 @@ def _shard_checkpoint_key(
     budgets, so a retry with revised ceilings mints a new manifest while its
     shard inputs are identical — exactly the case per-shard reuse must survive.
     Everything that shapes the model call participates: prompt version,
-    provider/model, brief, registry index, exam profile, the shard's inventory
-    entries, and the shard's position (the prompt sees ordinal/count)."""
+    provider settings (see ``model_settings``), brief, registry index, exam
+    profile, the shard's inventory entries, and the shard's position (the
+    prompt sees ordinal/count)."""
 
     import hashlib
 
     payload = json.dumps(
         {
             "prompt_version": SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
-            "provider": provider,
-            "model": model,
+            "settings": settings,
             "source_set_id": source_set.id,
             "subject_id": source_set.subject_id,
             "brief": brief,

@@ -41,6 +41,26 @@ def content_key(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
 
 
+def model_settings(client: Any) -> dict[str, Any]:
+    """The client settings that change what a request produces.
+
+    Checkpoint keys include these so that switching the endpoint, reasoning
+    effort, thinking mode or response format never replays output produced
+    under different settings. Clients expose their settings either as an
+    ``AIProviderConfig`` (``profile``) or a ``CodexConfig`` (``config``).
+    """
+
+    profile = getattr(client, "profile", None) or getattr(client, "config", None)
+    return {
+        "provider": getattr(client, "provider_name", None) or getattr(client, "provider_type", None),
+        "model": getattr(client, "model", None) or getattr(profile, "model", None),
+        "endpoint": getattr(profile, "base_url", None) or getattr(client, "default_base_url", None),
+        "reasoning_effort": getattr(profile, "reasoning_effort", None),
+        "thinking": getattr(profile, "thinking", None),
+        "response_format": getattr(profile, "response_format", None),
+    }
+
+
 @contextmanager
 def observe_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
     token = _observer.set(observer)

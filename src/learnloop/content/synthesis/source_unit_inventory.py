@@ -37,7 +37,7 @@ from typing import Any, Callable, Mapping
 
 from learnloop.clock import Clock
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
-from learnloop.ai.execution import content_key, generation_limit
+from learnloop.ai.execution import content_key, generation_limit, model_settings
 from learnloop.ai.usage import snapshot_client_usage
 from learnloop.content.synthesis.ai_contracts import (
     SOURCE_UNIT_INVENTORY_PROMPT_VERSION,
@@ -652,12 +652,27 @@ def prepare_unit_inventory(
         unit_ids=source_unit_ids,
         input_budget_tokens=input_budget_tokens,
     )
-    keys = tuple(content_key({
-        "purpose": "inventory_window", "prompt_version": prompt_version,
-        "schema_version": schema_version, "provider": provider_name, "model": model_name,
-        "role": role, "profile": requested_profile, "window": window,
-        "unit_id": effective_id, "semantic_hash": semantic_hash,
-    }) for window in windows)
+    # A client passed in (the direct path) contributes its full settings; the
+    # ingest job prepares before it has a client and has only its identity.
+    settings = (
+        {**model_settings(client), "provider": provider_name, "model": model_name}
+        if client is not None
+        else {"provider": provider_name, "model": model_name}
+    )
+    keys = tuple(
+        inventory_window_key(
+            SourceUnitInventoryContext(
+                unit_id=effective_id,
+                semantic_hash=semantic_hash,
+                role=role,
+                inventory_profile=requested_profile,
+                unit_view=window,
+            ),
+            settings,
+            schema_version=schema_version,
+        )
+        for window in windows
+    )
     return PreparedInventory(
         extraction_id=extraction_id,
         revision_id=revision_id,
@@ -676,6 +691,24 @@ def prepare_unit_inventory(
         window_keys=keys,
         cached_windows=tuple(repo.model_checkpoint(key) for key in keys),
     )
+
+
+def inventory_window_key(context: SourceUnitInventoryContext, settings: dict[str, Any], *, schema_version: int) -> str:
+    """Checkpoint identity of one inventory window.
+
+    Keyed on the rendered prompt rather than its version label, so a prompt
+    edit never replays windows produced from different text, and on the
+    provider settings, so two profiles sharing a model slug but differing in
+    endpoint or reasoning settings never share output. The output budget is
+    absent: a validated window is reusable under any budget.
+    """
+
+    return content_key({
+        "purpose": "inventory_window",
+        "prompt": source_unit_inventory_prompt(context),
+        "schema_version": schema_version,
+        "settings": settings,
+    })
 
 
 def execute_prepared_inventory(
