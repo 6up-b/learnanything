@@ -28,13 +28,17 @@ Validation:
 - Full Python suite: **4,561 passed**, 10 dependency/SQLite-adapter deprecation warnings, **1,011.76 seconds (16m 51s)**. The review baseline was 4,402 tests in 1,954.22 seconds; the test set and implementation differ, so this is not an isolated attribution of the speedup.
 - A final late-receipt ownership case was added while the full run was in progress. Its focused group passed **103 tests**; two socket tests blocked by the sandbox passed outside it (**2 passed**). Thus the new 4,562nd case is separately verified.
 - Production SQLite durability lane: **8 passed** (4,554 deselected). Connection ownership/atomic rollback, ingest takeover, late-usage preservation and concurrent backup use production settings.
-- Frontend: **13 lifecycle tests passed**, TypeScript check passed, production build passed. Main JS is **1,251.12 kB**, 370.82 kB gzip; large-chunk advisory remains.
+- Frontend: **13 lifecycle tests passed**, TypeScript check passed, production build passed. Main JS is **1,251.12 kB**, 370.82 kB gzip, against 2,150.96 kB (630.24 kB gzip) at the base commit 472128f; large-chunk advisory remains.
 - Rust: **20 tests passed**.
 - Import architecture: **6 contracts kept, 0 broken**.
 - Focused final migration/export/serializer/rebuild/provider boundary group: **88 passed** before the final full run.
-- `git diff --check` passed. Ordinary historical fixtures remain unchanged; the dedicated schema-head fixture was upgraded with the migration service and renamed to head 163.
+- `git diff --check` passed. Ordinary historical fixtures remain unchanged; the dedicated schema-head fixture was upgraded with the migration service and renamed to head 163 (head 164 after the September 23 review fixes).
 - Read-only `doctor --data-quality` ran against `fixtures/linear_algebra`; its [report](artifacts/linear-algebra-data-quality.json) keeps legacy missingness separate from current-version alerts.
 
 No paid provider calls or production-vault migrations were used for verification. The implementation notes explicitly describe partial provider coverage, unknown viewing/burden, Codex's advisory budget, and the decision to retain production DELETE journaling.
 
-The database/configuration reference was regenerated from code commit `0395ae3`. Its validator passed with **258 table notes, 299 owned notes, 3,365 Wikilinks checked, and zero errors**. A stale reference to the moved `REFACTOR_PROPOSAL.md` was corrected. The generated reference is isolated in the documentation commit for review.
+The database/configuration reference was regenerated from code commit `0395ae3`. Its validator passed with **258 table notes, 299 owned notes, 3,365 Wikilinks checked, and zero errors**. One stale reference to the moved `REFACTOR_PROPOSAL.md` was corrected; the other vault validators were not run and failed at this commit. The generated reference is isolated in the documentation commit for review.
+
+**September 23 review fixes**
+
+A second review of this branch on September 23 covered ten areas. Its fixes are merged on the branch, and [2026-09-23-review-fixes.md](2026-09-23-review-fixes.md) records what each area changed, the commit ranges, the measurements and what remains open.
