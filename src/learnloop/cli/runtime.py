@@ -79,7 +79,7 @@ from learnloop.learner.recall_calibration import (
     run_recall_calibration_harness,
 )
 from learnloop.content.sources.source_refs import source_ref_display_dto
-from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state, rebuild_live_derived_state
 from learnloop.substrate.shadow_rebuild import ShadowRebuildError, shadow_rebuild
 from learnloop.content.proposals.proposals import (
     accept_items,

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
+from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.repositories import Repository
 from learnloop.db.scopes import atomic_repository_call
 from learnloop.db.table_roles import TableRole, tables_for_role
@@ -400,9 +401,9 @@ def rebuild_all_derived_state(
     failure is raised before the receipt is written. Every nested write and the
     receipt publish in one transaction; failed replay leaves live state intact.
     BEGIN IMMEDIATE prevents concurrent evidence writers during the replay.
-    Under the rollback journal, readers are locked out as well once the
-    transaction spills dirty pages from its cache, which takes the EXCLUSIVE
-    lock until commit.
+    In WAL mode readers keep reading the last committed snapshot throughout;
+    they are held only for the brief moment the commit publishes to the WAL
+    index.
     """
 
     validate_replayer_registry()
@@ -459,6 +460,31 @@ def rebuild_all_derived_state(
     )
 
 
+def rebuild_live_derived_state(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    learning_object_ids: list[str] | None = None,
+    clock: Clock | None = None,
+) -> OrchestratedRebuildResult:
+    """Rebuild a vault's live database, then truncate the WAL it grew.
+
+    A whole-vault rebuild rewrites every derived table in one transaction, so
+    its ``-wal`` grows to roughly the size of those tables.  The checkpoint runs
+    after the rebuild has committed and is best effort (see
+    :mod:`learnloop.db.checkpoint`).
+    """
+
+    result = rebuild_all_derived_state(
+        vault,
+        repository,
+        learning_object_ids=learning_object_ids,
+        clock=clock,
+    )
+    checkpoint_wal(repository.sqlite_path, reason="live_rebuild")
+    return result
+
+
 # The proposal and CLI call this concept "rebuild-derived-state".  Keep a
 # concise domain alias while retaining the explicit name above in Python APIs.
 rebuild_derived_state_umbrella = rebuild_all_derived_state
@@ -475,5 +501,6 @@ __all__ = [
     "derived_table_owners",
     "rebuild_all_derived_state",
     "rebuild_derived_state_umbrella",
+    "rebuild_live_derived_state",
     "validate_replayer_registry",
 ]

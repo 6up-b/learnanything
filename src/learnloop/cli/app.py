@@ -1163,6 +1163,8 @@ def doctor(
         if not report.clean:
             raise typer.Exit(code=1)
         return
+    if report.storage is not None:
+        typer.echo(_storage_line(report.storage))
     if report.clean:
         typer.echo("No doctor issues found.")
         return
@@ -1171,6 +1173,13 @@ def doctor(
         subject = f" {issue.entity_id}" if issue.entity_id else ""
         typer.echo(f"{issue.severity}: {issue.code}{subject}: {issue.message}{location}")
     raise typer.Exit(code=1)
+
+def _storage_line(storage) -> str:
+    filesystem = storage.mount.filesystem_type if storage.mount is not None else "unknown"
+    return (
+        f"storage: journal_mode={storage.journal_mode} "
+        f"wal_bytes={storage.wal_bytes} filesystem={filesystem}"
+    )
 
 @app.command("independence-audit")
 def independence_audit_command(
@@ -2551,7 +2560,7 @@ def rebuild_derived_state_command(
     loaded = load_vault(_root(vault))
     repository = _repository(loaded.root)
     sync_vault_state(loaded, repository)
-    result = rebuild_all_derived_state(
+    result = rebuild_live_derived_state(
         loaded,
         repository,
         learning_object_ids=learning_objects,
