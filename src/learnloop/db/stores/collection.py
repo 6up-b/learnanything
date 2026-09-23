@@ -61,7 +61,7 @@ class CollectionStoreMixin:
         if type(value) is not bool or not evidence_refs or author_kind not in {"human", "machine"} or not verifier_version.strip():
             raise ValueError("An adjudication requires a boolean value, evidence, author kind and verifier version.")
         with self.atomic(), self.connection() as connection:
-            # The ledger carries no foreign key (see migration 162), so the
+            # The ledger carries no foreign key (see migration 164), so the
             # attempt's existence is checked here.
             if connection.execute("SELECT 1 FROM practice_attempts WHERE id=?", (attempt_id,)).fetchone() is None:
                 raise ValueError(f"Attempt {attempt_id!r} does not exist.")

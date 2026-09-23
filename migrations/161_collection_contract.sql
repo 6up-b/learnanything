@@ -32,14 +32,3 @@ CREATE TRIGGER decision_features_immutable_update BEFORE UPDATE ON decision_feat
 BEGIN SELECT RAISE(ABORT, 'decision features are immutable'); END;
 CREATE TRIGGER decision_features_immutable_delete BEFORE DELETE ON decision_features
 BEGIN SELECT RAISE(ABORT, 'decision features are immutable'); END;
-CREATE TABLE practice_item_snapshots (
-  content_hash TEXT PRIMARY KEY,
-  practice_item_id TEXT NOT NULL,
-  item_json TEXT NOT NULL,
-  created_at TEXT NOT NULL
-);
-CREATE INDEX practice_item_snapshots_item ON practice_item_snapshots(practice_item_id);
-CREATE TRIGGER practice_item_snapshots_immutable_update BEFORE UPDATE ON practice_item_snapshots
-BEGIN SELECT RAISE(ABORT, 'practice item snapshots are immutable'); END;
-CREATE TRIGGER practice_item_snapshots_immutable_delete BEFORE DELETE ON practice_item_snapshots
-BEGIN SELECT RAISE(ABORT, 'practice item snapshots are immutable'); END;
