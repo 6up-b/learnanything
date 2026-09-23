@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
 
 from learnloop.clock import utc_now_iso
@@ -17,7 +18,11 @@ from learnloop.attempts.attempts import (
     complete_attempt_with_codex_required,
     complete_self_graded_attempt,
 )
-from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+from learnloop.attempts.post_attempt import (
+    CompletionRouteUnknown,
+    probe_route,
+    run_post_attempt_pipeline,
+)
 from learnloop.tutor.tutor_qa import hint_equivalents_for_submission
 from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
@@ -54,8 +59,8 @@ class PracticeDraftCheckpoint(ParamsModel):
     practice_item_id: str
     answer_md: str
     hints_used: int = 0
-    # Stable client retry key for the attempt being composed. Optional only for
-    # compatibility with older clients; the desktop persists it before submit.
+    # Stable client retry key for the attempt being composed. Optional: a
+    # client that does not persist one gets no recovery.
     submission_id: str | None = None
     scheduler_candidate_id: str | None = None
 
@@ -208,11 +213,11 @@ def _committed_presentation(repository, episode, session_id: str | None):
     row, so `active_probe_presentation_for_session` finds them by joining the
     session's slate. A CAUSAL probe (`causal_orchestrator.accept_probe_offer`)
     has no scheduler candidate at all — it is minted by a learner action, not
-    by the planner — so that join misses it, and the caller used to commit a
-    SECOND presentation for the same item. That silently dropped the
-    `causal_probe` selection component pinning the candidate and blind-bundle
-    ids, which is exactly the replay pin §3.4 exists to protect: classification
-    then fell back to whatever bundles existed at answer time.
+    by the planner — so that join misses it. Committing a SECOND presentation
+    for the same item would drop the `causal_probe` selection component pinning
+    the candidate and blind-bundle ids, which is exactly the replay pin §3.4
+    exists to protect: classification would fall back to whatever bundles
+    existed at answer time.
 
     A presentation with no `scheduler_candidate_id` is owned by no session's
     slate, so any session opening its item may consume it. One with a scheduler
@@ -428,8 +433,9 @@ def recover_practice_submission(
     A diagnostic surface may become inactive as part of its attempt commit, so
     restart recovery cannot require ``get_practice_item`` to succeed first. A
     successful receipt is the exact response the original call produced;
-    absence is typed pending state. ``_cached_submission`` preserves the
-    fail-closed route-unknown error for the rare attempt-without-receipt gap.
+    absence is typed pending state. An attempt without a receipt resumes its
+    saved completion; one without completion work fails closed with
+    ``submission_committed``.
     """
 
     vault, repository = ctx.require_vault()
@@ -443,7 +449,7 @@ def recover_practice_submission(
     # Exact receipts are durable completion facts. Read them before checking
     # mutable session/item state: the session may have ended or a single-use
     # item may have disappeared after the original response was produced.
-    cached = _cached_submission(repository, submission_id, params.practice_item_id, vault=vault)
+    cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return versioned({"status": "recovered", "result": cached})
     _require_open_session(repository, params.session_id)
@@ -483,8 +489,8 @@ def acknowledge_practice_submission(
 @method("submit_attempt", SubmitAttemptInput)
 def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    submission_id = _submission_id(params.submission_id, params.probe_presentation_id)
-    cached = _cached_submission(repository, submission_id, params.practice_item_id, vault=vault)
+    submission_id = submission_key(params)
+    cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
@@ -504,6 +510,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     # client, a handler, or a detection site.
     explanation_md = (params.explanation_md or "").strip() or None
     learner_answer_md = compose_learner_trace(params.answer_md, explanation_md)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md=learner_answer_md,
@@ -517,7 +524,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
-        scheduler_candidate_id=_bind_offer(repository, params, submission_id),
+        scheduler_candidate_id=scheduler_candidate_id,
         entry_surface="desktop_practice",
         evidence_origin="human",
     )
@@ -577,6 +584,14 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         )
     except (AttemptValidationError, ValueError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    except sqlite3.IntegrityError:
+        # A concurrent request with the same submission id committed first;
+        # the unique submission index rejected this one. Answer with the
+        # winner's attempt.
+        winner = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
+        if winner is None:
+            raise
+        return winner
     run_post_attempt_pipeline(
         vault,
         repository,
@@ -599,14 +614,15 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
 @method("submit_dont_know", DontKnowInput)
 def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    submission_id = _submission_id(params.submission_id, params.probe_presentation_id)
-    cached = _cached_submission(repository, submission_id, params.practice_item_id, vault=vault)
+    submission_id = submission_key(params)
+    cached = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
     if cached is not None:
         return cached
     _require_open_session(repository, params.session_id)
     _require_active_item(vault, params.practice_item_id)
     before = _latent_snapshot(vault, repository, params.practice_item_id)
     grade = _self_grade(params.self_grade) or SelfGradeInput(criterion_points={}, confidence=3)
+    scheduler_candidate_id = _bind_offer(repository, params, submission_id)
     draft = AttemptDraft(
         practice_item_id=params.practice_item_id,
         learner_answer_md="",
@@ -618,7 +634,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         answer_confidence=params.answer_confidence,
         assessment_contract_version_id=params.assessment_contract_version_id,
         submission_id=submission_id,
-        scheduler_candidate_id=_bind_offer(repository, params, submission_id),
+        scheduler_candidate_id=scheduler_candidate_id,
         entry_surface="desktop_practice",
         evidence_origin="human",
         declared_dont_know=True,
@@ -627,6 +643,14 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
         result = complete_self_graded_attempt(vault, repository, draft, grade)
     except (AttemptValidationError, ValueError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    except sqlite3.IntegrityError:
+        # A concurrent request with the same submission id committed first;
+        # the unique submission index rejected this one. Answer with the
+        # winner's attempt.
+        winner = _cached_submission(ctx, vault, repository, submission_id, params.practice_item_id)
+        if winner is None:
+            raise
+        return winner
     run_post_attempt_pipeline(
         vault,
         repository,
@@ -651,47 +675,99 @@ def _submission_id(client_id: str | None, presentation_id: str | None) -> str | 
     return None
 
 
-def _cached_submission(repository, submission_id: str | None, practice_item_id: str, *, vault=None) -> dict[str, Any] | None:
+def submission_key(params: Any) -> str | None:
+    """The retry key a request's attempt, receipt and model calls are keyed on."""
+
+    return _submission_id(
+        getattr(params, "submission_id", None),
+        getattr(params, "probe_presentation_id", None),
+    )
+
+
+def _cached_submission(
+    ctx: SidecarContext, vault, repository, submission_id: str | None, practice_item_id: str
+) -> dict[str, Any] | None:
+    """The response for a submission that was already committed, if any.
+
+    A process can stop after the attempt transaction and before the response
+    receipt. Never grade or re-apply the same submission: resume its saved
+    completion, or fail closed when none was saved. An attempt id alone is not
+    an authoritative UI route, because a diagnostic response may have deferred
+    feedback or closed a block.
+    """
+
     if submission_id is None:
         return None
     receipt = repository.attempt_submission_receipt(submission_id)
     if receipt is not None:
-        if receipt["practice_item_id"] != practice_item_id:
-            raise SidecarError("validation_error", "submission id was already used for another item")
+        _require_same_item(receipt["practice_item_id"], practice_item_id)
         return receipt["result"]
-    # A process can stop in the tiny interval after the attempt transaction and
-    # before its full response receipt. Never grade or write the same submission
-    # a second time. Crucially, an attempt id alone is not an authoritative UI
-    # route: a diagnostic response may have deferred feedback or closed a block.
-    # New attempts resume their saved completion; legacy rows without that
-    # continuation keep the checkpoint and fail closed.
-    existing = repository.practice_attempt_by_submission_id(submission_id)
-    if existing is not None:
-        if existing["practice_item_id"] != practice_item_id:
-            raise SidecarError("validation_error", "submission id was already used for another item")
-        work = repository.attempt_completion(existing['id'])
-        if work is not None and vault is not None:
-            saved = dict(work['result'])
-            saved['debug_payload'] = saved.pop('debug', {})
-            result = AttemptResult(**saved)
-            # Complete the persisted grade; never call a grader or reapply it.
-            run_post_attempt_pipeline(
-                vault, repository, result=result, session_id=work['session_id'],
-            )
-            payload = _attempt_result(result, repository)
-            _store_submission_receipt(repository, submission_id, result.attempt_id, practice_item_id, payload)
-            return payload
-        raise SidecarError(
-            "submission_committed",
-            f"Attempt {existing['id']} was recorded, but its completion route is unavailable. Retry recovery without changing the submission id.",
-            retryable=False,
-            details={
-                "attempt_id": existing["id"],
-                "attempt_type": existing.get("attempt_type"),
-                "route_status": "unknown",
-            },
-        )
-    return None
+    attempt = repository.practice_attempt_by_submission_id(submission_id)
+    if attempt is None:
+        return None
+    _require_same_item(attempt["practice_item_id"], practice_item_id)
+    work = repository.attempt_completion(attempt["id"])
+    if work is None:
+        raise _submission_committed(attempt)
+    try:
+        return _resume_saved_completion(ctx, vault, repository, work, submission_id)
+    except CompletionRouteUnknown as exc:
+        raise _submission_committed(attempt) from exc
+
+
+def _resume_saved_completion(
+    ctx: SidecarContext, vault, repository, work: dict[str, Any], submission_id: str
+) -> dict[str, Any]:
+    """Complete a committed attempt from its saved result and store the receipt.
+
+    Only misconception normalization uses the provider client; the grade is
+    the saved one. A session that has ended since the attempt gets no new
+    follow-up insertions.
+    """
+
+    result = AttemptResult.from_dict(work["result"])
+    run_post_attempt_pipeline(
+        vault,
+        repository,
+        result=result,
+        session_id=_open_session_id(repository, work["session_id"]),
+        ai_client=_normalization_client(ctx, vault),
+    )
+    payload = _attempt_result(result, repository)
+    _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
+    return payload
+
+
+def _normalization_client(ctx: SidecarContext, vault) -> Any | None:
+    _provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
+    return client if runtime.ready else None
+
+
+def _open_session_id(repository, session_id: str | None) -> str | None:
+    if session_id is None:
+        return None
+    session = repository.fetch_session(session_id)
+    if session is None or session["ended_at"] is not None:
+        return None
+    return session_id
+
+
+def _require_same_item(recorded_item_id: str, practice_item_id: str) -> None:
+    if recorded_item_id != practice_item_id:
+        raise SidecarError("validation_error", "submission id was already used for another item")
+
+
+def _submission_committed(attempt: dict[str, Any]) -> SidecarError:
+    return SidecarError(
+        "submission_committed",
+        f"Attempt {attempt['id']} was recorded, but its completion route is unavailable. Retry recovery without changing the submission id.",
+        retryable=False,
+        details={
+            "attempt_id": attempt["id"],
+            "attempt_type": attempt.get("attempt_type"),
+            "route_status": "unknown",
+        },
+    )
 
 
 def _store_submission_receipt(
@@ -768,25 +844,17 @@ def _attempt_result(result, repository=None) -> dict[str, Any]:
     # `probe_block_end` rides along inside as_dict() (camelized to
     # probeBlockEnd): the §5.7 hook payload with released feedback and route.
     payload = versioned(result.as_dict())
-    block_end = getattr(result, "probe_block_end", None)
     if repository is not None:
+        # Probe redesign §5.6/§5.7: the client defers feedback while the
+        # attempt's diagnostic episode is still measuring; the block-end hook
+        # releases the block's withheld feedback and routes the learner.
         work = repository.attempt_completion(result.attempt_id)
-        if work is not None and work['status'] == 'completed':
-            payload['probeEpisode'] = versioned({'probe_episode': work['route']})['probeEpisode']
-            return payload
-        # Probe redesign §5.6/§5.7: the client defers feedback while the LO's
-        # diagnostic episode is still measuring; the block-end hook releases
-        # the block's withheld feedback and routes the learner.
-        episode = repository.open_probe_episode(result.learning_object_id)
-        payload["probeEpisode"] = (
-            {
-                "episodeId": episode.id,
-                "status": episode.status,
-                "feedbackDeferred": episode.status == "in_progress" and block_end is None,
-            }
-            if episode is not None
-            else None
-        )
+        if work is not None and work["status"] == "completed":
+            route = work["route"]
+        else:
+            episode = repository.open_probe_episode(result.learning_object_id)
+            route = probe_route(repository, result, episode_id=episode.id if episode is not None else None)
+        payload["probeEpisode"] = to_camel(route)
     return payload
 
 

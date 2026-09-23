@@ -616,13 +616,12 @@ def test_cached_submission_recovery_precedes_ended_session_and_removed_item_chec
 def test_missing_diagnostic_receipt_recovers_only_from_durable_completion(
     tmp_path, legacy_missing_work,
 ):
-    """An attempt id cannot bypass diagnostic deferred/block-end routing.
+    """An attempt id alone cannot bypass diagnostic deferred/block-end routing.
 
-    This test completes the original RPC and then removes only its cached
-    response receipt.  It verifies the duplicate-attempt guard and structured
-    route-unknown recovery envelope; it deliberately does *not* claim to
-    simulate a process death before the post-attempt pipeline, whose durable
-    resumption needs a separate persisted-work protocol.
+    Removes the response receipt after a completed submit. With saved
+    completion work the retry returns the same result; without it (attempts
+    recorded before migration 159) the retry fails closed with
+    ``submission_committed``.
     """
 
     vault_root = tmp_path / "vault"
@@ -757,6 +756,215 @@ def test_interrupted_submission_resumes_saved_result_once(tmp_path, monkeypatch,
     assert len(repository.list_attempt_history()) == 1
     assert repository.attempt_completion(attempt['id'])['status'] == 'completed'
     assert repository.fetch_attempt_feedback_metadata(attempt['id']) is not None
+
+
+class _InProcessSidecar:
+    """Drive the sidecar's request handler in-process so tests can patch handlers."""
+
+    def __init__(self, vault_root):
+        from learnloop_sidecar.context import SidecarContext
+
+        self.ctx = SidecarContext()
+        self.call("initialize", {"vaultPath": str(vault_root)})
+
+    def call(self, method, params=None):
+        from learnloop_sidecar.server import _handle
+
+        return _handle(self.ctx, {"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}})
+
+    def result(self, method, params=None):
+        response = self.call(method, params)
+        assert "error" not in response, response
+        return response["result"]
+
+
+def _first_offer(sidecar, session_id):
+    item = sidecar.result("get_today_queue", {"sessionId": session_id})["sections"][0]["items"][0]
+    return item["practiceItemId"], item["schedulerCandidateId"]
+
+
+def test_reopening_an_item_from_a_refreshed_queue_keeps_its_original_offer(tmp_path):
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    seed_due_item(paths)
+    sidecar = _InProcessSidecar(root)
+    session_id = sidecar.result("start_session", {})["sessionId"]
+    item_id, original_offer = _first_offer(sidecar, session_id)
+    draft = {"sessionId": session_id, "practiceItemId": item_id, "answerMd": "draft", "submissionId": "K1"}
+    sidecar.result("save_practice_draft", {**draft, "schedulerCandidateId": original_offer})
+
+    # Back to Today: the refetch records a new slate that offers the same item.
+    refreshed_item_id, refreshed_offer = _first_offer(sidecar, session_id)
+    assert refreshed_item_id == item_id and refreshed_offer != original_offer
+
+    sidecar.result("save_practice_draft", {**draft, "schedulerCandidateId": refreshed_offer})
+    submitted = sidecar.result("submit_attempt", {
+        "sessionId": session_id, "practiceItemId": item_id, "answerMd": "U Sigma V^T",
+        "attemptType": "independent_attempt", "submissionId": "K1",
+        "schedulerCandidateId": refreshed_offer,
+        "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
+    })
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(submitted["attemptId"])
+    assert attempt["scheduler_candidate_id"] == original_offer
+
+    rejected = sidecar.call("save_practice_draft", {**draft, "submissionId": "K2", "schedulerCandidateId": "not-an-offer"})
+    assert rejected["error"]["data"]["code"] == "validation_error"
+
+
+def test_submission_that_loses_a_commit_race_answers_with_the_winner(tmp_path, monkeypatch):
+    from learnloop_sidecar.handlers import practice
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    sidecar = _InProcessSidecar(root)
+    session_id = sidecar.result("start_session", {})["sessionId"]
+    params = {
+        "sessionId": session_id, "practiceItemId": "pi_svd_define_001", "answerMd": "U Sigma V^T",
+        "attemptType": "independent_attempt", "submissionId": "raced",
+        "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
+    }
+    winner = sidecar.result("submit_attempt", params)
+
+    # The losing request checked for a committed submission before the winner
+    # committed, then graded the same answer.
+    original = practice._cached_submission
+    checks = []
+
+    def checked_before_winner_committed(*args, **kwargs):
+        checks.append(args)
+        return None if len(checks) == 1 else original(*args, **kwargs)
+
+    monkeypatch.setattr(practice, "_cached_submission", checked_before_winner_committed)
+    loser = sidecar.result("submit_attempt", params)
+    assert loser == winner
+    assert [row["id"] for row in Repository(paths.sqlite_path).list_attempt_history()] == [winner["attemptId"]]
+
+
+def _interrupted_submission(tmp_path, monkeypatch):
+    """Commit a self-graded attempt whose completion is interrupted once."""
+
+    from learnloop_sidecar.handlers import practice
+
+    root = tmp_path / "vault"
+    paths = create_basic_vault(root)
+    sidecar = _InProcessSidecar(root)
+    session_id = sidecar.result("start_session", {})["sessionId"]
+    params = {
+        "sessionId": session_id, "practiceItemId": "pi_svd_define_001",
+        "submissionId": "interrupted", "answerMd": "U Sigma V transpose",
+        "attemptType": "independent_attempt",
+        "selfGrade": {"criterionPoints": {"correctness": 4}, "confidence": 5},
+    }
+    original = practice.run_post_attempt_pipeline
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("injected completion interruption")
+
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", interrupted)
+    assert "error" in sidecar.call("submit_attempt", params)
+    completions = []
+
+    def recording(*args, **kwargs):
+        completions.append(kwargs)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(practice, "run_post_attempt_pipeline", recording)
+    recovery = {key: params[key] for key in ("sessionId", "practiceItemId", "submissionId")}
+    return sidecar, paths, recovery, completions
+
+
+def test_recovery_normalizes_with_the_configured_grading_provider(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from learnloop_sidecar.handlers import practice
+
+    sidecar, _paths, recovery, completions = _interrupted_submission(tmp_path, monkeypatch)
+    client = object()
+    monkeypatch.setattr(
+        practice, "ready_grading_provider",
+        lambda vault, override=None: ("fake", SimpleNamespace(ready=True), client),
+    )
+    from learnloop.attempts import post_attempt
+
+    normalized_with = []
+    monkeypatch.setattr(
+        post_attempt, "normalize_and_resolve_attempt",
+        lambda *args, **kwargs: normalized_with.append(kwargs["ai_client"]) or [],
+    )
+    assert sidecar.result("recover_practice_submission", recovery)["status"] == "recovered"
+    assert [call["ai_client"] for call in completions] == [client]
+    assert normalized_with == [client]
+
+
+def test_recovery_after_the_session_ended_inserts_no_session_followups(tmp_path, monkeypatch):
+    sidecar, paths, recovery, completions = _interrupted_submission(tmp_path, monkeypatch)
+    sidecar.result("end_session", {"sessionId": recovery["sessionId"]})
+
+    assert sidecar.result("recover_practice_submission", recovery)["status"] == "recovered"
+    assert [call["session_id"] for call in completions] == [None]
+    attempt = Repository(paths.sqlite_path).practice_attempt_by_submission_id("interrupted")
+    assert Repository(paths.sqlite_path).attempt_completion(attempt["id"])["status"] == "completed"
+
+
+def test_database_lock_contention_is_a_retryable_error(tmp_path, monkeypatch):
+    import sqlite3
+    from dataclasses import replace
+
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    root = tmp_path / "vault"
+    create_basic_vault(root)
+    sidecar = _InProcessSidecar(root)
+
+    def locked(_ctx, _params):
+        raise sqlite3.OperationalError("database is locked")
+
+    def corrupt(_ctx, _params):
+        raise sqlite3.OperationalError("no such table: nowhere")
+
+    spec = METHOD_REGISTRY["get_queue_revision"]
+    monkeypatch.setitem(METHOD_REGISTRY, "get_queue_revision", replace(spec, handler=locked))
+    busy = sidecar.call("get_queue_revision")["error"]
+    assert busy["data"] == {"code": "database_busy", "retryable": True}
+
+    monkeypatch.setitem(METHOD_REGISTRY, "get_queue_revision", replace(spec, handler=corrupt))
+    other = sidecar.call("get_queue_revision")["error"]
+    assert other["data"]["code"] == "internal" and other["data"]["retryable"] is False
+
+
+def test_model_call_receipts_are_owned_by_the_normalized_submission_key(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+    from dataclasses import replace
+
+    from learnloop_sidecar import server
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    root = tmp_path / "vault"
+    create_basic_vault(root)
+    sidecar = _InProcessSidecar(root)
+    owners = []
+    monkeypatch.setattr(
+        sidecar.ctx.repository, "record_model_event",
+        lambda action, event, *, owner_kind, owner_id: owners.append((owner_kind, owner_id)),
+    )
+    observers = []
+
+    @contextmanager
+    def capture(observer):
+        observers.append(observer)
+        yield
+
+    monkeypatch.setattr(server, "observe_model_calls", capture)
+    spec = METHOD_REGISTRY["recover_practice_submission"]
+    monkeypatch.setitem(
+        METHOD_REGISTRY, "recover_practice_submission",
+        replace(spec, handler=lambda _ctx, _params: observers[-1]("start", {}) or {"ok": True}),
+    )
+    sidecar.result(
+        "recover_practice_submission",
+        {"sessionId": "s", "practiceItemId": "p", "submissionId": "  padded-key  "},
+    )
+    assert owners == [("submission", "padded-key")]
 
 
 def test_configured_manual_grading_is_ready(tmp_path):

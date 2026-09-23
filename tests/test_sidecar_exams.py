@@ -202,3 +202,20 @@ def test_finished_report_carries_per_item_feedback_and_repairs(tmp_path):
     assert "repairValidation" not in repair
     assert "changedCheckpointIds" not in trace
     assert "prefixBasis" not in trace
+
+
+def test_exam_grading_workers_run_in_the_submitting_request_context():
+    import contextvars
+
+    from learnloop_sidecar.exam_grading import ExamGradingManager
+
+    request_owner = contextvars.ContextVar("request_owner", default=None)
+    seen = []
+    manager = ExamGradingManager()
+    token = request_owner.set("submission-1")
+    try:
+        manager.submit("session", "item", lambda: seen.append(request_owner.get()))
+    finally:
+        request_owner.reset(token)
+    manager.wait_for_session("session")
+    assert seen == ["submission-1"]
