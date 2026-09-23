@@ -23,6 +23,7 @@ import os
 import queue
 import re
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence
@@ -58,6 +59,10 @@ from learnloop.content.pipeline.runner import (
 # Handler execution defaults remain here with the concrete jobs they govern.
 _MAX_INVENTORY_WORKERS = 2
 INGEST_CODEX_TIMEOUT_SECONDS = 8 * 60
+# The parallel inventory loop wakes on every worker request or completion,
+# so this only bounds how late a batch cancellation is noticed. Each check
+# opens two connections (job and batch), so polling faster costs runner CPU.
+_INVENTORY_CANCEL_POLL_SECONDS = 0.25
 
 _LEGACY_PHASE_TO_LADDER = {
     "preparing": "acquired",
@@ -1141,8 +1146,9 @@ class _RunnerMailbox:
     _ANSWER_POLL_SECONDS = 0.25
 
     def __init__(self) -> None:
+        # ``None`` is a wake-up with nothing to answer.
         self._requests: queue.SimpleQueue[
-            tuple[Callable[[], Any], concurrent.futures.Future]
+            tuple[Callable[[], Any], concurrent.futures.Future] | None
         ] = queue.SimpleQueue()
         self._closed = threading.Event()
 
@@ -1157,15 +1163,32 @@ class _RunnerMailbox:
             concurrent.futures.wait((answer,), timeout=self._ANSWER_POLL_SECONDS)
         return answer.result()
 
-    def answer_pending(self) -> BaseException | None:
-        """Runner side: answer every queued request; return the first failure."""
+    def wake(self, *_ignored: Any) -> None:
+        """Wake a runner waiting in :meth:`answer_pending` (a worker finished)."""
+
+        self._requests.put(None)
+
+    def answer_pending(self, *, wait_seconds: float = 0.0) -> BaseException | None:
+        """Runner side: answer every queued request; return the first failure.
+
+        Waits up to ``wait_seconds`` for the first request or wake-up, then
+        answers whatever else is already queued without waiting.
+        """
 
         first_failure: BaseException | None = None
+        timeout = wait_seconds
         while True:
             try:
-                callback, answer = self._requests.get_nowait()
+                if timeout > 0:
+                    request = self._requests.get(timeout=timeout)
+                else:
+                    request = self._requests.get_nowait()
             except queue.Empty:
                 return first_failure
+            timeout = 0.0
+            if request is None:
+                continue
+            callback, answer = request
             try:
                 answer.set_result(callback())
             except BaseException as exc:
@@ -1178,10 +1201,12 @@ class _RunnerMailbox:
         self._closed.set()
         while True:
             try:
-                _callback, answer = self._requests.get_nowait()
+                request = self._requests.get_nowait()
             except queue.Empty:
                 return
-            answer.set_exception(JobCancelled())
+            if request is not None:
+                _callback, answer = request
+                answer.set_exception(JobCancelled())
 
 
 def handle_inventory(ctx: JobContext) -> dict[str, Any]:
@@ -1342,19 +1367,24 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
                 item = next(work, None)
                 if item is not None:
                     index, prepared = item
-                    pending[executor.submit(copy_context().run, run_unit, client, index, prepared)] = client
+                    future = executor.submit(copy_context().run, run_unit, client, index, prepared)
+                    future.add_done_callback(mailbox.wake)
+                    pending[future] = client
             try:
                 for client in clients:
                     submit(client)
+                next_cancel_check = time.monotonic()
                 while pending:
-                    done, _ = concurrent.futures.wait(pending, timeout=0.05, return_when=concurrent.futures.FIRST_COMPLETED)
-                    answer_failure = mailbox.answer_pending()
+                    answer_failure = mailbox.answer_pending(wait_seconds=_INVENTORY_CANCEL_POLL_SECONDS)
                     failure = failure or answer_failure
-                    try:
-                        if ctx.cancelled():
-                            raise JobCancelled()
-                    except BaseException as exc:
-                        failure = failure or exc
+                    if time.monotonic() >= next_cancel_check:
+                        next_cancel_check = time.monotonic() + _INVENTORY_CANCEL_POLL_SECONDS
+                        try:
+                            if ctx.cancelled():
+                                raise JobCancelled()
+                        except BaseException as exc:
+                            failure = failure or exc
+                    done = [future for future in pending if future.done()]
                     free_clients = []
                     for future in done:
                         free_clients.append(pending.pop(future))
