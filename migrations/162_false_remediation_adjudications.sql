@@ -1,8 +1,12 @@
 -- F is an explicit evidence-backed adjudication, never inferred from a later
 -- successful answer. Corrections append a new adjudication and dataset version.
+-- attempt_id deliberately has no foreign key: like the other append-only
+-- ledgers, the table must stay outside the practice_attempts FK graph that
+-- scratch replays walk when they truncate attempts, because its no-delete
+-- trigger would abort that walk. record_false_remediation checks the attempt.
 CREATE TABLE false_remediation_adjudications (
   id TEXT PRIMARY KEY,
-  attempt_id TEXT NOT NULL REFERENCES practice_attempts(id),
+  attempt_id TEXT NOT NULL,
   label_value INTEGER NOT NULL CHECK(label_value IN (0,1)),
   evidence_refs_json TEXT NOT NULL,
   author_kind TEXT NOT NULL CHECK(author_kind IN ('human','machine')),
