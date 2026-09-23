@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data.py"
 source_paths:
   - "src/learnloop/cli/data.py"
-source_commit: "84ce9b464016168e1a672d0188f2491d6e5517e3"
-source_commit_timestamp: "2026-09-23T12:12:49-04:00"
+source_commit: "97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b"
+source_commit_timestamp: "2026-09-23T15:31:55-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -52,19 +52,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py) |
-| Source lines | 74 |
+| Source lines | 90 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84ce9b464016168e1a672d0188f2491d6e5517e3` |
-| Commit timestamp | `2026-09-23T12:12:49-04:00` |
+| Source commit | `97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b` |
+| Commit timestamp | `2026-09-23T15:31:55-04:00` |
 
 ## Public API
 
 - `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 34) — Read-only JSON coverage report, with current-version denominators.
-- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 42) — Back up an active database and export evidence, labels and split metadata.
-- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 56) — Append an evidence-backed label; corrections append another adjudication.
+- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], split_policy: Annotated[str, typer.Option('--split-policy', help=_SPLIT_POLICY_HELP)]=DEFAULT_SPLIT_POLICY, embargo: Annotated[str, typer.Option('--embargo', help='Temporal policy only: a duration such as 7d, 36h, 90m, 30s or 0 (no embargo).')]='7d', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 50) — Back up an active database and export evidence, labels and split metadata.
+- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 72) — Append an evidence-backed label; corrections append another adjudication.
+
+### Module constants
+
+- `_SPLIT_POLICY_HELP` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 41)
 
 ## Internal implementation anchors
 
@@ -86,7 +90,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `app`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `_dump`, `_load_vault_or_exit`, `_root`; calls `_dump`, `_load_vault_or_exit`, `_root`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `data_quality_report`; calls `data_quality_report`
-- [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `export_dataset`; calls `export_dataset`
+- [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `DEFAULT_SPLIT_POLICY`, `export_dataset`, `parse_embargo`; calls `export_dataset`, `parse_embargo`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/data_quality.py"
 source_paths:
   - "src/learnloop/substrate/data_quality.py"
-source_commit: "ca389239637c3a0e2410384bac1b2a3a18baaa48"
-source_commit_timestamp: "2026-09-23T12:09:25-04:00"
+source_commit: "97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b"
+source_commit_timestamp: "2026-09-23T15:31:55-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -51,20 +51,20 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/data_quality.py](../../../../../../src/learnloop/substrate/data_quality.py) |
-| Source lines | 151 |
+| Source lines | 160 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `ca389239637c3a0e2410384bac1b2a3a18baaa48` |
-| Commit timestamp | `2026-09-23T12:09:25-04:00` |
+| Source commit | `97d74d1da8b0077e7cbaa42c9d934d5ba1106c3b` |
+| Commit timestamp | `2026-09-23T15:31:55-04:00` |
 
 ## Public API
 
 - `table_names(connection: sqlite3.Connection) -> set[str]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 23)
 - `rows(connection: sqlite3.Connection, table: str, *, columns: tuple[str, ...] | None=None, where: str='') -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 31) — Read a table as dicts, optionally narrowed to the named columns.
 - `data_quality_report(sqlite_path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 49)
-- `inspect_collection(connection: sqlite3.Connection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 55)
+- `inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/data_quality.py), line 55) — Coverage report over one connection.
 
 ### Module constants
 
@@ -113,10 +113,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
   - `test_doors_without_a_completion_phase_are_not_counted_as_interrupted`
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_data_quality_report_outside_an_export_names_no_split_policy`
   - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
   - `test_export_preserves_censored_repair_disposition_as_distinct_from_failure`
   - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
-  - `test_split_on_a_copy_of_the_linear_algebra_fixture_finds_real_families`
 
 ## Modification guidance
 
