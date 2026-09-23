@@ -2,14 +2,20 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 import time
+from contextlib import nullcontext
 from typing import Any, TextIO
 
 from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401
+from learnloop.ai.execution import observe_model_calls
+from learnloop.attempts.completion_lock import AttemptCompletionBusy
+from learnloop.ids import new_ulid
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.errors import SidecarError, json_rpc_error, sidecar_error
+from learnloop_sidecar.handlers.practice import submission_key
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
@@ -63,17 +69,8 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
-        from learnloop.ai.execution import observe_model_calls
-        from learnloop.ids import new_ulid
-        repository = ctx.repository
-        if repository is None:
+        with _observed_model_calls(ctx, method_name, params):
             result = spec.handler(ctx, params)
-        else:
-            submission_id = getattr(params, "submission_id", None)
-            owner_kind = "submission" if submission_id else "sidecar_rpc"
-            owner_id = submission_id or f"{method_name}:{new_ulid()}"
-            with observe_model_calls(lambda action, event: repository.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)):
-                result = spec.handler(ctx, params)
     except ValidationError as exc:
         log_event("rpc.error", method=method_name, id=request_id, code="validation_error",
                   duration_ms=_elapsed_ms(started))
@@ -91,25 +88,76 @@ def _handle(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         log_event("rpc.error", method=method_name, id=request_id, code=exc.code,
                   message=exc.message, duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(exc)}
+    except (sqlite3.OperationalError, AttemptCompletionBusy) as exc:
+        busy = _busy_error(exc)
+        if busy is None:
+            return _internal_error(request_id, method_name, started)
+        log_event("rpc.error", method=method_name, id=request_id, code=busy.code,
+                  message=busy.message, duration_ms=_elapsed_ms(started))
+        return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(busy)}
     except Exception:
-        LOG.exception("handler failed")
-        log_event("rpc.error", level=logging.ERROR, method=method_name, id=request_id,
-                  code="internal", duration_ms=_elapsed_ms(started))
-        return {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "error": json_rpc_error(
-                -32603,
-                _INTERNAL_ERROR_MESSAGE,
-                stable_code="internal",
-                retryable=False,
-                details={"method": method_name, "outcome": "unknown"},
-            ),
-        }
+        return _internal_error(request_id, method_name, started)
     log_event("rpc.response", method=method_name, id=request_id, duration_ms=_elapsed_ms(started))
     if request_id is None:
         return None
     return {"jsonrpc": "2.0", "id": request_id, "result": result if result is not None else {"ok": True}}
+
+
+def _observed_model_calls(ctx: SidecarContext, method_name: str, params: Any):
+    """Record every model call the handler makes, owned by its submission or RPC."""
+
+    repository = ctx.repository
+    if repository is None:
+        return nullcontext()
+    submission_id = submission_key(params)
+    owner_kind = "submission" if submission_id else "sidecar_rpc"
+    owner_id = submission_id or f"{method_name}:{new_ulid()}"
+    return observe_model_calls(
+        lambda action, event: repository.record_model_event(
+            action, event, owner_kind=owner_kind, owner_id=owner_id
+        )
+    )
+
+
+def _busy_error(exc: Exception) -> SidecarError | None:
+    """Map lock contention to a retryable error; None for any other failure.
+
+    The transaction that met the lock was rolled back. Retrying is the right
+    response: submissions resume by their submission id rather than applying
+    twice, and the other writes on these paths are idempotent.
+    """
+
+    if isinstance(exc, AttemptCompletionBusy):
+        return SidecarError(
+            "completion_busy",
+            "Another LearnLoop process is finishing this attempt. Try again in a moment.",
+            retryable=True,
+        )
+    message = str(exc).lower()
+    if message.startswith("database is locked") or message.startswith("database is busy"):
+        return SidecarError(
+            "database_busy",
+            "The vault database is busy with another write. Try again in a moment.",
+            retryable=True,
+        )
+    return None
+
+
+def _internal_error(request_id: Any, method_name: str, started: float) -> dict[str, Any]:
+    LOG.exception("handler failed")
+    log_event("rpc.error", level=logging.ERROR, method=method_name, id=request_id,
+              code="internal", duration_ms=_elapsed_ms(started))
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": json_rpc_error(
+            -32603,
+            _INTERNAL_ERROR_MESSAGE,
+            stable_code="internal",
+            retryable=False,
+            details={"method": method_name, "outcome": "unknown"},
+        ),
+    }
 
 
 def _elapsed_ms(started: float) -> float:

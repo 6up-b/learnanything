@@ -45,9 +45,8 @@ class PracticeItemInput(ParamsModel):
 #: This MUST stay in sync with ``pipeline.jobs.APPLYING_JOB_TYPES`` — that tuple
 #: is the authority on which jobs change vault content, and any job listed there
 #: but missing here applies items the Today queue then cannot see, because
-#: ``get_today_queue`` reads the cached snapshot. The two drifted once already
-#: (``goal_population`` was added to the applying list and not to this one), so
-#: the set is derived rather than restated.
+#: ``get_today_queue`` reads the cached snapshot, so the set is derived rather
+#: than restated.
 _QUEUE_RELOAD_JOB_TYPES = frozenset(APPLYING_JOB_TYPES)
 
 
@@ -77,7 +76,11 @@ def get_queue_revision(ctx: SidecarContext, _params: ParamsModel) -> dict[str, A
 @method("get_today_queue", QueueInput)
 def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    queue_accepted_diagnostic_followups(repository)
+    # One connection for the whole backfill: it makes two small repository
+    # calls per proposal batch, and opening a connection per call dominated
+    # the Today refresh.
+    with repository.pinned():
+        queue_accepted_diagnostic_followups(repository)
     queue = build_due_queue(
         vault,
         repository,
@@ -89,8 +92,8 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
         limit=params.limit,
     )
     slate_id = queue[0].scheduler_slate_id if queue else None
-    # Teach-back items dead-end without their
-    # AI provider, so they are dropped from the offered queue while it is down.
+    # Teach-back items dead-end without their AI provider, so they are dropped
+    # from the offer and the final offer records the filtering.
     queue = filter_unready_teach_back_items(
         vault, queue, grading_provider_override=ctx.grading_provider_override
     )

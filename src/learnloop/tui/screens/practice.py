@@ -11,6 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Rule, TextArea
 
 from learnloop.attempt_types import default_attempt_type
+from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
@@ -70,6 +71,12 @@ class PracticeScreen(Screen):
         self.practice_item = state.vault.practice_items[item.practice_item_id]
         self.learning_object = state.vault.learning_objects[item.learning_object_id]
         self.attempt_type = default_attempt_type(self.practice_item.attempt_types_allowed)
+        # The retry key of the one attempt this screen composes: every draft
+        # built from the screen (feedback grading, retries, "I don't know")
+        # carries it, so the unique submission index records at most one
+        # attempt for it. Opening the item again builds a new screen and so
+        # starts a new attempt.
+        self.submission_id = new_ulid()
         # Probe redesign §12: the same measurement contract the Tauri surface
         # enforces. Committing the presentation is the serve event (§5.1).
         self.probe_contract: dict | None = None
@@ -196,17 +203,21 @@ class PracticeScreen(Screen):
         return feedback
 
     def dont_know(self):
-        result = complete_self_graded_attempt(
-            self.state.vault,
-            self.state.repository,
-            self._draft("dont_know"),
-            SelfGradeInput(criterion_points={}, confidence=3),
+        from learnloop.attempts.post_attempt import (
+            committed_submission_result,
+            run_post_attempt_pipeline,
         )
-        # Keep every learner-facing attempt door on the same post-attempt
-        # composition.  This path used to bypass feedback metadata, causal
-        # follow-ups, and certification cold-probe scheduling entirely.
-        from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 
+        result = committed_submission_result(self.state.repository, self.submission_id)
+        if result is None:
+            result = complete_self_graded_attempt(
+                self.state.vault,
+                self.state.repository,
+                self._draft("dont_know"),
+                SelfGradeInput(criterion_points={}, confidence=3),
+            )
+        # Every learner-facing attempt door runs the same post-attempt
+        # composition.
         run_post_attempt_pipeline(
             self.state.vault,
             self.state.repository,
@@ -227,6 +238,7 @@ class PracticeScreen(Screen):
         return AttemptDraft(
             entry_surface="tui_practice",
             evidence_origin="human",
+            submission_id=self.submission_id,
             practice_item_id=self.practice_item.id,
             learner_answer_md=self.answer,
             attempt_type=resolved_type,

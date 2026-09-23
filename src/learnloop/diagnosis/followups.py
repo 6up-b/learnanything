@@ -42,6 +42,8 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 
 FOLLOWUP_ACTION = "negative_surprise_followup"
 INTERVENTION_ACTION = "intervention_followup"
+#: Default for ``applied_probe_episode_id``: use the LO's currently open episode.
+CURRENT_EPISODE = object()
 
 # Journey B decision verbs whose receipt IS the feedback surface's commonRepair
 # card. Receipts are per-factor: one of these on the attempt's factor means the
@@ -499,19 +501,27 @@ def evaluate_attempt_intervention_followup(
     ai_client: Any = None,
     suppress_insertion_reason: str | None = None,
     normalization_prepared: bool = False,
+    applied_probe_episode_id: str | None | object = CURRENT_EPISODE,
     clock: Clock | None = None,
 ) -> FollowupDecision:
     """Run the full post-attempt intervention policy for one attempt result.
+
+    ``applied_probe_episode_id`` names the probe episode the attempt was
+    applied under (None: none). A resumed completion passes it, because the
+    episode open now may be a later one; the default reads the open episode,
+    which is correct when this runs right after the attempt was applied.
 
     This is the shared UI/CLI entrypoint. It threads the derived attempt debug
     payload into the broader intervention gate so severe/repeated failures,
     target facets, probe state, and cold-start evidence are handled consistently
     outside the CLI.
 
-    Registry normalization + resolution (spec §2.2/§4.3/§7) run here first, after
-    error persistence and before evaluation, so a just-diagnosed belief is visible
-    to routing and the hypothesis prior. Replay never re-normalizes (it does not
-    run this path); persisted ``misconception_id`` links survive rebuilds.
+    Unless ``normalization_prepared``, registry normalization + resolution (spec
+    §2.2/§4.3/§7) run here first, after error persistence and before
+    evaluation, so a just-diagnosed belief is visible to routing and the
+    hypothesis prior. The post-attempt pipeline normalizes before calling this,
+    outside its transaction. Replay never re-normalizes (it does not run this
+    path); persisted ``misconception_id`` links survive rebuilds.
 
     §5.7 block boundary semantics: for an attempt inside an active diagnostic
     block (a diagnostic submission that consumed a committed presentation),
@@ -523,13 +533,18 @@ def evaluate_attempt_intervention_followup(
     """
 
     attempt_row = repository.fetch_practice_attempt(result.attempt_id) or {}
-    open_episode = repository.open_probe_episode(result.learning_object_id)
+    if applied_probe_episode_id is CURRENT_EPISODE:
+        attempt_episode = repository.open_probe_episode(result.learning_object_id)
+    elif applied_probe_episode_id is None:
+        attempt_episode = None
+    else:
+        attempt_episode = repository.probe_episode(str(applied_probe_episode_id))
     if (
-        open_episode is not None
-        and open_episode.status == "in_progress"
+        attempt_episode is not None
+        and attempt_episode.status == "in_progress"
         and attempt_row.get("probe_presentation_id") is not None
     ):
-        suppressed = [f"{INTERVENTION_ACTION}:deferred_to_block_end:{open_episode.id}"]
+        suppressed = [f"{INTERVENTION_ACTION}:deferred_to_block_end:{attempt_episode.id}"]
         repository.update_attempt_surprise_actions(
             result.attempt_id, suppressed_actions=suppressed
         )

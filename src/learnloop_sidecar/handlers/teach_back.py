@@ -316,6 +316,8 @@ def _finish(
             session_id=params.session_id,
             latency_seconds=params.latency_seconds,
             agent_run_id=state.conversation_id,
+            entry_surface="desktop_teach_back",
+            evidence_origin="human",
         )
     except (CodexUnavailable, TimeoutError) as exc:
         raise SidecarError(
@@ -331,9 +333,7 @@ def _finish(
     repository.clear_session_checkpoint(params.session_id)
     # Post-steps are secondary: the attempt is recorded and the response must
     # report it, so failures here are logged, never raised.
-    # One composed pipeline like every other recording door; teach-back
-    # previously ran a subset by hand and silently skipped cold-probe
-    # scheduling.
+    # One composed pipeline like every other recording door.
     for post_step in (
         lambda: run_post_attempt_pipeline(
             vault,

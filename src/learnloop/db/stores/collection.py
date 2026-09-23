@@ -75,22 +75,47 @@ class CollectionStoreMixin:
         return identifier
 
     def bind_submission_offer(self, *, submission_id: str | None, session_id: str, practice_item_id: str, scheduler_candidate_id: str | None, entry_surface: str = "desktop_practice") -> str | None:
-        with self.atomic(), self.connection() as connection:
+        """Return the scheduler offer a submission answers, binding it on first use.
+
+        The first offer bound to a submission id wins: the learner composed the
+        answer under it. Reopening the item from a refreshed queue presents that
+        queue's offer for the same item with the same submission id; it is
+        accepted when it is a real offer of that item in that session, and the
+        original offer is returned. A submission id reused for another item or
+        session, or an offer that does not belong to them, is rejected.
+        """
+
+        def require_offered(connection, candidate_id: str) -> None:
+            candidate = connection.execute(
+                """SELECT c.id FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id=c.slate_id
+                   WHERE c.id=? AND s.session_id=? AND c.practice_item_id=? AND c.was_returned=1 AND c.chosen_attempt_id IS NULL""",
+                (candidate_id, session_id, practice_item_id),
+            ).fetchone()
+            if candidate is None:
+                raise ValueError("The scheduler offer does not belong to this item/session or was already consumed.")
+
+        def bound_offer(connection) -> tuple[bool, str | None]:
             existing = connection.execute("SELECT * FROM submission_intents WHERE submission_id=?", (submission_id,)).fetchone() if submission_id else None
-            if existing is not None:
-                if existing["session_id"] != session_id or existing["practice_item_id"] != practice_item_id:
-                    raise ValueError("The submission belongs to a different item or session.")
-                if scheduler_candidate_id is not None and scheduler_candidate_id != existing["scheduler_candidate_id"]:
-                    raise ValueError("The submission's original scheduler offer cannot change.")
-                return existing["scheduler_candidate_id"]
+            if existing is None:
+                return False, None
+            if existing["session_id"] != session_id or existing["practice_item_id"] != practice_item_id:
+                raise ValueError("The submission belongs to a different item or session.")
+            if scheduler_candidate_id is not None and scheduler_candidate_id != existing["scheduler_candidate_id"]:
+                require_offered(connection, scheduler_candidate_id)
+            return True, existing["scheduler_candidate_id"]
+
+        # Draft autosaves repeat the bind for an existing intent; reading it
+        # first keeps them from taking the write lock.
+        with self.connection() as connection:
+            bound, original = bound_offer(connection)
+        if bound:
+            return original
+        with self.atomic(), self.connection() as connection:
+            bound, original = bound_offer(connection)
+            if bound:
+                return original
             if scheduler_candidate_id is not None:
-                candidate = connection.execute(
-                    """SELECT c.id FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id=c.slate_id
-                       WHERE c.id=? AND s.session_id=? AND c.practice_item_id=? AND c.was_returned=1 AND c.chosen_attempt_id IS NULL""",
-                    (scheduler_candidate_id, session_id, practice_item_id),
-                ).fetchone()
-                if candidate is None:
-                    raise ValueError("The scheduler offer does not belong to this item/session or was already consumed.")
+                require_offered(connection, scheduler_candidate_id)
             if submission_id:
                 connection.execute(
                     "INSERT INTO submission_intents(submission_id,session_id,practice_item_id,scheduler_candidate_id,entry_surface,created_at) VALUES (?,?,?,?,?,?)",

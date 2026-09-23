@@ -490,9 +490,15 @@ def finish_teach_back(
     session_id: str | None = None,
     latency_seconds: int | None = None,
     agent_run_id: str | None = None,
+    entry_surface: str = "unspecified",
+    evidence_origin: str = "unknown",
+    awaits_completion: bool = True,
     clock: Clock | None = None,
 ) -> TeachBackFinishResult:
     """Grade the whole transcript as ONE ``teach_back`` attempt.
+
+    ``entry_surface``, ``evidence_origin`` and ``awaits_completion`` are the
+    calling door's collection tags (see :class:`AttemptDraft`).
 
     Uses the EXISTING grading path (``run_grading_proposal`` + proposal
     validation) with the grading-context rubric restricted to the asked
@@ -585,6 +591,9 @@ def finish_teach_back(
         hints_used=0,
         latency_seconds=latency_seconds,
         session_id=session_id,
+        entry_surface=entry_surface,
+        evidence_origin=evidence_origin,
+        awaits_completion=awaits_completion,
     )
     result = apply_attempt(
         vault,

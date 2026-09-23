@@ -167,6 +167,9 @@ def _emit_attempt(
             practice_item_id=practice_item_id,
             learner_answer_md=answer,
             attempt_type=emits["attempt_type"],
+            entry_surface="observation",
+            evidence_origin="human",
+            awaits_completion=False,
         ),
         SelfGradeInput(
             criterion_points={key: float(value) for key, value in dict(criterion_points).items()},

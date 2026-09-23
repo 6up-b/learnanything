@@ -5,6 +5,8 @@ Only the cold-measurement ledger can establish the latter.
 """
 from __future__ import annotations
 
+import math
+from numbers import Real
 from typing import Any, Mapping
 
 COLLECTION_VERSION = "learnloop-events-v1"
@@ -29,7 +31,7 @@ def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
         reasons.append("primed")
     if row.get("intervening_attempt_count", 0):
         reasons.append("intervening_practice")
-    if row.get("elapsed_seconds") is None or row["elapsed_seconds"] < RETENTION_MIN_DELAY_SECONDS:
+    if not _observed_delay_at_least(row.get("elapsed_seconds"), RETENTION_MIN_DELAY_SECONDS):
         reasons.append("insufficient_delay")
     source_session = row.get("source_session_id", source.get("session_id"))
     outcome_session = row.get("outcome_session_id", outcome.get("session_id"))
@@ -40,3 +42,15 @@ def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
     if row.get("label_value") is None:
         reasons.append("outcome_unscorable")
     return reasons
+
+
+def _observed_delay_at_least(elapsed_seconds: Any, minimum: float) -> bool:
+    """A missing or non-finite delay is unobserved, so it never qualifies.
+
+    NaN compares false against every bound, so without the finiteness check
+    it would pass as a sufficient delay.
+    """
+
+    if isinstance(elapsed_seconds, bool) or not isinstance(elapsed_seconds, Real):
+        return False
+    return math.isfinite(elapsed_seconds) and elapsed_seconds >= minimum

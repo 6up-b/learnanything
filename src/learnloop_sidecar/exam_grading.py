@@ -7,6 +7,7 @@ resume or finish can schedule the still-ungraded row again.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import threading
 from collections.abc import Callable
@@ -41,9 +42,13 @@ class ExamGradingManager:
             if active is not None and active.is_alive():
                 return False
             self._errors.pop(key, None)
+            # Threads do not inherit context variables. Run the worker in a
+            # copy of the caller's context so the request's model-call
+            # observer records the grading call's receipts.
+            request_context = contextvars.copy_context()
             thread = threading.Thread(
-                target=self._run,
-                args=(key, work),
+                target=request_context.run,
+                args=(self._run, key, work),
                 name=f"learnloop-exam-grade-{practice_item_id}",
                 daemon=True,
             )

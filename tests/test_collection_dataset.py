@@ -152,7 +152,7 @@ def test_final_offer_refuses_filtered_and_cross_session_candidates(tmp_path):
     assert repository.scheduler_slate_candidates(item.scheduler_slate_id)[0]["was_returned"] == 0
 
 
-@pytest.mark.parametrize(("change", "reason"), [({"outcome_hints_used": 1}, "hinted"), ({"outcome_primed": 1}, "primed"), ({"elapsed_seconds": 10}, "insufficient_delay"), ({"intervening_attempt_count": 1}, "intervening_practice"), ({"outcome_session_id": "source"}, "same_session"), ({"outcome_primed": None}, "priming_unknown")])
+@pytest.mark.parametrize(("change", "reason"), [({"outcome_hints_used": 1}, "hinted"), ({"outcome_primed": 1}, "primed"), ({"elapsed_seconds": 10}, "insufficient_delay"), ({"elapsed_seconds": float("nan")}, "insufficient_delay"), ({"elapsed_seconds": float("inf")}, "insufficient_delay"), ({"intervening_attempt_count": 1}, "intervening_practice"), ({"outcome_session_id": "source"}, "same_session"), ({"outcome_primed": None}, "priming_unknown")])
 def test_retention_contract_rejects_contaminated_or_unobserved_labels(change, reason):
     row = {"label_value": 1, "outcome_hints_used": 0, "outcome_primed": 0, "elapsed_seconds": 86400, "source_session_id": "source", "outcome_session_id": "later", "intervening_attempt_count": 0}
     assert retention_exclusions(row) == []
