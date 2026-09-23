@@ -1,8 +1,8 @@
 """R2 umbrella for rebuilding every declared derived-state family.
 
-The existing replayers remain independently callable at their historical
-startup, upgrade, and maintenance sites.  This module only composes them for an
-explicit whole-vault rebuild.  Replayers are ordered, declare their table
+Each replayer stays independently callable from its own startup, upgrade,
+and maintenance sites.  This module only composes them for an explicit
+whole-vault rebuild.  Replayers are ordered, declare their table
 ownership, and are checked against :mod:`learnloop.db.table_roles` before the
 first write.
 
@@ -260,8 +260,8 @@ def _run_learning_state(
     cleared: dict[str, int] = {}
     if context.learning_object_ids is None:
         # A whole-vault rebuild must remove rows whose source attempt/content no
-        # longer exists.  The per-LO replay below still performs its historical
-        # scoped resets; those are harmless after this family-level clear.
+        # longer exists.  The per-LO replay below also performs its own scoped
+        # resets; those are harmless after this family-level clear.
         cleared = _clear_tables(context.repository, tuple(spec.owned_tables))
 
     from learnloop.substrate.replay import rebuild_derived_state
@@ -400,6 +400,9 @@ def rebuild_all_derived_state(
     failure is raised before the receipt is written. Every nested write and the
     receipt publish in one transaction; failed replay leaves live state intact.
     BEGIN IMMEDIATE prevents concurrent evidence writers during the replay.
+    Under the rollback journal, readers are locked out as well once the
+    transaction spills dirty pages from its cache, which takes the EXCLUSIVE
+    lock until commit.
     """
 
     validate_replayer_registry()
@@ -428,8 +431,9 @@ def rebuild_all_derived_state(
     if learning is None:  # pragma: no cover - registry validation/order guards this
         raise ReplayerRegistryError("learning_state replayer did not produce a result")
 
-    # Receipt ownership stays centralized here.  Internal LO replay suppresses
-    # its historical marker, while every direct legacy caller keeps that marker.
+    # Receipt ownership stays centralized here.  The LO replay run from this
+    # umbrella suppresses its own marker; direct callers of
+    # ``rebuild_derived_state`` still record one.
     from learnloop.substrate.canonical_projection import CANONICAL_PROJECTION_VERSION
     scope = "learning_object" if learning_object_ids else "all"
     marker_id = repository.record_derived_state_rebuild(
