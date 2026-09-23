@@ -11,7 +11,7 @@ source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
   - tests
   - pyproject.toml
-  - REFACTOR_PROPOSAL.md
+  - docs/specs/REFACTOR_PROPOSAL.md
 tags:
   - learnloop/architecture
   - learnloop/testing

@@ -7,7 +7,7 @@ last_reviewed: 2026-08-18
 source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_paths:
-  - docs/learnloop-architecture-vault/.obsidian/graph.json
+  - docs/learnloop-architecture-vault/_scripts/validate_vault.py
 tags:
   - learnloop/docs
   - learnloop/meta
@@ -64,7 +64,7 @@ tag:#learnloop/status/dormant OR tag:#learnloop/status/compat
 
 ## Graph filters
 
-The vault graph colors concepts, architecture, workflows, modules, tables, and decisions separately. Useful filters:
+Graph settings live in the untracked `.obsidian/` folder, so color groups are local to each checkout. Useful filters:
 
 - `-path:_meta/Templates` — hide templates.
 - `tag:#learnloop/architecture OR tag:#learnloop/concept` — conceptual skeleton only.
