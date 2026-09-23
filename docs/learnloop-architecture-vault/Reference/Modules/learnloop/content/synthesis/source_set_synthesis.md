@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/content/synthesis/source_set_synthesis.py"
 source_paths:
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
-source_commit: "5f7340aaf0366e30dca27f6cfc233dae3e37c850"
-source_commit_timestamp: "2026-09-23T12:54:18-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py) |
-| Source lines | 2831 |
+| Source lines | 2834 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5f7340aaf0366e30dca27f6cfc233dae3e37c850` |
-| Commit timestamp | `2026-09-23T12:54:18-04:00` |
+| Source commit | `922f2d187b5839289a7de8ea6d73ce679998e7e8` |
+| Commit timestamp | `2026-09-23T15:53:48-04:00` |
 
 ## Public API
 
@@ -69,17 +69,17 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `as_dict(self) -> dict[str, Any]` (line 156; public)
 - `resolve_subject_id(source_set: Any, vault: LoadedVault) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1371) — The subject a synthesized study map belongs to: the source set's own subject_id (§4.3 — sets are subject-scoped), never "first subject in the vault", which misfires on multi-subject vaults and crashes on fresh ones.
 - `create_study_map(root: Path, source_set_id: str, *, client: Any, brief: dict[str, Any] | None=None, mode: str='auto', apply: bool=False, create_goal: bool=False, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, progress: ProgressFn | None=None) -> StudyMapResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1438)
-- `derive_candidate_repairs(candidate: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1817) — Mechanically-safe repair ops for a preserved synthesis candidate.
-- `apply_candidate_repairs(candidate: dict[str, Any], ops: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1866) — Apply typed repair ops to a candidate dict; returns (repaired, log).
-- `revalidate_synthesis_candidate(root: Path, synthesis_run_id: str, *, apply: bool=False, create_goal: bool=False, repair: bool=False, repair_ops: list[dict[str, Any]] | None=None, repository: Repository | None=None, clock: Clock | None=None, progress: ProgressFn | None=None) -> StudyMapResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1916) — Re-run normalization, gates, and persistence over a preserved candidate with ZERO model calls.
+- `derive_candidate_repairs(candidate: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1820) — Mechanically-safe repair ops for a preserved synthesis candidate.
+- `apply_candidate_repairs(candidate: dict[str, Any], ops: list[dict[str, Any]]) -> tuple[dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1869) — Apply typed repair ops to a candidate dict; returns (repaired, log).
+- `revalidate_synthesis_candidate(root: Path, synthesis_run_id: str, *, apply: bool=False, create_goal: bool=False, repair: bool=False, repair_ops: list[dict[str, Any]] | None=None, repository: Repository | None=None, clock: Clock | None=None, progress: ProgressFn | None=None) -> StudyMapResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1919) — Re-run normalization, gates, and persistence over a preserved candidate with ZERO model calls.
 
 ### Module constants
 
 - `SYNTHESIS_AGENT_PURPOSE` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 88)
 - `BOOTSTRAP_PROPOSAL_PURPOSE` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 89)
 - `_SEMANTIC_ROLES` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 92)
-- `_SHARD_PREFIX_RE` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1811)
-- `_CANDIDATE_ITEM_FIELDS` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1814)
+- `_SHARD_PREFIX_RE` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1814)
+- `_CANDIDATE_ITEM_FIELDS` ([src/learnloop/content/synthesis/source_set_synthesis.py](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1817)
 
 ## Internal implementation anchors
 
@@ -98,29 +98,29 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_row(item_type: str, entity_id: str, payload: dict[str, Any], depends_on: list[str], *, client_id: str, now: str, target_entity_id: str | None=None, target_entity_type: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1388)
 - `_bootstrap_lock_refusal(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1414) — §8.2 enforcement 1: bootstrap is legal only where nothing is identity-locked.
 - `_create_study_map(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, brief: dict[str, Any], mode: str, apply: bool, create_goal: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, progress: ProgressFn | None=None) -> StudyMapResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1466)
-- `_gate_and_persist(vault: LoadedVault, repository: Repository, source_set: SourceSet, merged: Any, inputs: _SynthesisInputs, *, subject_id: str, agent_run_id: str | None, synthesis_run_id: str, now: str, usage: dict[str, Any] | None, resolved_hashes: list[str], clock: Clock | None, progress: ProgressFn | None=None, items_off: bool=False, token_usage: TokenUsage | None=None, grading_client: Any=None) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1681) — Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
-- `class _SynthesisBudget` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2026) — One synthesis run's spend against its ingest token budgets.
-- `_run_synthesis(transport, repository, inputs, vault, source_set, brief, budgets, *, clock, client: Any=None, provider: str | None=None, model: str | None=None, manifest_hash: str | None=None, unlimited_token_budget: bool=False, progress: ProgressFn | None=None)` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2088)
-- `_checkpointed_pass(repository: Repository, key: str) -> SourceSetSynthesis | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2241) — Return a saved synthesis pass, discarding one that no longer validates.
-- `_synthesis_pass_key(prompt: str, schema: dict[str, Any], settings: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2258) — Checkpoint identity of one synthesis pass: the exact prompt and schema sent, and the provider settings that shape the answer.
-- `_result_tokens(result: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2266) — Rough output-token estimate: characters of the JSON the model wrote / 4.
-- `_merge_synthesis(base: Any, extra: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2283)
-- `_namespace_synthesis_shard(result: Any, ordinal: int) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2289) — Make model-authored client ids local to one synthesis shard.
-- `_shard_checkpoint_key(*, source_set: Any, brief: dict[str, Any], registry: dict[str, Any], exam_profile: dict[str, Any] | None, shard: list[dict[str, Any]], ordinal: int, count: int, settings: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2327) — Durable checkpoint identity for one synthesis shard.
-- `_consolidate_same_title_concepts(result: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2373) — Deterministic pass: fold concepts whose normalized titles are identical.
-- `_source_skeletons(repository: Repository, inputs: _SynthesisInputs) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2398) — Compact per-source big-picture views from already-paid-for artifacts.
-- `_model_graph_structuring(merged: Any, client: Any, source_set: Any, inputs: _SynthesisInputs, repository: Repository, vault: LoadedVault, *, shard_count: int, input_tokens_estimate: int, total_input_ceiling: int | None, output_budget_tokens: int | None=None, progress: ProgressFn | None=None) -> tuple[Any, dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2455) — One bounded model pass over the WHOLE merged candidate (§8.5): folds semantic duplicate concepts AND authors the big-picture concept relations (part_of hierarchy, prerequisites, confusables) across every shard and source, using the compact source skeletons as whole-span context.
-- `_validated_merge_mapping(consolidation: Any, result: Any) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2559) — duplicate client id -> canonical client id, from validated merge groups.
-- `_apply_concept_merges(result: Any, mapping: dict[str, str]) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2585) — Fold duplicate concepts into their canonical and rewrite all references.
-- `_duplicate_client_id_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2658)
-- `_gate_context(vault, repository, inputs, findings) -> GateContext` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2673)
-- `_findings_to_diagnostics(findings) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2694)
-- `_persist_generation_needs(repository, subject_id, source_set_id, synthesis_run_id, findings, *, clock)` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2709)
-- `_count_items(rows: list[dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2735)
-- `_is_exam_prep(brief: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2742)
-- `_apply_and_wire_goal(root: Path, repository: Repository, result: StudyMapResult, *, brief: dict[str, Any], create_goal: bool, clock: Clock | None, facet_ids: list[str] | None=None, progress: ProgressFn | None=None) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2747) — Accept the proposal, then create the exam-prep Goal when asked.
-- `_create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None=None) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2781)
-- `_create_goal_from_brief_locked(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2787) — Create a Goal wired to the freshly minted facets (§5.1), after acceptance.
+- `_gate_and_persist(vault: LoadedVault, repository: Repository, source_set: SourceSet, merged: Any, inputs: _SynthesisInputs, *, subject_id: str, agent_run_id: str | None, synthesis_run_id: str, now: str, usage: dict[str, Any] | None, resolved_hashes: list[str], clock: Clock | None, progress: ProgressFn | None=None, items_off: bool=False, token_usage: TokenUsage | None=None, grading_client: Any=None) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 1684) — Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
+- `class _SynthesisBudget` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2029) — One synthesis run's spend against its ingest token budgets.
+- `_run_synthesis(transport, repository, inputs, vault, source_set, brief, budgets, *, clock, client: Any=None, provider: str | None=None, model: str | None=None, manifest_hash: str | None=None, unlimited_token_budget: bool=False, progress: ProgressFn | None=None)` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2091)
+- `_checkpointed_pass(repository: Repository, key: str) -> SourceSetSynthesis | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2244) — Return a saved synthesis pass, discarding one that no longer validates.
+- `_synthesis_pass_key(prompt: str, schema: dict[str, Any], settings: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2261) — Checkpoint identity of one synthesis pass: the exact prompt and schema sent, and the provider settings that shape the answer.
+- `_result_tokens(result: Any) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2269) — Rough output-token estimate: characters of the JSON the model wrote / 4.
+- `_merge_synthesis(base: Any, extra: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2286)
+- `_namespace_synthesis_shard(result: Any, ordinal: int) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2292) — Make model-authored client ids local to one synthesis shard.
+- `_shard_checkpoint_key(*, source_set: Any, brief: dict[str, Any], registry: dict[str, Any], exam_profile: dict[str, Any] | None, shard: list[dict[str, Any]], ordinal: int, count: int, settings: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2330) — Durable checkpoint identity for one synthesis shard.
+- `_consolidate_same_title_concepts(result: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2376) — Deterministic pass: fold concepts whose normalized titles are identical.
+- `_source_skeletons(repository: Repository, inputs: _SynthesisInputs) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2401) — Compact per-source big-picture views from already-paid-for artifacts.
+- `_model_graph_structuring(merged: Any, client: Any, source_set: Any, inputs: _SynthesisInputs, repository: Repository, vault: LoadedVault, *, shard_count: int, input_tokens_estimate: int, total_input_ceiling: int | None, output_budget_tokens: int | None=None, progress: ProgressFn | None=None) -> tuple[Any, dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2458) — One bounded model pass over the WHOLE merged candidate (§8.5): folds semantic duplicate concepts AND authors the big-picture concept relations (part_of hierarchy, prerequisites, confusables) across every shard and source, using the compact source skeletons as whole-span context.
+- `_validated_merge_mapping(consolidation: Any, result: Any) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2562) — duplicate client id -> canonical client id, from validated merge groups.
+- `_apply_concept_merges(result: Any, mapping: dict[str, str]) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2588) — Fold duplicate concepts into their canonical and rewrite all references.
+- `_duplicate_client_id_diagnostics(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2661)
+- `_gate_context(vault, repository, inputs, findings) -> GateContext` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2676)
+- `_findings_to_diagnostics(findings) -> list[GateDiagnostic]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2697)
+- `_persist_generation_needs(repository, subject_id, source_set_id, synthesis_run_id, findings, *, clock)` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2712)
+- `_count_items(rows: list[dict[str, Any]]) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2738)
+- `_is_exam_prep(brief: dict[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2745)
+- `_apply_and_wire_goal(root: Path, repository: Repository, result: StudyMapResult, *, brief: dict[str, Any], create_goal: bool, clock: Clock | None, facet_ids: list[str] | None=None, progress: ProgressFn | None=None) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2750) — Accept the proposal, then create the exam-prep Goal when asked.
+- `_create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None=None) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2784)
+- `_create_goal_from_brief_locked(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_set_synthesis.py), line 2790) — Create a Goal wired to the freshly minted facets (§5.1), after acceptance.
 
 ## Who imports or calls it
 
@@ -136,7 +136,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`, `generation_limit`, `model_settings`; calls `content_key`, `generation_limit`, `model_settings`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `content_key`, `declared_budgets`, `generation_limit`, `model_settings`; calls `content_key`, `declared_budgets`, `generation_limit`, `model_settings`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsage`, `UsageMeter`, `consume_client_usage`; calls `TokenUsage`, `UsageMeter`, `consume_client_usage`

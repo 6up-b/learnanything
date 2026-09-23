@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:54:18-04:00"
+source_commit_timestamp: "2026-09-23T15:53:13-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.content.pipeline"

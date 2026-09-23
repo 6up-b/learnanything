@@ -9,7 +9,7 @@ source_paths:
   - "src/learnloop_sidecar"
   - "apps/learnloop-tauri"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:34:02-04:00"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 generated: true
 generated_at: "2026-09-23"
 tags:
@@ -21,13 +21,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **470 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **122 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **33 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **471 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **122 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **33 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 449 | Live ownership after the refactor. |
+| `ACTIVE` | 450 | Live ownership after the refactor. |
 | `COMPAT` | 4 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 2 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 15 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -45,7 +45,7 @@ tags:
 | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] | `infrastructure` | `ACTIVE` | 13 | Provider-neutral structured transport, routing, provider composition, capability checks, and usage accounting. |
 | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] | `infrastructure` | `ACTIVE` | 8 | Concrete AI transport adapters behind the provider-neutral contract. |
 | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] | `domain` | `ACTIVE` | 24 | Attempt acceptance, grading, interaction evidence, feedback, and post-attempt processing. |
-| [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] | `adapter` | `ACTIVE` | 24 | Typer command adapters, rendering, argument contracts, and command registration. |
+| [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] | `adapter` | `ACTIVE` | 25 | Typer command adapters, rendering, argument contracts, and command registration. |
 | [[Reference/Modules/learnloop/config/_package|learnloop.config]] | `infrastructure` | `ACTIVE` | 5 | Typed configuration schema, compatibility normalization, loading, and template emission. |
 | [[Reference/Modules/learnloop/content/_package|learnloop.content]] | `domain` | `ACTIVE` | 0 | Source-derived content, authoring, synthesis, proposal, and canonical pipeline ownership. |
 | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 15 | Practice-content authoring gates, generation contracts, and authored artifacts. |
@@ -129,4 +129,4 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 454 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 455 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.

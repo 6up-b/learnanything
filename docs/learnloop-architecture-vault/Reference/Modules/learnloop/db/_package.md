@@ -51,9 +51,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/db/__init__|learnloop.db]] | [[Reference/Modules/learnloop/db/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 7 | 28 |
+| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 7 | 29 |
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 4 | 26 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 216 | 324 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 217 | 324 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 12 | 3 |
 | [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 
@@ -91,11 +91,11 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 3 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 3 static module edges
+- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 2 static module edges
 - [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 2 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
-- [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
 - [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 1 static module edge
 

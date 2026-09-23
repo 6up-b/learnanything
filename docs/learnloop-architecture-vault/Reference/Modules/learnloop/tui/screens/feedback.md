@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/screens/feedback.py"
 source_paths:
   - "src/learnloop/tui/screens/feedback.py"
-source_commit: "4b93c6683f782f476861dce3cab58e2967943edf"
-source_commit_timestamp: "2026-09-23T12:51:27-04:00"
+source_commit: "75d4474a6e5950eb79877fbbf5f0b46f6590926a"
+source_commit_timestamp: "2026-09-23T15:53:13-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/screens/feedback.py](../../../../../../../src/learnloop/tui/screens/feedback.py) |
-| Source lines | 560 |
+| Source lines | 569 |
 | Owning package | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4b93c6683f782f476861dce3cab58e2967943edf` |
-| Commit timestamp | `2026-09-23T12:51:27-04:00` |
+| Source commit | `75d4474a6e5950eb79877fbbf5f0b46f6590926a` |
+| Commit timestamp | `2026-09-23T15:53:13-04:00` |
 
 ## Public API
 
@@ -73,32 +73,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `set_error_type(self, error_type: str | None) -> None` (line 177; public)
   - `toggle_fatal(self, fatal_error_id: str) -> None` (line 182; public)
   - `submit(self) -> AttemptResult` (line 192; public)
-  - `async auto_submit_ai(self) -> AttemptResult | None` (line 235; public)
-  - `_committed_result(self) -> AttemptResult | None` (line 282; internal)
-  - `async auto_submit_codex(self) -> AttemptResult | None` (line 285; public)
-  - `_grading_provider(self)` (line 288; internal)
-  - `_ai_ready(self) -> bool` (line 297; internal)
-  - `_provider_label(self) -> str` (line 301; internal)
-  - `_complete_result(self, result: AttemptResult) -> None` (line 305; internal)
-  - `_render_results(self, result: AttemptResult) -> None` (line 350; internal)
-  - `_result_head_content(self, result: AttemptResult) -> Content` (line 360; internal)
-  - `_score_block_content(self, result: AttemptResult) -> Content` (line 369; internal)
-  - `_rubric_evidence_content(self, result: AttemptResult) -> Content` (line 386; internal)
-  - `_tutor_note_content(self, result: AttemptResult) -> Content` (line 409; internal)
-  - `_error_content(self, result: AttemptResult) -> Content` (line 420; internal)
-  - `_belief_content(self, result: AttemptResult) -> Content` (line 447; internal)
-  - `_followup_content(self) -> Content` (line 464; internal)
-  - `_schedule_content(self, result: AttemptResult) -> Content` (line 484; internal)
-  - `_criterion_mark(self, awarded: float, points: float) -> tuple[str, str]` (line 496; internal)
-  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 503; internal)
-  - `_breadcrumb_content(self) -> Content` (line 511; internal)
-  - `_read_form_state(self) -> None` (line 522; internal)
-  - `_render_fatal_summary(self) -> None` (line 533; internal)
-  - `return_to_today(self) -> None` (line 539; public)
-  - `action_submit(self) -> None` (line 545; public)
-  - `action_next(self) -> None` (line 548; public)
-  - `action_back(self) -> None` (line 551; public)
-  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 554; public)
+  - `_submit(self) -> AttemptResult` (line 196; internal)
+  - `async auto_submit_ai(self) -> AttemptResult | None` (line 239; public)
+  - `async _auto_submit_ai(self) -> AttemptResult | None` (line 244; internal)
+  - `_committed_result(self) -> AttemptResult | None` (line 291; internal)
+  - `async auto_submit_codex(self) -> AttemptResult | None` (line 294; public)
+  - `_grading_provider(self)` (line 297; internal)
+  - `_ai_ready(self) -> bool` (line 306; internal)
+  - `_provider_label(self) -> str` (line 310; internal)
+  - `_complete_result(self, result: AttemptResult) -> None` (line 314; internal)
+  - `_render_results(self, result: AttemptResult) -> None` (line 359; internal)
+  - `_result_head_content(self, result: AttemptResult) -> Content` (line 369; internal)
+  - `_score_block_content(self, result: AttemptResult) -> Content` (line 378; internal)
+  - `_rubric_evidence_content(self, result: AttemptResult) -> Content` (line 395; internal)
+  - `_tutor_note_content(self, result: AttemptResult) -> Content` (line 418; internal)
+  - `_error_content(self, result: AttemptResult) -> Content` (line 429; internal)
+  - `_belief_content(self, result: AttemptResult) -> Content` (line 456; internal)
+  - `_followup_content(self) -> Content` (line 473; internal)
+  - `_schedule_content(self, result: AttemptResult) -> Content` (line 493; internal)
+  - `_criterion_mark(self, awarded: float, points: float) -> tuple[str, str]` (line 505; internal)
+  - `_mastery_mean_sd(self) -> tuple[float, float]` (line 512; internal)
+  - `_breadcrumb_content(self) -> Content` (line 520; internal)
+  - `_read_form_state(self) -> None` (line 531; internal)
+  - `_render_fatal_summary(self) -> None` (line 542; internal)
+  - `return_to_today(self) -> None` (line 548; public)
+  - `action_submit(self) -> None` (line 554; public)
+  - `action_next(self) -> None` (line 557; public)
+  - `action_back(self) -> None` (line 560; public)
+  - `on_button_pressed(self, event: Button.Pressed) -> None` (line 563; public)
 
 ### Module constants
 

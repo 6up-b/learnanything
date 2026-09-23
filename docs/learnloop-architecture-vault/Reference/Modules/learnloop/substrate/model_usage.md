@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/model_usage.py"
 source_paths:
   - "src/learnloop/substrate/model_usage.py"
-source_commit: "4c90f78eda7658ba68ab007af3fbf7ca5e066631"
-source_commit_timestamp: "2026-09-23T15:34:02-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -51,46 +51,47 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py) |
-| Source lines | 317 |
+| Source lines | 338 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4c90f78eda7658ba68ab007af3fbf7ca5e066631` |
-| Commit timestamp | `2026-09-23T15:34:02-04:00` |
+| Source commit | `922f2d187b5839289a7de8ea6d73ce679998e7e8` |
+| Commit timestamp | `2026-09-23T15:53:48-04:00` |
 
 ## Public API
 
-- `model_usage_report(sqlite_path: Path, *, budgets: Mapping[str, int | None], since: datetime | None=None, purpose_prefix: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 68) — Read every receipt in one read-only transaction and summarize it.
-- `read_receipts(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 85) — All receipts, with columns an older schema lacks read as NULL.
-- `build_usage_report(receipts: Iterable[Mapping[str, Any]], *, budgets: Mapping[str, int | None], since: datetime | None=None, purpose_prefix: str | None=None, generated_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 96) — Summarize receipts by root purpose, by synthesis run, and by coverage.
-- `distribution(values: Iterable[int | float | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 172) — Mean, median, nearest-rank p95 and max over the known values only.
+- `model_usage_report(sqlite_path: Path, *, budgets: Mapping[str, int | None], since: datetime | None=None, purpose_prefix: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 69) — Read every receipt in one read-only transaction and summarize it.
+- `read_receipts(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 86) — All receipts, with columns an older schema lacks read as NULL.
+- `build_usage_report(receipts: Iterable[Mapping[str, Any]], *, budgets: Mapping[str, int | None], since: datetime | None=None, purpose_prefix: str | None=None, generated_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 97) — Summarize receipts by root purpose, by synthesis run, and by coverage.
+- `distribution(values: Iterable[int | float | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 173) — Mean, median, nearest-rank p95 and max over the known values only.
 
 ### Module constants
 
-- `REPORT_VERSION` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 30)
-- `SYNTHESIS_PASS_PURPOSE` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 36)
-- `GRAPH_STRUCTURING_PURPOSE` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 37)
-- `SYNTHESIS_RUN_PURPOSES` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 38)
-- `SYNTHESIS_BUDGET_FIELDS` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 40)
-- `TOKEN_FIELDS` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 46)
-- `STATUSES` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 47)
-- `_RECEIPT_COLUMNS` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 49)
+- `REPORT_VERSION` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 31)
+- `SYNTHESIS_PASS_PURPOSE` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 37)
+- `GRAPH_STRUCTURING_PURPOSE` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 38)
+- `SYNTHESIS_RUN_PURPOSES` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 39)
+- `SYNTHESIS_BUDGET_FIELDS` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 41)
+- `TOKEN_FIELDS` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 47)
+- `STATUSES` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 48)
+- `_RECEIPT_COLUMNS` ([src/learnloop/substrate/model_usage.py](../../../../../../src/learnloop/substrate/model_usage.py), line 50)
 
 ## Internal implementation anchors
 
-- `class _Chains` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 56) — Each receipt's root and whether it is a leaf (a request with usage).
-- `_link_chains(receipts: Iterable[Mapping[str, Any]]) -> _Chains` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 139)
-- `_root_in_scope(root: Mapping[str, Any], *, since: datetime | None, purpose_prefix: str | None) -> bool` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 158)
-- `_usage_unknown(request: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 168)
-- `_provider_and_model(request: Mapping[str, Any], root: Mapping[str, Any]) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 189)
-- `_by_purpose(requests: list[dict[str, Any]], chains: _Chains) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 193)
-- `_synthesis_runs(in_scope_roots: set[str], chains: _Chains, budgets: Mapping[str, int | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 218)
-- `_synthesis_run(owner: tuple[str, str], roots: list[dict[str, Any]], chains: _Chains, budgets: Mapping[str, int | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 229)
-- `_coverage(requests: list[dict[str, Any]], chains: _Chains) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 266) — Where usage goes unreported, by root purpose, request purpose and provider.
-- `_known_sum(requests: Iterable[Mapping[str, Any]], field: str) -> int | None` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 303) — The sum of the reported values, or None when no request reported one.
-- `_ratio(value: int | None, budget: int | None) -> float | None` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 310)
-- `_sort_key(values: tuple[Any, ...]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 316)
+- `class _Chains` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 57) — Each receipt's root and whether it is a leaf (a request with usage).
+- `_link_chains(receipts: Iterable[Mapping[str, Any]]) -> _Chains` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 140)
+- `_root_in_scope(root: Mapping[str, Any], *, since: datetime | None, purpose_prefix: str | None) -> bool` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 159)
+- `_usage_unknown(request: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 169)
+- `_provider_and_model(request: Mapping[str, Any], root: Mapping[str, Any]) -> tuple[str | None, str | None]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 190)
+- `_by_purpose(requests: list[dict[str, Any]], chains: _Chains) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 194)
+- `_synthesis_runs(in_scope_roots: set[str], chains: _Chains, budgets: Mapping[str, int | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 219)
+- `_run_budgets(roots: list[dict[str, Any]], config_budgets: Mapping[str, int | None]) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 231) — The budgets the run declared on its receipts, else the current config.
+- `_synthesis_run(owner: tuple[str, str], roots: list[dict[str, Any]], chains: _Chains, config_budgets: Mapping[str, int | None]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 247)
+- `_coverage(requests: list[dict[str, Any]], chains: _Chains) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 287) — Where usage goes unreported, by root purpose, request purpose and provider.
+- `_known_sum(requests: Iterable[Mapping[str, Any]], field: str) -> int | None` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 324) — The sum of the reported values, or None when no request reported one.
+- `_ratio(value: int | None, budget: int | None) -> float | None` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 331)
+- `_sort_key(values: tuple[Any, ...]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/substrate/model_usage.py), line 337)
 
 ## Who imports or calls it
 
@@ -108,7 +109,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `datetime`, `math`, `pathlib`, `sqlite3`, `statistics`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `datetime`, `json`, `math`, `pathlib`, `sqlite3`, `statistics`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -130,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openai_requests_are_attributed_to_their_root_purpose`
   - `test_purpose_prefix_and_since_filter_whole_chains`
   - `test_report_ordering_is_deterministic`
+  - `test_runs_are_compared_with_the_budgets_recorded_on_their_receipts`
   - `test_synthesis_purposes_match_the_synthesis_operations`
   - `test_synthesis_runs_compare_measured_tokens_with_the_budgets`
 

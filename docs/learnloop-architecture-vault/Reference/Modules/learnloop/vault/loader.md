@@ -88,6 +88,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `add_subject`, `init_vault`; statically calls `add_subject`, `init_vault`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `add_note`, `add_subject`, `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `load_vault`; statically calls `load_vault`
@@ -153,7 +154,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]] and 34 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]], [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] and 35 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

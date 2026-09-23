@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data.py"
 source_paths:
   - "src/learnloop/cli/data.py"
-source_commit: "4c90f78eda7658ba68ab007af3fbf7ca5e066631"
-source_commit_timestamp: "2026-09-23T15:34:02-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -52,21 +52,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py) |
-| Source lines | 197 |
+| Source lines | 202 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4c90f78eda7658ba68ab007af3fbf7ca5e066631` |
-| Commit timestamp | `2026-09-23T15:34:02-04:00` |
+| Source commit | `922f2d187b5839289a7de8ea6d73ce679998e7e8` |
+| Commit timestamp | `2026-09-23T15:53:48-04:00` |
 
 ## Public API
 
 - `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 36) — Read-only JSON coverage report, with current-version denominators.
 - `usage(vault: Annotated[Path | None, typer.Option('--vault')]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit the stable JSON report.')]=False, since: Annotated[str | None, typer.Option('--since', help='Only operations started at or after this ISO date or time (UTC when no offset).')]=None, purpose: Annotated[str | None, typer.Option('--purpose', help='Only operations whose root purpose starts with this prefix.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 44) — Read-only token and cost report from model-call receipts, with synthesis budget ratios.
 - `render_usage_report(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 71) — A terminal-width summary of the JSON report, section by section.
-- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 165) — Back up an active database and export evidence, labels and split metadata.
-- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 179) — Append an evidence-backed label; corrections append another adjudication.
+- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 170) — Back up an active database and export evidence, labels and split metadata.
+- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 184) — Append an evidence-backed label; corrections append another adjudication.
 
 ### Module constants
 
@@ -81,8 +81,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_number(value: Any) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 87)
 - `_render_purposes(groups: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 95)
 - `_ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 120)
-- `_render_synthesis_runs(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 127)
-- `_render_coverage(rows: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 149)
+- `_render_synthesis_runs(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 129)
+- `_render_coverage(rows: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 154)
 
 ## Who imports or calls it
 
@@ -130,6 +130,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_cli_generate_practice.py](../../../../../../tests/test_cli_generate_practice.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_cli_ingest.py](../../../../../../tests/test_cli_ingest.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 
 ## Modification guidance

@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/substrate/surface_mint.py"
   - "src/learnloop/substrate/surface_pool.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:34:02-04:00"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.substrate"

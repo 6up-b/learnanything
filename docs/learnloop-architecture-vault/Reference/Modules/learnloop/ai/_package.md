@@ -19,7 +19,7 @@ source_paths:
   - "src/learnloop/ai/transport.py"
   - "src/learnloop/ai/usage.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:25:12-04:00"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.ai"
@@ -59,7 +59,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ai/__init__|learnloop.ai]] | [[Reference/Modules/learnloop/ai/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] | [[Reference/Modules/learnloop/ai/client#^module-purpose|purpose]] | `ACTIVE` | 7 | 4 |
 | [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] | [[Reference/Modules/learnloop/ai/errors#^module-purpose|purpose]] | `ACTIVE` | 22 | 17 |
-| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 12 | 4 |
+| [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] | [[Reference/Modules/learnloop/ai/execution#^module-purpose|purpose]] | `ACTIVE` | 13 | 6 |
 | [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] | [[Reference/Modules/learnloop/ai/multimodal#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] | [[Reference/Modules/learnloop/ai/native_media#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] | [[Reference/Modules/learnloop/ai/routing#^module-purpose|purpose]] | `ACTIVE` | 11 | 2 |
@@ -102,6 +102,7 @@ For system intent, use [[AI Architecture]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 1 static module edge
+- [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] — 1 static module edge
 
 ### Dependency neighborhood
 

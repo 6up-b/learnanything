@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/tui/state.py"
 source_paths:
   - "src/learnloop/tui/state.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "75d4474a6e5950eb79877fbbf5f0b46f6590926a"
+source_commit_timestamp: "2026-09-23T15:53:13-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -50,19 +50,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tui/state.py](../../../../../../src/learnloop/tui/state.py) |
-| Source lines | 48 |
+| Source lines | 61 |
 | Owning package | [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `75d4474a6e5950eb79877fbbf5f0b46f6590926a` |
+| Commit timestamp | `2026-09-23T15:53:13-04:00` |
 
 ## Public API
 
-- `class TuiState` ([source](../../../../../../src/learnloop/tui/state.py), line 17)
-  - `load(cls, vault_root: Path) -> 'TuiState'` (line 26; public)
-  - `refresh(self, *, session: SchedulerSession | None=None) -> None` (line 36; public)
+- `class TuiState` ([source](../../../../../../src/learnloop/tui/state.py), line 22)
+  - `load(cls, vault_root: Path) -> 'TuiState'` (line 33; public)
+  - `refresh(self, *, session: SchedulerSession | None=None) -> None` (line 43; public)
+  - `model_receipts(self)` (line 58; public) — Record the model calls made inside this block as this session's receipts.
+
+### Module constants
+
+- `TUI_OWNER_KIND` ([src/learnloop/tui/state.py](../../../../../../src/learnloop/tui/state.py), line 18)
 
 ## Internal implementation anchors
 
@@ -83,7 +88,9 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `StartupMaintenanceResult`, `run_startup_maintenance`; calls `run_startup_maintenance`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `ScheduledItem`, `SchedulerSession`, `build_due_queue`; calls `SchedulerSession`, `build_due_queue`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `StateSyncResult`, `sync_vault_state`; calls `sync_vault_state`
@@ -113,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_e2e_tui.py](../../../../../../tests/test_e2e_tui.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_app.py](../../../../../../tests/test_tui_app.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_feedback.py](../../../../../../tests/test_tui_feedback.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — imports consumer [[Reference/Modules/learnloop/tui/app|learnloop.tui.app]]

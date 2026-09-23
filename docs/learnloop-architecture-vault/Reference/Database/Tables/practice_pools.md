@@ -3,13 +3,13 @@ title: "practice_pools"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
-source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_pools"
   - "table practice_pools"
-schema_head: 164
+schema_head: 165
 table_name: "practice_pools"
 table_role: "raw_ledger"
 functionality_status: "active"

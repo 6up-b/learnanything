@@ -177,6 +177,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_unit_selections_migration_applies_on_pre_040_db`
   - `test_source_unit_selections_schema_is_available`
   - `test_variable_rubric_scale_migration_allows_scores_above_four`
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
 - [tests/test_mvp09_upgrade.py](../../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_to_mvp09_flips_rebuilds_and_preserves_raw_history`
 - [tests/test_p0_cutover_mvp08.py](../../../../../../tests/test_p0_cutover_mvp08.py) — direct import

@@ -1098,6 +1098,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `Repository`
 - [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]] — imports `Repository`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `ActiveErrorEvent`, `MasteryState`
+- [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `Repository`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `Repository`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `Repository`; statically calls `Repository`
 - [[Reference/Modules/learnloop/content/authoring/contract_commissioning|learnloop.content.authoring.contract_commissioning]] — imports `Repository`
@@ -1338,7 +1339,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] and 211 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] and 212 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

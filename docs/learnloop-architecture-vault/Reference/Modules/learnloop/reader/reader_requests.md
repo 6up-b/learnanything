@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/reader/reader_requests.py"
 source_paths:
   - "src/learnloop/reader/reader_requests.py"
-source_commit: "b67e09ff945e7195db9eddbc35ae9b0e18870988"
-source_commit_timestamp: "2026-09-23T15:34:02-04:00"
+source_commit: "75d4474a6e5950eb79877fbbf5f0b46f6590926a"
+source_commit_timestamp: "2026-09-23T15:53:13-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_requests.py](../../../../../../src/learnloop/reader/reader_requests.py) |
-| Source lines | 568 |
+| Source lines | 564 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b67e09ff945e7195db9eddbc35ae9b0e18870988` |
-| Commit timestamp | `2026-09-23T15:34:02-04:00` |
+| Source commit | `75d4474a6e5950eb79877fbbf5f0b46f6590926a` |
+| Commit timestamp | `2026-09-23T15:53:13-04:00` |
 
 ## Public API
 
@@ -68,7 +68,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `cancel_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 297)
 - `retry_request(repository: Repository, *, request_id: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 301)
 - `model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 358) — Build the real ``synthesize`` seam for :func:`drain_requests`.
-- `drain_requests(repository: Repository, *, worker_id: str='reader-synth', lease_seconds: int=120, limit: int=100, synthesize: Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 508) — Drain queued requests under a fenced lease.
+- `drain_requests(repository: Repository, *, worker_id: str='reader-synth', lease_seconds: int=120, limit: int=100, synthesize: Callable[[Repository, Mapping[str, Any], Clock | None], dict[str, Any]] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 504) — Drain queued requests under a fenced lease.
 
 ### Module constants
 
@@ -83,8 +83,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Internal implementation anchors
 
 - `_land_proposals(repository: Repository, request: Mapping[str, Any], clock: Clock | None, *, object_type: str, exact_text: str, content: Mapping[str, Any], span_ids: list[str], model_provenance: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 305) — Land one synthesis result as the reviewable §6.4 artifact pair: a PROPOSED source object + canonical mapping proposal (+ commitment mapping for commit-class presets).
-- `_deterministic_synthesis(repository: Repository, request: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 469) — Deterministic, no-LLM synthesis producing a PROPOSED source object + canonical mapping proposal (the reviewable artifact, §6.4).
-- `_plus_seconds(now_iso: str, seconds: int) -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 565)
+- `_deterministic_synthesis(repository: Repository, request: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 465) — Deterministic, no-LLM synthesis producing a PROPOSED source object + canonical mapping proposal (the reviewable artifact, §6.4).
+- `_plus_seconds(now_iso: str, seconds: int) -> str` ([source](../../../../../../src/learnloop/reader/reader_requests.py), line 561)
 
 ## Who imports or calls it
 
@@ -99,7 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `observe_model_calls`; calls `observe_model_calls`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `record_model_calls`; calls `record_model_calls`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredTransport`, `execute_structured_operation`; calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`

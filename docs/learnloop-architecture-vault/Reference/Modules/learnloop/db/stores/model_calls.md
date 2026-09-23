@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/stores/model_calls.py"
 source_paths:
   - "src/learnloop/db/stores/model_calls.py"
-source_commit: "5f7340aaf0366e30dca27f6cfc233dae3e37c850"
-source_commit_timestamp: "2026-09-23T12:54:18-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `5f7340aaf0366e30dca27f6cfc233dae3e37c850` |
-| Commit timestamp | `2026-09-23T12:54:18-04:00` |
+| Source commit | `922f2d187b5839289a7de8ea6d73ce679998e7e8` |
+| Commit timestamp | `2026-09-23T15:53:48-04:00` |
 
 ## Public API
 

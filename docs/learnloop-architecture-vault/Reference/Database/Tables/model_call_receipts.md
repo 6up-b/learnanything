@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
-source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
+source_commit_timestamp: "2026-09-23T15:53:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 164
+schema_head: 165
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/substrate/data_quality.py"
+  - "src/learnloop/substrate/model_usage.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -47,7 +48,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -85,6 +86,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `resolved_model` | `TEXT` | no | — | — | Stored value |
 | `cache_write_tokens` | `INTEGER` | no | — | — | Stored value |
 | `usage_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `budget_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -106,6 +108,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/substrate/data_quality.py`
+- `src/learnloop/substrate/model_usage.py`
 
 ### Direct SQL writers
 
@@ -120,8 +123,11 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
+- `tests/test_model_call_receipt_owners.py`
+- `tests/test_model_usage_report.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -164,7 +170,7 @@ CREATE TABLE model_call_receipts (
   error_type TEXT,
   output_budget_tokens INTEGER,
   collection_version TEXT NOT NULL DEFAULT 'learnloop-events-v1'
-, endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT);
+, endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT, budget_json TEXT);
 ```
 
 ## Related notes
