@@ -37,7 +37,9 @@ _LEADING_COMMENTS = re.compile(r'\A(?:\s+|--[^\n]*(?:\n|$)|/\*.*?\*/)*', re.S)
 _WRITE_VERBS = frozenset({'INSERT', 'UPDATE', 'DELETE', 'REPLACE', 'CREATE', 'ALTER', 'DROP'})
 _STRING_LITERALS = re.compile(r"'(?:[^']|'')*'")
 # The DML forms a CTE body can end in. REPLACE must be followed by INTO so the
-# replace() string function in a read does not count.
+# replace() string function in a read does not count. A bare UPDATE or DELETE
+# used as an identifier still classifies as a write; that only costs a read
+# the write guard, whereas missing a write would skip the ownership check.
 _CTE_WRITE = re.compile(
     r'\b(?:INSERT|REPLACE)\s+(?:OR\s+\w+\s+)?INTO\b|\bUPDATE\b|\bDELETE\s+FROM\b',
     re.I,

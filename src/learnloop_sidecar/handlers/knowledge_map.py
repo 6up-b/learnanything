@@ -105,44 +105,45 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
 
     facet_count = len({facet for item in items for facet in item.evidence_facets})
     points: list[dict[str, Any]] = []
-    for index, item in enumerate(items):
-        mastery_state = repository.mastery_state(item.learning_object_id)
-        display = display_mastery(mastery_state) if mastery_state is not None else None
-        predicted = None
-        if mastery_state is not None:
-            item_a, item_b, _irt_config = resolve_item_irt(vault, item)
-            predicted, _trace = predicted_correctness(
-                repository,
-                item,
-                learning_object_id=item.learning_object_id,
-                prior_mastery=mastery_state,
-                item_a=item_a,
-                item_b=item_b,
-                config=vault.config,
-                vault=vault,
+    with repository.pinned():
+        for index, item in enumerate(items):
+            mastery_state = repository.mastery_state(item.learning_object_id)
+            display = display_mastery(mastery_state) if mastery_state is not None else None
+            predicted = None
+            if mastery_state is not None:
+                item_a, item_b, _irt_config = resolve_item_irt(vault, item)
+                predicted, _trace = predicted_correctness(
+                    repository,
+                    item,
+                    learning_object_id=item.learning_object_id,
+                    prior_mastery=mastery_state,
+                    item_a=item_a,
+                    item_b=item_b,
+                    config=vault.config,
+                    vault=vault,
+                )
+            top_facets = sorted(
+                item.evidence_facets,
+                key=lambda facet: (-item.evidence_weights.get(facet, 1.0), facet),
+            )[:_TOP_FACETS]
+            points.append(
+                {
+                    "id": item.id,
+                    "title": _item_title(item.prompt),
+                    "learning_object_id": item.learning_object_id,
+                    "concept_id": concept_of[item.id],
+                    "x": coords[index][0],
+                    "y": coords[index][1],
+                    "mastery": display.mastery_mean if display is not None else None,
+                    "variance": display.mastery_variance if display is not None else None,
+                    "predicted_correct": predicted,
+                    "is_probe": item.id in probe_ids,
+                    "queued": item.id in queued_ids,
+                    "difficulty": item.difficulty,
+                    "facets": top_facets,
+                    "neighbors": neighbor_lists[index],
+                }
             )
-        top_facets = sorted(
-            item.evidence_facets,
-            key=lambda facet: (-item.evidence_weights.get(facet, 1.0), facet),
-        )[:_TOP_FACETS]
-        points.append(
-            {
-                "id": item.id,
-                "title": _item_title(item.prompt),
-                "learning_object_id": item.learning_object_id,
-                "concept_id": concept_of[item.id],
-                "x": coords[index][0],
-                "y": coords[index][1],
-                "mastery": display.mastery_mean if display is not None else None,
-                "variance": display.mastery_variance if display is not None else None,
-                "predicted_correct": predicted,
-                "is_probe": item.id in probe_ids,
-                "queued": item.id in queued_ids,
-                "difficulty": item.difficulty,
-                "facets": top_facets,
-                "neighbors": neighbor_lists[index],
-            }
-        )
 
     return versioned(
         {

@@ -79,36 +79,37 @@ def get_facet_mastery(ctx: SidecarContext, _params) -> dict[str, Any]:
     facets: dict[str, dict[str, Any]] = {}
     los_seen: set[str] = set()
 
-    for lo_id, learning_object in sorted(vault.learning_objects.items()):
-        diagnostic = mastery_diagnostic_view(vault, repository, lo_id)
-        for row in diagnostic["facets"]:
-            raw_facet_id = str(row["facet_id"])
-            facet_id = _key(raw_facet_id)
-            entry = facets.setdefault(
-                facet_id,
-                {
-                    "facet_id": facet_id,
-                    "_masteries": [],
-                    "_uncertainties": [],
-                    "state_counts": {state: 0 for state in _STATES},
-                    "learning_objects": [],
-                    "practice_items": [],
-                },
-            )
-            state = row["state"] if row["state"] in _STATES else "unexamined"
-            mastery = _facet_mastery(raw_facet_id, row)
-            entry["_masteries"].append(mastery)
-            entry["_uncertainties"].append(max(0.0, float(row.get("uncertainty") or 0.0)))
-            entry["state_counts"][state] += 1
-            entry["learning_objects"].append(
-                {
-                    "id": lo_id,
-                    "title": learning_object.title,
-                    "state": state,
-                    "facet_mastery": mastery,
-                }
-            )
-            los_seen.add(lo_id)
+    with repository.pinned():
+        for lo_id, learning_object in sorted(vault.learning_objects.items()):
+            diagnostic = mastery_diagnostic_view(vault, repository, lo_id)
+            for row in diagnostic["facets"]:
+                raw_facet_id = str(row["facet_id"])
+                facet_id = _key(raw_facet_id)
+                entry = facets.setdefault(
+                    facet_id,
+                    {
+                        "facet_id": facet_id,
+                        "_masteries": [],
+                        "_uncertainties": [],
+                        "state_counts": {state: 0 for state in _STATES},
+                        "learning_objects": [],
+                        "practice_items": [],
+                    },
+                )
+                state = row["state"] if row["state"] in _STATES else "unexamined"
+                mastery = _facet_mastery(raw_facet_id, row)
+                entry["_masteries"].append(mastery)
+                entry["_uncertainties"].append(max(0.0, float(row.get("uncertainty") or 0.0)))
+                entry["state_counts"][state] += 1
+                entry["learning_objects"].append(
+                    {
+                        "id": lo_id,
+                        "title": learning_object.title,
+                        "state": state,
+                        "facet_mastery": mastery,
+                    }
+                )
+                los_seen.add(lo_id)
 
     items_seen: set[str] = set()
     for item_id, item in sorted(vault.practice_items.items()):
