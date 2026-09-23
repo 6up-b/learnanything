@@ -8,6 +8,7 @@ from learnloop.content.pipeline.jobs import DurableIngestJobs
 from learnloop.content.pipeline.runner import JobSpec
 from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
+from learnloop.db.stores.ingest_queue import JobOwner
 from learnloop.vault_lock import vault_mutation_lock
 from tests.test_ingest_runner import _clock, _ok_handler, _runner
 
@@ -33,7 +34,7 @@ def test_stale_worker_cannot_finish_or_publish_after_replacement(tmp_path):
         old['id'], worker_id='old', attempt_count=1, expected_status='running',
         status='completed', result={'stale': True}, clock=_clock(181),
     )
-    assert not runner.repo.heartbeat_ingest_job(old['id'], worker_id='old', attempt_count=1)
+    assert not runner.repo.heartbeat_ingest_job(old['id'], owner=JobOwner('old', 1))
     with guard_ingest_writes(runner.repo.sqlite_path, old['id'], 'old', 1):
         # A service-created repository must inherit the fence too.
         other = Repository.attach(runner.repo.sqlite_path)
@@ -56,7 +57,7 @@ def test_recovery_rechecks_a_heartbeat_renewed_after_candidate_read(tmp_path, mo
     def interleave(cutoff):
         expired = original(cutoff)
         assert runner.repo.heartbeat_ingest_job(
-            old['id'], worker_id='alive', attempt_count=1, clock=runner.clock,
+            old['id'], owner=JobOwner('alive', 1), clock=runner.clock,
         )
         return expired
 
@@ -95,7 +96,7 @@ def test_fast_restart_reconciles_later_expiry_without_replacing_live_work(tmp_pa
     assert runner.repo.get_ingest_job(claimed['id'])['status'] == 'running'
     host._runner.clock = _clock(180)
     if survives:
-        runner.repo.heartbeat_ingest_job(claimed['id'], worker_id='previous', attempt_count=1, clock=_clock(180))
+        runner.repo.heartbeat_ingest_job(claimed['id'], owner=JobOwner('previous', 1), clock=_clock(180))
     host.drain_foreground()
     assert runner.repo.get_ingest_job(claimed['id'])['status'] == ('running' if survives else 'failed')
     if not survives:
@@ -196,7 +197,7 @@ def test_a_replaced_attempt_interrupts_only_its_own_transport(tmp_path):
     # The first attempt's heartbeat observes the loss and stops its own call.
     runner.heartbeat_interval_seconds = 0.01
     stop = threading.Event()
-    runner._heartbeat_while_running(first['id'], stop, 1)
+    runner._heartbeat_while_running(first['id'], stop, JobOwner(runner.worker_id, 1))
     runner._clear_job_interruptible(first['id'], 1)
     assert stale_transport.interrupted
     assert not live_transport.interrupted

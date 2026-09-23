@@ -11,7 +11,7 @@ from pathlib import Path
 from functools import wraps
 from inspect import signature
 from typing import Any
-from learnloop.db.stores.ingest_queue import owns_ingest_job
+from learnloop.db.stores.ingest_queue import JobOwner, owns_ingest_job
 
 
 class JobOwnershipLost(RuntimeError):
@@ -22,12 +22,13 @@ class JobOwnershipLost(RuntimeError):
 class _JobGuard:
     path: Path
     job_id: str
-    worker_id: str
-    attempt_count: int
+    owner: JobOwner
 
     def check(self, connection):
-        if not owns_ingest_job(connection, self.job_id, self.worker_id, self.attempt_count):
-            raise JobOwnershipLost(f'Job {self.job_id} no longer owns attempt {self.attempt_count}')
+        if not owns_ingest_job(connection, self.job_id, self.owner):
+            raise JobOwnershipLost(
+                f'Job {self.job_id} no longer owns attempt {self.owner.attempt_count}'
+            )
 
 
 _job_guard: ContextVar[_JobGuard | None] = ContextVar('ingest_write_guard', default=None)
@@ -80,7 +81,7 @@ def guard_ingest_writes(path, job_id, worker_id, attempt_count):
     """Fence all repositories for this database on the current worker thread."""
     from learnloop.vault_lock import guard_vault_mutations
 
-    guard = _JobGuard(Path(path).resolve(), job_id, worker_id, attempt_count)
+    guard = _JobGuard(Path(path).resolve(), job_id, JobOwner(worker_id, attempt_count))
     token = _job_guard.set(guard)
 
     def check_vault(_root):

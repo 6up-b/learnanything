@@ -43,8 +43,9 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.repositories import Repository
-from learnloop.ids import new_ulid
 from learnloop.db.scopes import JobOwnershipLost
+from learnloop.db.stores.ingest_queue import JobOwner
+from learnloop.ids import new_ulid
 from learnloop.vault_lock import DEFAULT_TIMEOUT_S, VaultLockTimeout, vault_mutation_lock
 
 # The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
@@ -340,6 +341,10 @@ class JobContext:
     def job_id(self) -> str:
         return self.job["id"]
 
+    @property
+    def owner(self) -> JobOwner:
+        return JobOwner(self.worker_id, self.job["attempt_count"])
+
     def report(
         self,
         phase: str,
@@ -359,8 +364,7 @@ class JobContext:
         self._phase = phase
         owned = self.repo.heartbeat_ingest_job(
             self.job_id,
-            worker_id=self.worker_id,
-            attempt_count=self.job.get('attempt_count'),
+            owner=self.owner,
             phase=phase,
             message=message or _phase_message(phase),
             current_window=current_window,
@@ -368,9 +372,7 @@ class JobContext:
             clock=self.clock,
         )
         if not owned:
-            from learnloop.db.scopes import JobOwnershipLost
-
-            raise JobOwnershipLost(f'Job {self.job_id} is owned by another attempt')
+            raise JobOwnershipLost(f"Job {self.job_id} is owned by another attempt")
 
     def record_usage(self, usage: Mapping[str, Any]) -> None:
         """Add one call's usage to the running per-attempt sum (§6.2)."""
@@ -824,7 +826,7 @@ class IngestRunner:
             heartbeat_stop = threading.Event()
             heartbeat_thread = threading.Thread(
                 target=self._heartbeat_while_running,
-                args=(job["id"], heartbeat_stop, job["attempt_count"]),
+                args=(job["id"], heartbeat_stop, ctx.owner),
                 name=f"ingest-heartbeat-{job['id']}",
                 daemon=True,
             )
@@ -928,7 +930,7 @@ class IngestRunner:
         self._clear_job_interruptible(job["id"], job["attempt_count"])
         self._refresh_batch(batch_id)
 
-    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, attempt_count: int) -> None:
+    def _heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None:
         """Keep a blocking extractor/LLM stage's lease alive until it returns.
 
         A failed renewal is logged and retried; only a definitive ownership
@@ -940,12 +942,7 @@ class IngestRunner:
         wait_seconds = interval
         while not stop.wait(wait_seconds):
             try:
-                owned = self.repo.heartbeat_ingest_job(
-                    job_id,
-                    worker_id=self.worker_id,
-                    attempt_count=attempt_count,
-                    clock=self.clock,
-                )
+                owned = self.repo.heartbeat_ingest_job(job_id, owner=owner, clock=self.clock)
             except Exception:  # noqa: BLE001 - renewal must outlive transient DB errors
                 _LOG.warning("Lease renewal for ingest job %s failed; retrying", job_id, exc_info=True)
                 wait_seconds = min(interval, _HEARTBEAT_RETRY_SECONDS)
@@ -955,7 +952,7 @@ class IngestRunner:
                 # Stop only this runner's transport. Cancelling the batch here
                 # would cancel the replacement owner's valid work as well.
                 with self._interrupt_lock:
-                    interrupt = self._active_interrupts.get((job_id, attempt_count))
+                    interrupt = self._active_interrupts.get((job_id, owner.attempt_count))
                 if interrupt is not None:
                     interrupt()
                 return
