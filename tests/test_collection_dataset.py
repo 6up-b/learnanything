@@ -11,10 +11,12 @@ from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 from learnloop.clock import FrozenClock
 from learnloop.db.connection import connect
 from learnloop.outcome_contract import retention_exclusions
-from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+from learnloop.scheduling.scheduler import SELECTION_FEATURE_SCHEMA, SchedulerSession, build_due_queue
+from learnloop.scheduling.selection_rewards import item_demand_vector
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import export_dataset, split_assignments
 from learnloop.substrate.dataset import outcome_records
+from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault, seed_due_item
 
@@ -59,6 +61,32 @@ def test_exact_offer_survives_refresh_recovery_and_dataset_export(tmp_path):
     assert labels[0]["F"]["author_kind"] == "human"
     assert manifest["inclusion"]["projection_tables_are_training_inputs"] is False
 
+
+def test_selection_decision_features_reference_the_item_and_stay_compact(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    features = repository.decision_features(decision_id=offered.scheduler_candidate_id, decision_type="selection")
+    item = vault.practice_items[offered.practice_item_id]
+    learning_object = vault.learning_object_for_item(item)
+    demand = features["item_demand_vector"]
+    # The item is referenced by id and content hash (the hash state sync
+    # stores), and only the demand fields the selector scores are kept.
+    assert demand["practice_item_id"] == item.id
+    assert demand["content_hash"] == practice_item_hash(item)
+    assert {key: value for key, value in demand.items() if key not in {"practice_item_id", "content_hash"}} == item_demand_vector(vault, item, learning_object, None).as_dict()
+    assert "prompt" not in demand and "expected_answer" not in demand
+    assert features["ability_vector"]["learning_object_id"] == learning_object.id
+    assert {"lo_mastery", "facet_recall_mean_by_facet", "mastery"} <= set(features["ability_vector"])
+    assert features["context"] == {"feature_schema": SELECTION_FEATURE_SCHEMA}
+    with connect(paths.sqlite_path) as connection:
+        largest_row = connection.execute(
+            "SELECT MAX(LENGTH(ability_vector_json) + LENGTH(item_demand_vector_json) + LENGTH(context_json)) FROM decision_features WHERE decision_type = 'selection'"
+        ).fetchone()[0]
+    assert largest_row < 2048
 
 def test_final_offer_refuses_filtered_and_cross_session_candidates(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
