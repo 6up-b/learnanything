@@ -542,7 +542,7 @@ def _complete_attempt_with_agent_fallback(
         {
             "id": new_ulid(),
             "purpose": "grading",
-            **_agent_run_provider_fields(ai_client, runtime),
+            **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
             "input_context_hash": grading_context_hash(context),
@@ -765,7 +765,7 @@ def _complete_attempt_with_agent_required(
         {
             "id": new_ulid(),
             "purpose": "grading",
-            **_agent_run_provider_fields(ai_client, runtime),
+            **agent_run_provider_fields(ai_client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
             "input_context_hash": grading_context_hash(context),
@@ -1048,7 +1048,9 @@ def replay_existing_attempt(
     )
 
 
-def _agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]:
+def agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]:
+    """Provider columns for a grading ``agent_runs`` row, client first, then runtime."""
+
     provider = getattr(client, "provider_name", None) or getattr(runtime, "active_provider", None) or "codex"
     provider_type = getattr(client, "provider_type", None) or getattr(runtime, "provider_type", None)
     model = getattr(client, "model", None) or getattr(runtime, "model", None)

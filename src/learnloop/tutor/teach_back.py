@@ -63,7 +63,7 @@ from learnloop.attempts.attempts import (
     AttemptValidationError,
     GradeAttribution,
     ResolvedGrade,
-    _agent_run_provider_fields,
+    agent_run_provider_fields,
     apply_attempt,
 )
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
@@ -570,7 +570,7 @@ def finish_teach_back(
         {
             "id": new_ulid(),
             "purpose": "grading",
-            **_agent_run_provider_fields(client, runtime),
+            **agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
             "prompt_version": GRADING_PROMPT_VERSION,
             "input_context_hash": grading_context_hash(context),
