@@ -761,7 +761,7 @@ def table_note(connection: sqlite3.Connection, table: str) -> str:
 
 def generate_table_notes() -> dict[str, list[str]]:
     validate_replayer_registry()
-    connection = sqlite3.connect(SCHEMA_PATH)
+    connection = sqlite3.connect(f"file:{SCHEMA_PATH}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
         actual = {
@@ -950,7 +950,34 @@ def humanize_config_words(value: str) -> str:
     return " ".join(replacements.get(part, part) for part in value.split("_"))
 
 
+# Leaves whose meaning the name-based templates below cannot express. Each text
+# restates the declaring comment in src/learnloop/config/schema.py.
+CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
+    "ingest.audio.mode": (
+        "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "
+        "else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the "
+        "canonical_ingest chat provider, which must declare `audio` in its input modalities; other "
+        "containers still take the transcription path)."
+    ),
+    "ingest.native.max_audio_mb": (
+        "Caps audio megabytes sent to the chat provider by native audio ingestion; base64 inflates "
+        "the file by about 33% inside a chat body, and the cap is checked before any upload."
+    ),
+    "ingest.native.max_pdf_mb": (
+        "Caps PDF megabytes sent to the chat provider by native PDF ingestion (OpenAI-compatible "
+        "file inputs accept at most 32 MB per file); checked before any upload."
+    ),
+    "ingest.native.fallback_when_unavailable": (
+        "When a native modality is selected but the routed provider cannot take it for a "
+        "configuration reason, runs the non-native path (PDF: marker/pypdf; audio: the transcription "
+        "route or endpoint) with a health flag instead of failing closed."
+    ),
+}
+
+
 def config_field_function(path: str, value: Any) -> str:
+    if path in CONFIG_FUNCTION_OVERRIDES:
+        return CONFIG_FUNCTION_OVERRIDES[path]
     parts = path.split(".")
     section = parts[0]
     leaf = parts[-1]
@@ -1632,6 +1659,7 @@ def generate_config_catalog(sections: list[str]) -> None:
         for path, value in flatten(effective[section], section)
     ]
     status_counts = Counter(config_field_status(path)[0] for path, _value in all_rows)
+    leaf_count = len(all_rows)
     lines = [
         frontmatter(
             title="Configuration Field Catalog",
@@ -1668,7 +1696,7 @@ def generate_config_catalog(sections: list[str]) -> None:
         "",
         "## Runtime and refactor status",
         "",
-        "Every one of the 487 effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:",
+        f"Every one of the {leaf_count} effective leaves has a semantic Function, a runtime/refactor Status, and concrete schema or consumer anchors. Status is about authority, not truthiness:",
         "",
         "| Status | Effective leaves | Meaning |",
         "|---|---:|---|",
@@ -1678,7 +1706,7 @@ def generate_config_catalog(sections: list[str]) -> None:
         f"| `LEGACY` | {status_counts['LEGACY']} | Read only by a frozen historical replay path. |",
         "",
         "> [!warning] Compatibility aliases are not effective leaves",
-        "> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the 487-path effective model. See [[Legacy Configuration Compatibility]].",
+        f"> One-way aliases and discarded retired keys are listed under **Compatibility-only inputs** in the affected section notes. They are accepted inputs, but do not survive as additional leaves in the {leaf_count}-path effective model. See [[Legacy Configuration Compatibility]].",
         "",
         "## Sections",
         "",
