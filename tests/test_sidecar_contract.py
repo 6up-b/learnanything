@@ -25,6 +25,7 @@ from tests.helpers import (
     configure_codex_http,
     create_basic_vault,
     seed_due_item,
+    use_init_algorithm_version,
 )
 
 FIXTURE_VAULT = Path(__file__).resolve().parents[1] / "fixtures" / "linear_algebra"
@@ -809,6 +810,20 @@ def test_reopening_an_item_from_a_refreshed_queue_keeps_its_original_offer(tmp_p
 
     rejected = sidecar.call("save_practice_draft", {**draft, "submissionId": "K2", "schedulerCandidateId": "not-an-offer"})
     assert rejected["error"]["data"]["code"] == "validation_error"
+
+
+def test_serving_an_item_snapshots_its_contract_on_the_init_version(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    use_init_algorithm_version(paths, tmp_path / "init")
+    sidecar = _InProcessSidecar(paths.root)
+
+    detail = sidecar.result("get_practice_item", {"practiceItemId": "pi_svd_define_001"})
+
+    # The served contract is the one the submission is graded against.
+    version_id = detail["assessmentContractVersionId"]
+    assert version_id is not None
+    stored = Repository(paths.sqlite_path).fetch_assessment_contract_version(version_id)
+    assert stored["practice_item_id"] == "pi_svd_define_001"
 
 
 def test_submission_that_loses_a_commit_race_answers_with_the_winner(tmp_path, monkeypatch):
