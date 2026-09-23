@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable, Mapping
@@ -572,6 +573,9 @@ def _complete_attempt_with_agent_fallback(
             client=ai_client,
             clock=clock,
         )
+    except sqlite3.IntegrityError as exc:
+        _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
+        raise
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
         if _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock):
             # A receipt/annotation failure after the model grade committed
@@ -586,6 +590,28 @@ def _complete_attempt_with_agent_fallback(
         )
     finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
     return result
+
+
+def _finish_superseded_grading_run(
+    repository: Repository,
+    agent_run_id: str,
+    ai_client: AIProviderClient,
+    error: sqlite3.IntegrityError,
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Close a grading run whose attempt the database refused.
+
+    The usual cause is a concurrent request that committed the same
+    submission id first; its attempt is the answer, so this grade is
+    discarded rather than replaced by a self-grade. The run's tokens are still
+    recorded.
+    """
+
+    finish_agent_run(
+        repository, agent_run_id, ai_client,
+        status="failed", error_message=f"attempt not recorded: {error}", clock=clock,
+    )
 
 
 def _finish_run_after_grading_error(
@@ -770,6 +796,9 @@ def _complete_attempt_with_agent_required(
             client=ai_client,
             clock=clock,
         )
+    except sqlite3.IntegrityError as exc:
+        _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
+        raise
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
         _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock)
         raise
@@ -1375,14 +1404,14 @@ def _persist_repair_mapping_source(
     *,
     clock: Clock | None = None,
 ) -> None:
-    """Make the authored repair suggestions durable on EVERY attempt path.
+    """Keep a replayed attempt's authored repair suggestions durable.
 
     ``attempt_feedback_metadata`` is the only durable copy of the authored
     repair suggestions, and ``causal_attribution
     .record_unresolved_cause_self_report`` re-materializes the causal episode
     from it; without the row a learner confirmation re-mints every hypothesis
-    with ``repair_class_id = None``. Writing it here, at the shared attempt
-    step, keeps the mapping on every path.
+    with ``repair_class_id = None``. New grades write the whole row
+    (``_persist_new_grade_feedback``); this is the replay path.
 
     Deliberately conditional.  A replay/regrade re-enters this step with a grade
     reconstructed from the attempt row, which carries no repair suggestions; an
@@ -1402,6 +1431,27 @@ def _persist_repair_mapping_source(
         fatal_errors=list(stored.get("fatal_errors") or result.fatal_errors or []),
         feedback_md=stored.get("feedback_md") or result.feedback_md,
         repair_suggestions=suggestions,
+        clock=clock,
+    )
+
+
+def _persist_new_grade_feedback(
+    repository: Repository, result: AttemptResult, *, clock: Clock | None = None
+) -> None:
+    """Write the feedback metadata of a newly applied grade.
+
+    The post-attempt pipeline writes the same row again, filling learner notes
+    from the self-grade form where the grade has none.
+    """
+
+    repository.upsert_attempt_feedback_metadata(
+        attempt_id=result.attempt_id,
+        grading_source=result.grading_source,
+        fallback_reason=result.fallback_reason,
+        agent_run_id=result.agent_run_id,
+        fatal_errors=list(result.fatal_errors or []),
+        feedback_md=result.feedback_md,
+        repair_suggestions=list(result.repair_suggestions or []),
         clock=clock,
     )
 
@@ -1559,12 +1609,21 @@ def _apply_attempt_in_transaction(
     _project_canonical_belief(vault, repository, clock=clock)
     from learnloop.diagnosis.causal_attribution import materialize_causal_episode
 
-    stored_feedback = repository.fetch_attempt_feedback_metadata(
-        application.result.attempt_id
-    ) or {}
-    _persist_repair_mapping_source(
-        repository, application.result, stored_feedback, clock=clock
-    )
+    if attempt.replace_existing:
+        stored_feedback = repository.fetch_attempt_feedback_metadata(
+            application.result.attempt_id
+        ) or {}
+        _persist_repair_mapping_source(
+            repository, application.result, stored_feedback, clock=clock
+        )
+    else:
+        # A new grade's metadata is complete here, before materialization and
+        # episode accounting: a block this attempt closes normalizes the whole
+        # block inside this transaction, and normalization reads the grading
+        # run from this row. Without it, the block's hypotheses would be
+        # re-versioned with no grader provenance.
+        _persist_new_grade_feedback(repository, application.result, clock=clock)
+        stored_feedback = {}
     repair_suggestions = (
         application.result.repair_suggestions
         or stored_feedback.get("repair_suggestions")

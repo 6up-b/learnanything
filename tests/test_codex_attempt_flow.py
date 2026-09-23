@@ -22,6 +22,7 @@ def test_codex_graded_attempt_uses_same_update_path_with_tier_three_evidence(tmp
     clock = FrozenClock(NOW)
     sync_vault_state(vault, repository, clock=clock)
 
+    _grading_run(repository, "agent_run_grade_1")
     result = complete_codex_graded_attempt(
         vault,
         repository,
@@ -118,6 +119,7 @@ def test_codex_graded_attempt_proposes_unknown_error_type(tmp_path):
     clock = FrozenClock(NOW)
     sync_vault_state(vault, repository, clock=clock)
 
+    _grading_run(repository, "agent_run_unknown_error")
     complete_codex_graded_attempt(
         vault,
         repository,
@@ -168,6 +170,7 @@ def test_codex_recall_wording_uses_recall_failure_not_new_error_type(tmp_path):
     clock = FrozenClock(NOW)
     sync_vault_state(vault, repository, clock=clock)
 
+    _grading_run(repository, "agent_run_recall_wording")
     result = complete_codex_graded_attempt(
         vault,
         repository,
@@ -211,6 +214,7 @@ def test_codex_attempt_uses_highest_severity_error_for_observed_joint(tmp_path):
     clock = FrozenClock(NOW)
     sync_vault_state(vault, repository, clock=clock)
 
+    _grading_run(repository, "agent_run_two_errors")
     result = complete_codex_graded_attempt(
         vault,
         repository,
@@ -361,6 +365,14 @@ class _FakeCodexClient(StructuredClientFake):
             ],
             grader_confidence=0.95,
         )
+
+
+def _grading_run(repository: Repository, run_id: str) -> None:
+    """The agent run a model grade references, as the grading entry points record it."""
+
+    repository.insert_agent_run(
+        {"id": run_id, "purpose": "grading", "started_at": NOW.isoformat(), "status": "completed"}
+    )
 
 
 def _ready_runtime() -> CodexRuntimeReport:

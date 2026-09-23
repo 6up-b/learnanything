@@ -83,7 +83,7 @@ def run_post_attempt_pipeline(
     suppress_insertion_reason: str | None = None,
     clock: Clock | None = None,
 ) -> PostAttemptOutcome:
-    """Complete one applied attempt exactly once.
+    """Complete one applied attempt; a completed attempt is not completed again.
 
     ``result`` is the :class:`learnloop.attempts.attempts.AttemptResult` the
     door received from grading/apply; the attempt and its saved completion
@@ -132,6 +132,7 @@ def run_post_attempt_pipeline(
                 available_minutes=available_minutes,
                 session_id=session_id,
                 normalization_prepared=True,
+                applied_probe_episode_id=applied_episode_id,
                 suppress_insertion_reason=suppress_insertion_reason,
                 clock=clock,
             )

@@ -27,6 +27,7 @@ from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
+from tests import test_probe_block_end as block_setup
 from tests.helpers import create_basic_vault, set_algorithm_version
 from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
 
@@ -85,6 +86,46 @@ def test_pipeline_keeps_one_hypothesis_version_with_grader_provenance(tmp_path, 
     assert {row["version"] for row in hypotheses} == {1}
     assert all(row["generation_agent_run_id"] == result.agent_run_id for row in hypotheses)
     assert all(row["model"] == "claude-4" for row in hypotheses)
+
+
+@pytest.mark.parametrize("with_repairs", [True, False])
+def test_block_closing_diagnostic_answer_keeps_grader_provenance(tmp_path, with_repairs):
+    from learnloop.vault.paths import VaultPaths
+
+    vault, repository = block_setup._setup(tmp_path)
+    set_algorithm_version(VaultPaths(vault.root, vault.config), "mvp-0.7")
+    vault = load_vault(vault.root)
+    clock = block_setup.CLOCK
+
+    def proposal(context):
+        graded = _proposal(context.attempt_id).model_copy(update={"practice_item_id": context.practice_item_id})
+        return graded if with_repairs else graded.model_copy(update={"repair_suggestions": []})
+
+    episode = enter_episode(vault, repository, block_setup.LO_ID, clock=clock)
+    results = []
+    for item_id in (block_setup.ITEM_ID, block_setup.ITEM_2):
+        presentation = block_setup._commit(vault, repository, episode, item_id=item_id)
+        client = _SequenceDiagnostician([proposal])
+        result = complete_attempt_with_ai_fallback(
+            vault, repository,
+            AttemptDraft(
+                practice_item_id=item_id, learner_answer_md="A = U Sigma",
+                attempt_type="diagnostic_probe", probe_presentation_id=presentation.id,
+            ),
+            SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+            runtime=READY, ai_client=client, clock=clock,
+        )
+        run_post_attempt_pipeline(vault, repository, result=result, ai_client=client, clock=clock)
+        results.append(result)
+    assert results[-1].probe_block_end is not None
+
+    with repository.connection() as connection:
+        hypotheses = connection.execute(
+            "SELECT generation_agent_run_id, model FROM causal_hypotheses WHERE attempt_id IN (?, ?)",
+            tuple(result.attempt_id for result in results),
+        ).fetchall()
+    assert hypotheses
+    assert all(row["generation_agent_run_id"] and row["model"] == "claude-4" for row in hypotheses)
 
 
 def test_committed_model_grade_keeps_its_provenance_through_recovery(tmp_path, monkeypatch):
@@ -163,6 +204,27 @@ def test_resumed_completion_routes_to_the_episode_the_attempt_was_applied_under(
     assert route["feedback_deferred"] is False
 
 
+def test_resumed_diagnostic_completion_evaluates_followups_after_its_episode_ended(tmp_path):
+    vault, repository = block_setup._setup(tmp_path)
+    clock = block_setup.CLOCK
+    applied_under = enter_episode(vault, repository, block_setup.LO_ID, clock=clock)
+    presentation = block_setup._commit(vault, repository, applied_under, item_id=block_setup.ITEM_ID)
+    # One observation of a two-observation block: mid-block when applied.
+    result = block_setup._submit(
+        vault, repository, item_id=block_setup.ITEM_ID, presentation_id=presentation.id, score=1,
+        error_attributions=[block_setup._misconception_attribution()],
+    )
+    assert result.probe_block_end is None
+
+    # Completion was interrupted; that episode was abandoned and another opened.
+    abandon_episode(repository, block_setup.LO_ID, clock=clock)
+    newer = enter_episode(vault, repository, block_setup.LO_ID, clock=clock)
+    assert newer.status == "in_progress"
+
+    outcome = run_post_attempt_pipeline(vault, repository, result=result, clock=clock)
+    assert outcome.followup.reason != "deferred_to_block_end"
+
+
 def test_pending_completion_without_its_episode_is_not_resumed(tmp_path):
     _paths, vault, repository = _vault(tmp_path)
     result = _self_graded(vault, repository, submission_id="sub-legacy")
@@ -227,6 +289,70 @@ def test_completion_lock_contention_raises_busy(tmp_path, monkeypatch):
         release.set()
         holder.join()
     assert repository.attempt_completion(result.attempt_id)["status"] == "pending"
+
+
+def test_completion_lock_is_shared_by_every_spelling_of_the_database_path(tmp_path, monkeypatch):
+    import os
+    from pathlib import Path
+
+    paths, _vault_loaded, _repository = _vault(tmp_path)
+    database = Path(paths.sqlite_path)
+    link = tmp_path / "state-link.sqlite"
+    link.symlink_to(database)
+    monkeypatch.chdir(tmp_path)
+    relative = Path(os.path.relpath(database, tmp_path))
+    monkeypatch.setattr(completion_lock, "COMPLETION_LOCK_TIMEOUT_S", 0.1)
+
+    for held, contender in ((database, relative), (database, link)):
+        holding, release = threading.Event(), threading.Event()
+
+        def hold(path=held):
+            with completion_lock.attempt_completion_lock(path):
+                holding.set()
+                release.wait(5)
+
+        holder = threading.Thread(target=hold)
+        holder.start()
+        holding.wait(5)
+        try:
+            with pytest.raises(completion_lock.AttemptCompletionBusy):
+                with completion_lock.attempt_completion_lock(contender):
+                    pass
+        finally:
+            release.set()
+            holder.join()
+
+    # Re-entrant on one thread across spellings.
+    with completion_lock.attempt_completion_lock(database):
+        with completion_lock.attempt_completion_lock(link):
+            pass
+
+
+@pytest.mark.parametrize("helper", ["fallback", "required"])
+def test_grading_run_that_loses_a_submission_race_is_closed(tmp_path, helper):
+    import sqlite3
+
+    from learnloop.attempts.attempts import complete_attempt_with_ai_required
+
+    _paths, vault, repository = _vault(tmp_path)
+    winner = _self_graded(vault, repository, submission_id="raced")
+    draft = AttemptDraft(practice_item_id=ITEM_ID, learner_answer_md="A = U Sigma", submission_id="raced")
+    client = _SequenceDiagnostician([lambda context: _proposal(context.attempt_id)])
+
+    with pytest.raises(sqlite3.IntegrityError):
+        if helper == "fallback":
+            complete_attempt_with_ai_fallback(
+                vault, repository, draft,
+                SelfGradeInput(criterion_points={"correctness": 1}, confidence=3),
+                runtime=READY, ai_client=client,
+            )
+        else:
+            complete_attempt_with_ai_required(vault, repository, draft, runtime=READY, ai_client=client)
+
+    with repository.connection() as connection:
+        statuses = [row[0] for row in connection.execute("SELECT status FROM agent_runs WHERE purpose='grading'")]
+    assert statuses == ["failed"]
+    assert [row["id"] for row in repository.list_attempt_history()] == [winner.attempt_id]
 
 
 def test_doors_without_a_completion_phase_are_not_counted_as_interrupted(tmp_path):
