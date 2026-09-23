@@ -3,10 +3,10 @@ title: "Table Roles"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-schema_head: 156
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-last_verified: "2026-08-17"
+schema_head: 164
+source_commit: "0622ea164f76ad7e1d62a00afda51473dbcd992e"
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "SQLite rebuild policy"
   - "TABLE_ROLES"
@@ -39,7 +39,7 @@ The decision tree is important because names such as `_state`, `_report`, or `_c
 
 ## Raw Ledger
 
-**126 tables.** `RAW_LEDGER` includes authored definitions, captured provider/source output, measured calibration artifacts, raw observations, and mixed rows whose historical inputs are co-located with their current head. The rebuild umbrella never clears these rows.
+**129 tables.** `RAW_LEDGER` includes authored definitions, captured provider/source output, measured calibration artifacts, raw observations, and mixed rows whose historical inputs are co-located with their current head. The rebuild umbrella never clears these rows.
 
 Examples:
 
@@ -59,13 +59,13 @@ Examples: [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Ref
 
 ## Receipt
 
-**51 tables.** `RECEIPT` rows record historical decisions, audit facts, lifecycle events, and evaluation reports. They survive rebuilds. Many families also have schema triggers preventing update or delete.
+**54 tables.** `RECEIPT` rows record historical decisions, audit facts, lifecycle events, and evaluation reports. They survive rebuilds. Many families also have schema triggers preventing update or delete.
 
 Examples: [[Reference/Database/Tables/derived_state_rebuilds|derived_state_rebuilds]], [[Reference/Database/Tables/attempt_submission_receipts|attempt_submission_receipts]], [[Reference/Database/Tables/controller_decisions|controller_decisions]], and [[Reference/Database/Tables/coldness_receipts|coldness_receipts]].
 
 ## Workflow
 
-**54 tables.** `WORKFLOW` covers mutable queues, jobs, reservations, sessions, leases, requests, and other in-flight state. These rows may transition during normal product operations but are not disposable projections.
+**56 tables.** `WORKFLOW` covers mutable queues, jobs, reservations, sessions, leases, requests, and other in-flight state. These rows may transition during normal product operations but are not disposable projections.
 
 Examples: [[Reference/Database/Tables/ingest_jobs|ingest_jobs]], [[Reference/Database/Tables/exam_sessions|exam_sessions]], [[Reference/Database/Tables/activity_surface_reservations|activity_surface_reservations]], and [[Reference/Database/Tables/question_promotion_requests|question_promotion_requests]].
 

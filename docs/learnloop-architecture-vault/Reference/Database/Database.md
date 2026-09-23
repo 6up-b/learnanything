@@ -3,10 +3,10 @@ title: "Database"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-schema_head: 156
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-last_verified: "2026-08-17"
+schema_head: 164
+source_commit: "0622ea164f76ad7e1d62a00afda51473dbcd992e"
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reference"
   - "Database MOC"
@@ -31,7 +31,7 @@ tags:
 `state.sqlite` is LearnLoop's durable machine-state store. It holds raw evidence, audit receipts, mutable workflows, compatibility seams, and the small set of projections that can be rebuilt from retained history. Human-authored learning content remains in vault files; that boundary is explained in [[State and Persistence]]. ^database-purpose
 
 > [!important] The database is not a cache
-> Only ten of 251 user tables are classified `DERIVED`. The other 241 tables contain authoritative input, historical receipts, live workflow state, or preserved compatibility state. A whole-history rebuild must not clear them.
+> Only ten of 259 user tables are classified `DERIVED`. The other 249 tables contain authoritative input, historical receipts, live workflow state, or preserved compatibility state. A whole-history rebuild must not clear them.
 
 ## Map of content
 
@@ -124,4 +124,4 @@ Run both documentation validators after regeneration:
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/validate_vault.py
 ```
 
-The database/config validator compares all 251 table notes and all 487 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
+The database/config validator compares all 259 table notes and all 495 effective configuration leaves to live authorities, including operational Function and runtime/refactor Status fields. The global validator then checks the entire Obsidian graph: frontmatter, source paths, Wikilinks, heading links, and block links.
