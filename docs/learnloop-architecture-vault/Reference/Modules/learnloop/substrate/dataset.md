@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/dataset.py"
 source_paths:
   - "src/learnloop/substrate/dataset.py"
-source_commit: "2a218baead1b47a34debd9464568936ff58f1c28"
-source_commit_timestamp: "2026-09-23T15:42:12-04:00"
+source_commit: "c7b71c1e22fd49c848c0b984ea39c871de184756"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/dataset.py](../../../../../../src/learnloop/substrate/dataset.py) |
-| Source lines | 694 |
+| Source lines | 698 |
 | Owning package | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `2a218baead1b47a34debd9464568936ff58f1c28` |
-| Commit timestamp | `2026-09-23T15:42:12-04:00` |
+| Source commit | `c7b71c1e22fd49c848c0b984ea39c871de184756` |
+| Commit timestamp | `2026-09-23T18:50:00-04:00` |
 
 ## Public API
 

@@ -134,6 +134,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 ### Repository tooling consumers
 
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `VaultPaths`
 - [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `VaultPaths`
 
 ## Dependencies
@@ -221,6 +222,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_delete_keeps_stored_bytes_another_source_still_shares`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
   - `test_locked_subject_bootstrap_refusal`
+- [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
+  - `test_read_only_reports_work_in_a_read_only_vault`
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
 - [tests/test_surface_pool.py](../../../../../../tests/test_surface_pool.py) — direct import
 - [tests/test_today_surfaces.py](../../../../../../tests/test_today_surfaces.py) — direct import

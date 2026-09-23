@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/tutor/teach_back.py"
 source_paths:
   - "src/learnloop/tutor/teach_back.py"
-source_commit: "workspace/uncommitted @ HEAD fd785c816e003afd5ad0baa77a24113ef2ac8559"
-source_commit_timestamp: "2026-09-23T16:11:06-04:00"
-source_worktree_state: "modified"
+source_commit: "6881ed330e2ef2a2f50d51d6f98d68d0845a8c59"
+source_commit_timestamp: "2026-09-23T15:55:52-04:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.tutor"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD fd785c816e003afd5ad0baa77a24113ef2ac8559` |
-| Commit timestamp | `2026-09-23T16:11:06-04:00` |
+| Worktree state | `clean` |
+| Source commit | `6881ed330e2ef2a2f50d51d6f98d68d0845a8c59` |
+| Commit timestamp | `2026-09-23T15:55:52-04:00` |
 
 ## Public API
 

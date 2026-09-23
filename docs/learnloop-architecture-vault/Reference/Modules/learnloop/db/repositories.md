@@ -1302,6 +1302,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### Repository tooling consumers
 
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py)
 - [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `Repository`
 
 ## Dependencies
@@ -2279,6 +2280,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reanchor_aliases_persist`
 - [tests/test_span_view.py](../../../../../../tests/test_span_view.py) — direct import
   - `test_span_view_text_anchor_mode_without_geometry`
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_finished_ingest_batch_truncates_the_wal`
+  - `test_ingest_batch_checkpoints_once_when_it_becomes_terminal`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import

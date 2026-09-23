@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/sim/student.py"
   - "src/learnloop/sim/sweep.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T16:11:06-04:00"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.sim"
@@ -61,7 +61,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/sim/metrics|learnloop.sim.metrics]] | [[Reference/Modules/learnloop/sim/metrics#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/sim/offline_benchmarks|learnloop.sim.offline_benchmarks]] | [[Reference/Modules/learnloop/sim/offline_benchmarks#^module-purpose|purpose]] | `EVALUATION` | 1 | 1 |
 | [[Reference/Modules/learnloop/sim/profiles|learnloop.sim.profiles]] | [[Reference/Modules/learnloop/sim/profiles#^module-purpose|purpose]] | `EVALUATION` | 4 | 5 |
-| [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] | [[Reference/Modules/learnloop/sim/runner#^module-purpose|purpose]] | `EVALUATION` | 6 | 4 |
+| [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] | [[Reference/Modules/learnloop/sim/runner#^module-purpose|purpose]] | `EVALUATION` | 6 | 5 |
 | [[Reference/Modules/learnloop/sim/student|learnloop.sim.student]] | [[Reference/Modules/learnloop/sim/student#^module-purpose|purpose]] | `EVALUATION` | 4 | 5 |
 | [[Reference/Modules/learnloop/sim/sweep|learnloop.sim.sweep]] | [[Reference/Modules/learnloop/sim/sweep#^module-purpose|purpose]] | `EVALUATION` | 3 | 2 |
 
@@ -74,11 +74,11 @@ For system intent, use [[Learning System]].
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
+- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 2 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
-- [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 1 static module edge
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
 
@@ -101,21 +101,21 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop["learnloop"]
     n_learnloop_attempts["learnloop.attempts"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_scheduling["learnloop.scheduling"]
+    n_learnloop_config["learnloop.config"]
     n_learnloop_tutor["learnloop.tutor"]
-    n_learnloop_ai["learnloop.ai"]
     center -->|8| n_learnloop_vault
     n_learnloop_cli -->|7| center
     center -->|7| n_learnloop_diagnosis
     center -->|6| n_learnloop_learner
     center -->|5| n_learnloop
     center -->|5| n_learnloop_attempts
+    center -->|5| n_learnloop_db
     n_learnloop_scheduling -->|1| center
     center -->|4| n_learnloop_scheduling
-    center -->|4| n_learnloop_db
+    center -->|2| n_learnloop_config
     center -->|2| n_learnloop_tutor
-    center -->|1| n_learnloop_ai
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

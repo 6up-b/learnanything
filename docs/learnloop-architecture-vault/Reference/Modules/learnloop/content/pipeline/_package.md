@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/pipeline/source_ingestion.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.content.pipeline"
@@ -60,7 +60,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] | [[Reference/Modules/learnloop/content/pipeline/jobs#^module-purpose|purpose]] | `ACTIVE` | 5 | 12 |
 | [[Reference/Modules/learnloop/content/pipeline/quick_add|learnloop.content.pipeline.quick_add]] | [[Reference/Modules/learnloop/content/pipeline/quick_add#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] | [[Reference/Modules/learnloop/content/pipeline/revision_refresh#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] | [[Reference/Modules/learnloop/content/pipeline/runner#^module-purpose|purpose]] | `ACTIVE` | 3 | 16 |
+| [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] | [[Reference/Modules/learnloop/content/pipeline/runner#^module-purpose|purpose]] | `ACTIVE` | 3 | 17 |
 | [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] | [[Reference/Modules/learnloop/content/pipeline/source_ingestion#^module-purpose|purpose]] | `ACTIVE` | 3 | 11 |
 
 ## Cross-package dependencies
@@ -71,7 +71,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 14 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 9 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 7 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 5 static module edges
@@ -113,7 +113,7 @@ flowchart LR
     center -->|14| n_learnloop_ingest
     center -->|10| n_learnloop
     center -->|9| n_learnloop_vault
-    center -->|7| n_learnloop_db
+    center -->|8| n_learnloop_db
     n_learnloop_cli -->|6| center
     center -->|6| n_learnloop_content_sources
     center -->|6| n_learnloop_content_synthesis

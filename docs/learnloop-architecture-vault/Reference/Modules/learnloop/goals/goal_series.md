@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/goal_series.py"
 source_paths:
   - "src/learnloop/goals/goal_series.py"
-source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit: "c7b71c1e22fd49c848c0b984ea39c871de184756"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -54,8 +54,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
-| Commit timestamp | `2026-08-20T18:04:29-04:00` |
+| Source commit | `c7b71c1e22fd49c848c0b984ea39c871de184756` |
+| Commit timestamp | `2026-09-23T18:50:00-04:00` |
 
 ## Public API
 
@@ -91,6 +91,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `SystemClock`, `parse_utc`; calls `FrozenClock`, `SystemClock`, `parse_utc`
+- [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `backup_database`; calls `backup_database`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `goal_report`, `projected_ready_mean_at`, `resolve_goal_scope`; calls `goal_report`, `projected_ready_mean_at`, `resolve_goal_scope`
 - [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]] — imports `prune_rows`; calls `prune_rows`
@@ -99,7 +100,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `datetime`, `pathlib`, `shutil`, `tempfile`, `typing`
+- Standard library: `__future__`, `dataclasses`, `datetime`, `pathlib`, `tempfile`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

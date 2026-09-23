@@ -1119,6 +1119,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_sets.py](../../../../../tests/test_source_sets.py) — direct import
 - [tests/test_span_reanchor.py](../../../../../tests/test_span_reanchor.py) — direct import
 - [tests/test_span_view.py](../../../../../tests/test_span_view.py) — direct import
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_finished_ingest_batch_truncates_the_wal`
+  - `test_ingest_batch_checkpoints_once_when_it_becomes_terminal`
+  - `test_live_rebuild_truncates_the_wal_it_grew`
 - [tests/test_staged_policy.py](../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_state_signals.py](../../../../../tests/test_state_signals.py) — direct import

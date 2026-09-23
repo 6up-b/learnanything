@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/connection.py"
 source_paths:
   - "src/learnloop/db/connection.py"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
+source_commit: "8a3586fadb840cea61417b11816fd9c346e2d0fd"
+source_commit_timestamp: "2026-09-23T18:49:46-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -40,7 +40,7 @@ Up: [[Reference/Modules/learnloop/db/_package|learnloop.db]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `connect`.
+This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `connect`.
 
 The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -51,27 +51,40 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py) |
-| Source lines | 30 |
+| Source lines | 115 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `0395ae32f9e2e40d1cb98b38402631299a94003f` |
-| Commit timestamp | `2026-09-07T12:49:13-04:00` |
+| Source commit | `8a3586fadb840cea61417b11816fd9c346e2d0fd` |
+| Commit timestamp | `2026-09-23T18:49:46-04:00` |
 
 ## Public API
 
-- `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 7) — Open a configured SQLite connection.
+- `class UnsupportedSQLiteVersion(RuntimeError)` ([source](../../../../../../src/learnloop/db/connection.py), line 20) — The SQLite library linked into Python is too old for WAL vaults.
+- `require_supported_sqlite() -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 25) — Fail once, clearly, when the runtime SQLite cannot open WAL vaults.
+- `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 36) — Open a configured SQLite connection.
+
+### Module constants
+
+- `MINIMUM_SQLITE_VERSION` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 12)
+- `BUSY_TIMEOUT_MS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 13)
+- `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 17)
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 65)
+- `_open_read_only(sqlite_path: Path) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 71) — Open ``mode=ro``, falling back to ``immutable=1`` only when that is exact.
+- `_directory_is_read_only(sqlite_path: Path) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 106)
+- `_has_uncheckpointed_wal(sqlite_path: Path) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 110)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `connect`; statically calls `connect`
@@ -79,6 +92,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] — imports `connect`; statically calls `connect`
+
+### Repository tooling consumers
+
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `connect`
 
 ## Dependencies
 
@@ -88,7 +105,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `pathlib`, `sqlite3`
+- Standard library: `__future__`, `functools`, `os`, `pathlib`, `sqlite3`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -98,7 +115,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]], [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]], [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]], [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]], [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -207,6 +224,21 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
 - [tests/test_sqlite_test_mode.py](../../../../../../tests/test_sqlite_test_mode.py) — direct import
+- [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
+  - `test_a_long_read_transaction_delays_checkpoints_only_until_it_ends`
+  - `test_connect_sets_production_pragmas_and_never_changes_the_journal_mode`
+  - `test_fresh_creation_discards_an_orphaned_wal_from_a_deleted_database`
+  - `test_read_only_open_in_a_read_only_directory_reads_commits_still_in_the_wal`
+  - `test_read_only_open_of_a_wal_database_in_a_read_only_directory_without_companions`
+  - `test_read_only_open_refuses_a_wal_it_cannot_index`
+  - `test_runtime_sqlite_below_the_minimum_fails_with_a_clear_message`
+  - `test_switch_fails_clearly_and_leaves_the_mode_unchanged_while_a_reader_is_open`
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_doctor_reports_wal_size_and_warns_when_it_is_large`
+  - `test_finished_ingest_batch_truncates_the_wal`
+  - `test_live_rebuild_truncates_the_wal_it_grew`
+  - `test_sim_run_vault_keeps_commits_still_in_the_source_wal`
+  - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_table_roles.py](../../../../../../tests/test_table_roles.py) — direct import
   - `test_migration_head_user_tables_match_role_registry_exactly`
   - `test_synthetic_unclassified_table_fails_registry_check`

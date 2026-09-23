@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/attempts.py"
 source_paths:
   - "src/learnloop/attempts/attempts.py"
-source_commit: "workspace/uncommitted @ HEAD fd785c816e003afd5ad0baa77a24113ef2ac8559"
-source_commit_timestamp: "2026-09-23T16:11:06-04:00"
-source_worktree_state: "modified"
+source_commit: "85b1e7ce144ea0bdd5e4ae7a48609c04d8792f72"
+source_commit_timestamp: "2026-09-23T15:56:08-04:00"
+source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.attempts"
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD fd785c816e003afd5ad0baa77a24113ef2ac8559` |
-| Commit timestamp | `2026-09-23T16:11:06-04:00` |
+| Worktree state | `clean` |
+| Source commit | `85b1e7ce144ea0bdd5e4ae7a48609c04d8792f72` |
+| Commit timestamp | `2026-09-23T15:56:08-04:00` |
 
 ## Public API
 

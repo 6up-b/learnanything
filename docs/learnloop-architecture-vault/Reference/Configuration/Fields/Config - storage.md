@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fd785c816e003afd5ad0baa77a24113ef2ac8559"
-source_commit_timestamp: "2026-09-23T16:11:06-04:00"
+source_commit: "057ea3765cc3d0dd0c859353ae2da78adf59fa03"
+source_commit_timestamp: "2026-09-23T18:53:48-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -18,8 +18,8 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
+  - "src/learnloop/content/proposals/apply_protocol.py"
   - "src/learnloop/vault/paths.py"
-  - "src/learnloop_sidecar/context.py"
   - "tests/conftest.py"
   - "tests/helpers.py"
   - "tests/test_activity_backfill.py"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:10`; `src/learnloop/vault/paths.py:21`; `src/learnloop_sidecar/context.py:314` |
+| `storage.sqlite_path` | `"state.sqlite"` | string | explicit template decision | Locates the vault's SQLite machine-state file relative to the vault root unless an absolute path is supplied. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:10`; `src/learnloop/content/proposals/apply_protocol.py:250`; `src/learnloop/vault/paths.py:21` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

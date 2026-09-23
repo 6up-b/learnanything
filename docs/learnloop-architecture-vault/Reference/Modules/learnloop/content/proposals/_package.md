@@ -12,7 +12,7 @@ source_paths:
   - "src/learnloop/content/proposals/patches.py"
   - "src/learnloop/content/proposals/proposals.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.content.proposals"
@@ -64,7 +64,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 8 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 3 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 2 static module edges
@@ -99,8 +99,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_curriculum["learnloop.curriculum"]
-    n_learnloop_cli["learnloop.cli"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     center -->|10| n_learnloop_vault
     center -->|9| n_learnloop
@@ -111,8 +111,8 @@ flowchart LR
     n_learnloop_content_pipeline -->|5| center
     n_learnloop_curriculum -->|4| center
     center -->|1| n_learnloop_curriculum
+    center -->|5| n_learnloop_db
     n_learnloop_cli -->|4| center
-    center -->|4| n_learnloop_db
     n_learnloop_diagnosis -->|1| center
     center -->|2| n_learnloop_diagnosis
 ```
