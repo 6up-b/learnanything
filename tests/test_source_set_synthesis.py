@@ -605,6 +605,34 @@ def test_complete_base_request_budget_is_checked_before_paying(tmp_path):
     assert client.calls == []
 
 
+def test_non_ascii_output_is_charged_by_characters_not_escapes(tmp_path):
+    from learnloop.content.synthesis.ai_contracts import SourceSetSynthesisContext
+    from learnloop.content.synthesis.source_set_synthesis import _result_tokens
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    summary = "∑ α β γ 特征向量 " * 400
+
+    def builder(context, _n):
+        return _default_payload(context).model_copy(update={"summary": summary})
+
+    payload = builder(SourceSetSynthesisContext(
+        source_set_id="s", subject_id="s", mode="bootstrap", brief={}, unit_inventories=[],
+        exam_profile={}, registry_index={}, resolved_spans=[], shard_ordinal=0, shard_count=1,
+    ), 1)
+    unescaped_tokens = len(json.dumps(payload.model_dump(mode="json"), ensure_ascii=False)) // 4
+    escaped_tokens = len(json.dumps(payload.model_dump(mode="json"))) // 4
+    assert _result_tokens(payload) == unescaped_tokens
+    budget = unescaped_tokens + 200
+    assert escaped_tokens > budget
+
+    result = create_study_map(
+        root, "set_la", client=FakeSynthesisClient(builder=builder), repository=repo, clock=_CLOCK,
+        budget_overrides={"synthesis_shard_output_tokens": budget, "synthesis_output_tokens": budget},
+    )
+
+    assert result.proposal_id is not None
+
+
 def test_legacy_vault_acceptance_refused(tmp_path):
     root, repo = _setup(tmp_path, with_exam=False, mvp07=False)
     client = FakeSynthesisClient()

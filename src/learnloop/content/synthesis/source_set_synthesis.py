@@ -2213,13 +2213,20 @@ def _run_synthesis(
 
 
 def _result_tokens(result: Any) -> int:
+    """Rough output-token estimate: characters of the JSON the model wrote / 4.
+
+    Non-ASCII stays unescaped: a ``\\uXXXX`` escape is six characters for what
+    the model emitted as one, which would overcharge CJK or math-symbol output
+    several times over and reject passes that fit their budget.
+    """
+
     if hasattr(result, "model_dump"):
         payload = result.model_dump(mode="json")
     elif isinstance(result, dict):
         payload = result
     else:
         payload = str(result)
-    return max(1, len(json.dumps(payload, default=str)) // 4)
+    return max(1, len(json.dumps(payload, ensure_ascii=False, default=str)) // 4)
 
 
 def _merge_synthesis(base: Any, extra: Any) -> Any:
