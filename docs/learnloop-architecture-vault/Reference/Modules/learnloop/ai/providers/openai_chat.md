@@ -142,6 +142,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
   - `test_retry_policy_records_each_failed_request_with_unknown_usage`
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
+- [tests/test_model_usage_report.py](../../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_multimodal_client.py](../../../../../../../tests/test_multimodal_client.py) — direct import
   - `test_empty_markdown_raises`
   - `test_run_media_markdown_sends_file_part_and_suppresses_response_format`

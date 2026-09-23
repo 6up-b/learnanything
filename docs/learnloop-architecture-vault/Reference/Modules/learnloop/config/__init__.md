@@ -281,6 +281,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_low_confidence_moves_mean_less_than_high_confidence`
   - `test_positive_score_raises_mean`
   - `test_zero_score_does_not_raise_mean`
+- [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_multimodal_client.py](../../../../../../tests/test_multimodal_client.py) — direct import
   - `test_openrouter_inherits_media_methods_with_headers`
   - `test_supports_input_modality_and_audio_format_helpers`

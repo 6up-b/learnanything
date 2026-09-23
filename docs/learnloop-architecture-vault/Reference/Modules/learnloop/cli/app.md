@@ -356,6 +356,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_cli_invalid_starting_level_leaves_no_partial_vault`
 - [tests/test_integration_backfill.py](../../../../../../tests/test_integration_backfill.py) — direct import
   - `test_cli_integration_backfill_diff_then_apply`
+- [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_mvp09_upgrade.py](../../../../../../tests/test_mvp09_upgrade.py) — direct import
   - `test_upgrade_command_defaults_to_current_mvp09_target`
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import

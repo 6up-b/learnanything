@@ -213,6 +213,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_dismiss_and_snooze_do_not_change_curriculum`
   - `test_maintenance_notice_aging_policies`
   - `test_maintenance_notice_deterministic_generation`
+- [tests/test_model_usage_report.py](../../../../../../../tests/test_model_usage_report.py) — direct import
+  - `test_synthesis_purposes_match_the_synthesis_operations`
 - [tests/test_model_work_checkpoints.py](../../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_synthesis_pass_checkpoint_that_no_longer_validates_is_discarded`
 - [tests/test_practice_leakage.py](../../../../../../../tests/test_practice_leakage.py) — direct import

@@ -1762,6 +1762,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pre_first_practice_doctor_watermark`
 - [tests/test_ingest_instrument_gates.py](../../../../../../tests/test_ingest_instrument_gates.py) — direct import
 - [tests/test_ingest_jobs.py](../../../../../../tests/test_ingest_jobs.py) — direct import
+  - `test_background_reader_drain_records_model_call_receipts`
   - `test_bind_premarks_previously_completed_apply_jobs`
   - `test_cancelled_job_reaches_terminal_state`
   - `test_import_batch_is_not_a_build_and_its_ladder_says_so`
@@ -1862,6 +1863,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_note_capture_is_idempotent_across_rematerialization`
   - `test_notes_are_append_only_and_reject_untyped_refusals`
   - `test_report_surfaces_the_abstention_rate`
+- [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_model_work_checkpoints.py](../../../../../../tests/test_model_work_checkpoints.py) — direct import
   - `test_ingest_job_and_direct_inventory_key_windows_identically`
   - `test_inventory_window_checkpoint_that_no_longer_validates_is_discarded`

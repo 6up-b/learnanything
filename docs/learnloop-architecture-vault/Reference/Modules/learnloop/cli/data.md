@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/data.py"
 source_paths:
   - "src/learnloop/cli/data.py"
-source_commit: "84ce9b464016168e1a672d0188f2491d6e5517e3"
-source_commit_timestamp: "2026-09-23T12:12:49-04:00"
+source_commit: "4c90f78eda7658ba68ab007af3fbf7ca5e066631"
+source_commit_timestamp: "2026-09-23T15:34:02-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -52,25 +52,37 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py) |
-| Source lines | 74 |
+| Source lines | 197 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `84ce9b464016168e1a672d0188f2491d6e5517e3` |
-| Commit timestamp | `2026-09-23T12:12:49-04:00` |
+| Source commit | `4c90f78eda7658ba68ab007af3fbf7ca5e066631` |
+| Commit timestamp | `2026-09-23T15:34:02-04:00` |
 
 ## Public API
 
-- `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 34) — Read-only JSON coverage report, with current-version denominators.
-- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 42) — Back up an active database and export evidence, labels and split metadata.
-- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 56) — Append an evidence-backed label; corrections append another adjudication.
+- `data_quality(vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 36) — Read-only JSON coverage report, with current-version denominators.
+- `usage(vault: Annotated[Path | None, typer.Option('--vault')]=None, json_output: Annotated[bool, typer.Option('--json', help='Emit the stable JSON report.')]=False, since: Annotated[str | None, typer.Option('--since', help='Only operations started at or after this ISO date or time (UTC when no offset).')]=None, purpose: Annotated[str | None, typer.Option('--purpose', help='Only operations whose root purpose starts with this prefix.')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 44) — Read-only token and cost report from model-call receipts, with synthesis budget ratios.
+- `render_usage_report(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 71) — A terminal-width summary of the JSON report, section by section.
+- `dataset_export(output: Annotated[Path, typer.Argument(help='New local output directory.')], vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 165) — Back up an active database and export evidence, labels and split metadata.
+- `adjudicate_remediation(attempt_id: Annotated[str, typer.Argument()], false_remediation: Annotated[bool, typer.Option('--false-remediation/--appropriate-remediation')], evidence: Annotated[Path, typer.Option('--evidence', help="JSON list of retained {table, id} evidence references; id is the table's primary-key value.")], verifier_version: Annotated[str, typer.Option('--verifier-version')], author_kind: Annotated[str, typer.Option('--author-kind', help='human or machine')]='human', vault: Annotated[Path | None, typer.Option('--vault')]=None) -> None` ([source](../../../../../../src/learnloop/cli/data.py), line 179) — Append an evidence-backed label; corrections append another adjudication.
+
+### Module constants
+
+- `_TOKEN_LABELS` ([src/learnloop/cli/data.py](../../../../../../src/learnloop/cli/data.py), line 62)
 
 ## Internal implementation anchors
 
-- `_loaded_vault(vault: Path | None) -> LoadedVault` ([source](../../../../../../src/learnloop/cli/data.py), line 20)
-- `_sqlite_path(loaded: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/cli/data.py), line 24)
-- `_fail(exc: BaseException) -> typer.Exit` ([source](../../../../../../src/learnloop/cli/data.py), line 28)
+- `_loaded_vault(vault: Path | None) -> LoadedVault` ([source](../../../../../../src/learnloop/cli/data.py), line 22)
+- `_sqlite_path(loaded: LoadedVault) -> Path` ([source](../../../../../../src/learnloop/cli/data.py), line 26)
+- `_fail(exc: BaseException) -> typer.Exit` ([source](../../../../../../src/learnloop/cli/data.py), line 30)
+- `_usage_heading(report: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 80)
+- `_number(value: Any) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 87)
+- `_render_purposes(groups: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 95)
+- `_ratio_text(value: int | None, ratio: float | None, budget: int | None, name: str) -> str` ([source](../../../../../../src/learnloop/cli/data.py), line 120)
+- `_render_synthesis_runs(section: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 127)
+- `_render_coverage(rows: list[dict[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/cli/data.py), line 149)
 
 ## Who imports or calls it
 
@@ -85,8 +97,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `app`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `_dump`, `_load_vault_or_exit`, `_root`; calls `_dump`, `_load_vault_or_exit`, `_root`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `data_quality_report`; calls `data_quality_report`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `export_dataset`; calls `export_dataset`
+- [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] — imports `SYNTHESIS_BUDGET_FIELDS`, `model_usage_report`; calls `model_usage_report`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `open_vault_repository`; calls `open_vault_repository`

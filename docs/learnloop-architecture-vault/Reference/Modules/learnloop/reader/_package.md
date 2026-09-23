@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/reader/source_search.py"
   - "src/learnloop/reader/span_view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:42:30-04:00"
+source_commit_timestamp: "2026-09-23T15:34:02-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.reader"
@@ -82,8 +82,8 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 13 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
+- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 6 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
-- [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 5 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 5 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
@@ -112,8 +112,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db["learnloop.db"]
     n_learnloop["learnloop"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_substrate["learnloop.substrate"]
@@ -122,8 +122,8 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|15| center
     center -->|13| n_learnloop_db
     center -->|11| n_learnloop
+    center -->|6| n_learnloop_ai
     center -->|6| n_learnloop_vault
-    center -->|5| n_learnloop_ai
     center -->|5| n_learnloop_curriculum
     center -->|5| n_learnloop_ingest
     center -->|5| n_learnloop_substrate

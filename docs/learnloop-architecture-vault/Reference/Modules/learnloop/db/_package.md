@@ -51,9 +51,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/db/__init__|learnloop.db]] | [[Reference/Modules/learnloop/db/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 6 | 28 |
+| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 7 | 28 |
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 4 | 26 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 216 | 323 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 216 | 324 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 12 | 3 |
 | [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 
@@ -76,7 +76,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 24 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 20 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 20 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 18 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 19 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 15 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 13 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 13 static module edges
@@ -120,7 +120,7 @@ flowchart LR
     n_learnloop_scheduling -->|24| center
     n_learnloop_curriculum -->|20| center
     n_learnloop_learner -->|20| center
-    n_learnloop_substrate -->|18| center
+    n_learnloop_substrate -->|19| center
     n_learnloop_attempts -->|15| center
     n_learnloop_goals -->|13| center
     n_learnloop_reader -->|13| center

@@ -270,6 +270,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_ingest_jobs.py](../../../../../../../tests/test_ingest_jobs.py) — direct import
+  - `test_background_reader_drain_records_model_call_receipts`
   - `test_bind_premarks_previously_completed_apply_jobs`
   - `test_cancelled_job_reaches_terminal_state`
   - `test_import_batch_is_not_a_build_and_its_ladder_says_so`

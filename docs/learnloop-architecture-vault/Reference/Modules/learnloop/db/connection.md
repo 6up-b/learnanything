@@ -78,6 +78,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] — imports `connect`; statically calls `connect`
 
 ## Dependencies
 
@@ -97,7 +98,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]], [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]], [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]], [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]], [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
