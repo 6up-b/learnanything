@@ -47,6 +47,102 @@ def test_live_rebuild_failure_preserves_all_published_state(tmp_path, monkeypatc
     assert _projection_snapshot(repository, tables) == before
 
 
+
+
+def test_live_rebuild_completeness_failure_publishes_nothing(tmp_path, monkeypatch):
+    import dataclasses
+
+    import learnloop.substrate.rebuild_orchestrator as orchestrator
+
+    root = _copy_fixture(tmp_path, "incomplete")
+    repository = Repository(root / "state.sqlite")
+    tables = set(tables_for_role(TableRole.DERIVED)) | {"derived_state_rebuilds"}
+    before = _projection_snapshot(repository, tables)
+    runners = dict(orchestrator._RUNNERS)
+
+    def accounts_for_nothing(name):
+        def runner(spec, context):
+            result = runners[name](spec, context)
+            return dataclasses.replace(result, accounted_attempt_ids=())
+        return runner
+
+    for name in runners:
+        monkeypatch.setitem(orchestrator._RUNNERS, name, accounts_for_nothing(name))
+    with pytest.raises(orchestrator.ReplayCompletenessError):
+        rebuild_all_derived_state(load_vault(root), repository, clock=CLOCK)
+    assert _projection_snapshot(repository, tables) == before
+
+def test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway(tmp_path, monkeypatch):
+    """The per-LO replay behind a content apply publishes all of it or none.
+
+    It runs inside an ingest job's write fence. A replacement worker taking the
+    lease between the replay's reset and its re-fold would otherwise make the
+    next write raise ``JobOwnershipLost`` and leave the LO's derived state
+    cleared. Holding one write transaction keeps the takeover out until the
+    replay has committed.
+    """
+
+    import sqlite3
+
+    import learnloop.substrate.replay as replay
+    from learnloop.clock import utc_now_iso
+    from learnloop.db.scopes import guard_ingest_writes
+
+    reference_root = _copy_fixture(tmp_path, "reference")
+    reference = Repository(reference_root / "state.sqlite")
+    learning_object_id = reference.learning_object_ids_with_attempts()[0]
+    replay.record_content_recalibration(
+        load_vault(reference_root), reference,
+        affected_learning_object_ids=[learning_object_id], clock=CLOCK,
+    )
+
+    root = _copy_fixture(tmp_path, "fenced")
+    repository = Repository(root / "state.sqlite")
+    repository.insert_ingest_batch(id="batch", workflow_type="import", clock=CLOCK)
+    repository.insert_ingest_job(id="job", batch_id="batch", ordinal=0, job_type="fake", clock=CLOCK)
+    claimed = repository.claim_next_ingest_job(
+        worker_id="w1", now_iso=utc_now_iso(CLOCK), lease_cutoff_iso=utc_now_iso(CLOCK)
+    )
+    assert claimed["id"] == "job"
+
+    takeover_outcomes: list[str] = []
+    original_replay_attempt = replay.replay_existing_attempt
+
+    def replacement_worker_claims_the_job_first(*args, **kwargs):
+        if not takeover_outcomes:
+            replacement = sqlite3.connect(repository.sqlite_path, timeout=0)
+            try:
+                with replacement:
+                    replacement.execute(
+                        "UPDATE ingest_jobs SET worker_id = 'w2', attempt_count = attempt_count + 1 WHERE id = 'job'"
+                    )
+                takeover_outcomes.append("claimed")
+            except sqlite3.OperationalError as error:
+                takeover_outcomes.append(str(error))
+            finally:
+                replacement.close()
+        return original_replay_attempt(*args, **kwargs)
+
+    monkeypatch.setattr(replay, "replay_existing_attempt", replacement_worker_claims_the_job_first)
+    with guard_ingest_writes(repository.sqlite_path, "job", "w1", claimed["attempt_count"]):
+        replay.record_content_recalibration(
+            load_vault(root), repository,
+            affected_learning_object_ids=[learning_object_id], clock=CLOCK,
+        )
+
+    assert takeover_outcomes == ["database is locked"]
+
+    def mastery(repository_: Repository) -> dict:
+        with connect(repository_.sqlite_path, read_only=True) as connection:
+            row = connection.execute(
+                "SELECT * FROM learning_object_mastery WHERE learning_object_id = ?",
+                (learning_object_id,),
+            ).fetchone()
+        assert row is not None
+        return {key: row[key] for key in row.keys() if key != "updated_at"}
+
+    assert mastery(repository) == mastery(reference)
+
 def _copy_fixture(tmp_path: Path, name: str) -> Path:
     destination = tmp_path / name
     shutil.copytree(FIXTURE_VAULT, destination)
