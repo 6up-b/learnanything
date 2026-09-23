@@ -314,3 +314,26 @@ def test_a_replaced_ingest_cannot_publish_its_source_note_or_goal_linkage(tmp_pa
             )
     assert sorted(paths.root.rglob('*.md')) == notes_before
     assert (paths.goals_path.read_text() if paths.goals_path.exists() else None) == goals_before
+
+
+def test_a_replaced_ingest_cannot_create_a_subject(tmp_path):
+    from learnloop.content.pipeline import source_ingestion
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import create_basic_vault
+    from tests.test_source_ingestion import _youtube_source
+
+    paths = create_basic_vault(tmp_path / 'vault')
+    runner = _runner(paths.root, handlers={'fake': _ok_handler({})})
+    runner.enqueue_batch('legacy_ingest', [JobSpec('fake')])
+    old = _claim(runner.repo, 'old', 0)
+    runner.clock = _clock(180)
+    runner.recover_stale_leases()
+    source = _youtube_source()
+    with guard_ingest_writes(runner.repo.sqlite_path, old['id'], 'old', 1):
+        for subject_id, created_subject in ((None, 'youtube-video-abc123'), ('late-subject', 'late-subject')):
+            with pytest.raises(JobOwnershipLost):
+                source_ingestion._resolve_subject(
+                    paths.root, source, subject_id, 'youtube_video', [], 'sha256:late', clock=_clock(181),
+                )
+            assert not paths.subject_dir(created_subject).exists()
+    assert set(load_vault(paths.root).subjects) == {'linear-algebra'}
