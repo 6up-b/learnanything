@@ -600,9 +600,10 @@ def test_evidence_pass_retry_reuses_first_paid_pass(tmp_path):
 def test_complete_base_request_budget_is_checked_before_paying(tmp_path):
     root, repo = _setup_two_chapters(tmp_path)
     client = FakeSynthesisClient()
-    with pytest.raises(StudyMapError, match="ceiling"):
+    with pytest.raises(StudyMapError, match="ceiling") as exc:
         create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, budget_overrides={"synthesis_total_input_ceiling": 1})
     assert client.calls == []
+    assert "Narrow the source scope" in str(exc.value)
 
 
 def test_non_ascii_output_is_charged_by_characters_not_escapes(tmp_path):

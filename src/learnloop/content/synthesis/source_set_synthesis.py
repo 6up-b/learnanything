@@ -2080,8 +2080,15 @@ def _run_synthesis(
     for ordinal, shard, _, cached in shard_states:
         key, tokens = pass_request(base_context(ordinal, shard))
         base_reserves[ordinal] = 0 if cached or repository.model_checkpoint(key) else tokens
-    if not unlimited_token_budget and sum(base_reserves.values()) > budgets.synthesis_total_input_ceiling:
-        raise StudyMapError("budget_exceeded", "Uncached synthesis base passes exceed the total-input ceiling.")
+    base_input_needed = sum(base_reserves.values())
+    if not unlimited_token_budget and base_input_needed > budgets.synthesis_total_input_ceiling:
+        raise StudyMapError(
+            "budget_exceeded",
+            f"Uncached synthesis base passes need about {base_input_needed} input tokens, over the "
+            f"total-input ceiling of {budgets.synthesis_total_input_ceiling}. Each pass counts the full "
+            "request: instructions, output schema, brief, registry index and the shard's inventories. "
+            "Narrow the source scope or raise synthesis_total_input_ceiling.",
+        )
 
     def run_pass(context, *, future_input_reserve=0):
         nonlocal calls, input_tokens_estimate, output_tokens_spent
