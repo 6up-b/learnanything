@@ -6,6 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.config import load_config
 from learnloop.vault.loader import load_vault
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.models import (
@@ -130,8 +131,7 @@ def upsert_concept(
     *,
     clock: Clock | None = None,
 ) -> Path:
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.concepts_path, {"schema_version": 1, "concepts": {}})
     concepts = data.setdefault("concepts", {})
     if not isinstance(concepts, dict):
@@ -152,8 +152,7 @@ def upsert_concept(
 
 
 def delete_concept(root: Path, concept_id: str) -> Path | None:
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.concepts_path, {"schema_version": 1, "concepts": {}})
     concepts = data.setdefault("concepts", {})
     if not isinstance(concepts, dict):
@@ -171,8 +170,7 @@ def upsert_concept_edge(
     *,
     clock: Clock | None = None,
 ) -> Path:
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.relations_path, {"schema_version": 1, "edges": []})
     edges = data.setdefault("edges", [])
     if not isinstance(edges, list):
@@ -194,8 +192,7 @@ def upsert_concept_edge(
 
 
 def delete_concept_edge(root: Path, edge_id: str) -> Path | None:
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.relations_path, {"schema_version": 1, "edges": []})
     edges = data.setdefault("edges", [])
     if not isinstance(edges, list):
@@ -284,8 +281,7 @@ def upsert_error_type(
     *,
     clock: Clock | None = None,
 ) -> Path:
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.error_types_path, {"schema_version": 1, "error_types": []})
     error_types = data.setdefault("error_types", [])
     if not isinstance(error_types, list):
@@ -340,8 +336,7 @@ def upsert_facet(
     deterministic ``semantic_fingerprint`` from the normalized contract so cross-
     vault reuse proposals stay stable. The file is written at schema_version 2."""
 
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.facets_path, {"schema_version": 2, "facets": []})
     if int(data.get("schema_version") or 0) < 2:
         data["schema_version"] = 2
@@ -397,8 +392,7 @@ def upsert_source_set(
     write is validated through the SourceSet model and round-trips untouched
     records."""
 
-    vault = load_vault(root)
-    paths = VaultPaths(vault.root, vault.config)
+    paths = _vault_paths(root)
     data = _read_yaml_or(paths.source_sets_path, {"schema_version": 1, "source_sets": []})
     source_sets = data.setdefault("source_sets", [])
     if not isinstance(source_sets, list):
@@ -418,6 +412,13 @@ def upsert_source_set(
     paths.source_sets_path.parent.mkdir(parents=True, exist_ok=True)
     write_yaml(paths.source_sets_path, data)
     return paths.source_sets_path
+
+
+def _vault_paths(root: Path) -> VaultPaths:
+    """Paths for a registry edit; the rest of the vault does not need to be parsed."""
+
+    vault_root = root.resolve()
+    return VaultPaths(vault_root, load_config(vault_root / "learnloop.toml"))
 
 
 def _payload(value: BaseModel | dict[str, Any]) -> dict[str, Any]:

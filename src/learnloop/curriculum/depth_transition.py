@@ -27,6 +27,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.substrate import card_lineage as CL
 from learnloop.curriculum import commitments as C
+from learnloop.curriculum.depth_envelopes import depth_policy, envelope_edges
 from learnloop.goals import goal_contracts as GC
 from learnloop.substrate.activities import canonical_hash, canonical_json
 
@@ -93,26 +94,6 @@ class TransitionReceipt:
         }
 
 
-def _resolve_policy(repository: Repository, policy_version_id: str | None) -> str | None:
-    if not policy_version_id:
-        return None
-    row = repository.depth_policy_version(policy_version_id)
-    if row is None:
-        return None
-    return row["policy"]
-
-
-def _reviewed_edges(repository: Repository, envelope_version_id: str | None) -> list[dict[str, Any]]:
-    if not envelope_version_id:
-        return []
-    row = repository.depth_envelope_version(envelope_version_id)
-    if row is None:
-        return []
-    import json as _json_mod
-
-    return _json_mod.loads(row["reviewed_edges_json"] or "[]")
-
-
 def commit_one_edge(
     repository: Repository,
     *,
@@ -150,7 +131,7 @@ def commit_one_edge(
 
     # Step 2 (part): policy must be auto_within_envelope. hold_at_target / suggest_next
     # cannot auto-activate (§3.1.1, §9.1).
-    policy = _resolve_policy(repository, head.depth_policy_version_id)
+    policy = depth_policy(repository, head.depth_policy_version_id)
     if policy != "auto_within_envelope":
         return TransitionProposal(
             kind="suggest_next" if policy == "suggest_next" else "refused",
@@ -160,7 +141,7 @@ def commit_one_edge(
         )
 
     # Step 1: resolve the single reviewed outgoing edge the caller selected.
-    edges = _reviewed_edges(repository, head.depth_envelope_version_id)
+    edges = envelope_edges(repository, head.depth_envelope_version_id)
     matches = [e for e in edges if e.get("edge_id") == selected_edge_id and e.get("reviewed")]
     if len(matches) == 0:
         return TransitionProposal(

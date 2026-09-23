@@ -653,3 +653,50 @@ def _diagnostic_item_payload(client_item_id: str, proposed_entity_id: str) -> di
             },
         },
     }
+
+
+def _doctor_vault_with_broken_and_misspelled_files(vault_root: Path):
+    paths = create_basic_vault(vault_root)
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_define_001")
+    item = read_yaml(item_path)
+    item["promtp"] = "misspelled key"
+    write_yaml(item_path, item)
+    broken = paths.learning_object_path("linear-algebra", "lo_broken")
+    broken.write_text("id: lo_broken\ntitle: [unclosed\n", encoding="utf-8")
+    return paths
+
+
+def test_doctor_parses_each_yaml_file_once(tmp_path, monkeypatch):
+    from learnloop.ops import doctor as doctor_module
+
+    vault_root = tmp_path / "vault"
+    _doctor_vault_with_broken_and_misspelled_files(vault_root)
+    parse_counts: dict[Path, int] = {}
+    real_read = doctor_module.read_yaml_data
+
+    def counting_read(path: Path):
+        parse_counts[path] = parse_counts.get(path, 0) + 1
+        return real_read(path)
+
+    monkeypatch.setattr(doctor_module, "read_yaml_data", counting_read)
+
+    run_doctor(vault_root)
+
+    assert parse_counts
+    assert {path: count for path, count in parse_counts.items() if count != 1} == {}
+
+
+def test_doctor_report_is_the_same_with_and_without_the_parse_cache(tmp_path, monkeypatch):
+    from learnloop.ops import doctor as doctor_module
+    from learnloop.vault.yaml_io import read_yaml_data
+
+    vault_root = tmp_path / "vault"
+    _doctor_vault_with_broken_and_misspelled_files(vault_root)
+
+    cached = run_doctor(vault_root).as_dict()
+    monkeypatch.setattr(doctor_module._ParsedYamlFiles, "read", lambda _self, path: read_yaml_data(path))
+    uncached = run_doctor(vault_root).as_dict()
+
+    assert cached == uncached
+    codes = {issue["code"] for issue in cached["issues"]}
+    assert {"yaml:invalid", "yaml:unknown_key_typo"} <= codes

@@ -10,6 +10,7 @@ from typing import Any, Iterable, Mapping
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import FacetRecallState, FacetUncertaintyState, MasteryState, Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.learner.facet_state_reader import (
     facet_recall_states_for_lo,
     facet_uncertainty_states_for_lo,
@@ -291,16 +292,15 @@ def covered_required_fraction(
     * **Contract frontier** — the ``(facet, capability)`` cells the LO's blueprint
       recipes require. This is the §5.2 denominator, and it is per-CELL: a facet
       measured at ``retrieval`` when the contract requires ``transfer`` is not a
-      covered obligation, which is the 72%-of-attempts mismatch Step 0 measured.
+      covered obligation.
     * **Legacy item-derived facets** — vaults with no authored blueprint
-      components keep the previous behaviour exactly, including its "nothing
-      required ⇒ 1.0". §5.2 is strictly additive.
+      components use the item-derived facet set, where "nothing required"
+      reports 1.0. §5.2 is strictly additive.
 
     The vacuous case §5.2 names is the first branch's: an LO that DECLARES a
-    frontier but has no instruments used to report 1.0 — full coverage from zero
-    measurement — because the item-derived ``required`` set was empty. It now
-    reports 0.0, which is the honest reading and (correctly) raises the variance
-    floor rather than lowering it.
+    frontier but has no instruments reports 0.0, not the 1.0 an empty
+    item-derived ``required`` set would give. Full coverage from zero
+    measurement would lower the variance floor; 0.0 raises it.
 
     ``inferred_cells`` maps a cell to its inference confidence and relieves the
     denominator at :data:`INFERRED_CELL_COVERAGE_DISCOUNT`. No caller supplies it
@@ -655,6 +655,7 @@ def unresolved_question_facet_counts(
     return counts
 
 
+@pinned_repository_call
 def mastery_diagnostic_view(
     vault: LoadedVault,
     repository: Repository,

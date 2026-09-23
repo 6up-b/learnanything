@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from learnloop.db.repositories import Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.goals.certification import is_demonstrated_credit
 from learnloop.learner.blueprint_projection import LoReadiness
 from learnloop.learner.facet_diagnostics import required_facets
@@ -103,6 +104,7 @@ def _lo_required_facets(vault: LoadedVault, repository: Repository, learning_obj
     return sorted(facets)
 
 
+@pinned_repository_call
 def capability_grid(
     vault: LoadedVault, repository: Repository, learning_object_id: str
 ) -> CapabilityGrid:
@@ -203,6 +205,7 @@ def capability_grid(
     )
 
 
+@pinned_repository_call
 def lo_blueprint_readiness(
     vault: LoadedVault, repository: Repository, learning_object_id: str
 ) -> LoReadiness | None:

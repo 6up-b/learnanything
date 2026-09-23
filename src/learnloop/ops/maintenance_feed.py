@@ -57,7 +57,8 @@ NOTICE_TYPES: dict[str, NoticeType] = {
     "ambiguous_edge_direction": NoticeType("ambiguous_edge_direction", "auto_resolution", "warning"),
     "restructure_request": NoticeType("restructure_request", "auto_resolution", "action_needed"),
     # Diagnostic-probe supply: an open probe episode or pending replenishment
-    # need whose eligible surface pool is EMPTY (owner decision: never silent).
+    # need whose eligible surface pool is EMPTY. An empty eligible pool is
+    # surfaced as a maintenance need, never skipped.
     # Urgent because the measurement lane is stalled; auto-resolves when a
     # fresh surface appears (the empty-pool sweep also self-resolves it).
     "probe_pool_empty": NoticeType("probe_pool_empty", "auto_resolution", "action_needed"),
@@ -294,7 +295,7 @@ def _graph_edit_notices(vault, repository) -> list[_Notice]:
 
 
 def _probe_pool_empty_notices(vault, repository) -> list[_Notice]:
-    """Empty diagnostic-probe pools (owner decision: never silent).
+    """Empty diagnostic-probe pools, surfaced as a maintenance need rather than skipped.
 
     Delegates condition detection + the notice shape to
     ``diagnostic_surface_supply`` so the feed and the scheduler-side sweep can

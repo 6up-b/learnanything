@@ -37,6 +37,7 @@ from typing import Any, Iterable
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import GradingEvidenceRecord, Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.learner.assessment_contracts import P0_PROJECTION_VERSIONS
 from learnloop.content.authoring.conjunctive_items import (
     cap_embedded_credit,
@@ -823,6 +824,7 @@ def _observation_events(
     ).get(canonical_facet, [])
 
 
+@pinned_repository_call
 def facet_evidence_timelines(
     vault: LoadedVault,
     repository: Repository,

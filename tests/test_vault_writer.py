@@ -4,13 +4,18 @@ import pytest
 
 from learnloop.clock import FrozenClock
 from learnloop.vault.loader import add_subject, load_vault
+from learnloop.vault import writer
 from learnloop.vault.writer import (
     VaultWriterError,
+    delete_concept,
+    delete_concept_edge,
     upsert_concept,
     upsert_concept_edge,
     upsert_error_type,
+    upsert_facet,
     upsert_learning_object,
     upsert_practice_item,
+    upsert_source_set,
 )
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
@@ -189,3 +194,44 @@ def test_writer_refuses_implicit_entity_moves(tmp_path):
             },
             clock=FrozenClock(NOW),
         )
+
+
+def test_registry_writers_do_not_parse_the_whole_vault(tmp_path, monkeypatch):
+    """Registry edits need only the vault paths; proposal apply calls them once per item."""
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+
+    def refuse_full_load(*_args, **_kwargs):
+        raise AssertionError("registry writer parsed the whole vault")
+
+    monkeypatch.setattr(writer, "load_vault", refuse_full_load)
+    clock = FrozenClock(NOW)
+
+    upsert_concept(vault_root, "eigendecomposition", {"title": "Eigendecomposition", "type": "procedure"}, clock=clock)
+    upsert_concept_edge(
+        vault_root,
+        {
+            "id": "edge_svd_eigen",
+            "relation_type": "related",
+            "source": "singular_value_decomposition",
+            "target": "eigendecomposition",
+        },
+        clock=clock,
+    )
+    upsert_error_type(vault_root, {"id": "sign_slip", "title": "Sign slip"}, clock=clock)
+    upsert_facet(vault_root, {"id": "recall", "kind": "definition", "claim": "Recall the SVD factorization."})
+    upsert_source_set(
+        vault_root,
+        {"id": "set_core", "subject_id": "linear-algebra", "title": "Core"},
+        clock=clock,
+    )
+    assert delete_concept_edge(vault_root, "edge_svd_eigen") == paths.relations_path
+    assert delete_concept(vault_root, "eigendecomposition") == paths.concepts_path
+
+    monkeypatch.undo()
+    vault = load_vault(vault_root)
+    assert "eigendecomposition" not in vault.concepts
+    assert "sign_slip" in vault.error_types
+    assert "recall" in vault.evidence_facets
+    assert [source_set.id for source_set in vault.source_sets] == ["set_core"]

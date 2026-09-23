@@ -26,12 +26,14 @@ envelope opens an editable successor proposal requiring confirmation (§10.2,
 
 from __future__ import annotations
 
+import json
 from typing import Any, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.curriculum import commitments as C
 from learnloop.curriculum import depth_transition as DT
+from learnloop.curriculum.depth_envelopes import depth_policy, envelope_edges
 from learnloop.substrate.activities import canonical_hash, canonical_json
 
 # The default conditional stage ladder (§10.1). An arc may override the ordered set;
@@ -48,25 +50,14 @@ class ArcError(ValueError):
     """Domain error for the commitment-arc service."""
 
 
-def _reviewed_edges(repository: Repository, envelope_version_id: str | None) -> list[dict[str, Any]]:
-    if not envelope_version_id:
-        return []
-    row = repository.depth_envelope_version(envelope_version_id)
-    if row is None:
-        return []
-    import json as _json_mod
-
-    return _json_mod.loads(row["reviewed_edges_json"] or "[]")
-
-
 def _stage_milestone_map(
-    stages: Sequence[str], reviewed_edges: Sequence[Mapping[str, Any]]
+    stages: Sequence[str], candidate_edges: Sequence[Mapping[str, Any]]
 ) -> dict[str, str]:
     """Map each arc stage to the reviewed depth-milestone edge whose
     ``predecessor_milestone`` names that stage, else fall back to positional order.
     Only reviewed edges participate (§10.1)."""
 
-    edges = [e for e in reviewed_edges if e.get("reviewed") and e.get("edge_id")]
+    edges = [e for e in candidate_edges if e.get("reviewed") and e.get("edge_id")]
     mapping: dict[str, str] = {}
     remaining = list(edges)
     for stage in stages:
@@ -99,8 +90,8 @@ def create_arc(
 
     head = C.resolve_head(repository, commitment_id)  # raises if unknown
     ordered = tuple(stages) if stages else DEFAULT_STAGES
-    reviewed = _reviewed_edges(repository, head.depth_envelope_version_id)
-    stage_map = _stage_milestone_map(ordered, reviewed)
+    edges = envelope_edges(repository, head.depth_envelope_version_id)
+    stage_map = _stage_milestone_map(ordered, edges)
 
     arc_id = repository.create_commitment_arc(
         commitment_id=commitment_id, source_id=source_id, clock=clock
@@ -133,13 +124,6 @@ def create_arc(
     return {"arc_id": arc_id, "commitment_id": commitment_id, "version": written, **body}
 
 
-def _resolve_policy(repository: Repository, policy_version_id: str | None) -> str | None:
-    if not policy_version_id:
-        return None
-    row = repository.depth_policy_version(policy_version_id)
-    return row["policy"] if row is not None else None
-
-
 def project_arc(repository: Repository, *, arc_id: str) -> dict[str, Any]:
     """Rebuildable arc-state head: a projection over memory time + arc time (§10.1).
 
@@ -153,16 +137,14 @@ def project_arc(repository: Repository, *, arc_id: str) -> dict[str, Any]:
     version = repository.commitment_arc_head_version(arc_id)
     if version is None:
         raise ArcError(f"arc has no version: {arc_id!r}")
-    import json as _json_mod
-
-    stages = _json_mod.loads(version["stages_json"] or "[]")
-    stage_map = _json_mod.loads(version["stage_milestone_map_json"] or "{}")
+    stages = json.loads(version["stages_json"] or "[]")
+    stage_map = json.loads(version["stage_milestone_map_json"] or "{}")
     events = repository.commitment_arc_events(arc_id)
 
     reached: list[str] = []
     paused = False
     for ev in events:
-        detail = _json_mod.loads(ev["detail_json"] or "{}")
+        detail = json.loads(ev["detail_json"] or "{}")
         if ev["kind"] in ("stage_reached", "transition_committed"):
             stage = detail.get("stage") or detail.get("milestone")
             if stage and stage not in reached:
@@ -176,10 +158,10 @@ def project_arc(repository: Repository, *, arc_id: str) -> dict[str, Any]:
     current_stage = next((s for s in stages if s not in reached), None)
     # memory time: the commitment's disposition (arcs never own scheduling).
     disposition = C.resolve_disposition(repository, arc["commitment_id"])
-    policy = _resolve_policy(repository, version["depth_policy_version_id"])
-    reviewed = _reviewed_edges(repository, version["depth_envelope_version_id"])
+    policy = depth_policy(repository, version["depth_policy_version_id"])
+    edges = envelope_edges(repository, version["depth_envelope_version_id"])
     next_edge_id = stage_map.get(current_stage) if current_stage else None
-    next_edge = next((e for e in reviewed if e.get("edge_id") == next_edge_id), None)
+    next_edge = next((e for e in edges if e.get("edge_id") == next_edge_id), None)
 
     return {
         "arc_id": arc_id,
@@ -241,9 +223,7 @@ def advance_arc(
     stage_map = {}
     version = repository.commitment_arc_head_version(arc_id)
     if version is not None:
-        import json as _json_mod
-
-        stage_map = _json_mod.loads(version["stage_milestone_map_json"] or "{}")
+        stage_map = json.loads(version["stage_milestone_map_json"] or "{}")
     edge_id = selected_edge_id or stage_map.get(stage)
 
     # Record the achieved arc stage (append-only, idempotent per stage).
@@ -380,8 +360,8 @@ def _repin(
     detail: Mapping[str, Any], clock: Clock | None,
 ) -> None:
     view = project_arc(repository, arc_id=arc_id)
-    reviewed = _reviewed_edges(repository, head.depth_envelope_version_id)
-    stage_map = _stage_milestone_map(view["stages"], reviewed)
+    edges = envelope_edges(repository, head.depth_envelope_version_id)
+    stage_map = _stage_milestone_map(view["stages"], edges)
     body = {
         "schema_version": ARC_SCHEMA_VERSION,
         "stages": view["stages"],
