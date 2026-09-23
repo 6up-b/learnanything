@@ -285,3 +285,31 @@ def test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks(tmp_path):
     assert repository.synthesis_run(in_flight)['status'] == 'created'
     assert runner.recover_stale_leases() == []
     assert repository.synthesis_run(in_flight)['status'] == 'failed'
+
+
+def test_a_replaced_ingest_cannot_publish_its_source_note_or_goal_linkage(tmp_path):
+    from learnloop.content.pipeline import source_ingestion
+    from tests.helpers import create_basic_vault
+    from tests.test_source_ingestion import _youtube_source
+
+    paths = create_basic_vault(tmp_path / 'vault')
+    runner = _runner(paths.root, handlers={'fake': _ok_handler({})})
+    runner.enqueue_batch('legacy_ingest', [JobSpec('fake')])
+    old = _claim(runner.repo, 'old', 0)
+    runner.clock = _clock(180)
+    runner.recover_stale_leases()
+    goals_before = paths.goals_path.read_text() if paths.goals_path.exists() else None
+    notes_before = sorted(paths.root.rglob('*.md'))
+    source = _youtube_source()
+    with guard_ingest_writes(runner.repo.sqlite_path, old['id'], 'old', 1):
+        with pytest.raises(JobOwnershipLost):
+            source_ingestion.register_canonical_source(
+                paths.root, 'linear-algebra', source, b'raw transcript', 'sha256:late', clock=_clock(181),
+            )
+        with pytest.raises(JobOwnershipLost):
+            source_ingestion._establish_goal_linkage(
+                paths.root, 'linear-algebra', 'Late source', None,
+                goal_id=None, default_priority=1.0, clock=_clock(181),
+            )
+    assert sorted(paths.root.rglob('*.md')) == notes_before
+    assert (paths.goals_path.read_text() if paths.goals_path.exists() else None) == goals_before

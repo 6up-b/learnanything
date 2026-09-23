@@ -38,6 +38,7 @@ from learnloop.content.proposals.proposals import auto_apply_rows, proposal_item
 from learnloop.vault.loader import add_subject, load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_markdown_with_frontmatter, write_yaml
+from learnloop.vault_lock import vault_mutation_lock
 
 KindOption = Literal["auto", "website_page", "youtube_video", "arxiv_html", "textbook_chapter"]
 IngestProgress = Callable[[str, dict[str, Any]], None]
@@ -999,6 +1000,23 @@ def register_canonical_source(
     *,
     clock: Clock | None = None,
 ) -> RegisteredSource:
+    # The source note is published vault state. Under the vault lock an ingest
+    # job that lost its lease is refused before it writes.
+    with vault_mutation_lock(root, purpose="canonical_source_register"):
+        return _register_canonical_source_locked(
+            root, subject_id, source, raw_bytes, content_hash, clock=clock
+        )
+
+
+def _register_canonical_source_locked(
+    root: Path,
+    subject_id: str,
+    source: NormalizedSource,
+    raw_bytes: bytes,
+    content_hash: str,
+    *,
+    clock: Clock | None,
+) -> RegisteredSource:
     vault = load_vault(root)
     existing = _existing_registered_source(vault, source.kind, source.canonical_uri, content_hash)
     if existing is not None:
@@ -1871,6 +1889,30 @@ def _resolve_subject(
 
 
 def _establish_goal_linkage(
+    root: Path,
+    subject_id: str,
+    title: str,
+    proposal: AuthoringProposal,
+    *,
+    goal_id: str | None,
+    default_priority: float,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    # goals.yaml is a read-modify-write shared with other goal writers, and an
+    # ingest job that lost its lease must not publish into it.
+    with vault_mutation_lock(root, purpose="canonical_ingest_goal_linkage"):
+        return _establish_goal_linkage_locked(
+            root,
+            subject_id,
+            title,
+            proposal,
+            goal_id=goal_id,
+            default_priority=default_priority,
+            clock=clock,
+        )
+
+
+def _establish_goal_linkage_locked(
     root: Path,
     subject_id: str,
     title: str,
