@@ -16,7 +16,6 @@ from learnloop.scheduling.selection_rewards import item_demand_vector
 from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import export_dataset, split_assignments
 from learnloop.substrate.dataset import outcome_records
-from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault, seed_due_item
 
@@ -73,10 +72,12 @@ def test_selection_decision_features_reference_the_item_and_stay_compact(tmp_pat
     item = vault.practice_items[offered.practice_item_id]
     learning_object = vault.learning_object_for_item(item)
     demand = features["item_demand_vector"]
-    # The item is referenced by id and content hash (the hash state sync
-    # stores), and only the demand fields the selector scores are kept.
+    # The item is referenced by id and snapshot hash, and only the demand
+    # fields the selector scores are kept.
     assert demand["practice_item_id"] == item.id
-    assert demand["content_hash"] == practice_item_hash(item)
+    assert demand["content_hash"] == hashlib.sha256(
+        json.dumps(item.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
     assert {key: value for key, value in demand.items() if key not in {"practice_item_id", "content_hash"}} == item_demand_vector(vault, item, learning_object, None).as_dict()
     assert "prompt" not in demand and "expected_answer" not in demand
     assert features["ability_vector"]["learning_object_id"] == learning_object.id
@@ -87,6 +88,57 @@ def test_selection_decision_features_reference_the_item_and_stay_compact(tmp_pat
             "SELECT MAX(LENGTH(ability_vector_json) + LENGTH(item_demand_vector_json) + LENGTH(context_json)) FROM decision_features WHERE decision_type = 'selection'"
         ).fetchone()[0]
     assert largest_row < 2048
+
+
+def test_scored_item_text_is_snapshotted_once_per_revision_and_exported(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = seed_due_item(paths)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+    session = SchedulerSession(session_id=repository.create_session(clock=clock))
+
+    def snapshots() -> list[sqlite3.Row]:
+        with connect(paths.sqlite_path) as connection:
+            return connection.execute(
+                "SELECT * FROM practice_item_snapshots ORDER BY practice_item_id, created_at"
+            ).fetchall()
+
+    def scored_item_ids() -> set[str]:
+        with connect(paths.sqlite_path) as connection:
+            rows = connection.execute(
+                "SELECT item_demand_vector_json FROM decision_features WHERE decision_type = 'selection'"
+            ).fetchall()
+        return {json.loads(row[0])["practice_item_id"] for row in rows}
+
+    for _ in range(5):
+        offered = build_due_queue(vault, repository, clock=clock, session=session)[0]
+    assert sorted(row["practice_item_id"] for row in snapshots()) == sorted(scored_item_ids())
+
+    item = vault.practice_items[offered.practice_item_id]
+    vault.practice_items[item.id] = item.model_copy(update={"prompt": item.prompt + " (edited)"})
+    build_due_queue(vault, repository, clock=clock, session=session)
+    revisions = [row for row in snapshots() if row["practice_item_id"] == item.id]
+    assert len(revisions) == 2
+    assert {json.loads(row["item_json"])["prompt"] for row in revisions} == {item.prompt, item.prompt + " (edited)"}
+    for row in revisions:
+        assert hashlib.sha256(row["item_json"].encode("utf-8")).hexdigest() == row["content_hash"]
+    with connect(paths.sqlite_path) as connection, pytest.raises(sqlite3.IntegrityError, match="immutable"):
+        connection.execute("DELETE FROM practice_item_snapshots")
+
+    # Every exported selection feature joins back to the exact scored text.
+    output = tmp_path / "dataset"
+    manifest = export_dataset(paths.sqlite_path, output)
+    assert "practice_item_snapshots" in manifest["inclusion"]["tables"]
+    exported = {
+        row["content_hash"]: row
+        for row in map(json.loads, (output / "practice_item_snapshots.jsonl").read_text().splitlines())
+    }
+    features = [json.loads(line) for line in (output / "decision_features.jsonl").read_text().splitlines()]
+    selection = [row for row in features if row["decision_type"] == "selection"]
+    assert len(selection) == 6 * len(scored_item_ids())
+    for row in selection:
+        demand = json.loads(row["item_demand_vector_json"])
+        assert exported[demand["content_hash"]]["practice_item_id"] == demand["practice_item_id"]
 
 def test_final_offer_refuses_filtered_and_cross_session_candidates(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")

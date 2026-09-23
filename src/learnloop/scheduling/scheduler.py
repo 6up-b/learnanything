@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -47,7 +48,6 @@ from learnloop.scheduling.selection_rewards import (
     item_demand_vector,
     score_selection_reward,
 )
-from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 logger = logging.getLogger(__name__)
@@ -703,9 +703,10 @@ def _selection_decision_features(
     The rows are append-only and written for every candidate of every saved
     queue build, so they hold only what the selector consumes: the learner's
     ability vector for the item's learning object and the item's numeric and
-    categorical demand. The item itself is referenced by id plus
-    ``practice_item_hash``, which matches ``practice_item_state.content_hash``
-    and lets a consumer re-read exactly the scored revision from the vault.
+    categorical demand. The scored item revision is referenced by the hash of
+    its full serialized form; ``item_snapshot`` carries that serialization so
+    the repository stores it once per distinct revision in
+    ``practice_item_snapshots``.
     """
 
     learning_object = vault.learning_object_for_item(item)
@@ -723,16 +724,40 @@ def _selection_decision_features(
         )
         ability_by_lo[learning_object_id] = ability
     demand = item_demand_vector(vault, item, learning_object, quality_states.get(item.id))
+    snapshot_hash, item_json = _practice_item_snapshot(item)
     item_demand = {
         "practice_item_id": item.id,
-        "content_hash": practice_item_hash(item),
+        "content_hash": snapshot_hash,
         **demand.as_dict(),
     }
     return {
         "ability_vector": ability,
         "item_demand_vector": item_demand,
         "context": {"feature_schema": SELECTION_FEATURE_SCHEMA},
+        "item_snapshot": {
+            "content_hash": snapshot_hash,
+            "practice_item_id": item.id,
+            "item_json": item_json,
+        },
     }
+
+
+def _practice_item_snapshot(item: PracticeItem) -> tuple[str, str]:
+    """Canonical JSON of the whole item and the SHA-256 of exactly that text.
+
+    ``practice_item_hash`` covers only the grading-relevant fields, so two
+    revisions that differ in a scored demand field (scaffold level, transfer
+    distance, surface family) would share it. The snapshot key must change
+    whenever anything the selector could have read changes.
+    """
+
+    item_json = json.dumps(
+        item.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(item_json.encode("utf-8")).hexdigest(), item_json
 
 
 def _selection_ability_features(

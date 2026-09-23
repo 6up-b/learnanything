@@ -8594,10 +8594,41 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                 )
                 features = explanation.get("decision_features")
                 if features is not None:
+                    snapshot = features.get("item_snapshot")
+                    if snapshot is not None:
+                        # Content-addressed: every later build that scores the
+                        # same revision references this row instead of copying it.
+                        connection.execute(
+                            """
+                            INSERT OR IGNORE INTO practice_item_snapshots(
+                              content_hash, practice_item_id, item_json, created_at
+                            )
+                            VALUES (?, ?, ?, ?)
+                            """,
+                            (
+                                snapshot["content_hash"],
+                                snapshot["practice_item_id"],
+                                snapshot["item_json"],
+                                now,
+                            ),
+                        )
                     connection.execute(
-                        """INSERT INTO decision_features(id,decision_id,decision_type,ability_vector_json,item_demand_vector_json,context_json,algorithm_version,created_at)
-                           VALUES (?,?,'selection',?,?,?,?,?)""",
-                        (new_ulid(), candidate_id, _json(features["ability_vector"]), _json(features.get("item_demand_vector")), _json(features.get("context", {})), algorithm_version, now),
+                        """
+                        INSERT INTO decision_features(
+                          id, decision_id, decision_type, ability_vector_json,
+                          item_demand_vector_json, context_json, algorithm_version, created_at
+                        )
+                        VALUES (?, ?, 'selection', ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            new_ulid(),
+                            candidate_id,
+                            _json(features["ability_vector"]),
+                            _json(features.get("item_demand_vector")),
+                            _json(features.get("context", {})),
+                            algorithm_version,
+                            now,
+                        ),
                     )
             if probe_presentation is not None:
                 presentation_values = dict(probe_presentation)
