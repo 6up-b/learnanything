@@ -64,12 +64,13 @@ function flattenSourceObjects(heads: Array<Record<string, unknown>>): Map<string
 export function useReaderRequests(sourceId: string | null, enabled: boolean) {
   const activeSourceId = enabled ? sourceId : null;
   const activeScope = useMemo(() => ({ sourceId: activeSourceId }), [activeSourceId]);
-  const activeSourceRef = useRef<typeof activeScope | null>(activeScope);
-  activeSourceRef.current = activeScope;
+  // Async results commit only while their scope object is still current; a
+  // fresh object per source change drops results from an earlier visit.
+  const activeScopeRef = useRef<typeof activeScope | null>(activeScope);
 
   useEffect(() => {
-    activeSourceRef.current = activeScope;
-    return () => { if (activeSourceRef.current === activeScope) activeSourceRef.current = null; };
+    activeScopeRef.current = activeScope;
+    return () => { if (activeScopeRef.current === activeScope) activeScopeRef.current = null; };
   }, [activeScope]);
 
   const [requests, setRequests] = useState<BackgroundRequest[]>([]);
@@ -86,7 +87,7 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
       api.readerProposalInbox({ status: "proposed" }),
       api.readerSourceObjects(targetSourceId)
     ]);
-    if (activeSourceRef.current !== targetScope) return;
+    if (activeScopeRef.current !== targetScope) return;
     const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? [];
     setProposalCount(proposals.length);
     setOpenProposalIds(new Set(proposals.map((proposal) => String(proposal.id))));
@@ -98,12 +99,11 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
   const refresh = useCallback(async () => {
     if (!activeSourceId) return;
     const targetScope = activeScope;
-    const targetSourceId = activeSourceId;
     const [snapshot, artifacts] = await Promise.allSettled([
-      api.readerSourceRequests(targetSourceId),
+      api.readerSourceRequests(activeSourceId),
       loadArtifacts(targetScope)
     ]);
-    if (activeSourceRef.current !== targetScope) return;
+    if (activeScopeRef.current !== targetScope) return;
     const failures: string[] = [];
     if (snapshot.status === "fulfilled") {
       setRequests((snapshot.value.requests as BackgroundRequest[]) ?? []);
@@ -138,7 +138,7 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
       let pollAgain = true;
       try {
         const snapshot = await api.readerSourceRequests(targetSourceId);
-        if (cancelled || activeSourceRef.current !== targetScope) return;
+        if (cancelled || activeScopeRef.current !== targetScope) return;
         const next = (snapshot.requests as BackgroundRequest[]) ?? [];
         pollAgain = hasActiveRequest(next);
         const signatures = new Map(next.map((request) => [
@@ -154,18 +154,18 @@ export function useReaderRequests(sourceId: string | null, enabled: boolean) {
           // an artifact failure retries on the next non-overlapping poll.
           await loadArtifacts(targetScope);
         }
-        if (!cancelled && activeSourceRef.current === targetScope) {
+        if (!cancelled && activeScopeRef.current === targetScope) {
           observedRequests.current = signatures;
           setRequests(next);
           setLoadError(null);
         }
       } catch (error) {
         pollAgain = true;
-        if (!cancelled && activeSourceRef.current === targetScope) {
+        if (!cancelled && activeScopeRef.current === targetScope) {
           setLoadError(`Reader request status is temporarily unavailable: ${errorMessage(error)}`);
         }
       }
-      if (!cancelled && activeSourceRef.current === targetScope && pollAgain) {
+      if (!cancelled && activeScopeRef.current === targetScope && pollAgain) {
         timer = window.setTimeout(() => void poll(), 2000);
       }
     };

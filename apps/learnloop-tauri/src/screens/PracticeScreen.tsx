@@ -199,6 +199,10 @@ export function PracticeScreen({
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
+  // Set when a load gave up because a vault switch froze the screen. If that
+  // switch fails, resume must restart the load or the screen never leaves its
+  // loading state.
+  const reloadOnResume = useRef(false);
   const [vaultChanging, setVaultChanging] = useState(false);
   const draftWrites = useRef<Promise<unknown>>(Promise.resolve());
   const isTeachBack = item?.practiceMode === "teach_back";
@@ -223,10 +227,7 @@ export function PracticeScreen({
   // idle-adjusted: subtracting time the learner "wasn't really working" would be
   // a fabrication, and the metric that consumes this (B5's
   // `learner_minutes_to_cold_success`) is denominated in the learner's actual
-  // elapsed experience. The whole backend path — `SubmitAttemptInput`, the
-  // sidecar handler, `AttemptDraft`, the `latency_seconds` column — already
-  // existed; only this client-side value was missing, so every attempt to date
-  // recorded NULL and the metric was permanently uncomputable.
+  // elapsed experience.
   const elapsedSeconds = () =>
     Math.max(0, Math.round((Date.now() - openedAtMs.current) / 1000));
   useEffect(() => {
@@ -278,22 +279,52 @@ export function PracticeScreen({
     suppressDraftFlush.current = false;
   }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId]);
 
-  const flushDraft = useCallback(async (beforeVaultSwitch = false) => {
-    if (suppressDraftFlush.current || teachBackRef.current || (vaultFrozen.current && !beforeVaultSwitch)) {
-      if (beforeVaultSwitch) await draftWrites.current;
-      return;
-    }
+  const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
+
+  /** Queue a save of the latest draft behind any save already in flight. */
+  const saveDraft = useCallback(() => {
     const draft = latestDraft.current;
     const write = draftWrites.current.catch(() => undefined).then(() => api.savePracticeDraft(draft));
     draftWrites.current = write;
-    await write;
+    return write;
   }, []);
 
+  /** Debounce, unmount, submit and window-close path. */
+  const flushDraft = useCallback(async () => {
+    // While a vault switch holds the screen, the switch's own save carries the
+    // latest draft; wait for it instead of writing again.
+    if (vaultFrozen.current) {
+      await draftWrites.current;
+      return;
+    }
+    if (draftSavingDisabled()) return;
+    await saveDraft();
+  }, [saveDraft]);
+
+  /** The save a vault switch waits on before selecting the next vault. */
+  const settleDraftForVaultSwitch = useCallback(async () => {
+    if (draftSavingDisabled()) {
+      await draftWrites.current;
+      return;
+    }
+    await saveDraft();
+  }, [saveDraft]);
+
   useEffect(() => registerVaultDraft({
-    freeze: () => { vaultFrozen.current = true; setVaultChanging(true); },
-    flush: () => flushDraft(true),
-    resume: () => { vaultFrozen.current = false; setVaultChanging(false); }
-  }), [flushDraft]);
+    freeze: () => {
+      vaultFrozen.current = true;
+      setVaultChanging(true);
+    },
+    flush: settleDraftForVaultSwitch,
+    resume: () => {
+      vaultFrozen.current = false;
+      setVaultChanging(false);
+      if (reloadOnResume.current) {
+        reloadOnResume.current = false;
+        setLoadRevision((value) => value + 1);
+      }
+    }
+  }), [settleDraftForVaultSwitch]);
 
   useEffect(() => {
     setAnswer(restoredAnswer ?? "");
@@ -314,6 +345,16 @@ export function PracticeScreen({
     setProbeLoadError(null);
     setCommittedRecovery(null);
     teachBackRef.current = true;
+    reloadOnResume.current = false;
+
+    // True when this load must stop: the screen moved on, or a vault switch
+    // froze it (in which case a failed switch restarts the load on resume).
+    const abandonLoad = () => {
+      if (cancelled) return true;
+      if (!vaultFrozen.current) return false;
+      reloadOnResume.current = true;
+      return true;
+    };
 
     const recoverOrLoad = async () => {
       const retryKey = restoredSubmissionId?.trim();
@@ -324,7 +365,7 @@ export function PracticeScreen({
             practiceItemId,
             submissionId: retryKey
           });
-          if (cancelled || vaultFrozen.current) return;
+          if (abandonLoad()) return;
           if (recovery.status === "recovered" && recovery.result) {
             // The exact original payload carries deferred/block-end routing and
             // does not require the now-single-use item to still be active.
@@ -333,12 +374,8 @@ export function PracticeScreen({
             // The screen may have unmounted while the optional title lookup was
             // in flight. Never route a stale result; retain its retry key so the
             // still-current surface can recover it authoritatively.
-            if (cancelled || vaultFrozen.current) return;
-            const routed = await routeAfterAttempt(
-              recovery.result,
-              recoveredItem,
-              () => cancelled || vaultFrozen.current,
-            );
+            if (abandonLoad()) return;
+            const routed = await routeAfterAttempt(recovery.result, recoveredItem, abandonLoad);
             if (!routed) return;
             // Route first, then acknowledge. If routing mounts a new item and
             // it saves before this call lands, the sidecar's atomic key compare
@@ -405,7 +442,10 @@ export function PracticeScreen({
       void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
       // Reported only on unmount — reporting on every debounced flush would
       // loop the draft back through restoredAnswer while the user is typing.
-      if (!suppressDraftFlush.current && !teachBackRef.current && !vaultFrozen.current) {
+      // Also reported while a vault switch is freezing the screen: if the
+      // switch then fails, App restores this item from the mirror; if it
+      // succeeds, App drops the mirror with the rest of the old vault's state.
+      if (!draftSavingDisabled()) {
         const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey } = latestDraft.current;
         onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey });
       }
@@ -596,10 +636,8 @@ export function PracticeScreen({
         answerMd: redo ? composeRedoAnswer(redo.learnerWorkPrefix, answer) : answer,
         // Meas §3.A6 rule 3 made structural, and made structural on the WIRE:
         // the volunteered line is its own field, and the sidecar joins it into
-        // the single trace the grader reads. This client never learns the
-        // heading that delimits it — that used to be a constant duplicated here
-        // and in `trace_evidence.py`, kept equal by a comment, with the backend
-        // parsing for it to score the reward and count the session budget. A
+        // the single trace the grader reads. The client never learns the
+        // heading that delimits the line; the sidecar owns it. A
         // blank line is submitted as nothing at all; there is no representation
         // for "declined", so nothing can turn an empty field into a hint, a
         // skip, or a failure.
