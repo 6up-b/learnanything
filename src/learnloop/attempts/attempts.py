@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable, Mapping
 
@@ -154,6 +154,11 @@ class AttemptDraft:
     scheduler_candidate_id: str | None = None
     entry_surface: str = "unspecified"
     evidence_origin: str = "unknown"
+    # False for doors that never run the post-attempt pipeline (exam seeding,
+    # simulation, calibration, observation imports, rung-variant requests).
+    # Their completion is recorded as done when the attempt is applied, so a
+    # pending completion always means an interrupted one.
+    awaits_completion: bool = True
     # A diagnostic presentation keeps its measurement attempt type while this
     # flag records the learner's explicit "I don't know" outcome.
     declared_dont_know: bool = False
@@ -329,6 +334,20 @@ class AttemptResult:
             "debug": self.debug_payload or {},
         }
 
+    @classmethod
+    def from_dict(cls, saved: Mapping[str, Any]) -> AttemptResult:
+        """Rebuild a result saved with :meth:`as_dict`.
+
+        Keys this version does not know are ignored and fields the saved copy
+        lacks take their defaults, so a result saved by another app version
+        still loads.
+        """
+
+        values = dict(saved)
+        values["debug_payload"] = values.pop("debug", None) or {}
+        known = {item.name for item in dataclass_fields(cls)}
+        return cls(**{key: value for key, value in values.items() if key in known})
+
 
 @dataclass(frozen=True)
 class ApplyAttemptInput:
@@ -349,6 +368,15 @@ class ApplyAttemptInput:
     # Qualifying diagnostic observations require an approved provider; a
     # self-graded submission can never advance an episode.
     grading_source: str = "self"
+    # The model run that produced this grade. None for self-graded,
+    # deterministic and replayed grades.
+    grading_agent_run_id: str | None = None
+    # Set only when a model grade failed and the learner's self-grade was
+    # applied instead: why it failed and which run failed. The result carries
+    # both so the completion saved inside the attempt transaction is the result
+    # the learner is shown, not a provisional one.
+    fallback_reason: str | None = None
+    fallback_agent_run_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -494,8 +522,9 @@ def _complete_attempt_with_agent_fallback(
         reason = runtime.status if not runtime.ready else missing_client_reason
         if grading_source == "codex":
             reason = legacy_codex_status(reason)
-        result = complete_self_graded_attempt(vault, repository, draft, fallback_grade, clock=clock)
-        return _with_fallback(result, reason)
+        return complete_self_graded_attempt(
+            vault, repository, draft, fallback_grade, fallback_reason=reason, clock=clock,
+        )
 
     attempt_id = new_ulid()
     context = build_grading_context(
@@ -544,21 +573,48 @@ def _complete_attempt_with_agent_fallback(
             clock=clock,
         )
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
-        # A7: a grade that fell back to self-grading still paid for the model
-        # call it could not use; C3's cost ratio needs those tokens in the
-        # numerator or the augmented loop looks cheaper than it is.
+        if _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock):
+            # A receipt/annotation failure after the model grade committed
+            # cannot turn that grade into a second, self-graded attempt. The
+            # caller resumes the committed attempt's saved completion.
+            raise
+        return complete_self_graded_attempt(
+            vault, repository, draft, fallback_grade,
+            fallback_reason=f"{failure_prefix}:{type(exc).__name__}",
+            fallback_agent_run_id=agent_run_id,
+            clock=clock,
+        )
+    finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
+    return result
+
+
+def _finish_run_after_grading_error(
+    repository: Repository,
+    agent_run_id: str,
+    ai_client: AIProviderClient,
+    attempt_id: str,
+    error: Exception,
+    *,
+    clock: Clock | None = None,
+) -> bool:
+    """Close the grading run after an error; return whether its grade committed.
+
+    A committed attempt means the model grade is authoritative and only a later
+    annotation step failed, so the run completed. Otherwise the run failed, and
+    its tokens are still recorded: C3's cost ratio needs the calls a fallback
+    could not use in the numerator, or the augmented loop looks cheaper than it
+    is (A7).
+    """
+
+    committed = repository.fetch_practice_attempt(attempt_id) is not None
+    if committed:
+        finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
+    else:
         finish_agent_run(
             repository, agent_run_id, ai_client,
-            status="failed", error_message=str(exc), clock=clock,
+            status="failed", error_message=str(error), clock=clock,
         )
-        if repository.fetch_practice_attempt(attempt_id) is not None:
-            # A later receipt/annotation failure cannot turn a committed model
-            # grade into a second self-graded attempt. Resume its saved work.
-            raise
-        result = complete_self_graded_attempt(vault, repository, draft, fallback_grade, clock=clock)
-        return _with_fallback(result, f"{failure_prefix}:{type(exc).__name__}", agent_run_id=agent_run_id)
-    finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
-    return _with_source(result, grading_source=grading_source, agent_run_id=agent_run_id)
+    return committed
 
 
 def complete_attempt_with_codex_required(
@@ -639,7 +695,7 @@ def _try_deterministic_grade(
         grading_source="deterministic",
         clock=clock,
     )
-    return _with_source(result, grading_source="deterministic", agent_run_id=None)
+    return result
 
 
 def _complete_attempt_with_agent_required(
@@ -715,13 +771,10 @@ def _complete_attempt_with_agent_required(
             clock=clock,
         )
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
-        finish_agent_run(
-            repository, agent_run_id, ai_client,
-            status="failed", error_message=str(exc), clock=clock,
-        )
+        _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock)
         raise
     finish_agent_run(repository, agent_run_id, ai_client, clock=clock)
-    return _with_source(result, grading_source=grading_source, agent_run_id=agent_run_id)
+    return result
 
 
 def complete_self_graded_attempt(
@@ -730,8 +783,16 @@ def complete_self_graded_attempt(
     draft: AttemptDraft,
     grade: SelfGradeInput,
     *,
+    fallback_reason: str | None = None,
+    fallback_agent_run_id: str | None = None,
     clock: Clock | None = None,
 ) -> AttemptResult:
+    """Record the learner's self-grade.
+
+    ``fallback_reason``/``fallback_agent_run_id`` mark a self-grade applied
+    because model grading failed or was unavailable.
+    """
+
     now_iso = utc_now_iso(clock)
     attempt_id = new_ulid()
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -789,6 +850,8 @@ def complete_self_graded_attempt(
                 feedback_md=grade.notes,
                 fatal_errors=fatal_errors,
             ),
+            fallback_reason=fallback_reason,
+            fallback_agent_run_id=fallback_agent_run_id,
         ),
         clock=clock,
     )
@@ -856,6 +919,7 @@ def complete_codex_graded_attempt(
                 manual_review_reason=_attempt_manual_review_reason(validated.manual_review_reason, draft),
             ),
             grading_source=grading_source,
+            grading_agent_run_id=agent_run_id,
         ),
         clock=clock,
     )
@@ -869,7 +933,7 @@ def complete_codex_graded_attempt(
         related_concept_id=learning_object.concept if learning_object is not None else None,
         clock=clock,
     )
-    return _with_source(result, grading_source=grading_source, agent_run_id=agent_run_id)
+    return result
 
 
 def replay_existing_attempt(
@@ -1084,14 +1148,6 @@ def _record_diagnostic_augmentation(
         )
 
 
-def _with_source(result: AttemptResult, *, grading_source: str, agent_run_id: str | None = None) -> AttemptResult:
-    return replace(result, grading_source=grading_source, agent_run_id=agent_run_id)
-
-
-def _with_fallback(result: AttemptResult, reason: str, *, agent_run_id: str | None = None) -> AttemptResult:
-    return replace(result, grading_source="self", fallback_reason=reason, agent_run_id=agent_run_id)
-
-
 def _assessment_contract(
     repository: Repository, draft: AttemptDraft
 ) -> dict[str, Any] | None:
@@ -1297,7 +1353,7 @@ def _dual_write_grade_channel(
             ),
             criterion_points=grade.criterion_points,
             criterion_max=criterion_max,
-            agent_run_id=application.result.agent_run_id,
+            agent_run_id=attempt.grading_agent_run_id,
             domain=application.result.learning_object_id,
             clock=clock,
         )
@@ -1321,22 +1377,18 @@ def _persist_repair_mapping_source(
 ) -> None:
     """Make the authored repair suggestions durable on EVERY attempt path.
 
-    ``attempt_feedback_metadata`` used to have exactly one writer, the sidecar's
-    ``_persist_feedback_metadata``.  That row is the only durable copy of the
-    authored repair suggestions, and ``causal_attribution
+    ``attempt_feedback_metadata`` is the only durable copy of the authored
+    repair suggestions, and ``causal_attribution
     .record_unresolved_cause_self_report`` re-materializes the causal episode
-    from it: on any non-sidecar path (CLI, tests, a future service, an
-    in-process app) a learner confirmation therefore re-minted every hypothesis
-    with ``repair_class_id = None`` and silently destroyed the repair mapping.
-    Writing it here, at the shared attempt step, makes the mapping survive a
-    confirmation on every path rather than on one.
+    from it; without the row a learner confirmation re-mints every hypothesis
+    with ``repair_class_id = None``. Writing it here, at the shared attempt
+    step, keeps the mapping on every path.
 
     Deliberately conditional.  A replay/regrade re-enters this step with a grade
     reconstructed from the attempt row, which carries no repair suggestions; an
     unconditional upsert would blank the very column this exists to protect.
-    The other columns are merged rather than overwritten for the same reason —
-    ``grading_source`` and ``agent_run_id`` are the sidecar's to refine, and this
-    write must never be a downgrade.
+    The other columns are merged rather than overwritten for the same reason:
+    this write must never downgrade what the post-attempt pipeline recorded.
     """
 
     suggestions = list(result.repair_suggestions or [])
@@ -1377,217 +1429,261 @@ def apply_attempt(
     reject_salience(attempt, context="apply_attempt")
 
     with repository.atomic():
-        # Reveal accounting (migration 154). Every recording path funnels through
-        # here — the graded entry points, exam seeding, teach-back, the sim — so the
-        # forcing lives here as well as in `_resolve_attempt_target`, and a caller
-        # that builds an `ApplyAttemptInput` directly cannot skip it. Idempotent:
-        # an already-primed draft returns unchanged without touching the ledger.
-        # Skipped on replay (`replace_existing`), where the recorded attempt is
-        # authoritative and the ledger window has already moved past it.
+        result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
-            normalized_draft, _reveal_total = auto_primed_draft(
-                repository, attempt.draft, clock=clock
-            )
-            if normalized_draft is not attempt.draft:
-                attempt = replace(attempt, draft=normalized_draft)
+            _save_completion_work(repository, attempt.draft, result, clock=clock)
+        return result
 
-        application = compute_attempt_application(vault, repository, attempt, clock=clock)
-        application = _validate_probe_presentation(repository, application, attempt, clock=clock)
-        probe_grading_source = (
-            "deterministic"
-            if attempt.draft.attempt_type == "dont_know"
-            or attempt.draft.declared_dont_know
-            else attempt.grading_source
-        )
-        _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
-        # KM2b item 2: under mvp-0.7 the canonical projection is the only facet-state
-        # write mechanism; the legacy per-LO recall/uncertainty bridge is retired.
-        _persist_attempt_application(
-            repository,
-            application,
-            replace_existing=attempt.replace_existing,
-            write_legacy_facet_state=not is_canonical_state_vault(vault),
-        )
-        _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
-        # Meas §3.A6: append the grader's trace observations. After persistence
-        # because the FK needs the attempt row, and before `_project_canonical_belief`
-        # below because A1 guard 1 reads them to decide which supporting targets earn
-        # anything — an observation written after the projection would first take
-        # effect a rebuild later, silently.
-        _record_exercised_facets(repository, application, clock=clock)
-        _record_grading_clarification(repository, application, clock=clock)
-        # Meas §3.A5 / §3.A3 (migration 143). Same position and same reasoning as the
-        # two writers above: after persistence because both stores hold an
-        # `attempt_id` foreign key, and before the canonical projection because the
-        # A3 clean-solution path may have suppressed a facet write whose absence the
-        # projection is about to observe.
-        _record_discrimination_profile_match(repository, application, clock=clock)
-        _record_error_hunt_outcome(repository, application, vault=vault, clock=clock)
 
-        # Measurement §5.7: the delayed cold probe's ground-truth label. Sits here,
-        # beside the repair-scoped cold retry and deliberately BEFORE
-        # `_project_canonical_belief` below, because the certificate state it records
-        # must be the one the probe was administered against — not the one this
-        # attempt's own evidence produces. After projection, a failing probe would
-        # have already withdrawn the certificate it just falsified, and the label
-        # would abstain instead of recording the false certification.
-        from learnloop.goals.certification_cold_probe import (
-            record_certification_cold_probe_attempt,
-        )
+def _apply_attempt_in_transaction(
+    vault: LoadedVault,
+    repository: Repository,
+    attempt: ApplyAttemptInput,
+    *,
+    clock: Clock | None = None,
+) -> AttemptResult:
+    """Compute and persist one attempt; the caller owns the transaction."""
 
-        record_certification_cold_probe_attempt(
-            vault,
-            repository,
-            application.attempt_record,
-            grading_source=application.result.grading_source,
-            grading_agent_run_id=application.result.agent_run_id,
+    # Reveal accounting (migration 154). Every recording path funnels through
+    # here — the graded entry points, exam seeding, teach-back, the sim — so the
+    # forcing lives here as well as in `_resolve_attempt_target`, and a caller
+    # that builds an `ApplyAttemptInput` directly cannot skip it. Idempotent:
+    # an already-primed draft returns unchanged without touching the ledger.
+    # Skipped on replay (`replace_existing`), where the recorded attempt is
+    # authoritative and the ledger window has already moved past it.
+    if not attempt.replace_existing:
+        normalized_draft, _reveal_total = auto_primed_draft(
+            repository, attempt.draft, clock=clock
+        )
+        if normalized_draft is not attempt.draft:
+            attempt = replace(attempt, draft=normalized_draft)
+
+    application = compute_attempt_application(vault, repository, attempt, clock=clock)
+    application = _validate_probe_presentation(repository, application, attempt, clock=clock)
+    probe_grading_source = (
+        "deterministic"
+        if attempt.draft.attempt_type == "dont_know"
+        or attempt.draft.declared_dont_know
+        else attempt.grading_source
+    )
+    _stamp_observation_lineage(vault, repository, application, attempt, clock=clock)
+    # Canonical-state vaults own facet state through the projection; the per-LO
+    # recall/uncertainty bridge is written only for legacy algorithm versions.
+    _persist_attempt_application(
+        repository,
+        application,
+        replace_existing=attempt.replace_existing,
+        write_legacy_facet_state=not is_canonical_state_vault(vault),
+    )
+    _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
+    # Meas §3.A6: append the grader's trace observations. After persistence
+    # because the FK needs the attempt row, and before `_project_canonical_belief`
+    # below because A1 guard 1 reads them to decide which supporting targets earn
+    # anything — an observation written after the projection would first take
+    # effect a rebuild later, silently.
+    _record_exercised_facets(repository, application, clock=clock)
+    _record_grading_clarification(repository, application, clock=clock)
+    # Meas §3.A5 / §3.A3 (migration 143). Same position and same reasoning as the
+    # two writers above: after persistence because both stores hold an
+    # `attempt_id` foreign key, and before the canonical projection because the
+    # A3 clean-solution path may have suppressed a facet write whose absence the
+    # projection is about to observe.
+    _record_discrimination_profile_match(repository, application, clock=clock)
+    _record_error_hunt_outcome(repository, application, vault=vault, clock=clock)
+
+    # Measurement §5.7: the delayed cold probe's ground-truth label. Sits here,
+    # beside the repair-scoped cold retry and deliberately BEFORE
+    # `_project_canonical_belief` below, because the certificate state it records
+    # must be the one the probe was administered against — not the one this
+    # attempt's own evidence produces. After projection, a failing probe would
+    # have already withdrawn the certificate it just falsified, and the label
+    # would abstain instead of recording the false certification.
+    from learnloop.goals.certification_cold_probe import (
+        record_certification_cold_probe_attempt,
+    )
+
+    record_certification_cold_probe_attempt(
+        vault,
+        repository,
+        application.attempt_record,
+        grading_source=application.result.grading_source,
+        grading_agent_run_id=attempt.grading_agent_run_id,
+        clock=clock,
+    )
+    if attempt.draft.primed:
+        # Priming IS the intervention, so the attempt is a repair activity
+        # (§7). A primed *probe* is also a diagnostic administration; both
+        # writers append and the repository derives the most-contaminated
+        # class (§4.2).
+        policy = classify_attempt_activity(
+            attempt_type=attempt.draft.attempt_type,
+            primed=True,
+            hints_used=attempt.draft.hints_used,
+            explicit_class="repair_activity",
+        )
+        repository.record_causal_activity_classification(
+            attempt_id=application.result.attempt_id,
+            contamination_class=policy.contamination_class,
+            near_clone=policy.near_clone,
+            near_clone_basis="no_source_item",
+            source="apply_attempt.primed",
+            detail={"practice_item_id": attempt.draft.practice_item_id},
             clock=clock,
         )
-        if attempt.draft.primed:
-            # Priming IS the intervention, so the attempt is a repair activity
-            # (§7). A primed *probe* is also a diagnostic administration; both
-            # writers now append and the repository derives the most-contaminated
-            # winner instead of raising inside attempt application (§4.2).
-            policy = classify_attempt_activity(
-                attempt_type=attempt.draft.attempt_type,
-                primed=True,
-                hints_used=attempt.draft.hints_used,
-                explicit_class="repair_activity",
-            )
-            repository.record_causal_activity_classification(
-                attempt_id=application.result.attempt_id,
-                contamination_class=policy.contamination_class,
-                near_clone=policy.near_clone,
-                near_clone_basis="no_source_item",
-                source="apply_attempt.primed",
-                detail={"practice_item_id": attempt.draft.practice_item_id},
-                clock=clock,
-            )
-        if (
-            attempt.record_probe_update
-            and application.attempt_record.get("probe_presentation_id") is not None
-        ):
-            # The full probe observation is recorded after causal materialization,
-            # but its activity policy is an INPUT to the canonical projection just
-            # below. Persist the presentation-derived contamination/near-clone fact
-            # first so live state and a later replay cannot disagree.
-            from learnloop.diagnosis.probe_episodes import (
-                record_presentation_activity_classification,
-            )
-
-            record_presentation_activity_classification(
-                vault,
-                repository,
-                attempt_id=application.result.attempt_id,
-                practice_item_id=attempt.draft.practice_item_id,
-                attempt_type=attempt.draft.attempt_type,
-                hints_used=attempt.draft.hints_used,
-                probe_presentation_id=str(
-                    application.attempt_record["probe_presentation_id"]
-                ),
-                grading_source=probe_grading_source,
-                clock=clock,
-            )
-        _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
-        _project_canonical_belief(vault, repository, clock=clock)
-        from learnloop.diagnosis.causal_attribution import materialize_causal_episode
-
-        stored_feedback = repository.fetch_attempt_feedback_metadata(
-            application.result.attempt_id
-        ) or {}
-        _persist_repair_mapping_source(
-            repository, application.result, stored_feedback, clock=clock
+    if (
+        attempt.record_probe_update
+        and application.attempt_record.get("probe_presentation_id") is not None
+    ):
+        # The full probe observation is recorded after causal materialization,
+        # but its activity policy is an INPUT to the canonical projection just
+        # below. Persist the presentation-derived contamination/near-clone fact
+        # first so live state and a later replay cannot disagree.
+        from learnloop.diagnosis.probe_episodes import (
+            record_presentation_activity_classification,
         )
-        repair_suggestions = (
-            application.result.repair_suggestions
-            or stored_feedback.get("repair_suggestions")
-            or []
-        )
-        generation_agent_run_id = next(
-            (
-                str(row["agent_run_id"])
-                for row in application.evidence_rows
-                if row.get("agent_run_id")
+
+        record_presentation_activity_classification(
+            vault,
+            repository,
+            attempt_id=application.result.attempt_id,
+            practice_item_id=attempt.draft.practice_item_id,
+            attempt_type=attempt.draft.attempt_type,
+            hints_used=attempt.draft.hints_used,
+            probe_presentation_id=str(
+                application.attempt_record["probe_presentation_id"]
             ),
-            None,
+            grading_source=probe_grading_source,
+            clock=clock,
         )
-        has_causal_episode = bool(
-            application.error_events
-            or repair_suggestions
-            or repository.unresolved_cause_factors_for_attempt(
-                application.result.attempt_id,
-                status="open",
-            )
+    _auto_resolve_clean_error_events(vault, repository, application, clock=clock)
+    _project_canonical_belief(vault, repository, clock=clock)
+    from learnloop.diagnosis.causal_attribution import materialize_causal_episode
+
+    stored_feedback = repository.fetch_attempt_feedback_metadata(
+        application.result.attempt_id
+    ) or {}
+    _persist_repair_mapping_source(
+        repository, application.result, stored_feedback, clock=clock
+    )
+    repair_suggestions = (
+        application.result.repair_suggestions
+        or stored_feedback.get("repair_suggestions")
+        or []
+    )
+    generation_agent_run_id = next(
+        (
+            str(row["agent_run_id"])
+            for row in application.evidence_rows
+            if row.get("agent_run_id")
+        ),
+        None,
+    )
+    has_causal_episode = bool(
+        application.error_events
+        or repair_suggestions
+        or repository.unresolved_cause_factors_for_attempt(
+            application.result.attempt_id,
+            status="open",
         )
-        if has_causal_episode:
-            materialize_causal_episode(
-                vault,
-                repository,
-                attempt_id=application.result.attempt_id,
-                repair_suggestions=list(repair_suggestions),
-                generation_agent_run_id=generation_agent_run_id,
-                clock=clock,
-            )
-            persisted_debug = repository.attempt_debug_payload(
-                application.result.attempt_id
-            )
-            application = replace(
-                application,
-                attempt_debug_payload=(
-                    persisted_debug or application.attempt_debug_payload
-                ),
-                result=replace(
-                    application.result,
-                    debug_payload=persisted_debug
-                    or application.result.debug_payload,
-                ),
-            )
-        # Repair-lane bookkeeping runs AFTER `materialize_causal_episode` on purpose.
-        # The primed branch of `record_remediation_attempt` resolves the §6.2
-        # cold-verification context, whose misconception-kind fallback reads THIS
-        # attempt's diagnosis receipt out of `attempt_debug_payloads` — a receipt
-        # materialize has only just written. Running the remediation hook first (as
-        # this function did before) made `context.repair_class_id` structurally NULL
-        # for every misconception-kind episode, and the delayed cold verification
-        # then refused with `missing_chain/no_repair_class` on consume. Nothing
-        # above depends on remediation state: the certification lane consumes its
-        # own task kind, and materialize/projection never read
-        # `remediation_episodes` or `followup_tasks`.
-        from learnloop.diagnosis.remediation import record_remediation_attempt
+    )
+    if has_causal_episode:
+        materialize_causal_episode(
+            vault,
+            repository,
+            attempt_id=application.result.attempt_id,
+            repair_suggestions=list(repair_suggestions),
+            generation_agent_run_id=generation_agent_run_id,
+            clock=clock,
+        )
+        persisted_debug = repository.attempt_debug_payload(
+            application.result.attempt_id
+        )
+        application = replace(
+            application,
+            attempt_debug_payload=(
+                persisted_debug or application.attempt_debug_payload
+            ),
+            result=replace(
+                application.result,
+                debug_payload=persisted_debug
+                or application.result.debug_payload,
+            ),
+        )
+    # Repair-lane bookkeeping runs AFTER `materialize_causal_episode` on purpose.
+    # The primed branch of `record_remediation_attempt` resolves the §6.2
+    # cold-verification context, whose misconception-kind fallback reads THIS
+    # attempt's diagnosis receipt out of `attempt_debug_payloads` — a receipt
+    # materialize has only just written. Running the remediation hook earlier
+    # leaves `context.repair_class_id` NULL for every misconception-kind
+    # episode, and the delayed cold verification then refuses with
+    # `missing_chain/no_repair_class` on consume. Nothing
+    # above depends on remediation state: the certification lane consumes its
+    # own task kind, and materialize/projection never read
+    # `remediation_episodes` or `followup_tasks`.
+    from learnloop.diagnosis.remediation import record_remediation_attempt
 
-        record_remediation_attempt(repository, application.attempt_record, clock=clock)
-        if attempt.record_probe_update:
-            # Probe redesign Checkpoint 0/1: episode accounting replaces the legacy
-            # lo_probe_state advancement (`record_probe_attempt` is frozen for
-            # pre-redesign replay only). Belief updates and episode advancement are
-            # separated inside `record_episode_evidence`.
-            from learnloop.diagnosis.probe_episodes import record_episode_evidence
+    record_remediation_attempt(repository, application.attempt_record, clock=clock)
+    if attempt.record_probe_update:
+        # Episode accounting owns probe advancement; `record_probe_attempt` is
+        # kept only for pre-redesign replay. Belief updates and episode
+        # advancement are separated inside `record_episode_evidence`.
+        from learnloop.diagnosis.probe_episodes import record_episode_evidence
 
-            block_end = record_episode_evidence(
-                vault,
-                repository,
-                learning_object_id=application.result.learning_object_id,
-                attempt_id=application.result.attempt_id,
-                practice_item_id=attempt.draft.practice_item_id,
-                attempt_type=attempt.draft.attempt_type,
-                hints_used=attempt.draft.hints_used,
-                probe_presentation_id=application.attempt_record.get("probe_presentation_id"),
-                grading_source=probe_grading_source,
-                clock=clock,
-            )
-            if block_end is not None:
-                application = replace(application, result=replace(application.result, probe_block_end=block_end))
-        result = application.result
-        if not attempt.replace_existing:
-            repository.save_attempt_completion(
-                attempt_id=result.attempt_id,
-                submission_id=attempt.draft.submission_id,
-                session_id=attempt.draft.session_id,
-                practice_item_id=result.practice_item_id,
-                result=result.as_dict(),
-                clock=clock,
-            )
-        return result
+        block_end = record_episode_evidence(
+            vault,
+            repository,
+            learning_object_id=application.result.learning_object_id,
+            attempt_id=application.result.attempt_id,
+            practice_item_id=attempt.draft.practice_item_id,
+            attempt_type=attempt.draft.attempt_type,
+            hints_used=attempt.draft.hints_used,
+            probe_presentation_id=application.attempt_record.get("probe_presentation_id"),
+            grading_source=probe_grading_source,
+            clock=clock,
+        )
+        if block_end is not None:
+            application = replace(application, result=replace(application.result, probe_block_end=block_end))
+    return application.result
+
+
+def _save_completion_work(
+    repository: Repository,
+    draft: AttemptDraft,
+    result: AttemptResult,
+    *,
+    clock: Clock | None = None,
+) -> None:
+    """Save the applied result in the attempt's own transaction.
+
+    Completion routes the learner by the probe episode recorded here. It is
+    read after this attempt's episode accounting, so an attempt that ended its
+    episode records none, and a later resume cannot attach it to an episode
+    opened afterwards.
+    """
+
+    if draft.awaits_completion:
+        episode = repository.open_probe_episode(result.learning_object_id)
+        repository.save_attempt_completion(
+            attempt_id=result.attempt_id,
+            submission_id=draft.submission_id,
+            session_id=draft.session_id,
+            practice_item_id=result.practice_item_id,
+            result=result.as_dict(),
+            applied_probe_episode_id=episode.id if episode is not None else None,
+            clock=clock,
+        )
+        return
+    # Nothing resumes this row, so its debug trace (already stored in
+    # attempt_debug_payloads) is not duplicated into it.
+    repository.save_attempt_completion(
+        attempt_id=result.attempt_id,
+        submission_id=draft.submission_id,
+        session_id=draft.session_id,
+        practice_item_id=result.practice_item_id,
+        result={**result.as_dict(), "debug": {}},
+        awaits_completion=False,
+        clock=clock,
+    )
 
 
 def _project_canonical_belief(
@@ -1663,6 +1759,8 @@ def compute_attempt_application(
         prior_state=prior_state,
         replay=attempt.replace_existing,
         grading_source=attempt.grading_source,
+        agent_run_id=attempt.grading_agent_run_id or attempt.fallback_agent_run_id,
+        fallback_reason=attempt.fallback_reason,
     )
 
 
@@ -2233,6 +2331,8 @@ def _compute_resolved_grade_application(
     prior_state: AttemptPriorState | None = None,
     replay: bool = False,
     grading_source: str = "self",
+    agent_run_id: str | None = None,
+    fallback_reason: str | None = None,
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
@@ -2814,6 +2914,9 @@ def _compute_resolved_grade_application(
         predictive_surprise=surprise.predictive_surprise,
         bayesian_surprise=surprise.bayesian_surprise,
         error_event_ids=error_event_ids,
+        grading_source=grading_source,
+        fallback_reason=fallback_reason,
+        agent_run_id=agent_run_id,
         feedback_md=grade.feedback_md,
         repair_suggestions=list(repair_suggestions),
         fatal_errors=list(grade.fatal_errors),

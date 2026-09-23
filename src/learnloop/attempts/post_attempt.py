@@ -1,25 +1,17 @@
 """One post-attempt pipeline for every attempt-recording door.
 
-Three doors record graded attempts — the desktop practice handler
-(``learnloop_sidecar/handlers/practice.py``), the CLI ``attempt`` command, and
-``exam_session.finish_exam`` — and each used to hand-pick its own subset of the
-post-attempt obligations. The subsets drifted: exams ran none of them, so exam
-failures — the most certification-relevant failures the system collects —
-minted no intervention needs, ran no causal hooks, and scheduled no
-certification cold probes (measured on ``fixtures/linear_algebra``: an exam
-attempt with a validator-passed repair suggestion produced zero
-``intervention_needs`` rows and a causal episode with zero hypotheses).
-
 This module is the single composition. Doors differ only in the ``purpose``
 they declare and the arguments they can supply — never in which steps exist:
 
 1. certification cold-probe scheduling (idempotent per certificate);
 2. attempt feedback metadata persistence (what the feedback/report surfaces
-   read back);
-3. intervention/causal follow-up evaluation
-   (``followups.evaluate_attempt_intervention_followup``, which also runs
-   misconception normalization, the re-probe trigger, and the P2 causal
-   hooks).
+   read back, and what misconception normalization reads);
+3. misconception normalization and resolution, unless the attempt's
+   diagnostic block defers it to the block-end hook;
+4. intervention/causal follow-up evaluation
+   (``followups.evaluate_attempt_intervention_followup``, which also runs the
+   re-probe trigger and the P2 causal hooks), committed together with the
+   attempt's completion.
 
 Purpose gating decides *timing*, not *existence*: exam-purpose attempts run
 every evidence-side step exactly like practice, but the sitting caps how many
@@ -34,6 +26,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop.attempts.completion_lock import attempt_completion_lock
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.followups import (
@@ -51,6 +44,14 @@ logger = logging.getLogger(__name__)
 #: the insertion arm is withheld, with the typed suppression reason below.
 EXAM_SITTING_INTERVENTION_CAP = 3
 EXAM_SITTING_CAP_REASON = "exam_sitting_intervention_cap"
+
+
+class CompletionRouteUnknown(RuntimeError):
+    """A pending completion does not record which probe episode it belongs to.
+
+    Completion work saved before that identity was recorded cannot be routed
+    without guessing from whichever episode is open now, so it is not resumed.
+    """
 
 
 @dataclass(frozen=True)
@@ -82,77 +83,102 @@ def run_post_attempt_pipeline(
     suppress_insertion_reason: str | None = None,
     clock: Clock | None = None,
 ) -> PostAttemptOutcome:
-    """Resume local completion exactly once after any provider normalization.
+    """Complete one applied attempt exactly once.
 
-    The applied attempt and its saved result exist before this function runs.
-    Normalization may call a provider and keeps its existing idempotent event
-    links; it must never hold the transaction used to publish local completion.
-    The follow-up writes and the final diagnostic route commit together.
+    ``result`` is the :class:`learnloop.attempts.attempts.AttemptResult` the
+    door received from grading/apply; the attempt and its saved completion
+    work already exist.
+
+    Normalization may call a provider, so it runs outside any transaction:
+    holding the write lock across a model call would block every other writer.
+    The cross-process completion lock still serializes it, so two processes
+    resuming the same attempt cannot both normalize it. The follow-up writes
+    and the final diagnostic route commit together with the completion mark.
+
+    Failure semantics: the steps raise (the practice handler treats them as
+    part of the submit). Batch doors that must not abort on one attempt wrap
+    this call — see :func:`run_exam_sitting_pipeline`.
     """
-    work = repository.attempt_completion(result.attempt_id)
-    if work is not None and work['status'] == 'completed':
-        return PostAttemptOutcome(result.attempt_id, None, ('already_completed',))
-    if work is not None:
-        repository.save_attempt_completion(
-            attempt_id=result.attempt_id, submission_id=work['submission_id'],
-            session_id=work['session_id'], practice_item_id=result.practice_item_id,
-            result=result.as_dict(), clock=clock,
+
+    with attempt_completion_lock(repository.sqlite_path):
+        work = repository.attempt_completion(result.attempt_id)
+        if work is not None and work["status"] == "completed":
+            return PostAttemptOutcome(result.attempt_id, None, ("already_completed",))
+        applied_episode_id = _applied_probe_episode_id(repository, result, work)
+        with repository.atomic():
+            if work is not None:
+                repository.save_attempt_completion(
+                    attempt_id=result.attempt_id, submission_id=work["submission_id"],
+                    session_id=work["session_id"], practice_item_id=result.practice_item_id,
+                    result=result.as_dict(), clock=clock,
+                )
+            _record_normalization_inputs(
+                vault, repository, result=result, self_grade=self_grade, clock=clock,
+            )
+        applied_episode = (
+            repository.probe_episode(applied_episode_id) if applied_episode_id else None
         )
-    attempt = repository.fetch_practice_attempt(result.attempt_id) or {}
-    episode = repository.open_probe_episode(result.learning_object_id)
-    deferred = (
-        episode is not None and episode.status == 'in_progress'
-        and attempt.get('probe_presentation_id') is not None
-    )
-    if not deferred:
-        normalize_and_resolve_attempt(
-            vault, repository, attempt_id=result.attempt_id,
-            learning_object_id=result.learning_object_id, ai_client=ai_client,
-            clock=clock,
-        )
-    with repository.atomic():
-        current = repository.attempt_completion(result.attempt_id)
-        if current is not None and current['status'] == 'completed':
-            return PostAttemptOutcome(result.attempt_id, None, ('already_completed',))
-        outcome = _run_post_attempt_pipeline(
-            vault, repository, result=result, purpose=purpose, session_id=session_id,
-            self_grade=self_grade, available_minutes=available_minutes,
-            suppress_insertion_reason=suppress_insertion_reason, clock=clock,
-        )
+        if not _defers_to_block_end(repository, result, applied_episode):
+            normalize_and_resolve_attempt(
+                vault, repository, attempt_id=result.attempt_id,
+                learning_object_id=result.learning_object_id, ai_client=ai_client,
+                clock=clock,
+            )
+        with repository.atomic():
+            decision = evaluate_attempt_intervention_followup(
+                vault,
+                repository,
+                result=result,
+                available_minutes=available_minutes,
+                session_id=session_id,
+                normalization_prepared=True,
+                suppress_insertion_reason=suppress_insertion_reason,
+                clock=clock,
+            )
+            repository.complete_attempt_work(
+                result.attempt_id,
+                result=result.as_dict(),
+                route=probe_route(repository, result, episode_id=applied_episode_id),
+                clock=clock,
+            )
+    notes = (suppress_insertion_reason,) if suppress_insertion_reason is not None else ()
+    return PostAttemptOutcome(attempt_id=result.attempt_id, followup=decision, notes=notes)
+
+
+def _applied_probe_episode_id(
+    repository: Repository, result: Any, work: dict[str, Any] | None
+) -> str | None:
+    """The probe episode the attempt was applied under.
+
+    Saved completion work records it at apply time. Attempts without completion
+    work are completed in the same call that applied them, so the episode open
+    now is still that episode.
+    """
+
+    if work is None:
         episode = repository.open_probe_episode(result.learning_object_id)
-        route = {
-            'episode_id': episode.id, 'status': episode.status,
-            'feedback_deferred': episode.status == 'in_progress' and result.probe_block_end is None,
-        } if episode is not None else None
-        repository.complete_attempt_work(
-            result.attempt_id, result=result.as_dict(), route=route, clock=clock,
+        return episode.id if episode is not None else None
+    if not work["applied_episode_recorded"]:
+        raise CompletionRouteUnknown(
+            f"Completion work for attempt {result.attempt_id} does not record its probe episode."
         )
-        return outcome
+    return work["applied_probe_episode_id"]
 
 
-def _run_post_attempt_pipeline(
+def _record_normalization_inputs(
     vault: LoadedVault,
     repository: Repository,
     *,
     result: Any,
-    purpose: str = "practice",
-    session_id: str | None = None,
-    self_grade: Any = None,
-    available_minutes: int | None = None,
-    suppress_insertion_reason: str | None = None,
-    clock: Clock | None = None,
-) -> PostAttemptOutcome:
-    """Run the composed post-attempt steps for one applied attempt.
+    self_grade: Any,
+    clock: Clock | None,
+) -> None:
+    """Write what normalization and follow-up evaluation read back.
 
-    ``result`` is the :class:`learnloop.attempts.attempts.AttemptResult` the
-    door received from grading/apply. Step order is the practice handler's
-    historical order and is load-bearing (metadata must exist before the
-    follow-up evaluation logs read it back).
-
-    Failure semantics match the door that historically ran each step: the
-    steps raise (the practice handler treated them as part of the submit).
-    Batch doors that must not abort on one attempt wrap this call — see
-    :func:`run_exam_sitting_pipeline`.
+    Normalization reads the feedback metadata (repair suggestions and the
+    grading run) when it materializes causal hypotheses; without the row it
+    would append a hypothesis version with no grader provenance. Both writes
+    are idempotent, so a resumed completion may repeat them.
     """
 
     from learnloop.goals.certification_cold_probe import (
@@ -163,29 +189,41 @@ def _run_post_attempt_pipeline(
         vault,
         repository,
         learning_object_id=result.learning_object_id,
-    )
-    persist_attempt_feedback_metadata(repository, result, self_grade, clock=clock)
-    decision = evaluate_attempt_intervention_followup(
-        vault,
-        repository,
-        result=result,
-        available_minutes=available_minutes,
-        session_id=session_id,
-        normalization_prepared=True,
-        suppress_insertion_reason=suppress_insertion_reason,
         clock=clock,
     )
-    notes: tuple[str, ...] = ()
-    if suppress_insertion_reason is not None:
-        notes = (suppress_insertion_reason,)
-    if purpose == "exam":
-        # Feedback assembly is deliberately absent here: the exam report is
-        # the learner-facing surface, and it reads the metadata persisted
-        # above. Nothing mid-sitting may reveal a grade.
-        pass
-    return PostAttemptOutcome(
-        attempt_id=result.attempt_id, followup=decision, notes=notes
-    )
+    persist_attempt_feedback_metadata(repository, result, self_grade, clock=clock)
+
+
+def _defers_to_block_end(repository: Repository, result: Any, episode: Any) -> bool:
+    """Is this a diagnostic submission inside a block that is still measuring?
+
+    The block-end hook normalizes the whole block; normalizing here would
+    duplicate its diagnosis.
+    """
+
+    if episode is None or episode.status != "in_progress":
+        return False
+    attempt = repository.fetch_practice_attempt(result.attempt_id) or {}
+    return attempt.get("probe_presentation_id") is not None
+
+
+def probe_route(
+    repository: Repository, result: Any, *, episode_id: str | None
+) -> dict[str, Any] | None:
+    """The learner route for an attempt applied under ``episode_id``.
+
+    Feedback stays deferred while that episode is still measuring and this
+    attempt did not close its block.
+    """
+
+    episode = repository.probe_episode(episode_id) if episode_id else None
+    if episode is None:
+        return None
+    return {
+        "episode_id": episode.id,
+        "status": episode.status,
+        "feedback_deferred": episode.status == "in_progress" and result.probe_block_end is None,
+    }
 
 
 def persist_attempt_feedback_metadata(
@@ -197,9 +235,9 @@ def persist_attempt_feedback_metadata(
 ) -> None:
     """Persist the grade's feedback/repair metadata for later surfaces.
 
-    Moved verbatim from the practice handler so every door writes the same
-    row the feedback screen and the exam report read back. ``self_grade``
-    fills the gaps only when the resolved grade was learner-supplied.
+    Every door writes the row the feedback screen and the exam report read
+    back. ``self_grade`` fills the gaps only when the resolved grade was
+    learner-supplied.
     """
 
     feedback_md = result.feedback_md
@@ -280,3 +318,24 @@ def run_exam_sitting_pipeline(
             inserted += 1
         outcomes.append(outcome)
     return outcomes
+
+
+def committed_submission_result(repository: Repository, submission_id: str | None) -> Any:
+    """The saved result of the attempt a submission id already committed.
+
+    None when no attempt carries this submission id, or when the attempt has no
+    saved completion work. A caller that finds one must resume its completion
+    instead of grading the answer again.
+    """
+
+    from learnloop.attempts.attempts import AttemptResult
+
+    if not submission_id:
+        return None
+    attempt = repository.practice_attempt_by_submission_id(submission_id)
+    if attempt is None:
+        return None
+    work = repository.attempt_completion(attempt["id"])
+    if work is None:
+        return None
+    return AttemptResult.from_dict(work["result"])

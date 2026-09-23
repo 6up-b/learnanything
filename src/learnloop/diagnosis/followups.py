@@ -508,10 +508,12 @@ def evaluate_attempt_intervention_followup(
     target facets, probe state, and cold-start evidence are handled consistently
     outside the CLI.
 
-    Registry normalization + resolution (spec §2.2/§4.3/§7) run here first, after
-    error persistence and before evaluation, so a just-diagnosed belief is visible
-    to routing and the hypothesis prior. Replay never re-normalizes (it does not
-    run this path); persisted ``misconception_id`` links survive rebuilds.
+    Unless ``normalization_prepared``, registry normalization + resolution (spec
+    §2.2/§4.3/§7) run here first, after error persistence and before
+    evaluation, so a just-diagnosed belief is visible to routing and the
+    hypothesis prior. The post-attempt pipeline normalizes before calling this,
+    outside its transaction. Replay never re-normalizes (it does not run this
+    path); persisted ``misconception_id`` links survive rebuilds.
 
     §5.7 block boundary semantics: for an attempt inside an active diagnostic
     block (a diagnostic submission that consumed a committed presentation),
