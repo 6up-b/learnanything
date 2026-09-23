@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/substrate/surface_mint.py"
   - "src/learnloop/substrate/surface_pool.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T15:31:55-04:00"
+source_commit_timestamp: "2026-09-23T15:42:12-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.substrate"
@@ -88,8 +88,8 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 18 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 16 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 16 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
@@ -148,7 +148,7 @@ flowchart LR
     center -->|3| n_learnloop_scheduling
     n_learnloop_attempts -->|12| center
     center -->|5| n_learnloop_attempts
-    center -->|15| n_learnloop
+    center -->|16| n_learnloop
     n_learnloop_goals -->|8| center
     center -->|2| n_learnloop_goals
     center -->|10| n_learnloop_vault
