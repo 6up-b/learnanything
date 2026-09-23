@@ -137,6 +137,69 @@ def test_report_on_real_session_flow(tmp_path):
     assert "propensities" in text
 
 
+
+def test_propensity_report_marks_composed_offers_unavailable_not_degenerate(tmp_path):
+    from learnloop.scheduling.scheduler import SchedulerSession
+
+    vault, repository = _seeded(tmp_path)
+    clock = FrozenClock(NOW)
+    session = repository.create_session(clock=clock)
+    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    repository.finalize_scheduler_offer(offered.scheduler_slate_id, [offered.scheduler_candidate_id])
+    complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id=offered.practice_item_id,
+            learner_answer_md="U Sigma V^T",
+            session_id=session,
+            scheduler_candidate_id=offered.scheduler_candidate_id,
+            entry_surface="desktop_practice",
+            evidence_origin="human",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=4),
+        clock=clock,
+    )
+
+    propensity = build_eval_report(vault, repository, sections={"propensity"}).propensity
+
+    assert propensity["chosen_candidates"] == 1
+    assert propensity["recorded_chosen_candidates"] == 0
+    assert propensity["off_policy_readiness"] == "UNAVAILABLE"
+    assert propensity["unavailable_propensities"] == {"unavailable_composed_offer": 1}
+    assert "not an importance weight" in propensity["unavailable_reason"]
+
+
+def test_propensity_readiness_is_judged_only_on_recorded_propensities():
+    from learnloop.scheduling.evaluation import _propensity_section
+
+    def candidate(kind, propensity, *, chosen=True):
+        return {
+            "slate_id": "slate",
+            "selection_propensity": propensity,
+            "exploration_flag": 0,
+            "chosen_attempt_id": "attempt" if chosen else None,
+            "propensity_kind": kind,
+        }
+
+    class Rows:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def candidate_propensity_rows(self):
+            return self.rows
+
+    recorded = [candidate("legacy-unverified", 0.4), candidate("legacy-unverified", 0.7)]
+    composed = [candidate("unavailable_composed_offer", None) for _ in range(30)]
+    mixed = _propensity_section(Rows(recorded + composed))
+    assert mixed["off_policy_readiness"] == "OK"
+    assert mixed["recorded_chosen_candidates"] == 2
+    assert mixed["unavailable_propensities"] == {"unavailable_composed_offer": 30}
+
+    collapsed = _propensity_section(Rows([candidate("legacy-unverified", 1.0)] + composed))
+    assert collapsed["off_policy_readiness"] == "DEGENERATE"
+    assert _propensity_section(Rows([]))["off_policy_readiness"] == "NO DATA"
+
 def test_gate_section_counts_manual_false_negatives(tmp_path):
     vault, repository = _seeded(tmp_path)
     from learnloop.diagnosis.followups import evaluate_intervention_followup

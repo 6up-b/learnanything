@@ -6290,7 +6290,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             rows = connection.execute(
                 """
                 SELECT slate_id, id, selection_propensity, selection_temperature,
-                       exploration_flag, chosen_attempt_id, was_returned
+                       exploration_flag, chosen_attempt_id, was_returned, propensity_kind
                 FROM scheduler_slate_candidates
                 ORDER BY created_at ASC, id ASC
                 """

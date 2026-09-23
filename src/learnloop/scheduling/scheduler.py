@@ -626,7 +626,7 @@ def build_due_queue(
         ability_by_lo: dict[str, dict[str, object]] = {}
         for explanation in explanations:
             explanation["components"]["base_selection_propensity"] = propensity_by_id.get(explanation["practice_item_id"], 0.0)
-            explanation["propensity_kind"] = "unavailable_composed_offer"
+            explanation["propensity_kind"] = UNAVAILABLE_PROPENSITY_KIND
             decision_item = vault.practice_items.get(explanation["practice_item_id"])
             if decision_item is None:
                 continue
@@ -675,6 +675,11 @@ def build_due_queue(
 
 #: Policy name recorded on every persisted slate built by ``build_due_queue``.
 SELECTION_POLICY = "composed_offer_v2"
+
+#: ``propensity_kind`` of every candidate on a composed-offer slate. The offer
+#: is composed after the exploration draw and then chosen from by the learner,
+#: so no selection propensity is recorded for it.
+UNAVAILABLE_PROPENSITY_KIND = "unavailable_composed_offer"
 
 #: Shape tag for ``decision_features`` rows of ``decision_type='selection'``.
 #: Components, propensity, policy and collection version are not repeated in
