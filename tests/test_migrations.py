@@ -76,7 +76,7 @@ def test_repository_carries_a_fixture_at_the_current_migration_head():
     fixture = (
         Path(__file__).resolve().parents[1]
         / "fixtures"
-        / "migration_head_163"
+        / "migration_head_164"
         / "state.sqlite"
     )
 
@@ -957,3 +957,104 @@ def test_controller_snapshot_migration_applies_on_pre_096_db(tmp_path):
         }
     assert fk_issues == []
     assert "controller_snapshots" in tables
+
+
+def test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications(tmp_path):
+    """A vault that already applied 161-163 gains both 164 changes intact."""
+
+    import json
+
+    from learnloop.attempts.attempts import (
+        AttemptDraft,
+        SelfGradeInput,
+        complete_self_graded_attempt,
+    )
+    from learnloop.clock import FrozenClock
+    from learnloop.scheduling.scheduler import SchedulerSession, build_due_queue
+    from learnloop.substrate.dataset import export_dataset
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import NOW, create_basic_vault, seed_due_item
+
+    through_163 = tmp_path / "through_163"
+    through_163.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 163:
+            shutil.copy2(migration.path, through_163 / migration.path.name)
+    paths = create_basic_vault(tmp_path / "vault")
+    paths.sqlite_path.unlink()
+    apply_migrations(paths.sqlite_path, migrations_dir=through_163)
+    vault = load_vault(paths.root)
+    clock = FrozenClock(NOW)
+
+    # An adjudication recorded under the 163 schema, where attempt_id still
+    # references practice_attempts.
+    at_163 = Repository.attach(paths.sqlite_path)
+    earlier = complete_self_graded_attempt(
+        vault,
+        at_163,
+        AttemptDraft(practice_item_id="pi_svd_define_001", learner_answer_md="U Sigma V^T"),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
+        clock=clock,
+    )
+    at_163.record_false_remediation(
+        attempt_id=earlier.attempt_id,
+        value=False,
+        evidence_refs=[{"table": "practice_attempts", "id": earlier.attempt_id}],
+        author_kind="human",
+        verifier_version="test-v1",
+    )
+    with connect(paths.sqlite_path) as connection:
+        assert connection.execute("PRAGMA foreign_key_list(false_remediation_adjudications)").fetchall()
+        adjudications_before = [dict(row) for row in connection.execute("SELECT * FROM false_remediation_adjudications")]
+
+    assert [migration.version for migration in apply_migrations(paths.sqlite_path)] == [164]
+
+    with connect(paths.sqlite_path) as connection:
+        assert connection.execute("PRAGMA foreign_key_list(false_remediation_adjudications)").fetchall() == []
+        assert [dict(row) for row in connection.execute("SELECT * FROM false_remediation_adjudications")] == adjudications_before
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            connection.execute("DELETE FROM false_remediation_adjudications")
+        connection.rollback()
+
+    repository = seed_due_item(paths)
+    session = repository.create_session(clock=clock)
+    offered = build_due_queue(vault, repository, clock=clock, session=SchedulerSession(session_id=session))[0]
+    repository.finalize_scheduler_offer(offered.scheduler_slate_id, [offered.scheduler_candidate_id])
+    scored = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(
+            practice_item_id=offered.practice_item_id,
+            learner_answer_md="A factorization",
+            session_id=session,
+            scheduler_candidate_id=offered.scheduler_candidate_id,
+            entry_surface="desktop_practice",
+            evidence_origin="human",
+        ),
+        SelfGradeInput(criterion_points={"correctness": 4}, confidence=3),
+        clock=clock,
+    )
+    repository.record_false_remediation(
+        attempt_id=scored.attempt_id,
+        value=True,
+        evidence_refs=[{"table": "practice_attempts", "id": scored.attempt_id}],
+        author_kind="human",
+        verifier_version="test-v1",
+    )
+
+    output = tmp_path / "dataset"
+    export_dataset(paths.sqlite_path, output)
+
+    def exported(table: str) -> list[dict]:
+        return [json.loads(line) for line in (output / f"{table}.jsonl").read_text().splitlines()]
+
+    snapshots = {row["content_hash"]: row for row in exported("practice_item_snapshots")}
+    selection = [row for row in exported("decision_features") if row["decision_type"] == "selection"]
+    assert selection
+    for row in selection:
+        demand = json.loads(row["item_demand_vector_json"])
+        assert snapshots[demand["content_hash"]]["practice_item_id"] == demand["practice_item_id"]
+    assert {row["attempt_id"] for row in exported("false_remediation_adjudications")} == {
+        earlier.attempt_id,
+        scored.attempt_id,
+    }

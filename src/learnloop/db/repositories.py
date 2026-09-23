@@ -668,6 +668,29 @@ class _InjectedLineageFault(RuntimeError):
     prove the raw-event transaction rolls back as one unit (§7.4 fault injection)."""
 
 
+def _roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> bool:
+    """Roll back after ``failure`` without replacing it; report success.
+
+    A failed COMMIT (``database is locked`` while a reader holds its SHARED
+    lock past the busy timeout) leaves SQLite's transaction open, so the
+    failure path must roll back. If the rollback fails as well, the caller
+    still sees the original failure, with the rollback error attached as a
+    note, and must stop using the connection: its transaction is still open.
+    """
+
+    try:
+        connection.rollback()
+    except BaseException as rollback_error:
+        # The note is diagnostic only; a failure while attaching it must not
+        # stop the caller from invalidating the connection.
+        try:
+            failure.add_note(f"Rolling back after this failure also failed: {rollback_error!r}")
+        except Exception:
+            pass
+        return False
+    return True
+
+
 class _PinnedConnection:
     """Proxy that hands the same SQLite connection to every repository call.
 
@@ -677,38 +700,73 @@ class _PinnedConnection:
     that once per call, which dominates their runtime. ``Repository.pinned()``
     keeps one connection alive for the block and hands out this proxy, which
     mimics a raw connection's context-manager semantics (commit on clean exit,
-    rollback on error) without closing the underlying handle.
+    rollback on error) without closing the underlying handle. The other
+    connection proxies (owned, atomic, ingest-guarded) live in ``db/scopes.py``.
     """
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
+        self._invalidated = False
+
+    @property
+    def invalidated(self) -> bool:
+        return self._invalidated
+
+    def invalidate(self) -> None:
+        """Close the handle whose failed transaction could not be rolled back.
+
+        Closing discards the open transaction, and every later use through the
+        pin raises instead of committing work whose scope reported failure.
+        """
+
+        self._invalidated = True
+        self._connection.close()
+
+    def _require_valid(self) -> None:
+        if self._invalidated:
+            raise sqlite3.ProgrammingError(
+                "pinned connection was closed after a failed rollback"
+            )
 
     def __getattr__(self, name: str) -> Any:
+        if name in {"_connection", "_invalidated"}:
+            # Only reached before __init__ has run (copying, unpickling).
+            raise AttributeError(name)
+        self._require_valid()
         return getattr(self._connection, name)
 
     def __setattr__(self, name: str, value: Any) -> None:
         # Callers that drive their own transactions assign isolation_level; that
         # has to reach the real connection, not shadow it on the proxy.
-        if name == "_connection":
+        if name in {"_connection", "_invalidated"}:
             super().__setattr__(name, value)
         else:
+            self._require_valid()
             setattr(self._connection, name, value)
 
     def __enter__(self) -> sqlite3.Connection:
+        self._require_valid()
         return self._connection
 
     def __exit__(self, exc_type, exc, traceback) -> bool:
-        if exc_type is None:
+        if exc is not None:
+            if not _roll_back_after(self._connection, exc):
+                self.invalidate()
+            return False
+        try:
             self._connection.commit()
-        else:
-            self._connection.rollback()
+        except BaseException as failure:
+            if not _roll_back_after(self._connection, failure):
+                self.invalidate()
+            raise
         return False
 
     def close(self) -> None:
         # Call sites that drive their own transactions (isolation_level = None,
         # explicit BEGIN) close the connection when done. Under a pin it outlives
         # them, so closing only restores the default transaction handling.
-        self._connection.isolation_level = ""
+        if not self._invalidated:
+            self._connection.isolation_level = ""
 
 
 class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin):
@@ -750,16 +808,29 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
 
     @contextmanager
     def atomic(self) -> Iterator[None]:
-        """Commit a local operation once, including its nested store writes."""
+        """Commit a local operation once, including its nested store writes.
+
+        Inside another ``atomic()`` the block becomes a savepoint of the owning
+        transaction. Otherwise it runs one ``BEGIN IMMEDIATE`` transaction on
+        the pinned connection when a pin is active, or on a connection of its
+        own. A block exception or a failed commit rolls the transaction back
+        before propagating, because a pinned connection outlives this scope and
+        the next write on it would otherwise publish the work. If that rollback
+        also fails, the original exception still propagates and a borrowed
+        pinned connection is closed, so nothing can commit the failed work.
+        """
         from learnloop.db.scopes import AtomicConnection
 
-        previous = getattr(self._pin, "connection", None)
-        if isinstance(previous, AtomicConnection):
-            with previous:
+        current = getattr(self._pin, "connection", None)
+        if isinstance(current, AtomicConnection):
+            with current:
                 yield
             return
-        raw = previous._connection if previous is not None else connect(
-            self.sqlite_path, read_only=self._read_only
+        owns_connection = current is None
+        raw = (
+            connect(self.sqlite_path, read_only=self._read_only)
+            if owns_connection
+            else current._connection
         )
         if raw.in_transaction:
             raise RuntimeError("Repository.atomic() requires no unrelated pending transaction")
@@ -768,14 +839,15 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             self._pin.connection = AtomicConnection(raw)
             try:
                 yield
-            except BaseException:
-                raw.rollback()
-                raise
-            else:
                 raw.commit()
+            except BaseException as failure:
+                rolled_back = _roll_back_after(raw, failure)
+                if not rolled_back and not owns_connection:
+                    current.invalidate()
+                raise
         finally:
-            self._pin.connection = previous
-            if previous is None:
+            self._pin.connection = current
+            if owns_connection:
                 raw.close()
 
     @contextmanager
@@ -784,22 +856,31 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
 
         Purely a performance measure: repository calls behave as they do
         unpinned, they just skip the per-call schema parse. Nested pins reuse the
-        outermost connection; other threads keep opening their own.
+        outermost connection; other threads keep opening their own. Work left
+        uncommitted on the connection commits when the block succeeds and is
+        rolled back when it raises; closing the connection discards it even if
+        that rollback fails.
         """
 
         if getattr(self._pin, "connection", None) is not None:
             yield
             return
         raw = connect(self.sqlite_path, read_only=self._read_only)
-        self._pin.connection = _PinnedConnection(raw)
+        pin = _PinnedConnection(raw)
+        self._pin.connection = pin
         try:
             yield
+            # An invalidated pin was closed with its failed work discarded, and
+            # that failure already reached the caller.
+            if not pin.invalidated:
+                raw.commit()
+        except BaseException as failure:
+            if not pin.invalidated:
+                _roll_back_after(raw, failure)
+            raise
         finally:
             self._pin.connection = None
-            try:
-                raw.commit()
-            finally:
-                raw.close()
+            raw.close()
 
     def practice_item_state(self, practice_item_id: str) -> PracticeItemState | None:
         with self.connection() as connection:
@@ -6259,7 +6340,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             rows = connection.execute(
                 """
                 SELECT slate_id, id, selection_propensity, selection_temperature,
-                       exploration_flag, chosen_attempt_id, was_returned
+                       exploration_flag, chosen_attempt_id, was_returned, propensity_kind
                 FROM scheduler_slate_candidates
                 ORDER BY created_at ASC, id ASC
                 """
@@ -8564,10 +8645,41 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                 )
                 features = explanation.get("decision_features")
                 if features is not None:
+                    snapshot = features.get("item_snapshot")
+                    if snapshot is not None:
+                        # Content-addressed: every later build that scores the
+                        # same revision references this row instead of copying it.
+                        connection.execute(
+                            """
+                            INSERT OR IGNORE INTO practice_item_snapshots(
+                              content_hash, practice_item_id, item_json, created_at
+                            )
+                            VALUES (?, ?, ?, ?)
+                            """,
+                            (
+                                snapshot["content_hash"],
+                                snapshot["practice_item_id"],
+                                snapshot["item_json"],
+                                now,
+                            ),
+                        )
                     connection.execute(
-                        """INSERT INTO decision_features(id,decision_id,decision_type,ability_vector_json,item_demand_vector_json,context_json,algorithm_version,created_at)
-                           VALUES (?,?,'selection',?,?,?,?,?)""",
-                        (new_ulid(), candidate_id, _json(features["ability_vector"]), _json(features.get("item_demand_vector")), _json(features.get("context", {})), algorithm_version, now),
+                        """
+                        INSERT INTO decision_features(
+                          id, decision_id, decision_type, ability_vector_json,
+                          item_demand_vector_json, context_json, algorithm_version, created_at
+                        )
+                        VALUES (?, ?, 'selection', ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            new_ulid(),
+                            candidate_id,
+                            _json(features["ability_vector"]),
+                            _json(features.get("item_demand_vector")),
+                            _json(features.get("context", {})),
+                            algorithm_version,
+                            now,
+                        ),
                     )
             if probe_presentation is not None:
                 presentation_values = dict(probe_presentation)

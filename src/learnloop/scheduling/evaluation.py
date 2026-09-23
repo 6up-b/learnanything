@@ -15,6 +15,7 @@ from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.numeric import percentiles
 from learnloop.scheduling.fsrs import MemoryState, apply_review, forgetting_curve
+from learnloop.scheduling.scheduler import UNAVAILABLE_PROPENSITY_KIND
 from learnloop.params.fitted_params import resolve_fsrs_weights
 from learnloop.vault.models import LoadedVault
 
@@ -389,15 +390,39 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     }
 
 
+#: Why chosen candidates with ``propensity_kind='unavailable_composed_offer'``
+#: carry no selection propensity.
+UNAVAILABLE_PROPENSITY_REASON = (
+    "composed offers record no selection propensity: composition after the "
+    "draw and the learner's own choice change the action distribution, so the "
+    "pre-composition draw is not an importance weight"
+)
+
+
 def _propensity_section(repository: Repository) -> dict[str, Any]:
+    """Off-policy readiness of the logged selection propensities.
+
+    Candidates whose propensity is unavailable by design are counted apart:
+    they say nothing about whether the policy is degenerate. Readiness is
+    judged on the chosen candidates that were meant to record a propensity.
+    """
+
     rows = repository.candidate_propensity_rows()
     slates = {row["slate_id"] for row in rows}
     chosen = [row for row in rows if row["chosen_attempt_id"] is not None]
+    unavailable_by_kind: dict[str, int] = {}
+    recorded_chosen = []
+    for row in chosen:
+        kind = row["propensity_kind"]
+        if kind == UNAVAILABLE_PROPENSITY_KIND:
+            unavailable_by_kind[kind] = unavailable_by_kind.get(kind, 0) + 1
+        else:
+            recorded_chosen.append(row)
     propensities = [
-        float(row["selection_propensity"]) for row in chosen
+        float(row["selection_propensity"]) for row in recorded_chosen
         if row["selection_propensity"] is not None and 0 < float(row["selection_propensity"]) <= 1
     ]
-    null_count = sum(1 for row in chosen if row["selection_propensity"] is None)
+    null_count = sum(1 for row in recorded_chosen if row["selection_propensity"] is None)
     near_one = sum(1 for value in propensities if value >= 0.999)
     exploration = sum(1 for row in chosen if row["exploration_flag"])
 
@@ -405,17 +430,26 @@ def _propensity_section(repository: Repository) -> dict[str, Any]:
     for value in propensities:
         histogram[min(int(value * 10), 9)] += 1
 
-    invalid_count = len(chosen) - null_count - len(propensities)
-    degenerate = bool(chosen) and (invalid_count > 0 or (near_one + null_count) / len(chosen) > 0.90)
+    invalid_count = len(recorded_chosen) - null_count - len(propensities)
+    if recorded_chosen:
+        degenerate = invalid_count > 0 or (near_one + null_count) / len(recorded_chosen) > 0.90
+        readiness = "DEGENERATE" if degenerate else "OK"
+    elif chosen:
+        readiness = "UNAVAILABLE"
+    else:
+        readiness = "NO DATA"
     return {
         "slates": len(slates),
         "chosen_candidates": len(chosen),
+        "recorded_chosen_candidates": len(recorded_chosen),
         "exploration_fraction": (exploration / len(chosen)) if chosen else None,
         "null_propensities": null_count,
         "invalid_propensities": invalid_count,
         "propensities_near_one": near_one,
+        "unavailable_propensities": unavailable_by_kind,
+        "unavailable_reason": UNAVAILABLE_PROPENSITY_REASON if unavailable_by_kind else None,
         "histogram": histogram,
-        "off_policy_readiness": "DEGENERATE" if degenerate else ("OK" if chosen else "NO DATA"),
+        "off_policy_readiness": readiness,
     }
 
 
@@ -526,6 +560,8 @@ def _format_propensity(section: dict[str, Any]) -> list[str]:
     lines.append(
         f"  null propensities={section['null_propensities']}  near-1.0={section['propensities_near_one']}"
     )
+    for kind, count in section["unavailable_propensities"].items():
+        lines.append(f"  unavailable ({kind})={count}: {section['unavailable_reason']}")
     lines.append(f"  histogram (0.0→1.0): {section['histogram']}")
     lines.append(f"  off-policy readiness: {section['off_policy_readiness']}")
     lines.append("")
