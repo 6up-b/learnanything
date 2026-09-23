@@ -544,6 +544,41 @@ def test_cached_generation_resumes_apply_after_failure_without_new_model_calls(t
     assert "facet_symmetry_definition" in load_vault(root).evidence_facets
 
 
+def test_exam_prep_apply_creates_goal_wired_to_applied_facets(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    result = create_study_map(
+        root, "set_la", client=FakeSynthesisClient(), brief={"outcome": "exam"},
+        repository=repo, clock=_CLOCK, apply=True, create_goal=True,
+    )
+
+    assert result.applied is True
+    assert result.goal_id is not None
+    goal = next(goal for goal in load_vault(root).goals if goal.id == result.goal_id)
+    assert set(goal.facet_scope.facets) == {"facet_symmetry_definition", "facet_spectral_applicability"}
+
+
+def test_cached_generation_resume_creates_goal_without_new_model_calls(tmp_path, monkeypatch):
+    from learnloop.content.proposals import patches
+    root, repo = _setup(tmp_path, with_exam=False)
+    client = FakeSynthesisClient()
+    original = patches.apply_accepted_items
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("interrupted apply")
+    monkeypatch.setattr(patches, "apply_accepted_items", interrupted)
+    with pytest.raises(RuntimeError, match="interrupted apply"):
+        create_study_map(root, "set_la", client=client, brief={"outcome": "exam"},
+                         repository=repo, clock=_CLOCK, apply=True, create_goal=True)
+    paid_calls = len(client.calls)
+    monkeypatch.setattr(patches, "apply_accepted_items", original)
+
+    result = create_study_map(root, "set_la", client=client, brief={"outcome": "exam"},
+                              repository=repo, clock=_CLOCK, apply=True, create_goal=True)
+
+    assert result.reused and result.applied
+    assert len(client.calls) == paid_calls
+    assert [goal.id for goal in load_vault(root).goals] == [result.goal_id]
+
+
 def test_evidence_pass_retry_reuses_first_paid_pass(tmp_path):
     from learnloop.ai.errors import AITurnTimeout
     root, repo = _setup(tmp_path, with_exam=False)

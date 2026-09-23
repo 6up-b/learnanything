@@ -2689,7 +2689,7 @@ def _is_exam_prep(brief: dict[str, Any]) -> bool:
 
 def _create_goal_from_brief(root: Path, brief: dict[str, Any], facet_ids: list[str], *, clock: Clock | None, provenance_key: str | None = None) -> str | None:
     from learnloop.vault_lock import vault_mutation_lock
-    with vault_mutation_lock(root):
+    with vault_mutation_lock(root, purpose="study_map_goal"):
         return _create_goal_from_brief_locked(root, brief, facet_ids, clock=clock, provenance_key=provenance_key)
 
 
