@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `ready_canonical_ingest_provider`; statically calls `ready_canonical_ingest_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `ready_grading_provider`; statically calls `ready_grading_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `provider_label`, `ready_canonical_ingest_provider`, `ready_tutor_qa_provider`; statically calls `provider_label`, `ready_canonical_ingest_provider`, `ready_tutor_qa_provider`
-- [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `MANUAL_PROVIDER`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`; statically calls `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`
+- [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `MANUAL_PROVIDER`, `grading_source_for_provider`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`; statically calls `grading_source_for_provider`, `provider_label`, `ready_grading_provider`, `ready_teach_back_provider`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `provider_label`, `ready_tutor_qa_provider`; statically calls `provider_label`, `ready_tutor_qa_provider`
 
 ## Dependencies

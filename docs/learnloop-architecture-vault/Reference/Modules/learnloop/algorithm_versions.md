@@ -111,6 +111,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_assessment_service_reexports_neutral_algorithm_versions`
 - [tests/test_km2b_consumer_rekey.py](../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_every_canonical_version_refuses_legacy_facet_state_write`
+- [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
 
 ## Modification guidance
 

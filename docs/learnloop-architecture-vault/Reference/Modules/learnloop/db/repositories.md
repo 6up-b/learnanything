@@ -2225,6 +2225,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_teach_back_finish_retry_returns_same_attempt`
   - `test_sidecar_teach_back_finish_survives_post_step_failure`
   - `test_sidecar_teach_back_finish_under_manual_grading_is_typed_and_preserves_checkpoint`
+  - `test_sidecar_teach_back_from_a_queue_offer_links_the_graded_attempt`
   - `test_sidecar_teach_back_resume_merges_pending_learner_answer`
 - [tests/test_sidecar_tutor_qa.py](../../../../../../tests/test_sidecar_tutor_qa.py) — direct import
   - `test_preview_tutor_opening_after_stop_diagnosing`

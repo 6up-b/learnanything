@@ -184,6 +184,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_evidence_pass_retry_reuses_first_paid_pass`
 - [tests/test_structured_transport_parity.py](../../../../../../tests/test_structured_transport_parity.py) — direct import
   - `test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest`
+- [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+  - `test_failed_teach_back_grading_closes_its_run_as_failed`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import
 
 ## Modification guidance

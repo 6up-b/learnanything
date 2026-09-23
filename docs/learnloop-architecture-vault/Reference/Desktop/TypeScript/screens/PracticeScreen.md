@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/PracticeScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/PracticeScreen.tsx"
-source_commit: "8841750018cdcbccd3808b0889104952fca7406e"
-source_commit_timestamp: "2026-09-23T12:05:52-04:00"
+source_commit: "c369ee23244d6f87e7bc33ef2c6a9bba55aeb982"
+source_commit_timestamp: "2026-09-23T15:38:43-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/PracticeScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/PracticeScreen.tsx) |
-| Source lines | 1609 |
+| Source lines | 1615 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `8841750018cdcbccd3808b0889104952fca7406e` |
-| Commit timestamp | `2026-09-23T12:05:52-04:00` |
+| Source commit | `c369ee23244d6f87e7bc33ef2c6a9bba55aeb982` |
+| Commit timestamp | `2026-09-23T15:38:43-04:00` |
 
 ## Activation and status evidence
 
@@ -145,45 +145,45 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const result = await api.acknowledgePracticeSubmission(` — const, line 740
 - `const loadError = itemLoadError ?? probeLoadError` — const, line 754
 - `const diagnostic = committedRecovery.attemptType === "diagnostic_probe" || probeActive` — const, line 756
-- `const on = answerConfidence === level` — const, line 1047
-- `const locked = submitting || selfGradeVisible` — const, line 1048
-- `function TeachBackConversation(` — function, line 1159
-- `const startedRef = useRef(false)` — const, line 1184
-- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 1185
-- `const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null` — const, line 1187
-- `const needsText = turns.length === 0 || lastRole === "ai"` — const, line 1191
-- `const start = useCallback(()` — const, line 1193
-- `const node = transcriptRef.current` — const, line 1223
-- `async function send(finish = false)` — function, line 1227
-- `const text = input.trim()` — const, line 1229
-- `const result = await api.submitTeachBackTurn(` — const, line 1235
-- `const onKey = (event: KeyboardEvent)` — const, line 1260
-- `const submitLabel = turns.length === 0 ? "Start teaching" : lastRole === "learner" ? "Continue" : "Send answer"` — const, line 1270
-- `const questionsAnswered = asked > 0 && lastRole === "learner"` — const, line 1272
-- `function SelfGradePanel(` — function, line 1387
-- `const awarded = value.criterionPoints[criterion.id] ?? 0` — const, line 1408
-- `const docked = awarded < criterion.points` — const, line 1409
-- `const points = Number(event.target.value)` — const, line 1422
-- `const stillDocked = points < criterion.points` — const, line 1423
-- `function CriterionErrorPicker(` — function, line 1487
-- `const selected = new Set( (value.errorAttributions ?? []).filter((a)` — const, line 1498
-- `const toggle = (errorType: string)` — const, line 1501
-- `const list = value.errorAttributions ?? []` — const, line 1502
-- `const exists = list.some((a)` — const, line 1503
-- `const relevant = candidates.filter((c)` — const, line 1511
-- `const others = candidates.filter((c)` — const, line 1512
-- `const chip = (c: CandidateErrorTypeDto)` — const, line 1513
-- `function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[]` — function, line 1550
-- `const docked = new Set( (item.rubric?.criteria ?? []) .filter((criterion)` — const, line 1551
-- `const NON_RECORDING_ATTEMPT_TYPES: ReadonlySet<AttemptType> = new Set(["guided_walkthrough", "skip"])` — const, line 1562
-- `function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType` — function, line 1564
-- `function composeRedoAnswer(prefix: string, redoText: string): string` — function, line 1577
-- `const suffix = redoText.replace(/^[ \t]+/, "")` — const, line 1578
-- `function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType` — function, line 1586
-- `const allows = (type: AttemptType)` — const, line 1587
-- `function validateSelfGrade( item: PracticeItemDetail, value: SelfGradeInputDto, required: boolean ): Record<string, string>` — function, line 1592
-- `const errors: Record<string, string> =` — const, line 1598
-- `const points = value.criterionPoints[criterion.id]` — const, line 1600
+- `const on = answerConfidence === level` — const, line 1048
+- `const locked = submitting || selfGradeVisible` — const, line 1049
+- `function TeachBackConversation(` — function, line 1160
+- `const startedRef = useRef(false)` — const, line 1189
+- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 1190
+- `const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null` — const, line 1192
+- `const needsText = turns.length === 0 || lastRole === "ai"` — const, line 1196
+- `const start = useCallback(()` — const, line 1198
+- `const node = transcriptRef.current` — const, line 1228
+- `async function send(finish = false)` — function, line 1232
+- `const text = input.trim()` — const, line 1234
+- `const result = await api.submitTeachBackTurn(` — const, line 1240
+- `const onKey = (event: KeyboardEvent)` — const, line 1266
+- `const submitLabel = turns.length === 0 ? "Start teaching" : lastRole === "learner" ? "Continue" : "Send answer"` — const, line 1276
+- `const questionsAnswered = asked > 0 && lastRole === "learner"` — const, line 1278
+- `function SelfGradePanel(` — function, line 1393
+- `const awarded = value.criterionPoints[criterion.id] ?? 0` — const, line 1414
+- `const docked = awarded < criterion.points` — const, line 1415
+- `const points = Number(event.target.value)` — const, line 1428
+- `const stillDocked = points < criterion.points` — const, line 1429
+- `function CriterionErrorPicker(` — function, line 1493
+- `const selected = new Set( (value.errorAttributions ?? []).filter((a)` — const, line 1504
+- `const toggle = (errorType: string)` — const, line 1507
+- `const list = value.errorAttributions ?? []` — const, line 1508
+- `const exists = list.some((a)` — const, line 1509
+- `const relevant = candidates.filter((c)` — const, line 1517
+- `const others = candidates.filter((c)` — const, line 1518
+- `const chip = (c: CandidateErrorTypeDto)` — const, line 1519
+- `function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[]` — function, line 1556
+- `const docked = new Set( (item.rubric?.criteria ?? []) .filter((criterion)` — const, line 1557
+- `const NON_RECORDING_ATTEMPT_TYPES: ReadonlySet<AttemptType> = new Set(["guided_walkthrough", "skip"])` — const, line 1568
+- `function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType` — function, line 1570
+- `function composeRedoAnswer(prefix: string, redoText: string): string` — function, line 1583
+- `const suffix = redoText.replace(/^[ \t]+/, "")` — const, line 1584
+- `function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType` — function, line 1592
+- `const allows = (type: AttemptType)` — const, line 1593
+- `function validateSelfGrade( item: PracticeItemDetail, value: SelfGradeInputDto, required: boolean ): Record<string, string>` — function, line 1598
+- `const errors: Record<string, string> =` — const, line 1604
+- `const points = value.criterionPoints[criterion.id]` — const, line 1606
 
 ## Who imports or calls it
 
