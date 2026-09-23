@@ -669,6 +669,10 @@ def _export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo:
     started = datetime.now(timezone.utc).isoformat()
     with closing(connect(sqlite_path, read_only=True)) as source, closing(sqlite3.connect(snapshot)) as destination:
         source.backup(destination, pages=256, sleep=0.05)
+        # The backup copies the live database's WAL header. A published
+        # snapshot is one self-contained file, so it uses a rollback journal;
+        # reading a WAL file would leave -wal/-shm files in the export.
+        destination.execute("PRAGMA journal_mode=DELETE")
     exported = _export_snapshot(snapshot, output, split_policy=split_policy, embargo=embargo)
     _fsync_file(snapshot)
     manifest = {

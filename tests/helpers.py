@@ -3,12 +3,12 @@ from __future__ import annotations
 import re
 import textwrap
 import tomllib
-import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
 from learnloop.clock import FrozenClock
 from learnloop.config import LearnLoopConfig
+from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.vault.loader import add_subject, init_vault, load_vault
 from learnloop.vault.paths import VaultPaths
@@ -66,7 +66,9 @@ def seed_due_item(paths: VaultPaths) -> Repository:
 def create_basic_vault(root: Path, *, fresh: bool = False) -> VaultPaths:
     template = _BASIC_VAULT_TEMPLATE
     if template is not None and not fresh and not _FRESH_VAULTS and (not root.exists() or not any(root.iterdir())):
-        shutil.copytree(template.root, root, dirs_exist_ok=True)
+        # The template database goes through the backup API, like every copy of
+        # a database that may be in WAL mode (tests/test_sqlite_file_copies.py).
+        copy_tree_with_databases(template.root, root, dirs_exist_ok=True)
         return VaultPaths(root.resolve(), template.config.model_copy(deep=True))
     clock = FrozenClock(NOW)
     init_vault(root, clock=clock)

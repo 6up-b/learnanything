@@ -13,7 +13,6 @@ callers (the sidecar) should cache on (goal_id, checkpoint, attempt count).
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -21,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc
+from learnloop.db.copies import backup_database
 from learnloop.db.repositories import Repository
 from learnloop.goals.goal_series_store import prune_rows
 from learnloop.goals.goal_projection import (
@@ -208,7 +208,7 @@ def _replayed_run(
 ) -> list[GoalSeriesPoint]:
     with tempfile.TemporaryDirectory(prefix="learnloop-goal-series-") as scratch:
         scratch_path = Path(scratch) / "state.sqlite"
-        shutil.copyfile(repository.sqlite_path, scratch_path)
+        backup_database(repository.sqlite_path, scratch_path)
         scratch_repo = Repository.attach(scratch_path, read_only=False)
         with scratch_repo.pinned():
             return _replay_and_report(vault, scratch_repo, goal, scope_los, checkpoints)
