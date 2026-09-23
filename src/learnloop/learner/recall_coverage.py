@@ -7,6 +7,7 @@ from typing import Any, Iterable, Mapping
 
 from learnloop.config import EvidenceConfig, LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.numeric import clamp
 from learnloop.diagnosis.error_taxonomy_map import map_legacy_error_type
 from learnloop.attempts.evidence import (
@@ -678,6 +679,7 @@ def build_quality_state_update_from_prior(
     }
 
 
+@pinned_repository_call
 def predicted_correctness(
     repository: Repository,
     item: PracticeItem,
@@ -689,14 +691,25 @@ def predicted_correctness(
     config: LearnLoopConfig,
     vault: LoadedVault | None = None,
 ) -> tuple[float, dict[str, float]]:
-    # KM2b: when a vault is supplied, read facet priors through the canonical
-    # adapter (mvp-0.7) / legacy per-LO table (mvp-0.6). Vault-less callers keep
-    # the legacy read for backward compatibility.
+    # With a vault, facet priors come through the facet-state adapter: canonical
+    # rows on mvp-0.7 vaults, the per-LO table on mvp-0.6. Without one they come
+    # straight from the per-LO table.
     if vault is not None:
-        from learnloop.learner.facet_state_reader import facet_recall_state_for_lo
+        from learnloop.learner.facet_state_reader import (
+            CanonicalFacetStateReader,
+            facet_recall_state_for_lo,
+            is_canonical_state_vault,
+        )
 
+        # One reader serves every facet of the item; building it loads the
+        # whole canonical cache and merge map.
+        reader = (
+            CanonicalFacetStateReader(vault, repository)
+            if item.evidence_facets and is_canonical_state_vault(vault)
+            else None
+        )
         facet_states = {
-            facet: facet_recall_state_for_lo(vault, repository, learning_object_id, facet)
+            facet: facet_recall_state_for_lo(vault, repository, learning_object_id, facet, reader=reader)
             for facet in item.evidence_facets
         }
     else:

@@ -10,6 +10,7 @@ from typing import Any, Iterable, Mapping
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import FacetRecallState, FacetUncertaintyState, MasteryState, Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.learner.facet_state_reader import (
     facet_recall_states_for_lo,
     facet_uncertainty_states_for_lo,
@@ -655,6 +656,7 @@ def unresolved_question_facet_counts(
     return counts
 
 
+@pinned_repository_call
 def mastery_diagnostic_view(
     vault: LoadedVault,
     repository: Repository,

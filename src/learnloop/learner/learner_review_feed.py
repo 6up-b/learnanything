@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.db.repositories import Repository
+from learnloop.db.scopes import pinned_repository_call
 from learnloop.diagnosis.remediation import misconception_status_history
 from learnloop.learner.session_learning_diff import session_learning_diffs
 from learnloop.learner.surfaced_beliefs import surfaced_belief_corrections
@@ -28,6 +29,7 @@ def _empty_belief_change() -> dict[str, Any]:
     }
 
 
+@pinned_repository_call
 def build_learner_review_feed(
     vault: LoadedVault, repository: Repository
 ) -> dict[str, Any]:
