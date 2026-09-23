@@ -542,8 +542,8 @@ class TutorQAConfig(BaseModel):
     max_questions_library: int = Field(default=8, ge=0)
     # U-033 (§7.6): span-grounded reader Ask budget, per source span per UTC day.
     max_questions_reader: int = Field(default=8, ge=0)
-    # Owner decision 2026-07-20: the reader is on by default for fresh vaults
-    # (lead-user journey needs it without hand-editing config). The §12.3.2
+    # The reader is on by default for fresh vaults so the lead-user journey
+    # needs no hand-edited config. The §12.3.2
     # invariant — the golden path completes with reader dialogue disabled —
     # is preserved by tests that disable it explicitly; the spine never imports
     # the reader module regardless of this flag.
@@ -1342,10 +1342,8 @@ class LearnLoopConfig(BaseModel):
                         else self.ai.active_provider
                     ),
                 )
-        # canonical_ingest_retry follows the primary canonical_ingest provider
-        # when unset, so a non-codex ingest backend still gets a retry pass
-        # (previously the retry route was left empty for non-codex providers,
-        # silently disabling ingest retry).
+        # canonical_ingest_retry defaults to the primary canonical_ingest route
+        # so every provider, not only codex, gets one ingest retry pass.
         retry_route = getattr(self.ai.routing, "canonical_ingest_retry", "")
         if not retry_route:
             self.ai.routing.canonical_ingest_retry = self.ai.routing.canonical_ingest
