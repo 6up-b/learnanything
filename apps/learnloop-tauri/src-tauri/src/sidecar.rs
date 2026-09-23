@@ -1,11 +1,11 @@
-use crate::errors::CommandError;
+use crate::errors::{CommandError, GRADING_PROVIDER_RESET_CODE};
 use serde_json::{json, Value};
 use std::ffi::OsString;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 // Goal population may legitimately use the Codex SDK's 15-minute turn
@@ -92,8 +92,8 @@ impl SidecarManager {
             .lock()
             .map_err(|_| CommandError::state_unavailable())?;
         // Reconnects after a timeout or broken pipe must preserve the selected
-        // vault. Previously `call()` reinitialized with `None`, which silently
-        // fell back to the fixture/default vault after dropping a dead client.
+        // vault; reinitializing with no vault would fall back to the
+        // default/fixture vault.
         let explicit_selection = requested_vault.is_some();
         let vault = resolve_vault_path(requested_vault, state.vault_path.clone());
         let same_vault = state.vault_path.as_ref() == Some(&vault);
@@ -105,7 +105,7 @@ impl SidecarManager {
                 stop_client(&mut previous, true);
             }
             let mut candidate = SidecarClient::spawn()?;
-            let mut initialized = match candidate.call(
+            let initialized = match candidate.call(
                 "initialize",
                 json!({"vaultPath": vault, "clientVersion": env!("CARGO_PKG_VERSION")}),
             ) {
@@ -115,20 +115,27 @@ impl SidecarManager {
                     return Err(error);
                 }
             };
-            if same_vault {
-                if let Some(provider) = state.grading_override.as_ref() {
-                    if let Err(error) = candidate.call("set_grading_provider", json!({"provider": provider})) {
-                        stop_client(&mut candidate, false);
-                        return Err(error);
-                    }
-                    if let Ok(health) = candidate.call("get_runtime_health", json!({})) {
-                        initialized["health"] = health;
+            // A reconnect to the same vault keeps the learner's grading-provider
+            // choice; selecting another vault starts from that vault's config.
+            let mut provider_reset = None;
+            match state.grading_override.clone() {
+                Some(provider) if same_vault => {
+                    match restore_grading_override(&mut candidate, &provider) {
+                        Ok(None) => {}
+                        Ok(Some(reset)) => {
+                            state.grading_override = None;
+                            provider_reset = Some(reset);
+                        }
+                        Err(error) => {
+                            stop_client(&mut candidate, false);
+                            return Err(error);
+                        }
                     }
                 }
-            } else {
-                state.grading_override = None;
+                _ => state.grading_override = None,
             }
             state.client = Some(candidate);
+            state.vault_path = Some(vault.clone());
             if explicit_selection {
                 // A vault the user chose (header picker, new-vault wizard)
                 // becomes the next launch's default; the fallbacks below only
@@ -136,13 +143,17 @@ impl SidecarManager {
                 remember_vault(&vault);
             }
             {
-                let mut selection = self.selection.lock().map_err(|_| CommandError::state_unavailable())?;
+                let mut selection = self.lock_selection();
                 if selection.path.as_ref() != Some(&vault) {
                     selection.generation += 1;
-                    selection.path = Some(vault.clone());
+                    selection.path = Some(vault);
                 }
             }
-            state.vault_path = Some(vault);
+            // The new client is installed and usable; the error only reports,
+            // once, that the provider choice was dropped.
+            if let Some(reset) = provider_reset {
+                return Err(reset);
+            }
             return Ok(initialized);
         }
         Ok(json!({"ok": true}))
@@ -155,18 +166,31 @@ impl SidecarManager {
         self.vault_snapshot().0
     }
 
+    /// The selection holds only a path and a counter, so a panic elsewhere
+    /// cannot leave it inconsistent; recover it rather than failing lookups.
+    fn lock_selection(&self) -> MutexGuard<'_, VaultSelection> {
+        self.selection.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     fn vault_snapshot(&self) -> (PathBuf, u64) {
-        let selected = self
-            .selection
-            .lock()
-            .ok()
-            .map(|selection| selection.clone())
-            .unwrap_or_default();
+        let selected = self.lock_selection().clone();
         (resolve_vault_path(None, selected.path), selected.generation)
     }
 
+    /// The generation of an explicit vault selection, if one has been made.
+    fn selected_generation(&self) -> Option<u64> {
+        let selection = self.lock_selection();
+        selection.path.as_ref().map(|_| selection.generation)
+    }
+
     pub fn select_vault(&self, vault_path: Option<String>) -> Result<Value, CommandError> {
-        let initialized = self.initialize(vault_path)?;
+        let initialized = match self.initialize(vault_path) {
+            Ok(initialized) => initialized,
+            // The vault is selected and its sidecar is running; the reloaded
+            // snapshot reports the provider actually in use.
+            Err(error) if error.code == GRADING_PROVIDER_RESET_CODE => json!({}),
+            Err(error) => return Err(error),
+        };
         if let Some(vault) = initialized.get("vault") {
             return Ok(vault.clone());
         }
@@ -175,6 +199,20 @@ impl SidecarManager {
     }
 
     pub fn call(&self, method: &str, params: Value) -> Result<Value, CommandError> {
+        let issued_in = self.selected_generation();
+        self.call_issued_in(method, params, issued_in)
+    }
+
+    /// Run `method` on the primary sidecar unless the vault selection changed
+    /// after the command was issued (`issued_in`). Commands wait on the state
+    /// mutex, which is not FIFO, so one issued for the old vault can otherwise
+    /// run against the newly selected vault's sidecar.
+    fn call_issued_in(
+        &self,
+        method: &str,
+        params: Value,
+        issued_in: Option<u64>,
+    ) -> Result<Value, CommandError> {
         {
             let needs_init = self
                 .state
@@ -190,6 +228,15 @@ impl SidecarManager {
             .state
             .lock()
             .map_err(|_| CommandError::state_unavailable())?;
+        if let Some(expected) = issued_in {
+            let current = self.selected_generation();
+            if current != Some(expected) {
+                return Err(CommandError::vault_changed(
+                    "This action belongs to the previously selected vault, so it was not run.",
+                    json!({"method": method, "generation": expected}),
+                ));
+            }
+        }
         let client = state
             .client
             .as_mut()
@@ -234,14 +281,30 @@ impl SidecarManager {
         let graceful = !matches!(&result, Err(error) if error.invalidates_sidecar());
         stop_client(&mut client, graceful);
         if self.vault_snapshot().1 != generation {
-            return Err(CommandError {
-                code: "vault_changed".into(),
-                message: "This action belongs to the previously selected vault. Its result was not loaded into the current view.".into(),
-                retryable: false,
-                details: Some(json!({"vaultPath": vault, "generation": generation})),
-            });
+            return Err(CommandError::vault_changed(
+                "This action belongs to the previously selected vault. Its result was not loaded into the current view.",
+                json!({"vaultPath": vault, "generation": generation}),
+            ));
         }
         result
+    }
+}
+
+/// Re-apply the learner's grading-provider choice to a replacement sidecar.
+///
+/// `Ok(None)`: the choice was restored. `Ok(Some(reset))`: the sidecar refused
+/// it (for example the provider was removed from the vault config), so the
+/// caller must drop the choice; replaying it on every reconnect would fail
+/// every later command the same way. `Err`: the replacement process itself
+/// failed and must not be installed.
+fn restore_grading_override(
+    candidate: &mut SidecarClient,
+    provider: &str,
+) -> Result<Option<CommandError>, CommandError> {
+    match candidate.call("set_grading_provider", json!({"provider": provider})) {
+        Ok(_) => Ok(None),
+        Err(error) if error.invalidates_sidecar() => Err(error),
+        Err(error) => Ok(Some(CommandError::grading_provider_reset(provider, error))),
     }
 }
 
@@ -669,6 +732,7 @@ fn python_path(repo_root: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::{SIDECAR_PROTOCOL_CODE, VAULT_CHANGED_CODE};
 
     #[test]
     fn native_vault_lookup_does_not_wait_for_an_rpc() {
@@ -686,7 +750,6 @@ mod tests {
         thread.join().unwrap();
         assert_eq!(result.unwrap(), root);
     }
-    use crate::errors::SIDECAR_PROTOCOL_CODE;
 
     fn scratch_dir(label: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -702,6 +765,114 @@ mod tests {
     fn make_vault(path: &Path) {
         std::fs::create_dir_all(path).expect("vault dir");
         std::fs::write(path.join("learnloop.toml"), "").expect("vault marker");
+    }
+
+    /// Serializes tests that point `LEARNLOOP_PYTHON` at a fake sidecar.
+    #[cfg(unix)]
+    static FAKE_SIDECAR_ENV: Mutex<()> = Mutex::new(());
+
+    /// A shell-script sidecar that logs each method it receives, answers every
+    /// method with `{"method": <name>}`, and refuses `set_grading_provider`
+    /// with the typed error the Python handler returns for an unknown provider.
+    #[cfg(unix)]
+    fn install_fake_sidecar(dir: &Path) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let log = dir.join("methods.log");
+        let script = dir.join("fake-sidecar.sh");
+        let body = format!(
+            r#"#!/bin/sh
+while IFS= read -r line; do
+  id=$(printf '%s\n' "$line" | sed -E 's/.*"id":([0-9]+).*/\1/')
+  method=$(printf '%s\n' "$line" | sed -E 's/.*"method":"([^"]*)".*/\1/')
+  printf '%s\n' "$method" >> '{log}'
+  if [ "$method" = set_grading_provider ]; then
+    printf '{{"jsonrpc":"2.0","id":%s,"error":{{"code":-32001,"message":"Unknown grading provider.","data":{{"code":"invalid_provider","retryable":false}}}}}}\n' "$id"
+  else
+    printf '{{"jsonrpc":"2.0","id":%s,"result":{{"method":"%s"}}}}\n' "$id" "$method"
+  fi
+done
+"#,
+            log = log.display()
+        );
+        std::fs::write(&script, body).expect("fake sidecar script");
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        std::env::set_var("LEARNLOOP_PYTHON", &script);
+        log
+    }
+
+    #[cfg(unix)]
+    fn logged_methods(log: &Path) -> Vec<String> {
+        std::fs::read_to_string(log)
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_string)
+            .collect()
+    }
+
+    /// A manager whose selected vault is `vault` and whose client has been
+    /// reaped, as after a timeout or crash.
+    fn reconnecting_manager(vault: &Path, grading_override: Option<&str>) -> SidecarManager {
+        let manager = SidecarManager::new();
+        {
+            let mut state = manager.state.lock().unwrap();
+            state.vault_path = Some(vault.to_path_buf());
+            state.grading_override = grading_override.map(str::to_string);
+        }
+        {
+            let mut selection = manager.selection.lock().unwrap();
+            selection.path = Some(vault.to_path_buf());
+            selection.generation = 1;
+        }
+        manager
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn reconnect_drops_a_grading_provider_the_sidecar_refuses() {
+        let _env = FAKE_SIDECAR_ENV.lock().unwrap_or_else(PoisonError::into_inner);
+        let dir = scratch_dir("provider-reset");
+        let log = install_fake_sidecar(&dir);
+        let manager = reconnecting_manager(&dir, Some("removed_provider"));
+
+        let first = manager
+            .call("get_today_queue", json!({}))
+            .expect_err("the dropped provider is reported once");
+        assert_eq!(first.code, GRADING_PROVIDER_RESET_CODE);
+        assert!(first.retryable);
+        {
+            let state = manager.state.lock().unwrap();
+            assert!(state.client.is_some(), "the reconnected client stays installed");
+            assert_eq!(state.grading_override, None);
+        }
+
+        let second = manager.call("get_today_queue", json!({})).expect("later commands run");
+        assert_eq!(second["method"], "get_today_queue");
+        let methods = logged_methods(&log);
+        assert_eq!(
+            methods.iter().filter(|method| *method == "set_grading_provider").count(),
+            1,
+            "{methods:?}"
+        );
+        drop(manager);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_command_issued_before_a_vault_switch_is_not_run_against_the_new_vault() {
+        let _env = FAKE_SIDECAR_ENV.lock().unwrap_or_else(PoisonError::into_inner);
+        let dir = scratch_dir("vault-fence");
+        let log = install_fake_sidecar(&dir);
+        let manager = reconnecting_manager(&dir, None);
+        manager.call("load_vault", json!({})).expect("current-generation command runs");
+
+        let stale = manager
+            .call_issued_in("get_today_queue", json!({}), Some(0))
+            .expect_err("a command from an earlier selection is refused");
+        assert_eq!(stale.code, VAULT_CHANGED_CODE);
+        assert!(!logged_methods(&log).contains(&"get_today_queue".to_string()));
+        drop(manager);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
