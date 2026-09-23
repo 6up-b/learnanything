@@ -45,7 +45,7 @@ from learnloop.ai.transport import interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.db.scopes import JobOwnershipLost
-from learnloop.vault_lock import vault_mutation_lock
+from learnloop.vault_lock import DEFAULT_TIMEOUT_S, VaultLockTimeout, vault_mutation_lock
 
 # The checkpoint ladder (§6.2). Every phase is an independently resumable stage.
 CHECKPOINT_LADDER: tuple[str, ...] = (
@@ -67,6 +67,14 @@ _LOG = logging.getLogger(__name__)
 # writer) the next attempt comes sooner than the regular interval, so one
 # failure costs seconds of lease rather than a whole interval.
 _HEARTBEAT_RETRY_SECONDS = 1.0
+
+# Every drain tick expires stale leases at most this often.
+_LEASE_EXPIRY_INTERVAL_SECONDS = 1.0
+# Claims, startup recovery and resume wait this long for another vault
+# writer, then defer rather than fail. A drain tick's lease expiry is retried
+# on the next tick, so it waits only briefly instead of stalling the lane.
+_LEASE_LOCK_TIMEOUT_S = DEFAULT_TIMEOUT_S
+_TICK_EXPIRY_LOCK_TIMEOUT_S = 0.5
 
 
 def effective_ingest_job_status(job: Mapping[str, Any]) -> str:
@@ -477,6 +485,7 @@ class IngestRunner:
         self.lease_ttl_seconds = lease_ttl_seconds
         self.heartbeat_interval_seconds = heartbeat_interval_seconds
         self._database = Path(repo.sqlite_path).resolve()
+        self._last_lease_expiry_at: Any = None
         self._interrupt_lock = threading.RLock()
         # Keyed by attempt: lanes share one runner and worker id, so a job
         # resumed onto another lane must not share its predecessor's entry.
@@ -573,14 +582,40 @@ class IngestRunner:
     # -- recovery / drive --------------------------------------------------
 
     def recover_stale_leases(self) -> list[str]:
-        """Startup recovery (§6.2): expired ``running`` leases -> ``failed(interrupted)``;
-        their queued siblings simply resume. Returns the recovered job ids."""
+        """Startup recovery (§6.2), run when a host opens the vault.
 
-        with vault_mutation_lock(self.vault_root, purpose='ingest_lease_recovery'):
-            return self._recover_stale_leases_locked()
+        Expired ``running`` leases become ``failed(interrupted)`` and their
+        queued siblings resume; then synthesis runs abandoned by an earlier
+        process are finalized. Returns the recovered job ids. When another
+        writer holds the vault lock past ``_LEASE_LOCK_TIMEOUT_S``, recovery is
+        skipped and returns ``[]``; the drain expires leases on its next tick.
+        """
 
-    def _recover_stale_leases_locked(self) -> list[str]:
-        self._last_recovery_at = self.clock.now()
+        try:
+            with vault_mutation_lock(
+                self.vault_root, purpose="ingest_lease_recovery", timeout_s=_LEASE_LOCK_TIMEOUT_S
+            ):
+                recovered = self._expire_stale_leases_locked()
+                self._finalize_abandoned_synthesis_runs_locked()
+        except VaultLockTimeout:
+            _LOG.warning("Skipped ingest lease recovery: the vault lock is busy", exc_info=True)
+            return []
+        return recovered
+
+    def _expire_stale_leases(self, *, lock_timeout_s: float) -> list[str] | None:
+        """Expire running leases older than the TTL, or return None if the
+        vault lock stayed busy for ``lock_timeout_s``."""
+
+        try:
+            with vault_mutation_lock(
+                self.vault_root, purpose="ingest_lease_recovery", timeout_s=lock_timeout_s
+            ):
+                return self._expire_stale_leases_locked()
+        except VaultLockTimeout:
+            return None
+
+    def _expire_stale_leases_locked(self) -> list[str]:
+        self._last_lease_expiry_at = self.clock.now()
         cutoff = self._lease_cutoff_iso()
         recovered: list[str] = []
         for job in self.repo.expired_running_ingest_jobs(cutoff):
@@ -605,10 +640,18 @@ class IngestRunner:
             recovered.append(job["id"])
             self._propagate_blocks(job["batch_id"])
             self._refresh_batch(job["batch_id"])
-        # Startup hygiene: historical error paths left synthesis_runs rows in
-        # 'created'/'running' forever. Finalize abandoned rows — but never while
-        # any synthesis job still holds a live lease (its run row is legitimately
-        # non-terminal mid-flight).
+        return recovered
+
+    def _finalize_abandoned_synthesis_runs_locked(self) -> None:
+        """Finalize non-terminal synthesis runs older than the lease cutoff.
+
+        Runs only at startup: synchronous RPC and CLI synthesis runs have no
+        ingest job lease, so a periodic sweep would fail one that is still
+        executing. A synthesis job with a live lease also suspends the sweep,
+        because its run row is legitimately non-terminal mid-flight.
+        """
+
+        cutoff = self._lease_cutoff_iso()
         live_synthesis = any(
             job["job_type"] in {"bootstrap_synthesis", "append_synthesis"}
             and job["status"] == "running"
@@ -617,7 +660,12 @@ class IngestRunner:
         )
         if not live_synthesis:
             self.repo.finalize_stale_synthesis_runs(before_iso=cutoff, clock=self.clock)
-        return recovered
+
+    def _lease_expiry_due(self) -> bool:
+        last = self._last_lease_expiry_at
+        if last is None:
+            return True
+        return (self.clock.now() - last).total_seconds() >= _LEASE_EXPIRY_INTERVAL_SECONDS
 
     def run_next(
         self,
@@ -628,21 +676,28 @@ class IngestRunner:
         max_parallel: int | None = None,
     ) -> bool:
         """Claim and run one eligible job. Returns False when nothing was run
-        (no eligible job, or another worker holds the drain lease)."""
+        (no eligible job, another worker holds the drain lease, or another
+        writer held the vault lock past the claim timeout)."""
 
-        last_recovery = getattr(self, '_last_recovery_at', None)
-        if last_recovery is None or (self.clock.now() - last_recovery).total_seconds() >= 1:
-            self.recover_stale_leases()
-        with vault_mutation_lock(self.vault_root, purpose='ingest_lease_claim'):
-            job = self.repo.claim_next_ingest_job(
-                worker_id=self.worker_id,
-                now_iso=utc_now_iso(self.clock),
-                lease_cutoff_iso=self._lease_cutoff_iso(),
-                eligible_job_types=eligible_job_types,
-                compatible_running_job_types=compatible_running_job_types,
-                allow_parallel=allow_parallel,
-                max_parallel=max_parallel,
-            )
+        if self._lease_expiry_due():
+            # Skipped when the vault lock is busy; retried on the next tick.
+            self._expire_stale_leases(lock_timeout_s=_TICK_EXPIRY_LOCK_TIMEOUT_S)
+        try:
+            with vault_mutation_lock(
+                self.vault_root, purpose="ingest_lease_claim", timeout_s=_LEASE_LOCK_TIMEOUT_S
+            ):
+                job = self.repo.claim_next_ingest_job(
+                    worker_id=self.worker_id,
+                    now_iso=utc_now_iso(self.clock),
+                    lease_cutoff_iso=self._lease_cutoff_iso(),
+                    eligible_job_types=eligible_job_types,
+                    compatible_running_job_types=compatible_running_job_types,
+                    allow_parallel=allow_parallel,
+                    max_parallel=max_parallel,
+                )
+        except VaultLockTimeout:
+            _LOG.info("Ingest claim deferred: the vault lock is busy")
+            return False
         if job is None:
             return False
         with _LIVE_ATTEMPTS.running(
@@ -703,7 +758,9 @@ class IngestRunner:
         attempt and claim remain untouched; only generation-owned state resets.
         """
 
-        self.recover_stale_leases()
+        # Fail this batch's expired running jobs first so they are requeued
+        # below. A busy vault lock skips that; the drain expires them later.
+        self._expire_stale_leases(lock_timeout_s=_LEASE_LOCK_TIMEOUT_S)
         batch = self.repo.get_ingest_batch(batch_id)
         if batch is None:
             raise IngestRunnerError(f"batch '{batch_id}' does not exist.")

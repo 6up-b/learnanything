@@ -239,3 +239,49 @@ def test_a_cte_read_is_not_fenced_but_a_cte_write_is(tmp_path):
                     "WITH ids AS (SELECT id FROM ingest_jobs) "
                     "UPDATE ingest_jobs SET message = 'stale' WHERE id IN (SELECT id FROM ids)"
                 )
+
+
+def test_a_busy_vault_lock_defers_lease_work_instead_of_failing(tmp_path, monkeypatch):
+    from learnloop.content.pipeline import runner as runner_module
+
+    monkeypatch.setattr(runner_module, '_LEASE_LOCK_TIMEOUT_S', 0.2)
+    monkeypatch.setattr(runner_module, '_TICK_EXPIRY_LOCK_TIMEOUT_S', 0.05)
+    runner = _runner(tmp_path, handlers={'fake': _ok_handler({})})
+    batch = runner.enqueue_batch('import', [JobSpec('fake')])
+    stale = _claim(runner.repo, 'previous', 0)
+    host = DurableIngestJobs()
+    with vault_mutation_lock(tmp_path, purpose='long_apply'):
+        # Opening the vault, draining and resuming all tolerate the busy lock.
+        host.bind(runner.repo, tmp_path, clock=_clock(180), background=False)
+        host._runner.handlers['fake'] = _ok_handler({})
+        assert host._runner.run_next() is False
+        host._runner.resume_batch(batch)
+        assert runner.repo.get_ingest_job(stale['id'])['status'] == 'running'
+    host._runner.resume_batch(batch)
+    assert host.drain_foreground() == 1
+    assert runner.repo.get_ingest_job(stale['id'])['status'] == 'completed'
+
+
+def test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks(tmp_path):
+    from datetime import UTC, datetime
+
+    from learnloop.clock import FrozenClock
+    from learnloop.content.synthesis.synthesis_manifests import build_manifest, persist_manifest
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / 'vault')
+    repository = Repository(paths.sqlite_path)
+    manifest_id = persist_manifest(repository, build_manifest(load_vault(paths.root), source_set_id='ss1'))
+    # A synchronous RPC/CLI synthesis has a run row but no ingest job lease.
+    in_flight = repository.insert_synthesis_run(
+        manifest_id=manifest_id, mode='bootstrap', clock=FrozenClock(datetime(2026, 7, 13, 11, 0, tzinfo=UTC)),
+    )
+    runner = _runner(paths.root, handlers={})
+    assert runner.repo.sqlite_path == paths.sqlite_path
+    for seconds in (0, 5, 10):
+        runner.clock = _clock(seconds)
+        assert runner.run_next() is False
+    assert repository.synthesis_run(in_flight)['status'] == 'created'
+    assert runner.recover_stale_leases() == []
+    assert repository.synthesis_run(in_flight)['status'] == 'failed'
