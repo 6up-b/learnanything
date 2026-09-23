@@ -48,7 +48,7 @@ from learnloop.vault.models import (
     RelationsFile,
 )
 from learnloop.vault.paths import VaultPaths
-from learnloop.vault.yaml_io import read_yaml
+from learnloop.vault.yaml_io import read_yaml_data
 
 Severity = Literal["error", "warning"]
 
@@ -442,7 +442,7 @@ def _check_yaml_schema(path: Path, issues: list[HealthIssue], supported: set[int
     if not path.exists():
         return
     try:
-        data = read_yaml(path)
+        data = read_yaml_data(path)
     except Exception as exc:
         issues.append(_issue("error", "yaml:invalid", f"{path.name} could not be parsed: {exc}", path))
         return
@@ -494,7 +494,7 @@ def _check_unknown_yaml_keys_for_file(
     if not path.exists():
         return
     try:
-        data = read_yaml(path)
+        data = read_yaml_data(path)
     except Exception:
         return
     if isinstance(data, dict):

@@ -29,8 +29,8 @@ from learnloop.vault.models import (
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.yaml_io import (
-    read_markdown_with_frontmatter,
-    read_yaml,
+    read_markdown_frontmatter_data,
+    read_yaml_data,
     write_markdown_with_frontmatter,
     write_yaml,
 )
@@ -42,7 +42,7 @@ def _load_yaml_model(path: Path, model: type[T], issues: list[DoctorIssue]) -> T
     if not path.exists():
         return None
     try:
-        return model.model_validate(read_yaml(path))
+        return model.model_validate(read_yaml_data(path))
     except (OSError, ValueError, ValidationError, YAMLError) as exc:
         issues.append(DoctorIssue("yaml:invalid", f"{path.name} could not be loaded: {exc}", path))
         return None
@@ -56,7 +56,7 @@ def _load_markdown_model(
     if not path.exists():
         return None, ""
     try:
-        metadata, body = read_markdown_with_frontmatter(path)
+        metadata, body = read_markdown_frontmatter_data(path)
         return model.model_validate(metadata), body
     except (OSError, ValueError, ValidationError, YAMLError) as exc:
         issues.append(DoctorIssue("markdown:invalid_frontmatter", f"{path.name} frontmatter is invalid: {exc}", path))
@@ -171,7 +171,7 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault) -> None:
 
 def _load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorIssue]) -> Note | None:
     try:
-        metadata, body = read_markdown_with_frontmatter(path)
+        metadata, body = read_markdown_frontmatter_data(path)
         relative = path.relative_to(root).as_posix()
         if not metadata:
             metadata = {
