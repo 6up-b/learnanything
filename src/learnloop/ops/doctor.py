@@ -124,20 +124,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     if config is None:
         return DoctorReport(root=vault_root, issues=issues)
     _check_retired_config(vault_root, issues)
-    codex_runtime: AIRuntimeReport | None = None
-    ai_runtime: AIRuntimeReport | None = None
-    if ai:
-        selected_provider = (
-            ai_provider
-            or os.environ.get("LEARNLOOP_AI_PROVIDER")
-            or config.ai.active_provider
-        )
-        ai_runtime = runtime_for_provider(vault_root, config, selected_provider)
-        if selected_provider in CODEX_PROVIDER_NAMES:
-            # Compatibility field for the existing JSON contract. It mirrors
-            # the one explicitly requested diagnostic; plain doctor never
-            # probes a provider or starts a provider process.
-            codex_runtime = ai_runtime
+    codex_runtime, ai_runtime = _requested_ai_runtimes(vault_root, config, ai=ai, ai_provider=ai_provider)
 
     paths = VaultPaths(vault_root, config)
     parsed_yaml = _ParsedYamlFiles()
@@ -146,28 +133,8 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_unknown_yaml_keys(paths, issues, parsed_yaml)
     if fix_state:
         migrate_vault(paths.root, paths.sqlite_path)
-    database_readable = _check_sqlite(paths, issues)
-
-    repository: Repository | None = None
-    database_tables: set[str] = set()
+    repository, database_tables = _attach_state_database(paths, issues, fix_state=fix_state)
     deprecated_table_row_counts: dict[str, int] = {}
-    if database_readable:
-        try:
-            repository = Repository.attach(
-                paths.sqlite_path,
-                read_only=not fix_state,
-            )
-            database_tables = _database_tables(repository)
-        except sqlite3.Error as exc:
-            issues.append(
-                _issue(
-                    "error",
-                    "sqlite:unreadable",
-                    f"SQLite state database could not be read: {exc}",
-                    paths.sqlite_path,
-                )
-            )
-            repository = None
     if repository is not None:
         deprecated_table_row_counts = _check_deprecated_tables(
             repository,
@@ -206,36 +173,9 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         if fix_state and repository is not None
         else None
     )
-    if (
-        fix_state
-        and repository is not None
-        and "evidence_facet_recall_state" in database_tables
-        and vault.facet_aliases
-        and vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS
-    ):
-        # KM2b: the legacy per-LO alias merge folds `evidence_facet_recall_state`
-        # rows in place — an mvp-0.6-only table. Under mvp-0.7 aliases + merges are
-        # resolved at read/projection time, so this legacy fold must not run.
-        repository.merge_facet_recall_aliases(
-            vault.facet_aliases,
-            algorithm_version=vault.config.algorithms.algorithm_version,
-        )
     if repository is not None:
-        if _has_tables(
-            database_tables,
-            "practice_item_state",
-            "learning_object_mastery",
-            "error_events",
-        ):
-            _check_sql_state(vault, repository, issues)
-        if _has_tables(database_tables, "practice_attempts", "derived_state_rebuilds"):
-            _check_derived_state_rebuild_marker(vault, repository, issues)
-        if "proposed_patch_items" in database_tables:
-            _check_invalid_proposals(repository, issues)
-        if _has_tables(database_tables, "practice_attempts", "attempt_surprise"):
-            _check_difficulty_calibration(vault, repository, issues)
-        if "practice_item_quality_state" in database_tables:
-            _check_bad_item_suspicion(vault, repository, issues)
+        _merge_mvp06_facet_recall_aliases(vault, repository, database_tables, fix_state=fix_state)
+        _check_database_state(vault, repository, database_tables, issues)
     _check_criterion_facet_maps(vault, issues)
     _check_registered_facets(vault, issues)
     _check_facet_contract_completeness(vault, issues)
@@ -245,23 +185,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_registry_near_duplicate_facets(vault, issues)
     _check_learning_object_merge_candidates(vault, issues)
     if repository is not None:
-        if _has_tables(database_tables, "proposed_patches", "proposed_patch_items"):
-            _check_duplicate_diagnostic_proposals(vault, repository, issues)
-        if _has_tables(database_tables, "goal_contract_heads", "goal_contract_versions"):
-            _check_contract_drift(vault, repository, issues)
-        if _has_tables(database_tables, "facet_merges", "facet_recall_state"):
-            _check_mvp07_canonical_state(vault, repository, issues)
-        if _has_tables(
-            database_tables,
-            "subject_identifiability_watermarks",
-            "misconceptions",
-        ):
-            _check_pre_first_practice_identifiability(
-                vault,
-                repository,
-                issues,
-                fix_state=fix_state,
-            )
+        _check_database_contracts(vault, repository, database_tables, issues, fix_state=fix_state)
     reachability = _check_contract_cell_reachability(vault, issues)
 
     return DoctorReport(
@@ -273,6 +197,141 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         deprecated_table_row_counts=deprecated_table_row_counts,
         contract_reachability=reachability,
     )
+
+
+def _requested_ai_runtimes(
+    vault_root: Path,
+    config: LearnLoopConfig,
+    *,
+    ai: bool,
+    ai_provider: str | None,
+) -> tuple[AIRuntimeReport | None, AIRuntimeReport | None]:
+    """``(codex_runtime, ai_runtime)`` for ``doctor --ai``; both None otherwise.
+
+    Plain doctor never probes a provider or starts a provider process.
+    """
+
+    if not ai:
+        return None, None
+    selected_provider = (
+        ai_provider
+        or os.environ.get("LEARNLOOP_AI_PROVIDER")
+        or config.ai.active_provider
+    )
+    ai_runtime = runtime_for_provider(vault_root, config, selected_provider)
+    # ``codex_runtime`` is a field of the JSON contract that mirrors the one
+    # explicitly requested diagnostic when it is a Codex provider.
+    codex_runtime = ai_runtime if selected_provider in CODEX_PROVIDER_NAMES else None
+    return codex_runtime, ai_runtime
+
+
+def _attach_state_database(
+    paths: VaultPaths,
+    issues: list[HealthIssue],
+    *,
+    fix_state: bool,
+) -> tuple[Repository | None, set[str]]:
+    """The state database (read-only unless fixing) and its table names, or ``(None, set())``."""
+
+    if not _check_sqlite(paths, issues):
+        return None, set()
+    try:
+        repository = Repository.attach(
+            paths.sqlite_path,
+            read_only=not fix_state,
+        )
+        return repository, _database_tables(repository)
+    except sqlite3.Error as exc:
+        issues.append(
+            _issue(
+                "error",
+                "sqlite:unreadable",
+                f"SQLite state database could not be read: {exc}",
+                paths.sqlite_path,
+            )
+        )
+        return None, set()
+
+
+def _merge_mvp06_facet_recall_aliases(
+    vault: LoadedVault,
+    repository: Repository,
+    database_tables: set[str],
+    *,
+    fix_state: bool,
+) -> None:
+    """Under ``--fix``, fold aliased per-LO facet recall rows on mvp-0.6 vaults.
+
+    KM2b: this fold rewrites ``evidence_facet_recall_state`` rows in place, an
+    mvp-0.6-only table. Under mvp-0.7 aliases and merges are resolved at
+    read/projection time, so the fold must not run there.
+    """
+
+    if (
+        fix_state
+        and "evidence_facet_recall_state" in database_tables
+        and vault.facet_aliases
+        and vault.config.algorithms.algorithm_version not in CANONICAL_STATE_VERSIONS
+    ):
+        repository.merge_facet_recall_aliases(
+            vault.facet_aliases,
+            algorithm_version=vault.config.algorithms.algorithm_version,
+        )
+
+
+def _check_database_state(
+    vault: LoadedVault,
+    repository: Repository,
+    database_tables: set[str],
+    issues: list[HealthIssue],
+) -> None:
+    """Checks of derived learner state; each runs only when its tables exist."""
+
+    if _has_tables(
+        database_tables,
+        "practice_item_state",
+        "learning_object_mastery",
+        "error_events",
+    ):
+        _check_sql_state(vault, repository, issues)
+    if _has_tables(database_tables, "practice_attempts", "derived_state_rebuilds"):
+        _check_derived_state_rebuild_marker(vault, repository, issues)
+    if "proposed_patch_items" in database_tables:
+        _check_invalid_proposals(repository, issues)
+    if _has_tables(database_tables, "practice_attempts", "attempt_surprise"):
+        _check_difficulty_calibration(vault, repository, issues)
+    if "practice_item_quality_state" in database_tables:
+        _check_bad_item_suspicion(vault, repository, issues)
+
+
+def _check_database_contracts(
+    vault: LoadedVault,
+    repository: Repository,
+    database_tables: set[str],
+    issues: list[HealthIssue],
+    *,
+    fix_state: bool,
+) -> None:
+    """Checks of diagnostic proposals, goal-contract drift, canonical facet state and
+    pre-practice identifiability; each runs only when its tables exist."""
+
+    if _has_tables(database_tables, "proposed_patches", "proposed_patch_items"):
+        _check_duplicate_diagnostic_proposals(vault, repository, issues)
+    if _has_tables(database_tables, "goal_contract_heads", "goal_contract_versions"):
+        _check_contract_drift(vault, repository, issues)
+    if _has_tables(database_tables, "facet_merges", "facet_recall_state"):
+        _check_mvp07_canonical_state(vault, repository, issues)
+    if _has_tables(
+        database_tables,
+        "subject_identifiability_watermarks",
+        "misconceptions",
+    ):
+        _check_pre_first_practice_identifiability(
+            vault,
+            repository,
+            issues,
+            fix_state=fix_state,
+        )
 
 
 def _load_config_for_doctor(root: Path, issues: list[HealthIssue]) -> LearnLoopConfig | None:
