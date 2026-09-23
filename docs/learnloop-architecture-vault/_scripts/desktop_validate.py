@@ -179,8 +179,10 @@ def main() -> int:
     for info in audited_infos.values():
         activation_counts[info.activation_kind] += 1
 
-    if len(ts_sources) != 102:
-        errors.append(f"source inventory drift: expected 102 TypeScript/TSX files, found {len(ts_sources)}")
+    # The inventory and activation counts are review gates: a new desktop file
+    # must be classified by the activation audit before these numbers change.
+    if len(ts_sources) != 111:
+        errors.append(f"source inventory drift: expected 111 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 5:
         errors.append(f"source inventory drift: expected 5 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -274,7 +276,7 @@ def main() -> int:
             errors.append(f"duplicate source coverage for {source_path}: {len(notes)} notes")
 
     expected_activation_counts = {
-        "entry-reachable build graph": 101,
+        "entry-reachable build graph": 110,
         "compiler-implicit": 1,
         "native-entry-reachable": 5,
     }
@@ -285,7 +287,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 107}:
+    if dict(status_counts) != {"ACTIVE": 116}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
@@ -309,7 +311,10 @@ def main() -> int:
         f"{len(ts_sources)}/{len(ts_sources)} TypeScript/TSX + "
         f"{len(rust_sources)}/{len(rust_sources)} Rust modules, "
         f"{len(areas)} area maps, {yaml_checked} YAML documents, "
-        "status audit ACTIVE=107 (101 entry-build + 1 compiler-implicit + 5 native-entry), "
+        f"status audit ACTIVE={status_counts['ACTIVE']} "
+        f"({activation_counts['entry-reachable build graph']} entry-build + "
+        f"{activation_counts['compiler-implicit']} compiler-implicit + "
+        f"{activation_counts['native-entry-reachable']} native-entry), "
         f"{wikilinks} Wikilinks ({fragments} fragments), "
         f"{markdown_links} Markdown/source links, reproducible byte-for-byte"
     )
