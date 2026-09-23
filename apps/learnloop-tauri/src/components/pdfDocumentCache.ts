@@ -1,10 +1,10 @@
 /**
  * Parsed pdf.js documents, kept across Reader unmounts.
  *
- * Leaving the Reader tab used to destroy the parsed document, its page text
- * (Ctrl+F) cache and every rendered page; coming back re-fetched the bytes
- * over llpdf:// and re-parsed them. Documents are content-addressed by their
- * URL, so a cached entry can only go stale when the vault changes — the app
+ * Parsed documents outlive Reader unmounts so returning to a source reuses
+ * the parsed document, its page-text (Ctrl+F) cache and rendered pages instead
+ * of re-fetching the bytes over llpdf:// and re-parsing them. Documents are
+ * content-addressed by their URL, so a cached entry can only go stale when the vault changes — the app
  * calls clearPdfDocuments() on a vault switch.
  *
  * Memory is bounded by MAX_DOCS (least recently used first). The pdf.js
