@@ -7,10 +7,12 @@ status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
 last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+source_commit: e1153c01d0c6e29e6c4f97f1f4fa1e5214914f73
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 source_paths:
   - src/learnloop/ops/doctor.py
+  - src/learnloop/db/storage.py
+  - src/learnloop/db/checkpoint.py
   - src/learnloop/migration_coordinator.py
   - src/learnloop/db/migrate.py
   - src/learnloop/vault/loader.py
@@ -39,7 +41,23 @@ VAULT="$HOME/LearnLoop/linear-algebra"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-Plain doctor opens SQLite read-only. It does not create a missing database, probe an AI provider, apply migrations, or sync state files. A non-clean result exits with status 1, so in automation retain and inspect its JSON instead of discarding output on nonzero exit.
+Plain doctor opens SQLite read-only. It does not create a missing database, probe an AI provider, apply migrations, or sync state files. It works on a vault in a read-only directory: when the WAL index cannot be created there and no uncheckpointed `-wal` exists, the database is opened as immutable (see [[State and Persistence#Journal mode and durability]]). A non-clean result exits with status 1, so in automation retain and inspect its JSON instead of discarding output on nonzero exit.
+
+### Storage report
+
+Doctor reads the state database's journal mode from its header, the `-wal` size from the file system, and, on Linux, the filesystem type from `/proc/mounts`. It opens nothing to do so. The JSON carries them as `storage`:
+
+```json
+"storage": {
+  "journal_mode": "wal",
+  "wal_bytes": 0,
+  "filesystem_type": "btrfs",
+  "mount_point": "/home",
+  "network_or_fuse": false
+}
+```
+
+Text output prints the same facts on one line before the issues, for example `storage: journal_mode=wal wal_bytes=0 filesystem=btrfs`. `journal_mode` is `rollback` for a database that no migration has switched yet. `filesystem_type` and `mount_point` are null outside Linux.
 
 To include provider composition/readiness:
 
@@ -62,6 +80,9 @@ An unavailable optional provider can coexist with a structurally clean vault; in
 | stale/missing derived rebuild marker | shadow compare, then justified live rebuild |
 | AI auth/readiness error | [[Configure AI Providers]] |
 | failed durable import | resume its batch, not global state repair |
+| `storage:network_filesystem` warning | move the vault to a local disk ([[State and Persistence#Where a vault may live]]) |
+| `sqlite:wal_large` warning (`-wal` above 64 MiB) | close other LearnLoop windows, then `--fix-state`, which checkpoints |
+| migration fails with `JournalModeSwitchError` | another process holds a transaction; close it and re-run |
 
 > [!failure] Deprecated does not mean disposable
 > A deprecated table with rows is evidence that compatibility migration or operator review is incomplete. Doctor deliberately reports `stop_and_escalate`; never delete those rows to make the check green.
@@ -83,7 +104,10 @@ uv run learnloop doctor --fix-state --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-`--fix-state` acquires the cross-process vault lock, applies pending migrations atomically, attaches the database writable, performs supported state synchronization, merges eligible legacy aliases, and resumes recoverable apply intents idempotently.
+`--fix-state` acquires the cross-process vault lock, applies pending migrations atomically (the first migration after upgrading switches a rollback-journal database to WAL), runs a best-effort `TRUNCATE` checkpoint, attaches the database writable, performs supported state synchronization, merges eligible legacy aliases, and resumes recoverable apply intents idempotently.
+
+> [!warning] Back up a closed vault
+> Step 2 copies the vault folder. Do it only after step 1, when no LearnLoop process has the database open; otherwise the copy can miss commits that are still in `state.sqlite-wal`. See [[State and Persistence#Copying and backing up a vault]].
 
 > [!important] Migration atomicity
 > A migration receipt and its body commit together. If the process dies mid-migration, neither is retained; the next coordinated open can safely apply that version again.
@@ -121,7 +145,7 @@ Do not edit `algorithm_version` in TOML to skip a projection. Freshly initialize
 - vault backup location and timestamp;
 - doctor JSON before and after;
 - command/version (`uv run learnloop --help`, Git commit);
-- `schema_migrations` head (currently 156);
+- `schema_migrations` head (currently 165);
 - related batch, attempt, agent-run, proposal, or rebuild-marker ids;
 - sidecar logs when the issue crossed the desktop bridge.
 

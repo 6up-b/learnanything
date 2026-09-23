@@ -6,11 +6,14 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: e1153c01d0c6e29e6c4f97f1f4fa1e5214914f73
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 source_paths:
   - src/learnloop/db
+  - src/learnloop/db/copies.py
+  - src/learnloop/db/checkpoint.py
+  - src/learnloop/db/storage.py
   - src/learnloop/vault/repository.py
   - src/learnloop/migration_coordinator.py
   - src/learnloop/substrate/rebuild_orchestrator.py
@@ -66,7 +69,31 @@ Application entry points call `open_vault_repository(vault_root, sqlite_path)`. 
 
 Plain doctor uses an explicit read-only attachment and does not create directories, migrate schemas, or write pragmas. `Repository.attach(path, read_only=True|False)` separates migration from access mode.
 
-Incremental migrations execute complete statements inside `BEGIN IMMEDIATE` with the schema receipt in the same transaction. Foreign-key-rebuild scripts disable enforcement before the transaction, run `foreign_key_check` before commit, roll back body plus receipt on failure/interruption, and restore enforcement in `finally`. Fresh databases are built under a temporary path and atomically renamed.
+Incremental migrations execute complete statements inside `BEGIN IMMEDIATE` with the schema receipt in the same transaction. Foreign-key-rebuild scripts disable enforcement before the transaction, run `foreign_key_check` before commit, roll back body plus receipt on failure/interruption, and restore enforcement in `finally`. Fresh databases are built under a temporary path, switched to WAL and closed, then atomically renamed.
+
+## Journal mode and durability
+
+Vault databases run in WAL mode with `synchronous = FULL` ([[ADR-015 SQLite runs in WAL mode with synchronous FULL]]). Readers keep a consistent snapshot while a writer commits, and every commit is fsynced before it is acknowledged. Writers are still serialized.
+
+- **Where the mode is set.** The journal mode is stored in the database header. `apply_migrations` switches an existing database once, before its pending migrations, and `connect()` never changes the mode. The switch needs every other connection to be free of open transactions. If one holds a transaction, migration fails with `JournalModeSwitchError` and leaves the header unchanged.
+- **Companion files.** While any connection is open, `state.sqlite-wal` holds recent commits and `state.sqlite-shm` holds the shared index. Closing the last writable connection checkpoints and removes both. Read-only connections cannot remove them, so an empty `-wal` and a `-shm` can remain after a read-only command.
+- **Checkpoints.** SQLite checkpoints automatically every 1000 pages. `learnloop.db.checkpoint.checkpoint_wal` truncates the `-wal` after a live rebuild, when an ingest batch finishes, and in `doctor --fix-state`. It is best effort: when a reader is busy it logs the result and returns. Doctor reports the `-wal` size and warns above 64 MiB.
+- **Read-only opens.** `connect(read_only=True)` uses `mode=ro`. In a directory the process cannot write, a WAL database with no `-shm` cannot be opened that way. The connection then falls back to `immutable=1`, but only if there is no non-empty `-wal`: no writer can work in that directory, so the file cannot change. A read-only directory holding an uncheckpointed `-wal` fails with a message to open a writable copy.
+
+## Where a vault may live
+
+A vault must live on a local disk. Rules:
+
+- **No network or FUSE mounts.** Do not put a vault on NFS, SMB/CIFS, 9p, virtiofs, sshfs or any other network or FUSE mount. WAL's `-shm` index is shared memory, and those filesystems do not share it between hosts. On Linux, doctor reports the filesystem and warns with `storage:network_filesystem`.
+- **Sync folders.** A vault in a file-sync folder (Dropbox, OneDrive, iCloud Drive, Syncthing, Nextcloud) must not be synced while LearnLoop is running, and must never be opened on two machines at once. A sync client can upload `state.sqlite` and `state.sqlite-wal` from different moments, or replace one without the other, and the result is a lost or corrupted database. Pause syncing or exclude `state.sqlite*` while the app runs, and let it sync only after every LearnLoop process has exited, which checkpoints and removes the companions.
+
+## Copying and backing up a vault
+
+In WAL mode a committed transaction can live in `state.sqlite-wal` until a checkpoint. Copying `state.sqlite` alone can drop those commits, and copying it together with a `-wal` that a writer is still changing can pair two moments.
+
+- **In code.** Every copy of a database goes through `learnloop.db.copies`: `backup_database` (SQLite's backup API, one consistent snapshot) and the tree copiers that never byte-copy a database or its companions. `tests/test_sqlite_file_copies.py` fails on any unaudited `copyfile`, `copy2`, `copytree` or `shutil.copy` under `src/`, `tests/` or `scripts/`.
+- **By hand.** Quit the desktop app, the TUI and every CLI command first, then copy the vault folder. Without companion files, `state.sqlite` alone is complete. To back up a running vault, use `sqlite3 state.sqlite ".backup /path/to/backup.sqlite"`, which reads a consistent snapshot.
+- **Never delete companions of a live database.** Deleting a `-wal` beside a database discards its recent commits. Beside a missing database, fresh creation deletes orphaned companions itself.
 
 ## Attempt write order
 
@@ -94,7 +121,7 @@ The golden oracle plants stale rows in every derived family, freezes the clock, 
 
 ## Shadow rebuild
 
-Shadow rebuild attaches the live DB read-only, computes a baseline snapshot, validates dotted configuration overrides, copies SQLite into a temporary database, rebuilds the copy, and returns semantic mastery/facet/schedule differences. A before/after SHA-256 assertion guarantees the live file did not change even if candidate validation fails.
+Shadow rebuild attaches the live DB read-only, computes a baseline snapshot, validates dotted configuration overrides, copies the database into a temporary file with the backup API, rebuilds the copy, and returns semantic mastery/facet/schedule differences. A before/after SHA-256 of the database file followed by its `-wal` guarantees the live database did not change even if candidate validation fails.
 
 > [!important] Evaluation boundary
 > Use shadow rebuild before changing algorithm defaults. A green replay only proves reproducibility; a useful candidate also needs acceptable learning/scheduling deltas and simulation metrics.
@@ -106,6 +133,7 @@ Shadow rebuild attaches the live DB read-only, computes a baseline snapshot, val
 - If raw/receipt, never mutate history to “fix” semantics; append a correction or reinterpretation event.
 - Add SQL to the existing family owner or extract a new store; do not expand `repositories.py` ownership accidentally.
 - Open databases through application factories; use `attach` only when migration/access policy is explicit.
+- Copy a database only through `learnloop.db.copies`, and never set the journal mode outside `migrate.switch_to_wal`.
 - Follow [[Algorithm Versions and Reproducibility]] for persisted semantic changes.
 
 ## References and tests
@@ -113,6 +141,8 @@ Shadow rebuild attaches the live DB read-only, computes a baseline snapshot, val
 - [[Database Catalog]] and [[Inspect Persistent State]]
 - `tests/test_table_roles.py`
 - `tests/test_persistence_open.py`
+- `tests/test_sqlite_wal.py` and `tests/test_sqlite_wal_lifecycle.py`
+- `tests/test_sqlite_file_copies.py` and `tests/test_tracked_fixture_databases.py`
 - `tests/test_migration_coordinator.py`
 - `tests/test_migrations.py`
 - `tests/test_rebuild_orchestrator.py`

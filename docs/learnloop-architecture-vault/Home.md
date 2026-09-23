@@ -40,7 +40,7 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 | [[Module Catalog]] | you know a package/module name and want callers/dependencies/tests |
 | [[Desktop Module Catalog]] | you know a TypeScript, TSX, or Rust desktop source file and want its role and edges |
 | [[Database Catalog]] | you know a table name and want its function/status/owner |
-| [[Design Decision Index]] | you want the reasoning behind a boundary or compatibility choice, such as [[ADR-014 SQLite stays in DELETE journal mode]] |
+| [[Design Decision Index]] | you want the reasoning behind a boundary or compatibility choice, such as [[ADR-015 SQLite runs in WAL mode with synchronous FULL]] |
 | [[Documentation Dashboard]] | you want live status/version tracking and review queues |
 
 ## Core system notes

@@ -1,13 +1,13 @@
 ---
 title: ADR-014 SQLite stays in DELETE journal mode
 aliases:
-  - SQLite journal mode decision
-  - WAL decision
-status: active
-doc_version: 1.0.0
+  - DELETE journal mode decision
+status: historical
+doc_version: 1.1.0
 implementation_version: mvp-0.9
 decision_date: 2026-09-07
-decision_status: accepted
+decision_status: superseded
+superseded_by: ADR-015 SQLite runs in WAL mode with synchronous FULL
 last_reviewed: 2026-09-23
 source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
 source_commit_timestamp: "2026-09-23T13:06:55-04:00"
@@ -25,6 +25,9 @@ tags:
 ---
 
 # ADR-014 SQLite stays in DELETE journal mode
+
+> [!warning] Superseded
+> Superseded on 2026-09-23 by [[ADR-015 SQLite runs in WAL mode with synchronous FULL]], which records the status of each check below. This note describes the rollback-journal configuration that production used until then.
 
 ## Context
 

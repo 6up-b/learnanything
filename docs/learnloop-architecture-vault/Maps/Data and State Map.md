@@ -55,7 +55,7 @@ Authored files and captured observations are authorities. Derived state can be d
 - [[Algorithm Versions and Reproducibility]] — version bumps, fingerprints, upgrades.
 - [[ADR-003 Explicit table roles govern rebuild]] — why naming is not enough.
 - [[ADR-007 Immutable evidence and append-only correction]] — historical meaning.
-- [[ADR-014 SQLite stays in DELETE journal mode]] — why the store keeps rollback journaling for now.
+- [[ADR-015 SQLite runs in WAL mode with synchronous FULL]] — journal mode, copies, checkpoints and where a vault may live.
 - [[Collection and Dataset Contract]] — offer provenance, labels, splits, and the dataset export.
 
 ## Status counts at migration head 165

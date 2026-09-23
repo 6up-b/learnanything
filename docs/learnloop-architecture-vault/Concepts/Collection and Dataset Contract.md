@@ -138,7 +138,7 @@ The fixture's whole history is shorter than the default embargo, so every held-o
 
 ### What an export contains
 
-`dataset-export` creates `OUTPUT`, takes an online SQLite backup into `OUTPUT/snapshot.sqlite`, and exports only from that copy:
+`dataset-export` creates `OUTPUT`, takes an online SQLite backup into `OUTPUT/snapshot.sqlite`, switches the snapshot to a rollback journal so it is one self-contained file with no `-wal` or `-shm`, and exports only from that copy:
 
 - one JSONL per table whose role is RAW_LEDGER or RECEIPT, plus the captured workflow tables `proposed_patches`, `proposed_patch_items`, `synthesis_runs`, `model_work_checkpoints`, `ingest_batches`, `ingest_jobs` and `attempt_completion_work`;
 - `outcome_contract.jsonl` (the labels above) and `split_assignments.jsonl`;
