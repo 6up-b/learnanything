@@ -33,6 +33,7 @@ import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
+import { schedulerCandidateForServe, type PracticeOffer } from "./practiceOffer";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { errorMessage } from "../errors";
 
@@ -85,7 +86,7 @@ export function App() {
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [todayStage, setTodayStage] = useState<TodayStage>("queue");
   const [practiceItemId, setPracticeItemId] = useState<string | null>(null);
-  const [practiceOffer, setPracticeOffer] = useState<{ itemId: string; candidateId: string | null } | null>(null);
+  const [practiceOffer, setPracticeOffer] = useState<PracticeOffer | null>(null);
   // The current practice item is a primed retry (opened from the feedback
   // screen's source panel); the submit carries primed=true to the backend.
   const [primedRetry, setPrimedRetry] = useState(false);
@@ -557,6 +558,7 @@ export function App() {
     setTodayNoGoalBannerDismissed(false);
     setSession(null);
     setLocalDraft(null);
+    setPracticeOffer(null);
     setPracticeItemId(null);
     setRedoContext(null);
     setAttemptId(null);
@@ -665,6 +667,40 @@ export function App() {
     setTab("proposals");
   }
 
+  /** Drop every piece of shell state that refers to the previous vault. */
+  function resetShellForVault() {
+    setStartupError(null);
+    setSettingsOpen(false);
+    setReviewOpen(false);
+    setInspectorId(null);
+    setAskTarget(null);
+    setOpenSource(null);
+    setQuickAddOpen(false);
+    setRepairMisconceptionId(null);
+    setConfirmOpen(false);
+    setWhyTriage(null);
+    setAdjudicateOpen(false);
+    setPaletteOpen(false);
+    setFinishSummary(null);
+    setTodayNoGoalBannerDismissed(false);
+    // The draft mirror and offer carry the old vault's retry keys and
+    // scheduler candidates; the unmount above may just have reported a draft.
+    setLocalDraft(null);
+    setPracticeOffer(null);
+    setPracticeItemId(null);
+    setRedoContext(null);
+    setAttemptId(null);
+    setBlockReview(null);
+    setCalibrationSessionId(null);
+    setPendingPrimedItemId(null);
+    setPendingRedo(null);
+    setIngestJobId(null);
+    setProposalFocusPatchId(null);
+    setReaderSource(null);
+    setTodayStage("queue");
+    setTab("start");
+  }
+
   const changeVault = useCallback(
     async (path: string) => {
       let selected = false;
@@ -690,39 +726,12 @@ export function App() {
         // screen can read through the cache for the new one.
         clearQueryCache();
         clearPdfDocuments();
-        setStartupError(null);
-        setSettingsOpen(false);
-        setReviewOpen(false);
-        setInspectorId(null);
-        setAskTarget(null);
-        setOpenSource(null);
-        setQuickAddOpen(false);
-        setRepairMisconceptionId(null);
-        setConfirmOpen(false);
-        setWhyTriage(null);
-        setAdjudicateOpen(false);
-        setPaletteOpen(false);
-        setFinishSummary(null);
+        resetShellForVault();
         const next = await api.loadVault();
         setAlgoConfig(next.config);
         setSnapshot(next);
         setStartupError(null);
         setSession(next.activeSession ?? null);
-        setTodayNoGoalBannerDismissed(false);
-        setPracticeItemId(null);
-        setRedoContext(null);
-        setAttemptId(null);
-        setBlockReview(null);
-        setInspectorId(null);
-        setSettingsOpen(false);
-        setCalibrationSessionId(null);
-        setRepairMisconceptionId(null);
-        setPendingPrimedItemId(null);
-        setIngestJobId(null);
-        setProposalFocusPatchId(null);
-        setReaderSource(null);
-        setTodayStage("queue");
-        setTab("start");
       } catch (error) {
         const message = errorMessage(error, "Could not open that vault.");
         if (selected) {
@@ -813,7 +822,13 @@ export function App() {
             key={`${session.sessionId}:${practiceItemId}`}
             session={session}
             practiceItemId={practiceItemId}
-            schedulerCandidateId={!primedRetry && !redoContext && practiceOffer?.itemId === practiceItemId ? practiceOffer.candidateId : null}
+            schedulerCandidateId={schedulerCandidateForServe({
+              offer: practiceOffer,
+              practiceItemId,
+              primedRetry,
+              guidedRedo: redoContext !== null,
+              restoredSubmissionId: restored.submissionId
+            })}
             primed={primedRetry}
             redo={redoContext && redoContext.practiceItemId === practiceItemId ? redoContext : null}
             gradingReady={gradingReady}
