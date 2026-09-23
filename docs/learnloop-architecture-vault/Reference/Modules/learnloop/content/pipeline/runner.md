@@ -205,6 +205,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_cte_read_is_not_fenced_but_a_cte_write_is`
   - `test_a_replaced_attempt_interrupts_only_its_own_transport`
   - `test_a_replaced_attempt_still_saves_its_paid_checkpoint`
+  - `test_a_replaced_ingest_cannot_create_a_subject`
   - `test_a_replaced_ingest_cannot_publish_its_source_note_or_goal_linkage`
   - `test_fast_restart_reconciles_later_expiry_without_replacing_live_work`
   - `test_heartbeat_keeps_renewing_after_a_transient_database_error`

@@ -1089,6 +1089,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_deletion.py](../../../../../tests/test_source_deletion.py) — direct import
 - [tests/test_source_ingestion.py](../../../../../tests/test_source_ingestion.py) — direct import
   - `test_composite_note_id_locator_source_ref_resolves`
+  - `test_ingest_creates_a_new_subject_while_holding_the_vault_lock`
   - `test_ingest_does_not_link_goal_to_pending_proposed_concept`
   - `test_ingest_invalid_returned_locator_blocks_auto_apply`
   - `test_ingest_local_html_registers_source_and_auto_applies`

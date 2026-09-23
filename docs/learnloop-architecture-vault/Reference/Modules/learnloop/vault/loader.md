@@ -650,6 +650,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_reachability_summary_reports_minted_cells`
   - `test_record_content_recalibration_ignores_unknown_los`
 - [tests/test_ingest_ownership.py](../../../../../../tests/test_ingest_ownership.py) — direct import
+  - `test_a_replaced_ingest_cannot_create_a_subject`
   - `test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks`
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`
@@ -1059,6 +1060,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_plan_rejects_an_unknown_source`
   - `test_plan_reports_study_map_citations_without_deleting`
 - [tests/test_source_ingestion.py](../../../../../../tests/test_source_ingestion.py) — direct import
+  - `test_ingest_creates_a_new_subject_while_holding_the_vault_lock`
   - `test_ingest_does_not_link_goal_to_pending_proposed_concept`
   - `test_ingest_invalid_returned_locator_blocks_auto_apply`
   - `test_ingest_local_html_registers_source_and_auto_applies`

@@ -150,6 +150,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_ownership.py](../../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_a_cte_read_is_not_fenced_but_a_cte_write_is`
   - `test_a_replaced_attempt_still_saves_its_paid_checkpoint`
+  - `test_a_replaced_ingest_cannot_create_a_subject`
   - `test_a_replaced_ingest_cannot_publish_its_source_note_or_goal_linkage`
   - `test_late_usage_is_retained_after_takeover_without_restoring_publication_authority`
   - `test_stale_worker_cannot_finish_or_publish_after_replacement`

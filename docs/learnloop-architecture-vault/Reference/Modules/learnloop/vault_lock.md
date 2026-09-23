@@ -121,6 +121,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_ownership.py](../../../../../tests/test_ingest_ownership.py) — direct import
   - `test_a_busy_vault_lock_defers_lease_work_instead_of_failing`
   - `test_stale_worker_cannot_finish_or_publish_after_replacement`
+- [tests/test_source_ingestion.py](../../../../../tests/test_source_ingestion.py) — direct import
+  - `test_ingest_creates_a_new_subject_while_holding_the_vault_lock`
 
 ## Modification guidance
 
