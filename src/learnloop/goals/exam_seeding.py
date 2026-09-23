@@ -409,6 +409,9 @@ def seed_exam_attempts(
             learner_answer_md=answer_md,
             attempt_type=EXAM_ATTEMPT_TYPE,
             hints_used=0,
+            entry_surface="exam_seeding",
+            evidence_origin="human",
+            awaits_completion=False,
         )
         result = apply_attempt(
             vault,

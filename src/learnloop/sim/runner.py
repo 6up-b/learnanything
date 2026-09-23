@@ -644,6 +644,7 @@ def _simulate_one_attempt(
     draft = AttemptDraft(
         entry_surface="simulation",
         evidence_origin="simulator",
+        awaits_completion=False,
         practice_item_id=item.id,
         learner_answer_md=answer_md,
         attempt_type=attempt_type,
@@ -866,6 +867,9 @@ def _simulate_teach_back_attempt(
         client,
         session_id=session_id,
         latency_seconds=latency_seconds,
+        entry_surface="simulation",
+        evidence_origin="simulator",
+        awaits_completion=False,
         clock=clock,
     )
     result = finish.attempt

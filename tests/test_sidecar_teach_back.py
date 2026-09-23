@@ -367,6 +367,10 @@ def test_sidecar_teach_back_finish_early_grades_only_asked_criteria(tmp_path):
         repository = Repository(paths.sqlite_path)
         evidence = repository.fetch_grading_evidence(final["attemptId"])
         assert [row.criterion_id for row in evidence] == ["core_definition"]
+        # A learner's teach-back is human evidence from the desktop surface,
+        # so the dataset export keeps it.
+        attempt = repository.fetch_practice_attempt(final["attemptId"])
+        assert (attempt["entry_surface"], attempt["evidence_origin"]) == ("desktop_teach_back", "human")
         grading_calls = [request for request in server.requests if request["path"] == "/grading-proposal"]
         assert [c["id"] for c in grading_calls[0]["body"]["context"]["rubric"]["criteria"]] == [
             "core_definition"
