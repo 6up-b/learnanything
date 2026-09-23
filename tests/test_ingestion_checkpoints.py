@@ -177,3 +177,59 @@ def test_concurrent_original_writers_use_independent_temporary_files(tmp_path, m
         paths = [future.result(timeout=10) for future in futures]
     assert paths[0] == paths[1] and paths[0].read_bytes() == b"same source"
     assert not list(paths[0].parent.glob("*.tmp"))
+
+
+def test_keyboard_interrupt_during_parallel_inventory_releases_waiting_workers(tmp_path, monkeypatch):
+    import concurrent.futures
+    import threading
+    from learnloop.content.pipeline import jobs
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
+    repo = Repository(tmp_path / "state.sqlite")
+    _register_revision(repo)
+    document = _ir([(f"u{n}", f"Chapter {n}", [_block(f"s{n}", f"Eigenvector section {n}.")], f"hash{n}", n) for n in range(1, 3)])
+    _persist(repo, document, revision_id="rev1", extraction_id="ext1")
+    monkeypatch.setattr(jobs, "_MAX_INVENTORY_WORKERS", 2)
+    in_provider = threading.Semaphore(0)
+    release_providers = threading.Event()
+    interrupt_runner = threading.Event()
+    runner_thread = None
+
+    class Client(FakeInventoryClient):
+        def run_source_unit_inventory(self, context):
+            in_provider.release()
+            release_providers.wait(5)
+            return super().run_source_unit_inventory(context)
+
+    real_wait = concurrent.futures.wait
+
+    def wait(*args, **kwargs):
+        # Ctrl-C lands on the runner thread while it waits on its workers.
+        if threading.current_thread() is runner_thread and interrupt_runner.is_set():
+            interrupt_runner.clear()
+            raise KeyboardInterrupt()
+        return real_wait(*args, **kwargs)
+
+    monkeypatch.setattr(concurrent.futures, "wait", wait)
+    runner = IngestRunner(repo, vault_root=tmp_path, worker_id="worker", clock=_CLOCK, services=RunnerServices(inventory_client_factory=lambda ctx: Client()))
+    runner.enqueue_batch("import_inventory", [JobSpec("inventory", {"extraction_id": "ext1", "units": [{"unit_id": "u1", "role": "reference"}, {"unit_id": "u2", "role": "reference"}]})])
+    finished = threading.Event()
+    raised = []
+
+    def drain():
+        try:
+            runner.drain()
+        except BaseException as exc:
+            raised.append(type(exc))
+        finally:
+            finished.set()
+
+    runner_thread = threading.Thread(target=drain, daemon=True)
+    runner_thread.start()
+    assert in_provider.acquire(timeout=5) and in_provider.acquire(timeout=5)
+    interrupt_runner.set()
+    threading.Event().wait(0.3)
+    # The workers' next step asks the runner to record their call and save
+    # their checkpoint; nothing on the runner thread answers any more.
+    release_providers.set()
+    assert finished.wait(10), "inventory workers waited forever for a stopped runner"
+    assert raised == [KeyboardInterrupt]

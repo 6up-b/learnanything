@@ -1127,6 +1127,63 @@ class _InventoryInterruptGroup:
         return capability == INTERRUPT
 
 
+class _RunnerMailbox:
+    """Carry inventory workers' requests to the runner thread and back.
+
+    Workers own provider clients, but every SQL write runs on the runner
+    thread, where the job's ownership fence and progress reporting live. A
+    worker posts a callback and waits for the runner to answer it. Once the
+    runner closes the mailbox nothing answers any more, so every unanswered
+    and later request fails with :class:`JobCancelled` instead of waiting
+    forever on a runner that has stopped.
+    """
+
+    _ANSWER_POLL_SECONDS = 0.25
+
+    def __init__(self) -> None:
+        self._requests: queue.SimpleQueue[
+            tuple[Callable[[], Any], concurrent.futures.Future]
+        ] = queue.SimpleQueue()
+        self._closed = threading.Event()
+
+    def call(self, callback: Callable[[], Any]) -> Any:
+        """Worker side: run ``callback`` on the runner thread; return its result."""
+
+        answer: concurrent.futures.Future = concurrent.futures.Future()
+        self._requests.put((callback, answer))
+        while not answer.done():
+            if self._closed.is_set():
+                raise JobCancelled()
+            concurrent.futures.wait((answer,), timeout=self._ANSWER_POLL_SECONDS)
+        return answer.result()
+
+    def answer_pending(self) -> BaseException | None:
+        """Runner side: answer every queued request; return the first failure."""
+
+        first_failure: BaseException | None = None
+        while True:
+            try:
+                callback, answer = self._requests.get_nowait()
+            except queue.Empty:
+                return first_failure
+            try:
+                answer.set_result(callback())
+            except BaseException as exc:
+                answer.set_exception(exc)
+                first_failure = first_failure or exc
+
+    def close(self) -> None:
+        """Runner side: stop answering and fail every unanswered request."""
+
+        self._closed.set()
+        while True:
+            try:
+                _callback, answer = self._requests.get_nowait()
+            except queue.Empty:
+                return
+            answer.set_exception(JobCancelled())
+
+
 def handle_inventory(ctx: JobContext) -> dict[str, Any]:
     """inventory: role-aware per-unit inventories for the selected units (§7).
 
@@ -1248,31 +1305,26 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
 
         interrupt_group = _InventoryInterruptGroup()
         ctx.bind_interruptible(interrupt_group)
-        events: queue.SimpleQueue = queue.SimpleQueue()
+        mailbox = _RunnerMailbox()
         stopped = threading.Event()
         total_model_windows = sum(len(prepared.windows) for prepared in work_by_index.values())
         completed_model_windows = 0
         ctx.report("inventoried", message="Inventorying uncached units", current_window=0, total_windows=total_model_windows)
-
-        def on_runner(callback):
-            receipt = concurrent.futures.Future()
-            events.put((callback, receipt))
-            return receipt.result()
 
         def run_unit(client, index, prepared):
             interrupt_group.add(client)
             def observe(action, event):
                 if action == "start" and stopped.is_set():
                     raise JobCancelled()
-                return on_runner(lambda: ctx.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=ctx.job["id"]))
+                return mailbox.call(lambda: ctx.repo.record_model_event(action, event, owner_kind="ingest_job", owner_id=ctx.job["id"]))
             def checkpoint(key, result, usage):
-                on_runner(lambda: ctx.repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage))
+                mailbox.call(lambda: ctx.repo.save_model_checkpoint(key, purpose="inventory_window", result=result.model_dump(mode="json"), usage=usage))
             def report_window(current, total):
                 def report():
                     nonlocal completed_model_windows
                     completed_model_windows += 1
                     ctx.report("inventoried", message=f"Inventoried {prepared.unit_id} window {current} of {total}", current_window=completed_model_windows, total_windows=total_model_windows)
-                on_runner(report)
+                mailbox.call(report)
                 if stopped.is_set():
                     raise JobCancelled()
             try:
@@ -1283,47 +1335,52 @@ def handle_inventory(ctx: JobContext) -> dict[str, Any]:
                 interrupt_group.discard(client)
 
         work = iter(sorted(work_by_index.items()))
-        failure = None
+        failure: BaseException | None = None
         with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="learnloop-inventory") as executor:
-            pending = {}
+            pending: dict[concurrent.futures.Future, Any] = {}
             def submit(client):
                 item = next(work, None)
                 if item is not None:
                     index, prepared = item
                     pending[executor.submit(copy_context().run, run_unit, client, index, prepared)] = client
-            for client in clients:
-                submit(client)
-            while pending:
-                done, _ = concurrent.futures.wait(pending, timeout=0.05, return_when=concurrent.futures.FIRST_COMPLETED)
-                while not events.empty():
-                    callback, receipt = events.get_nowait()
+            try:
+                for client in clients:
+                    submit(client)
+                while pending:
+                    done, _ = concurrent.futures.wait(pending, timeout=0.05, return_when=concurrent.futures.FIRST_COMPLETED)
+                    answer_failure = mailbox.answer_pending()
+                    failure = failure or answer_failure
                     try:
-                        receipt.set_result(callback())
-                    except BaseException as exc:
-                        receipt.set_exception(exc)
-                        failure = failure or exc
-                try:
-                    if ctx.cancelled():
-                        raise JobCancelled()
-                except BaseException as exc:
-                    failure = failure or exc
-                free_clients = []
-                for future in done:
-                    free_clients.append(pending.pop(future))
-                    try:
-                        index, prepared, execution = future.result()
-                        result = persist_prepared_inventory(ctx.repo, prepared, execution, clock=ctx.clock)
-                        ctx.record_usage(dict(result.usage or {}))
-                        results_by_index[index] = result
+                        if ctx.cancelled():
+                            raise JobCancelled()
                     except BaseException as exc:
                         failure = failure or exc
-                if failure is not None:
-                    if not stopped.is_set():
-                        stopped.set()
-                        interrupt_group.interrupt()
-                else:
-                    for client in free_clients:
-                        submit(client)
+                    free_clients = []
+                    for future in done:
+                        free_clients.append(pending.pop(future))
+                        try:
+                            index, prepared, execution = future.result()
+                            result = persist_prepared_inventory(ctx.repo, prepared, execution, clock=ctx.clock)
+                            ctx.record_usage(dict(result.usage or {}))
+                            results_by_index[index] = result
+                        except BaseException as exc:
+                            failure = failure or exc
+                    if failure is not None:
+                        if not stopped.is_set():
+                            stopped.set()
+                            interrupt_group.interrupt()
+                    else:
+                        for client in free_clients:
+                            submit(client)
+            finally:
+                if pending:
+                    # The loop ended with workers still running, e.g. on a
+                    # KeyboardInterrupt raised on this thread. Stop their
+                    # provider calls; closing the mailbox releases any worker
+                    # waiting for an answer, so the executor can join them.
+                    stopped.set()
+                    interrupt_group.interrupt()
+                mailbox.close()
             if failure is not None:
                 raise failure
 
