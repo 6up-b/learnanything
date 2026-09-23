@@ -83,6 +83,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]] — imports `applied_versions`; statically calls `applied_versions`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `apply_migrations`; statically calls `apply_migrations`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `Migration`, `apply_migrations`; statically calls `apply_migrations`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `applied_versions`, `discover_migrations`; statically calls `applied_versions`, `discover_migrations`
@@ -106,7 +107,7 @@ Use this module in context through:
 
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/receipts|learnloop.cli.receipts]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -178,6 +179,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_unit_selections_migration_applies_on_pre_040_db`
   - `test_source_unit_selections_schema_is_available`
   - `test_variable_rubric_scale_migration_allows_scores_above_four`
+- [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
+  - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_persistence_open.py](../../../../../../tests/test_persistence_open.py) — direct import
   - `test_repository_attach_can_open_a_writable_scratch_copy`
   - `test_repository_attach_skips_migrations_and_can_be_physically_read_only`

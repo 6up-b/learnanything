@@ -358,6 +358,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_integration_backfill.py](../../../../../../tests/test_integration_backfill.py) — direct import
   - `test_cli_integration_backfill_diff_then_apply`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
+  - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
   - `test_cli_synthesize_records_receipts_with_usage_and_budgets`
   - `test_tui_grading_records_receipts_with_usage`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import

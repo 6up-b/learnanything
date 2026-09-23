@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/substrate/model_usage.py"
 source_paths:
   - "src/learnloop/substrate/model_usage.py"
-source_commit: "922f2d187b5839289a7de8ea6d73ce679998e7e8"
-source_commit_timestamp: "2026-09-23T15:53:48-04:00"
+source_commit: "5b1184a8a7c8932f6468766c2f59599d01f1b8cc"
+source_commit_timestamp: "2026-09-23T16:08:23-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `922f2d187b5839289a7de8ea6d73ce679998e7e8` |
-| Commit timestamp | `2026-09-23T15:53:48-04:00` |
+| Source commit | `5b1184a8a7c8932f6468766c2f59599d01f1b8cc` |
+| Commit timestamp | `2026-09-23T16:08:23-04:00` |
 
 ## Public API
 

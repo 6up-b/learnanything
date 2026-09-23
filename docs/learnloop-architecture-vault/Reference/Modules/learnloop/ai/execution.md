@@ -129,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_retry_policy_records_each_failed_request_with_unknown_usage`
   - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — direct import
+  - `test_a_database_below_the_receipt_schema_lets_the_model_call_run_unrecorded`
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
   - `test_runs_are_compared_with_the_budgets_recorded_on_their_receipts`
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import

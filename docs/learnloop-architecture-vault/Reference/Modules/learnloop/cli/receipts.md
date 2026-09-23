@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/receipts.py"
 source_paths:
   - "src/learnloop/cli/receipts.py"
-source_commit: "75d4474a6e5950eb79877fbbf5f0b46f6590926a"
-source_commit_timestamp: "2026-09-23T15:53:13-04:00"
+source_commit: "5b1184a8a7c8932f6468766c2f59599d01f1b8cc"
+source_commit_timestamp: "2026-09-23T16:08:23-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -52,34 +52,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/receipts.py](../../../../../../src/learnloop/cli/receipts.py) |
-| Source lines | 108 |
+| Source lines | 134 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `75d4474a6e5950eb79877fbbf5f0b46f6590926a` |
-| Commit timestamp | `2026-09-23T15:53:13-04:00` |
+| Source commit | `5b1184a8a7c8932f6468766c2f59599d01f1b8cc` |
+| Commit timestamp | `2026-09-23T16:08:23-04:00` |
 
 ## Public API
 
-- `class CommandReceipts` ([source](../../../../../../src/learnloop/cli/receipts.py), line 32) — The receipt store of one command run, bound to its vault on first use.
-  - `__init__(self, fallback_label: str) -> None` (line 35; internal)
-  - `owner_id(self) -> str` (line 43; public) — ``<command path>:<run ulid>``, fixed the first time it is read.
-  - `bind_vault(self, vault_root: Path) -> None` (line 55; public)
-  - `bind_repository(self, repository: Repository) -> None` (line 62; public)
-  - `record(self, action: str, event: dict[str, Any]) -> None` (line 65; public)
-  - `_store(self) -> Repository` (line 68; internal)
-- `command_receipts(fallback_label: str) -> Iterator[CommandReceipts]` ([source](../../../../../../src/learnloop/cli/receipts.py), line 80)
-- `bind_command_vault(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 90)
-- `bind_command_repository(repository: Repository) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 96)
+- `class CommandReceipts` ([source](../../../../../../src/learnloop/cli/receipts.py), line 35) — The receipt store of one command run, bound to its vault on first use.
+  - `__init__(self, fallback_label: str) -> None` (line 38; internal)
+  - `owner_id(self) -> str` (line 47; public) — ``<command path>:<run ulid>``, fixed the first time it is read.
+  - `bind_vault(self, vault_root: Path) -> None` (line 59; public)
+  - `bind_repository(self, repository: Repository) -> None` (line 67; public)
+  - `record(self, action: str, event: dict[str, Any]) -> None` (line 70; public)
+  - `_store(self) -> Repository | None` (line 76; internal) — The repository to record into, or None when receipts cannot be kept.
+- `command_receipts(fallback_label: str) -> Iterator[CommandReceipts]` ([source](../../../../../../src/learnloop/cli/receipts.py), line 106)
+- `bind_command_vault(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 116)
+- `bind_command_repository(repository: Repository) -> None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 122)
 
 ### Module constants
 
-- `CLI_OWNER_KIND` ([src/learnloop/cli/receipts.py](../../../../../../src/learnloop/cli/receipts.py), line 27)
+- `CLI_OWNER_KIND` ([src/learnloop/cli/receipts.py](../../../../../../src/learnloop/cli/receipts.py), line 28)
+- `RECEIPT_SCHEMA_VERSION` ([src/learnloop/cli/receipts.py](../../../../../../src/learnloop/cli/receipts.py), line 30)
 
 ## Internal implementation anchors
 
-- `_command_path() -> str | None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 102) — The running subcommand's path below the program name, e.g.
+- `_command_path() -> str | None` ([source](../../../../../../src/learnloop/cli/receipts.py), line 128) — The running subcommand's path below the program name, e.g.
 
 ## Who imports or calls it
 
@@ -94,6 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `observe_model_calls`; calls `observe_model_calls`
+- [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `applied_versions`; calls `applied_versions`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
