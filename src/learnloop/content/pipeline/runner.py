@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
 from learnloop.clock import Clock, SystemClock, utc_now_iso
-from learnloop.ai.execution import observe_model_calls
+from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import interrupt_callback
 from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
@@ -833,11 +833,7 @@ class IngestRunner:
             try:
                 with guard_ingest_writes(
                     self.repo.sqlite_path, job["id"], self.worker_id, job["attempt_count"]
-                ), observe_model_calls(
-                    lambda action, event: self.repo.record_model_event(
-                        action, event, owner_kind="ingest_job", owner_id=job["id"]
-                    )
-                ):
+                ), record_model_calls(self.repo, owner_kind="ingest_job", owner_id=job["id"]):
                     result = handler(ctx)
             finally:
                 heartbeat_stop.set()

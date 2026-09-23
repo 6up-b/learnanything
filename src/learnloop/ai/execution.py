@@ -14,7 +14,7 @@ from functools import wraps
 import hashlib
 import json
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from learnloop.ai.errors import AIInterrupted, AIOutputTruncated
@@ -68,6 +68,23 @@ def observe_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
         yield
     finally:
         _observer.reset(token)
+
+
+class ModelEventStore(Protocol):
+    def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
+        ...
+
+
+def record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str):
+    """Observe every model call in this context into ``store`` under one owner.
+
+    ``store`` is usually a ``Repository``; the owner names the unit of work
+    (a sidecar request, a CLI command, a TUI session) whose calls these are.
+    """
+
+    return observe_model_calls(
+        lambda action, event: store.record_model_event(action, event, owner_kind=owner_kind, owner_id=owner_id)
+    )
 
 
 @contextmanager

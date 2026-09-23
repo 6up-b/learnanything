@@ -190,6 +190,10 @@ class FeedbackScreen(Screen):
             self._render_fatal_summary()
 
     def submit(self) -> AttemptResult:
+        with self.state.model_receipts():
+            return self._submit()
+
+    def _submit(self) -> AttemptResult:
         if self.graded:
             return self.result
         committed = self._committed_result()
@@ -233,6 +237,11 @@ class FeedbackScreen(Screen):
         return result
 
     async def auto_submit_ai(self) -> AttemptResult | None:
+        # asyncio.to_thread copies this context, so the grading thread records too.
+        with self.state.model_receipts():
+            return await self._auto_submit_ai()
+
+    async def _auto_submit_ai(self) -> AttemptResult | None:
         if self.graded:
             return self.result
         committed = self._committed_result()

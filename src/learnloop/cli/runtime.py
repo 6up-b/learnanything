@@ -107,6 +107,7 @@ from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.repository import open_vault_repository
 from learnloop.vault.yaml_io import read_yaml, yaml_to_string
 
+from learnloop.cli.receipts import bind_command_repository, bind_command_vault
 from learnloop.cli.render import *  # noqa: F401,F403
 
 _INGEST_SPINNER_FRAMES = ("|", "/", "-", "\\")
@@ -114,14 +115,18 @@ _INGEST_SPINNER_FRAMES = ("|", "/", "-", "\\")
 _INGEST_PROGRESS_EVENT = "learnloop_ingest_progress"
 
 def _root(vault: Path | None) -> Path:
-    return vault.resolve() if vault else find_vault_root(Path.cwd())
+    root = vault.resolve() if vault else find_vault_root(Path.cwd())
+    bind_command_vault(root)
+    return root
 
 def _repository(vault_root: Path) -> Repository:
     loaded = load_vault(vault_root)
-    return open_vault_repository(
+    repository = open_vault_repository(
         loaded.root,
         VaultPaths(loaded.root, loaded.config).sqlite_path,
     )
+    bind_command_repository(repository)
+    return repository
 
 def _load_vault_or_exit(vault_root: Path, *, json_output: bool = False):
     try:

@@ -19,7 +19,7 @@ import hashlib
 import json
 from typing import Any, Callable, Mapping, Sequence
 
-from learnloop.ai.execution import observe_model_calls
+from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import StructuredTransport, execute_structured_operation
 from learnloop.reader.ai_contracts import (
     ReaderPresetSynthesis,
@@ -390,11 +390,7 @@ def model_synthesis(client: Any) -> Callable[[Repository, Mapping[str, Any], Clo
         # The drain runs on a long-lived worker thread (or inside whichever RPC
         # nudged it), so no caller context owns this call. The request does:
         # its receipts carry the request id whichever thread drains it.
-        with observe_model_calls(
-            lambda action, event: repository.record_model_event(
-                action, event, owner_kind="reader_request", owner_id=str(request["id"])
-            )
-        ):
+        with record_model_calls(repository, owner_kind="reader_request", owner_id=str(request["id"])):
             result = request_reader_preset_synthesis(
                 client,
                 ReaderPresetSynthesisContext(

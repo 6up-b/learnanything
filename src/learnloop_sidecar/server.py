@@ -10,7 +10,7 @@ from typing import Any, TextIO
 from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401
-from learnloop.ai.execution import observe_model_calls
+from learnloop.ai.execution import record_model_calls
 from learnloop.attempts.completion_lock import AttemptCompletionBusy
 from learnloop.ids import new_ulid
 from learnloop_sidecar.context import SidecarContext
@@ -112,11 +112,7 @@ def _observed_model_calls(ctx: SidecarContext, method_name: str, params: Any):
     submission_id = submission_key(params)
     owner_kind = "submission" if submission_id else "sidecar_rpc"
     owner_id = submission_id or f"{method_name}:{new_ulid()}"
-    return observe_model_calls(
-        lambda action, event: repository.record_model_event(
-            action, event, owner_kind=owner_kind, owner_id=owner_id
-        )
-    )
+    return record_model_calls(repository, owner_kind=owner_kind, owner_id=owner_id)
 
 
 def _busy_error(exc: Exception) -> SidecarError | None:
