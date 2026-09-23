@@ -35,7 +35,13 @@ class AttemptCompletionBusy(RuntimeError):
 
 
 def completion_lock_path(sqlite_path: Path) -> Path:
-    return Path(sqlite_path).parent / "attempt-completion.lock"
+    """One lock per database file, however its path is spelled.
+
+    Relative and absolute spellings, and a symlink to the database file, all
+    resolve to the same lock, which is also the per-thread re-entrancy key.
+    """
+
+    return Path(sqlite_path).resolve().parent / "attempt-completion.lock"
 
 
 @contextmanager
