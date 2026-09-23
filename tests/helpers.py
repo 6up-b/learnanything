@@ -313,6 +313,20 @@ def set_algorithm_version(paths: VaultPaths, version: str) -> None:
     _set_algorithm_version_at(paths.root, version)
 
 
+def use_init_algorithm_version(paths: VaultPaths, scratch_root: Path) -> str:
+    """Pin a basic vault to the algorithm version ``learnloop init`` writes.
+
+    The basic vault is pinned to mvp-0.6 for its ad-hoc facets; tests that must
+    follow whatever version a new vault gets initialize a throwaway vault at
+    ``scratch_root`` and copy its version. Returns that version.
+    """
+
+    init_vault(scratch_root, clock=FrozenClock(NOW))
+    version = load_vault(scratch_root).config.algorithms.algorithm_version
+    _set_algorithm_version_at(paths.root, version)
+    return version
+
+
 def _set_algorithm_version_at(root: Path, version: str) -> None:
     toml_path = root / "learnloop.toml"
     text = toml_path.read_text(encoding="utf-8")

@@ -953,17 +953,18 @@ def test_failed_teach_back_grading_closes_its_run_as_failed(tmp_path):
     assert [(row["status"], row["error_message"]) for row in runs] == [("failed", "grader offline")]
 
 
-def _p0_teach_back_mastery(tmp_path, grading_source: str):
+def _init_version_teach_back_mastery(tmp_path, grading_source: str):
     """Mastery after one partially-correct teach-back graded under ``grading_source``."""
 
-    from learnloop.algorithm_versions import P0_ALGORITHM_VERSION
-    from tests.helpers import set_algorithm_version
+    from learnloop.algorithm_versions import P0_PROJECTION_VERSIONS
+    from tests.helpers import use_init_algorithm_version
 
     vault_root = tmp_path / grading_source / "vault"
     paths = create_basic_vault(vault_root)
-    # The model-grade soft-score lane of the mastery update is gated on the
-    # P0 projection version.
-    set_algorithm_version(paths, P0_ALGORITHM_VERSION)
+    # The model-grade soft-score lane of the mastery update is keyed on the P0
+    # projection versions, which include the version a new vault is given.
+    version = use_init_algorithm_version(paths, tmp_path / grading_source / "init")
+    assert version in P0_PROJECTION_VERSIONS
     clock = FrozenClock(NOW)
     upsert_practice_item(vault_root, _teach_item_payload(), clock=clock)
     vault = load_vault(vault_root)
@@ -976,8 +977,8 @@ def _p0_teach_back_mastery(tmp_path, grading_source: str):
 
 
 def test_teach_back_grade_takes_the_model_grade_observation_lane(tmp_path):
-    _vault, _repository, self_lane = _p0_teach_back_mastery(tmp_path, "self")
-    vault, repository, model_lane = _p0_teach_back_mastery(tmp_path, "ai")
+    _vault, _repository, self_lane = _init_version_teach_back_mastery(tmp_path, "self")
+    vault, repository, model_lane = _init_version_teach_back_mastery(tmp_path, "ai")
     prior_variance = 3.0
 
     # Same transcript, same grade. The model lane adds the grade channel's
