@@ -256,3 +256,16 @@ def test_saved_result_loads_across_field_changes(tmp_path):
     assert loaded.attempt_id == result.attempt_id
     assert loaded.probe_block_end is None
     assert loaded.debug_payload == result.debug_payload
+
+
+def test_rung_variant_request_completes_at_apply_and_is_tagged(tmp_path):
+    from learnloop.content.authoring.rung_variants import request_rung_variant
+
+    _paths, vault, repository = _vault(tmp_path)
+    summary = request_rung_variant(vault, repository, practice_item_id=ITEM_ID, direction="easier")
+
+    work = repository.attempt_completion(summary["attempt_id"])
+    assert work["status"] == "completed"
+    assert work["route"] is None
+    attempt = repository.fetch_practice_attempt(summary["attempt_id"])
+    assert (attempt["entry_surface"], attempt["evidence_origin"]) == ("desktop_rung_variant", "human")

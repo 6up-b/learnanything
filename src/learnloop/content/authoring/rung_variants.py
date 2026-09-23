@@ -459,6 +459,11 @@ def request_rung_variant(
         ),
         attempt_type="self_report",
         session_id=session_id,
+        # A learner action from the desktop; nothing runs a post-attempt
+        # completion for it, so its completion is recorded at apply time.
+        entry_surface="desktop_rung_variant",
+        evidence_origin="human",
+        awaits_completion=False,
     )
     grade = SelfGradeInput(
         criterion_points={
