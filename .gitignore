@@ -225,7 +225,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 # LearnLoop Tauri build outputs and installed dependencies
-apps/learnloop-tauri/node_modules/
+apps/learnloop-tauri/node_modules
 apps/learnloop-tauri/dist/
 apps/learnloop-tauri/src-tauri/target/
 apps/learnloop-tauri/src-tauri/gen/
