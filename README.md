@@ -156,12 +156,12 @@ The core loop is:
 7. Let new evidence update future scheduling, and return for cold retrieval.
 
 For a step-by-step walkthrough, start with the
-[quick start](documentation.md#quick-start) in the
-[user and algorithm guide](documentation.md), which covers vault creation,
+[quick start](docs/specs/documentation.md#quick-start) in the
+[user and algorithm guide](docs/specs/documentation.md), which covers vault creation,
 Quick Add versus deliberate ingestion, what the pipeline does mechanistically,
 and the daily practice loop then drills into the learner model behind it.
 Contributors can find the enforced package boundaries, persistence roles, and
-compatibility policy in [ARCHITECTURE.md](ARCHITECTURE.md).
+compatibility policy in the [architecture vault](docs/learnloop-architecture-vault/Home.md).
 
 ## Quick start: desktop app
 
@@ -313,7 +313,7 @@ Quick Add collapses import → outline → unit selection → inventory → synt
 into one confirmation. The deliberate step-by-step path (`import`,
 `source-outline`, `source-set`, `source-coverage`, `build-plan`, `synthesize`)
 runs the same machinery with you at each decision point — see the
-[quick start](documentation.md#quick-start) for when to prefer which.
+[quick start](docs/specs/documentation.md#quick-start) for when to prefer which.
 
 Run `uv run learnloop --help` for the complete command list, or append `--help`
 to any subcommand. Most read-oriented commands also support stable JSON output
@@ -473,7 +473,7 @@ Four things are worth knowing before you read any of this output:
   recalibration entry saying so, rather than letting the estimate drift under
   you silently.
 
-`documentation.md` sections 8–14 and 21–23 explain the model behind all of it.
+`docs/specs/documentation.md` sections 8–14 and 21–23 explain the model behind all of it.
 
 ## Architecture
 
@@ -514,7 +514,7 @@ the sidecar.
 
 ```bash
 uv sync --extra dev                    # install
-uv run pytest                          # full suite (~10 minutes)
+uv run pytest                          # full suite (~17 minutes)
 uv run pytest tests/test_scheduler.py::test_name -x   # one test
 uv run learnloop --help                # CLI
 uv run python -m learnloop_sidecar     # sidecar directly, JSON-RPC over stdio
@@ -529,6 +529,7 @@ Check the desktop layers:
 ```bash
 cd apps/learnloop-tauri
 npm run typecheck
+npm test                # vitest
 npm run frontend:build
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
@@ -553,11 +554,12 @@ Tauri app with `LEARNLOOP_TAURI_DEBUG_ZOOM=1`. Use `Ctrl+=`, `Ctrl+-`, and
 
 ## Further reading
 
-- [User and algorithm guide](documentation.md) — quick start, first-use
+- [Architecture vault](docs/learnloop-architecture-vault/Home.md) — current architecture, workflows, decisions, and generated references
+- [User and algorithm guide](docs/specs/documentation.md) — quick start, first-use
   journey, learner model, and operational details for current behavior
-- [Product definition](product_definition.md) — product goals and design thesis
-- [Historical MVP specification](spec.md) — original data model and algorithm
+- [Product definition](docs/specs/product_definition.md) — product goals and design thesis
+- [Historical MVP specification](docs/specs/spec.md) — original data model and algorithm
   contracts; retained for archaeology, not current package/API guidance
-- [Architecture pivot](architecture_pivot.md) — longer-term strategy for learned
+- [Architecture pivot](docs/specs/architecture_pivot.md) — longer-term strategy for learned
   models and search
-- [Changelog](CHANGELOG.md) — notable implementation milestones
+- [Changelog](docs/specs/CHANGELOG.md) — notable implementation milestones
