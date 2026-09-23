@@ -57,7 +57,7 @@ COMMIT = subprocess.check_output(
 COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
-VERIFIED_DATE = "2026-09-07"
+VERIFIED_DATE = "2026-09-23"
 SCHEMA_HEAD = 164
 
 
@@ -111,6 +111,8 @@ PURPOSE_OVERRIDES: dict[str, str] = {
     "model_work_checkpoints": "Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work.",
     "submission_intents": "Binds a durable retry identity to the exact session, practice item and offered scheduler candidate before the attempt is committed.",
     "scheduler_offer_receipts": "Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer.",
+    "decision_features": "Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names.",
+    "practice_item_snapshots": "Keeps one content-addressed copy of every practice-item revision the scheduler scored, keyed by the SHA-256 of its canonical JSON, so selection decision features can be joined to the exact item text after the vault item changes.",
     "false_remediation_adjudications": "Records append-only human or machine false-remediation labels with retained evidence references and verifier versions; corrections append another adjudication.",
     "schema_migrations": "Records exactly which numbered SQL migrations have been applied to this database.",
     "practice_attempts": "Stores the authoritative learner-attempt ledger used by grading, replay, diagnosis, and scheduling.",
@@ -225,7 +227,7 @@ def table_domain(table: str) -> str:
         return "reader"
     if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism")):
         return "diagnosis"
-    if table.startswith(("scheduler_", "controller_", "attention_", "session", "queue_state", "decision_features", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
+    if table.startswith(("scheduler_", "controller_", "attention_", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
         return "scheduling"
     if table.startswith(("commitment", "depth_", "task_blueprint", "golden_path", "progression_", "angle_inventor", "p2_ladder", "lapse_episode", "family_evidence", "target_exemplar")):
         return "curriculum"
