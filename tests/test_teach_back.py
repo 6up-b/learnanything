@@ -994,6 +994,22 @@ def test_teach_back_grade_takes_the_model_grade_observation_lane(tmp_path):
     assert replayed.logit_variance == pytest.approx(model_lane.logit_variance)
 
 
+def test_scheduler_offer_survives_the_checkpointed_state(tmp_path):
+    _root, vault, repository = _setup(tmp_path)
+    state = begin_teach_back(
+        vault,
+        repository,
+        vault.practice_items[TEACH_ITEM_ID],
+        opening_md="SVD factors any matrix.",
+        scheduler_candidate_id="offer_1",
+        clock=FrozenClock(NOW),
+    )
+
+    restored = TeachBackState.from_json(state.to_json())
+
+    assert restored.scheduler_candidate_id == "offer_1"
+
+
 # ── regrade restricted to the originally graded criteria ─────────────────────
 
 

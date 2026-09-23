@@ -174,6 +174,11 @@ class TeachBackState:
     # Optional because checkpoints written before it existed carry none (those
     # simply skip the dedup lookup).
     conversation_id: str | None = None
+    # The scheduler offer the conversation answers, validated by the caller
+    # when a turn first carries it. Kept in the checkpointed state so the
+    # finishing turn links the attempt to the offer even when only the start
+    # call carried it.
+    scheduler_candidate_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -183,6 +188,7 @@ class TeachBackState:
             "turns": [asdict(turn) for turn in self.turns],
             "asked_count": self.asked_count,
             "conversation_id": self.conversation_id,
+            "scheduler_candidate_id": self.scheduler_candidate_id,
         }
 
     def to_json(self) -> str:
@@ -208,6 +214,7 @@ class TeachBackState:
             asked_count=int(payload.get("asked_count") or 0),
             version=int(payload.get("version") or STATE_VERSION),
             conversation_id=payload.get("conversation_id"),
+            scheduler_candidate_id=payload.get("scheduler_candidate_id"),
         )
 
     @classmethod
@@ -340,10 +347,15 @@ def begin_teach_back(
     item: PracticeItem,
     *,
     opening_md: str,
+    scheduler_candidate_id: str | None = None,
     config: LearnLoopConfig | None = None,
     clock: Clock | None = None,
 ) -> TeachBackState:
-    """Start a conversation: plan the follow-ups and record the opening turn."""
+    """Start a conversation: plan the follow-ups and record the opening turn.
+
+    ``scheduler_candidate_id`` is the queue offer the conversation answers; the
+    caller validates it, and ``finish_teach_back`` links the attempt to it.
+    """
 
     if not opening_md.strip():
         raise TeachBackError("Opening explanation must not be empty.")
@@ -353,6 +365,7 @@ def begin_teach_back(
         planned=planned,
         turns=[TeachBackTurn(role="learner", content_md=opening_md)],
         conversation_id=new_ulid(),
+        scheduler_candidate_id=scheduler_candidate_id,
     )
 
 
@@ -525,6 +538,10 @@ def finish_teach_back(
     ``agent_run_id``; it is the key a retried finish looks the recorded
     attempt up by, so it must stay stable across finishes of one
     conversation, which a fresh grading run id is not.
+
+    ``state.scheduler_candidate_id`` becomes the attempt's scheduler offer,
+    and the attempt write links the offer to the attempt (a stale or foreign
+    offer fails that write with ``ValueError``).
     """
 
     item = vault.practice_items.get(state.practice_item_id)
@@ -577,6 +594,7 @@ def finish_teach_back(
                 hints_used=0,
                 latency_seconds=latency_seconds,
                 session_id=session_id,
+                scheduler_candidate_id=state.scheduler_candidate_id,
                 entry_surface=entry_surface,
                 evidence_origin=evidence_origin,
                 awaits_completion=awaits_completion,
