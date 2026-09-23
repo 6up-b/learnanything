@@ -256,9 +256,9 @@ def _sql_write_lines(source: str) -> list[int]:
         if isinstance(statement, ast.Constant) and isinstance(statement.value, str):
             sql_text = statement.value
         elif isinstance(statement, ast.JoinedStr):
-            # Dynamic identifiers still leave the SQL verb in literal f-string
-            # fragments; ignoring JoinedStr made the ownership guard falsely
-            # green for UPDATE/INSERT/DELETE calls.
+            # Dynamic identifiers still leave the SQL verb in the literal
+            # f-string fragments, so scanning them catches UPDATE/INSERT/DELETE
+            # calls that interpolate a table name.
             sql_text = "".join(
                 value.value
                 for value in statement.values
@@ -270,7 +270,7 @@ def _sql_write_lines(source: str) -> list[int]:
 
 
 def test_legacy_codex_namespace_is_not_referenced() -> None:
-    """Provider-neutral AI contracts must not regress to the deleted namespace."""
+    """No source or test may reference a codex or services package under learnloop; neither exists."""
 
     forbidden = ".".join(("learnloop", "codex"))
     retired_services = ".".join(("learnloop", "services"))

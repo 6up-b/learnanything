@@ -435,8 +435,8 @@ def test_retired_taxonomy_is_never_adopted_by_a_new_receipt(tmp_path):
 
 
 def test_repair_class_definitions_are_durable_and_content_addressed(tmp_path):
-    """The A2 key reads the repair-class DEFINITION, so it must survive the
-    replay rebuild that owns the receipt it used to live in."""
+    """The A2 key reads the repair-class DEFINITION, so the definition must be
+    stored apart from the receipt and survive a replay rebuild of that receipt."""
 
     paths = create_basic_vault(tmp_path / "vault")
     vault = load_vault(paths.root)
@@ -778,7 +778,7 @@ def test_feedback_overlay_and_cli_are_receipt_checked(tmp_path):
     )
     assert overlay["contest_action"]["available"] is True
     # G10: an ordinary failed attempt with a nontrivial error (conceptual_slip
-    # -> conceptual_schema_error) and a mapped repair class now opens the
+    # -> conceptual_schema_error) and a mapped repair class opens the
     # repair-lane factor, so the contest action binds to it instead of None.
     open_factors = repository.unresolved_cause_factors_for_attempt(
         result.attempt_id

@@ -70,10 +70,10 @@ def create_basic_vault(root: Path, *, fresh: bool = False) -> VaultPaths:
         return VaultPaths(root.resolve(), template.config.model_copy(deep=True))
     clock = FrozenClock(NOW)
     init_vault(root, clock=clock)
-    # The basic vault is the legacy (mvp-0.6) baseline: its items declare ad-hoc
-    # facets with no facets.yaml registry, which is exactly the pre-KM2 world.
-    # `learnloop init` now writes mvp-0.7, so pin the legacy version here; KM
-    # tests that want mvp-0.7 flip it explicitly via set_algorithm_version.
+    # The basic vault is an mvp-0.6 vault: its items declare ad-hoc facets with
+    # no facets.yaml registry, which is the pre-KM2 contract. `learnloop init`
+    # writes mvp-0.7, so pin mvp-0.6 here; KM tests that want mvp-0.7 flip it
+    # explicitly via set_algorithm_version.
     _set_algorithm_version_at(root, ALGORITHM_VERSION)
     add_subject(root, "linear-algebra", "Linear Algebra", clock=clock)
     vault = load_vault(root)
@@ -222,8 +222,8 @@ def configure_codex_http(vault_root: Path, checkout: Path, base_url: str) -> Non
     """Configure the canonical Codex profile for an in-process HTTP test server.
 
     The schema-v2 template deliberately omits machine-local Codex fields, so
-    tests must replace the provider table rather than mutate legacy template
-    lines that are no longer generated.
+    there are no template lines to edit and tests replace the whole provider
+    table.
     """
 
     config_path = vault_root / "learnloop.toml"
