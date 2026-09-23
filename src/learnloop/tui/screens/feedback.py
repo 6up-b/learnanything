@@ -22,7 +22,7 @@ from learnloop.attempts.attempts import (
 )
 from learnloop.diagnosis.followups import FollowupDecision
 from learnloop.learner.mastery import sigmoid
-from learnloop.attempts.post_attempt import run_post_attempt_pipeline
+from learnloop.attempts.post_attempt import committed_submission_result, run_post_attempt_pipeline
 from learnloop.scheduling.scheduler import ScheduledItem
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import KeyBar, TextStatic, block_bar, mode_pill_color, pill
@@ -190,8 +190,12 @@ class FeedbackScreen(Screen):
             self._render_fatal_summary()
 
     def submit(self) -> AttemptResult:
-        if self.result is not None:
+        if self.graded:
             return self.result
+        committed = self._committed_result()
+        if committed is not None:
+            self._complete_result(committed)
+            return committed
         self._read_form_state()
         provider_name, runtime, client = self._grading_provider()
         self_grade = SelfGradeInput(
@@ -200,29 +204,36 @@ class FeedbackScreen(Screen):
             fatal_errors=self.fatal_errors or None,
             error_type=self.error_type,
         )
-        if provider_name in CODEX_PROVIDER_NAMES:
-            result = complete_attempt_with_codex_fallback(
-                self.state.vault,
-                self.state.repository,
-                self.draft,
-                self_grade,
-                runtime=runtime,
-                codex_client=client,
-            )
-        else:
-            result = complete_attempt_with_ai_fallback(
-                self.state.vault,
-                self.state.repository,
-                self.draft,
-                self_grade,
-                runtime=runtime,
-                ai_client=client,
-            )
+        try:
+            if provider_name in CODEX_PROVIDER_NAMES:
+                result = complete_attempt_with_codex_fallback(
+                    self.state.vault,
+                    self.state.repository,
+                    self.draft,
+                    self_grade,
+                    runtime=runtime,
+                    codex_client=client,
+                )
+            else:
+                result = complete_attempt_with_ai_fallback(
+                    self.state.vault,
+                    self.state.repository,
+                    self.draft,
+                    self_grade,
+                    runtime=runtime,
+                    ai_client=client,
+                )
+        except Exception:
+            # A step after the model grade committed failed: that grade stands.
+            committed = self._committed_result()
+            if committed is None:
+                raise
+            result = committed
         self._complete_result(result)
         return result
 
     async def auto_submit_ai(self) -> AttemptResult | None:
-        if self.result is not None:
+        if self.graded:
             return self.result
         provider_name, runtime, client = self._grading_provider()
         if not runtime.ready or client is None:
@@ -250,12 +261,22 @@ class FeedbackScreen(Screen):
                     ai_client=client,
                 )
         except Exception as exc:
+            committed = self._committed_result()
+            if committed is not None:
+                # The model grade committed and a later step failed. That
+                # grade stands; asking for a self-grade would record a second
+                # attempt for the same answer.
+                self._complete_result(committed)
+                return committed
             self.query_one("#grading-status", TextStatic).update(
                 Content(f"AI grading failed: {type(exc).__name__}. Enter a self-grade below.")
             )
             return None
         self._complete_result(result)
         return result
+
+    def _committed_result(self) -> AttemptResult | None:
+        return committed_submission_result(self.state.repository, self.draft.submission_id)
 
     async def auto_submit_codex(self) -> AttemptResult | None:
         return await self.auto_submit_ai()
@@ -278,6 +299,9 @@ class FeedbackScreen(Screen):
         return "Codex" if provider_name in CODEX_PROVIDER_NAMES else f"AI provider {provider_name}"
 
     def _complete_result(self, result: AttemptResult) -> None:
+        # Recorded before completion runs: if completion fails, the next
+        # submit resumes this attempt instead of grading the answer again.
+        self.result = result
         _provider_name, runtime, client = self._grading_provider()
         outcome = run_post_attempt_pipeline(
             self.state.vault,
@@ -287,7 +311,6 @@ class FeedbackScreen(Screen):
             ai_client=client if runtime.ready else None,
         )
         self.followup_decision = outcome.followup
-        self.result = result
         self.app.last_attempt_result = result
         self.surprise_direction = result.surprise_direction
         source = "Codex" if result.grading_source == "codex" else "AI" if result.grading_source == "ai" else "Self-grade"

@@ -11,6 +11,7 @@ from textual.screen import Screen
 from textual.widgets import Button, Rule, TextArea
 
 from learnloop.attempt_types import default_attempt_type
+from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.diagnosis.probe_episodes import (
     commit_item_presentation,
@@ -202,9 +203,8 @@ class PracticeScreen(Screen):
             self._draft("dont_know"),
             SelfGradeInput(criterion_points={}, confidence=3),
         )
-        # Keep every learner-facing attempt door on the same post-attempt
-        # composition.  This path used to bypass feedback metadata, causal
-        # follow-ups, and certification cold-probe scheduling entirely.
+        # Every learner-facing attempt door runs the same post-attempt
+        # composition.
         from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 
         run_post_attempt_pipeline(
@@ -227,6 +227,10 @@ class PracticeScreen(Screen):
         return AttemptDraft(
             entry_surface="tui_practice",
             evidence_origin="human",
+            # One retry key per composed answer: the unique submission index
+            # then stops a self-grade retry from recording a second attempt
+            # after a model grade for the same answer committed.
+            submission_id=new_ulid(),
             practice_item_id=self.practice_item.id,
             learner_answer_md=self.answer,
             attempt_type=resolved_type,

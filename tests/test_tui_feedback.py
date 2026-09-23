@@ -200,3 +200,44 @@ class _GradingServer:
                 self.wfile.write(raw)
 
         return Handler
+
+
+def test_committed_model_grade_is_not_regraded_when_a_later_step_fails(tmp_path, monkeypatch):
+    from learnloop.ai.runtime import AIRuntimeReport
+    from learnloop.attempts import attempts
+    from tests.test_diagnostic_augmentation import _proposal, _SequenceDiagnostician
+
+    client = _SequenceDiagnostician([lambda context: _proposal(context.attempt_id)] * 2)
+    runtime = AIRuntimeReport(status="ready", active_provider="diagnostician", provider_type="openai_chat", model="claude-4")
+    monkeypatch.setattr(FeedbackScreen, "_grading_provider", lambda self: ("diagnostician", runtime, client))
+
+    def fail(*args, **kwargs):
+        raise ValueError("interrupted augmentation receipt")
+
+    monkeypatch.setattr(attempts, "_record_diagnostic_augmentation", fail)
+
+    async def scenario():
+        vault_root = tmp_path / "vault"
+        paths = create_basic_vault(vault_root)
+        seed_due_item(paths)
+        app = LearnLoopApp(vault_root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            await today.open_practice()
+            await pilot.pause()
+            practice = app.screen
+            practice.set_answer("A = U Sigma")
+            feedback = await practice.open_feedback()
+            await pilot.pause()
+            graded = await feedback.auto_submit_ai()
+            feedback.set_points("correctness", 4)
+            feedback.set_confidence(5)
+            resubmitted = feedback.submit()
+        return paths, graded, resubmitted
+
+    paths, graded, resubmitted = asyncio.run(scenario())
+    assert graded is not None and graded.grading_source == "ai"
+    assert resubmitted.attempt_id == graded.attempt_id
+    assert len(client.contexts) == 1
+    assert [row["id"] for row in Repository(paths.sqlite_path).list_attempt_history()] == [graded.attempt_id]
