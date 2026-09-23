@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/attempts/observations.py"
 source_paths:
   - "src/learnloop/attempts/observations.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "e60a0e7483883c54f90a66010ede37deb0b11513"
+source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.attempts"
 layer: "domain"
 concepts:
@@ -50,13 +50,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/observations.py](../../../../../../src/learnloop/attempts/observations.py) |
-| Source lines | 177 |
+| Source lines | 180 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `e60a0e7483883c54f90a66010ede37deb0b11513` |
+| Commit timestamp | `2026-09-23T12:27:35-04:00` |
 
 ## Public API
 

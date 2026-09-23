@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/codex.py"
 source_paths:
   - "src/learnloop/ai/providers/codex.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "c8380692deed1903626f67efd5804067a25db401"
+source_commit_timestamp: "2026-09-23T12:25:12-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -51,68 +51,68 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py) |
-| Source lines | 805 |
+| Source lines | 831 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c8380692deed1903626f67efd5804067a25db401` |
+| Commit timestamp | `2026-09-23T12:25:12-04:00` |
 
 ## Public API
 
-- `class SdkCodexClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 47) — Codex Python SDK-backed client.
-  - `__init__(self, config: CodexConfig, vault_root: Path)` (line 55; internal)
-  - `interrupt(self) -> bool` (line 72; public) — Interrupt this client's active SDK turn without killing the sidecar.
-  - `_expire_turn(self, turn: Any, codex: Any) -> None` (line 89; internal) — Deadline callback: request a clean interrupt, then force-close if needed.
-  - `_schedule_turn_stop(self, turn: Any, codex: Any) -> None` (line 98; internal) — Stop an SDK turn without blocking the palette or deadline thread.
-  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 124; public) — Execute one structured request with Codex's existing repair policy.
-  - `supports(self, capability: str) -> bool` (line 143; public)
-  - `_complete_validated(self, prompt: str, model_type: type[BaseModel], *, purpose: str) -> Any` (line 151; internal) — Run one structured turn and repair malformed/schema-invalid JSON once.
-  - `_run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str, timeout_seconds: float | None=None) -> str` (line 220; internal)
-- `class CodexHealthChecker(Protocol)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 480)
-  - `__call__(self, checkout_path: Path, config: CodexConfig) -> None` (line 481; internal)
-- `class CodexStartupProcess(Protocol)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 485)
-  - `poll(self) -> int | None` (line 486; public)
-- `class CodexStartupRunner(Protocol)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 490)
-  - `__call__(self, checkout_path: Path, config: CodexConfig) -> CodexStartupProcess` (line 491; internal)
-- `class CodexAuthRequired(RuntimeError)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 495)
-- `class CodexHealthUnavailable(RuntimeError)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 499)
-- `class CodexRuntimeReport` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 504)
-  - `ready(self) -> bool` (line 512; public)
-  - `as_dict(self) -> dict[str, str | bool | None]` (line 515; public)
-- `check_codex_runtime(vault_root: Path, config: CodexConfig, *, healthcheck: CodexHealthChecker | None=None, startup: CodexStartupRunner | None=None) -> CodexRuntimeReport` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 526)
-- `default_startup(checkout_path: Path, config: CodexConfig) -> subprocess.Popen` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 630)
-- `default_http_healthcheck(_checkout_path: Path, config: CodexConfig) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 669)
-- `default_sdk_healthcheck(checkout_path: Path, config: CodexConfig) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 702)
-- `codex_config_from_ai_profile(profile: AIProviderConfig) -> CodexConfig` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 754)
-- `class CodexSDKProviderClient(SdkCodexClient)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 785)
-  - `__init__(self, provider_name: str, profile: AIProviderConfig, vault_root: Path)` (line 788; internal)
-- `make_codex_client(config: CodexConfig, vault_root: Path) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 795) — Build the legacy Codex selection from the relocated providers.
+- `class SdkCodexClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 49) — Codex Python SDK-backed client.
+  - `__init__(self, config: CodexConfig, vault_root: Path)` (line 57; internal)
+  - `interrupt(self) -> bool` (line 74; public) — Interrupt this client's active SDK turn without killing the sidecar.
+  - `_expire_turn(self, turn: Any, codex: Any) -> None` (line 91; internal) — Deadline callback: request a clean interrupt, then force-close if needed.
+  - `_schedule_turn_stop(self, turn: Any, codex: Any) -> None` (line 100; internal) — Stop an SDK turn without blocking the palette or deadline thread.
+  - `complete(self, request: StructuredRequest[Any]) -> Any` (line 126; public) — Execute one structured request with Codex's existing repair policy.
+  - `supports(self, capability: str) -> bool` (line 146; public)
+  - `_complete_validated(self, prompt: str, model_type: type[BaseModel], *, purpose: str) -> Any` (line 154; internal) — Run one structured turn and repair malformed/schema-invalid JSON once.
+  - `_run_structured(self, prompt: str, output_schema: dict[str, Any], *, purpose: str, timeout_seconds: float | None=None) -> str` (line 239; internal)
+- `class CodexHealthChecker(Protocol)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 506)
+  - `__call__(self, checkout_path: Path, config: CodexConfig) -> None` (line 507; internal)
+- `class CodexStartupProcess(Protocol)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 511)
+  - `poll(self) -> int | None` (line 512; public)
+- `class CodexStartupRunner(Protocol)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 516)
+  - `__call__(self, checkout_path: Path, config: CodexConfig) -> CodexStartupProcess` (line 517; internal)
+- `class CodexAuthRequired(RuntimeError)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 521)
+- `class CodexHealthUnavailable(RuntimeError)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 525)
+- `class CodexRuntimeReport` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 530)
+  - `ready(self) -> bool` (line 538; public)
+  - `as_dict(self) -> dict[str, str | bool | None]` (line 541; public)
+- `check_codex_runtime(vault_root: Path, config: CodexConfig, *, healthcheck: CodexHealthChecker | None=None, startup: CodexStartupRunner | None=None) -> CodexRuntimeReport` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 552)
+- `default_startup(checkout_path: Path, config: CodexConfig) -> subprocess.Popen` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 656)
+- `default_http_healthcheck(_checkout_path: Path, config: CodexConfig) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 695)
+- `default_sdk_healthcheck(checkout_path: Path, config: CodexConfig) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 728)
+- `codex_config_from_ai_profile(profile: AIProviderConfig) -> CodexConfig` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 780)
+- `class CodexSDKProviderClient(SdkCodexClient)` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 811)
+  - `__init__(self, provider_name: str, profile: AIProviderConfig, vault_root: Path)` (line 814; internal)
+- `make_codex_client(config: CodexConfig, vault_root: Path) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 821) — Build the legacy Codex selection from the relocated providers.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py), line 44)
-- `EVENT_FIELDS_ATTR` ([src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py), line 45)
-- `PINNED_REVISION_PLACEHOLDER` ([src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py), line 477)
+- `LOG` ([src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py), line 46)
+- `EVENT_FIELDS_ATTR` ([src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py), line 47)
+- `PINNED_REVISION_PLACEHOLDER` ([src/learnloop/ai/providers/codex.py](../../../../../../../src/learnloop/ai/providers/codex.py), line 503)
 
 ## Internal implementation anchors
 
-- `_is_structured_json_transport_error(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 369) — Whether app-server failed before returning malformed structured output.
-- `_sdk_reasoning_effort(reasoning_effort_type: Any, value: str | None) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 386)
-- `_sdk_reasoning_summary(reasoning_summary_type: Any, value: str | None) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 397)
-- `_ensure_sdk_importable(sdk_python_path: Path) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 408)
-- `_sdk_launch_args(command: str) -> tuple[str, ...] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 415)
-- `_resolved_sdk_codex_bin(configured: str | None) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 421) — Prefer an explicit/pinned SDK runtime, with a source-checkout fallback.
-- `_resolve_checkout_path(vault_root: Path, checkout_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 442)
-- `_resolve_sdk_python_path(checkout_path: Path, sdk_python_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 449)
-- `_log_codex_debug(event: str, **fields: Any) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 456) — Emit full Codex request/response data into sidecar debug logs.
-- `_wait_for_startup_health(checkout_path: Path, config: CodexConfig, healthcheck: CodexHealthChecker, process: CodexStartupProcess) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 643)
-- `_url(base_url: str, path: str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 714)
-- `_resolve_checkout_path(vault_root: Path, checkout_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 718)
-- `_requires_revision_match(revision: str) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 725)
-- `_read_checkout_revision(checkout_path: Path) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 729)
-- `_resolve_sdk_python_path(checkout_path: Path, sdk_python_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 748)
+- `_is_structured_json_transport_error(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 395) — Whether app-server failed before returning malformed structured output.
+- `_sdk_reasoning_effort(reasoning_effort_type: Any, value: str | None) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 412)
+- `_sdk_reasoning_summary(reasoning_summary_type: Any, value: str | None) -> Any` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 423)
+- `_ensure_sdk_importable(sdk_python_path: Path) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 434)
+- `_sdk_launch_args(command: str) -> tuple[str, ...] | None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 441)
+- `_resolved_sdk_codex_bin(configured: str | None) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 447) — Prefer an explicit/pinned SDK runtime, with a source-checkout fallback.
+- `_resolve_checkout_path(vault_root: Path, checkout_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 468)
+- `_resolve_sdk_python_path(checkout_path: Path, sdk_python_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 475)
+- `_log_codex_debug(event: str, **fields: Any) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 482) — Emit full Codex request/response data into sidecar debug logs.
+- `_wait_for_startup_health(checkout_path: Path, config: CodexConfig, healthcheck: CodexHealthChecker, process: CodexStartupProcess) -> None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 669)
+- `_url(base_url: str, path: str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 740)
+- `_resolve_checkout_path(vault_root: Path, checkout_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 744)
+- `_requires_revision_match(revision: str) -> bool` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 751)
+- `_read_checkout_revision(checkout_path: Path) -> str | None` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 755)
+- `_resolve_sdk_python_path(checkout_path: Path, sdk_python_path: str) -> Path` ([source](../../../../../../../src/learnloop/ai/providers/codex.py), line 774)
 
 ## Who imports or calls it
 
@@ -130,13 +130,14 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIProviderUnavailable`, `AITurnTimeout`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`; calls `AIInvalidOutput`, `AIProviderUnavailable`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `AITurnTimeout`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`; calls `AIInvalidOutput`, `AIOutputTruncated`, `AIProviderUnavailable`, `CodexInterrupted`, `CodexTurnTimeout`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `generation_limit`, `observed_sdk_turn`, `output_limit`, `report_call_usage`; calls `generation_limit`, `output_limit`, `report_call_usage`
 - [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `HttpCodexClient`; calls `HttpCodexClient`
 - [[Reference/Modules/learnloop/ai/providers/structured_output|learnloop.ai.providers.structured_output]] — imports `structured_output_regeneration_prompt`, `structured_output_repair_prompt`; calls `structured_output_regeneration_prompt`, `structured_output_repair_prompt`
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `describe_wire_validation_error`; calls `describe_wire_validation_error`
 - [[Reference/Modules/learnloop/ai/strict_schema|learnloop.ai.strict_schema]] — imports `strict_output_schema`; calls `strict_output_schema`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `INTERRUPT`, `STRUCTURED_COMPLETION`, `StructuredRequest`
-- [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `usage_from_codex_turn`; calls `usage_from_codex_turn`
+- [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `UsageMeter`, `receipt_fields_from_codex_turn`, `usage_from_codex_turn`; calls `UsageMeter`, `receipt_fields_from_codex_turn`, `usage_from_codex_turn`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`, `CodexConfig`; calls `CodexConfig`
 
 ### Platform and third-party dependencies
@@ -182,6 +183,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deferred_regrade.py](../../../../../../../tests/test_deferred_regrade.py) — direct import
   - `test_deferred_regrade_skips_when_runtime_not_ready`
 - [tests/test_e2e_codex_mock.py](../../../../../../../tests/test_e2e_codex_mock.py) — direct import
+- [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
+  - `test_codex_does_not_repair_when_reported_output_consumed_the_budget`
 - [tests/test_learner_review_system_entries.py](../../../../../../../tests/test_learner_review_system_entries.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_structured_providers_share_one_transport_surface`

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/vault/writer.py"
 source_paths:
   - "src/learnloop/vault/writer.py"
-source_commit: "a6c3391bee0c4732249b52d238aa1660b1a3042e"
-source_commit_timestamp: "2026-07-28T01:49:30-04:00"
+source_commit: "568c46ba7679000912ca00b94086722d03f76700"
+source_commit_timestamp: "2026-09-23T12:18:25-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -49,46 +49,47 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py) |
-| Source lines | 481 |
+| Source lines | 482 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `a6c3391bee0c4732249b52d238aa1660b1a3042e` |
-| Commit timestamp | `2026-07-28T01:49:30-04:00` |
+| Source commit | `568c46ba7679000912ca00b94086722d03f76700` |
+| Commit timestamp | `2026-09-23T12:18:25-04:00` |
 
 ## Public API
 
-- `class VaultWriterError(ValueError)` ([source](../../../../../../src/learnloop/vault/writer.py), line 25)
-- `upsert_concept(root: Path, concept_id: str, payload: Concept | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 126)
+- `class VaultWriterError(ValueError)` ([source](../../../../../../src/learnloop/vault/writer.py), line 26)
+- `upsert_concept(root: Path, concept_id: str, payload: Concept | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 127)
 - `delete_concept(root: Path, concept_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 154)
-- `upsert_concept_edge(root: Path, payload: ConceptEdge | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 168)
-- `delete_concept_edge(root: Path, edge_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 196)
-- `upsert_learning_object(root: Path, payload: LearningObject | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 211)
-- `upsert_practice_item(root: Path, payload: PracticeItem | dict[str, Any], *, clock: Clock | None=None, loaded_vault: LoadedVault | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 241)
-- `upsert_error_type(root: Path, payload: ErrorType | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 281)
-- `upsert_facet(root: Path, payload: EvidenceFacet | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 330) — Create or update a canonical facet in facets.yaml (knowledge-model §3.2).
-- `upsert_source_set(root: Path, payload: SourceSet | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 388) — Create or update a source set in sources/source_sets.yaml (§4.3).
+- `upsert_concept_edge(root: Path, payload: ConceptEdge | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 167)
+- `delete_concept_edge(root: Path, edge_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 194)
+- `upsert_learning_object(root: Path, payload: LearningObject | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 208)
+- `upsert_practice_item(root: Path, payload: PracticeItem | dict[str, Any], *, clock: Clock | None=None, loaded_vault: LoadedVault | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 238)
+- `upsert_error_type(root: Path, payload: ErrorType | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 278)
+- `upsert_facet(root: Path, payload: EvidenceFacet | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 326) — Create or update a canonical facet in facets.yaml (knowledge-model §3.2).
+- `upsert_source_set(root: Path, payload: SourceSet | dict[str, Any], *, clock: Clock | None=None) -> Path` ([source](../../../../../../src/learnloop/vault/writer.py), line 383) — Create or update a source set in sources/source_sets.yaml (§4.3).
 
 ### Module constants
 
-- `CONCEPT_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 29)
-- `EDGE_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 39)
-- `LEARNING_OBJECT_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 49)
-- `PRACTICE_ITEM_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 69)
-- `ERROR_TYPE_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 113)
-- `FACET_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 309)
-- `SOURCE_SET_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 377)
+- `CONCEPT_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 30)
+- `EDGE_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 40)
+- `LEARNING_OBJECT_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 50)
+- `PRACTICE_ITEM_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 70)
+- `ERROR_TYPE_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 114)
+- `FACET_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 305)
+- `SOURCE_SET_ORDER` ([src/learnloop/vault/writer.py](../../../../../../src/learnloop/vault/writer.py), line 372)
 
 ## Internal implementation anchors
 
-- `_payload(value: BaseModel | dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 423)
-- `_mapping(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 429)
-- `_read_yaml_or(path: Path, default: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 437)
-- `_merge_entity(existing: dict[str, Any], incoming: dict[str, Any], order: list[str], *, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 443)
-- `_list_index_by_id(items: list[Any], entity_id: str) -> int | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 464)
-- `_locate_entity_path(root: Path, folder: str, entity_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 471)
-- `_ensure_subject_path(paths: VaultPaths, subject_id: str, target_path: Path) -> None` ([source](../../../../../../src/learnloop/vault/writer.py), line 476)
+- `_vault_paths(root: Path) -> VaultPaths` ([source](../../../../../../src/learnloop/vault/writer.py), line 417) — Paths for a registry edit; the rest of the vault does not need to be parsed.
+- `_payload(value: BaseModel | dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 424)
+- `_mapping(value: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 430)
+- `_read_yaml_or(path: Path, default: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 438)
+- `_merge_entity(existing: dict[str, Any], incoming: dict[str, Any], order: list[str], *, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/writer.py), line 444)
+- `_list_index_by_id(items: list[Any], entity_id: str) -> int | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 465)
+- `_locate_entity_path(root: Path, folder: str, entity_id: str) -> Path | None` ([source](../../../../../../src/learnloop/vault/writer.py), line 472)
+- `_ensure_subject_path(paths: VaultPaths, subject_id: str, target_path: Path) -> None` ([source](../../../../../../src/learnloop/vault/writer.py), line 477)
 
 ## Who imports or calls it
 
@@ -117,6 +118,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `load_config`; calls `load_config`
 - [[Reference/Modules/learnloop/vault/facet_fingerprint|learnloop.vault.facet_fingerprint]] — imports `semantic_fingerprint`; calls `semantic_fingerprint`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `Concept`, `ConceptEdge`, `ErrorType`, `EvidenceFacet`, `LearningObject`, `LoadedVault`, `PracticeItem`, `SourceSet`
@@ -212,7 +214,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_show.py](../../../../../../tests/test_show.py) — direct import
   - `test_show_inspects_every_deterministic_id`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
-  - `test_missing_diagnostic_receipt_fails_closed_and_keeps_recovery_key`
+  - `test_missing_diagnostic_receipt_recovers_only_from_durable_completion`
   - `test_sidecar_inspect_concept_and_resolve_lo_concept_references`
   - `test_sidecar_reject_accepted_concept_reports_reference_blocker`
 - [tests/test_sidecar_teach_back.py](../../../../../../tests/test_sidecar_teach_back.py) — direct import
@@ -239,6 +241,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_vault_watcher_refresh.py](../../../../../../tests/test_vault_watcher_refresh.py) — direct import
   - `test_practice_item_watch_refresh_is_incremental`
 - [tests/test_vault_writer.py](../../../../../../tests/test_vault_writer.py) — direct import
+  - `test_registry_writers_do_not_parse_the_whole_vault`
   - `test_writer_preserves_unknown_keys_and_timestamps`
   - `test_writer_refuses_implicit_entity_moves`
   - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`

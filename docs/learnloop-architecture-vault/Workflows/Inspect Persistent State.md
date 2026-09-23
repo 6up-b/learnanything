@@ -6,9 +6,9 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/db/repositories.py
   - src/learnloop/db/table_roles.py
@@ -92,7 +92,18 @@ WHERE attempt_id = '<attempt-id>';
 SELECT surprise_direction, bayesian_surprise
 FROM attempt_surprise
 WHERE attempt_id = '<attempt-id>';
+
+SELECT status, route_json, completed_at
+FROM attempt_completion_work
+WHERE attempt_id = '<attempt-id>';
+
+SELECT scheduler_candidate_id, entry_surface, collection_version
+FROM submission_intents
+WHERE submission_id = (SELECT submission_id FROM practice_attempts
+                       WHERE id = '<attempt-id>');
 ```
+
+A `pending` completion row means post-attempt work was interrupted and is resumed on the next submit with the same submission id; see [[Continue a Learning Cycle]]. The submission intent names the scheduler offer the attempt answered; see [[Collection and Dataset Contract]].
 
 This joins the raw receipt, accepted criterion evidence, feedback provenance, and one derived result without implying that any single table is the whole attempt. ^attempt-trace
 
@@ -152,9 +163,10 @@ uv run learnloop show <identifier> --json --vault "$VAULT"
 uv run learnloop why <practice-item-id> --json --vault "$VAULT"
 uv run learnloop ingest-batches show <batch-id> --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
+uv run learnloop data-quality --vault "$VAULT"
 ```
 
-These resolve filesystem configuration and SQLite state together.
+These resolve filesystem configuration and SQLite state together. `data-quality` always prints JSON from one read-only transaction: collection coverage by version, entry surface and origin, offer and grade links, completion rows, model-call receipts and label exclusions. `learnloop dataset-export <new-dir>` writes a full snapshot plus every ledger and receipt table; treat its output as the vault itself (see [[Privacy and Trust Boundaries]]).
 
 ## Decide the next action
 

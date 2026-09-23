@@ -11,7 +11,7 @@ source_commit: "c6c384add4980a7c65d6ceb5a52bda8eac2e5833"
 source_commit_timestamp: "2026-07-22T21:50:38-05:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ingest"
 layer: "infrastructure"
 concepts:

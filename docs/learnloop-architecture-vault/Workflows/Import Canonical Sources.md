@@ -6,13 +6,19 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/cli/app.py
   - src/learnloop/content/pipeline/jobs.py
   - src/learnloop/content/pipeline/runner.py
+  - src/learnloop/db/scopes.py
+  - src/learnloop/db/stores/ingest_queue.py
+  - src/learnloop/db/stores/model_calls.py
+  - src/learnloop/vault_lock.py
+  - tests/test_ingest_ownership.py
+  - tests/test_model_work_checkpoints.py
   - src/learnloop/content/pipeline/source_ingestion.py
   - src/learnloop/content/pipeline/build_plan.py
   - src/learnloop/content/pipeline/quick_add.py
@@ -160,7 +166,23 @@ uv run learnloop ingest-batches cancel <batch-id> --json --vault "$VAULT"
 uv run learnloop ingest-batches resume <batch-id> --json --vault "$VAULT"
 ```
 
-Resume preserves completed jobs and reruns only unfinished work. Completed revision/extraction hashes are reused; retry does not duplicate canonical history. If a worker dies with a stale lease, recovery marks that attempt `failed` with an interruption code before the user resumes it.
+Resume preserves completed jobs and reruns only unfinished work. Completed revision/extraction hashes are reused; retry does not duplicate canonical history. If a worker dies with a stale lease, recovery marks that attempt `failed` with an `interrupted` error before the user resumes it.
+
+A `legacy_ingest` job that follows a completed import fetches the source again on its first attempt, because the fetch carries caption timestamps, arXiv locators, authors, license and labels that the extracted IR lacks. Only a retry (`attempt_count > 1`) synthesizes from the import's retained bytes and IR, so a retry still works when the source has moved or gone offline.
+
+### Worker ownership and lease recovery
+
+Each claim of a job increments `ingest_jobs.attempt_count`; the pair of `worker_id` and `attempt_count` (`JobOwner`) is the owner of that attempt. A handler runs inside `guard_ingest_writes`: every SQLite write on the worker thread first checks, inside its own write transaction, that the job row is still `running` with that worker and attempt, and every `vault_mutation_lock` block (vault-file publication, including the source note written by `register_canonical_source` and the goal linkage) runs the same check under the vault lock. An attempt that lost ownership raises `JobOwnershipLost`, publishes nothing further, and leaves the job to its successor.
+
+| Mechanism | Behavior |
+|---|---|
+| Heartbeat | A thread beside the handler renews the lease every `[ingest.runner] heartbeat_interval_seconds` (15 s); a failed renewal is retried after 1 s, and only a definitive ownership loss stops it (and interrupts that attempt's provider transport). |
+| Lease expiry | Leases older than `lease_ttl_seconds` (120 s) become `failed(interrupted)`. Startup recovery (`recover_stale_leases`, run when a host opens the vault), `resume_batch`, and every drain tick (at most once per second) expire them. Attempts whose handler is still running in the same process are never expired. |
+| Vault-lock contention | Lease work waits for the vault lock instead of failing: startup recovery and claims wait up to 10 s, after which recovery returns no recovered jobs and the claim runs nothing on that tick; `resume_batch` skips expiry but still requeues, and a drain tick's expiry waits 0.5 s and retries on the next tick. |
+| Abandoned synthesis runs | Finalized only by startup recovery, and only when no synthesis job holds a live lease, because synchronous RPC/CLI synthesis runs have no lease a periodic sweep could check. |
+| Late paid work | A model-call receipt the attempt itself started can still be finished, and a validated model checkpoint can still be saved, after ownership is lost (`allow_late_model_records`); neither is canonical state. |
+
+Model checkpoints (`model_work_checkpoints`) let a retry reuse inventory windows and synthesis passes that were already paid for. Their keys cover the rendered prompt, the output schema (its version for inventory windows), and the provider settings (provider, model, endpoint, reasoning effort, thinking mode, response format), but not the output budget, so a pass is reusable under a larger budget. A checkpoint whose stored result no longer validates is discarded and the call is made again.
 
 > [!warning] Dependency failures
 > A failed, canceled, or blocked upstream job blocks dependent jobs. Inspect the batch rather than submitting a second unrelated import: the original batch preserves checkpoints, accumulated usage, and typed error detail.

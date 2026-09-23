@@ -10,8 +10,8 @@ area: "TypeScript/screens/reader"
 source_path: "apps/learnloop-tauri/src/screens/reader/useReaderRequests.ts"
 source_paths:
   - "apps/learnloop-tauri/src/screens/reader/useReaderRequests.ts"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "33c7456b0f78caa01172f6170de7727f002513c3"
+source_commit_timestamp: "2026-09-23T12:06:06-04:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderRequests.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderRequests.ts) |
-| Source lines | 199 |
+| Source lines | 212 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `33c7456b0f78caa01172f6170de7727f002513c3` |
+| Commit timestamp | `2026-09-23T12:06:06-04:00` |
 
 ## Activation and status evidence
 
@@ -63,8 +63,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface BackgroundRequest` — interface, line 5
 - `export interface SynthesizedObject` — interface, line 14
 - `export function useReaderRequests(sourceId: string | null, enabled: boolean)` — function, line 64
-- `export function parseRequestResult( resultJson: string | null | undefined ):` — function, line 170
-- `export function parseRequestError(errorJson: string | null | undefined): string | null` — function, line 187
+- `export function parseRequestResult( resultJson: string | null | undefined ):` — function, line 183
+- `export function parseRequestError(errorJson: string | null | undefined): string | null` — function, line 200
 
 ## Internal implementation anchors
 
@@ -79,25 +79,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const content = JSON.parse(String(version.contentJson ?? "")) as` — const, line 37
 - `const objectId = String(object.id ?? "")` — const, line 42
 - `const activeSourceId = enabled ? sourceId : null` — const, line 65
-- `const activeSourceRef = useRef(activeSourceId)` — const, line 66
-- `const loadArtifacts = useCallback(async (targetSourceId: string)` — const, line 79
-- `const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? []` — const, line 85
-- `const refresh = useCallback(async ()` — const, line 93
-- `const targetSourceId = activeSourceId` — const, line 95
-- `const failures: string[] = []` — const, line 101
-- `const polling = useMemo(()` — const, line 122
-- `const targetSourceId = activeSourceId` — const, line 125
-- `let cancelled = false` — let, line 126
-- `let timer: number | undefined` — let, line 127
-- `const poll = async ()` — const, line 129
-- `let pollAgain = true` — let, line 130
-- `const snapshot = await api.readerSourceRequests(targetSourceId)` — const, line 132
-- `const next = (snapshot.requests as BackgroundRequest[]) ?? []` — const, line 134
-- `const parsed = JSON.parse(resultJson ?? "") as` — const, line 175
-- `const objectRow = (parsed.proposals ?? []).find((proposal)` — const, line 176
-- `const mappingRow = (parsed.proposals ?? []).find((proposal)` — const, line 177
-- `const parsed = JSON.parse(errorJson ?? "") as` — const, line 189
-- `const message = typeof parsed.message === "string" ? parsed.message.trim() : ""` — const, line 190
+- `const activeScope = useMemo(()` — const, line 66
+- `const activeScopeRef = useRef<typeof activeScope | null>(activeScope)` — const, line 69
+- `const observedRequests = useRef(new Map<string, string>())` — const, line 81
+- `const loadArtifacts = useCallback(async (targetScope:` — const, line 83
+- `const targetSourceId = targetScope.sourceId` — const, line 84
+- `const proposals = (inbox.proposals as Array<Record<string, unknown>>) ?? []` — const, line 91
+- `const refresh = useCallback(async ()` — const, line 99
+- `const targetScope = activeScope` — const, line 101
+- `const failures: string[] = []` — const, line 107
+- `const polling = useMemo(()` — const, line 129
+- `const targetScope = activeScope` — const, line 132
+- `const targetSourceId = activeSourceId` — const, line 133
+- `let cancelled = false` — let, line 134
+- `let timer: number | undefined` — let, line 135
+- `const poll = async ()` — const, line 137
+- `let pollAgain = true` — let, line 138
+- `const snapshot = await api.readerSourceRequests(targetSourceId)` — const, line 140
+- `const next = (snapshot.requests as BackgroundRequest[]) ?? []` — const, line 142
+- `const signatures = new Map(next.map((request)` — const, line 144
+- `const newlyTerminal = next.some((request)` — const, line 147
+- `const parsed = JSON.parse(resultJson ?? "") as` — const, line 188
+- `const objectRow = (parsed.proposals ?? []).find((proposal)` — const, line 189
+- `const mappingRow = (parsed.proposals ?? []).find((proposal)` — const, line 190
+- `const parsed = JSON.parse(errorJson ?? "") as` — const, line 202
+- `const message = typeof parsed.message === "string" ? parsed.message.trim() : ""` — const, line 203
 
 ## Who imports or calls it
 
@@ -127,6 +133,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/reader/useReaderRequests.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderRequests.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_reader.py](../../../../../../../tests/test_sidecar_reader.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_reader_pdf_view.py](../../../../../../../tests/test_sidecar_reader_pdf_view.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_reader_render_views.py](../../../../../../../tests/test_reader_render_views.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
@@ -136,7 +143,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
 - When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

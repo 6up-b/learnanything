@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/SourceLibrarySidebar.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/SourceLibrarySidebar.tsx"
-source_commit: "0e91c7ba1b7ff32d5d093dd62826890b70445d3f"
-source_commit_timestamp: "2026-08-03T22:04:38-04:00"
+source_commit: "7f37f7bef54c4dc6170182720840faf546d9f51b"
+source_commit_timestamp: "2026-09-03T10:56:04-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/SourceLibrarySidebar.tsx](../../../../../../apps/learnloop-tauri/src/components/SourceLibrarySidebar.tsx) |
-| Source lines | 770 |
+| Source lines | 768 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `0e91c7ba1b7ff32d5d093dd62826890b70445d3f` |
-| Commit timestamp | `2026-08-03T22:04:38-04:00` |
+| Source commit | `7f37f7bef54c4dc6170182720840faf546d9f51b` |
+| Commit timestamp | `2026-09-03T10:56:04-07:00` |
 
 ## Activation and status evidence
 
@@ -60,19 +60,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function SourceLibrarySidebar(` — function, line 45
+- `export function SourceLibrarySidebar(` — function, line 47
 
 ## Internal implementation anchors
 
-- `const READINESS_META: Record<SourceReadiness,` — const, line 25
-- `const DEFAULT_INVENTORY_OUTPUT_TOKENS = 12_000` — const, line 30
-- `function readableTitle(title: string): string` — function, line 34
-- `const vid = youtubeVideoId(title)` — const, line 37
-- `const trimmed = title.replace(/[/\\]+$/, "")` — const, line 40
-- `const tail = trimmed.split(/[?#]/)[0].split(/[/\\]/).filter(Boolean).pop()` — const, line 41
-- `const firstLoad = useRef(true)` — const, line 68
-- `const refresh = useCallback(async ()` — const, line 71
-- `const snapshot = await api.getSourceLibrary()` — const, line 73
+- `const READINESS_META: Record<SourceReadiness,` — const, line 27
+- `const DEFAULT_INVENTORY_OUTPUT_TOKENS = 12_000` — const, line 32
+- `function readableTitle(title: string): string` — function, line 36
+- `const vid = youtubeVideoId(title)` — const, line 39
+- `const trimmed = title.replace(/[/\\]+$/, "")` — const, line 42
+- `const tail = trimmed.split(/[?#]/)[0].split(/[/\\]/).filter(Boolean).pop()` — const, line 43
+- `const libraryQuery = useCachedQuery(["get_source_library"], ()` — const, line 64
+- `const sources: SourceLibraryCard[] = libraryQuery.data?.sources ?? []` — const, line 67
+- `const loading = libraryQuery.loading` — const, line 68
+- `const error = actionError ?? (libraryQuery.data ? null : libraryQuery.error?.message ?? null)` — const, line 71
+- `const refetchLibrary = libraryQuery.refetch` — const, line 78
+- `const refresh = useCallback(async ()` — const, line 79
 - `const anyProcessing = sources.some((card)` — const, line 89
 - `const id = window.setInterval(()` — const, line 92
 - `function selectCard(card: SourceLibraryCard)` — function, line 96
@@ -85,20 +88,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const readiness = READINESS_META[card.readiness]` — const, line 403
 - `const isReady = card.readiness === "ready"` — const, line 404
 - `function CollectionsSection(` — function, line 511
-- `const titleFor = useCallback( (sourceId: string): string` — const, line 532
-- `const card = sources.find((c)` — const, line 534
-- `const refresh = useCallback(async ()` — const, line 540
-- `const snap = await api.listSourceSets()` — const, line 542
-- `async function toggle(id: string)` — function, line 553
-- `const next =` — const, line 556
-- `const next =` — const, line 569
-- `async function synthesize(id: string)` — function, line 576
-- `const inventoryOutputTokens = inventoryBudgets[id] ?? DEFAULT_INVENTORY_OUTPUT_TOKENS` — const, line 577
-- `const unlimitedTokenBudget = Boolean(unlimitedBudgets[id])` — const, line 578
-- `const batch = await api.buildStudyMap(` — const, line 587
-- `const detail = expanded[set.id]` — const, line 632
-- `const open = detail !== undefined` — const, line 633
-- `const isBusy = busy === set.id` — const, line 634
+- `const setsQuery = useCachedQuery(["list_source_sets"], ()` — const, line 520
+- `const sets: SourceSetSummaryDto[] = setsQuery.data?.sourceSets ?? []` — const, line 521
+- `const titleFor = useCallback( (sourceId: string): string` — const, line 533
+- `const card = sources.find((c)` — const, line 535
+- `const refetchSets = setsQuery.refetch` — const, line 541
+- `const refresh = useCallback(async ()` — const, line 542
+- `async function toggle(id: string)` — function, line 551
+- `const next =` — const, line 554
+- `const next =` — const, line 567
+- `async function synthesize(id: string)` — function, line 574
+- `const inventoryOutputTokens = inventoryBudgets[id] ?? DEFAULT_INVENTORY_OUTPUT_TOKENS` — const, line 575
+- `const unlimitedTokenBudget = Boolean(unlimitedBudgets[id])` — const, line 576
+- `const batch = await api.buildStudyMap(` — const, line 585
+- `const detail = expanded[set.id]` — const, line 630
+- `const open = detail !== undefined` — const, line 631
+- `const isBusy = busy === set.id` — const, line 632
 
 ## Who imports or calls it
 
@@ -113,6 +118,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `SourceDeletionPlanDto`, `SourceLibraryCard`, `SourceReadiness`, `SourceSetDto`, `SourceSetSummaryDto`, `StudyMapBriefDto`
+- [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/components/AddToCollection|src/components/AddToCollection.tsx]] — import-or-re-export; imports `AddToCollectionPanel`
 - [[Reference/Desktop/TypeScript/components/StudyMapBriefWizard|src/components/StudyMapBriefWizard.tsx]] — import-or-re-export; imports `StudyMapBriefWizard`
 - [[Reference/Desktop/TypeScript/components/sourceTail|src/components/sourceTail.ts]] — import-or-re-export; imports `youtubeVideoId`
@@ -141,7 +148,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
 - When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

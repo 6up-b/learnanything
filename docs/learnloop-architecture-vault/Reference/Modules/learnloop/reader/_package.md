@@ -22,9 +22,9 @@ source_paths:
   - "src/learnloop/reader/source_search.py"
   - "src/learnloop/reader/span_view.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit_timestamp: "2026-09-23T12:42:30-04:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.reader"
 layer: "domain"
 concepts:

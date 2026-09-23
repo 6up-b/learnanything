@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/jobs.py"
 source_paths:
   - "src/learnloop/content/pipeline/jobs.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "703943ce11a052739430cf0528f6f3cbf7339565"
+source_commit_timestamp: "2026-09-23T12:54:18-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.content.pipeline"
 layer: "domain"
 concepts:
@@ -51,141 +51,150 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py) |
-| Source lines | 3501 |
+| Source lines | 3766 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `703943ce11a052739430cf0528f6f3cbf7339565` |
+| Commit timestamp | `2026-09-23T12:54:18-04:00` |
 
 ## Public API
 
-- `default_fetch(source: str, category: str, ctx: JobContext) -> FetchedBytes` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 87) — Read raw bytes for one acquisition.
-- `default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 163) — Produce Document IR from fetched bytes using the M1 extractor providers.
-- `default_extraction_identity(fetched: FetchedBytes, category: str, ctx: JobContext) -> Mapping[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 253) — Describe the chosen extractor before running it, making cache hits cheap.
-- `class NativeMediaRoute` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 359) — A resolved native-multimodal route: which chat provider ingests media.
-- `default_run_legacy_ingest(*, vault_root: Path, source: str, subject_id: str, mode: str, progress: Callable[[str, dict[str, Any]], None] | None, clock: Clock | None, ir_markdown: str | None=None, **_ignored: Any) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 764) — Run the legacy one-shot pipeline in-process with a ready provider client.
-- `inventory_client_identity(client: Any) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 808)
-- `default_inventory_identity(ctx: JobContext) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 815) — Resolve the primary inventory cache key without a runtime probe.
-- `default_inventory_client(ctx: JobContext, *, codex_timeout_seconds: int | None=None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 837) — Resolve the unit-inventory/quick-check client through ai routing (§7).
-- `default_synthesis_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 870) — Resolve the canonical-ingest route for judgment-heavy synthesis.
-- `default_animation_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 886) — Resolve the animation route (default: the medium-effort profile) — any configured provider works; run_concept_animation is getattr-discovered.
-- `default_rung_variant_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 893) — Resolve the rung_variant route (default: the fast low-effort profile).
-- `default_promotion_analysis_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 903) — Fast classification/dedup pass for a durable promotion request.
-- `default_promotion_authoring_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 917) — Judgment-heavy practice generation follows the configured authoring route.
-- `handle_inventory(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1003) — inventory: role-aware per-unit inventories for the selected units (§7).
-- `handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1359) — bootstrap_synthesis: N-way study-map synthesis over a source set (ING M6).
-- `handle_append_synthesis(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1481) — append_synthesis: bounded reconciliation against an existing study map.
-- `handle_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1519) — import: fetch -> register artifact/revision -> extract to IR -> persist -> health.
-- `handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1671) — legacy_ingest: wrap the existing one-shot pipeline as one durable job so the current single-source UX keeps working (Quick add compatibility, §6.1).
-- `handle_extraction_repair(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1746) — extraction_repair: a consent-gated, page-range re-extraction (§2.5).
-- `handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1964) — Author one section-boundary quick check (reader producer slice).
-- `handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1989) — reader_exercise_import: author the learner's selected textbook exercise(s) into complete, schedulable PracticeItems.
-- `handle_practice_expansion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2025) — practice_expansion: per-LO item generation (reader-first seeding).
-- `handle_goal_population(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2073) — Generate and apply the missing practicable supply for one active goal.
-- `handle_question_promotion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2164) — Run one persisted Open-question → practice request.
-- `handle_rung_variant(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2263) — rung_variant: author one learner-requested easier/harder sibling item.
-- `handle_concept_animation(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2295) — concept_animation: author + validate + render one explainer scene.
-- `class ActiveIngestJobError(RuntimeError)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2383)
-  - `__init__(self, job_id: str) -> None` (line 2384; internal)
-- `class DurableIngestJobs` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2389) — Enqueues single-source ingests into the durable queue and reads their state.
-  - `__init__(self) -> None` (line 2392; internal)
-  - `bind(self, repository: Repository, vault_root: Path, *, clock: Clock | None=None, services: RunnerServices | None=None, lease_ttl_seconds: int=120, heartbeat_interval_seconds: float=15, poll_interval_seconds: float=1.0, background: bool | None=None, reader_synth_client_factory: Any=None) -> None` (line 2412; public) — Attach the wrapper to a loaded vault.
-  - `_require_runner(self) -> IngestRunner` (line 2476; internal)
-  - `start(self, vault_root: Path, source: str, subject_id: str, mode: Literal['canonical', 'exam'], pdf_engine: str | None=None) -> dict[str, Any]` (line 2483; public)
-  - `get(self, job_id: str) -> dict[str, Any] | None` (line 2527; public)
-  - `list(self) -> list[dict[str, Any]]` (line 2532; public)
-  - `cancel(self, job_id: str) -> dict[str, Any] | None` (line 2537; public)
-  - `needs_reload(self, job_id: str) -> bool` (line 2547; public)
-  - `mark_reloaded(self, job_id: str) -> None` (line 2556; public)
-  - `shutdown(self) -> None` (line 2559; public)
-  - `enqueue_import(self, sources: list[str], *, subject_id: str | None=None, inventory: bool=False, estimate: dict[str, Any] | None=None, page_selection: list[int] | None=None, page_selections: dict[str, list[int]] | None=None, reader_disabled_sources: set[str] | frozenset[str] | None=None, pdf_engine: str | None=None, priority: int=0) -> str` (line 2572; public) — Enqueue an Import (or Import & inventory) batch (§6.1).
-  - `enqueue_extraction_repair(self, *, revision_id: str, pages: list, repair_options: dict[str, Any] | None, consent: dict[str, Any], parent_extraction_id: str | None=None, subject_id: str | None=None) -> str` (line 2616; public) — Enqueue a consent-gated extraction-repair batch (§2.5).
-  - `enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str) -> str` (line 2648; public) — Enqueue one section's quick-check authoring (reader producer slice).
-  - `enqueue_reader_exercise_import(self, *, extraction_id: str, raw_selection: dict[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None) -> str` (line 2665; public) — Enqueue authoring of the learner's selected textbook exercise(s).
-  - `enqueue_practice_expansion(self, *, learning_object_ids: list[str], subject_id: str | None=None, reason: str | None=None, source_refs: list[dict[str, Any]] | None=None) -> str` (line 2702; public) — Enqueue per-LO practice generation (reader-first progressive seeding).
-  - `enqueue_goal_population(self, *, goal_id: str) -> str` (line 2733; public) — Enqueue durable goal-scoped practice authoring from the wizard.
-  - `enqueue_rung_variant(self, *, request_id: str, subject_id: str | None=None) -> str` (line 2745; public) — Enqueue one learner-requested variant authoring (interactive band — the learner is waiting on it, like a quick-add build).
-  - `enqueue_question_promotion(self, *, event_id: str, subject_id: str | None=None) -> str` (line 2759; public) — Enqueue a durable Open-question analysis/authoring request.
-  - `enqueue_concept_animation(self, *, animation_id: str, subject_id: str | None=None) -> str` (line 2777; public) — Enqueue one explainer-animation generation (interactive band — the learner clicked generate and is watching the status).
-  - `enqueue_inventory(self, *, extraction_id: str, units: list[dict[str, Any]], subject_id: str | None=None, source_set_id: str | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=0) -> str` (line 2791; public) — Enqueue a role-aware unit-inventory batch (§7).
-  - `enqueue_quick_add_build(self, *, extraction_id: str, units: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 2824; public) — Enqueue the Quick-add build batch (§1): inventory(selected units) then bootstrap_synthesis over the freshly-created source set, as one batch that drains ahead of bulk work.
-  - `enqueue_source_set_build(self, *, members: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 2874; public) — Enqueue a study-map build batch for an EXISTING source set (§1/§8): one inventory job per member (over its scoped units) followed by a bootstrap_synthesis job that depends on all of them, so gates only run once every member's units carry inventories.
-  - `enqueue_source_set_append(self, *, members: list[dict[str, Any]], source_set_id: str, new_revision_ids: list[str] | None=None, change_kind: str='source_added', subject_id: str | None=None, brief: dict[str, Any] | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 2941; public) — Enqueue a bounded-neighborhood APPEND batch for a collection whose subject already carries a study map (§10).
-  - `retry_synthesis(self, batch_id: str, *, synthesis_budgets: dict[str, int] | None=None, reuse_candidate: bool=False, repair_candidate: bool=False, repair_ops: list[dict[str, Any]] | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` (line 3008; public) — Retry only a failed synthesis stage with revised execution ceilings.
-  - `get_batch(self, batch_id: str) -> dict[str, Any] | None` (line 3083; public)
-  - `list_batches(self, limit: int=_RECENT_LIMIT) -> list[dict[str, Any]]` (line 3090; public)
-  - `cancel_batch(self, batch_id: str) -> dict[str, Any] | None` (line 3118; public)
-  - `interrupt_codex(self, job_id: str | None=None) -> dict[str, Any]` (line 3125; public) — Interrupt one live Codex call while keeping the sidecar process alive.
-  - `resume_batch(self, batch_id: str) -> dict[str, Any] | None` (line 3155; public)
-  - `drain_foreground(self) -> int` (line 3165; public) — Drain the queue synchronously (tests + CLI-less contexts).
-  - `_ensure_worker(self) -> None` (line 3170; internal)
-  - `_worker_loop(self) -> None` (line 3198; internal)
-  - `_quick_check_worker_loop(self) -> None` (line 3226; internal) — Drain independent quick checks beside the serialized vault writer.
-  - `kick_reader_drain(self) -> None` (line 3260; public) — Ensure queued demand-paged reader requests get drained.
-  - `_drain_reader_requests(self, runner: IngestRunner) -> int` (line 3283; internal) — Drain queued reader requests with a real synthesize client.
-  - `_resolve_reader_client(self, runner: IngestRunner) -> Any` (line 3303; internal)
-  - `_legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]` (line 3332; internal) — The synthesis job the frontend polls (the batch also holds an import job).
-  - `_active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None` (line 3341; internal)
+- `default_fetch(source: str, category: str, ctx: JobContext) -> FetchedBytes` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 93) — Read raw bytes for one acquisition.
+- `default_extract(fetched: FetchedBytes, category: str, ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 199) — Produce Document IR from fetched bytes using the M1 extractor providers.
+- `default_extraction_identity(fetched: FetchedBytes, category: str, ctx: JobContext) -> Mapping[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 275) — Describe the chosen extractor before running it, making cache hits cheap.
+- `class NativeMediaRoute` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 400) — A resolved native-multimodal route: which chat provider ingests media.
+- `default_run_legacy_ingest(*, vault_root: Path, source: str, subject_id: str, mode: str, progress: Callable[[str, dict[str, Any]], None] | None, clock: Clock | None, ir_markdown: str | None=None, resume_extraction_id: str | None=None, **_ignored: Any) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 870) — Run the legacy one-shot pipeline in-process with a ready provider client.
+- `inventory_client_identity(client: Any) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 916)
+- `default_inventory_identity(ctx: JobContext) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 923) — Resolve the primary inventory cache key without a runtime probe.
+- `default_inventory_client(ctx: JobContext, *, codex_timeout_seconds: int | None=None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 945) — Resolve the unit-inventory/quick-check client through ai routing (§7).
+- `default_synthesis_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 978) — Resolve the canonical-ingest route for judgment-heavy synthesis.
+- `default_animation_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 994) — Resolve the animation route (default: the medium-effort profile) — any configured provider works; run_concept_animation is getattr-discovered.
+- `default_video_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1001) — Resolve [ai.routing] video_generation to an OpenRouter video client.
+- `default_rung_variant_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1025) — Resolve the rung_variant route (default: the fast low-effort profile).
+- `default_promotion_analysis_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1035) — Fast classification/dedup pass for a durable promotion request.
+- `default_promotion_authoring_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1049) — Judgment-heavy practice generation follows the configured authoring route.
+- `handle_inventory(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1212) — inventory: role-aware per-unit inventories for the selected units (§7).
+- `handle_bootstrap_synthesis(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1558) — bootstrap_synthesis: N-way study-map synthesis over a source set (ING M6).
+- `handle_append_synthesis(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1680) — append_synthesis: bounded reconciliation against an existing study map.
+- `handle_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1733) — import: fetch -> register artifact/revision -> extract to IR -> persist -> health.
+- `handle_legacy_ingest(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1885) — legacy_ingest: wrap the existing one-shot pipeline as one durable job so the current single-source UX keeps working (Quick add compatibility, §6.1).
+- `handle_extraction_repair(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1972) — extraction_repair: a consent-gated, page-range re-extraction (§2.5).
+- `handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2190) — Author one section-boundary quick check (reader producer slice).
+- `handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2215) — reader_exercise_import: author the learner's selected textbook exercise(s) into complete, schedulable PracticeItems.
+- `handle_practice_expansion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2251) — practice_expansion: per-LO item generation (reader-first seeding).
+- `handle_goal_population(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2299) — Generate and apply the missing practicable supply for one active goal.
+- `handle_question_promotion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2390) — Run one persisted Open-question → practice request.
+- `handle_rung_variant(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2489) — rung_variant: author one learner-requested easier/harder sibling item.
+- `handle_concept_animation(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2521) — concept_animation: author + validate + render one explainer scene.
+- `class ActiveIngestJobError(RuntimeError)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2648)
+  - `__init__(self, job_id: str) -> None` (line 2649; internal)
+- `class DurableIngestJobs` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2654) — Enqueues single-source ingests into the durable queue and reads their state.
+  - `__init__(self) -> None` (line 2657; internal)
+  - `bind(self, repository: Repository, vault_root: Path, *, clock: Clock | None=None, services: RunnerServices | None=None, lease_ttl_seconds: int=120, heartbeat_interval_seconds: float=15, poll_interval_seconds: float=1.0, background: bool | None=None, reader_synth_client_factory: Any=None) -> None` (line 2677; public) — Attach the wrapper to a loaded vault.
+  - `_require_runner(self) -> IngestRunner` (line 2741; internal)
+  - `start(self, vault_root: Path, source: str, subject_id: str, mode: Literal['canonical', 'exam'], pdf_engine: str | None=None) -> dict[str, Any]` (line 2748; public)
+  - `get(self, job_id: str) -> dict[str, Any] | None` (line 2792; public)
+  - `list(self) -> list[dict[str, Any]]` (line 2797; public)
+  - `cancel(self, job_id: str) -> dict[str, Any] | None` (line 2802; public)
+  - `needs_reload(self, job_id: str) -> bool` (line 2812; public)
+  - `mark_reloaded(self, job_id: str) -> None` (line 2821; public)
+  - `shutdown(self) -> None` (line 2824; public)
+  - `enqueue_import(self, sources: list[str], *, subject_id: str | None=None, inventory: bool=False, estimate: dict[str, Any] | None=None, page_selection: list[int] | None=None, page_selections: dict[str, list[int]] | None=None, reader_disabled_sources: set[str] | frozenset[str] | None=None, pdf_engine: str | None=None, priority: int=0) -> str` (line 2837; public) — Enqueue an Import (or Import & inventory) batch (§6.1).
+  - `enqueue_extraction_repair(self, *, revision_id: str, pages: list, repair_options: dict[str, Any] | None, consent: dict[str, Any], parent_extraction_id: str | None=None, subject_id: str | None=None) -> str` (line 2881; public) — Enqueue a consent-gated extraction-repair batch (§2.5).
+  - `enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str) -> str` (line 2913; public) — Enqueue one section's quick-check authoring (reader producer slice).
+  - `enqueue_reader_exercise_import(self, *, extraction_id: str, raw_selection: dict[str, Any], render_view_id: str | None=None, source_id: str | None=None, revision_id: str | None=None, learning_object_hint: str | None=None) -> str` (line 2930; public) — Enqueue authoring of the learner's selected textbook exercise(s).
+  - `enqueue_practice_expansion(self, *, learning_object_ids: list[str], subject_id: str | None=None, reason: str | None=None, source_refs: list[dict[str, Any]] | None=None) -> str` (line 2967; public) — Enqueue per-LO practice generation (reader-first progressive seeding).
+  - `enqueue_goal_population(self, *, goal_id: str) -> str` (line 2998; public) — Enqueue durable goal-scoped practice authoring from the wizard.
+  - `enqueue_rung_variant(self, *, request_id: str, subject_id: str | None=None) -> str` (line 3010; public) — Enqueue one learner-requested variant authoring (interactive band — the learner is waiting on it, like a quick-add build).
+  - `enqueue_question_promotion(self, *, event_id: str, subject_id: str | None=None) -> str` (line 3024; public) — Enqueue a durable Open-question analysis/authoring request.
+  - `enqueue_concept_animation(self, *, animation_id: str, subject_id: str | None=None) -> str` (line 3042; public) — Enqueue one explainer-animation generation (interactive band — the learner clicked generate and is watching the status).
+  - `enqueue_inventory(self, *, extraction_id: str, units: list[dict[str, Any]], subject_id: str | None=None, source_set_id: str | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=0) -> str` (line 3056; public) — Enqueue a role-aware unit-inventory batch (§7).
+  - `enqueue_quick_add_build(self, *, extraction_id: str, units: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 3089; public) — Enqueue the Quick-add build batch (§1): inventory(selected units) then bootstrap_synthesis over the freshly-created source set, as one batch that drains ahead of bulk work.
+  - `enqueue_source_set_build(self, *, members: list[dict[str, Any]], source_set_id: str, subject_id: str | None=None, brief: dict[str, Any] | None=None, mode: str='auto', input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 3139; public) — Enqueue a study-map build batch for an EXISTING source set (§1/§8): one inventory job per member (over its scoped units) followed by a bootstrap_synthesis job that depends on all of them, so gates only run once every member's units carry inventories.
+  - `enqueue_source_set_append(self, *, members: list[dict[str, Any]], source_set_id: str, new_revision_ids: list[str] | None=None, change_kind: str='source_added', subject_id: str | None=None, brief: dict[str, Any] | None=None, input_budget_tokens: int | None=None, output_budget_tokens: int | None=None, synthesis_budgets: dict[str, int] | None=None, unlimited_token_budget: bool=False, priority: int=QUICK_ADD_PRIORITY) -> str` (line 3206; public) — Enqueue a bounded-neighborhood APPEND batch for a collection whose subject already carries a study map (§10).
+  - `retry_synthesis(self, batch_id: str, *, synthesis_budgets: dict[str, int] | None=None, reuse_candidate: bool=False, repair_candidate: bool=False, repair_ops: list[dict[str, Any]] | None=None, unlimited_token_budget: bool=False) -> dict[str, Any]` (line 3273; public) — Retry only a failed synthesis stage with revised execution ceilings.
+  - `get_batch(self, batch_id: str) -> dict[str, Any] | None` (line 3348; public)
+  - `list_batches(self, limit: int=_RECENT_LIMIT) -> list[dict[str, Any]]` (line 3355; public)
+  - `cancel_batch(self, batch_id: str) -> dict[str, Any] | None` (line 3383; public)
+  - `interrupt_codex(self, job_id: str | None=None) -> dict[str, Any]` (line 3390; public) — Interrupt one live Codex call while keeping the sidecar process alive.
+  - `resume_batch(self, batch_id: str) -> dict[str, Any] | None` (line 3420; public)
+  - `drain_foreground(self) -> int` (line 3430; public) — Drain the queue synchronously (tests + CLI-less contexts).
+  - `_ensure_worker(self) -> None` (line 3435; internal)
+  - `_worker_loop(self) -> None` (line 3463; internal)
+  - `_quick_check_worker_loop(self) -> None` (line 3491; internal) — Drain independent quick checks beside the serialized vault writer.
+  - `kick_reader_drain(self) -> None` (line 3525; public) — Ensure queued demand-paged reader requests get drained.
+  - `_drain_reader_requests(self, runner: IngestRunner) -> int` (line 3548; internal) — Drain queued reader requests with a real synthesize client.
+  - `_resolve_reader_client(self, runner: IngestRunner) -> Any` (line 3568; internal)
+  - `_legacy_job_for_batch(runner: IngestRunner, batch_id: str) -> dict[str, Any]` (line 3597; internal) — The synthesis job the frontend polls (the batch also holds an import job).
+  - `_active_job_locked(self, runner: IngestRunner) -> dict[str, Any] | None` (line 3606; internal)
 
 ### Module constants
 
-- `_MAX_INVENTORY_WORKERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 58)
-- `INGEST_CODEX_TIMEOUT_SECONDS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 59)
-- `_LEGACY_PHASE_TO_LADDER` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 61)
-- `_LEGACY_PHASE_MESSAGE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 69)
-- `_ROUTED_AUDIO_FORMAT_MESSAGE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 507)
-- `_SYNTH_STAGE_PHASE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1455)
-- `DEFAULT_HANDLERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2332)
-- `_LEGACY_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2351)
-- `APPLYING_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2356)
-- `_ACTIVE_STATUSES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2372)
-- `_RECENT_LIMIT` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2373)
-- `QUICK_ADD_PRIORITY` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2378)
-- `_PARALLEL_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2379)
-- `_QUICK_CHECK_WORKERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2380)
-- `_LADDER_BY_JOB_TYPE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3352)
+- `_MAX_INVENTORY_WORKERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 60)
+- `INGEST_CODEX_TIMEOUT_SECONDS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 61)
+- `_INVENTORY_CANCEL_POLL_SECONDS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 65)
+- `_LEGACY_PHASE_TO_LADDER` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 67)
+- `_LEGACY_PHASE_MESSAGE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 75)
+- `_ROUTED_AUDIO_FORMAT_MESSAGE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 597)
+- `_SYNTH_STAGE_PHASE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1654)
+- `DEFAULT_HANDLERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2597)
+- `_LEGACY_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2616)
+- `APPLYING_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2621)
+- `_ACTIVE_STATUSES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2637)
+- `_RECENT_LIMIT` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2638)
+- `QUICK_ADD_PRIORITY` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2643)
+- `_PARALLEL_JOB_TYPES` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2644)
+- `_QUICK_CHECK_WORKERS` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2645)
+- `_LADDER_BY_JOB_TYPE` ([src/learnloop/content/pipeline/jobs.py](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3617)
 
 ## Internal implementation anchors
 
-- `_optional_int(value: Any) -> int | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 78)
-- `_fetch_metadata(source: str, category: str) -> tuple[str | None, tuple[str, ...]]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 120) — Best-effort human-readable (title, authors) for the fetched source.
-- `_pdf_payload_config(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 140) — The effective PDF extraction config for one import job.
-- `_audio_ingest_config(ctx: JobContext)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 346) — The vault's [ingest.audio] settings (defaults when the vault is gone).
-- `_native_media_route(ctx: JobContext, modality: str) -> NativeMediaRoute | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 367) — PURE config decision: is native multimodal active for this modality?
-- `_native_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 400)
-- `_transcription_media_route(ctx: JobContext) -> NativeMediaRoute | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 421) — Resolve an explicitly configured chat-transcription route without I/O.
-- `_transcription_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 463) — Build the configured transcription client through the composition root.
-- `_audio_filename(fetched: FetchedBytes) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 496)
-- `_extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 514) — Audio → timestamped transcript → the same time_range IR captions use.
-- `_extract_audio_native(fetched: FetchedBytes, ctx: JobContext, route: NativeMediaRoute, chat_format: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 572)
-- `_extract_audio_routed(fetched: FetchedBytes, ctx: JobContext, config: Any, route: NativeMediaRoute, chat_format: str | None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 601) — Transcribe through the dedicated task route with no endpoint fallback.
-- `_chat_transcript_to_ir(transcript: Any, ctx: JobContext, *, provider_label: str, empty_code: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 652) — Chat-model MediaTranscript segments → the same time_range IR the endpoint transcription path produces (shared native/routed-chat tail).
-- `_require_native_pdf_route(ctx: JobContext) -> NativeMediaRoute` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 685)
-- `_extract_pdf_native(fetched: FetchedBytes, ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 698) — PDF → chat file part → Markdown → IR ([ingest.pdf] engine "native").
-- `_caption_cues(text: str) -> list[dict[str, Any]] | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 729) — Decode fetched YouTube caption bytes ({"cues": [...]} or a bare list).
-- `_html_to_markdown(raw_html: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 751) — Readable-body markdown from raw HTML (same engine as the legacy path).
-- `_routed_task_client(ctx: JobContext, task: str, *, codex_timeout_seconds: int | None=None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 931)
-- `class _InventoryInterruptGroup` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 960) — One job-scoped interrupt hook covering its active inventory clients.
-- `_ingest_budgets(ctx: JobContext)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1250) — Load vault budgets, retaining service defaults for isolated workers/tests.
-- `_inventory_inputs(ctx: JobContext, payload: Mapping[str, Any]) -> tuple[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1262) — Resolve public import→inventory shorthand from the completed dependency.
-- `_effective_inventory_inputs(repo: Repository, extraction_id: str, units: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1285) — Fold explicit same-role ``merge_with_next`` groups into one model input.
-- `_synthesis_progress(ctx: JobContext)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1463) — A ProgressFn bridging create_study_map to the durable job heartbeat.
-- `_compose_display_title(title: str | None, authors: Sequence[str]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1659) — Assemble the artifact's stored label: "<title> — <author>" when both are known, the title alone when there is no author, and ``None`` (→ URL fallback) when the fetch captured no title at all.
-- `_legacy_ir_markdown(ctx: JobContext) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1714) — Render the IR from this job's completed ``import`` dependency, if any (§2.3).
-- `_repair_pdf_config(options: Mapping[str, Any], pages: list[int]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1859)
-- `_validate_page_selection(raw_bytes: bytes, pages: list[int]) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1874) — Refuse out-of-range page selections BEFORE any expensive extraction.
-- `_pdf_page_count(raw_bytes: bytes) -> int | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1897)
-- `_normalize_pages(raw: Any) -> list[int]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1914)
-- `_latest_completed_extraction(repo: Repository, revision_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1934)
-- `_units_touching(ir: Any, pages: list[int]) -> list[Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1943)
-- `_not_implemented_handler(job_type: str) -> Handler` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1955)
-- `_job_view(job: dict[str, Any], repo: Repository, *, depends_on: list[str] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3359) — One job as the Batch-progress screen needs it: the checkpoint ladder, live phase/window counts, actual usage, and any waiting_for_input payload (§5.7).
-- `_batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository, *, dependencies_by_job: dict[str, list[str]] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3419)
-- `_failed_rung_request_id(job: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3459)
-- `_compat_status(status: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3470) — Map the durable status vocabulary onto the legacy job vocabulary the existing frontend/handlers expect (queued|running|completed|failed|cancelled).
-- `_compat(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3477)
+- `_optional_int(value: Any) -> int | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 84)
+- `_fetch_metadata(source: str, category: str) -> tuple[str | None, tuple[str, ...]]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 126) — Best-effort human-readable (title, authors) for the fetched source.
+- `_pdf_payload_config(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 146) — The effective PDF extraction config for one import job.
+- `_extract_pdf_locally(fetched: FetchedBytes, extractor: Any, pdf_config: Mapping[str, Any], context: Any) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 169) — Run a local PDF extractor, degrading marker to pypdf with a health flag.
+- `_audio_ingest_config(ctx: JobContext)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 387) — The vault's [ingest.audio] settings (defaults when the vault is gone).
+- `_native_readiness(ctx: JobContext, modality: str, *, requested: bool | None=None) -> tuple[Any, bool] | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 409) — The shared readiness judgement (learnloop.ai.native_media) for this vault plus the ``fallback_when_unavailable`` opt-in, read from ONE config load so the two can never come from different versions of learnloop.toml.
+- `_route_from_readiness(readiness: Any) -> NativeMediaRoute` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 428)
+- `class _NativeDecision` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 437) — What happens to media whose modality is routed natively.
+- `_decide_native(ctx: JobContext, modality: str, *, requested: bool | None=None, unavailable_code: str) -> _NativeDecision | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 449) — PURE config decision shared by identity and extraction.
+- `_add_health_flag(ir: Any, flag: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 483)
+- `_native_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 489)
+- `_transcription_media_route(ctx: JobContext) -> NativeMediaRoute | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 511) — Resolve an explicitly configured chat-transcription route without I/O.
+- `_transcription_media_client(ctx: JobContext, route: NativeMediaRoute) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 553) — Build the configured transcription client through the composition root.
+- `_audio_filename(fetched: FetchedBytes) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 586)
+- `_extract_audio(fetched: FetchedBytes, ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 604) — Audio → timestamped transcript → the same time_range IR captions use.
+- `_extract_audio_transcription(fetched: FetchedBytes, ctx: JobContext, chat_format: str | None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 637) — The non-native audio path: the dedicated transcription route, else the endpoint.
+- `_extract_audio_native(fetched: FetchedBytes, ctx: JobContext, route: NativeMediaRoute, chat_format: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 681)
+- `_extract_audio_routed(fetched: FetchedBytes, ctx: JobContext, config: Any, route: NativeMediaRoute, chat_format: str | None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 710) — Transcribe through the dedicated task route with no endpoint fallback.
+- `_chat_transcript_to_ir(transcript: Any, ctx: JobContext, *, provider_label: str, empty_code: str) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 761) — Chat-model MediaTranscript segments → the same time_range IR the endpoint transcription path produces (shared native/routed-chat tail).
+- `_extract_pdf_native(fetched: FetchedBytes, ctx: JobContext, route: NativeMediaRoute) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 794) — PDF → chat file part → Markdown → IR ([ingest.pdf] engine "native").
+- `_caption_cues(text: str) -> list[dict[str, Any]] | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 835) — Decode fetched YouTube caption bytes ({"cues": [...]} or a bare list).
+- `_html_to_markdown(raw_html: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 857) — Readable-body markdown from raw HTML (same engine as the legacy path).
+- `_routed_task_client(ctx: JobContext, task: str, *, codex_timeout_seconds: int | None=None) -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1063)
+- `class _InventoryInterruptGroup` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1092) — One job-scoped interrupt hook covering its active inventory clients.
+- `class _RunnerMailbox` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1135) — Carry inventory workers' requests to the runner thread and back.
+- `_ingest_budgets(ctx: JobContext)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1449) — Load vault budgets, retaining service defaults for isolated workers/tests.
+- `_inventory_inputs(ctx: JobContext, payload: Mapping[str, Any]) -> tuple[str, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1461) — Resolve public import→inventory shorthand from the completed dependency.
+- `_effective_inventory_inputs(repo: Repository, extraction_id: str, units: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1484) — Fold explicit same-role ``merge_with_next`` groups into one model input.
+- `_synthesis_progress(ctx: JobContext)` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1662) — A ProgressFn bridging create_study_map to the durable job heartbeat.
+- `_compose_display_title(title: str | None, authors: Sequence[str]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1873) — Assemble the artifact's stored label: "<title> — <author>" when both are known, the title alone when there is no author, and ``None`` (→ URL fallback) when the fetch captured no title at all.
+- `_legacy_ir_extraction_id(ctx: JobContext) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1936)
+- `_legacy_ir_markdown(ctx: JobContext, extraction_id: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 1951) — Render the IR from this job's completed ``import`` dependency, if any (§2.3).
+- `_repair_pdf_config(options: Mapping[str, Any], pages: list[int]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2085)
+- `_validate_page_selection(raw_bytes: bytes, pages: list[int]) -> None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2100) — Refuse out-of-range page selections BEFORE any expensive extraction.
+- `_pdf_page_count(raw_bytes: bytes) -> int | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2123)
+- `_normalize_pages(raw: Any) -> list[int]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2140)
+- `_latest_completed_extraction(repo: Repository, revision_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2160)
+- `_units_touching(ir: Any, pages: list[int]) -> list[Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2169)
+- `_not_implemented_handler(job_type: str) -> Handler` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 2181)
+- `_job_view(job: dict[str, Any], repo: Repository, *, depends_on: list[str] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3624) — One job as the Batch-progress screen needs it: the checkpoint ladder, live phase/window counts, actual usage, and any waiting_for_input payload (§5.7).
+- `_batch_view(batch: dict[str, Any], jobs: list[dict[str, Any]], repo: Repository, *, dependencies_by_job: dict[str, list[str]] | None=None, rung_requests_by_id: dict[str, dict[str, Any]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3684)
+- `_failed_rung_request_id(job: dict[str, Any]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3724)
+- `_compat_status(status: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3735) — Map the durable status vocabulary onto the legacy job vocabulary the existing frontend/handlers expect (queued|running|completed|failed|cancelled).
+- `_compat(job: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/jobs.py), line 3742)
 
 ## Who imports or calls it
 
@@ -202,8 +211,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `CodexTurnTimeout`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `make_video_generation_client`; calls `make_video_generation_client`
+- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIProviderUnavailable`, `CodexTurnTimeout`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `observe_model_calls`; calls `observe_model_calls`
 - [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]] — imports `MediaTranscriptionContext`, `PdfExtractionContextNative`, `chat_audio_format`, `supports_input_modality`; calls `MediaTranscriptionContext`, `PdfExtractionContextNative`, `chat_audio_format`, `supports_input_modality`
+- [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] — imports `native_modality_readiness`; calls `native_modality_readiness`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `provider_for_task`, `ready_client_for_task`; calls `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `INTERRUPT`, `MEDIA_TRANSCRIPTION`, `interrupt_callback`; calls `interrupt_callback`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
@@ -241,7 +253,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `concurrent`, `dataclasses`, `io`, `json`, `os`, `pathlib`, `queue`, `re`, `threading`, `typing`, `urllib`
+- Standard library: `__future__`, `concurrent`, `contextvars`, `dataclasses`, `io`, `json`, `os`, `pathlib`, `queue`, `re`, `threading`, `time`, `typing`, `urllib`
 - Third party: `pypdf`, `trafilatura`
 
 ## Larger workflow participation
@@ -277,10 +289,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_import_snapshots_pdf_engine_choice_into_payload`
   - `test_import_snapshots_pdf_page_selection_into_payload`
   - `test_multi_source_import_assigns_page_selection_per_source`
+- [tests/test_ingest_ownership.py](../../../../../../../tests/test_ingest_ownership.py) — direct import
+  - `test_a_busy_vault_lock_defers_lease_work_instead_of_failing`
+  - `test_fast_restart_reconciles_later_expiry_without_replacing_live_work`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_audio_extract_routes_transcription_to_time_range_ir`
   - `test_audio_extraction_identity_tracks_model_and_endpoint`
   - `test_audio_oversize_rejected_before_any_upload`
+  - `test_audio_transcription_mode_uses_endpoint_without_native_route`
   - `test_audio_transcription_unavailable_is_typed_retryable`
   - `test_compose_display_title_variants`
   - `test_default_inventory_client_defaults_to_codex_and_errors_when_unavailable`
@@ -289,13 +305,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`
   - `test_explicit_transcription_route_uses_named_profile_without_legacy_switch`
   - `test_fetch_metadata_only_resolves_youtube`
-  - `test_native_audio_disabled_or_modality_absent_uses_endpoint`
   - `test_native_audio_failure_is_typed_and_never_switches_routes`
   - `test_native_audio_route_transcribes_via_chat_provider`
+  - `test_native_audio_unready_fails_closed_by_default`
+  - `test_native_audio_unready_falls_back_when_opted_in`
+  - `test_native_audio_unready_route_is_irrelevant_for_non_chat_containers`
   - `test_native_audio_unsupported_container_falls_back_to_endpoint`
   - `test_native_pdf_engine_extracts_markdown_via_chat_provider`
+  - `test_native_pdf_engine_rejects_a_repair_page_range`
   - `test_native_pdf_engine_rejects_page_selection`
   - `test_native_pdf_engine_without_capable_route_is_typed`
+  - `test_native_pdf_fallback_when_unavailable_uses_local_with_health_flag`
+  - `test_native_pdf_rejects_oversized_file`
   - `test_native_route_takes_precedence_over_openrouter_transcription_setting`
   - `test_openrouter_transcription_missing_key_is_typed`
   - `test_openrouter_transcription_setting_routes_audio_via_chat`
@@ -307,6 +328,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_youtube_import_routes_caption_cues_to_time_range_ir`
 - [tests/test_ingest_transcripts.py](../../../../../../../tests/test_ingest_transcripts.py) — direct import
   - `test_default_extract_routes_caption_text_to_transcript_ir`
+- [tests/test_ingestion_checkpoints.py](../../../../../../../tests/test_ingestion_checkpoints.py) — direct import
+  - `test_parallel_inventory_drains_checkpoints_and_stops_new_units_after_failure`
+- [tests/test_inventory_runner_mailbox.py](../../../../../../../tests/test_inventory_runner_mailbox.py) — direct import
+  - `test_keyboard_interrupt_during_parallel_inventory_releases_waiting_workers`
+  - `test_parallel_inventory_notices_cancellation_without_polling_the_database_constantly`
 - [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — direct import
   - `test_config_matrix_executes_all_six_production_resolution_paths`
 - [tests/test_quick_add.py](../../../../../../../tests/test_quick_add.py) — direct import
@@ -315,6 +341,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_practice_expansion_queue_preserves_reader_source_refs`
 - [tests/test_sidecar_animation.py](../../../../../../../tests/test_sidecar_animation.py) — direct import
   - `test_request_generates_and_status_reports_completed`
+  - `test_video_renderer_request_completes_through_the_queue`
 
 ## Modification guidance
 

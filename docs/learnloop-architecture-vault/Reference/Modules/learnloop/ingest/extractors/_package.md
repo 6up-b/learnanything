@@ -12,9 +12,9 @@ source_paths:
   - "src/learnloop/ingest/extractors/normalizers.py"
   - "src/learnloop/ingest/extractors/pypdf.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-07-22T21:17:05-04:00"
+source_commit_timestamp: "2026-09-03T10:49:04-07:00"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:
@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
-| [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] | [[Reference/Modules/learnloop/ingest/extractors/__init__#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] | [[Reference/Modules/learnloop/ingest/extractors/__init__#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] | [[Reference/Modules/learnloop/ingest/extractors/base#^module-purpose|purpose]] | `ACTIVE` | 5 | 1 |
 | [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]] | [[Reference/Modules/learnloop/ingest/extractors/datalab#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] | [[Reference/Modules/learnloop/ingest/extractors/marker#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |

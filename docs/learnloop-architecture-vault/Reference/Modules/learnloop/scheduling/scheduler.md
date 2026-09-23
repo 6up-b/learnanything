@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/scheduling/scheduler.py"
 source_paths:
   - "src/learnloop/scheduling/scheduler.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "254074d3e624a9c52b20d1b158fa018f1294030f"
+source_commit_timestamp: "2026-09-23T12:20:57-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.scheduling"
 layer: "domain"
 concepts:
@@ -50,62 +50,68 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py) |
-| Source lines | 1709 |
+| Source lines | 1869 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `254074d3e624a9c52b20d1b158fa018f1294030f` |
+| Commit timestamp | `2026-09-23T12:20:57-04:00` |
 
 ## Public API
 
-- `class SchedulerSession` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 44)
-- `class ScheduledItem` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 51)
-- `build_due_queue(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, session: SchedulerSession | None=None, limit: int | None=None, persist_explanations: bool=True) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 71)
-- `deferred_cold_followups(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 814) — Live cold tasks currently held back because their answer was shown.
-- `explain_practice_item(vault: LoadedVault, repository: Repository, practice_item_id: str) -> ScheduledItem | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1275)
-- `dominant_scheduler_reason(components: dict[str, float], config: LearnLoopConfig) -> str` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1316) — Stable learner-facing reason from the same weighted ranking terms.
+- `class SchedulerSession` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 57)
+- `class ScheduledItem` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 64)
+- `build_due_queue(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None, session: SchedulerSession | None=None, limit: int | None=None, persist_explanations: bool=True) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 87)
+- `deferred_cold_followups(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 974) — Live cold tasks currently held back because their answer was shown.
+- `explain_practice_item(vault: LoadedVault, repository: Repository, practice_item_id: str) -> ScheduledItem | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1435)
+- `dominant_scheduler_reason(components: dict[str, float], config: LearnLoopConfig) -> str` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1476) — Stable learner-facing reason from the same weighted ranking terms.
 
 ### Module constants
 
-- `FOLLOWUP_REASONS` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 640)
-- `_INTERVENTION_FOLLOWUP_KINDS` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 648)
-- `REPAIR_JOURNEY_TASK_KINDS` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 667)
-- `_COLD_DEFERRAL_REASON` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 887)
-- `_TEACH_BACK_PRIORITY_FLOOR` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 1060)
-- `_REQUESTED_PRIORITY_FLOOR` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 1064)
+- `SELECTION_POLICY` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 677)
+- `UNAVAILABLE_PROPENSITY_KIND` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 682)
+- `SELECTION_FEATURE_SCHEMA` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 688)
+- `FOLLOWUP_REASONS` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 800)
+- `_INTERVENTION_FOLLOWUP_KINDS` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 808)
+- `REPAIR_JOURNEY_TASK_KINDS` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 827)
+- `_COLD_DEFERRAL_REASON` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 1047)
+- `_TEACH_BACK_PRIORITY_FLOOR` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 1220)
+- `_REQUESTED_PRIORITY_FLOOR` ([src/learnloop/scheduling/scheduler.py](../../../../../../src/learnloop/scheduling/scheduler.py), line 1224)
 
 ## Internal implementation anchors
 
-- `_defer_revealed_cold_followups(vault: LoadedVault, repository: Repository, pending_followups: list[dict[str, str]], *, clock: Clock | None=None, persist: bool=True) -> tuple[list[dict[str, str]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 670) — Hold back due cold tasks whose answer has been revealed since creation.
-- `_merge_cold_deferral_explanations(vault: LoadedVault, explanations: list[dict[str, Any]], deferrals: list[dict[str, Any]], readiness_factor: float | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 890) — Mark every deferred cold task in the slate, exactly once per item.
-- `_deferral_components(deferral: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 944)
-- `_deferral_reasons(deferral: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 951)
-- `_insert_pending_followups(vault: LoadedVault, queue: list[ScheduledItem], pending_followups: list[dict[str, str]], readiness_factor: float | None, *, item_states: dict[str, PracticeItemState] | None=None) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 955)
-- `_apply_contrast_pair_order(vault: LoadedVault, repository: Repository, queue: list[ScheduledItem], session: SchedulerSession, *, clock: Clock | None=None) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1067) — Meas §3.A4: randomize which member of a contrast pair is served first.
-- `_rotate_same_day_frontier_repeats(queue: list[ScheduledItem], item_states: dict[str, PracticeItemState], now: datetime) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1147) — Within goal-frontier queue slots, serve items not yet attempted today first.
-- `_enforce_teach_back_session_cap(queue: list[ScheduledItem], cap: int) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1184) — Keep at most ``cap`` teach_back items per built queue (config ``teach_back.session_cap``), preserving order for everything else.
-- `_load_episode_context(vault: LoadedVault, repository: Repository, episode, cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None]) -> tuple[HypothesisSet, dict[str, float], float] | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1199)
-- `_load_episode_eligible(vault: LoadedVault, repository: Repository, episode, context: tuple[HypothesisSet, dict[str, float], float], cache: dict[str, dict[str, EligibleInstrument]]) -> dict[str, EligibleInstrument]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1222) — The episode's eligible instruments (with §7.4 predictive components), computed once per episode per queue build and keyed by item id.
-- `_record_probe_elicitation(repository: Repository, queue: list[ScheduledItem], probe_item_ids: dict[str, str], session: SchedulerSession, *, entropy_before: dict[str, float] | None=None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1241)
-- `_practice_information(item, learning_object, mastery, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1283) — Display-only measurement value of one ordinary attempt (never selection).
-- `_priority(components: dict[str, float], config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1307)
-- `_selection_propensities(queue: list[ScheduledItem], session: SchedulerSession, config: LearnLoopConfig) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1334) — ``P(item is served as the top candidate | slate)`` under seeded exploration.
-- `_apply_seeded_exploration(queue: list[ScheduledItem], session: SchedulerSession, config: LearnLoopConfig, now: datetime) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1386)
-- `_stable_fraction(label: str, session_id: str, now: datetime, candidate_ids: list[str]) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1434)
-- `_intent_for_item(item: PracticeItem, *, in_probe: bool, components: dict[str, float]) -> SchedulerIntent` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1440)
-- `_readiness_factor(session: SchedulerSession, config: LearnLoopConfig) -> float | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1464)
-- `_session_context(session: SchedulerSession, *, short_session: bool, readiness_factor: float | None, shadow_intent: dict[str, object] | None=None) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1484)
-- `_scheduler_config_snapshot(config: LearnLoopConfig) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1504)
-- `_forgetting_risk(state: PracticeItemState | None, now: datetime, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1521)
-- `_goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1538) — Fraction of the item's evidence facets on its LO's goal frontier, scaled by goal priority.
-- `_apply_goal_quota(queue: list[ScheduledItem], floor: float) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1556) — Reorder-only greedy quota guaranteeing a floor share of goal-frontier items.
-- `_apply_requested_floor(queue: list[ScheduledItem], requested_item_ids: list[str], cap: int) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1597) — Prefix-floor reorder guaranteeing requested items a front slot (spec §4a).
-- `_recent_error(errors: list[ActiveErrorEvent], now: datetime) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1631)
-- `_errors_by_learning_object(errors: list[ActiveErrorEvent]) -> dict[str, list[ActiveErrorEvent]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1642) — Active LEARNER errors per LO.
-- `_plain_english(item: PracticeItem, components: dict[str, float]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1663)
-- `_explanation_payload(item: ScheduledItem, *, selected: bool=True, selection_propensity: float | None=None) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1685)
+- `_selection_decision_features(vault: LoadedVault, item: PracticeItem, *, mastery_states: Mapping[str, MasteryState], facet_states_by_lo: Mapping[str, list[Any]], errors_by_lo: Mapping[str, list[ActiveErrorEvent]], quality_states: Mapping[str, PracticeItemQualityState], ability_by_lo: dict[str, dict[str, object]]) -> dict[str, object] | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 691) — Compact, immutable features for one considered candidate.
+- `_practice_item_snapshot(item: PracticeItem) -> tuple[str, str]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 745) — Canonical JSON of the whole item and the SHA-256 of exactly that text.
+- `_selection_ability_features(vault: LoadedVault, learning_object_id: str, *, mastery: MasteryState | None, facet_states: list[Any], active_errors: list[ActiveErrorEvent]) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 763) — The selector's ability vector plus the mastery summary behind it.
+- `_defer_revealed_cold_followups(vault: LoadedVault, repository: Repository, pending_followups: list[dict[str, str]], *, clock: Clock | None=None, persist: bool=True) -> tuple[list[dict[str, str]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 830) — Hold back due cold tasks whose answer has been revealed since creation.
+- `_merge_cold_deferral_explanations(vault: LoadedVault, explanations: list[dict[str, Any]], deferrals: list[dict[str, Any]], readiness_factor: float | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1050) — Mark every deferred cold task in the slate, exactly once per item.
+- `_deferral_components(deferral: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1104)
+- `_deferral_reasons(deferral: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1111)
+- `_insert_pending_followups(vault: LoadedVault, queue: list[ScheduledItem], pending_followups: list[dict[str, str]], readiness_factor: float | None, *, item_states: dict[str, PracticeItemState] | None=None) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1115)
+- `_apply_contrast_pair_order(vault: LoadedVault, repository: Repository, queue: list[ScheduledItem], session: SchedulerSession, *, clock: Clock | None=None) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1227) — Meas §3.A4: randomize which member of a contrast pair is served first.
+- `_rotate_same_day_frontier_repeats(queue: list[ScheduledItem], item_states: dict[str, PracticeItemState], now: datetime) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1307) — Within goal-frontier queue slots, serve items not yet attempted today first.
+- `_enforce_teach_back_session_cap(queue: list[ScheduledItem], cap: int) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1344) — Keep at most ``cap`` teach_back items per built queue (config ``teach_back.session_cap``), preserving order for everything else.
+- `_load_episode_context(vault: LoadedVault, repository: Repository, episode, cache: dict[str, tuple[HypothesisSet, dict[str, float], float] | None]) -> tuple[HypothesisSet, dict[str, float], float] | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1359)
+- `_load_episode_eligible(vault: LoadedVault, repository: Repository, episode, context: tuple[HypothesisSet, dict[str, float], float], cache: dict[str, dict[str, EligibleInstrument]]) -> dict[str, EligibleInstrument]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1382) — The episode's eligible instruments (with §7.4 predictive components), computed once per episode per queue build and keyed by item id.
+- `_record_probe_elicitation(repository: Repository, queue: list[ScheduledItem], probe_item_ids: dict[str, str], session: SchedulerSession, *, entropy_before: dict[str, float] | None=None, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1401)
+- `_practice_information(item, learning_object, mastery, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1443) — Display-only measurement value of one ordinary attempt (never selection).
+- `_priority(components: dict[str, float], config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1467)
+- `_selection_propensities(queue: list[ScheduledItem], session: SchedulerSession, config: LearnLoopConfig) -> dict[str, float]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1494) — ``P(item is served as the top candidate | slate)`` under seeded exploration.
+- `_apply_seeded_exploration(queue: list[ScheduledItem], session: SchedulerSession, config: LearnLoopConfig, now: datetime) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1546)
+- `_stable_fraction(label: str, session_id: str, now: datetime, candidate_ids: list[str]) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1594)
+- `_intent_for_item(item: PracticeItem, *, in_probe: bool, components: dict[str, float]) -> SchedulerIntent` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1600)
+- `_readiness_factor(session: SchedulerSession, config: LearnLoopConfig) -> float | None` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1624)
+- `_session_context(session: SchedulerSession, *, short_session: bool, readiness_factor: float | None, shadow_intent: dict[str, object] | None=None) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1644)
+- `_scheduler_config_snapshot(config: LearnLoopConfig) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1664)
+- `_forgetting_risk(state: PracticeItemState | None, now: datetime, weights: tuple[float, ...]=FSRS6_DEFAULT_WEIGHTS) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1681)
+- `_goal_frontier(vault: LoadedVault, item: PracticeItem, entry) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1698) — Fraction of the item's evidence facets on its LO's goal frontier, scaled by goal priority.
+- `_apply_goal_quota(queue: list[ScheduledItem], floor: float) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1716) — Reorder-only greedy quota guaranteeing a floor share of goal-frontier items.
+- `_apply_requested_floor(queue: list[ScheduledItem], requested_item_ids: list[str], cap: int) -> list[ScheduledItem]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1757) — Prefix-floor reorder guaranteeing requested items a front slot (spec §4a).
+- `_recent_error(errors: list[ActiveErrorEvent], now: datetime) -> float` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1791)
+- `_errors_by_learning_object(errors: list[ActiveErrorEvent]) -> dict[str, list[ActiveErrorEvent]]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1802) — Active LEARNER errors per LO.
+- `_plain_english(item: PracticeItem, components: dict[str, float]) -> list[str]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1823)
+- `_explanation_payload(item: ScheduledItem, *, selected: bool=True, selection_propensity: float | None=None) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/scheduler.py), line 1845)
 
 ## Who imports or calls it
 
@@ -113,6 +119,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `SchedulerSession`, `build_due_queue`, `explain_practice_item`
+- [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]] — imports `UNAVAILABLE_PROPENSITY_KIND`
 - [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]] — imports `build_due_queue`; statically calls `build_due_queue`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `SchedulerSession`, `build_due_queue`; statically calls `SchedulerSession`, `build_due_queue`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `ScheduledItem`
@@ -135,7 +142,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `attempt_evidence_mass`; calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ActiveErrorEvent`, `PracticeItemState`, `Repository`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ActiveErrorEvent`, `MasteryState`, `PracticeItemQualityState`, `PracticeItemState`, `Repository`
+- [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `pinned_repository_call`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `calibration_cap_lifted`, `routine_planner_shadow`; calls `calibration_cap_lifted`, `routine_planner_shadow`
 - [[Reference/Modules/learnloop/diagnosis/contrast_pairs|learnloop.diagnosis.contrast_pairs]] — imports `apply_serving_decisions`, `plan_contrast_pair_serving`, `record_contrast_pair_servings`; calls `apply_serving_decisions`, `plan_contrast_pair_serving`, `record_contrast_pair_servings`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `reconcile_diagnostic_surface_needs`, `reconcile_empty_probe_pools`; calls `reconcile_diagnostic_surface_needs`, `reconcile_empty_probe_pools`
@@ -154,14 +162,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/scheduling/controller_ownership|learnloop.scheduling.controller_ownership]] — imports `module`; calls `staged_owned_practice_item_ids`
 - [[Reference/Modules/learnloop/scheduling/fsrs|learnloop.scheduling.fsrs]] — imports `FSRS6_DEFAULT_WEIGHTS`, `forgetting_curve`; calls `forgetting_curve`
 - [[Reference/Modules/learnloop/scheduling/intent_planner|learnloop.scheduling.intent_planner]] — imports `shadow_intent_plan`; calls `shadow_intent_plan`
-- [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `SchedulerIntent`, `score_selection_reward`; calls `score_selection_reward`
+- [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `SchedulerIntent`, `ability_vector`, `item_demand_vector`, `score_selection_reward`; calls `ability_vector`, `item_demand_vector`, `score_selection_reward`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
 - [[Reference/Modules/learnloop/substrate/instrument_serving|learnloop.substrate.instrument_serving]] — imports `unservable_reason`; calls `unservable_reason`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `datetime`, `hashlib`, `logging`, `math`, `typing`
+- Standard library: `__future__`, `dataclasses`, `datetime`, `hashlib`, `json`, `logging`, `math`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -171,7 +179,7 @@ Use this module in context through:
 - [[Start a Learning Cycle]]
 - [[Continue a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]], [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/scheduling/evaluation|learnloop.scheduling.evaluation]], [[Reference/Modules/learnloop/scheduling/staged_policy|learnloop.scheduling.staged_policy]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -183,6 +191,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_accepting_diagnostic_proposal_queues_today_followup`
 - [tests/test_cold_start_revision.py](../../../../../../tests/test_cold_start_revision.py) — direct import
   - `test_scheduler_excludes_assessment_side_errors`
+- [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
+  - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
+  - `test_final_offer_refuses_filtered_and_cross_session_candidates`
+  - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
+  - `test_selection_decision_features_reference_the_item_and_stay_compact`
+  - `test_writers_stamp_the_current_collection_version`
 - [tests/test_contrast_pairs.py](../../../../../../tests/test_contrast_pairs.py) — direct import
   - `test_the_scheduler_records_a_serving_for_a_real_session`
 - [tests/test_controller_cutover.py](../../../../../../tests/test_controller_cutover.py) — direct import
@@ -198,6 +213,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_e2e_codex_mock.py](../../../../../../tests/test_e2e_codex_mock.py) — direct import
   - `test_codex_mocked_end_to_end`
 - [tests/test_evaluation.py](../../../../../../tests/test_evaluation.py) — direct import
+  - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
 - [tests/test_exam_pool.py](../../../../../../tests/test_exam_pool.py) — direct import
   - `test_scheduler_skips_reserved_items`
@@ -223,6 +239,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_migrations.py](../../../../../../tests/test_migrations.py) — direct import
+  - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_practice_information.py](../../../../../../tests/test_practice_information.py) — direct import
   - `test_boundary_item_maximizes_information`
   - `test_claim_seeded_theta_shifts_information`
@@ -251,7 +269,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scheduler_candidate_logs_are_retained_per_configured_limit`
   - `test_scheduler_orders_eligible_items_by_selection_reward_before_id`
   - `test_scheduler_persists_bounded_reward_debug_and_rejected_candidates`
-  - `test_scheduler_persists_selection_propensity_and_exploration_flag`
+  - `test_scheduler_preserves_draw_diagnostics_without_claiming_final_propensity`
   - `test_scheduler_scores_due_goal_item`
   - `test_scheduler_selects_item_on_weak_canonical_facet_boundary`
   - `test_selection_propensities_epsilon_split_over_near_ties`

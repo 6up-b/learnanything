@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 163
-table_count: 258
+schema_head: 164
+table_count: 259
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_163/state.sqlite"
+  - "fixtures/migration_head_164/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-163"
+  - "learnloop/database/schema-head-164"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 258 user tables at migration head 163. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 259 user tables at migration head 164. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -40,7 +40,7 @@ This is the exhaustive map of the 258 user tables at migration head 163. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 129 |
 | [[Table Roles#Derived|`derived`]] | 10 |
-| [[Table Roles#Receipt|`receipt`]] | 53 |
+| [[Table Roles#Receipt|`receipt`]] | 54 |
 | [[Table Roles#Workflow|`workflow`]] | 56 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 258 user tables at migration head 163. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 245 |
+| `active` | 246 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -221,11 +221,12 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/controller_prequential_reports|controller_prequential_reports]] — `receipt` · `dormant-shadow` · Stores delayed evaluation reports over controller shadow predictions. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `target_kind`, `horizon_kind`, `report_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_shadow_predictions|controller_shadow_predictions]] — `receipt` · `dormant-shadow` · Stores non-authoritative controller predictions; a schema CHECK fixes authority to 'none'. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `scorer_kind`, `model_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_snapshots|controller_snapshots]] — `receipt` · `active` · Gives controller snapshot a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `snapshot_hash`, `param_manifest_hash`, making the operational relationship explicit.
-- [[Reference/Database/Tables/decision_features|decision_features]] — `receipt` · `active` · Gives decision feature a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `decision_type`, `algorithm_version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/decision_features|decision_features]] — `receipt` · `active` · Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `decision_type`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/familiarity_kernel_events|familiarity_kernel_events]] — `receipt` · `active` · Preserves an append-only chronology of familiarity kernel so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `model_id`, `event_kind`, `event_ordinal`, making the operational relationship explicit.
 - [[Reference/Database/Tables/familiarity_kernel_features|familiarity_kernel_features]] — `receipt` · `active` · Gives familiarity kernel feature a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `model_id`, `subject_surface_id`, `kin_surface_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/familiarity_kernel_models|familiarity_kernel_models]] — `raw_ledger` · `active` · Gives familiarity kernel model a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `parent_id`, `admission_evidence_id`, `model_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/policy_experiment_assignments|policy_experiment_assignments]] — `receipt` · `active` · Records governed assignments for policy experiment so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `experiment_id`, `decision_id`, `unit_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/practice_item_snapshots|practice_item_snapshots]] — `receipt` · `active` · Keeps one content-addressed copy of every practice-item revision the scheduler scored, keyed by the SHA-256 of its canonical JSON, so selection decision features can be joined to the exact item text after the vault item changes. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `practice_item_id`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/queue_state|queue_state]] — `workflow` · `active` · Stores the mutable practice queue head and its workflow position. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `singleton`, `revision`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_explanations|scheduler_explanations]] — `receipt` · `active` · Gives scheduler explanation a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_offer_receipts|scheduler_offer_receipts]] — `receipt` · `active` · Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `slate_id`, `collection_version`, `entry_surface`, making the operational relationship explicit.

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/cli/runtime.py"
 source_paths:
   - "src/learnloop/cli/runtime.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.cli"
 layer: "adapter"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -118,6 +118,7 @@ No public top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/cli/config|learnloop.cli.config]] — imports `module`
 - [[Reference/Modules/learnloop/cli/contracts|learnloop.cli.contracts]] — imports `module`
 - [[Reference/Modules/learnloop/cli/controller|learnloop.cli.controller]] — imports `module`
+- [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `_dump`, `_load_vault_or_exit`, `_root`; statically calls `_dump`, `_load_vault_or_exit`, `_root`
 - [[Reference/Modules/learnloop/cli/depth|learnloop.cli.depth]] — imports `module`
 - [[Reference/Modules/learnloop/cli/diagnosis|learnloop.cli.diagnosis]] — imports `module`
 - [[Reference/Modules/learnloop/cli/exam|learnloop.cli.exam]] — imports `module`
@@ -186,7 +187,7 @@ Use this module in context through:
 
 - [[Configure AI Providers]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]], [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]], [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]], [[Reference/Modules/learnloop/cli/clarification|learnloop.cli.clarification]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/cli/calibration|learnloop.cli.calibration]], [[Reference/Modules/learnloop/cli/card|learnloop.cli.card]], [[Reference/Modules/learnloop/cli/claims|learnloop.cli.claims]], [[Reference/Modules/learnloop/cli/clarification|learnloop.cli.clarification]] and 16 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

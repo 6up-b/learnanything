@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 163
+schema_head: 164
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,12 +19,12 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
-  - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop_sidecar/handlers/ingest.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/sources/provenance.py"
   - "src/learnloop/content/synthesis/source_append.py"
 tags:
@@ -123,6 +123,7 @@ Indexes and uniqueness:
 
 - `tests/test_migrations.py`
 - `tests/test_source_set_synthesis.py`
+- `tests/test_ingest_ownership.py`
 - `tests/test_source_append.py`
 - `tests/test_synthesis_runs_repo.py`
 

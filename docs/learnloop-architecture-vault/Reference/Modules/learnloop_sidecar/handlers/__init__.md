@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/__init__.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/__init__.py"
-source_commit: "971d7c274e09873d726d43578cd080e4d8865571"
-source_commit_timestamp: "2026-07-27T06:01:19-04:00"
+source_commit: "ee2e43120c2b814eb8b6a849efaa1ac08260ad69"
+source_commit_timestamp: "2026-09-03T21:40:18-07:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -49,13 +49,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/__init__.py](../../../../../../src/learnloop_sidecar/handlers/__init__.py) |
-| Source lines | 43 |
+| Source lines | 44 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `971d7c274e09873d726d43578cd080e4d8865571` |
-| Commit timestamp | `2026-07-27T06:01:19-04:00` |
+| Source commit | `ee2e43120c2b814eb8b6a849efaa1ac08260ad69` |
+| Commit timestamp | `2026-09-03T21:40:18-07:00` |
 
 ## Public API
 
@@ -84,6 +84,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/claims|learnloop_sidecar.handlers.claims]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/cli|learnloop_sidecar.handlers.cli]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/diagnostic|learnloop_sidecar.handlers.diagnostic]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/epigraphs|learnloop_sidecar.handlers.epigraphs]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/exams|learnloop_sidecar.handlers.exams]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `module`
 - [[Reference/Modules/learnloop_sidecar/handlers/facets|learnloop_sidecar.handlers.facets]] — imports `module`

@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/main.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/main.rs"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "29221dd07e532b47b20c1fe10992a2c00bb3aaf9"
+source_commit_timestamp: "2026-09-23T12:09:28-04:00"
 source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/main.rs](../../../../../apps/learnloop-tauri/src-tauri/src/main.rs) |
-| Source lines | 569 |
+| Source lines | 651 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `29221dd07e532b47b20c1fe10992a2c00bb3aaf9` |
+| Commit timestamp | `2026-09-23T12:09:28-04:00` |
 
 ## Activation and status evidence
 
@@ -64,19 +64,24 @@ No library export; `fn main` is the Cargo binary entry point.
 
 ## Internal implementation anchors
 
-- `const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM"` — const, line 12
-- `fn llpdf_response(status: u16, body: Vec<u8>) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 19
-- `fn serve_llpdf( manager: &SidecarManager, uri_path: &str, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 28
-- `fn llmedia_response( status: u16, body: Vec<u8>, extra: Option<(String, String)>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 54
-- `fn slice_range(len: u64, range_header: Option<&str>) -> Option<Result<(u64, u64), ()>>` — fn, line 75
-- `fn serve_llmedia( manager: &SidecarManager, uri_path: &str, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 103
-- `fn debug_zoom_enabled() -> bool` — fn, line 147
-- `fn main()` — fn, line 156
-- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 506
-- `fn llpdf_404s_for_absent_store_file()` — fn, line 521
-- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 527
-- `fn llmedia_404s_for_absent_animation()` — fn, line 544
-- `fn slice_range_math()` — fn, line 553
+- `const DEBUG_ZOOM_ENV: &str = "LEARNLOOP_TAURI_DEBUG_ZOOM"` — const, line 13
+- `const MAX_MEDIA_RANGE_BYTES: u64 = 4 * 1024 * 1024` — const, line 17
+- `fn llpdf_response(status: u16, body: Vec<u8>) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 24
+- `fn serve_llpdf( manager: &SidecarManager, uri_path: &str, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 33
+- `fn llmedia_response( status: u16, body: Vec<u8>, extra: Option<(String, String)>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 59
+- `fn slice_range(len: u64, range_header: Option<&str>) -> Option<Result<(u64, u64), ()>>` — fn, line 80
+- `fn serve_llmedia( manager: &SidecarManager, uri_path: &str, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 108
+- `fn media_read_failed() -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 129
+- `fn serve_media_file( path: &std::path::Path, range_header: Option<&str>, ) -> tauri::http::Response<Cow<'static, [u8]>>` — fn, line 133
+- `fn debug_zoom_enabled() -> bool` — fn, line 179
+- `fn main()` — fn, line 188
+- `fn llpdf_rejects_non_content_addressed_names()` — fn, line 545
+- `fn llpdf_404s_for_absent_store_file()` — fn, line 560
+- `fn llmedia_rejects_non_content_addressed_names()` — fn, line 566
+- `fn llmedia_404s_for_absent_animation()` — fn, line 583
+- `fn content_range(response: &tauri::http::Response<Cow<'static, [u8]>>) -> String` — fn, line 591
+- `fn llmedia_serves_bounded_ranges_from_a_real_file()` — fn, line 596
+- `fn slice_range_math()` — fn, line 635
 
 ## Who imports or calls it
 
@@ -118,7 +123,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Keep native code an adapter: process/protocol/window/filesystem concerns belong here, while learning rules and durable state interpretation stay in Python domains.
 - Command changes must remain synchronized with `src/api/client.ts`, `src/api/dto.ts`, `main.rs` registration, and the Python sidecar registry.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

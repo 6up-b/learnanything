@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/facet_state_reader.py"
 source_paths:
   - "src/learnloop/learner/facet_state_reader.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -97,7 +97,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`, `is_canonical_state_vault`; statically calls `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`, `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `is_canonical_state_vault`, `resolve_canonical_facet`; statically calls `is_canonical_state_vault`, `resolve_canonical_facet`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `facet_recall_state_for_lo`; statically calls `facet_recall_state_for_lo`
-- [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `facet_recall_state_for_lo`; statically calls `facet_recall_state_for_lo`
+- [[Reference/Modules/learnloop/learner/recall_coverage|learnloop.learner.recall_coverage]] — imports `CanonicalFacetStateReader`, `facet_recall_state_for_lo`, `is_canonical_state_vault`; statically calls `CanonicalFacetStateReader`, `facet_recall_state_for_lo`, `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `facet_states_by_lo`; statically calls `facet_states_by_lo`
 - [[Reference/Modules/learnloop/scheduling/selection_rewards|learnloop.scheduling.selection_rewards]] — imports `is_canonical_state_vault`; statically calls `is_canonical_state_vault`
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`; statically calls `facet_recall_states_for_lo`, `facet_uncertainty_states_for_lo`
@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km2b_consumer_rekey.py](../../../../../../tests/test_km2b_consumer_rekey.py) — direct import
   - `test_exam_attempt_moves_shared_parent_across_los`
   - `test_two_los_share_one_facet_parent_in_scheduler_view`
+- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 
 ## Modification guidance
 

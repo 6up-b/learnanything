@@ -11,7 +11,7 @@ source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
 source_commit_timestamp: "2026-05-19T19:15:00-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -38,7 +38,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps hashes behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `content_hash`, `learning_object_hash`, `practice_item_hash`, `concept_hash`, `concept_edge_hash`, `rubric_hash`.
+This module keeps hashes behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `content_hash`, `learning_object_hash`, `practice_item_hash`.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -62,9 +62,6 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `content_hash(fields: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 22)
 - `learning_object_hash(learning_object: LearningObject) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 27)
 - `practice_item_hash(practice_item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 45)
-- `concept_hash(concept_id: str, concept: Concept) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 63)
-- `concept_edge_hash(edge: ConceptEdge) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 75)
-- `rubric_hash(rubric: Rubric) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 92)
 
 ## Internal implementation anchors
 

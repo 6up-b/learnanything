@@ -4,10 +4,10 @@ status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
 config_schema_version: 2
-schema_head: 156
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-last_verified: "2026-08-17"
+schema_head: 164
+source_commit: "0622ea164f76ad7e1d62a00afda51473dbcd992e"
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "learnloop init"
   - "Create vault"
@@ -115,7 +115,7 @@ my-vault/
 │   └── vault.lock                 # blank while unlocked
 ├── AGENTS.md
 ├── learnloop.toml                 # decision-only schema-v2 template
-├── state.sqlite                   # migration head 156; 251 user tables
+├── state.sqlite                   # migration head 164; 259 user tables
 ├── concepts/
 │   ├── concepts.yaml              # schema_version 1, empty concepts map
 │   └── relations.yaml             # schema_version 1, empty edge list
@@ -129,7 +129,7 @@ my-vault/
 └── subjects/                      # empty
 ```
 
-The migration directory currently contains 143 numbered SQL files ending at version 156. Fresh creation applies all of them to a temporary sibling, records all receipts, synchronizes the file, and atomically publishes it as the configured SQLite path. See [[Schema Evolution#Fresh database publication]].
+The migration directory currently contains 151 numbered SQL files ending at version 164. Fresh creation applies all of them to a temporary sibling, records all receipts, synchronizes the file, and atomically publishes it as the configured SQLite path. See [[Schema Evolution#Fresh database publication]].
 
 ### Default error taxonomy
 
@@ -202,7 +202,7 @@ sqlite3 'file:/home/me/LearnLoop/my-vault/state.sqlite?mode=ro' \
   'SELECT COUNT(*), MIN(version), MAX(version) FROM schema_migrations;'
 ```
 
-At the documented head, this reports 143 applied migrations spanning 1 through 156.
+At the documented head, this reports 151 applied migrations spanning 1 through 164.
 
 ## What comes next
 

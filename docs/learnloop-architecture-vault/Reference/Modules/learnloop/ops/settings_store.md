@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/settings_store.py"
 source_paths:
   - "src/learnloop/ops/settings_store.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "86e3157496340294e84eebfe068e8f2f3d0df893"
+source_commit_timestamp: "2026-09-03T10:49:33-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ops"
 layer: "domain"
 concepts:
@@ -50,25 +50,25 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/settings_store.py](../../../../../../src/learnloop/ops/settings_store.py) |
-| Source lines | 294 |
+| Source lines | 304 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `86e3157496340294e84eebfe068e8f2f3d0df893` |
+| Commit timestamp | `2026-09-03T10:49:33-07:00` |
 
 ## Public API
 
 - `class SettingsStoreError(ValueError)` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 30)
   - `__init__(self, code: str, message: str)` (line 31; internal)
-- `openrouter_profile_name(use_case: str) -> str` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 46)
-- `openrouter_task_profile_values(base: AIProviderConfig, model: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 50) — Concrete keys for a per-use-case OpenRouter profile cloned from ``base``.
-- `apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 75) — Set dotted key-paths in ``learnloop.toml``, preserving comments/layout.
-- `remove_config_paths(config_path: Path, key_paths: tuple[tuple[str, ...], ...]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 118) — Remove retired config keys/tables with atomic, comment-preserving edits.
-- `copy_ai_settings(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 168) — Copy the persisted ``[ai]`` provider selection from one vault's ``learnloop.toml`` into another's.
-- `save_ai_settings_to(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 222) — Mirror a vault's ``[ai]`` selection into ``target_path``, creating the target (and its parent dir) if absent.
-- `upsert_env_var(path: Path, key: str, value: str | None) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 246) — Set (or remove, when ``value`` is None) ``KEY=value`` in a dotenv file.
+- `openrouter_profile_name(use_case: str) -> str` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 48)
+- `openrouter_task_profile_values(base: AIProviderConfig, model: str, *, input_modalities: list[str] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 52) — Concrete keys for a per-use-case OpenRouter profile cloned from ``base``.
+- `apply_config_updates(config_path: Path, updates: Mapping[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 85) — Set dotted key-paths in ``learnloop.toml``, preserving comments/layout.
+- `remove_config_paths(config_path: Path, key_paths: tuple[tuple[str, ...], ...]) -> tuple[tuple[str, ...], ...]` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 128) — Remove retired config keys/tables with atomic, comment-preserving edits.
+- `copy_ai_settings(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 178) — Copy the persisted ``[ai]`` provider selection from one vault's ``learnloop.toml`` into another's.
+- `save_ai_settings_to(source_path: Path, target_path: Path) -> bool` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 232) — Mirror a vault's ``[ai]`` selection into ``target_path``, creating the target (and its parent dir) if absent.
+- `upsert_env_var(path: Path, key: str, value: str | None) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 256) — Set (or remove, when ``value`` is None) ``KEY=value`` in a dotenv file.
 
 ### Module constants
 
@@ -76,7 +76,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_flatten_into_updates(prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 236)
+- `_flatten_into_updates(prefix: tuple[str, ...], table: Mapping[str, Any], updates: dict[tuple[str, ...], Any]) -> None` ([source](../../../../../../src/learnloop/ops/settings_store.py), line 246)
 
 ## Who imports or calls it
 
@@ -109,12 +109,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
+  - `test_request_video_model_requires_a_ready_route`
+  - `test_storyboard_total_is_checked_on_the_clamped_durations`
 - [tests/test_ingest_runner.py](../../../../../../tests/test_ingest_runner.py) — direct import
+  - `test_audio_transcription_mode_uses_endpoint_without_native_route`
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`
   - `test_explicit_transcription_route_uses_named_profile_without_legacy_switch`
+  - `test_native_audio_unready_falls_back_when_opted_in`
+  - `test_native_pdf_fallback_when_unavailable_uses_local_with_health_flag`
+  - `test_native_pdf_rejects_oversized_file`
   - `test_native_route_takes_precedence_over_openrouter_transcription_setting`
   - `test_routed_transcription_keeps_the_chat_upload_size_cap`
   - `test_transcription_route_never_falls_back_to_an_unconsented_provider`
+- [tests/test_settings_sidecar.py](../../../../../../tests/test_settings_sidecar.py) — direct import
+  - `test_detect_provider_capabilities_without_a_model_skips_the_network`
+  - `test_start_import_batch_fails_fast_for_native_pdf_conflicts`
+  - `test_update_provider_modalities_materializes_a_compat_derived_profile`
 - [tests/test_settings_store.py](../../../../../../tests/test_settings_store.py) — direct import
   - `test_apply_config_updates_creates_missing_tables`
   - `test_apply_config_updates_is_atomic_on_parse_failure`
@@ -123,12 +134,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_copy_ai_settings_copies_routing_and_materialized_profiles`
   - `test_copy_ai_settings_default_source_is_semantic_noop`
   - `test_copy_ai_settings_errors_on_missing_or_invalid_source`
+  - `test_openrouter_task_profile_values_prefers_explicit_modalities`
   - `test_openrouter_task_profile_values_round_trip`
   - `test_remove_config_paths_removes_retired_table_and_is_idempotent`
   - `test_save_ai_settings_to_creates_target_and_seeds_new_vault`
   - `test_upsert_env_var_appends_and_replaces_preserving_other_lines`
   - `test_upsert_env_var_rejects_bad_names_and_newlines`
   - `test_upsert_env_var_removes_key_on_none_and_creates_parents`
+- [tests/test_sidecar_animation.py](../../../../../../tests/test_sidecar_animation.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_update_ingest_settings_transcription_provider_switch`
 

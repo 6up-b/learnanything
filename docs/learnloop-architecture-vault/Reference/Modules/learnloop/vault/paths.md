@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/vault/paths.py"
 source_paths:
   - "src/learnloop/vault/paths.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `VaultPaths`, `find_vault_root`; statically calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `VaultPaths`, `animation_video_path`; statically calls `VaultPaths`, `animation_video_path`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -152,7 +153,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]], [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] and 30 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]], [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] and 31 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -160,6 +161,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/test_apply_write_ahead.py](../../../../../../tests/test_apply_write_ahead.py) — direct import
+- [tests/test_attempt_completion.py](../../../../../../tests/test_attempt_completion.py) — direct import
+  - `test_block_closing_diagnostic_answer_keeps_grader_provenance`
 - [tests/test_cli_attempt.py](../../../../../../tests/test_cli_attempt.py) — direct import
   - `test_cli_show_attempt_includes_evidence_and_surprise`
 - [tests/test_cli_json.py](../../../../../../tests/test_cli_json.py) — direct import
@@ -183,7 +186,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_planner.py](../../../../../../tests/test_intent_planner.py) — direct import
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
+- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_originals_store.py](../../../../../../tests/test_originals_store.py) — direct import
+  - `test_failed_original_write_leaves_no_temporary_file`
   - `test_resolve_prefers_store_then_original_uri`
 - [tests/test_p2_acceptance.py](../../../../../../tests/test_p2_acceptance.py) — direct import
 - [tests/test_p2_leakage_suite.py](../../../../../../tests/test_p2_leakage_suite.py) — direct import

@@ -6,14 +6,18 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/attempts/attempts.py
   - src/learnloop/attempts/grading.py
   - src/learnloop/attempts/ai_contracts.py
   - src/learnloop/attempts/post_attempt.py
+  - src/learnloop/attempts/completion_lock.py
+  - src/learnloop/db/stores/completion.py
+  - src/learnloop/ai/execution.py
+  - tests/test_attempt_completion.py
   - src/learnloop/ai/transport.py
   - tests/test_attempt_write_order.py
   - tests/test_attempt_ai_flow.py
@@ -65,7 +69,7 @@ Option-letter items can be graded deterministically. This avoids a model call wi
 
 ## 2. Record the call receipt, then call the provider
 
-For provider-backed grading, an `agent_runs` row is inserted in `running` state before transport begins. The feature sends a typed `GradingContext` and expects a typed `GradingProposal`; transport handles provider protocol and bounded JSON repair as described in [[AI Architecture#Output trust boundary]].
+For provider-backed grading, an `agent_runs` row is inserted in `running` state before transport begins. Under a model-call observer (every sidecar RPC, durable ingest jobs, and CLI practice grading), each model operation also writes a `model_call_receipts` row in `started` state before the paid request; the finish write is best-effort, so a lost finish leaves the receipt `started` with unknown usage. The feature sends a typed `GradingContext` and expects a typed `GradingProposal`; transport handles provider protocol and bounded JSON repair as described in [[AI Architecture#Output trust boundary]].
 
 > [!important] Audit invariant
 > A timeout, invalid payload, or provider error must still leave an inspectable agent-run outcome. There is no invisible call between the answer and the grade.
@@ -87,15 +91,26 @@ The model's total is retained for audit, but it does not override the sum of val
 
 ## Apply the resolved grade transactionally
 
-`AttemptApplication` materializes the receipt, grade, evidence/error records, derived state inputs, and post-attempt effects before repository persistence. The tested write order is:
+`apply_attempt` runs in one repository transaction. `AttemptApplication` materializes the receipt, grade, evidence/error records and derived state inputs before repository persistence. The write order is as follows (`tests/test_attempt_write_order.py` asserts steps 1–4 before post-attempt completion):
 
 1. receipt;
 2. grade;
 3. criterion evidence and error records;
 4. derived learner state;
-5. post-attempt effects.
+5. the grade's `attempt_feedback_metadata` row (grading source, fallback reason, grading run, repair suggestions), written before causal materialization and episode accounting because a block this attempt closes normalizes the whole block inside the same transaction and reads the grading run from that row;
+6. the attempt's `attempt_completion_work` row, which saves the result and the probe episode the attempt was applied under.
 
-Post-attempt processing schedules qualifying cold probes, stores feedback metadata, and evaluates intervention/causal follow-ups. Exam attempts use the same evidence-side processing but defer feedback until the exam finishes.
+Doors with no completion phase (exam seeding, simulators, recall calibration, observation imports, rung-variant requests) set `awaits_completion=False`; their completion row is written `completed` at apply time, so a `pending` row always means an interrupted completion.
+
+## Post-attempt completion
+
+`run_post_attempt_pipeline` completes an applied attempt exactly once. It holds the per-database completion lock (`attempt-completion.lock`, re-entrant per thread, 120 s wait) for the whole sequence and returns immediately when the completion row is already `completed`:
+
+1. **One transaction:** certification cold-probe scheduling and the attempt feedback metadata row (both idempotent, so a resumed completion may repeat them).
+2. **No transaction:** misconception normalization and resolution, which may call the grading provider; a diagnostic answer inside a block that is still measuring defers this to the block-end hook.
+3. **One transaction:** intervention and causal follow-up evaluation, the final learner route (from the recorded apply-time probe episode), and the completion mark.
+
+A process that stops between apply and the completion mark leaves a `pending` row; retrying the same submission id resumes from step 1 with the saved grade, as described in [[Continue a Learning Cycle#After a lost submission response]]. Exam attempts use the same evidence-side processing but defer feedback until the exam finishes.
 
 ## Manual ordinary-practice example
 
@@ -141,6 +156,8 @@ For a ready-provider path that verifies `agent_run_id`, distinguishes success fr
 - criterion evidence: `grading_evidence`
 - call receipt: `agent_runs`
 - source/fallback/feedback: `attempt_feedback_metadata`
+- saved result and completion state: `attempt_completion_work`
+- per-request model calls: `model_call_receipts`
 - derived surprise and learner state: DERIVED-role tables listed in [[Database Catalog]]
 
 Trace them safely in [[Inspect Persistent State#Trace one attempt]].

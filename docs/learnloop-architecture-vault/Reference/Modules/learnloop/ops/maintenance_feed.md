@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ops/maintenance_feed.py"
 source_paths:
   - "src/learnloop/ops/maintenance_feed.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "2f1331ce04afea51266eaa93ae26b8c5ef72517a"
+source_commit_timestamp: "2026-09-23T12:47:57-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ops"
 layer: "domain"
 concepts:
@@ -50,39 +50,39 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py) |
-| Source lines | 368 |
+| Source lines | 369 |
 | Owning package | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `2f1331ce04afea51266eaa93ae26b8c5ef72517a` |
+| Commit timestamp | `2026-09-23T12:47:57-04:00` |
 
 ## Public API
 
 - `class NoticeType` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 34)
-- `generate_maintenance_feed(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 79) — Regenerate the feed deterministically; return the live notices (§11).
-- `dismiss_notice(repository: Repository, notice_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 341)
-- `snooze_notice(repository: Repository, notice_id: str, *, until: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 345) — Snooze a notice; escalation-policy notices raise severity after N snoozes.
+- `generate_maintenance_feed(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 80) — Regenerate the feed deterministically; return the live notices (§11).
+- `dismiss_notice(repository: Repository, notice_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 342)
+- `snooze_notice(repository: Repository, notice_id: str, *, until: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 346) — Snooze a notice; escalation-policy notices raise severity after N snoozes.
 
 ### Module constants
 
 - `ESCALATION_SNOOZE_THRESHOLD` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 30)
 - `NOTICE_TYPES` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 41)
-- `_COLLECTORS` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 326)
+- `_COLLECTORS` ([src/learnloop/ops/maintenance_feed.py](../../../../../../src/learnloop/ops/maintenance_feed.py), line 327)
 
 ## Internal implementation anchors
 
-- `class _Notice` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 68)
-- `_collect(vault: LoadedVault, repository: Repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 135)
-- `_stale_link_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 142)
-- `_open_conflict_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 167)
-- `_partial_append_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 183)
-- `_lo_without_practice_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 197)
-- `_taught_blueprint_without_assessment_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 219) — A taught blueprint with no assessment_alignment provenance (§11).
-- `_source_outcome_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 238) — Provenance-outcome associations as additive suggestions (§11, ING M8).
-- `_graph_edit_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 266) — Graph-editor notices (§8/§12): ambiguous edge direction + queued restructure-intent for locked facets.
-- `_probe_pool_empty_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 296) — Empty diagnostic-probe pools (owner decision: never silent).
+- `class _Notice` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 69)
+- `_collect(vault: LoadedVault, repository: Repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 136)
+- `_stale_link_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 143)
+- `_open_conflict_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 168)
+- `_partial_append_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 184)
+- `_lo_without_practice_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 198)
+- `_taught_blueprint_without_assessment_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 220) — A taught blueprint with no assessment_alignment provenance (§11).
+- `_source_outcome_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 239) — Provenance-outcome associations as additive suggestions (§11, ING M8).
+- `_graph_edit_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 267) — Graph-editor notices (§8/§12): ambiguous edge direction + queued restructure-intent for locked facets.
+- `_probe_pool_empty_notices(vault, repository) -> list[_Notice]` ([source](../../../../../../src/learnloop/ops/maintenance_feed.py), line 297) — Empty diagnostic-probe pools, surfaced as a maintenance need rather than skipped.
 
 ## Who imports or calls it
 

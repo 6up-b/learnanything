@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/vault/yaml_io.py"
 source_paths:
   - "src/learnloop/vault/yaml_io.py"
-source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
-source_commit_timestamp: "2026-05-19T19:15:00-04:00"
+source_commit: "7dc0955025e612cf3b29264ee3ec63fc528801a2"
+source_commit_timestamp: "2026-09-23T12:15:38-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.vault"
 layer: "infrastructure"
 concepts:
@@ -38,7 +38,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps yaml io behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `read_yaml`, `write_yaml`, `yaml_to_string`, `read_markdown_with_frontmatter`, `write_markdown_with_frontmatter`.
+This module keeps yaml io behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `read_yaml`, `read_yaml_data`, `write_yaml`, `yaml_to_string`, `read_markdown_with_frontmatter`, `read_markdown_frontmatter_data`, `write_markdown_with_frontmatter`.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -49,25 +49,38 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py) |
-| Source lines | 61 |
+| Source lines | 228 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7` |
-| Commit timestamp | `2026-05-19T19:15:00-04:00` |
+| Source commit | `7dc0955025e612cf3b29264ee3ec63fc528801a2` |
+| Commit timestamp | `2026-09-23T12:15:38-04:00` |
 
 ## Public API
 
-- `read_yaml(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 18)
-- `write_yaml(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 27)
-- `yaml_to_string(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 34)
-- `read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 41)
-- `write_markdown_with_frontmatter(path: Path, metadata: dict[str, Any], body: str) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 54)
+- `read_yaml(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 27) — Load a YAML mapping for editing.
+- `read_yaml_data(path: Path) -> dict[str, Any]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 43) — Load a YAML mapping as plain Python data, for callers that never write it back.
+- `write_yaml(path: Path, data: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 64)
+- `yaml_to_string(data: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 71)
+- `read_markdown_with_frontmatter(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 78)
+- `read_markdown_frontmatter_data(path: Path) -> tuple[dict[str, Any], str]` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 91) — ``read_markdown_with_frontmatter`` for read-only callers; see ``read_yaml_data``.
+- `write_markdown_with_frontmatter(path: Path, metadata: dict[str, Any], body: str) -> None` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 110)
+
+### Module constants
+
+- `_NEEDS_ROUND_TRIP` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 128)
+- `_TAG_OR_DIRECTIVE` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 133)
+- `_CANONICAL_INT` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 134)
+- `_TAG_PREFIX` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 135)
+- `_MERGE_OR_VALUE_KEY_TAGS` ([src/learnloop/vault/yaml_io.py](../../../../../../src/learnloop/vault/yaml_io.py), line 136)
 
 ## Internal implementation anchors
 
-- `_yaml() -> YAML` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 10)
+- `_yaml() -> YAML` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 19)
+- `class _RoundTripOnly(Exception)` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 139) — The document uses a form only the round-trip loader reproduces exactly.
+- `_fast_load(text: str, loader: type | None=None) -> Any` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 143) — Parse ``text`` on the fast path, or return ``_NEEDS_ROUND_TRIP``.
+- `_build_fast_loader(base: type) -> type` ([source](../../../../../../src/learnloop/vault/yaml_io.py), line 155) — Subclass a PyYAML safe loader (C or pure Python) with round-trip scalar rules.
 
 ## Who imports or calls it
 
@@ -85,10 +98,10 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/curriculum/integration_backfill|learnloop.curriculum.integration_backfill]] — imports `read_yaml`, `write_yaml`, `yaml_to_string`; statically calls `read_yaml`, `write_yaml`, `yaml_to_string`
 - [[Reference/Modules/learnloop/goals/goal_contracts|learnloop.goals.goal_contracts]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 - [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
-- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `read_yaml`; statically calls `read_yaml`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `read_yaml_data`; statically calls `read_yaml_data`
 - [[Reference/Modules/learnloop/sim/profiles|learnloop.sim.profiles]] — imports `read_yaml`; statically calls `read_yaml`
 - [[Reference/Modules/learnloop/sim/sweep|learnloop.sim.sweep]] — imports `read_yaml`; statically calls `read_yaml`
-- [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `read_markdown_with_frontmatter`, `read_yaml`, `write_markdown_with_frontmatter`, `write_yaml`; statically calls `read_markdown_with_frontmatter`, `read_yaml`, `write_markdown_with_frontmatter`, `write_yaml`
+- [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `read_markdown_frontmatter_data`, `read_yaml_data`, `write_markdown_with_frontmatter`, `write_yaml`; statically calls `read_markdown_frontmatter_data`, `write_markdown_with_frontmatter`, `write_yaml`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `read_yaml`, `write_yaml`; statically calls `read_yaml`, `write_yaml`
 
@@ -100,8 +113,8 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `io`, `pathlib`, `typing`
-- Third party: `ruamel`
+- Standard library: `__future__`, `io`, `pathlib`, `re`, `typing`
+- Third party: `ruamel`, `yaml`
 
 ## Larger workflow participation
 
@@ -168,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_doctor_does_not_merge_opposite_registered_facet_contracts`
   - `test_doctor_does_not_merge_unrelated_equal_length_facet_ids`
   - `test_doctor_fix_state_merges_registered_facet_alias_state`
+  - `test_doctor_report_is_the_same_with_and_without_the_parse_cache`
   - `test_doctor_reports_reference_issues_and_json_cli`
   - `test_doctor_resolves_legacy_error_event_through_causal_taxonomy`
   - `test_doctor_surfaces_likely_facet_merge_candidates`
@@ -196,6 +210,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_identifiability_doctor.py](../../../../../../tests/test_identifiability_doctor.py) — direct import
 - [tests/test_inference_precheck.py](../../../../../../tests/test_inference_precheck.py) — direct import
   - `test_b3_requires_a_directly_reachable_downstream_anchor`
+  - `test_declared_prerequisite_without_a_graph_edge_is_reported_missing`
 - [tests/test_init.py](../../../../../../tests/test_init.py) — direct import
   - `test_bootstrap_seeds_subject_and_starting_level`
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
@@ -240,7 +255,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_scheduler_orders_eligible_items_by_selection_reward_before_id`
   - `test_scheduler_persists_bounded_reward_debug_and_rejected_candidates`
-  - `test_scheduler_persists_selection_propensity_and_exploration_flag`
+  - `test_scheduler_preserves_draw_diagnostics_without_claiming_final_propensity`
   - `test_scheduler_scores_due_goal_item`
   - `test_scheduler_selects_item_on_weak_canonical_facet_boundary`
 - [tests/test_scheduler_golden.py](../../../../../../tests/test_scheduler_golden.py) — direct import
@@ -263,6 +278,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_trace_and_clarification.py](../../../../../../tests/test_sidecar_trace_and_clarification.py) — direct import
 - [tests/test_sim_teach_back.py](../../../../../../tests/test_sim_teach_back.py) — direct import
 - [tests/test_simulation.py](../../../../../../tests/test_simulation.py) — direct import
+- [tests/test_source_ingestion_v2lite.py](../../../../../../tests/test_source_ingestion_v2lite.py) — direct import
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
   - `test_locked_subject_bootstrap_refusal`
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import
@@ -274,6 +290,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ensure_teach_back_item_authors_from_exact_source_and_active_quest`
 - [tests/test_vault_writer.py](../../../../../../tests/test_vault_writer.py) — direct import
   - `test_writer_preserves_unknown_keys_and_timestamps`
+- [tests/test_yaml_fast_read.py](../../../../../../tests/test_yaml_fast_read.py) — direct import
+  - `test_fast_frontmatter_read_matches_round_trip_read`
+  - `test_fast_read_matches_round_trip_read_for_edge_cases`
+  - `test_fast_read_matches_round_trip_read_for_fixture_yaml`
+  - `test_fast_read_returns_plain_python_containers`
+  - `test_libyaml_and_pure_python_safe_loaders_agree_on_fixture_yaml`
 
 ## Modification guidance
 

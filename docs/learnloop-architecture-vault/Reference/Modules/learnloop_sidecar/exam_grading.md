@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/exam_grading.py"
 source_paths:
   - "src/learnloop_sidecar/exam_grading.py"
-source_commit: "4bfee21b99e126a187df694660dbff4f7bb6cbea"
-source_commit_timestamp: "2026-07-27T07:17:49-04:00"
+source_commit: "7353a4204e5cc8ca4a15010a78ac3f84b8295617"
+source_commit_timestamp: "2026-09-23T12:27:35-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop_sidecar"
 layer: "adapter"
 concepts:
@@ -49,27 +49,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/exam_grading.py](../../../../../src/learnloop_sidecar/exam_grading.py) |
-| Source lines | 98 |
+| Source lines | 103 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4bfee21b99e126a187df694660dbff4f7bb6cbea` |
-| Commit timestamp | `2026-07-27T07:17:49-04:00` |
+| Source commit | `7353a4204e5cc8ca4a15010a78ac3f84b8295617` |
+| Commit timestamp | `2026-09-23T12:27:35-04:00` |
 
 ## Public API
 
-- `class ExamGradingManager` ([source](../../../../../src/learnloop_sidecar/exam_grading.py), line 19) — Own daemon grading workers and make scheduling idempotent per exam item.
-  - `__init__(self) -> None` (line 22; internal)
-  - `submit(self, session_id: str, practice_item_id: str, work: Callable[[], None]) -> bool` (line 30; public) — Start ``work`` unless this item already has an active worker.
-  - `_run(self, key: ExamGradingKey, work: Callable[[], None]) -> None` (line 54; internal)
-  - `wait_for_session(self, session_id: str) -> None` (line 71; public) — Join every worker currently grading an answer in ``session_id``.
-  - `pop_error(self, session_id: str, practice_item_id: str) -> Exception | None` (line 86; public)
-  - `shutdown(self) -> None` (line 92; public) — Give active workers a short grace period; they are daemon threads.
+- `class ExamGradingManager` ([source](../../../../../src/learnloop_sidecar/exam_grading.py), line 20) — Own daemon grading workers and make scheduling idempotent per exam item.
+  - `__init__(self) -> None` (line 23; internal)
+  - `submit(self, session_id: str, practice_item_id: str, work: Callable[[], None]) -> bool` (line 31; public) — Start ``work`` unless this item already has an active worker.
+  - `_run(self, key: ExamGradingKey, work: Callable[[], None]) -> None` (line 59; internal)
+  - `wait_for_session(self, session_id: str) -> None` (line 76; public) — Join every worker currently grading an answer in ``session_id``.
+  - `pop_error(self, session_id: str, practice_item_id: str) -> Exception | None` (line 91; public)
+  - `shutdown(self) -> None` (line 97; public) — Give active workers a short grace period; they are daemon threads.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/exam_grading.py](../../../../../src/learnloop_sidecar/exam_grading.py), line 14)
+- `LOG` ([src/learnloop_sidecar/exam_grading.py](../../../../../src/learnloop_sidecar/exam_grading.py), line 15)
 
 ## Internal implementation anchors
 
@@ -90,7 +90,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `logging`, `threading`
+- Standard library: `__future__`, `collections`, `contextvars`, `logging`, `threading`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -105,20 +105,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_canonical_projection_rollout.py](../../../../../tests/test_canonical_projection_rollout.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_config_refactor.py](../../../../../tests/test_config_refactor.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_dialogue_causal_join.py](../../../../../tests/test_dialogue_causal_join.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_goal_scope_material.py](../../../../../tests/test_goal_scope_material.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_graph_editor_reads.py](../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_ingest_jobs.py](../../../../../tests/test_ingest_jobs.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_ingest_latency_journey.py](../../../../../tests/test_ingest_latency_journey.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_km2_activation.py](../../../../../tests/test_km2_activation.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_sidecar_adjudication.py](../../../../../tests/test_sidecar_adjudication.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_sidecar_exams.py](../../../../../tests/test_sidecar_exams.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
-- [tests/test_sidecar_goals.py](../../../../../tests/test_sidecar_goals.py) — imports consumer [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]]
+- [tests/test_sidecar_exams.py](../../../../../tests/test_sidecar_exams.py) — direct import
+  - `test_exam_grading_workers_run_in_the_submitting_request_context`
 
 ## Modification guidance
 

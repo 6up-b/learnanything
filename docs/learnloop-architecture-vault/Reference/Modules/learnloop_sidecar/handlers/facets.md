@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop_sidecar/handlers/facets.py"
 source_paths:
   - "src/learnloop_sidecar/handlers/facets.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "c1619d0275bfe61eabe180738165ec480c6dc4fb"
+source_commit_timestamp: "2026-09-23T13:02:20-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:
@@ -53,13 +53,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/facets.py](../../../../../../src/learnloop_sidecar/handlers/facets.py) |
-| Source lines | 170 |
+| Source lines | 171 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `c1619d0275bfe61eabe180738165ec480c6dc4fb` |
+| Commit timestamp | `2026-09-23T13:02:20-04:00` |
 
 ## Public API
 
@@ -72,8 +72,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_facet_mastery(facet_id: str, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 159)
-- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 166)
+- `_facet_mastery(facet_id: str, row: dict[str, Any]) -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 160)
+- `_item_title(prompt: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/facets.py), line 167)
 
 ## Who imports or calls it
 

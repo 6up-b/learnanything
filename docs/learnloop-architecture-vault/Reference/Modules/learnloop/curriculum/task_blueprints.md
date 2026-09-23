@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/curriculum/task_blueprints.py"
 source_paths:
   - "src/learnloop/curriculum/task_blueprints.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.curriculum"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -65,7 +65,6 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 56) — A registered/reviewed/active immutable blueprint version.
   - `as_dict(self) -> dict[str, Any]` (line 69; public)
 - `validate_single_unit(spec: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 77) — Reject a mixed-unit or multi-family blueprint before it can validate (§12.1).
-- `discover_exemplar_candidates(candidates: Sequence[Mapping[str, Any]], *, unit_id: str, family_key: str) -> list[ExemplarCandidate]` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 141) — Project reviewed inventory exercise rows into exemplar candidates within one unit (§3.1).
 - `register_blueprint_version(repository: Repository, *, blueprint_slug: str, spec: Mapping[str, Any], authoring_version: str='stub-1', model_version: str | None=None, provenance_version: str='owner-review-1', author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 170) — Register an immutable content-addressed draft blueprint version (§3.2).
 - `review_blueprint_version(repository: Repository, *, blueprint_version_id: str, checks: Mapping[str, Any] | None=None, author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 211) — Owner marks the version reviewed (§3.2 seven checks captured as the artifact).
 - `activate_blueprint_version(repository: Repository, *, blueprint_version_id: str, author: str='owner', clock: Clock | None=None) -> BlueprintVersion` ([source](../../../../../../src/learnloop/curriculum/task_blueprints.py), line 232) — Activate a reviewed version.

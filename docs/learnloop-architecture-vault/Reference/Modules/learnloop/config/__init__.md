@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/config/__init__.py"
 source_paths:
   - "src/learnloop/config/__init__.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.config"
 layer: "infrastructure"
 concepts:
@@ -54,9 +54,9 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -76,6 +76,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `AIProviderConfig`, `CodexConfig`; statically calls `CodexConfig`
 - [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]] — imports `AIProviderConfig`, `CodexConfig`
 - [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] — imports `AIProviderConfig`
+- [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]] — imports `AIProviderConfig`
 - [[Reference/Modules/learnloop/ai/routing|learnloop.ai.routing]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/ai/runtime|learnloop.ai.runtime]] — imports `AIProviderConfig`, `LearnLoopConfig`
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `EvidenceConfig`; statically calls `EvidenceConfig`
@@ -113,6 +114,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_config`, `write_default_config`; statically calls `load_config`, `write_default_config`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `LearnLoopConfig`
+- [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop_sidecar/__main__|learnloop_sidecar.__main__]] — imports `load_dotenv`; statically calls `load_dotenv`
 - [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] — imports `CODEX_PROVIDER_NAMES`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `CODEX_PROVIDER_NAMES`
@@ -138,7 +140,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] and 41 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/multimodal|learnloop.ai.multimodal]], [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]], [[Reference/Modules/learnloop/ai/providers/codex_http|learnloop.ai.providers.codex_http]], [[Reference/Modules/learnloop/ai/providers/openai_chat|learnloop.ai.providers.openai_chat]] and 43 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -209,6 +211,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_endpoint_audio_config_does_not_create_a_chat_route`
   - `test_generated_template_is_decision_only_schema_v2`
   - `test_legacy_codex_is_input_only_and_sidecar_does_not_reexport_it`
+  - `test_legacy_native_gates_normalize_to_audio_mode`
   - `test_legacy_openrouter_audio_becomes_a_dedicated_transcription_route`
   - `test_minimal_template_preserves_non_provider_effective_defaults`
   - `test_provider_profiles_use_discriminated_types_and_ignore_retired_auth`
@@ -250,6 +253,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_default_synthesis_client_resolves_openrouter_in_inherited_new_vault`
   - `test_openrouter_transcription_setting_routes_audio_via_chat`
 - [tests/test_ingest_transcription.py](../../../../../../tests/test_ingest_transcription.py) — direct import
+- [tests/test_ingestion_checkpoints.py](../../../../../../tests/test_ingestion_checkpoints.py) — direct import
+  - `test_codex_does_not_repair_when_reported_output_consumed_the_budget`
+  - `test_retry_policy_records_each_failed_request_with_unknown_usage`
+  - `test_truncation_or_exhausted_repair_budget_records_usage_without_repaying`
 - [tests/test_irt_difficulty.py](../../../../../../tests/test_irt_difficulty.py) — direct import
   - `test_conditional_masses_match_spec_table_at_b_zero`
   - `test_default_step_cap_leaves_normal_attempts_untouched`
@@ -288,6 +295,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_marker_pdftext_worker_override_is_preserved`
   - `test_marker_torch_device_pin_sets_env`
   - `test_marker_upgrade_changes_cache_key`
+  - `test_native_engine_is_rejected_by_legacy_extractor`
   - `test_resolved_pdf_config_overrides_and_validates`
 - [tests/test_primed_attempts.py](../../../../../../tests/test_primed_attempts.py) — direct import
   - `test_cold_attempt_advances_last_evidence_at`
@@ -300,7 +308,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_composition_root_uses_fallback_and_preserves_requested_selection`
   - `test_config_matrix_executes_all_six_production_resolution_paths`
   - `test_explicit_and_environment_selections_suppress_fallback`
-  - `test_legacy_http_declares_exactly_its_endpoint_operations`
   - `test_manual_is_a_typed_no_client_outcome`
   - `test_named_codex_profile_identity_survives_provider_construction`
   - `test_provider_resolution_config_matrix_is_uniform`
@@ -312,17 +319,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
 - [tests/test_settings_sidecar.py](../../../../../../tests/test_settings_sidecar.py) — direct import
+  - `test_detect_provider_capabilities_network_cache_and_unavailable`
   - `test_new_vault_inherits_ai_routes_but_existing_vault_is_untouched`
   - `test_update_ai_settings_materializes_openrouter_grading_profile`
+  - `test_update_ai_settings_materializes_openrouter_video_profile`
+  - `test_update_ai_settings_openrouter_ingest_profile_uses_cached_catalog`
   - `test_update_ai_settings_rejects_unknown_values_without_persisting`
+  - `test_update_animation_settings_persists_and_rejects_bad_values`
+  - `test_update_ingest_settings_native_adopts_cached_catalog_modalities`
   - `test_update_ingest_settings_persists_budgets_and_provider_limits`
   - `test_update_ingest_settings_rejects_bad_budgets_without_persisting`
+  - `test_update_ingest_settings_sets_per_modality_authorities`
+  - `test_update_provider_modalities_materializes_a_compat_derived_profile`
+  - `test_update_provider_modalities_validates_and_persists`
 - [tests/test_settings_store.py](../../../../../../tests/test_settings_store.py) — direct import
   - `test_apply_config_updates_creates_missing_tables`
   - `test_apply_config_updates_preserves_comments_and_unrelated_lines`
   - `test_copy_ai_settings_copies_routing_and_materialized_profiles`
   - `test_copy_ai_settings_default_source_is_semantic_noop`
   - `test_copy_ai_settings_errors_on_missing_or_invalid_source`
+  - `test_openrouter_task_profile_values_prefers_explicit_modalities`
   - `test_openrouter_task_profile_values_round_trip`
   - `test_save_ai_settings_to_creates_target_and_seeds_new_vault`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import

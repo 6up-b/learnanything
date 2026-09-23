@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/errors.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/errors.rs"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "c308660e82bfb461f8b7d295f89d797613e32aff"
+source_commit_timestamp: "2026-09-23T12:09:28-04:00"
 source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/errors.rs](../../../../../apps/learnloop-tauri/src-tauri/src/errors.rs) |
-| Source lines | 173 |
+| Source lines | 204 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `c308660e82bfb461f8b7d295f89d797613e32aff` |
+| Commit timestamp | `2026-09-23T12:09:28-04:00` |
 
 ## Activation and status evidence
 
@@ -63,21 +63,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `pub const SIDECAR_TIMEOUT_CODE: &str = "sidecar_timeout"` — const, line 4
 - `pub const SIDECAR_UNAVAILABLE_CODE: &str = "sidecar_unavailable"` — const, line 5
 - `pub const SIDECAR_PROTOCOL_CODE: &str = "sidecar_protocol_error"` — const, line 6
-- `pub struct CommandError` — struct, line 10
-- `pub fn task_failed(diagnostic: impl Into<String>) -> Self` — fn, line 18
-- `pub fn state_unavailable() -> Self` — fn, line 29
-- `pub fn unavailable(details: Value) -> Self` — fn, line 40
-- `pub fn outcome_unknown(mut details: Value) -> Self` — fn, line 50
-- `pub fn protocol(mut details: Value) -> Self` — fn, line 65
-- `pub fn timeout(details: Value) -> Self` — fn, line 80
-- `pub fn from_rpc(error: &Value) -> Self` — fn, line 90
-- `pub fn invalidates_sidecar(&self) -> bool` — fn, line 117
+- `pub const VAULT_CHANGED_CODE: &str = "vault_changed"` — const, line 7
+- `pub const GRADING_PROVIDER_RESET_CODE: &str = "grading_provider_reset"` — const, line 8
+- `pub struct CommandError` — struct, line 12
+- `pub fn task_failed(diagnostic: impl Into<String>) -> Self` — fn, line 20
+- `pub fn state_unavailable() -> Self` — fn, line 31
+- `pub fn unavailable(details: Value) -> Self` — fn, line 42
+- `pub fn outcome_unknown(mut details: Value) -> Self` — fn, line 52
+- `pub fn protocol(mut details: Value) -> Self` — fn, line 67
+- `pub fn timeout(details: Value) -> Self` — fn, line 82
+- `pub fn vault_changed(message: &str, details: Value) -> Self` — fn, line 94
+- `pub fn grading_provider_reset(provider: &str, cause: CommandError) -> Self` — fn, line 106
+- `pub fn from_rpc(error: &Value) -> Self` — fn, line 121
+- `pub fn invalidates_sidecar(&self) -> bool` — fn, line 148
 
 ## Internal implementation anchors
 
-- `fn malformed_rpc_errors_are_protocol_failures()` — fn, line 130
-- `fn application_errors_preserve_the_typed_contract()` — fn, line 138
-- `fn unknown_commit_failures_are_not_safe_to_retry()` — fn, line 156
+- `fn malformed_rpc_errors_are_protocol_failures()` — fn, line 161
+- `fn application_errors_preserve_the_typed_contract()` — fn, line 169
+- `fn unknown_commit_failures_are_not_safe_to_retry()` — fn, line 187
 
 ## Who imports or calls it
 
@@ -87,6 +91,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/Rust/commands|src-tauri/src/commands.rs]] — crate import: `errors`; references `errors`
 - [[Reference/Desktop/Rust/main|src-tauri/src/main.rs]] — module declaration: module declaration; no named call claim
 - [[Reference/Desktop/Rust/sidecar|src-tauri/src/sidecar.rs]] — crate import: `errors`; references `errors`
+- [[Reference/Desktop/Rust/vault_watcher|src-tauri/src/vault_watcher.rs]] — crate import: `errors`; references `errors`
 
 ## Dependencies
 
@@ -115,7 +120,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Keep native code an adapter: process/protocol/window/filesystem concerns belong here, while learning rules and durable state interpretation stay in Python domains.
 - Command changes must remain synchronized with `src/api/client.ts`, `src/api/dto.ts`, `main.rs` registration, and the Python sidecar registry.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

@@ -11,7 +11,7 @@ source_commit: "4b62bc29c46b5f2b8cabe5ac49c9959429cc3ab7"
 source_commit_timestamp: "2026-05-19T19:15:00-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop"
 layer: "primitive"
 concepts:
@@ -116,6 +116,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/synthesis/synthesis_manifests|learnloop.content.synthesis.synthesis_manifests]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] — imports `Clock`
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -135,6 +136,8 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/curriculum/task_blueprints|learnloop.curriculum.task_blueprints]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] — imports `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/db/stores/completion|learnloop.db.stores.completion]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/ingest_queue|learnloop.db.stores.ingest_queue]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/calibration_sessions|learnloop.diagnosis.calibration_sessions]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -238,6 +241,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/card_lineage|learnloop.substrate.card_lineage]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
 - [[Reference/Modules/learnloop/substrate/compat/substrate_cutover|learnloop.substrate.compat.substrate_cutover]] — imports `Clock`
+- [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `Clock`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `Clock`, `FrozenClock`, `parse_utc`; statically calls `FrozenClock`, `parse_utc`
@@ -278,7 +282,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] and 176 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/coldness_receipt|learnloop.attempts.coldness_receipt]] and 180 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -468,6 +472,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unrelated_remediation_is_counted_but_does_not_change_coldness`
   - `test_verification_blinding_is_unknown_without_a_grading_context_receipt`
   - `test_within_budget_episode_records_the_spend_without_downgrading`
+- [tests/test_collection_dataset.py](../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_adjudication_accepts_evidence_keyed_by_a_non_id_primary_key`
+  - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
+  - `test_final_offer_refuses_filtered_and_cross_session_candidates`
+  - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
+  - `test_selection_decision_features_reference_the_item_and_stay_compact`
+  - `test_writers_stamp_the_current_collection_version`
 - [tests/test_commitment_arcs.py](../../../../../tests/test_commitment_arcs.py) — direct import
 - [tests/test_commitments.py](../../../../../tests/test_commitments.py) — direct import
 - [tests/test_common_repair_delivery.py](../../../../../tests/test_common_repair_delivery.py) — direct import
@@ -547,6 +558,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_error_hunt_items.py](../../../../../tests/test_error_hunt_items.py) — direct import
 - [tests/test_evaluation.py](../../../../../tests/test_evaluation.py) — direct import
   - `test_gate_section_counts_manual_false_negatives`
+  - `test_propensity_report_marks_composed_offers_unavailable_not_degenerate`
   - `test_report_on_real_session_flow`
 - [tests/test_event_sufficiency.py](../../../../../tests/test_event_sufficiency.py) — direct import
 - [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
@@ -632,6 +644,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_goal_series.py](../../../../../tests/test_goal_series.py) — direct import
   - `test_series_caps_points_and_keeps_recent_window`
   - `test_series_reflects_evidence_arriving_over_time`
+  - `test_series_replays_past_an_adjudicated_attempt`
   - `test_series_replays_past_non_cascading_attempt_references`
   - `test_series_scratch_copy_attaches_without_migrating`
   - `test_series_shares_one_replay_across_unchanged_checkpoints`
@@ -677,6 +690,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_canonical_lane_does_not_auto_apply_gated_items`
   - `test_record_content_recalibration_ignores_unknown_los`
 - [tests/test_ingest_m3.py](../../../../../tests/test_ingest_m3.py) — direct import
+- [tests/test_ingest_ownership.py](../../../../../tests/test_ingest_ownership.py) — direct import
+  - `test_late_usage_is_retained_after_takeover_without_restoring_publication_authority`
+  - `test_synthesis_run_hygiene_runs_at_startup_but_not_on_drain_ticks`
 - [tests/test_ingest_runner.py](../../../../../tests/test_ingest_runner.py) — direct import
   - `test_goal_population_handler_generates_and_applies_practice`
 - [tests/test_init.py](../../../../../tests/test_init.py) — direct import
@@ -730,6 +746,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_laddered_stems.py](../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
+- [tests/test_learner_read_model_pinning.py](../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_learner_review_system_entries.py](../../../../../tests/test_learner_review_system_entries.py) — direct import
   - `test_algorithm_version_bump_yields_exactly_one_recalibration_entry`
   - `test_entries_are_interleaved_reverse_chronologically`
@@ -750,6 +767,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pooled_prediction_that_rendered_unlabelled_now_carries_inferred`
   - `test_sub_threshold_direct_mass_is_inferred_not_measured`
   - `test_unknown_label_when_there_is_nothing_at_all`
+- [tests/test_migrations.py](../../../../../tests/test_migrations.py) — direct import
+  - `test_head_163_database_upgrades_to_snapshots_and_fk_free_adjudications`
 - [tests/test_minimal_repair_selection_a1.py](../../../../../tests/test_minimal_repair_selection_a1.py) — direct import
   - `test_the_persisted_repair_class_is_the_structurally_selected_one`
 - [tests/test_misconception_registry.py](../../../../../tests/test_misconception_registry.py) — direct import
@@ -907,6 +926,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_authoring.py](../../../../../tests/test_reader_authoring.py) — direct import
 - [tests/test_reader_dialogue.py](../../../../../tests/test_reader_dialogue.py) — direct import
 - [tests/test_rebuild_orchestrator.py](../../../../../tests/test_rebuild_orchestrator.py) — direct import
+  - `test_content_recalibration_replay_cannot_lose_its_ingest_lease_midway`
 - [tests/test_recall_coverage_interventions.py](../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_bad_item_suspicion_uses_prior_snapshot_not_current_attempt_update`
   - `test_blank_independent_attempt_is_damped_and_flagged_for_manual_review`
@@ -986,7 +1006,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_scheduler_candidate_logs_are_retained_per_configured_limit`
   - `test_scheduler_orders_eligible_items_by_selection_reward_before_id`
   - `test_scheduler_persists_bounded_reward_debug_and_rejected_candidates`
-  - `test_scheduler_persists_selection_propensity_and_exploration_flag`
+  - `test_scheduler_preserves_draw_diagnostics_without_claiming_final_propensity`
   - `test_scheduler_scores_due_goal_item`
   - `test_scheduler_selects_item_on_weak_canonical_facet_boundary`
 - [tests/test_scheduler_golden.py](../../../../../tests/test_scheduler_golden.py) — direct import
@@ -1008,6 +1028,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_belief_never_surfaced_is_not_a_harmful_write`
   - `test_cells_cleared_per_question_divides_by_questions_served`
   - `test_censored_learning_objects_are_reported_and_excluded_from_the_mean`
+  - `test_certification_replay_prunes_past_an_adjudicated_attempt`
   - `test_harmful_write_rate_counts_a_surfaced_then_withdrawn_belief`
   - `test_supersession_is_not_harm_and_is_reported_separately`
 - [tests/test_self_attributed_misconceptions.py](../../../../../tests/test_self_attributed_misconceptions.py) — direct import
@@ -1031,6 +1052,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_inspector_opens_probe_episode_drilldown`
   - `test_knowledge_field_is_recipe_topological_and_uses_pooled_ready`
+- [tests/test_sidecar_epigraphs.py](../../../../../tests/test_sidecar_epigraphs.py) — direct import
 - [tests/test_sidecar_golden_path_assessment.py](../../../../../tests/test_sidecar_golden_path_assessment.py) — direct import
 - [tests/test_sidecar_ingest_m3.py](../../../../../tests/test_sidecar_ingest_m3.py) — direct import
 - [tests/test_sidecar_knowledge_model.py](../../../../../tests/test_sidecar_knowledge_model.py) — direct import
@@ -1083,6 +1105,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_youtube_fetcher_supports_current_transcript_api`
 - [tests/test_source_ingestion_v2lite.py](../../../../../tests/test_source_ingestion_v2lite.py) — direct import
   - `test_legacy_path_without_ir_unchanged`
+  - `test_legacy_window_checkpoint_that_no_longer_validates_is_discarded`
   - `test_v2lite_batch_persists_ir_and_synthesizes_over_its_rendering`
   - `test_v2lite_synthesis_respects_persisted_unit_selection`
 - [tests/test_source_inventory.py](../../../../../tests/test_source_inventory.py) — direct import
@@ -1184,7 +1207,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_question_event_repository_round_trip`
   - `test_question_raises_diagnostic_uncertainty_read_side`
 - [tests/test_unresolved_cause_gate.py](../../../../../tests/test_unresolved_cause_gate.py) — direct import
+- [tests/test_vault_epigraphs.py](../../../../../tests/test_vault_epigraphs.py) — direct import
 - [tests/test_vault_writer.py](../../../../../tests/test_vault_writer.py) — direct import
+  - `test_registry_writers_do_not_parse_the_whole_vault`
   - `test_writer_preserves_unknown_keys_and_timestamps`
   - `test_writer_refuses_implicit_entity_moves`
   - `test_writer_updates_depth_rung_metadata_on_existing_practice_item`

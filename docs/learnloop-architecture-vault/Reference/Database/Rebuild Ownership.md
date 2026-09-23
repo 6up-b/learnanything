@@ -3,10 +3,10 @@ title: "Rebuild Ownership"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-schema_head: 156
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-last_verified: "2026-08-17"
+schema_head: 164
+source_commit: "0622ea164f76ad7e1d62a00afda51473dbcd992e"
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "Derived state rebuild"
   - "DERIVED_STATE_REPLAYERS"
@@ -15,6 +15,9 @@ source_paths:
   - "src/learnloop/substrate/replay.py"
   - "src/learnloop/substrate/canonical_projection.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
+  - "src/learnloop/db/scopes.py"
+  - "src/learnloop/db/connection.py"
+  - "src/learnloop/goals/exam_seeding.py"
   - "tests/test_rebuild_orchestrator.py"
   - "tests/test_shadow_rebuild.py"
 tags:
@@ -90,6 +93,16 @@ learnloop rebuild-derived-state --vault /path/to/vault --json
 ```
 
 This command synchronizes authored vault state, mutates the ten live projections, validates attempt coverage, and writes one receipt. `--learning-object` may scope learning-object work, but callers should understand the projection dependencies before using a partial rebuild.
+
+`rebuild_all_derived_state` is an `@atomic_repository_call`: every replayer's writes and the receipt run inside one `BEGIN IMMEDIATE` transaction (nested repository writes join it as savepoints), so a replay or completeness failure rolls back and leaves the published projections untouched. The transaction holds the database write lock for the whole rebuild, which serializes it with every other writer.
+
+> [!warning] Readers are blocked during part of a live rebuild
+> The database uses the rollback journal (see [[ADR-014 SQLite stays in DELETE journal mode]]). Once the rebuild transaction spills dirty pages from its page cache it takes the EXCLUSIVE lock until commit, and readers cannot start until then. On a copy of `fixtures/linear_algebra` (production connection settings, a reader polling every 1 ms, three consecutive rebuilds of about 0.79 s each) the longest continuous reader blackout was 0.40 s on the first rebuild and 0.16 s and 0.14 s on the next two. The blackout grows with vault size; a read that waits longer than the 5 s `busy_timeout` set by `db/connection.py` fails with `database is locked`.
+
+Other replay entry points:
+
+- `replay.record_content_recalibration` (content apply inside an ingest job) replays the affected learning objects inside `repository.atomic()`, so the ingest lease cannot change hands between clearing an LO's derived rows and re-folding them, and a failure publishes nothing.
+- `goals.exam_seeding.seed_exam_attempts` calls `replay.rebuild_derived_state` directly for the learning objects it seeded, without its own transaction scope, so that replay commits per repository call.
 
 ## Shadow rebuild
 

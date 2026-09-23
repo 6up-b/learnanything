@@ -6,9 +6,9 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/ai/transport.py
   - src/learnloop/ai/routing.py
@@ -112,6 +112,21 @@ Provider output is not application state. The transport validates the declared P
 ## Provenance and usage
 
 `agent_runs` receipts record purpose, provider name/type, model, prompt version/context identity, status, and token usage. Named profile identity must survive construction so cost/performance comparisons remain meaningful. See [[Process Model Output]] and [[agent_runs]].
+
+Below the run level, `learnloop.ai.execution.model_call` writes a [[model_call_receipts]] row for each logical operation and each physical request, but only while an observer is installed (`observe_model_calls`). The desktop sidecar installs one around every RPC, and so do the durable ingest runner and jobs and CLI practice grading. Other direct CLI and TUI paths have only `agent_runs` accounting.
+
+- **Start before execution, fail closed.** The `started` row is written before the request is sent, with prompt and schema hashes. For a root call it also stores the prompt text (`input_text`) and the schema JSON. If the start cannot be written, the call does not run.
+- **Finish is best-effort.** Status (`completed`, `failed`, `truncated` or `interrupted`), usage, cost, response id, finish reason and `output_text` are written when the call ends. If that write fails, the error is logged, the receipt stays `started`, and the paid response is still returned. A NULL usage field means the provider did not report it; it does not mean zero.
+- **Late records.** A response that arrives after its ingest job lost ownership may still finish its own started receipt and save its checkpoint (`allow_late_model_records`). It can never publish canonical rows.
+
+The OpenAI-compatible adapter disables the SDK's own retries (`max_retries=0`) so that every physical attempt gets its own receipt, and it retries in its own loop:
+
+- It retries connection errors and timeouts (`openai.APIConnectionError`, `ConnectionError`, `TimeoutError`) and HTTP 408, 409, 429 and 5xx responses, with at most 3 attempts.
+- It honours `retry-after-ms` and `Retry-After` (seconds or an HTTP date). It gives up if the server asks for more than 60 s.
+- Otherwise it backs off with a ceiling of 1 s and then 2 s (capped at 8 s), jittered between 50% and 100% of the ceiling.
+- The request timeout bounds the whole loop, not each attempt. Each attempt gets the remaining time, and no attempt starts with less than 1 s left. A JSON repair is a separate request with its own deadline.
+
+Validated inventory windows and synthesis passes are cached in [[model_work_checkpoints]]. The keys include the rendered prompt, the schema version and the client settings that change output (`ai.execution.model_settings`: provider, model, endpoint, reasoning effort, thinking and response format). A cached result that fails validation is discarded and the call is made again. See [[Import Canonical Sources]].
 
 ## Modification guidance
 

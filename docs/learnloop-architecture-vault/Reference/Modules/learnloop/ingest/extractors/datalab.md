@@ -11,7 +11,7 @@ source_commit: "1c72cbabade1a4be2d2f4d18b22d1cf0ac171657"
 source_commit_timestamp: "2026-07-22T21:17:05-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:
@@ -118,6 +118,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_pdf_extractor_selection.py](../../../../../../../tests/test_pdf_extractor_selection.py) — imports consumer [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]]
 - [tests/test_source_layer.py](../../../../../../../tests/test_source_layer.py) — imports consumer [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]]
 
 ## Modification guidance

@@ -59,7 +59,7 @@ The model never receives authority merely by returning JSON. Feature-owned synth
 
 - One vault-writing worker holds a lease; bounded DB-only work may use a compatible parallel lane.
 - `waiting_for_input` holds no lease, so consent/unit/budget questions do not stop unrelated jobs.
-- Worker identity and heartbeat make stale running jobs recoverable.
+- Each claim is owned by `worker_id` plus `attempt_count`. A heartbeat thread renews the lease beside the handler; expired leases of attempts not running in the current process become `failed(interrupted)`, and every database write and vault-file publication of a job first checks that its attempt still owns the job, so a superseded worker raises `JobOwnershipLost` instead of publishing. See [[Import Canonical Sources#Worker ownership and lease recovery]].
 - Retry identity is stage-specific and reuses completed revisions/extractions rather than duplicating them.
 - Usage accumulates across attempts instead of being overwritten.
 - Cancellation is observed through progress reporting and optional interrupt capabilities.

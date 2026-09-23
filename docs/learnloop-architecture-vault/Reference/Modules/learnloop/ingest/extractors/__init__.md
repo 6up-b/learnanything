@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ingest/extractors/__init__.py"
 source_paths:
   - "src/learnloop/ingest/extractors/__init__.py"
-source_commit: "1c72cbabade1a4be2d2f4d18b22d1cf0ac171657"
-source_commit_timestamp: "2026-07-22T21:17:05-04:00"
+source_commit: "16a65f509f6d2167529fa5cc82464351c2dffc30"
+source_commit_timestamp: "2026-09-03T10:49:04-07:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:
@@ -49,22 +49,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ingest/extractors/__init__.py](../../../../../../../src/learnloop/ingest/extractors/__init__.py) |
-| Source lines | 88 |
+| Source lines | 102 |
 | Owning package | [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `1c72cbabade1a4be2d2f4d18b22d1cf0ac171657` |
-| Commit timestamp | `2026-07-22T21:17:05-04:00` |
+| Source commit | `16a65f509f6d2167529fa5cc82464351c2dffc30` |
+| Commit timestamp | `2026-09-03T10:49:04-07:00` |
 
 ## Public API
 
-- `pdf_extractor_for(config: dict | None=None) -> DocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 57) — Select the PDF extractor (§2.9).
+- `class NativeEngineNotLocalError(ValueError)` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 58) — ``engine = "native"`` reached the local extractor registry.
+- `pdf_extractor_for(config: dict | None=None) -> DocumentExtractor` ([source](../../../../../../../src/learnloop/ingest/extractors/__init__.py), line 66) — Select the PDF extractor (§2.9).
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `NativeEngineNotLocalError`
 - `DocumentExtractor`
 - `DatalabDocumentExtractor`
 - `DatalabExtractionError`
@@ -122,6 +124,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_pdf_extractor_selection.py](../../../../../../../tests/test_pdf_extractor_selection.py) — direct import
+  - `test_native_engine_never_resolves_to_a_local_extractor`
+  - `test_pypdf_engine_resolves_locally`
 - [tests/test_source_layer.py](../../../../../../../tests/test_source_layer.py) — direct import
   - `test_missing_marker_degrades_explicitly`
   - `test_non_pdf_normalizers_emit_trivial_ir`

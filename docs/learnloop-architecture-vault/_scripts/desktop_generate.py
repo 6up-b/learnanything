@@ -16,6 +16,7 @@ import subprocess
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -140,9 +141,21 @@ def run_git(*args: str) -> str:
     ).stdout.strip()
 
 
+def is_vitest_file(path: Path) -> bool:
+    return path.name.endswith((".test.ts", ".test.tsx"))
+
+
+def vitest_files() -> list[Path]:
+    return sorted(path for path in TS_ROOT.rglob("*") if path.is_file() and is_vitest_file(path))
+
+
 def source_files() -> list[tuple[Path, str]]:
+    # Vitest files are outside the Vite build graph; they are listed as tests
+    # on the notes of the modules they import rather than getting notes.
     typescript = sorted(
-        path for path in TS_ROOT.rglob("*") if path.is_file() and path.suffix in {".ts", ".tsx"}
+        path
+        for path in TS_ROOT.rglob("*")
+        if path.is_file() and path.suffix in {".ts", ".tsx"} and not is_vitest_file(path)
     )
     rust = sorted(RUST_ROOT.glob("*.rs"))
     return [(path, "TypeScript") for path in typescript] + [(path, "Rust") for path in rust]
@@ -572,6 +585,16 @@ def test_inventory(infos: dict[Path, SourceInfo]) -> tuple[dict[Path, list[tuple
                 shown = ", ".join(f"`{name}`" for name in matches[:4])
                 reason = f"references uniquely owned exported name{'s' if len(matches) > 1 else ''} {shown}"
                 direct[source].append((test, "cross-boundary name contract", reason))
+    source_set = set(infos)
+    import_pattern = re.compile(r"(?m)^[ \t]*import\b[^;]*?[\"'](?P<spec>\.{1,2}/[^\"']+)[\"']")
+    for test in vitest_files():
+        test = test.resolve()
+        imported = {
+            resolve_typescript(test, match.group("spec"), source_set)
+            for match in import_pattern.finditer(test.read_text(encoding="utf-8"))
+        }
+        for source in sorted(path for path in imported if path is not None):
+            direct[source].insert(0, (test, "vitest test", "imports and executes this module under jsdom (`npm test`)"))
     return direct, tests
 
 
@@ -756,7 +779,7 @@ def render_module(
     ]
     listed: set[Path] = set()
     for test, evidence, reason in direct_tests.get(info.source, [])[:8]:
-        disclaimer = "" if evidence == "direct source contract" else "; it does **not** directly execute this source module"
+        disclaimer = "" if evidence in {"direct source contract", "vitest test"} else "; it does **not** directly execute this source module"
         lines.append(f"- {markdown_link(path, test, test.relative_to(REPO_ROOT).as_posix())} — {evidence}: {reason}{disclaimer}.")
         listed.add(test)
     if "#[cfg(test)]" in info.text:
@@ -766,7 +789,7 @@ def render_module(
             lines.append(f"- {markdown_link(path, test, test.relative_to(REPO_ROOT).as_posix())} — related cross-boundary behavior contract; it does **not** directly execute this source module.")
             listed.add(test)
     if not listed and "#[cfg(test)]" not in info.text:
-        lines.append("- No repository test directly names this source path or a uniquely owned export. `npm run typecheck` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.")
+        lines.append("- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.")
     lines += ["", "## Modification guidance", ""]
     lower = info.relative.lower()
     if info.language == "TypeScript" and ("/screens/" in lower or "/components/" in lower):
@@ -787,7 +810,7 @@ def render_module(
     else:
         lines.append("- Change this source at its stated ownership boundary, then check every inbound consumer and outbound dependency listed above.")
     lines += [
-        "- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.",
+        "- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.",
         "- Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.",
         "",
         "### Regeneration checklist",
@@ -991,8 +1014,6 @@ def rendered_files() -> dict[Path, str]:
         rendered[note_path(info.source, info.language)] = render_module(info, infos, inbound, direct_tests)
 
     areas = sorted({info.area for info in infos.values()})
-    head = run_git("show", "-s", "--format=%H%n%cI", "HEAD").splitlines()
-    head_commit, head_timestamp = head[0], head[1]
     inbound_counts = {path: len(consumers) for path, consumers in inbound.items()}
     for area in areas:
         members = [info for info in infos.values() if info.area == area]
@@ -1001,12 +1022,23 @@ def rendered_files() -> dict[Path, str]:
             candidate for candidate in areas
             if candidate.startswith(prefix) and "/" not in candidate[len(prefix):]
         )
-        body = render_area(area, members, children, head_commit, head_timestamp)
+        # Area and catalog notes cite the newest commit among the sources they
+        # describe, not HEAD, so a documentation-only commit leaves them current.
+        area_commit, area_timestamp = latest_provenance(
+            info for info in infos.values() if info.area == area or info.area.startswith(prefix)
+        )
+        body = render_area(area, members, children, area_commit, area_timestamp)
         for info in members:
             body = body.replace(f"{{INBOUND:{info.source_path}}}", str(inbound_counts.get(info.source, 0)))
         rendered[area_note_path(area)] = body
-    rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas, head_commit, head_timestamp)
+    catalog_commit, catalog_timestamp = latest_provenance(infos.values())
+    rendered[CATALOG_ROOT / "Desktop Module Catalog.md"] = render_catalog(infos, areas, catalog_commit, catalog_timestamp)
     return rendered
+
+
+def latest_provenance(infos: Iterable[SourceInfo]) -> tuple[str, str]:
+    newest = max(infos, key=lambda info: (datetime.fromisoformat(info.commit_timestamp), info.commit))
+    return newest.commit, newest.commit_timestamp
 
 
 def main() -> int:

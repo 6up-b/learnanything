@@ -6,6 +6,8 @@ implementation_version: mvp-0.9
 decision_date: 2026-09-02
 decision_status: accepted
 last_reviewed: 2026-09-02
+source_commit: 5b09707acf657e9d8d59f190316b2c4726b7b625
+source_commit_timestamp: "2026-09-03T10:49:58-07:00"
 source_paths:
   - src/learnloop/config/schema.py
   - src/learnloop/config/compat.py

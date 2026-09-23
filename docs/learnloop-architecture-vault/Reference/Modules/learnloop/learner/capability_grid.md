@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/learner/capability_grid.py"
 source_paths:
   - "src/learnloop/learner/capability_grid.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "09e9fef5bad2cd1a8fa44adc29fcf8b539be79de"
+source_commit_timestamp: "2026-09-23T12:26:24-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.learner"
 layer: "domain"
 concepts:
@@ -50,26 +50,26 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/capability_grid.py](../../../../../../src/learnloop/learner/capability_grid.py) |
-| Source lines | 228 |
+| Source lines | 231 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `09e9fef5bad2cd1a8fa44adc29fcf8b539be79de` |
+| Commit timestamp | `2026-09-23T12:26:24-04:00` |
 
 ## Public API
 
-- `class GridCell` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 45)
-  - `as_dict(self) -> dict[str, object]` (line 61; public)
-- `class CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 81)
-  - `as_dict(self) -> dict[str, object]` (line 88; public)
-- `capability_grid(vault: LoadedVault, repository: Repository, learning_object_id: str) -> CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 106) — Facet × capability grid for one LO (canonical facet keys).
-- `lo_blueprint_readiness(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoReadiness | None` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 206) — Per-LO blueprint recipe readiness (§9.2) for the recipe-tree surface.
+- `class GridCell` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 46)
+  - `as_dict(self) -> dict[str, object]` (line 62; public)
+- `class CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 82)
+  - `as_dict(self) -> dict[str, object]` (line 89; public)
+- `capability_grid(vault: LoadedVault, repository: Repository, learning_object_id: str) -> CapabilityGrid` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 108) — Facet × capability grid for one LO (canonical facet keys).
+- `lo_blueprint_readiness(vault: LoadedVault, repository: Repository, learning_object_id: str) -> LoReadiness | None` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 209) — Per-LO blueprint recipe readiness (§9.2) for the recipe-tree surface.
 
 ## Internal implementation anchors
 
-- `_lo_required_facets(vault: LoadedVault, repository: Repository, learning_object) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 98)
+- `_lo_required_facets(vault: LoadedVault, repository: Repository, learning_object) -> list[str]` ([source](../../../../../../src/learnloop/learner/capability_grid.py), line 99)
 
 ## Who imports or calls it
 
@@ -85,6 +85,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `pinned_repository_call`
 - [[Reference/Modules/learnloop/goals/certification|learnloop.goals.certification]] — imports `is_demonstrated_credit`; calls `is_demonstrated_credit`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `required_capabilities_for_facet`; calls `required_capabilities_for_facet`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `project_lo_blueprint_readiness`; calls `project_lo_blueprint_readiness`
@@ -114,6 +115,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
   - `test_capability_grid_labels_the_ready_number`
   - `test_emission_boundary_rejects_a_label_outside_the_vocabulary`

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_paths:
   - "apps/learnloop-tauri/src"
   - "apps/learnloop-tauri/src-tauri/src"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "c308660e82bfb461f8b7d295f89d797613e32aff"
+source_commit_timestamp: "2026-09-23T12:09:28-04:00"
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -21,7 +21,7 @@ tags:
 # Desktop Module Catalog
 
 > [!abstract] Exact coverage
-> One generated note exists for each of the **102 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **5 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
+> One generated note exists for each of the **111 live TypeScript/TSX modules** under `apps/learnloop-tauri/src` and **5 authored Rust crate modules** under `src-tauri/src`. Cargo `target/` output and `build.rs` are not runtime crate modules and are intentionally excluded.
 
 ^desktop-catalog-coverage
 
@@ -46,9 +46,9 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 |---|---:|---|
 | [[Reference/Desktop/Rust/_area|Rust]] | 5 | The native Tauri shell, command bridge, sidecar process manager, error contract, and vault watcher. |
 | [[Reference/Desktop/TypeScript/_area|TypeScript]] | 4 | The React renderer entry point and cross-cutting frontend modules. |
-| [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] | 2 | Typed DTOs and the renderer-to-Tauri invocation facade. |
-| [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] | 4 | Desktop shell orchestration, keyboard policy, configuration helpers, and recent-vault state. |
-| [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] | 44 | Reusable learner-facing controls and composite interaction surfaces. |
+| [[Reference/Desktop/TypeScript/api/_area|TypeScript/api]] | 5 | Typed DTOs and the renderer-to-Tauri invocation facade. |
+| [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] | 8 | Desktop shell orchestration, keyboard policy, configuration helpers, and recent-vault state. |
+| [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] | 46 | Reusable learner-facing controls and composite interaction surfaces. |
 | [[Reference/Desktop/TypeScript/components/goldenpath/_area|TypeScript/components/goldenpath]] | 3 | Golden-path setup and triage components used by the staged learning journey. |
 | [[Reference/Desktop/TypeScript/components/graphedit/_area|TypeScript/components/graphedit]] | 5 | Study-map editing widgets, pending edits, and geometry previews. |
 | [[Reference/Desktop/TypeScript/components/recipeedit/_area|TypeScript/components/recipeedit]] | 1 | Recipe-tree editing for structured learning plans. |
@@ -63,14 +63,14 @@ The diagram makes the cross-language request boundary explicit: TypeScript prese
 
 | Refactor status | Modules | Positive evidence required |
 |---|---:|---|
-| `ACTIVE` | 107 | Current entry/build reachability or an explicit compiler inclusion. |
+| `ACTIVE` | 116 | Current entry/build reachability or an explicit compiler inclusion. |
 | `DORMANT` | 0 | An owned retained seam plus evidence that no primary workflow uses it. |
 | `COMPAT` | 0 | An explicitly frozen compatibility contract. |
 | `EVALUATION` | 0 | A simulation/audit surface that measures rather than serves the learner. |
 
-The audit proves **101 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **1 ambient declaration** is included by `tsconfig.json`, and **5 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
+The audit proves **110 TypeScript/TSX files** are reachable through static imports from `src/main.tsx`, **1 ambient declaration** is included by `tsconfig.json`, and **5 Rust modules** are reachable by `mod`/`crate` edges from native `main.rs`.
 
-The reachability set includes all **2 authored fixture modules** through current Reader/GoldenPath screens and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 107 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
+The reachability set includes all **2 authored fixture modules** through current Reader/GoldenPath screens and all **8 backdrop/worker modules** through StartScreen's supported optional presentation paths. Entry files are active roots. Therefore all 116 files are `ACTIVE`; none has positive evidence for `DORMANT`, `COMPAT`, or `EVALUATION`.
 
 > [!warning] Static graph limits
 > Import and symbol-reference edges are reproducible build evidence, not runtime tracing. The generator refuses an unclassified file instead of treating a missing caller as proof of dormancy; a new implicit entry requires an explicit audit rule.

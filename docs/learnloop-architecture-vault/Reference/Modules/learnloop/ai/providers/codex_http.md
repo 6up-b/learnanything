@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/providers/codex_http.py"
 source_paths:
   - "src/learnloop/ai/providers/codex_http.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "80b806e5b50125ba7dd68e3618d90127c1989353"
+source_commit_timestamp: "2026-09-23T12:23:20-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai.providers"
 layer: "infrastructure"
 concepts:
@@ -51,35 +51,35 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py) |
-| Source lines | 228 |
+| Source lines | 231 |
 | Owning package | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `80b806e5b50125ba7dd68e3618d90127c1989353` |
+| Commit timestamp | `2026-09-23T12:23:20-04:00` |
 
 ## Public API
 
-- `class HttpCodexClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 24) — Minimal local Codex app-server client.
-  - `__init__(self, config: CodexConfig)` (line 32; internal)
-  - `supports(self, capability: str) -> bool` (line 38; public) — Declare only the eight endpoint operations this adapter implements.
-  - `complete_legacy(self, request: StructuredRequest[WireResult], *, context: object) -> WireResult` (line 43; public) — Execute one of the adapter's eight endpoint-bound operations.
-  - `_validated(self, model_type: type[BaseModel], payload: dict, *, purpose: str) -> Any` (line 70; internal) — Validate one app-server response body against its wire contract.
-  - `_post(self, path: str, payload: dict, *, purpose: str) -> dict` (line 96; internal)
-- `class HttpAdapterProviderClient(HttpCodexClient)` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 222)
-  - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 225; internal)
+- `class HttpCodexClient(TokenUsageAccounting)` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 25) — Minimal local Codex app-server client.
+  - `__init__(self, config: CodexConfig)` (line 33; internal)
+  - `supports(self, capability: str) -> bool` (line 39; public) — Declare only the eight endpoint operations this adapter implements.
+  - `complete_legacy(self, request: StructuredRequest[WireResult], *, context: object) -> WireResult` (line 44; public) — Execute one of the adapter's eight endpoint-bound operations.
+  - `_validated(self, model_type: type[BaseModel], payload: dict, *, purpose: str) -> Any` (line 72; internal) — Validate one app-server response body against its wire contract.
+  - `_post(self, path: str, payload: dict, *, purpose: str, timeout_seconds: float | None=None) -> dict` (line 98; internal)
+- `class HttpAdapterProviderClient(HttpCodexClient)` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 225)
+  - `__init__(self, provider_name: str, profile: AIProviderConfig)` (line 228; internal)
 
 ### Module constants
 
-- `_HTTP_ENVELOPE_KEYS` ([src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 21)
-- `_HTTP_OPERATIONS` ([src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 194)
-- `_HTTP_PATHS` ([src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 205)
+- `_HTTP_ENVELOPE_KEYS` ([src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 22)
+- `_HTTP_OPERATIONS` ([src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 197)
+- `_HTTP_PATHS` ([src/learnloop/ai/providers/codex_http.py](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 208)
 
 ## Internal implementation anchors
 
-- `_url(base_url: str, path: str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 186)
-- `_decode_lossy(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 190)
+- `_url(base_url: str, path: str) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 189)
+- `_decode_lossy(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/ai/providers/codex_http.py), line 193)
 
 ## Who imports or calls it
 
@@ -94,10 +94,11 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInvalidOutput`, `AIProviderUnavailable`, `CodexUnavailable`; calls `AIInvalidOutput`, `AIProviderUnavailable`, `CodexUnavailable`
+- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `report_call_usage`; calls `report_call_usage`
 - [[Reference/Modules/learnloop/ai/providers/codex|learnloop.ai.providers.codex]] — imports `_log_codex_debug`, `codex_config_from_ai_profile`; calls `_log_codex_debug`, `codex_config_from_ai_profile`
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `describe_wire_validation_error`; calls `describe_wire_validation_error`
 - [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `StructuredRequest`, `WireResult`, `prompt_safe`; calls `prompt_safe`
-- [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `usage_from_chat_response`; calls `usage_from_chat_response`
+- [[Reference/Modules/learnloop/ai/usage|learnloop.ai.usage]] — imports `TokenUsageAccounting`, `receipt_fields_from_chat_response`, `usage_from_chat_response`; calls `receipt_fields_from_chat_response`, `usage_from_chat_response`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `AIProviderConfig`, `CodexConfig`
 
 ### Platform and third-party dependencies
@@ -125,7 +126,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_codex_output_schema.py](../../../../../../../tests/test_codex_output_schema.py) — direct import
   - `test_http_adapter_strips_the_usage_envelope_but_not_a_bad_field`
 - [tests/test_provider_resolution_parity.py](../../../../../../../tests/test_provider_resolution_parity.py) — direct import
-  - `test_legacy_http_declares_exactly_its_endpoint_operations`
 - [tests/test_structured_transport_parity.py](../../../../../../../tests/test_structured_transport_parity.py) — direct import
   - `test_legacy_http_supports_exactly_eight_operations_and_degrades_the_rest`
 

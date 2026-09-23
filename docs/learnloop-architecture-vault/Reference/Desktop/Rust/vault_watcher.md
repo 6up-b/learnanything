@@ -10,8 +10,8 @@ area: "Rust"
 source_path: "apps/learnloop-tauri/src-tauri/src/vault_watcher.rs"
 source_paths:
   - "apps/learnloop-tauri/src-tauri/src/vault_watcher.rs"
-source_commit: "49f8dc415492edd91c09d47c911fc1530c675242"
-source_commit_timestamp: "2026-07-27T02:40:21-04:00"
+source_commit: "c308660e82bfb461f8b7d295f89d797613e32aff"
+source_commit_timestamp: "2026-09-23T12:09:28-04:00"
 source_worktree_state: "clean"
 activation_kind: "native-entry-reachable"
 activation_evidence: "A Rust mod/use edge reaches this crate module from src-tauri/src/main.rs."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/vault_watcher.rs](../../../../../apps/learnloop-tauri/src-tauri/src/vault_watcher.rs) |
-| Source lines | 299 |
+| Source lines | 303 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `native-entry-reachable` |
 | Worktree state | `clean` |
-| Source commit | `49f8dc415492edd91c09d47c911fc1530c675242` |
-| Commit timestamp | `2026-07-27T02:40:21-04:00` |
+| Source commit | `c308660e82bfb461f8b7d295f89d797613e32aff` |
+| Commit timestamp | `2026-09-23T12:09:28-04:00` |
 
 ## Activation and status evidence
 
@@ -60,26 +60,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `pub const VAULT_FILES_CHANGED_EVENT: &str = "learnloop://vault-files-changed"` — const, line 11
-- `pub struct VaultWatcher` — struct, line 18
-- `pub fn start(app: AppHandle, sidecar: SidecarManager) -> Self` — fn, line 31
-- `pub fn watch(&self, root: PathBuf)` — fn, line 37
+- `pub const VAULT_FILES_CHANGED_EVENT: &str = "learnloop://vault-files-changed"` — const, line 12
+- `pub struct VaultWatcher` — struct, line 19
+- `pub fn start(app: AppHandle, sidecar: SidecarManager) -> Self` — fn, line 32
+- `pub fn watch(&self, root: PathBuf)` — fn, line 38
 
 ## Internal implementation anchors
 
-- `struct VaultFilesChanged` — struct, line 24
-- `fn watch_loop(target_rx: Receiver<PathBuf>, app: AppHandle, sidecar: SidecarManager)` — fn, line 43
-- `fn newest_target(target_rx: &Receiver<PathBuf>, block: bool) -> Option<PathBuf>` — fn, line 128
-- `fn install_watch( root: &Path, event_tx: Sender<notify::Result<Event>>, ) -> notify::Result<RecommendedWatcher>` — fn, line 140
-- `fn collect_paths(event: notify::Result<Event>, root: &Path, paths: &mut BTreeSet<PathBuf>) -> bool` — fn, line 149
-- `fn is_ignored_relative_path(relative: &Path) -> bool` — fn, line 186
-- `fn is_watchable_relative_path(relative: &Path) -> bool` — fn, line 200
-- `fn emit_error(app: &AppHandle, root: &Path, code: &str, message: String)` — fn, line 212
-- `fn path_for_wire(path: &Path) -> String` — fn, line 221
-- `fn watcher_accepts_domain_files_and_excludes_runtime_artifacts()` — fn, line 234
-- `fn wire_paths_are_platform_neutral()` — fn, line 249
-- `fn read_access_does_not_trigger_a_refresh_loop()` — fn, line 257
-- `fn a_domain_directory_mutation_forces_a_full_refresh()` — fn, line 284
+- `struct VaultFilesChanged` — struct, line 25
+- `fn watch_loop(target_rx: Receiver<PathBuf>, app: AppHandle, sidecar: SidecarManager)` — fn, line 44
+- `fn newest_target(target_rx: &Receiver<PathBuf>, block: bool) -> Option<PathBuf>` — fn, line 132
+- `fn install_watch( root: &Path, event_tx: Sender<notify::Result<Event>>, ) -> notify::Result<RecommendedWatcher>` — fn, line 144
+- `fn collect_paths(event: notify::Result<Event>, root: &Path, paths: &mut BTreeSet<PathBuf>) -> bool` — fn, line 153
+- `fn is_ignored_relative_path(relative: &Path) -> bool` — fn, line 190
+- `fn is_watchable_relative_path(relative: &Path) -> bool` — fn, line 204
+- `fn emit_error(app: &AppHandle, root: &Path, code: &str, message: String)` — fn, line 216
+- `fn path_for_wire(path: &Path) -> String` — fn, line 225
+- `fn watcher_accepts_domain_files_and_excludes_runtime_artifacts()` — fn, line 238
+- `fn wire_paths_are_platform_neutral()` — fn, line 253
+- `fn read_access_does_not_trigger_a_refresh_loop()` — fn, line 261
+- `fn a_domain_directory_mutation_forces_a_full_refresh()` — fn, line 288
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
+- [[Reference/Desktop/Rust/errors|src-tauri/src/errors.rs]] — crate import; imports `errors`
 - [[Reference/Desktop/Rust/sidecar|src-tauri/src/sidecar.rs]] — crate import; imports `sidecar`
 
 ### Assets, platform, and third-party dependencies
@@ -119,7 +120,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Keep native code an adapter: process/protocol/window/filesystem concerns belong here, while learning rules and durable state interpretation stay in Python domains.
 - Command changes must remain synchronized with `src/api/client.ts`, `src/api/dto.ts`, `main.rs` registration, and the Python sidecar registry.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

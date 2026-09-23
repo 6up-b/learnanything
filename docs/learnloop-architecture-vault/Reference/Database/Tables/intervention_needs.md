@@ -3,13 +3,13 @@ title: "intervention_needs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite intervention_needs"
   - "table intervention_needs"
-schema_head: 163
+schema_head: 164
 table_name: "intervention_needs"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,7 +19,6 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/007_recall_coverage_interventions.sql"
-  - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"

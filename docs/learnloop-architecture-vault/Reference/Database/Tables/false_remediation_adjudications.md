@@ -3,13 +3,13 @@ title: "false_remediation_adjudications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite false_remediation_adjudications"
   - "table false_remediation_adjudications"
-schema_head: 163
+schema_head: 164
 table_name: "false_remediation_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -48,7 +48,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/162_false_remediation_adjudications.sql`.
-- **Schema touched by:** `162_false_remediation_adjudications.sql`.
+- **Schema touched by:** `162_false_remediation_adjudications.sql`, `164_item_snapshots_and_adjudication_fk.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -58,7 +58,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | Column | SQLite type | Required | Default | Key | Operational reading |
 |---|---|---:|---|---|---|
 | `id` | `TEXT` | no | — | PRIMARY KEY | Stored value |
-| `attempt_id` | `TEXT` | yes | — | FK → [[Reference/Database/Tables/practice_attempts\|practice_attempts.id]] | Stored value |
+| `attempt_id` | `TEXT` | yes | — | — | Application-validated soft reference |
 | `label_value` | `INTEGER` | yes | — | — | Stored value |
 | `evidence_refs_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `author_kind` | `TEXT` | yes | — | — | Stored value |
@@ -69,9 +69,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 
 ## Relationships and access paths
 
-Declared SQLite foreign keys:
-
-- `attempt_id` → [[Reference/Database/Tables/practice_attempts|`practice_attempts.id`]]; on delete `NO ACTION`, on update `NO ACTION`.
+No SQLite foreign key is declared. Identifier-looking columns are application-validated soft references where applicable; this is common for YAML-owned entities and cross-generation compatibility seams.
 
 Indexes and uniqueness:
 
@@ -106,7 +104,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_goal_series.py`
+- `tests/test_migrations.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -123,9 +122,9 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE false_remediation_adjudications (
+CREATE TABLE "false_remediation_adjudications" (
   id TEXT PRIMARY KEY,
-  attempt_id TEXT NOT NULL REFERENCES practice_attempts(id),
+  attempt_id TEXT NOT NULL,
   label_value INTEGER NOT NULL CHECK(label_value IN (0,1)),
   evidence_refs_json TEXT NOT NULL,
   author_kind TEXT NOT NULL CHECK(author_kind IN ('human','machine')),

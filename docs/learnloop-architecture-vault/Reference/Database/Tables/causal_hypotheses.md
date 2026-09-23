@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 163
+schema_head: 164
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -158,6 +158,7 @@ Database triggers:
 
 ## Tests that define behavior
 
+- `tests/test_attempt_completion.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_causal_repair_mapping_p2.py`
@@ -177,7 +178,6 @@ Database triggers:
 - `tests/test_durable_promotion_arms.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_km2_write_path.py`
-- `tests/test_minimal_repair_selection_a1.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

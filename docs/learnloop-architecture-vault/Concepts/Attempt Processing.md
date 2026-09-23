@@ -5,13 +5,15 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop/attempts/attempts.py
   - src/learnloop/attempts/grading.py
   - src/learnloop/attempts/post_attempt.py
+  - src/learnloop/attempts/completion_lock.py
+  - src/learnloop/db/stores/completion.py
   - tests/test_attempt_write_order.py
 tags:
   - learnloop/concept
@@ -70,11 +72,13 @@ Hints, source-visible work, priming, answer reveals, and tutor exposure are reco
 
 ## Post-attempt composition
 
-The one shared pipeline:
+The attempt's own transaction also writes an `attempt_completion_work` row holding the applied result and the probe episode it was applied under. The one shared pipeline then completes it exactly once, under a cross-process completion lock:
 
-1. schedules certification cold probes idempotently;
-2. persists feedback metadata used by surfaces/reports;
-3. evaluates intervention and causal follow-up needs, including misconception normalization and re-probe hooks.
+1. schedules certification cold probes idempotently and persists feedback metadata used by surfaces/reports (one transaction);
+2. runs misconception normalization and resolution outside any transaction, because it may call a provider (deferred to the block-end hook for a diagnostic answer inside a block that is still measuring);
+3. evaluates intervention and causal follow-up needs, including re-probe hooks, and marks the completion row `completed` with the learner route (one transaction).
+
+A retried submission whose attempt is committed resumes this pipeline from the saved result instead of grading again; see [[Process Model Output#Post-attempt completion]] and [[Continue a Learning Cycle#After a lost submission response]]. Doors without a completion phase (exam seeding, simulation, calibration, observation imports, rung-variant requests) write the row `completed` at apply time.
 
 Exam sittings run all evidence-side steps but cap queue/need insertions per sitting; learner-facing feedback remains an exam report concern.
 
@@ -91,6 +95,7 @@ Exam sittings run all evidence-side steps but cap queue/need insertions per sitt
 - `tests/test_attempts.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_post_attempt_pipeline.py`
+- `tests/test_attempt_completion.py`
 - `tests/test_attempt_write_order.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_grading_context.py`

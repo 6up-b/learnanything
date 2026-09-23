@@ -11,7 +11,7 @@ source_commit: "f0052f7260eb63224bd103193929a03fd54660d6"
 source_commit_timestamp: "2026-07-21T15:03:22-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ingest.extractors"
 layer: "infrastructure"
 concepts:

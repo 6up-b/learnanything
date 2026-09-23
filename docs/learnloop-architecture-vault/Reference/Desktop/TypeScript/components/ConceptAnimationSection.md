@@ -10,8 +10,8 @@ area: "TypeScript/components"
 source_path: "apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx"
-source_commit: "c662b4ee9bc527cad760845c1d5d71e5382250ec"
-source_commit_timestamp: "2026-07-22T21:51:10-05:00"
+source_commit: "e97d2e15256a04b74ec95b6da207772675f3f8f2"
+source_commit_timestamp: "2026-09-03T10:31:35-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx](../../../../../../apps/learnloop-tauri/src/components/ConceptAnimationSection.tsx) |
-| Source lines | 231 |
+| Source lines | 405 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `c662b4ee9bc527cad760845c1d5d71e5382250ec` |
-| Commit timestamp | `2026-07-22T21:51:10-05:00` |
+| Source commit | `e97d2e15256a04b74ec95b6da207772675f3f8f2` |
+| Commit timestamp | `2026-09-03T10:31:35-07:00` |
 
 ## Activation and status evidence
 
@@ -60,21 +60,34 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function ConceptAnimationSection(` — function, line 17
+- `export function ConceptAnimationSection(` — function, line 152
 
 ## Internal implementation anchors
 
 - `const PENDING_STATUSES = new Set(["queued", "generating", "validating", "rendering"])` — const, line 8
-- `const PHASE_LABEL: Record<string, string> =` — const, line 10
-- `const pollRef = useRef<number | null>(null)` — const, line 25
-- `const stopPolling = ()` — const, line 27
-- `const pollStatus = (animationId: string)` — const, line 34
-- `let cancelled = false` — let, line 48
-- `const rows = result.animations ?? []` — const, line 58
-- `const preferred = rows.find((row)` — const, line 59
-- `const generate = async ()` — const, line 75
-- `const requested = await api.requestConceptAnimation(` — const, line 79
-- `const linkStyle =` — const, line 104
+- `const PHASE_LABEL: Record<string, Record<string, string>> =` — const, line 10
+- `function phaseLabel(status: string, renderer: string): string` — function, line 25
+- `const LINK_STYLE =` — const, line 29
+- `const CODEC_HINT = "this webview cannot decode H.264: install gstreamer1.0-libav (Debian/Ubuntu) or gst-libav (Arch) and restart the app"` — const, line 39
+- `type MediaFailure =` — type, line 42
+- `function describeMediaError(error: MediaError | null): MediaFailure` — function, line 44
+- `const detail = error?.message ? ` ($` — const, line 45
+- `function useAnimationBlobUrl(fileName: string | null, attempt: number)` — function, line 64
+- `let cancelled = false` — let, line 72
+- `let objectUrl: string | null = null` — let, line 73
+- `function AnimationPlayer(` — function, line 96
+- `const failure: MediaFailure | null = loadError ?` — const, line 105
+- `function StoryboardList(` — function, line 135
+- `const pollRef = useRef<number | null>(null)` — const, line 160
+- `const stopPolling = ()` — const, line 162
+- `const pollStatus = (animationId: string, renderer: string = "manim")` — const, line 169
+- `const interval = renderer === "video_model" ? 5000 : 2000` — const, line 173
+- `let cancelled = false` — let, line 186
+- `const rows = result.animations ?? []` — const, line 196
+- `const preferred = rows.find((row)` — const, line 197
+- `const generate = async ()` — const, line 213
+- `const requested = await api.requestConceptAnimation(` — const, line 217
+- `const videoRenderer = runtime?.renderer === "video_model"` — const, line 248
 
 ## Who imports or calls it
 
@@ -88,7 +101,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AnimationRuntimeDto`, `ConceptAnimationDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AnimationRuntimeDto`, `ConceptAnimationDto`, `StoryboardDto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`, `Faint`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
 
@@ -105,13 +118,13 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
 
 ## Modification guidance
 
 - Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
 - When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist

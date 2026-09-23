@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0395ae32f9e2e40d1cb98b38402631299a94003f"
-source_commit_timestamp: "2026-09-07T12:49:13-04:00"
-last_verified: "2026-09-07"
+source_commit: "f0ae9c2e7445d9275d8fafdddc9247f72d66075e"
+source_commit_timestamp: "2026-09-23T14:02:53-04:00"
+last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 163
+schema_head: 164
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
@@ -118,8 +118,10 @@ None found by exact static reference scan.
 - `tests/test_build_study_map_routing.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_latency_journey.py`
+- `tests/test_ingest_ownership.py`
 - `tests/test_ingest_queue_store.py`
 - `tests/test_migrations.py`
+- `tests/test_rebuild_orchestrator.py`
 - `tests/test_sidecar_exams.py`
 - `tests/test_sidecar_goals.py`
 - `tests/test_sidecar_measurement.py`

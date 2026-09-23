@@ -27,7 +27,7 @@ CATALOG_ROOT = VAULT_ROOT / "Reference" / "Modules"
 SOURCE_ROOTS = (REPO_ROOT / "src" / "learnloop", REPO_ROOT / "src" / "learnloop_sidecar")
 DESKTOP_ROOT = REPO_ROOT / "apps" / "learnloop-tauri"
 DOC_VERSION = "1.0.0"
-GENERATED_DATE = "2026-08-18"
+GENERATED_DATE = "2026-09-23"
 
 CANONICAL_CONCEPTS = {
     "Architecture Overview",
@@ -125,6 +125,25 @@ EVALUATION_MODULES = {
     "learnloop.diagnosis.causal_selection_audit",
     "learnloop.scheduling.intent_planner",
     "learnloop.scheduling.shadow_components",
+}
+
+# Top-level functions with no caller anywhere in src/, tests/, scripts/ or the
+# desktop app. They are deletion candidates, so the reference leaves them out
+# rather than presenting them as supported API.
+UNCALLED_DEFINITIONS: dict[str, set[str]] = {
+    "learnloop.curriculum.commitment_arcs": {"resume_arc"},
+    "learnloop.curriculum.commitments": {
+        "record_depth_transition_committed",
+        "attach_family",
+        "detach_family",
+        "load_commitment",
+    },
+    "learnloop.curriculum.depth_edge_authoring": {"append_template_version"},
+    "learnloop.curriculum.golden_path_run": {"next_feasible_action"},
+    "learnloop.curriculum.task_blueprints": {"discover_exemplar_candidates"},
+    "learnloop.reader.reader_capture": {"retry_outbox"},
+    "learnloop.params.fitted_params": {"fitted_fsrs_provenance"},
+    "learnloop.vault.hashes": {"concept_hash", "concept_edge_hash", "rubric_hash"},
 }
 
 MODULE_WORKFLOW_OVERRIDES: dict[str, list[str]] = {
@@ -399,6 +418,8 @@ def load_modules(sources: list[Path]) -> dict[str, ModuleInfo]:
         tree = ast.parse(text, filename=rel)
         name = module_name(source)
         symbols, constants, exports = symbols_from_tree(tree)
+        uncalled = UNCALLED_DEFINITIONS.get(name, set())
+        symbols = [symbol for symbol in symbols if symbol.name not in uncalled]
         if rel in untracked:
             source_state = "untracked"
         elif rel in modified or rel in staged:

@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/goals/certification.py"
 source_paths:
   - "src/learnloop/goals/certification.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "untracked"
+source_commit: "b322ef2e9b5cebc241b612e4963a5aaf1a37f99a"
+source_commit_timestamp: "2026-08-20T18:04:29-04:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.goals"
 layer: "domain"
 concepts:
@@ -53,9 +53,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `untracked` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `b322ef2e9b5cebc241b612e4963a5aaf1a37f99a` |
+| Commit timestamp | `2026-08-20T18:04:29-04:00` |
 
 ## Public API
 
@@ -108,6 +108,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_exam_readiness_and_conflict.py](../../../../../../tests/test_exam_readiness_and_conflict.py) — imports consumer [[Reference/Modules/learnloop/goals/exam_readiness|learnloop.goals.exam_readiness]]
 - [tests/test_goal_certification_any_of.py](../../../../../../tests/test_goal_certification_any_of.py) — imports consumer [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]]
 - [tests/test_km3_projections.py](../../../../../../tests/test_km3_projections.py) — imports consumer [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]]
+- [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — imports consumer [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]]
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — imports consumer [[Reference/Modules/learnloop/learner/capability_grid|learnloop.learner.capability_grid]]
 - [tests/test_graph_editor_reads.py](../../../../../../tests/test_graph_editor_reads.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]]
 - [tests/test_sidecar_remediation_surfaces.py](../../../../../../tests/test_sidecar_remediation_surfaces.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]]

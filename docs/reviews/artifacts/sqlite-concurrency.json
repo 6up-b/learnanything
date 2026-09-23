@@ -1,36 +1,37 @@
 {
   "sqlite_version": "3.50.4",
-  "platform": "Linux-7.2.0-1-cachyos-x86_64-with-glibc2.44",
-  "filesystem_path": "/home/saturn/Documents/thinking/learnanything/.pytest_tmp",
+  "platform": "Linux-7.2.5-1-cachyos-x86_64-with-glibc2.44",
+  "filesystem_path": "/home/saturn/.cache/pr5-bench",
   "results": [
     {
       "journal_mode": "DELETE",
       "synchronous": "FULL",
-      "seconds": 10.039499887963757,
+      "busy_timeout_seconds": 5,
+      "seconds": 7.936967757996172,
       "workers": [
         {
           "role": "writer",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 46.65178409777582,
-          "p95_ms": 68.38163896463811,
-          "max_ms": 84.1527699958533
+          "p50_ms": 36.67863699956797,
+          "p95_ms": 39.27597700385377,
+          "max_ms": 44.80262800643686
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 1,
-          "p50_ms": 2.0449068397283554,
-          "p95_ms": 2.095147967338562,
-          "max_ms": 5000.547136180103
+          "p50_ms": 2.0424440008355305,
+          "p95_ms": 2.0651630038628355,
+          "max_ms": 5000.599734004936
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 1,
-          "p50_ms": 2.045608125627041,
-          "p95_ms": 2.0889879669994116,
-          "max_ms": 5000.639645848423
+          "p50_ms": 2.0436540071386844,
+          "p95_ms": 2.060803002677858,
+          "max_ms": 5000.62911400164
         }
       ],
       "acknowledged_rows": 200,
@@ -40,40 +41,42 @@
     {
       "journal_mode": "WAL",
       "synchronous": "FULL",
-      "seconds": 2.6566086339298636,
+      "busy_timeout_seconds": 5,
+      "seconds": 1.9584566050034482,
       "workers": [
         {
           "role": "writer",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 10.309437988325953,
-          "p95_ms": 23.44699203968048,
-          "max_ms": 40.002462919801474
+          "p50_ms": 9.389237995492294,
+          "p95_ms": 10.013656996306963,
+          "max_ms": 27.09520900680218
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 2.033076947554946,
-          "p95_ms": 2.068726811558008,
-          "max_ms": 2.103168051689863
+          "p50_ms": 2.030072995694354,
+          "p95_ms": 2.054712997050956,
+          "max_ms": 2.122983001754619
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 2.029488096013665,
-          "p95_ms": 2.0640981383621693,
-          "max_ms": 2.0998178515583277
+          "p50_ms": 2.028803006396629,
+          "p95_ms": 2.0507830049609765,
+          "max_ms": 2.0732929988298565
         }
       ],
       "acknowledged_rows": 200,
       "integrity": "ok",
-      "checkpoint": [
-        0,
-        0,
-        0
-      ]
+      "checkpoint": {
+        "busy": 0,
+        "log_frames": 599,
+        "checkpointed_frames": 599,
+        "truncate_busy": 0
+      }
     }
   ]
 }

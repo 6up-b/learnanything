@@ -6,11 +6,20 @@ aliases:
 status: active
 doc_version: 1.0.0
 implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-09-23
+source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
+source_commit_timestamp: "2026-09-23T13:06:55-04:00"
 source_paths:
   - src/learnloop_sidecar/handlers/sessions.py
+  - src/learnloop_sidecar/handlers/practice.py
+  - src/learnloop_sidecar/server.py
+  - src/learnloop/attempts/post_attempt.py
+  - src/learnloop/attempts/completion_lock.py
+  - src/learnloop/db/stores/completion.py
+  - src/learnloop/db/stores/collection.py
+  - apps/learnloop-tauri/src-tauri/src/errors.rs
+  - apps/learnloop-tauri/src-tauri/src/sidecar.rs
+  - tests/test_attempt_completion.py
   - src/learnloop/learner/session_learning_diff.py
   - src/learnloop/db/repositories.py
   - tests/test_session_attempt_attribution.py
@@ -50,12 +59,33 @@ The checkpoint can preserve:
 
 Do not change the answer and immediately submit a second time.
 
-1. Let the UI retry with the same stable submission id.
-2. The backend looks up a committed attempt by that id.
-3. If found, it returns the original result; it does not append a duplicate.
-4. If no receipt exists, the original request can be applied once.
+1. Let the UI retry with the same stable submission id (`recover_practice_submission`, or a repeated `submit_attempt` / `submit_dont_know`).
+2. The backend resolves the submission id to exactly one of four outcomes:
 
-The unique index on `practice_attempts.submission_id` protects the same invariant at the database boundary. ^submission-idempotency
+| What the database holds for the submission id | Outcome |
+|---|---|
+| A row in `attempt_submission_receipts` | The stored response is returned unchanged (`status: "recovered"` from recovery). |
+| An attempt with a pending `attempt_completion_work` row | The saved result is completed: no regrade, only misconception normalization may call the grading provider, and follow-ups are inserted only while the attempt's session is still open. The response and its receipt are then written. |
+| An attempt with no completion work, or pending work that does not record its probe episode | Fails closed with the non-retryable `submission_committed` error, carrying the attempt id; the attempt is never graded or applied again. |
+| No attempt | Recovery reports `status: "pending"`, and the original request can be applied once. |
+
+The unique index on `practice_attempts.submission_id` protects the same invariant at the database boundary. When two requests with one submission id race, the loser's insert fails on that index and it answers with the winner's committed attempt. ^submission-idempotency
+
+A pending completion row stores the probe episode the attempt was applied under (`route_json = {"applied_probe_episode_id": …}`), written in the attempt's own transaction. A resumed completion routes the learner, and decides whether feedback stays deferred, from that episode rather than from whichever episode is open when recovery runs. Completion also runs under a per-database advisory file lock (`attempt-completion.lock` beside `state.sqlite`), so a sidecar and a TUI resuming the same attempt cannot both normalize it; a process that waits more than 120 s for the lock gets the retryable `completion_busy` error.
+
+## Scheduler offer binding
+
+The first draft save or submission binds its submission id to the scheduler candidate it was served under (`submission_intents`). Reopening the same item from a refreshed Today queue sends the new queue's candidate with the same submission id; that candidate is accepted only when it is a returned, unconsumed offer of the same item in the same session, and the attempt still links to the original offer. A submission id reused for another item or session, or a candidate that was never offered for it, is rejected with `validation_error`. See [[Collection and Dataset Contract]] for how offers become collection records.
+
+## Transient errors during continuation
+
+| Code | Raised by | Retryable | Meaning |
+|---|---|---|---|
+| `database_busy` | sidecar, any RPC | yes | SQLite reported `database is locked`/`busy`; the transaction was rolled back and a retry resumes by submission id. |
+| `completion_busy` | sidecar, any RPC | yes | Another process holds the attempt-completion lock. |
+| `grading_provider_reset` | desktop shell, after a sidecar restart | yes | The replacement sidecar refused the learner's grading-provider choice; the choice was dropped and grading uses the vault's configured provider. |
+| `vault_changed` | desktop shell | no | The command was issued for the previously selected vault and was not run against the current one. |
+| `submission_committed` | sidecar | no | See the outcome table above. |
 
 ## If the UI offers no resumable session
 
@@ -105,3 +135,5 @@ The durable learning result should be inspected by attempt id, not inferred from
 - [[State and Persistence]]
 - [[Doctor Migrations and Recovery]]
 - [[Tutor and Teach-Back Workflow#Resume and outage behavior]]
+- [[Process Model Output#Post-attempt completion]]
+- [[Collection and Dataset Contract]]

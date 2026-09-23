@@ -11,7 +11,7 @@ source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
 source_commit_timestamp: "2026-08-17T12:05:21-04:00"
 source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop_sidecar.handlers"
 layer: "adapter"
 concepts:

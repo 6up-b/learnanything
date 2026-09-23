@@ -7,11 +7,11 @@ version: "1.0.0"
 source_path: "src/learnloop/ai/routing.py"
 source_paths:
   - "src/learnloop/ai/routing.py"
-source_commit: "workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
-source_worktree_state: "modified"
+source_commit: "ee2e43120c2b814eb8b6a849efaa1ac08260ad69"
+source_commit_timestamp: "2026-09-03T21:40:18-07:00"
+source_worktree_state: "clean"
 generated: true
-generated_at: "2026-08-18"
+generated_at: "2026-09-23"
 package: "learnloop.ai"
 layer: "infrastructure"
 concepts:
@@ -51,31 +51,31 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py) |
-| Source lines | 308 |
+| Source lines | 312 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `modified` |
-| Source commit | `workspace/uncommitted @ HEAD 62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Worktree state | `clean` |
+| Source commit | `ee2e43120c2b814eb8b6a849efaa1ac08260ad69` |
+| Commit timestamp | `2026-09-03T21:40:18-07:00` |
 
 ## Public API
 
-- `class AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 63)
-- `class ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 70) — Typed outcome of provider selection, readiness, fallback, and build.
-  - `ready(self) -> bool` (line 88; public)
-  - `__iter__(self) -> Iterator[Any]` (line 91; internal)
-- `provider_for_task(config: LearnLoopConfig, task: AITask, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 97) — Select a configured name with explicit > environment > route precedence.
-- `provider_for_operation(config: LearnLoopConfig, operation: str, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 117)
-- `fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelection) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 136)
-- `runtime_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/routing.py), line 143) — Return one provider-neutral readiness report for any configured name.
-- `client_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, timeout_seconds: int | None=None) -> Any | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 161) — Build a configured provider client, returning no client for manual mode.
-- `ready_client_for_task(vault_root: Path, config: LearnLoopConfig, task: AITask, *, explicit: str | None=None, allow_env: bool=True, timeout_seconds: int | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 188) — Resolve selection, readiness, fallback, and construction exactly once.
+- `class AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 67)
+- `class ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 74) — Typed outcome of provider selection, readiness, fallback, and build.
+  - `ready(self) -> bool` (line 92; public)
+  - `__iter__(self) -> Iterator[Any]` (line 95; internal)
+- `provider_for_task(config: LearnLoopConfig, task: AITask, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 101) — Select a configured name with explicit > environment > route precedence.
+- `provider_for_operation(config: LearnLoopConfig, operation: str, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 121)
+- `fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelection) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 140)
+- `runtime_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/routing.py), line 147) — Return one provider-neutral readiness report for any configured name.
+- `client_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, timeout_seconds: int | None=None) -> Any | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 165) — Build a configured provider client, returning no client for manual mode.
+- `ready_client_for_task(vault_root: Path, config: LearnLoopConfig, task: AITask, *, explicit: str | None=None, allow_env: bool=True, timeout_seconds: int | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 192) — Resolve selection, readiness, fallback, and construction exactly once.
 
 ### Module constants
 
 - `MANUAL_PROVIDER` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 16)
-- `ROUTE_FOR_OPERATION` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 33)
+- `ROUTE_FOR_OPERATION` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 34)
 
 ### Explicit exports
 
@@ -95,14 +95,15 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_resolve_selected_provider(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, provider_name: str, *, timeout_seconds: int | None, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 235)
-- `_manual_resolution(selection: AIProviderSelection, *, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 274)
+- `_resolve_selected_provider(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, provider_name: str, *, timeout_seconds: int | None, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 239)
+- `_manual_resolution(selection: AIProviderSelection, *, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 278)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]] — imports `AITask`, `provider_for_task`; statically calls `provider_for_task`
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `client_for_provider`, `fallback_provider_for`, `provider_for_task`, `ready_client_for_task`, `runtime_for_provider`; statically calls `client_for_provider`, `fallback_provider_for`, `provider_for_task`, `ready_client_for_task`, `runtime_for_provider`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `provider_for_task`, `ready_client_for_task`; statically calls `provider_for_task`, `ready_client_for_task`
 - [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]] — imports `ready_client_for_task`; statically calls `ready_client_for_task`
@@ -135,7 +136,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/native_media|learnloop.ai.native_media]], [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/diagnosis/diagnostic_surface_supply|learnloop.diagnosis.diagnostic_surface_supply]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -832,6 +832,20 @@ def validate_config_coverage(
         catalog_data.get("field_status_counts") == dict(sorted(status_counts.items())),
         "Configuration Field Catalog field_status_counts mismatch",
     )
+    # Leaf counts also appear in prose, in the catalog and in hand-written
+    # notes; each must match the effective model.
+    prose_counts = {
+        catalog: r"Every one of the (\d+) effective leaves",
+        overview: r"all (\d+) effective leaf values",
+        (DATABASE_ROOT / "Database.md").resolve(): r"all \d+ table notes and all (\d+) effective configuration leaves",
+    }
+    for note, pattern in prose_counts.items():
+        text = note.read_text(encoding="utf-8") if note.exists() else ""
+        stated = [int(value) for value in re.findall(pattern, text)]
+        errors.expect(
+            bool(stated) and all(value == total_fields for value in stated),
+            f"{note.name}: prose leaf count {stated} does not match {total_fields} effective leaves",
+        )
     return len(expected_sections), total_fields, status_counts
 
 

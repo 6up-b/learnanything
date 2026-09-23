@@ -10,8 +10,8 @@ area: "TypeScript/screens"
 source_path: "apps/learnloop-tauri/src/screens/IngestScreen.tsx"
 source_paths:
   - "apps/learnloop-tauri/src/screens/IngestScreen.tsx"
-source_commit: "62fd1f6404cc3a3007c6f214ba9429c45ef0114f"
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+source_commit: "7f37f7bef54c4dc6170182720840faf546d9f51b"
+source_commit_timestamp: "2026-09-03T10:56:04-07:00"
 source_worktree_state: "clean"
 activation_kind: "entry-reachable build graph"
 activation_evidence: "A static TypeScript import path reaches this file from the Vite entry src/main.tsx."
@@ -42,14 +42,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/IngestScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/IngestScreen.tsx) |
-| Source lines | 1559 |
+| Source lines | 1588 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
 | Activation kind | `entry-reachable build graph` |
 | Worktree state | `clean` |
-| Source commit | `62fd1f6404cc3a3007c6f214ba9429c45ef0114f` |
-| Commit timestamp | `2026-08-17T12:05:21-04:00` |
+| Source commit | `7f37f7bef54c4dc6170182720840faf546d9f51b` |
+| Commit timestamp | `2026-09-03T10:56:04-07:00` |
 
 ## Activation and status evidence
 
@@ -60,121 +60,127 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function IngestScreen(` — function, line 431
+- `export function IngestScreen(` — function, line 423
 
 ## Internal implementation anchors
 
-- `type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio"` — type, line 23
-- `function detectKind(source: string): Kind | null` — function, line 26
-- `const s = (source || "").trim()` — const, line 27
-- `type KindMeta =` — type, line 40
-- `const KIND_META: Record<Kind, KindMeta> =` — const, line 42
-- `type Mode = IngestMode` — type, line 51
-- `function kebabCase(value: string): string` — function, line 53
-- `function Card(` — function, line 61
-- `function KindChips(` — function, line 79
-- `const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local", "audio"]` — const, line 80
-- `const sel = k === active` — const, line 84
-- `const meta = KIND_META[k]` — const, line 85
-- `function LearnerLevelChip()` — function, line 111
-- `let alive = true` — let, line 119
-- `const pick = async (next: StartingLevel)` — const, line 136
-- `const profile = await api.setLearnerProfile(` — const, line 141
-- `const label = STARTING_LEVELS.find((s)` — const, line 152
-- `function SubjectPicker(` — function, line 225
-- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 240
-- `async function submit()` — function, line 246
-- `const trimmed = title.trim()` — const, line 247
-- `const created = await onCreate(trimmed)` — const, line 249
-- `const sel = s === value` — const, line 258
-- `const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"]` — const, line 348
-- `const INGEST_PHASES: Array<` — const, line 350
-- `function RunningCard(` — function, line 358
-- `const frame = SPINNER_FRAMES[Math.floor(elapsed * 2) % SPINNER_FRAMES.length]` — const, line 359
-- `const minutes = Math.floor(elapsed / 60)` — const, line 360
-- `const seconds = Math.floor(elapsed % 60)` — const, line 361
-- `const clock = minutes > 0 ? `$` — const, line 362
-- `const activeIndex = INGEST_PHASES.findIndex((item)` — const, line 363
-- `const cancelling = job.phase === "cancelling"` — const, line 364
-- `const complete = activeIndex > index` — const, line 384
-- `const active = activeIndex === index` — const, line 385
-- `const overlayActive = outlineTarget !== null` — const, line 454
-- `const card = lib.sources.find((c)` — const, line 482
-- `function IngestHome(` — function, line 538
-- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 584
-- `const activityRef = useRef<HTMLDivElement>(null)` — const, line 585
-- `const runningRef = useRef(false)` — const, line 586
-- `const kind = authoritativeKind ?? detectKind(source)` — const, line 588
-- `const running = job?.status === "queued" || job?.status === "running"` — const, line 589
-- `const result = job?.status === "completed" ? job.result : null` — const, line 590
-- `const error = localError ?? (job?.status === "failed" || job?.status === "cancelled" ? job.error?.message ?? job.message : null)` — const, line 591
-- `const stagingVisible = mode === "canonical"` — const, line 595
-- `const hasStaged = staged.length > 0` — const, line 596
-- `const canRun = (source.trim().length > 0 || (stagingVisible && hasStaged)) && !running && !importing && (mode === "canonical" || subject !== null) && (mode !== "canonical" || pageSelectionError(pageSelection) === null) && Object.values(stagedPageRanges).every…` — const, line 597
-- `const importCount = staged.length + (source.trim() ? 1 : 0)` — const, line 604
-- `const subjectTooltip = mode === "canonical" ? "imports land in the vault-global source library — no subject needed. A subject chosen here just pre-tags the import batch` — const, line 605
-- `const refreshSubjects = useCallback(async ()` — const, line 610
-- `const snapshot = await api.loadVault()` — const, line 612
-- `const list = snapshot.vault?.subjects ?? []` — const, line 613
-- `let cancelled = false` — let, line 633
-- `const active = snapshot.jobs.find((candidate)` — const, line 636
-- `let cancelled = false` — let, line 647
-- `let timer: number | undefined` — let, line 648
-- `const poll = async ()` — const, line 649
-- `const next = await api.getIngestJob(jobId)` — const, line 651
-- `const commandError = e as CommandError` — const, line 663
-- `const candidate = source.trim()` — const, line 682
-- `let cancelled = false` — let, line 688
-- `const timer = window.setTimeout(()` — const, line 690
-- `const mapped: Record<string, Kind> =` — const, line 694
-- `let cancelled = false` — let, line 724
-- `const timer = window.setTimeout(()` — const, line 725
-- `const next: Record<string, AcquisitionPreviewItem> =` — const, line 729
-- `const parsed = Date.parse(job.startedAt ?? job.createdAt)` — const, line 746
-- `const started = Number.isNaN(parsed) ? Date.now() : parsed` — const, line 747
-- `const id = window.setInterval(()` — const, line 749
-- `async function createSubject(title: string): Promise<boolean>` — function, line 753
-- `const id = kebabCase(title)` — const, line 754
-- `const res = await api.runCliCommand(["add-subject", id, title])` — const, line 759
-- `function clearFinishedJob()` — function, line 776
-- `function stageCurrent()` — function, line 782
-- `const src = source.trim()` — const, line 783
-- `const next =` — const, line 787
-- `function stageDropped(paths: string[])` — function, line 797
-- `const unique = paths.filter((path, index)` — const, line 800
-- `const next =` — const, line 807
-- `const fileDragging = useSourceFileDrop(` — const, line 813
-- `function removeStaged(src: string)` — function, line 819
-- `const next =` — const, line 822
-- `const next =` — const, line 827
-- `async function startCanonicalImport(entries: Array<` — function, line 833
-- `const batch = await api.startImportBatch(` — const, line 836
-- `async function startExamSeeding(src: string)` — function, line 865
-- `const started = await api.startIngest(` — const, line 870
-- `const commandError = e as CommandError` — const, line 874
-- `const activeJobId = (commandError.details as` — const, line 875
-- `async function startRun()` — function, line 886
-- `const trimmed = source.trim()` — const, line 888
-- `const entries = [ ...staged.map((stagedSource)` — const, line 891
-- `async function cancelIngest()` — function, line 916
-- `async function chooseLocalSource()` — function, line 925
-- `const selected = await openDialog(` — const, line 927
-- `function onKey(event: KeyboardEvent)` — function, line 943
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 947
-- `const isInput = tag === "input" || tag === "textarea"` — const, line 948
-- `const modeChip = (m: Mode, icon: string, label: string)` — const, line 976
-- `const sel = mode === m` — const, line 977
-- `const rowKind = detectKind(src)` — const, line 1274
-- `const meta = rowKind ? KIND_META[rowKind] : null` — const, line 1275
-- `const preview = previews[src]` — const, line 1276
-- `const stagedRange = stagedPageRanges[src] ?? ""` — const, line 1277
+- `type Kind = "web" | "arxiv" | "pdf" | "youtube" | "local" | "audio"` — type, line 25
+- `function detectKind(source: string): Kind | null` — function, line 28
+- `const s = (source || "").trim()` — const, line 29
+- `type KindMeta =` — type, line 42
+- `const KIND_META: Record<Kind, KindMeta> =` — const, line 44
+- `type Mode = IngestMode` — type, line 53
+- `function kebabCase(value: string): string` — function, line 55
+- `function Card(` — function, line 63
+- `function KindChips(` — function, line 81
+- `const order: Kind[] = ["web", "arxiv", "pdf", "youtube", "local", "audio"]` — const, line 82
+- `const sel = k === active` — const, line 86
+- `const meta = KIND_META[k]` — const, line 87
+- `function LearnerLevelChip()` — function, line 113
+- `const profileQuery = useCachedQuery(["get_learner_profile"], ()` — const, line 119
+- `const profileError = saveError ?? (profileQuery.error ? errorMessage(profileQuery.error, "Could not load your learner level.") : null)` — const, line 125
+- `const pick = async (next: StartingLevel)` — const, line 128
+- `const profile = await api.setLearnerProfile(` — const, line 133
+- `const label = STARTING_LEVELS.find((s)` — const, line 144
+- `function SubjectPicker(` — function, line 217
+- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 232
+- `async function submit()` — function, line 238
+- `const trimmed = title.trim()` — const, line 239
+- `const created = await onCreate(trimmed)` — const, line 241
+- `const sel = s === value` — const, line 250
+- `const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"]` — const, line 340
+- `const INGEST_PHASES: Array<` — const, line 342
+- `function RunningCard(` — function, line 350
+- `const frame = SPINNER_FRAMES[Math.floor(elapsed * 2) % SPINNER_FRAMES.length]` — const, line 351
+- `const minutes = Math.floor(elapsed / 60)` — const, line 352
+- `const seconds = Math.floor(elapsed % 60)` — const, line 353
+- `const clock = minutes > 0 ? `$` — const, line 354
+- `const activeIndex = INGEST_PHASES.findIndex((item)` — const, line 355
+- `const cancelling = job.phase === "cancelling"` — const, line 356
+- `const complete = activeIndex > index` — const, line 376
+- `const active = activeIndex === index` — const, line 377
+- `const overlayActive = outlineTarget !== null` — const, line 446
+- `const card = lib.sources.find((c)` — const, line 474
+- `function IngestHome(` — function, line 530
+- `const vaultQuery = useCachedQuery(["load_vault"], ()` — const, line 562
+- `const subjects: string[] = useMemo(()` — const, line 563
+- `const effectivePdfEngine: PdfEngine = pdfEngine === "auto" ? vaultPdfEngine : pdfEngine` — const, line 587
+- `const nativePdf = effectivePdfEngine === "native"` — const, line 588
+- `let cancelled = false` — let, line 590
+- `const inputRef = useRef<HTMLInputElement>(null)` — const, line 601
+- `const activityRef = useRef<HTMLDivElement>(null)` — const, line 602
+- `const runningRef = useRef(false)` — const, line 603
+- `const kind = authoritativeKind ?? detectKind(source)` — const, line 605
+- `const running = job?.status === "queued" || job?.status === "running"` — const, line 606
+- `const result = job?.status === "completed" ? job.result : null` — const, line 607
+- `const error = localError ?? (job?.status === "failed" || job?.status === "cancelled" ? job.error?.message ?? job.message : null)` — const, line 608
+- `const stagingVisible = mode === "canonical"` — const, line 612
+- `const hasStaged = staged.length > 0` — const, line 613
+- `const canRun = (source.trim().length > 0 || (stagingVisible && hasStaged)) && !running && !importing && (mode === "canonical" || subject !== null) && (mode !== "canonical" || pageSelectionError(pageSelection) === null) && Object.values(stagedPageRanges).every…` — const, line 614
+- `const importCount = staged.length + (source.trim() ? 1 : 0)` — const, line 621
+- `const subjectTooltip = mode === "canonical" ? "imports land in the vault-global source library — no subject needed. A subject chosen here just pre-tags the import batch` — const, line 622
+- `const refreshVault = vaultQuery.refetch` — const, line 627
+- `const refreshSubjects = useCallback(async ()` — const, line 628
+- `let cancelled = false` — let, line 644
+- `const active = snapshot.jobs.find((candidate)` — const, line 647
+- `let cancelled = false` — let, line 658
+- `let timer: number | undefined` — let, line 659
+- `const poll = async ()` — const, line 660
+- `const next = await api.getIngestJob(jobId)` — const, line 662
+- `const commandError = e as CommandError` — const, line 674
+- `const candidate = source.trim()` — const, line 693
+- `let cancelled = false` — let, line 699
+- `const timer = window.setTimeout(()` — const, line 701
+- `const mapped: Record<string, Kind> =` — const, line 705
+- `let cancelled = false` — let, line 735
+- `const timer = window.setTimeout(()` — const, line 736
+- `const next: Record<string, AcquisitionPreviewItem> =` — const, line 740
+- `const parsed = Date.parse(job.startedAt ?? job.createdAt)` — const, line 757
+- `const started = Number.isNaN(parsed) ? Date.now() : parsed` — const, line 758
+- `const id = window.setInterval(()` — const, line 760
+- `async function createSubject(title: string): Promise<boolean>` — function, line 764
+- `const id = kebabCase(title)` — const, line 765
+- `const res = await api.runCliCommand(["add-subject", id, title])` — const, line 770
+- `function clearFinishedJob()` — function, line 787
+- `function stageCurrent()` — function, line 793
+- `const src = source.trim()` — const, line 794
+- `const next =` — const, line 798
+- `function stageDropped(paths: string[])` — function, line 808
+- `const unique = paths.filter((path, index)` — const, line 811
+- `const next =` — const, line 818
+- `const fileDragging = useSourceFileDrop(` — const, line 824
+- `function removeStaged(src: string)` — function, line 830
+- `const next =` — const, line 833
+- `const next =` — const, line 838
+- `async function startCanonicalImport(entries: Array<` — function, line 844
+- `const batch = await api.startImportBatch(` — const, line 847
+- `async function startExamSeeding(src: string)` — function, line 876
+- `const started = await api.startIngest(` — const, line 881
+- `const commandError = e as CommandError` — const, line 885
+- `const activeJobId = (commandError.details as` — const, line 886
+- `async function startRun()` — function, line 897
+- `const trimmed = source.trim()` — const, line 899
+- `const entries = [ ...staged.map((stagedSource)` — const, line 902
+- `async function cancelIngest()` — function, line 927
+- `async function chooseLocalSource()` — function, line 936
+- `const selected = await openDialog(` — const, line 938
+- `function onKey(event: KeyboardEvent)` — function, line 954
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 958
+- `const isInput = tag === "input" || tag === "textarea"` — const, line 959
+- `const modeChip = (m: Mode, icon: string, label: string)` — const, line 987
+- `const sel = mode === m` — const, line 988
+- `const next = value as PdfEngine` — const, line 1192
+- `const rowKind = detectKind(src)` — const, line 1303
+- `const meta = rowKind ? KIND_META[rowKind] : null` — const, line 1304
+- `const preview = previews[src]` — const, line 1305
+- `const stagedRange = stagedPageRanges[src] ?? ""` — const, line 1306
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `IngestScreen`; references `IngestScreen`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — dynamic import: dynamic import; no named call claim
 
 ## Dependencies
 
@@ -182,6 +188,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `AcquisitionPreviewItem`, `CommandError`, `IngestBatchDto`, `IngestJobDto`, `IngestJobPhase`, `IngestMode`, `PdfEngine`, `SourceLibraryCard`, `StartingLevel`
+- [[Reference/Desktop/TypeScript/api/queryTags|src/api/queryTags.ts]] — import-or-re-export; imports `TAG`
+- [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
 - [[Reference/Desktop/TypeScript/components/AsciiLoadingBar|src/components/AsciiLoadingBar.tsx]] — import-or-re-export; imports `AsciiLoadingBar`
 - [[Reference/Desktop/TypeScript/components/IngestActivity|src/components/IngestActivity.tsx]] — import-or-re-export; imports `IngestActivityStack`
 - [[Reference/Desktop/TypeScript/components/OutlineAndPlan|src/components/OutlineAndPlan.tsx]] — import-or-re-export; imports `OutlinePlanFlow`
@@ -215,7 +223,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 - Change rendering, local interaction state, accessibility, or screen composition here; keep learning policy in the Python owning domain.
 - When a request or response shape changes, update `src/api/dto.ts`, `src/api/client.ts`, the Rust command bridge, and the matching Python sidecar handler as one contract change.
-- Run `npm run typecheck` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
 - Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
 
 ### Regeneration checklist
