@@ -312,22 +312,25 @@ The owner decided to switch production from DELETE to WAL. ADR-014 listed eight 
 Changed:
 
 - **Mode switch.** `apply_migrations` switches an existing database to WAL once, under the vault lock when reached through `migrate_vault`. `_apply_fresh` switches the finished `.tmp` build and closes it before the rename. A switch blocked by another connection's transaction raises `JournalModeSwitchError` and leaves the header unchanged. Orphaned `-wal`, `-shm` and `-journal` files beside a missing database are deleted before creation. `connect()` never changes the mode.
+- **WAL-reset gate.** WAL activates only when the linked SQLite has the fix for the WAL-reset bug (3.51.3+, 3.50.7+ on 3.50, 3.44.6+ on 3.44). On an affected SQLite the database keeps its mode and doctor reports `sqlite:wal_unavailable`. The project interpreter was moved from 3.12.13 (SQLite 3.50.4, affected) to 3.12.14 (SQLite 3.53.1).
 - **Connection settings.** Writable connections set `synchronous = FULL`. `connect()` checks the runtime SQLite version once and requires 3.22.0.
-- **Read-only opens.** `connect(read_only=True)` falls back to `immutable=1` only for a read-only directory with no uncheckpointed `-wal`.
+- **Read-only opens.** `connect(read_only=True)` uses plain `mode=ro` and never `immutable=1`. A read-only directory without a `-shm` fails with a message saying what to do.
+- **Switch failures.** `JournalModeSwitchError` names the real cause: a busy lock, a read-only file, a read-only directory, or an I/O error.
+- **Locked sources.** `backup_database` gives up with `DatabaseCopyTimeout` after 5 s of a locked source and removes the incomplete copy.
 - **Copies.** `learnloop.db.copies` copies databases with the backup API. Goal-series and scoreboard scratch replays, `prepare_run_vault`, the proposal staging tree and the test template now use it. Dataset export publishes its snapshot with a rollback journal. The shadow-rebuild digest covers the `-wal`. `tests/test_sqlite_file_copies.py` fails on any unaudited copy call. The Rust shell has no copier.
 - **Checkpoints.** A best-effort `TRUNCATE` checkpoint runs after `rebuild-derived-state`, when an ingest batch finishes, and in `doctor --fix-state`.
 - **Doctor storage report.** Doctor reports journal mode, `-wal` size and filesystem as `storage`. It warns on network and FUSE mounts (read from `/proc/mounts` on Linux) and on a `-wal` above 64 MiB.
 - **Fixtures.** Tracked fixtures stay rollback-mode without companions; a test checks this and so does the pytest session end. `.gitignore` ignores `*.sqlite-wal` and `*.sqlite-shm`.
 - **Test lanes.** The fast test lane keeps the in-memory journal and skips the switch. The `durability` lane and `--durable-sqlite` run WAL with `synchronous = FULL`.
 
-**Measured on 2026-09-23 on btrfs** (SQLite 3.50.4, [sqlite-concurrency.json](artifacts/sqlite-concurrency.json)):
+**Measured on 2026-09-23 on btrfs** (SQLite 3.53.1, [sqlite-concurrency.json](artifacts/sqlite-concurrency.json)):
 
 | | DELETE | WAL |
 |---|---:|---:|
-| Synthetic benchmark, elapsed | 7.95 s | 2.07 s |
-| Writer p95 | 45.5 ms | 12.4 ms |
+| Synthetic benchmark, elapsed | 8.74 s | 2.16 s |
+| Writer p95 | 57.6 ms | 18.7 ms |
 | Reader busy failures | 2 (each a 5 s stall) | 0 |
-| Live-rebuild reader blackout, copy of `fixtures/linear_algebra` | 0.47, 0.23, 0.20 s | 0.013, 0.011, 0.013 s |
+| Live-rebuild reader blackout, copy of `fixtures/linear_algebra` | 0.47, 0.26, 0.21 s | 0.015, 0.014, 0.015 s |
 
 The three WAL rebuilds grew the `-wal` to 7.2 MB, and a `TRUNCATE` checkpoint emptied it in 17 ms. Twenty persisted queue builds with a reader open grew it by about 12 KB each, to 288 KB.
 

@@ -1,5 +1,5 @@
 {
-  "sqlite_version": "3.50.4",
+  "sqlite_version": "3.53.1",
   "platform": "Linux-7.2.5-1-cachyos-x86_64-with-glibc2.44",
   "filesystem_path": "/home/saturn/.cache/pr5-wal-bench",
   "results": [
@@ -7,31 +7,31 @@
       "journal_mode": "DELETE",
       "synchronous": "FULL",
       "busy_timeout_seconds": 5,
-      "seconds": 7.946238878997974,
+      "seconds": 8.741102501997375,
       "workers": [
         {
           "role": "writer",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 36.574300000211224,
-          "p95_ms": 45.47002099570818,
-          "max_ms": 58.54291800642386
+          "p50_ms": 37.730513999122195,
+          "p95_ms": 57.598639992647804,
+          "max_ms": 70.3876269981265
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 1,
-          "p50_ms": 2.0692030084319413,
-          "p95_ms": 2.1202229982009158,
-          "max_ms": 5000.757168003474
+          "p50_ms": 2.04450600722339,
+          "p95_ms": 2.085936997900717,
+          "max_ms": 5000.402480000048
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 1,
-          "p50_ms": 2.0933330088155344,
-          "p95_ms": 2.1389629982877523,
-          "max_ms": 5000.801917005447
+          "p50_ms": 2.0577859977493063,
+          "p95_ms": 2.098816999932751,
+          "max_ms": 5000.82048898912
         }
       ],
       "acknowledged_rows": 200,
@@ -42,31 +42,31 @@
       "journal_mode": "WAL",
       "synchronous": "FULL",
       "busy_timeout_seconds": 5,
-      "seconds": 2.0691142650030088,
+      "seconds": 2.1570322019979358,
       "workers": [
         {
           "role": "writer",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 9.52020900149364,
-          "p95_ms": 12.357669998891652,
-          "max_ms": 27.009170997189358
+          "p50_ms": 9.420413989573717,
+          "p95_ms": 18.670416000531986,
+          "max_ms": 27.46537100756541
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 2.036342993960716,
-          "p95_ms": 2.109782988554798,
-          "max_ms": 2.1758429938927293
+          "p50_ms": 2.0304270001361147,
+          "p95_ms": 2.0560669945552945,
+          "max_ms": 2.0656359993154183
         },
         {
           "role": "reader",
           "operations": 200,
           "busy_failures": 0,
-          "p50_ms": 2.0384929957799613,
-          "p95_ms": 2.096652999171056,
-          "max_ms": 2.120163000654429
+          "p50_ms": 2.0304069912526757,
+          "p95_ms": 2.0592460059560835,
+          "max_ms": 2.072666000458412
         }
       ],
       "acknowledged_rows": 200,
@@ -86,21 +86,21 @@
       "database_bytes": 45973504,
       "rebuilds": [
         {
-          "rebuild_seconds": 0.847,
-          "longest_reader_blackout_seconds": 0.466,
-          "reads_during_rebuild": 256,
+          "rebuild_seconds": 0.846,
+          "longest_reader_blackout_seconds": 0.471,
+          "reads_during_rebuild": 252,
           "reader_busy_failures": 0
         },
         {
-          "rebuild_seconds": 0.817,
-          "longest_reader_blackout_seconds": 0.227,
-          "reads_during_rebuild": 431,
+          "rebuild_seconds": 0.846,
+          "longest_reader_blackout_seconds": 0.255,
+          "reads_during_rebuild": 414,
           "reader_busy_failures": 0
         },
         {
-          "rebuild_seconds": 0.808,
-          "longest_reader_blackout_seconds": 0.198,
-          "reads_during_rebuild": 449,
+          "rebuild_seconds": 0.834,
+          "longest_reader_blackout_seconds": 0.21,
+          "reads_during_rebuild": 439,
           "reader_busy_failures": 0
         }
       ],
@@ -111,21 +111,21 @@
       "database_bytes": 45973504,
       "rebuilds": [
         {
-          "rebuild_seconds": 0.776,
-          "longest_reader_blackout_seconds": 0.013,
-          "reads_during_rebuild": 587,
+          "rebuild_seconds": 0.783,
+          "longest_reader_blackout_seconds": 0.015,
+          "reads_during_rebuild": 575,
           "reader_busy_failures": 0
         },
         {
-          "rebuild_seconds": 0.779,
-          "longest_reader_blackout_seconds": 0.011,
-          "reads_during_rebuild": 583,
+          "rebuild_seconds": 0.778,
+          "longest_reader_blackout_seconds": 0.014,
+          "reads_during_rebuild": 572,
           "reader_busy_failures": 0
         },
         {
-          "rebuild_seconds": 0.784,
-          "longest_reader_blackout_seconds": 0.013,
-          "reads_during_rebuild": 582,
+          "rebuild_seconds": 0.778,
+          "longest_reader_blackout_seconds": 0.015,
+          "reads_during_rebuild": 571,
           "reader_busy_failures": 0
         }
       ],
@@ -144,7 +144,8 @@
       53592,
       65952,
       78312,
-      98912,
+      90672,
+      103032,
       115392,
       127752,
       140112,
@@ -154,7 +155,6 @@
       189552,
       201912,
       214272,
-      226632,
       238992,
       251352,
       263712,
@@ -162,7 +162,7 @@
       288432
     ],
     "max_wal_bytes": 288432,
-    "build_seconds_p50": 0.036,
+    "build_seconds_p50": 0.035,
     "truncate_checkpoint_busy": false,
     "wal_bytes_after_truncate": 0
   }

@@ -41,7 +41,7 @@ VAULT="$HOME/LearnLoop/linear-algebra"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-Plain doctor opens SQLite read-only. It does not create a missing database, probe an AI provider, apply migrations, or sync state files. It works on a vault in a read-only directory: when the WAL index cannot be created there and no uncheckpointed `-wal` exists, the database is opened as immutable (see [[State and Persistence#Journal mode and durability]]). A non-clean result exits with status 1, so in automation retain and inspect its JSON instead of discarding output on nonzero exit.
+Plain doctor opens SQLite read-only. It does not create a missing database, probe an AI provider, apply migrations, or sync state files. It works on a vault in a read-only directory while the `-wal` and `-shm` files exist, for example while the desktop app has the vault open. Without them, it reports `sqlite:unreadable` with a message saying to allow creating files in the vault directory or to read a consistent copy (see [[State and Persistence#Journal mode and durability]]). A non-clean result exits with status 1, so in automation retain and inspect its JSON instead of discarding output on nonzero exit.
 
 ### Storage report
 
@@ -80,9 +80,10 @@ An unavailable optional provider can coexist with a structurally clean vault; in
 | stale/missing derived rebuild marker | shadow compare, then justified live rebuild |
 | AI auth/readiness error | [[Configure AI Providers]] |
 | failed durable import | resume its batch, not global state repair |
+| `sqlite:wal_unavailable` warning | the linked SQLite lacks the WAL-reset fix; install a newer Python patch release (`uv python install`, then `uv sync`), then `--fix-state` |
 | `storage:network_filesystem` warning | move the vault to a local disk ([[State and Persistence#Where a vault may live]]) |
 | `sqlite:wal_large` warning (`-wal` above 64 MiB) | close other LearnLoop windows, then `--fix-state`, which checkpoints |
-| migration fails with `JournalModeSwitchError` | another process holds a transaction; close it and re-run |
+| migration fails with `JournalModeSwitchError` | act on the cause the message names: close another process holding a transaction, or restore write access to the database file, its companions or its directory |
 
 > [!failure] Deprecated does not mean disposable
 > A deprecated table with rows is evidence that compatibility migration or operator review is incomplete. Doctor deliberately reports `stop_and_escalate`; never delete those rows to make the check green.
@@ -104,7 +105,7 @@ uv run learnloop doctor --fix-state --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-`--fix-state` acquires the cross-process vault lock, applies pending migrations atomically (the first migration after upgrading switches a rollback-journal database to WAL), runs a best-effort `TRUNCATE` checkpoint, attaches the database writable, performs supported state synchronization, merges eligible legacy aliases, and resumes recoverable apply intents idempotently.
+`--fix-state` acquires the cross-process vault lock, applies pending migrations atomically (on a SQLite with the WAL-reset fix, the first migration after upgrading switches a rollback-journal database to WAL), runs a best-effort `TRUNCATE` checkpoint, attaches the database writable, performs supported state synchronization, merges eligible legacy aliases, and resumes recoverable apply intents idempotently.
 
 > [!warning] Back up a closed vault
 > Step 2 copies the vault folder. Do it only after step 1, when no LearnLoop process has the database open; otherwise the copy can miss commits that are still in `state.sqlite-wal`. See [[State and Persistence#Copying and backing up a vault]].

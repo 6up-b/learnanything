@@ -198,8 +198,11 @@ cython_debug/
 #/state.sqlite
 #/state.sqlite-*
 
-# SQLite WAL companions of any database (ADR-015): they exist only while a
-# connection is open and are never meaningful without their live database.
+# SQLite WAL companions of any database (ADR-015). They normally exist while a
+# connection is open, but can persist after close (read-only connections cannot
+# remove them; a crash leaves them), and a -wal may hold committed transactions
+# that are not yet in the main file. Never commit one; never delete one beside a
+# database that may still need it.
 *.sqlite-wal
 *.sqlite-shm
 
