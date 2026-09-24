@@ -20,6 +20,12 @@ from learnloop.config import (
     load_config,
 )
 from learnloop.db.checkpoint import checkpoint_wal
+from learnloop.db.connection import (
+    WAL_RESET_ADVISORY_URL,
+    WAL_RESET_FIXED_VERSIONS_TEXT,
+    linked_sqlite_version,
+    wal_unavailable_reason,
+)
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
 from learnloop.db.storage import DatabaseStorage, inspect_database_storage
@@ -688,11 +694,14 @@ WAL_SIZE_WARNING_BYTES = 64 * 1024 * 1024
 
 
 def _check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStorage | None:
-    """Warn about filesystems WAL cannot share memory on, and an oversized WAL."""
+    """Warn about a SQLite without the WAL-reset fix, filesystems WAL cannot
+    share memory on, and an oversized WAL."""
 
     if not paths.sqlite_path.exists():
+        _check_wal_runtime(paths, None, issues)
         return None
     storage = inspect_database_storage(paths.sqlite_path)
+    _check_wal_runtime(paths, storage, issues)
     if storage.mount is not None and storage.mount.network_or_fuse:
         issues.append(
             _issue(
@@ -722,6 +731,39 @@ def _check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStor
             )
         )
     return storage
+
+
+def _check_wal_runtime(
+    paths: VaultPaths,
+    storage: DatabaseStorage | None,
+    issues: list[HealthIssue],
+) -> None:
+    reason = wal_unavailable_reason()
+    if reason is None:
+        return
+    linked = ".".join(str(part) for part in linked_sqlite_version())
+    if storage is not None and storage.journal_mode == "wal":
+        consequence = (
+            "The database is already in WAL mode, so it is exposed to the bug whenever "
+            "two connections write or checkpoint at once; switch interpreters before "
+            "running the desktop app and the CLI together."
+        )
+    else:
+        consequence = "The database stays in its rollback journal until the runtime is fixed."
+    issues.append(
+        _issue(
+            "warning",
+            "sqlite:wal_unavailable",
+            f"WAL journal mode is not enabled: {reason}. {consequence}",
+            paths.sqlite_path,
+            details={
+                "linked_sqlite_version": linked,
+                "fixed_versions": WAL_RESET_FIXED_VERSIONS_TEXT,
+                "advisory": WAL_RESET_ADVISORY_URL,
+                "journal_mode": storage.journal_mode if storage is not None else None,
+            },
+        )
+    )
 
 
 def _check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> bool:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import sqlite3
@@ -9,7 +10,9 @@ from pathlib import Path
 from typing import Iterator
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.db.connection import connect
+from learnloop.db.connection import connect, wal_unavailable_reason
+
+_LOG = logging.getLogger(__name__)
 
 _MIGRATION_RE = re.compile(r"^(?P<version>\d+)_(?P<name>.+)\.sql$")
 _FOREIGN_KEYS_OFF_RE = re.compile(
@@ -86,20 +89,30 @@ def apply_migrations(
     return applied
 
 
-def switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> None:
-    """Move a database to WAL journal mode once; a no-op when it is already WAL.
+def switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> str | None:
+    """Move a database to WAL journal mode once, where the linked SQLite allows it.
+
+    Returns ``None`` when the database is in WAL mode afterwards, or the reason
+    it was left in its current mode.  A linked SQLite with the WAL-reset bug
+    (see :func:`learnloop.db.connection.wal_unavailable_reason`) leaves every
+    database as it is; doctor reports ``sqlite:wal_unavailable`` with the same
+    reason.
 
     The journal mode lives in the database header, so this is a one-way upgrade
     of the file rather than a connection setting.  Leaving a rollback journal
     needs an exclusive lock: an idle connection elsewhere does not prevent it,
     but one holding a read or write transaction does, and SQLite then reports
-    "database is locked" after the busy timeout.  Either failure raises with
-    the header unchanged, so the file is never left in an ambiguous mode.
+    "database is locked" after the busy timeout.  Every failure raises with the
+    header unchanged, so the file is never left in an ambiguous mode.
     """
 
     current = str(connection.execute("PRAGMA journal_mode").fetchone()[0]).lower()
     if current == "wal":
-        return
+        return None
+    unavailable = wal_unavailable_reason()
+    if unavailable is not None:
+        _LOG.warning("Leaving %s in %s journal mode: %s", sqlite_path, current, unavailable)
+        return unavailable
     if connection.in_transaction:
         raise JournalModeSwitchError(
             f"cannot switch {sqlite_path} to WAL inside an open transaction"
@@ -109,14 +122,38 @@ def switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> None:
     except sqlite3.OperationalError as error:
         raise JournalModeSwitchError(
             f"could not switch {sqlite_path} from {current} to WAL journal mode: "
-            f"another connection holds a transaction on it ({error}). Close other "
-            "LearnLoop processes using this vault and retry."
+            f"{_switch_failure_cause(error, sqlite_path)} ({error})"
         ) from error
     if reported != "wal":
         raise JournalModeSwitchError(
             f"SQLite kept {sqlite_path} in {reported} journal mode; WAL needs a "
             "local filesystem with shared-memory support"
         )
+    return None
+
+
+def _switch_failure_cause(error: sqlite3.OperationalError, sqlite_path: Path) -> str:
+    """Name the real cause of a failed switch from SQLite's error code."""
+
+    code = str(getattr(error, "sqlite_errorname", "") or "")
+    if code.startswith(("SQLITE_BUSY", "SQLITE_LOCKED")):
+        return (
+            "another connection holds a transaction on it. Close other LearnLoop "
+            "processes using this vault and retry."
+        )
+    if code == "SQLITE_READONLY_DIRECTORY":
+        return (
+            f"its directory {sqlite_path.parent} does not allow creating the -wal and "
+            "-shm files. Give the vault owner write access to the directory."
+        )
+    if code.startswith("SQLITE_READONLY"):
+        return (
+            "the database file is read-only. Give the vault owner write access to "
+            f"{sqlite_path.name}."
+        )
+    if code.startswith(("SQLITE_IOERR", "SQLITE_CANTOPEN", "SQLITE_FULL")):
+        return "an I/O error occurred; check the disk and the filesystem the vault is on."
+    return f"SQLite reported {code or 'an error'}."
 
 
 def _apply_incremental_migration(

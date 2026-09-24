@@ -55,7 +55,8 @@ def _fast_test_connect(sqlite_path, *, read_only=False):
 
 def _lane_switch_to_wal(connection, sqlite_path):
     if _durability_active:
-        _production_switch_to_wal(connection, sqlite_path)
+        return _production_switch_to_wal(connection, sqlite_path)
+    return "fast test lane keeps the in-memory journal"
 
 
 _db_connection.connect = _fast_test_connect

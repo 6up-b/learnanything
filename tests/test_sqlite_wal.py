@@ -17,12 +17,29 @@ import pytest
 
 import learnloop.db.connection as connection_module
 from learnloop.db.checkpoint import checkpoint_wal
-from learnloop.db.connection import UnsupportedSQLiteVersion, connect, require_supported_sqlite
+from learnloop.db.connection import (
+    UnsupportedSQLiteVersion,
+    connect,
+    require_supported_sqlite,
+    wal_reset_bug_fixed,
+)
 from learnloop.db.migrate import JournalModeSwitchError, apply_migrations
 from learnloop.db.storage import header_journal_mode, wal_size_bytes
 from learnloop.migration_coordinator import migrate_vault
 
 pytestmark = pytest.mark.durability
+
+
+@pytest.fixture(autouse=True)
+def fixed_sqlite_runtime(monkeypatch):
+    """WAL mechanics are tested against a SQLite that reports the WAL-reset fix.
+
+    The gate itself is tested below with explicit versions in both directions.
+    """
+
+    from tests.helpers import report_sqlite_version
+
+    report_sqlite_version(monkeypatch, (3, 53, 4))
 
 _COMPANIONS = ("-wal", "-shm", "-journal")
 
@@ -196,6 +213,124 @@ def test_runtime_sqlite_below_the_minimum_fails_with_a_clear_message(monkeypatch
         require_supported_sqlite()
 
 
+# -- WAL-reset gate ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("version", "fixed"),
+    [
+        ((3, 7, 0), False),
+        ((3, 44, 5), False),
+        ((3, 44, 6), True),
+        ((3, 44, 9), True),
+        ((3, 45, 0), False),
+        ((3, 50, 4), False),
+        ((3, 50, 6), False),
+        ((3, 50, 7), True),
+        ((3, 51, 0), False),
+        ((3, 51, 2), False),
+        ((3, 51, 3), True),
+        ((3, 53, 4), True),
+        ((4, 0, 0), True),
+    ],
+)
+def test_wal_reset_fix_matches_the_advisory(version, fixed):
+    assert wal_reset_bug_fixed(version) is fixed
+
+
+def test_affected_sqlite_leaves_databases_in_rollback_mode_and_doctor_says_why(tmp_path, monkeypatch):
+    from learnloop.ops.doctor import run_doctor
+    from tests.helpers import create_basic_vault, report_sqlite_version
+
+    report_sqlite_version(monkeypatch, (3, 50, 4))
+    migrations_dir = _minimal_migrations(tmp_path)
+    existing = tmp_path / "existing.sqlite"
+    _rollback_database(existing, migrations_dir)
+    _second_migration(migrations_dir)
+
+    applied = apply_migrations(existing, migrations_dir)
+    fresh = tmp_path / "fresh.sqlite"
+    apply_migrations(fresh, migrations_dir)
+    paths = create_basic_vault(tmp_path / "vault")
+    report = run_doctor(paths.root)
+
+    assert [migration.version for migration in applied] == [2]
+    assert header_journal_mode(existing) == "rollback"
+    assert header_journal_mode(fresh) == "rollback"
+    assert header_journal_mode(paths.sqlite_path) == "rollback"
+    warnings = [issue for issue in report.issues if issue.code == "sqlite:wal_unavailable"]
+    assert len(warnings) == 1 and warnings[0].severity == "warning"
+    assert "3.50.4" in warnings[0].message
+    assert "3.51.3" in warnings[0].message and "3.50.7" in warnings[0].message
+    assert "uv python install" in warnings[0].message
+    assert warnings[0].details["linked_sqlite_version"] == "3.50.4"
+
+
+def test_fixed_sqlite_switches_to_wal_and_doctor_is_quiet(tmp_path, monkeypatch):
+    from learnloop.ops.doctor import run_doctor
+    from tests.helpers import create_basic_vault, report_sqlite_version
+
+    report_sqlite_version(monkeypatch, (3, 53, 4))
+    migrations_dir = _minimal_migrations(tmp_path)
+    existing = tmp_path / "existing.sqlite"
+    _rollback_database(existing, migrations_dir)
+
+    apply_migrations(existing, migrations_dir)
+    paths = create_basic_vault(tmp_path / "vault")
+    report = run_doctor(paths.root)
+
+    assert header_journal_mode(existing) == "wal"
+    assert header_journal_mode(paths.sqlite_path) == "wal"
+    assert "sqlite:wal_unavailable" not in {issue.code for issue in report.issues}
+
+
+# -- switch failures name their cause -----------------------------------------------
+
+
+def _assert_switch_refused(tmp_path: Path, sqlite_path: Path, migrations_dir: Path, cause: str) -> None:
+    with pytest.raises(JournalModeSwitchError) as raised:
+        migrate_vault(tmp_path, sqlite_path, migrations_dir=migrations_dir)
+    assert cause in str(raised.value)
+    assert "another connection" not in str(raised.value)
+
+
+def test_switch_on_a_read_only_file_names_the_file_and_changes_nothing(tmp_path):
+    migrations_dir = _minimal_migrations(tmp_path)
+    directory = tmp_path / "vault"
+    directory.mkdir()
+    sqlite_path = directory / "state.sqlite"
+    _rollback_database(sqlite_path, migrations_dir)
+    _second_migration(migrations_dir)
+    sqlite_path.chmod(0o444)
+    try:
+        if os.access(sqlite_path, os.W_OK):
+            pytest.skip("file permissions are not enforced for this user")
+        _assert_switch_refused(tmp_path, sqlite_path, migrations_dir, "the database file is read-only")
+    finally:
+        sqlite_path.chmod(0o644)
+
+    assert header_journal_mode(sqlite_path) == "rollback"
+    with closing(sqlite3.connect(sqlite_path)) as connection:
+        assert {row[0] for row in connection.execute("SELECT version FROM schema_migrations")} == {1}
+
+
+def test_switch_in_a_read_only_directory_names_the_directory_and_changes_nothing(tmp_path):
+    migrations_dir = _minimal_migrations(tmp_path)
+    directory = tmp_path / "vault"
+    directory.mkdir()
+    sqlite_path = directory / "state.sqlite"
+    _rollback_database(sqlite_path, migrations_dir)
+    _second_migration(migrations_dir)
+    _skip_if_permissions_are_not_enforced(directory)
+
+    with _read_only_directory(directory):
+        _assert_switch_refused(tmp_path, sqlite_path, migrations_dir, "does not allow creating the -wal and -shm files")
+
+    assert header_journal_mode(sqlite_path) == "rollback"
+    with closing(sqlite3.connect(sqlite_path)) as connection:
+        assert {row[0] for row in connection.execute("SELECT version FROM schema_migrations")} == {1}
+
+
 # -- read-only opens -----------------------------------------------------------
 
 
@@ -212,15 +347,18 @@ def _wal_database(tmp_path: Path) -> Path:
     return sqlite_path
 
 
-def test_read_only_open_of_a_wal_database_in_a_read_only_directory_without_companions(tmp_path):
+def test_read_only_open_without_a_shm_in_a_read_only_directory_fails_with_what_to_do(tmp_path):
     sqlite_path = _wal_database(tmp_path)
     _skip_if_permissions_are_not_enforced(sqlite_path.parent)
 
     with _read_only_directory(sqlite_path.parent):
-        with closing(connect(sqlite_path, read_only=True)) as connection:
-            assert connection.execute("SELECT payload FROM records").fetchall()[0][0] == "committed"
-            with pytest.raises(sqlite3.OperationalError):
-                connection.execute("INSERT INTO records(payload) VALUES ('write')")
+        with pytest.raises(sqlite3.OperationalError) as raised:
+            connect(sqlite_path, read_only=True)
+
+    message = str(raised.value)
+    assert "must create state.sqlite-shm" in message
+    assert "Allow creating files in the vault directory" in message
+    assert "learnloop.db.copies.backup_database" in message
     assert _companions(sqlite_path) == []
 
 
@@ -235,49 +373,62 @@ def test_read_only_open_in_a_read_only_directory_reads_commits_still_in_the_wal(
         with _read_only_directory(sqlite_path.parent):
             with closing(connect(sqlite_path, read_only=True)) as connection:
                 payloads = [row[0] for row in connection.execute("SELECT payload FROM records ORDER BY id")]
+                with pytest.raises(sqlite3.OperationalError):
+                    connection.execute("INSERT INTO records(payload) VALUES ('write')")
         assert payloads == ["committed", "in the wal"]
     finally:
         writer.close()
 
 
-def test_read_only_open_refuses_a_wal_it_cannot_index(tmp_path):
-    sqlite_path = _wal_database(tmp_path)
-    _skip_if_permissions_are_not_enforced(sqlite_path.parent)
-    wal_path = sqlite_path.with_name("state.sqlite-wal")
-    wal_path.write_bytes(b"\0" * 32)
-
-    with _read_only_directory(sqlite_path.parent):
-        with pytest.raises(sqlite3.OperationalError, match="open it from a writable copy"):
-            connect(sqlite_path, read_only=True)
-
-
-def test_read_only_reports_work_in_a_read_only_vault(tmp_path):
+def _read_only_reports(root: Path, sqlite_path: Path):
     from learnloop.ops.doctor import run_doctor
     from learnloop.substrate.data_quality import data_quality_report
     from learnloop.substrate.model_usage import model_usage_report
-    from learnloop.vault.paths import VaultPaths
-    from learnloop.vault.loader import load_vault
+
+    report = run_doctor(root)
+    quality = data_quality_report(sqlite_path)
+    usage = model_usage_report(sqlite_path, budgets={})
+    return report, quality, usage
+
+
+def test_read_only_reports_work_in_a_read_only_vault_whose_wal_files_exist(tmp_path):
     from tests.helpers import create_basic_vault
 
     paths = create_basic_vault(tmp_path / "vault")
-    root = paths.root
-    sqlite_path = VaultPaths(root, load_vault(root).config).sqlite_path
-    assert header_journal_mode(sqlite_path) == "wal"
-    assert _companions(sqlite_path) == []
-    _skip_if_permissions_are_not_enforced(root)
-
-    with _read_only_directory(root):
-        report = run_doctor(root)
-        quality = data_quality_report(sqlite_path)
-        usage = model_usage_report(sqlite_path, budgets={})
+    assert header_journal_mode(paths.sqlite_path) == "wal"
+    _skip_if_permissions_are_not_enforced(paths.root)
+    # An open writer (the desktop app, say) keeps -wal and -shm beside the file.
+    writer = connect(paths.sqlite_path)
+    try:
+        writer.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
+        with _read_only_directory(paths.root):
+            report, quality, usage = _read_only_reports(paths.root, paths.sqlite_path)
+    finally:
+        writer.close()
 
     codes = {issue.code for issue in report.issues}
     assert "sqlite:unreadable" not in codes
-    assert "sqlite:missing" not in codes
     assert report.storage is not None and report.storage.journal_mode == "wal"
     assert isinstance(quality, dict) and quality
     assert usage["totals"]["receipts"] == 0
-    assert _companions(sqlite_path) == []
+
+
+def test_read_only_reports_explain_a_read_only_vault_without_wal_files(tmp_path):
+    from learnloop.ops.doctor import run_doctor
+    from learnloop.substrate.data_quality import data_quality_report
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    assert _companions(paths.sqlite_path) == []
+    _skip_if_permissions_are_not_enforced(paths.root)
+
+    with _read_only_directory(paths.root):
+        report = run_doctor(paths.root)
+        with pytest.raises(sqlite3.OperationalError, match="Allow creating files in the vault directory"):
+            data_quality_report(paths.sqlite_path)
+
+    unreadable = [issue for issue in report.issues if issue.code == "sqlite:unreadable"]
+    assert unreadable and "must create state.sqlite-shm" in unreadable[0].message
 
 
 def test_sidecar_needs_a_writable_vault_and_says_so(tmp_path):

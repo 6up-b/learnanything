@@ -20,7 +20,7 @@ from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.dataset import DEFAULT_EMBARGO, export_dataset, parse_embargo, split_assignments
 from learnloop.substrate.dataset import outcome_records
 from learnloop.vault.loader import load_vault
-from tests.helpers import NOW, create_basic_vault, seed_due_item
+from tests.helpers import NOW, create_basic_vault, production_journal_mode, seed_due_item
 
 
 def test_exact_offer_survives_refresh_recovery_and_dataset_export(tmp_path):
@@ -462,7 +462,7 @@ def test_production_lane_and_live_backup_preserve_committed_state(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     connection = connect(paths.sqlite_path)
     assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2
-    assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    assert connection.execute("PRAGMA journal_mode").fetchone()[0] == production_journal_mode()
     connection.execute("CREATE TABLE backup_pair(id INTEGER PRIMARY KEY, value INTEGER)")
     connection.executemany("INSERT INTO backup_pair VALUES (?,0)", [(1,), (2,)])
     connection.commit()

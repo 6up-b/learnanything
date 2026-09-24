@@ -370,3 +370,23 @@ def add_followup_item(root: Path, item_id: str = "pi_svd_define_002") -> None:
         },
         clock=FrozenClock(NOW),
     )
+
+
+def report_sqlite_version(monkeypatch, version: tuple[int, int, int]) -> None:
+    """Make the linked SQLite report ``version`` for the WAL-reset gate.
+
+    Only the reported version changes; the library that runs is the linked one.
+    """
+
+    import sqlite3
+
+    monkeypatch.setattr(sqlite3, "sqlite_version_info", tuple(version))
+    monkeypatch.setattr(sqlite3, "sqlite_version", ".".join(str(part) for part in version))
+
+
+def production_journal_mode() -> str:
+    """The journal mode the production path gives a vault on this runtime."""
+
+    from learnloop.db.connection import wal_reset_bug_fixed
+
+    return "wal" if wal_reset_bug_fixed() else "delete"
