@@ -7,9 +7,9 @@ version: "1.0.0"
 source_path: "src/learnloop/db/copies.py"
 source_paths:
   - "src/learnloop/db/copies.py"
-source_commit: "51b909034329c85b1e3c741cfc146670b56c2a98"
-source_commit_timestamp: "2026-09-23T20:44:21-04:00"
-source_worktree_state: "clean"
+source_commit: "workspace/uncommitted @ HEAD 3bb0762efef10d798ce2b32115af70ec8cf154e8"
+source_commit_timestamp: "2026-09-23T20:45:31-04:00"
+source_worktree_state: "modified"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.db"
@@ -51,22 +51,22 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/copies.py](../../../../../../src/learnloop/db/copies.py) |
-| Source lines | 175 |
+| Source lines | 177 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
-| Worktree state | `clean` |
-| Source commit | `51b909034329c85b1e3c741cfc146670b56c2a98` |
-| Commit timestamp | `2026-09-23T20:44:21-04:00` |
+| Worktree state | `modified` |
+| Source commit | `workspace/uncommitted @ HEAD 3bb0762efef10d798ce2b32115af70ec8cf154e8` |
+| Commit timestamp | `2026-09-23T20:45:31-04:00` |
 
 ## Public API
 
 - `class DatabaseCopyTimeout(TimeoutError)` ([source](../../../../../../src/learnloop/db/copies.py), line 38) — The source stayed locked past the backup deadline; nothing was copied.
-- `backup_database(source_path: Path, destination_path: Path, *, busy_deadline_s: float=BACKUP_BUSY_DEADLINE_S) -> None` ([source](../../../../../../src/learnloop/db/copies.py), line 42) — Write a transactionally consistent copy of a database to a new file.
-- `is_database_file_name(name: str, database_names: Collection[str]=()) -> bool` ([source](../../../../../../src/learnloop/db/copies.py), line 90)
-- `is_companion_file_name(name: str, database_names: Collection[str]=()) -> bool` ([source](../../../../../../src/learnloop/db/copies.py), line 94)
-- `copy_tree_without_databases(source_root: Path, destination_root: Path, *, database_names: Collection[str]=(), ignore: IgnoreFunction | None=None, dirs_exist_ok: bool=False) -> list[Path]` ([source](../../../../../../src/learnloop/db/copies.py), line 101) — Copy a directory tree, leaving out every database and companion file.
-- `copy_tree_with_databases(source_root: Path, destination_root: Path, *, database_names: Collection[str]=(), ignore: IgnoreFunction | None=None, dirs_exist_ok: bool=False) -> list[Path]` ([source](../../../../../../src/learnloop/db/copies.py), line 135) — Copy a directory tree, copying each database through the backup API.
+- `backup_database(source_path: Path, destination_path: Path, *, busy_deadline_s: float | None=None) -> None` ([source](../../../../../../src/learnloop/db/copies.py), line 42) — Write a transactionally consistent copy of a database to a new file.
+- `is_database_file_name(name: str, database_names: Collection[str]=()) -> bool` ([source](../../../../../../src/learnloop/db/copies.py), line 92)
+- `is_companion_file_name(name: str, database_names: Collection[str]=()) -> bool` ([source](../../../../../../src/learnloop/db/copies.py), line 96)
+- `copy_tree_without_databases(source_root: Path, destination_root: Path, *, database_names: Collection[str]=(), ignore: IgnoreFunction | None=None, dirs_exist_ok: bool=False) -> list[Path]` ([source](../../../../../../src/learnloop/db/copies.py), line 103) — Copy a directory tree, leaving out every database and companion file.
+- `copy_tree_with_databases(source_root: Path, destination_root: Path, *, database_names: Collection[str]=(), ignore: IgnoreFunction | None=None, dirs_exist_ok: bool=False) -> list[Path]` ([source](../../../../../../src/learnloop/db/copies.py), line 137) — Copy a directory tree, copying each database through the backup API.
 
 ### Module constants
 
@@ -93,7 +93,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_remove_database_files(database_path: Path) -> None` ([source](../../../../../../src/learnloop/db/copies.py), line 85)
+- `_remove_database_files(database_path: Path) -> None` ([source](../../../../../../src/learnloop/db/copies.py), line 87)
 
 ## Who imports or calls it
 
@@ -104,6 +104,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]] — imports `backup_database`; statically calls `backup_database`
 - [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `backup_database`; statically calls `backup_database`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `copy_tree_with_databases`, `copy_tree_without_databases`
+- [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `backup_database`; statically calls `backup_database`
 
 ### Repository tooling consumers
 
@@ -127,7 +128,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]], [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/diagnosis/scoreboard|learnloop.diagnosis.scoreboard]], [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]], [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]], [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -135,6 +136,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_export_gives_up_on_a_source_locked_after_its_probe_and_removes_the_export`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_backup_copies_commits_that_a_byte_copy_of_the_main_file_loses`
   - `test_backup_gives_up_on_a_source_locked_after_its_probe_and_removes_the_copy`

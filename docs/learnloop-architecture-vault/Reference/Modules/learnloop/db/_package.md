@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/db/storage.py"
   - "src/learnloop/db/table_roles.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T20:44:21-04:00"
+source_commit_timestamp: "2026-09-23T20:45:31-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.db"
@@ -56,7 +56,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/__init__|learnloop.db]] | [[Reference/Modules/learnloop/db/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 10 | 32 |
-| [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
+| [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 5 | 5 |
 | [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 5 | 29 |
 | [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 217 | 326 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 12 | 3 |
@@ -80,9 +80,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 45 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 24 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 21 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 20 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 20 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 20 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 15 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 14 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 13 static module edges
@@ -114,9 +114,9 @@ flowchart LR
     center["learnloop.db"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_scheduling["learnloop.scheduling"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_goals["learnloop.goals"]
     n_learnloop_reader["learnloop.reader"]
@@ -124,9 +124,9 @@ flowchart LR
     n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_diagnosis -->|45| center
     n_learnloop_scheduling -->|24| center
+    n_learnloop_substrate -->|21| center
     n_learnloop_curriculum -->|20| center
     n_learnloop_learner -->|20| center
-    n_learnloop_substrate -->|20| center
     n_learnloop_attempts -->|15| center
     n_learnloop_goals -->|14| center
     n_learnloop_reader -->|13| center

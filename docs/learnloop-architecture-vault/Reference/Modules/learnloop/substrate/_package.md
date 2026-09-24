@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/substrate/surface_mint.py"
   - "src/learnloop/substrate/surface_pool.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T18:50:00-04:00"
+source_commit_timestamp: "2026-09-23T20:45:31-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.substrate"
@@ -89,7 +89,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 20 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 21 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 17 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 16 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 10 static module edges
@@ -131,8 +131,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.substrate"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
-    n_learnloop_learner["learnloop.learner"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_learner["learnloop.learner"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop["learnloop"]
@@ -142,9 +142,9 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_diagnosis -->|19| center
     center -->|5| n_learnloop_diagnosis
+    center -->|21| n_learnloop_db
     n_learnloop_learner -->|5| center
     center -->|16| n_learnloop_learner
-    center -->|20| n_learnloop_db
     n_learnloop_curriculum -->|19| center
     n_learnloop_scheduling -->|15| center
     center -->|3| n_learnloop_scheduling

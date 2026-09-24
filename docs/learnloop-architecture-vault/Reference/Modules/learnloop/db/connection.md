@@ -147,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_failed_with_feedback_appends_practice_successor_proposal`
   - `test_render_marks_unrepresentative_when_head_support_moved`
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
+  - `test_export_gives_up_on_a_source_locked_after_its_probe_and_removes_the_export`
   - `test_production_lane_and_live_backup_preserve_committed_state`
   - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
   - `test_selection_decision_features_reference_the_item_and_stay_compact`
