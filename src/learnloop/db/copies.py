@@ -43,7 +43,7 @@ def backup_database(
     source_path: Path,
     destination_path: Path,
     *,
-    busy_deadline_s: float = BACKUP_BUSY_DEADLINE_S,
+    busy_deadline_s: float | None = None,
 ) -> None:
     """Write a transactionally consistent copy of a database to a new file.
 
@@ -63,6 +63,8 @@ def backup_database(
     if destination_path.exists():
         raise FileExistsError(f"backup destination already exists: {destination_path}")
     destination_path.parent.mkdir(parents=True, exist_ok=True)
+    if busy_deadline_s is None:
+        busy_deadline_s = BACKUP_BUSY_DEADLINE_S
     deadline = time.monotonic() + busy_deadline_s
 
     def stop_after_deadline(status: int, remaining: int, total: int) -> None:

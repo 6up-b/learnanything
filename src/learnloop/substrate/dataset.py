@@ -16,6 +16,7 @@ from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
+from learnloop.db.copies import backup_database
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
 from learnloop.substrate.data_quality import inspect_collection, rows, table_names
@@ -667,8 +668,10 @@ def export_dataset(
 def _export_into(sqlite_path: Path, output: Path, *, split_policy: str, embargo: timedelta) -> dict[str, Any]:
     snapshot = output / "snapshot.sqlite"
     started = datetime.now(timezone.utc).isoformat()
-    with closing(connect(sqlite_path, read_only=True)) as source, closing(sqlite3.connect(snapshot)) as destination:
-        source.backup(destination, pages=256, sleep=0.05)
+    # backup_database gives up on a source that stays locked and removes the
+    # partial file; export_dataset then removes the whole output directory.
+    backup_database(sqlite_path, snapshot)
+    with closing(sqlite3.connect(snapshot)) as destination:
         # The backup copies the live database's WAL header. A published
         # snapshot is one self-contained file, so it uses a rollback journal;
         # reading a WAL file would leave -wal/-shm files in the export.

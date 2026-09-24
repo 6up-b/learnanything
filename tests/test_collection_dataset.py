@@ -499,6 +499,38 @@ def test_production_lane_and_live_backup_preserve_committed_state(tmp_path):
     assert sorted(path.name for path in (tmp_path / "live-export").glob("snapshot.sqlite*")) == ["snapshot.sqlite"]
 
 
+def test_export_gives_up_on_a_source_locked_after_its_probe_and_removes_the_export(tmp_path, monkeypatch):
+    import learnloop.db.connection as connection_module
+    import learnloop.db.copies as copies_module
+    from learnloop.db.copies import DatabaseCopyTimeout
+
+    paths = create_basic_vault(tmp_path / "vault")
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        if connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal":
+            # A rollback-journal source, so an exclusive lock blocks readers.
+            connection.execute("PRAGMA journal_mode=DELETE")
+    monkeypatch.setattr(connection_module, "BUSY_TIMEOUT_MS", 50)
+    monkeypatch.setattr(copies_module, "BACKUP_BUSY_DEADLINE_S", 0.3)
+    locker = sqlite3.connect(paths.sqlite_path, isolation_level=None)
+    probed_connect = copies_module.connect
+
+    def connect_then_lock(path, *, read_only=False):
+        connection = probed_connect(path, read_only=read_only)
+        locker.execute("BEGIN EXCLUSIVE")
+        return connection
+
+    monkeypatch.setattr(copies_module, "connect", connect_then_lock)
+    output = tmp_path / "export"
+    try:
+        with pytest.raises(DatabaseCopyTimeout, match="stayed locked"):
+            export_dataset(paths.sqlite_path, output)
+    finally:
+        locker.execute("ROLLBACK")
+        locker.close()
+
+    assert not output.exists()
+
+
 def test_export_preserves_censored_repair_disposition_as_distinct_from_failure(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     repository = seed_due_item(paths)
