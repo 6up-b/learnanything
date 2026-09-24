@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
+  "pytest-xdist>=3.6",
 ]
 # High-fidelity PDF extraction (headings, tables, LaTeX math, OCR) for
 # canonical source ingestion; heavy (pulls in torch). Without it, PDF
