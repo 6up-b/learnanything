@@ -20,17 +20,24 @@ os.environ["LEARNLOOP_CONFIG_DIR"] = str(_TEMP_ROOT / "global_settings_isolated"
 os.environ.pop("LEARNLOOP_CODEX_CHECKOUT_PATH", None)
 
 # Disable sqlite durability for every test connection. Each durable commit
-# pays a rollback-journal create/delete plus an fsync, and on Windows
-# on-access antivirus scanning amplifies every one of those file operations
-# (measured: a fresh 100+-migration vault took ~17.5s with default pragmas vs
-# ~0.3s with these — the difference between a suite that runs in minutes on
-# Linux and a multi-hour one on Windows). Tests are deterministic and their databases
-# disposable, so crash durability buys nothing here. Patch the shared connect()
-# at the source AND rebind any already-imported `from ... import connect`
-# aliases so every module sees the fast version.
+# pays a journal write plus an fsync, and on Windows on-access antivirus
+# scanning amplifies every one of those file operations (measured: a fresh
+# 100+-migration vault took ~17.5s with default pragmas vs ~0.3s with these —
+# the difference between a suite that runs in minutes on Linux and a multi-hour
+# one on Windows). Tests are deterministic and their databases disposable, so
+# crash durability buys nothing here. Patch the shared connect() at the source
+# AND rebind any already-imported `from ... import connect` aliases so every
+# module sees the fast version.
+#
+# The fast lane also skips the migration's one-way switch to WAL, so its
+# databases keep a rollback header and the in-memory journal applies. The
+# durability lane (`durability` marker or --durable-sqlite) runs the production
+# path: the switch to WAL and synchronous=FULL.
 import learnloop.db.connection as _db_connection  # noqa: E402
+import learnloop.db.migrate as _db_migrate  # noqa: E402
 
 _durable_connect = _db_connection.connect
+_production_switch_to_wal = _db_migrate.switch_to_wal
 _durability_active = False
 
 
@@ -38,11 +45,22 @@ def _fast_test_connect(sqlite_path, *, read_only=False):
     connection = _durable_connect(sqlite_path, read_only=read_only)
     if not read_only and not _durability_active:
         connection.execute("PRAGMA synchronous=OFF")
-        connection.execute("PRAGMA journal_mode=MEMORY")
+        # A WAL database built by a durability-lane fixture stays WAL: leaving
+        # WAL needs exclusive access and would silently fail while another
+        # connection is open, making the mode depend on test order.
+        if connection.execute("PRAGMA journal_mode").fetchone()[0] != "wal":
+            connection.execute("PRAGMA journal_mode=MEMORY")
     return connection
 
 
+def _lane_switch_to_wal(connection, sqlite_path):
+    if _durability_active:
+        return _production_switch_to_wal(connection, sqlite_path)
+    return "fast test lane keeps the in-memory journal"
+
+
 _db_connection.connect = _fast_test_connect
+_db_migrate.switch_to_wal = _lane_switch_to_wal
 for _module in list(sys.modules.values()):
     if getattr(_module, "__name__", "").startswith("learnloop") and getattr(_module, "connect", None) is _durable_connect:
         _module.connect = _fast_test_connect
@@ -70,10 +88,53 @@ def _set_sqlite_test_mode(*, durable: bool) -> None:
     helpers._FRESH_VAULTS = durable
 
 
+# Tracked fixture databases must never be opened writable in place: that
+# would switch their header to WAL and leave -wal/-shm files in the working
+# tree. The state is recorded at start and compared when the session ends, so
+# the check covers every test that ran, whatever its order.
+_FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
+_fixture_state_at_start: dict[str, tuple[str, tuple[str, ...]]] = {}
+
+
+def _fixture_database_state() -> dict[str, tuple[str, tuple[str, ...]]]:
+    from learnloop.db.copies import COMPANION_SUFFIXES
+    from learnloop.db.storage import header_journal_mode
+
+    state = {}
+    for database in sorted(_FIXTURES.rglob("*.sqlite")):
+        companions = tuple(
+            database.name + suffix
+            for suffix in COMPANION_SUFFIXES
+            if database.with_name(database.name + suffix).exists()
+        )
+        state[str(database.relative_to(_FIXTURES))] = (header_journal_mode(database), companions)
+    return state
+
+
 def pytest_configure(config):
     global _session_durable
     _session_durable = bool(config.getoption("--durable-sqlite"))
     _set_sqlite_test_mode(durable=_session_durable)
+    _fixture_state_at_start.update(_fixture_database_state())
+
+
+def pytest_sessionfinish(session, exitstatus):
+    current = _fixture_database_state()
+    changed = {
+        name: (_fixture_state_at_start.get(name), current.get(name))
+        for name in sorted(set(_fixture_state_at_start) | set(current))
+        if _fixture_state_at_start.get(name) != current.get(name)
+    }
+    if not changed:
+        return
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    message = (
+        "tracked fixture databases changed during the test run (journal mode, companion files); "
+        f"a test opened one writable in place instead of copying it first: {changed}"
+    )
+    if reporter is not None:
+        reporter.write_line(f"ERROR: {message}", red=True)
+    session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -90,7 +151,16 @@ def pytest_runtest_teardown(item, nextitem):
 @pytest.fixture(scope="session", autouse=True)
 def basic_vault_template(tmp_path_factory):
     from tests import helpers
-    paths = helpers.create_basic_vault(tmp_path_factory.mktemp("basic-template") / "vault", fresh=True)
+    global _durability_active
+    # Only fast-lane tests copy the template, so it is built in the session's
+    # lane even when a durability test is the first to request it; otherwise
+    # it would carry a WAL header into every fast-lane copy.
+    requesting_lane = _durability_active
+    _durability_active = _session_durable
+    try:
+        paths = helpers.create_basic_vault(tmp_path_factory.mktemp("basic-template") / "vault", fresh=True)
+    finally:
+        _durability_active = requesting_lane
     # Copying a database with embedded template-root identities would silently
     # point tests at shared state. Scan text and SQLite bytes before enabling it.
     prefix = str(paths.root).encode()

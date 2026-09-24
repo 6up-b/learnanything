@@ -17,6 +17,7 @@ On September 23, ten reviews covered branch `fix/review-recovery-and-telemetry` 
 | Core performance and readability | `5856dd5` | `c1619d0..df70ec9` | 13 |
 | PyYAML dependency | none (on the branch) | `0622ea1` | 1 |
 | Documentation | on `fix/pr5-docs` | commits after `0622ea1` | — |
+| SQLite WAL | on `fix/pr5-wal` | commits after `f018f18` | — |
 
 Migrations 159–163 are unchanged from `210621a`. Migrations 164 and 165 are new, and the schema-head fixture is now `fixtures/migration_head_165`.
 
@@ -140,6 +141,8 @@ Fixed:
 - Snapshots add a one-time 151,159 bytes of item JSON (41 rows) on the first build.
 - Live-rebuild reader blackout was 0.40, 0.16 and 0.14 s over three runs.
 
+The blackout is gone under WAL; see [SQLite journal mode](#sqlite-journal-mode) below.
+
 See [Collection and Dataset Contract](../learnloop-architecture-vault/Concepts/Collection%20and%20Dataset%20Contract.md), [Rebuild Ownership](../learnloop-architecture-vault/Reference/Database/Rebuild%20Ownership.md) and [ADR-014 SQLite stays in DELETE journal mode](../learnloop-architecture-vault/Decisions/ADR-014%20SQLite%20stays%20in%20DELETE%20journal%20mode.md).
 
 ## Collection, dataset and CLI
@@ -181,7 +184,7 @@ The SQLite benchmark was re-run on 2026-09-23 on btrfs:
 | DELETE | 7.94 s | 39.28 ms | 2 (each a 5 s stall) |
 | WAL | 1.96 s | 10.01 ms | 0; 599 of 599 frames checkpointed |
 
-Production stays in DELETE mode; ADR-014 records why and what must be checked before switching. See [Collection and Dataset Contract](../learnloop-architecture-vault/Concepts/Collection%20and%20Dataset%20Contract.md).
+ADR-014 kept production in DELETE mode until its checks were done. The owner then chose WAL; see [SQLite journal mode](#sqlite-journal-mode) below. See [Collection and Dataset Contract](../learnloop-architecture-vault/Concepts/Collection%20and%20Dataset%20Contract.md).
 
 ## Desktop
 
@@ -305,6 +308,35 @@ Fixed on `fix/pr5-docs`:
 
 All four vault validators pass at the head of the documentation branch.
 
+## SQLite journal mode
+
+The owner decided to switch production from DELETE to WAL. ADR-014 listed eight checks the switch needed. [ADR-015 SQLite runs in WAL mode with synchronous FULL](../learnloop-architecture-vault/Decisions/ADR-015%20SQLite%20runs%20in%20WAL%20mode%20with%20synchronous%20FULL.md) records the decision and each check's status.
+
+Changed:
+
+- **Mode switch.** `apply_migrations` switches an existing database to WAL once, under the vault lock when reached through `migrate_vault`. `_apply_fresh` switches the finished `.tmp` build and closes it before the rename. A switch blocked by another connection's transaction raises `JournalModeSwitchError` and leaves the header unchanged. Orphaned `-wal`, `-shm` and `-journal` files beside a missing database are deleted before creation. `connect()` never changes the mode.
+- **WAL-reset gate.** WAL activates only when the linked SQLite has the fix for the WAL-reset bug (3.51.3+, 3.50.7+ on 3.50, 3.44.6+ on 3.44). On an affected SQLite the database keeps its mode and doctor reports `sqlite:wal_unavailable`. The project interpreter was moved from 3.12.13 (SQLite 3.50.4, affected) to 3.12.14 (SQLite 3.53.1).
+- **Connection settings.** Writable connections set `synchronous = FULL`. `connect()` checks the runtime SQLite version once and requires 3.22.0.
+- **Read-only opens.** `connect(read_only=True)` uses plain `mode=ro` and never `immutable=1`. A read-only directory without a `-shm` fails with a message saying what to do.
+- **Switch failures.** `JournalModeSwitchError` names the real cause: a busy lock, a read-only file, a read-only directory, or an I/O error.
+- **Locked sources.** `backup_database` gives up with `DatabaseCopyTimeout` after 5 s of a locked source and removes the incomplete copy.
+- **Copies.** `learnloop.db.copies` copies databases with the backup API. Goal-series and scoreboard scratch replays, `prepare_run_vault`, the proposal staging tree and the test template now use it. Dataset export publishes its snapshot with a rollback journal. The shadow-rebuild digest covers the `-wal`. `tests/test_sqlite_file_copies.py` fails on any unaudited copy call. The Rust shell has no copier.
+- **Checkpoints.** A best-effort `TRUNCATE` checkpoint runs after `rebuild-derived-state`, when an ingest batch finishes, and in `doctor --fix-state`.
+- **Doctor storage report.** Doctor reports journal mode, `-wal` size and filesystem as `storage`. It warns on network and FUSE mounts (read from `/proc/mounts` on Linux) and on a `-wal` above 64 MiB.
+- **Fixtures.** Tracked fixtures stay rollback-mode without companions; a test checks this and so does the pytest session end. `.gitignore` ignores `*.sqlite-wal` and `*.sqlite-shm`.
+- **Test lanes.** The fast test lane keeps the in-memory journal and skips the switch. The `durability` lane and `--durable-sqlite` run WAL with `synchronous = FULL`.
+
+**Measured on 2026-09-23 on btrfs** (SQLite 3.53.1, [sqlite-concurrency.json](artifacts/sqlite-concurrency.json)):
+
+| | DELETE | WAL |
+|---|---:|---:|
+| Synthetic benchmark, elapsed | 8.74 s | 2.16 s |
+| Writer p95 | 57.6 ms | 18.7 ms |
+| Reader busy failures | 2 (each a 5 s stall) | 0 |
+| Live-rebuild reader blackout, copy of `fixtures/linear_algebra` | 0.47, 0.26, 0.21 s | 0.015, 0.014, 0.015 s |
+
+The three WAL rebuilds grew the `-wal` to 7.2 MB, and a `TRUNCATE` checkpoint emptied it in 17 ms. Twenty persisted queue builds with a reader open grew it by about 12 KB each, to 288 KB.
+
 ## Still open
 
 **Attempts and sidecar**
@@ -332,7 +364,7 @@ All four vault validators pass at the head of the documentation branch.
 - The ability vector is repeated on every candidate of a learning object in a slate (about 865 B each).
 - `record_scheduler_slate` re-reads its candidates.
 - `goals/exam_seeding.py` calls `rebuild_derived_state` outside a transaction.
-- DELETE journaling blocks readers during a live rebuild, and reads fail once the blackout passes 5 s (ADR-014).
+- WAL follow-ups (ADR-015): Windows and macOS benchmark runs; mount detection outside Linux; a sync-folder and network-mount rule in the desktop vault picker; a measured decision on `synchronous = NORMAL`.
 
 **Collection**
 

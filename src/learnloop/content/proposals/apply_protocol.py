@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.db.copies import copy_tree_without_databases
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.substrate.state_sync import sync_vault_state
@@ -38,19 +39,11 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
-# Directories/files never copied into the staging vault: derived caches, raw
-# fetched bytes, and the SQLite database. The staging run only replays YAML
-# writers (which read YAML + config, never SQLite), so none are needed.
-_STAGING_IGNORE = shutil.ignore_patterns(
-    ".learnloop",
-    "canonical-sources",
-    "state.sqlite",
-    "state.sqlite-shm",
-    "state.sqlite-wal",
-    "*.sqlite",
-    "*.sqlite-shm",
-    "*.sqlite-wal",
-)
+# Directories never copied into the staging vault: derived caches and raw
+# fetched bytes. Databases and their -wal/-shm/-journal companions are left out
+# by copy_tree_without_databases. The staging run only replays YAML writers
+# (which read YAML + config, never SQLite), so none of them are needed.
+_STAGING_IGNORE = shutil.ignore_patterns(".learnloop", "canonical-sources")
 
 _VALID_LINK_RELATIONS = frozenset(
     {"primary", "support", "alternate", "exercise", "assessment_alignment"}
@@ -176,7 +169,12 @@ def stage_target_contents(
     db_plan: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="learnloop-apply-") as tmp:
         staging_root = Path(tmp) / "vault"
-        shutil.copytree(real_root, staging_root, ignore=_STAGING_IGNORE)
+        copy_tree_without_databases(
+            real_root,
+            staging_root,
+            database_names={_database_name(vault)},
+            ignore=_STAGING_IGNORE,
+        )
         staging_vault = load_vault(staging_root)
         for item in ordered_items:
             if item["validation_status"] == "invalid":
@@ -246,6 +244,10 @@ def _diff_targets(real_root: Path, staging_root: Path) -> list[dict[str, Any]]:
             }
         )
     return targets
+
+
+def _database_name(vault: LoadedVault) -> str:
+    return Path(vault.config.storage.sqlite_path).name
 
 
 def _is_ignored(rel: Path) -> bool:

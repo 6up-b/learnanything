@@ -74,6 +74,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `migrate_vault`; statically calls `migrate_vault`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `migrate_vault`; statically calls `migrate_vault`
 
+### Repository tooling consumers
+
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../scripts/benchmark_sqlite_concurrency.py); calls `migrate_vault`
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -102,6 +106,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_migration_coordinator.py](../../../../../tests/test_migration_coordinator.py) — direct import
   - `test_coordinator_locks_the_vault_for_a_relocated_database`
   - `test_process_death_mid_migration_leaves_body_and_receipt_fully_absent`
+- [tests/test_sqlite_wal.py](../../../../../tests/test_sqlite_wal.py) — direct import
+  - `test_migration_switches_an_existing_rollback_database_to_wal`
+  - `test_switch_fails_clearly_and_leaves_the_mode_unchanged_while_a_reader_is_open`
 
 ## Modification guidance
 

@@ -19,8 +19,16 @@ from learnloop.config import (
     LearnLoopConfig,
     load_config,
 )
+from learnloop.db.checkpoint import checkpoint_wal
+from learnloop.db.connection import (
+    WAL_RESET_ADVISORY_URL,
+    WAL_RESET_FIXED_VERSIONS_TEXT,
+    linked_sqlite_version,
+    wal_unavailable_reason,
+)
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
+from learnloop.db.storage import DatabaseStorage, inspect_database_storage
 from learnloop.migration_coordinator import migrate_vault
 from learnloop.learner.assessment_contracts import (
     CANONICAL_STATE_VERSIONS,
@@ -88,6 +96,9 @@ class DoctorReport:
     #: per-cell commissioning queue is unbounded, so it lives behind
     #: ``learnloop contract-reachability`` instead of every ``doctor --json``.
     contract_reachability: dict[str, Any] | None = None
+    #: Journal mode, ``-wal`` size and filesystem of the state database, read
+    #: from the header, ``stat`` and the mount table without opening it.
+    storage: DatabaseStorage | None = None
 
     @property
     def clean(self) -> bool:
@@ -114,6 +125,7 @@ class DoctorReport:
             "ai_runtime": self.ai_runtime.as_dict() if self.ai_runtime else None,
             "deprecated_table_row_counts": self.deprecated_table_row_counts,
             "contract_reachability": self.contract_reachability,
+            "storage": self.storage.as_dict() if self.storage else None,
         }
 
 
@@ -133,6 +145,8 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_unknown_yaml_keys(paths, issues, parsed_yaml)
     if fix_state:
         migrate_vault(paths.root, paths.sqlite_path)
+        checkpoint_wal(paths.sqlite_path, reason="doctor --fix-state")
+    storage = _check_storage(paths, issues)
     repository, database_tables = _attach_state_database(paths, issues, fix_state=fix_state)
     deprecated_table_row_counts: dict[str, int] = {}
     if repository is not None:
@@ -162,6 +176,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
             codex_runtime=codex_runtime,
             ai_runtime=ai_runtime,
             deprecated_table_row_counts=deprecated_table_row_counts,
+            storage=storage,
         )
 
     issues.extend(_from_loader_issue(issue) for issue in vault.issues)
@@ -196,6 +211,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         ai_runtime=ai_runtime,
         deprecated_table_row_counts=deprecated_table_row_counts,
         contract_reachability=reachability,
+        storage=storage,
     )
 
 
@@ -669,6 +685,85 @@ def _model_from_annotation(annotation: Any) -> type[BaseModel] | None:
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
         return annotation
     return None
+
+
+# SQLite's automatic checkpoint keeps a healthy -wal near 4 MiB (1000 pages).
+# A much larger one means a reader has held a snapshot open across many
+# checkpoints, or a large write has not been checkpointed yet.
+WAL_SIZE_WARNING_BYTES = 64 * 1024 * 1024
+
+
+def _check_storage(paths: VaultPaths, issues: list[HealthIssue]) -> DatabaseStorage | None:
+    """Warn about a SQLite without the WAL-reset fix, filesystems WAL cannot
+    share memory on, and an oversized WAL."""
+
+    if not paths.sqlite_path.exists():
+        _check_wal_runtime(paths, None, issues)
+        return None
+    storage = inspect_database_storage(paths.sqlite_path)
+    _check_wal_runtime(paths, storage, issues)
+    if storage.mount is not None and storage.mount.network_or_fuse:
+        issues.append(
+            _issue(
+                "warning",
+                "storage:network_filesystem",
+                (
+                    f"The state database is on a {storage.mount.filesystem_type} mount "
+                    f"({storage.mount.mount_point}). SQLite WAL needs a local filesystem "
+                    "with shared memory; move the vault to a local disk."
+                ),
+                paths.sqlite_path,
+                details=storage.as_dict(),
+            )
+        )
+    if storage.wal_bytes > WAL_SIZE_WARNING_BYTES:
+        issues.append(
+            _issue(
+                "warning",
+                "sqlite:wal_large",
+                (
+                    f"The write-ahead log is {storage.wal_bytes} bytes. A long-lived reader "
+                    "may be holding back checkpoints; close other LearnLoop windows and "
+                    "run doctor --fix-state to checkpoint it."
+                ),
+                paths.sqlite_path,
+                details=storage.as_dict(),
+            )
+        )
+    return storage
+
+
+def _check_wal_runtime(
+    paths: VaultPaths,
+    storage: DatabaseStorage | None,
+    issues: list[HealthIssue],
+) -> None:
+    reason = wal_unavailable_reason()
+    if reason is None:
+        return
+    linked = ".".join(str(part) for part in linked_sqlite_version())
+    if storage is not None and storage.journal_mode == "wal":
+        consequence = (
+            "The database is already in WAL mode, so it is exposed to the bug whenever "
+            "two connections write or checkpoint at once; switch interpreters before "
+            "running the desktop app and the CLI together."
+        )
+    else:
+        consequence = "The database stays in its rollback journal until the runtime is fixed."
+    issues.append(
+        _issue(
+            "warning",
+            "sqlite:wal_unavailable",
+            f"WAL journal mode is not enabled: {reason}. {consequence}",
+            paths.sqlite_path,
+            details={
+                "linked_sqlite_version": linked,
+                "fixed_versions": WAL_RESET_FIXED_VERSIONS_TEXT,
+                "advisory": WAL_RESET_ADVISORY_URL,
+                "journal_mode": storage.journal_mode if storage is not None else None,
+            },
+        )
+    )
 
 
 def _check_sqlite(paths: VaultPaths, issues: list[HealthIssue]) -> bool:

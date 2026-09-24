@@ -50,7 +50,6 @@ the CLI prints in it. Do not sort the board alphabetically or by availability.
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 from dataclasses import dataclass, field, replace
 from importlib import import_module
@@ -59,6 +58,7 @@ from time import perf_counter
 from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, FrozenClock, parse_utc
+from learnloop.db.copies import backup_database
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
 
@@ -739,7 +739,7 @@ def cells_cleared_per_question(vault: LoadedVault, repository: Repository) -> Me
 # correct prefix harness must FILTER THE LEDGER on a scratch copy before
 # replaying. That is the only faithful route, and it is not free:
 #
-#   cost per cutoff = copyfile(state.sqlite) + prune attempts after the cutoff
+#   cost per cutoff = backup(state.sqlite) + prune attempts after the cutoff
 #                     + rebuild_derived_state(whole vault) + one
 #                     lo_certification() per learning object
 #
@@ -821,7 +821,7 @@ def _certified_at_cutoff(
     from learnloop.substrate.replay import rebuild_derived_state
 
     scratch_path = scratch_dir / f"prefix_{index}.sqlite"
-    shutil.copyfile(source_path, scratch_path)
+    backup_database(source_path, scratch_path)
     try:
         scratch = Repository.attach(scratch_path, read_only=False)
         with scratch.pinned():
@@ -989,7 +989,7 @@ def certification_efficiency_metrics(
         "certified_learning_object_ids": certified_now,
         "learning_objects": len(vault.learning_objects),
         "replay_cost_note": (
-            "one copyfile + ledger prune + rebuild_derived_state + one "
+            "one database backup + ledger prune + rebuild_derived_state + one "
             "lo_certification per learning object, per cutoff (~1.5-3s each on "
             "fixtures/linear_algebra); bisected, so O(log attempts) cutoffs"
         ),

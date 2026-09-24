@@ -128,6 +128,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 ### Repository tooling consumers
 
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `load_vault`
 - [scripts/gen_goldenpath_fixtures.py](../../../../../../scripts/gen_goldenpath_fixtures.py); calls `load_vault`
 
 ## Dependencies
@@ -1095,6 +1096,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_sets.py](../../../../../../tests/test_source_sets.py) — direct import
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_live_rebuild_truncates_the_wal_it_grew`
+  - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import

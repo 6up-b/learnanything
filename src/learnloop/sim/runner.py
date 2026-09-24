@@ -19,6 +19,7 @@ import json
 import random
 import re
 import shutil
+import tomllib
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -33,6 +34,8 @@ from learnloop.attempts.ai_contracts import (
 )
 from learnloop.tutor.ai_contracts import TeachBackQuestion, TeachBackQuestionContext
 from learnloop.config import LearnLoopConfig
+from learnloop.config.schema import StorageConfig
+from learnloop.db.copies import copy_tree_with_databases, copy_tree_without_databases
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
@@ -242,22 +245,36 @@ def prepare_run_vault(source: Path, dest: Path, *, reset_state: bool = True) -> 
 
     ``reset_state=True`` gives the simulation a clean belief posterior (what
     calibration experiments want); the vault content (LOs, items, goals,
-    taxonomy) is preserved. The source vault is never written to.
+    taxonomy) is preserved. The source vault is never written to. A kept
+    database is copied through SQLite's backup API, because the source may be
+    a live WAL database whose latest commits are still in its ``-wal`` file.
     """
 
     source = source.resolve()
     dest = dest.resolve()
     if dest.exists():
         raise SimulationError(f"run vault destination already exists: {dest}")
-    shutil.copytree(
+    copy_tree = copy_tree_without_databases if reset_state else copy_tree_with_databases
+    copy_tree(
         source,
         dest,
+        database_names={_configured_database_name(source)},
         ignore=shutil.ignore_patterns(".git", ".pytest_tmp", "__pycache__"),
     )
-    if reset_state:
-        for state_file in dest.glob("*.sqlite*"):
-            state_file.unlink()
     return dest
+
+
+def _configured_database_name(vault_root: Path) -> str:
+    """File name of the vault's ``storage.sqlite_path``, read without side effects."""
+
+    default_name = Path(StorageConfig().sqlite_path).name
+    try:
+        raw = tomllib.loads((vault_root / "learnloop.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return default_name
+    storage = raw.get("storage")
+    configured = storage.get("sqlite_path") if isinstance(storage, dict) else None
+    return Path(configured).name if isinstance(configured, str) and configured else default_name
 
 
 # -- simulation ------------------------------------------------------------

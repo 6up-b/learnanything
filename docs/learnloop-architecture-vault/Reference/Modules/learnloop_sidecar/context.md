@@ -210,6 +210,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_transport.py](../../../../../tests/test_sidecar_transport.py) — direct import
   - `test_duplicate_method_registration_fails_loudly`
   - `test_unexpected_handler_failure_marks_the_commit_outcome_unknown`
+- [tests/test_sqlite_wal.py](../../../../../tests/test_sqlite_wal.py) — direct import
+  - `test_sidecar_needs_a_writable_vault_and_says_so`
 - [tests/test_vault_watcher_refresh.py](../../../../../tests/test_vault_watcher_refresh.py) — direct import
   - `test_non_item_watch_refresh_returns_the_updated_application_snapshot`
   - `test_practice_item_deletion_deactivates_cached_serving_state`

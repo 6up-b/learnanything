@@ -33,6 +33,7 @@ def test_doctor_json_contract(tmp_path):
         "issues",
         "root",
         "state_sync",
+        "storage",
         "version",
         "warning_count",
     }
@@ -40,6 +41,13 @@ def test_doctor_json_contract(tmp_path):
     assert payload["ai_runtime"] is None
     assert payload["codex_runtime"] is None
     assert payload["state_sync"]["practice_item_states_created"] == 1
+    assert set(payload["storage"]) == {
+        "journal_mode",
+        "wal_bytes",
+        "filesystem_type",
+        "mount_point",
+        "network_or_fuse",
+    }
 
 
 def test_misconception_gate_backfill_json_contract(tmp_path):

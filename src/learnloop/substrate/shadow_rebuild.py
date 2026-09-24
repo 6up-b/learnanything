@@ -3,8 +3,9 @@
 The shadow run uses SQLite's backup API to make a consistent scratch database,
 applies candidate in-memory config overrides, and invokes the ordinary derived
 state rebuild umbrella against that copy.  The live database is attached
-read-only and its SHA-256 is checked before and after the operation.  Vault
-files and the live database are never migrated or synchronized here.
+read-only and the SHA-256 of the database and its ``-wal`` file is checked
+before and after the operation.  Vault files and the live database are never
+migrated or synchronized here.
 """
 
 from __future__ import annotations
@@ -243,7 +244,7 @@ def shadow_rebuild(
     live_path = VaultPaths(vault.root, vault.config).sqlite_path.resolve()
     if not live_path.is_file():
         raise ShadowRebuildError(f"live database does not exist: {live_path}")
-    before_hash = _sha256_file(live_path)
+    before_hash = _sha256_database(live_path)
     candidate_config: LearnLoopConfig | None = None
     applied: dict[str, Any] = {}
     baseline_snapshot: dict[str, dict[tuple[Any, ...], dict[str, Any]]] | None = None
@@ -269,7 +270,7 @@ def shadow_rebuild(
         # This check runs even if candidate validation/replay fails.  A mismatch
         # is elevated over the candidate error because isolation is the stronger
         # safety invariant.
-        after_hash = _sha256_file(live_path)
+        after_hash = _sha256_database(live_path)
         if after_hash != before_hash:
             raise LiveDatabaseChangedError(before_hash, after_hash)
 
@@ -298,11 +299,24 @@ def _parse_override_value(raw_value: str) -> Any:
         return raw_value
 
 
-def _sha256_file(path: Path) -> str:
+def _sha256_database(path: Path) -> str:
+    """Digest of the main database file followed by its ``-wal``.
+
+    In WAL mode committed pages can live in ``-wal`` until a checkpoint, so the
+    main file alone does not identify the committed state.  A missing ``-wal``
+    and an empty one digest the same: a read-only open creates an empty one.
+    """
+
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+    wal_path = path.with_name(path.name + "-wal")
+    for part in (path, wal_path):
+        try:
+            handle = part.open("rb")
+        except FileNotFoundError:
+            continue
+        with handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
     return digest.hexdigest()
 
 

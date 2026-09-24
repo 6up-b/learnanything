@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:47:57-04:00"
+source_commit_timestamp: "2026-09-23T20:46:40-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.ops"
@@ -56,7 +56,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/__init__|learnloop.ops]] | [[Reference/Modules/learnloop/ops/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/ops/debug_time|learnloop.ops.debug_time]] | [[Reference/Modules/learnloop/ops/debug_time#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] | [[Reference/Modules/learnloop/ops/debug_time_store#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 1 | 15 |
+| [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] | [[Reference/Modules/learnloop/ops/doctor#^module-purpose|purpose]] | `ACTIVE` | 1 | 17 |
 | [[Reference/Modules/learnloop/ops/maintenance_feed|learnloop.ops.maintenance_feed]] | [[Reference/Modules/learnloop/ops/maintenance_feed#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
 | [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
@@ -68,7 +68,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 11 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 6 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
@@ -104,9 +104,9 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.ops"]
     n_learnloop_vault["learnloop.vault"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop["learnloop"]
-    n_learnloop_db["learnloop.db"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_ai["learnloop.ai"]
@@ -114,11 +114,11 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_attempts["learnloop.attempts"]
     center -->|11| n_learnloop_vault
+    center -->|9| n_learnloop_db
     n_learnloop_learner -->|1| center
     center -->|6| n_learnloop_learner
     n_learnloop -->|1| center
     center -->|5| n_learnloop
-    center -->|6| n_learnloop_db
     n_learnloop_cli -->|5| center
     n_learnloop_substrate -->|1| center
     center -->|4| n_learnloop_substrate

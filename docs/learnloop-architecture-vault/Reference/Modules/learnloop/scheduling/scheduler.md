@@ -133,6 +133,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `SchedulerSession`, `build_due_queue`, `deferred_cold_followups`, `explain_practice_item`; statically calls `SchedulerSession`, `build_due_queue`, `deferred_cold_followups`, `explain_practice_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `FOLLOWUP_REASONS`, `ScheduledItem`, `dominant_scheduler_reason`, `explain_practice_item`; statically calls `dominant_scheduler_reason`, `explain_practice_item`
 
+### Repository tooling consumers
+
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `build_due_queue`
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -302,6 +306,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_queue_serialization_bulk_loads_state_once`
 - [tests/test_sidecar_serializer_snapshot.py](../../../../../../tests/test_sidecar_serializer_snapshot.py) — direct import
   - `test_queue_practice_and_reader_wire_snapshots`
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_state_sync.py](../../../../../../tests/test_state_sync.py) — direct import

@@ -59,7 +59,7 @@ source_paths:
   - "src/learnloop/diagnosis/signal_quantiles.py"
   - "src/learnloop/diagnosis/taxonomy_regrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:51:27-04:00"
+source_commit_timestamp: "2026-09-23T20:46:40-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.diagnosis"
@@ -155,7 +155,7 @@ For system intent, use [[Learning System]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 46 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 44 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 45 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 20 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 19 static module edges
@@ -210,7 +210,7 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_scheduling["learnloop.scheduling"]
     center -->|46| n_learnloop
-    center -->|44| n_learnloop_db
+    center -->|45| n_learnloop_db
     center -->|41| n_learnloop_vault
     n_learnloop_attempts -->|20| center
     center -->|20| n_learnloop_attempts

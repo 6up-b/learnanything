@@ -44,6 +44,7 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.transport import interrupt_callback
+from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
 from learnloop.db.stores.ingest_queue import JobOwner
@@ -983,13 +984,19 @@ class IngestRunner:
 
     def _refresh_batch(self, batch_id: str) -> None:
         jobs = self.repo.ingest_jobs_for_batch(batch_id)
-        status = derive_batch_status(jobs, self.repo.get_ingest_batch(batch_id))
-        terminal = status in {"completed", "failed", "cancelled"}
+        batch = self.repo.get_ingest_batch(batch_id)
+        status = derive_batch_status(jobs, batch)
+        terminal = status in TERMINAL_STATUSES
+        was_terminal = batch is not None and batch.get("status") in TERMINAL_STATUSES
         # A resumed/retried batch must not keep reporting the prior failure's
         # finished_at while it is running again.
         self.repo.update_ingest_batch_status(
             batch_id, status, mark_finished=terminal, clear_finished=not terminal, clock=self.clock
         )
+        if terminal and not was_terminal:
+            # A batch's extraction, synthesis and apply writes can leave a
+            # large -wal behind; truncate it once the batch is done.
+            checkpoint_wal(self.repo.sqlite_path, reason=f"ingest batch {batch_id}")
 
     def _lease_cutoff_iso(self) -> str:
         cutoff = self.clock.now() - timedelta(seconds=self.lease_ttl_seconds)

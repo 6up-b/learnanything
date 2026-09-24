@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/goals/goal_series_store.py"
   - "src/learnloop/goals/receipt_contributions.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T12:27:35-04:00"
+source_commit_timestamp: "2026-09-23T20:46:40-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.goals"
@@ -84,8 +84,8 @@ For system intent, use [[Learning System]].
 
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 15 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 14 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 14 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 13 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 8 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 6 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 4 static module edges
@@ -119,8 +119,8 @@ flowchart LR
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop["learnloop"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_attempts["learnloop.attempts"]
@@ -130,8 +130,8 @@ flowchart LR
     center -->|15| n_learnloop_learner
     n_learnloop_sidecar_handlers -->|18| center
     center -->|14| n_learnloop
+    center -->|14| n_learnloop_db
     center -->|14| n_learnloop_vault
-    center -->|13| n_learnloop_db
     n_learnloop_scheduling -->|7| center
     center -->|4| n_learnloop_scheduling
     n_learnloop_substrate -->|2| center

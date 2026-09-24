@@ -35,7 +35,8 @@ These notes capture the accepted decision, its context, consequences, and execut
 | [[ADR-011 Retain legacy HTTP as a narrow capability]] | compatibility without weakening the structured protocol |
 | [[ADR-012 Freeze the compatibility substrate]] | old vaults stay green without expanding legacy behavior |
 | [[ADR-013 One authority per media modality]] | native PDF/audio ingestion has one switch per modality and one shared readiness judgement |
-| [[ADR-014 SQLite stays in DELETE journal mode]] | rollback journaling is kept until WAL's copy, read-only and checkpoint lifecycle is verified; the benchmark favours WAL |
+| [[ADR-014 SQLite stays in DELETE journal mode]] | superseded by ADR-015; listed the checks a switch to WAL needed |
+| [[ADR-015 SQLite runs in WAL mode with synchronous FULL]] | WAL with fsynced commits, a one-way switch in the migration path, backup-API copies and explicit checkpoints |
 
 ## Source of accepted decisions
 

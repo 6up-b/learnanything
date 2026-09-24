@@ -4,8 +4,8 @@ status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
 schema_head: 165
-source_commit: "0622ea164f76ad7e1d62a00afda51473dbcd992e"
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+source_commit: "e1153c01d0c6e29e6c4f97f1f4fa1e5214914f73"
+source_commit_timestamp: "2026-09-23T18:50:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "Derived state rebuild"
@@ -17,6 +17,7 @@ source_paths:
   - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/db/scopes.py"
   - "src/learnloop/db/connection.py"
+  - "src/learnloop/db/checkpoint.py"
   - "src/learnloop/goals/exam_seeding.py"
   - "tests/test_rebuild_orchestrator.py"
   - "tests/test_shadow_rebuild.py"
@@ -96,8 +97,10 @@ This command synchronizes authored vault state, mutates the ten live projections
 
 `rebuild_all_derived_state` is an `@atomic_repository_call`: every replayer's writes and the receipt run inside one `BEGIN IMMEDIATE` transaction (nested repository writes join it as savepoints), so a replay or completeness failure rolls back and leaves the published projections untouched. The transaction holds the database write lock for the whole rebuild, which serializes it with every other writer.
 
-> [!warning] Readers are blocked during part of a live rebuild
-> The database uses the rollback journal (see [[ADR-014 SQLite stays in DELETE journal mode]]). Once the rebuild transaction spills dirty pages from its page cache it takes the EXCLUSIVE lock until commit, and readers cannot start until then. On a copy of `fixtures/linear_algebra` (production connection settings, a reader polling every 1 ms, three consecutive rebuilds of about 0.79 s each) the longest continuous reader blackout was 0.40 s on the first rebuild and 0.16 s and 0.14 s on the next two. The blackout grows with vault size; a read that waits longer than the 5 s `busy_timeout` set by `db/connection.py` fails with `database is locked`.
+> [!note] Readers keep reading during a live rebuild
+> The database runs in WAL mode (see [[ADR-015 SQLite runs in WAL mode with synchronous FULL]]). Readers keep the last committed snapshot for the whole rebuild transaction and see the new projections once it commits. On a copy of `fixtures/linear_algebra` (a 46 MB database, production connection settings, a reader polling every 1 ms, three consecutive rebuilds of about 0.78 s each), the longest gap between successful reads was 0.014–0.015 s. That gap is the reader thread waiting for Python's interpreter lock in the same process, not a database lock. Under the rollback journal the same measurement blacked readers out for 0.21–0.47 s per rebuild. A second writer still waits for the rebuild's write lock, and gives up with `database is locked` after the 5 s `busy_timeout`.
+
+`learnloop rebuild-derived-state` calls `rebuild_live_derived_state`, which runs the umbrella and then a best-effort `TRUNCATE` checkpoint. The three rebuilds above grew the `-wal` to 7.2 MB, and the checkpoint emptied it in 17 ms.
 
 Other replay entry points:
 
@@ -117,7 +120,7 @@ learnloop rebuild --shadow \
 Shadow mode:
 
 - attaches the live database read-only;
-- records its SHA-256 before work;
+- records a SHA-256 of the database file followed by its `-wal` before work, because committed pages can still be in the `-wal`;
 - copies it with SQLite's backup API into a temporary database;
 - validates dotted config overrides against the typed configuration;
 - runs the ordinary umbrella on the scratch copy;

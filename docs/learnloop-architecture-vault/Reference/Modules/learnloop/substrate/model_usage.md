@@ -134,6 +134,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_runs_are_compared_with_the_budgets_recorded_on_their_receipts`
   - `test_synthesis_purposes_match_the_synthesis_operations`
   - `test_synthesis_runs_compare_measured_tokens_with_the_budgets`
+- [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
 
 ## Modification guidance
 

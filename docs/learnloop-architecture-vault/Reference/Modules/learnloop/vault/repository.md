@@ -82,6 +82,10 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 
+### Repository tooling consumers
+
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `open_vault_repository`
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -112,6 +116,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_adjudicate_cli_records_through_the_locked_vault_opener`
 - [tests/test_learner_read_model_pinning.py](../../../../../../tests/test_learner_read_model_pinning.py) — direct import
 - [tests/test_migration_coordinator.py](../../../../../../tests/test_migration_coordinator.py) — direct import
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_live_rebuild_truncates_the_wal_it_grew`
+  - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 
 ## Modification guidance
 

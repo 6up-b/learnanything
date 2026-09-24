@@ -117,6 +117,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_exact_offer_survives_refresh_recovery_and_dataset_export`
   - `test_export_preserves_censored_repair_disposition_as_distinct_from_failure`
   - `test_scored_item_text_is_snapshotted_once_per_revision_and_exported`
+- [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
+  - `test_read_only_reports_explain_a_read_only_vault_without_wal_files`
 
 ## Modification guidance
 

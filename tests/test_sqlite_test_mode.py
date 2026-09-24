@@ -40,14 +40,14 @@ def fast_module_observation(tmp_path_factory):
 def test_module_fixture_of_a_durability_test_uses_production_sqlite(durable_module_observation):
     assert durable_module_observation == {
         "synchronous": _SYNCHRONOUS_FULL,
-        "journal_mode": "delete",
+        "journal_mode": helpers.production_journal_mode(),
         "fresh_vaults": True,
     }
 
 
 def test_module_fixture_of_a_plain_test_uses_the_session_lane(request, fast_module_observation):
     if request.config.getoption("--durable-sqlite"):
-        expected = {"synchronous": _SYNCHRONOUS_FULL, "journal_mode": "delete", "fresh_vaults": True}
+        expected = {"synchronous": _SYNCHRONOUS_FULL, "journal_mode": helpers.production_journal_mode(), "fresh_vaults": True}
     else:
         expected = {"synchronous": _SYNCHRONOUS_OFF, "journal_mode": "memory", "fresh_vaults": False}
     assert fast_module_observation == expected

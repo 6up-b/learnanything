@@ -90,6 +90,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `StateSyncResult`, `sync_vault_state`; statically calls `sync_vault_state`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `practice_item_activatable`, `sync_vault_state`; statically calls `practice_item_activatable`, `sync_vault_state`
 
+### Repository tooling consumers
+
+- [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `sync_vault_state`
+
 ## Dependencies
 
 ### LearnLoop dependencies
@@ -311,6 +315,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — direct import
 - [tests/test_sidecar_queue_serialization.py](../../../../../../tests/test_sidecar_queue_serialization.py) — direct import
   - `test_queue_serialization_bulk_loads_state_once`
+- [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
 - [tests/test_staged_policy_evsi.py](../../../../../../tests/test_staged_policy_evsi.py) — direct import
 - [tests/test_state_signals.py](../../../../../../tests/test_state_signals.py) — direct import
