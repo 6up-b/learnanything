@@ -1867,11 +1867,27 @@ def _resolve_subject(
     *,
     clock: Clock | None,
 ) -> str:
-    vault = load_vault(root)
     if kind == "textbook_chapter":
         if subject_id is None:
             raise SourceIngestionError("textbook_chapter ingestion requires --subject")
         return subject_id
+    # A new subject's directory, markdown and graph file are published vault
+    # state. Under the vault lock the existence check and the write form one
+    # step against concurrent writers, and an ingest job that lost its lease is
+    # refused before it creates anything.
+    with vault_mutation_lock(root, purpose="canonical_ingest_subject"):
+        return _resolve_subject_locked(root, source, subject_id, content_hash, clock=clock)
+
+
+def _resolve_subject_locked(
+    root: Path,
+    source: NormalizedSource,
+    subject_id: str | None,
+    content_hash: str,
+    *,
+    clock: Clock | None,
+) -> str:
+    vault = load_vault(root)
     if subject_id is not None:
         normalized_subject = kebab_case(subject_id)
         if normalized_subject not in vault.subjects:

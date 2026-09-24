@@ -43,6 +43,8 @@ Fixed:
 - **Retryable lock errors.** `database is locked` and `database is busy` map to the retryable `database_busy`.
 - **TUI retries.** The TUI keeps one submission id per practice screen and resumes a committed grade instead of recording a second attempt.
 - **Pinned connections.** `get_today_queue`, `feedback_bundle`, `practice_item_detail`, the knowledge-map loop and the facet-mastery loop each reuse one connection.
+- **Teach-back grading source.** `finish_teach_back` records the grading call as an agent run and applies the grade with the provider's source (`ai` or `codex`) and that run id.
+- **Teach-back offers.** `start_teach_back` and `submit_teach_back_turn` take an optional `scheduler_candidate_id`, validated like a practice offer, and the finished attempt links that candidate.
 
 See [Continue a Learning Cycle](../learnloop-architecture-vault/Workflows/Continue%20a%20Learning%20Cycle.md), [Process Model Output](../learnloop-architecture-vault/Workflows/Process%20Model%20Output.md) and [Attempt Processing](../learnloop-architecture-vault/Concepts/Attempt%20Processing.md) in the architecture vault.
 
@@ -70,6 +72,7 @@ Fixed:
 - **Transport interrupts.** Interrupts are keyed by job and attempt, so a replaced attempt interrupts only its own transport.
 - **Originals.** Each original is written to a unique temporary file, fsynced, then renamed.
 - **Locked writes.** Source registration and goal linkage run under `vault_mutation_lock`.
+- **Subject creation.** An ingest that creates a new subject checks for it and creates it under `vault_mutation_lock`, so a job that lost its lease cannot create one.
 - **CTE writes.** `WITH … INSERT/UPDATE/DELETE` is classified as a write, and CTE reads are not.
 - **Store API.**
   - `JobOwner(worker_id, attempt_count)` is passed through the ownership checks.
@@ -306,15 +309,11 @@ All four vault validators pass at the head of the documentation branch.
 
 **Attempts and sidecar**
 
-- Teach-back attempts are not linked to a scheduler slate; the teach-back RPC carries no candidate.
-- `finish_teach_back` applies AI-graded transcripts with the default `grading_source="self"`.
-- The TUI installs no model-call observer.
 - On non-POSIX hosts the completion lock gives no cross-process exclusion.
 
 **Ingestion**
 
 - A v2-lite retry lacks fetch-only metadata (captions, labels, authors, license).
-- `add_subject` writes the subjects file without the vault lock.
 - A claim lost to lock contention counts as an idle tick, and after 3 idle ticks the drain thread exits.
 - After bind no drain runs, so an expired lease from an earlier process stays `running` until a drain starts (D-5).
 

@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/content/pipeline/source_ingestion.py"
 source_paths:
   - "src/learnloop/content/pipeline/source_ingestion.py"
-source_commit: "4c00dc55d956abf57d4202863b629b9567104c34"
-source_commit_timestamp: "2026-09-23T12:46:21-04:00"
+source_commit: "19918e64d96f02b049df0e735f2ff6a8b1ec1749"
+source_commit_timestamp: "2026-09-23T18:25:20-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -51,13 +51,13 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/source_ingestion.py](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py) |
-| Source lines | 2176 |
+| Source lines | 2192 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `4c00dc55d956abf57d4202863b629b9567104c34` |
-| Commit timestamp | `2026-09-23T12:46:21-04:00` |
+| Source commit | `19918e64d96f02b049df0e735f2ff6a8b1ec1749` |
+| Commit timestamp | `2026-09-23T18:25:20-04:00` |
 
 ## Public API
 
@@ -88,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `locator_hash_for_ref(chunks: list[SourceChunk], locator: str | None) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1770)
 - `child_chunks_for_locator(chunks: list[SourceChunk], locator: str) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1787)
 - `caption_chunks_for_time_range(chunks: list[SourceChunk], locator: str) -> list[SourceChunk]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1795)
-- `source_youtube_video_id(source: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2062)
+- `source_youtube_video_id(source: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2078)
 
 ## Internal implementation anchors
 
@@ -133,27 +133,28 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_parse_time_locator(locator: str) -> tuple[float, float] | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1825)
 - `_grounded_entity_refs(vault) -> list[tuple[str, str, str | None, list[Any]]]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1836)
 - `_resolve_subject(root: Path, source: NormalizedSource, subject_id: str | None, kind: SourceKind, learning_object_ids: list[str], content_hash: str, *, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1860)
-- `_establish_goal_linkage(root: Path, subject_id: str, title: str, proposal: AuthoringProposal, *, goal_id: str | None, default_priority: float, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1890)
-- `_establish_goal_linkage_locked(root: Path, subject_id: str, title: str, proposal: AuthoringProposal, *, goal_id: str | None, default_priority: float, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1914)
-- `_proposal_learning_object_concepts(proposal: AuthoringProposal) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1985)
-- `_goal_scope_concepts(goal: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1997) — Concept scope of a raw goals.yaml entry, tolerating legacy v1 form.
-- `_result_from_existing_batch(agent_run: dict[str, Any], batch: dict[str, Any] | None, registered: RegisteredSource, source_kind: SourceKind, content_hash: str) -> IngestResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2006)
-- `_retain_raw_bytes(root: Path, note_id: str, content_hash: str, raw_bytes: bytes) -> Path` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2028)
-- `_unique_note_id(vault, title: str, content_hash: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2038)
-- `_unique_goal_id(goals: list[Any], subject_id: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2051)
-- `_is_pdf_fetch(fetched: FetchResult) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2073)
-- `_pdf_fetch_result(root: Path, pdf_bytes: bytes, fetched: FetchResult, pdf_config: PdfIngestConfig | None) -> FetchResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2082)
-- `_pdf_markdown(root: Path, pdf_bytes: bytes, pdf_config: PdfIngestConfig | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2099)
-- `_content_type_for_path(path: Path) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2108)
-- `_looks_like_markdown(fetch_result: FetchResult) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2117)
-- `_decode_bytes(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2123)
-- `_normalize_markdown(markdown: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2132)
-- `_first_markdown_heading(markdown: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2148)
-- `_strip_markdown(text: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2156)
-- `_title_from_uri(uri: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2160)
-- `_title_from_slug(slug: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2166)
-- `_collapse_ws(text: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2170)
-- `_collapse_block(text: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2174)
+- `_resolve_subject_locked(root: Path, source: NormalizedSource, subject_id: str | None, content_hash: str, *, clock: Clock | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1882)
+- `_establish_goal_linkage(root: Path, subject_id: str, title: str, proposal: AuthoringProposal, *, goal_id: str | None, default_priority: float, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1906)
+- `_establish_goal_linkage_locked(root: Path, subject_id: str, title: str, proposal: AuthoringProposal, *, goal_id: str | None, default_priority: float, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 1930)
+- `_proposal_learning_object_concepts(proposal: AuthoringProposal) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2001)
+- `_goal_scope_concepts(goal: dict[str, Any]) -> set[str]` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2013) — Concept scope of a raw goals.yaml entry, tolerating legacy v1 form.
+- `_result_from_existing_batch(agent_run: dict[str, Any], batch: dict[str, Any] | None, registered: RegisteredSource, source_kind: SourceKind, content_hash: str) -> IngestResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2022)
+- `_retain_raw_bytes(root: Path, note_id: str, content_hash: str, raw_bytes: bytes) -> Path` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2044)
+- `_unique_note_id(vault, title: str, content_hash: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2054)
+- `_unique_goal_id(goals: list[Any], subject_id: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2067)
+- `_is_pdf_fetch(fetched: FetchResult) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2089)
+- `_pdf_fetch_result(root: Path, pdf_bytes: bytes, fetched: FetchResult, pdf_config: PdfIngestConfig | None) -> FetchResult` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2098)
+- `_pdf_markdown(root: Path, pdf_bytes: bytes, pdf_config: PdfIngestConfig | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2115)
+- `_content_type_for_path(path: Path) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2124)
+- `_looks_like_markdown(fetch_result: FetchResult) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2133)
+- `_decode_bytes(raw: bytes) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2139)
+- `_normalize_markdown(markdown: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2148)
+- `_first_markdown_heading(markdown: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2164)
+- `_strip_markdown(text: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2172)
+- `_title_from_uri(uri: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2176)
+- `_title_from_slug(slug: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2182)
+- `_collapse_ws(text: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2186)
+- `_collapse_block(text: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/source_ingestion.py), line 2190)
 
 ## Who imports or calls it
 
@@ -215,6 +216,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_canonical_lane_does_not_auto_apply_gated_items`
   - `test_reachability_summary_reports_minted_cells`
 - [tests/test_ingest_ownership.py](../../../../../../../tests/test_ingest_ownership.py) — direct import
+  - `test_a_replaced_ingest_cannot_create_a_subject`
   - `test_a_replaced_ingest_cannot_publish_its_source_note_or_goal_linkage`
 - [tests/test_ingest_runner.py](../../../../../../../tests/test_ingest_runner.py) — direct import
   - `test_legacy_one_shot_pipeline_never_uses_the_native_engine`
@@ -224,6 +226,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_config_matrix_executes_all_six_production_resolution_paths`
 - [tests/test_source_ingestion.py](../../../../../../../tests/test_source_ingestion.py) — direct import
   - `test_composite_note_id_locator_source_ref_resolves`
+  - `test_ingest_creates_a_new_subject_while_holding_the_vault_lock`
   - `test_ingest_does_not_link_goal_to_pending_proposed_concept`
   - `test_ingest_invalid_returned_locator_blocks_auto_apply`
   - `test_ingest_local_html_registers_source_and_auto_applies`

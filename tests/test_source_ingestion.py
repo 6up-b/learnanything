@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+
+import pytest
 from tests.structured_ai import StructuredClientFake
 
 from learnloop.clock import FrozenClock
@@ -109,6 +112,40 @@ def test_ingest_local_markdown_runs_the_canonical_proposal_pipeline(tmp_path):
     assert result.patch_id
     assert result.source_kind == "website_page"
     assert load_vault(vault_root).notes[result.source_note_id].source_type == "canonical_source"
+
+
+@pytest.mark.parametrize(
+    ("subject_id", "expected_subject"),
+    [(None, "svd-canonical-source"), ("Numerical Methods", "numerical-methods")],
+)
+def test_ingest_creates_a_new_subject_while_holding_the_vault_lock(
+    tmp_path, monkeypatch, subject_id, expected_subject
+):
+    from learnloop.content.pipeline import source_ingestion
+    from learnloop.vault_lock import read_lock_holder
+
+    vault_root = tmp_path / "vault"
+    create_basic_vault(vault_root)
+    holders_during_creation = []
+    real_add_subject = source_ingestion.add_subject
+
+    def recording_add_subject(root, subject, title, clock=None):
+        holders_during_creation.append(read_lock_holder(root))
+        return real_add_subject(root, subject, title, clock=clock)
+
+    monkeypatch.setattr(source_ingestion, "add_subject", recording_add_subject)
+
+    ingest_canonical_source(
+        vault_root,
+        str(_source_file(tmp_path)),
+        _FakeCanonicalClient(),
+        subject_id=subject_id,
+        clock=FrozenClock(NOW),
+    )
+
+    assert [holder.purpose for holder in holders_during_creation] == ["canonical_ingest_subject"]
+    assert holders_during_creation[0].pid == os.getpid()
+    assert expected_subject in load_vault(vault_root).subjects
 
 
 def test_ingest_same_canonical_source_is_noop_after_completed_run(tmp_path):
