@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+import time
 from contextlib import closing
 from pathlib import Path
 from typing import Callable, Collection, Iterable
@@ -22,18 +23,39 @@ from typing import Callable, Collection, Iterable
 from learnloop.db.connection import connect
 
 DATABASE_SUFFIX = ".sqlite"
+# How long a copy keeps retrying a source that another connection has locked.
+BACKUP_BUSY_DEADLINE_S = 5.0
+_BUSY_RETRY_SLEEP_S = 0.05
+# sqlite3_backup_step results that sqlite3.Connection.backup retries.
+_SQLITE_BUSY = 5
+_SQLITE_LOCKED = 6
+_RETRIED_STATUSES = frozenset({_SQLITE_BUSY, _SQLITE_LOCKED})
 COMPANION_SUFFIXES = ("-wal", "-shm", "-journal")
 
 IgnoreFunction = Callable[[str, list[str]], Iterable[str]]
 
 
-def backup_database(source_path: Path, destination_path: Path) -> None:
+class DatabaseCopyTimeout(TimeoutError):
+    """The source stayed locked past the backup deadline; nothing was copied."""
+
+
+def backup_database(
+    source_path: Path,
+    destination_path: Path,
+    *,
+    busy_deadline_s: float = BACKUP_BUSY_DEADLINE_S,
+) -> None:
     """Write a transactionally consistent copy of a database to a new file.
 
     The source is opened read-only and copied in one backup step, which holds a
     single read snapshot for the whole copy.  In WAL mode that snapshot does not
     block writers.  The copy keeps the source's journal mode, and closing its
     only connection leaves it without companion files.
+
+    ``sqlite3.Connection.backup`` retries a locked source forever, so the
+    progress callback enforces a monotonic deadline: once it has passed, a busy
+    or locked step raises :class:`DatabaseCopyTimeout`.  Any failure removes the
+    incomplete destination and its companion files.
     """
 
     source_path = Path(source_path)
@@ -41,9 +63,28 @@ def backup_database(source_path: Path, destination_path: Path) -> None:
     if destination_path.exists():
         raise FileExistsError(f"backup destination already exists: {destination_path}")
     destination_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(connect(source_path, read_only=True)) as source:
-        with closing(sqlite3.connect(destination_path)) as destination:
-            source.backup(destination)
+    deadline = time.monotonic() + busy_deadline_s
+
+    def stop_after_deadline(status: int, remaining: int, total: int) -> None:
+        if status in _RETRIED_STATUSES and time.monotonic() >= deadline:
+            raise DatabaseCopyTimeout(
+                f"could not copy {source_path}: it stayed locked for more than "
+                f"{busy_deadline_s:g} s; retry when no other process holds an "
+                "exclusive lock on it"
+            )
+
+    try:
+        with closing(connect(source_path, read_only=True)) as source:
+            with closing(sqlite3.connect(destination_path)) as destination:
+                source.backup(destination, progress=stop_after_deadline, sleep=_BUSY_RETRY_SLEEP_S)
+    except BaseException:
+        _remove_database_files(destination_path)
+        raise
+
+
+def _remove_database_files(database_path: Path) -> None:
+    for path in (database_path, *(database_path.with_name(database_path.name + suffix) for suffix in COMPANION_SUFFIXES)):
+        path.unlink(missing_ok=True)
 
 
 def is_database_file_name(name: str, database_names: Collection[str] = ()) -> bool:
@@ -123,7 +164,9 @@ def copy_tree_with_databases(
 
 
 __all__ = [
+    "BACKUP_BUSY_DEADLINE_S",
     "COMPANION_SUFFIXES",
+    "DatabaseCopyTimeout",
     "backup_database",
     "copy_tree_with_databases",
     "copy_tree_without_databases",

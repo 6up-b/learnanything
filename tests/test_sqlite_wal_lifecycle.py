@@ -32,6 +32,15 @@ from tests.helpers import create_basic_vault
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
+@pytest.fixture(autouse=True)
+def fixed_sqlite_runtime(monkeypatch):
+    """These tests exercise WAL mechanics, so the gate must allow WAL."""
+
+    from tests.helpers import report_sqlite_version
+
+    report_sqlite_version(monkeypatch, (3, 53, 4))
+
+
 def _wal_database_with_uncheckpointed_commit(directory: Path) -> tuple[Path, sqlite3.Connection]:
     """A WAL database whose latest commit is only in ``-wal``; the writer stays open."""
 
@@ -80,6 +89,38 @@ def test_backup_refuses_to_overwrite_an_existing_file(tmp_path):
     existing.write_bytes(b"")
     with pytest.raises(FileExistsError):
         backup_database(sqlite_path, existing)
+
+
+def test_backup_gives_up_on_a_source_locked_after_its_probe_and_removes_the_copy(tmp_path, monkeypatch):
+    import learnloop.db.connection as connection_module
+    import learnloop.db.copies as copies_module
+    from learnloop.db.copies import DatabaseCopyTimeout
+
+    monkeypatch.setattr(connection_module, "BUSY_TIMEOUT_MS", 50)
+    source_path = tmp_path / "rollback.sqlite"
+    with closing(sqlite3.connect(source_path)) as connection:
+        connection.execute("CREATE TABLE records (payload TEXT)")
+        connection.execute("INSERT INTO records VALUES ('row')")
+        connection.commit()
+    locker = sqlite3.connect(source_path, isolation_level=None)
+    probed_connect = copies_module.connect
+
+    def connect_then_lock(path, *, read_only=False):
+        connection = probed_connect(path, read_only=read_only)
+        locker.execute("BEGIN EXCLUSIVE")
+        return connection
+
+    monkeypatch.setattr(copies_module, "connect", connect_then_lock)
+    destination = tmp_path / "copy" / "state.sqlite"
+    try:
+        with pytest.raises(DatabaseCopyTimeout, match="stayed locked"):
+            backup_database(source_path, destination, busy_deadline_s=0.3)
+    finally:
+        locker.execute("ROLLBACK")
+        locker.close()
+
+    assert not destination.exists()
+    assert list(destination.parent.iterdir()) == []
 
 
 def test_tree_copy_backs_up_databases_and_never_copies_companions(tmp_path):
