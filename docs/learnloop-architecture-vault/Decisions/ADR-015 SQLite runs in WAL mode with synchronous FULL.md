@@ -135,7 +135,7 @@ WAL keeps its index in a memory-mapped `-shm` file that every connection shares.
 ### 7. Tracked fixtures
 
 - **Ignored companions.** `.gitignore` ignores `*.sqlite-wal` and `*.sqlite-shm` everywhere.
-- **Tests copy first.** Every writable use of a tracked fixture copies it first. `applied_versions` reads `fixtures/migration_head_165/state.sqlite` in place, but only read-only and on a rollback-mode file, which creates no companions.
+- **Tests copy first.** Every writable use of a tracked fixture copies it first. A tracked database may be in either journal mode (the owner's working vaults live under `fixtures/` and convert to WAL when migrated); a read-only open leaves an empty `-wal` and a `-shm` beside it, which is harmless and ignored by git; what must never exist beside a tracked database is a non-empty `-wal`, and no companion may be committed, which the fixture guard test and the end-of-session check enforce. `applied_versions` reads `fixtures/migration_head_165/state.sqlite` in place, read-only, which creates no companions.
 - **Fixture checks.** `tests/test_tracked_fixture_databases.py` asserts that every fixture database has a rollback header and no companion files. `tests/conftest.py` records the same state at session start and fails the run if it has changed at session end.
 - **Headers stay rollback.** Tracked fixture headers are not converted. A copy converts when it is migrated.
 

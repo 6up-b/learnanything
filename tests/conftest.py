@@ -100,14 +100,19 @@ def _fixture_database_state() -> dict[str, tuple[str, tuple[str, ...]]]:
     from learnloop.db.copies import COMPANION_SUFFIXES
     from learnloop.db.storage import header_journal_mode
 
+    # A read-only open of a WAL database creates an empty -wal and a -shm, so
+    # companion presence alone is not a change; only the header mode and
+    # un-checkpointed WAL frames are.
     state = {}
     for database in sorted(_FIXTURES.rglob("*.sqlite")):
-        companions = tuple(
+        pending = tuple(
             database.name + suffix
             for suffix in COMPANION_SUFFIXES
             if database.with_name(database.name + suffix).exists()
+            and database.with_name(database.name + suffix).stat().st_size > 0
+            and suffix != "-shm"
         )
-        state[str(database.relative_to(_FIXTURES))] = (header_journal_mode(database), companions)
+        state[str(database.relative_to(_FIXTURES))] = (header_journal_mode(database), pending)
     return state
 
 
@@ -129,7 +134,7 @@ def pytest_sessionfinish(session, exitstatus):
         return
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
     message = (
-        "tracked fixture databases changed during the test run (journal mode, companion files); "
+        "tracked fixture databases changed during the test run (journal mode or un-checkpointed WAL frames); "
         f"a test opened one writable in place instead of copying it first: {changed}"
     )
     if reporter is not None:

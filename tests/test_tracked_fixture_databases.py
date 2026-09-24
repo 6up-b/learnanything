@@ -1,36 +1,41 @@
-"""Tracked fixture databases stay in rollback mode with no companion files.
+"""Tracked fixture databases carry no un-checkpointed WAL frames.
 
-Tests and tools copy a fixture before opening it writable; migrating the copy
-converts the copy to WAL.  Opening a tracked fixture writable in place would
-switch its header to WAL and leave ``-wal``/``-shm`` files in the working tree,
-and a byte copy of such a fixture could then miss committed pages.
-``tests/conftest.py`` repeats this check when the session finishes, so a test
-that opens a fixture in place fails the run even if it sorts after this file.
+A tracked database may be in either journal mode: the owner's working vaults
+live under ``fixtures/`` and convert to WAL when they are migrated. A read-only
+open of a WAL database leaves an empty ``-wal`` and a ``-shm`` behind, which
+is harmless. What must never exist beside a tracked database is a non-empty
+``-wal`` (a byte copy of the main file would miss its committed pages) or a
+``-journal``, and no companion may be tracked by git. Tests and tools copy a
+fixture before opening it writable. ``tests/conftest.py`` repeats the
+header-and-frames check when the session finishes.
 """
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from learnloop.db.copies import COMPANION_SUFFIXES
-from learnloop.db.storage import header_journal_mode
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
 
-def test_tracked_fixture_databases_are_rollback_mode_without_companions():
+def test_tracked_fixture_databases_have_no_pending_wal_frames():
     databases = sorted(FIXTURES.rglob("*.sqlite"))
     assert databases, "expected tracked fixture databases under fixtures/"
-    wal_headers = [
-        str(database.relative_to(FIXTURES))
-        for database in databases
-        if header_journal_mode(database) == "wal"
-    ]
-    companions = [
+    pending = [
         str(companion.relative_to(FIXTURES))
         for database in databases
         for companion in (database.with_name(database.name + suffix) for suffix in COMPANION_SUFFIXES)
-        if companion.exists()
+        if companion.exists() and companion.stat().st_size > 0 and not companion.name.endswith("-shm")
     ]
-    assert wal_headers == [], f"fixtures opened writable in place (WAL header): {wal_headers}"
-    assert companions == [], f"fixture companion files present; delete them: {companions}"
+    assert pending == [], f"un-checkpointed fixture companions present; checkpoint or delete them: {pending}"
+
+
+def test_no_fixture_companion_file_is_tracked_by_git():
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "fixtures"], capture_output=True, text=True, check=True,
+        cwd=FIXTURES.parent,
+    ).stdout.splitlines()
+    companions = [path for path in tracked if path.endswith(COMPANION_SUFFIXES)]
+    assert companions == [], f"companion files must never be committed: {companions}"
