@@ -222,8 +222,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_delete_keeps_stored_bytes_another_source_still_shares`
 - [tests/test_source_set_synthesis.py](../../../../../../tests/test_source_set_synthesis.py) — direct import
   - `test_locked_subject_bootstrap_refusal`
-- [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
-  - `test_read_only_reports_work_in_a_read_only_vault`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import

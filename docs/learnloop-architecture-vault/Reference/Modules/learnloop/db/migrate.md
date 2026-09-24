@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/migrate.py"
 source_paths:
   - "src/learnloop/db/migrate.py"
-source_commit: "8a3586fadb840cea61417b11816fd9c346e2d0fd"
-source_commit_timestamp: "2026-09-23T18:49:46-04:00"
+source_commit: "e851e5c3b2e5a710a4a851a7b245c7e2f851e5cd"
+source_commit_timestamp: "2026-09-23T20:44:21-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -50,38 +50,40 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py) |
-| Source lines | 280 |
+| Source lines | 317 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8a3586fadb840cea61417b11816fd9c346e2d0fd` |
-| Commit timestamp | `2026-09-23T18:49:46-04:00` |
+| Source commit | `e851e5c3b2e5a710a4a851a7b245c7e2f851e5cd` |
+| Commit timestamp | `2026-09-23T20:44:21-04:00` |
 
 ## Public API
 
-- `class JournalModeSwitchError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 26) — The database could not be moved to WAL, so its journal mode is unchanged.
-- `class Migration` ([source](../../../../../../src/learnloop/db/migrate.py), line 31)
-- `default_migrations_dir() -> Path` ([source](../../../../../../src/learnloop/db/migrate.py), line 37)
-- `discover_migrations(migrations_dir: Path | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 41)
-- `applied_versions(sqlite_path: Path) -> set[int]` ([source](../../../../../../src/learnloop/db/migrate.py), line 52)
-- `apply_migrations(sqlite_path: Path, migrations_dir: Path | None=None, clock: Clock | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 65)
-- `switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 89) — Move a database to WAL journal mode once; a no-op when it is already WAL.
+- `class JournalModeSwitchError(RuntimeError)` ([source](../../../../../../src/learnloop/db/migrate.py), line 29) — The database could not be moved to WAL, so its journal mode is unchanged.
+- `class Migration` ([source](../../../../../../src/learnloop/db/migrate.py), line 34)
+- `default_migrations_dir() -> Path` ([source](../../../../../../src/learnloop/db/migrate.py), line 40)
+- `discover_migrations(migrations_dir: Path | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 44)
+- `applied_versions(sqlite_path: Path) -> set[int]` ([source](../../../../../../src/learnloop/db/migrate.py), line 55)
+- `apply_migrations(sqlite_path: Path, migrations_dir: Path | None=None, clock: Clock | None=None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 68)
+- `switch_to_wal(connection: sqlite3.Connection, sqlite_path: Path) -> str | None` ([source](../../../../../../src/learnloop/db/migrate.py), line 92) — Move a database to WAL journal mode once, where the linked SQLite allows it.
 
 ### Module constants
 
-- `_MIGRATION_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 14)
-- `_FOREIGN_KEYS_OFF_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 15)
-- `_COMPANION_SUFFIXES` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 23)
+- `_LOG` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 15)
+- `_MIGRATION_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 17)
+- `_FOREIGN_KEYS_OFF_RE` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 18)
+- `_COMPANION_SUFFIXES` ([src/learnloop/db/migrate.py](../../../../../../src/learnloop/db/migrate.py), line 26)
 
 ## Internal implementation anchors
 
-- `_apply_incremental_migration(connection: sqlite3.Connection, migration: Migration, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 122) — Apply one existing-database migration as one durable transaction.
-- `_migration_is_applied(connection: sqlite3.Connection, version: int) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 187)
-- `_iter_sql_statements(sql: str) -> Iterator[str]` ([source](../../../../../../src/learnloop/db/migrate.py), line 202) — Yield executable statements without splitting trigger bodies.
-- `_apply_fresh(sqlite_path: Path, migrations: list[Migration], clock: Clock | None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 221) — Create a brand-new database with every migration, fast and atomically.
-- `_existing_companion_files(sqlite_path: Path) -> list[Path]` ([source](../../../../../../src/learnloop/db/migrate.py), line 269)
-- `_remove_companion_files(sqlite_path: Path, *, include_database: bool) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 274) — Delete companions of a database that does not exist (or is being replaced).
+- `_switch_failure_cause(error: sqlite3.OperationalError, sqlite_path: Path) -> str` ([source](../../../../../../src/learnloop/db/migrate.py), line 135) — Name the real cause of a failed switch from SQLite's error code.
+- `_apply_incremental_migration(connection: sqlite3.Connection, migration: Migration, clock: Clock | None) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 159) — Apply one existing-database migration as one durable transaction.
+- `_migration_is_applied(connection: sqlite3.Connection, version: int) -> bool` ([source](../../../../../../src/learnloop/db/migrate.py), line 224)
+- `_iter_sql_statements(sql: str) -> Iterator[str]` ([source](../../../../../../src/learnloop/db/migrate.py), line 239) — Yield executable statements without splitting trigger bodies.
+- `_apply_fresh(sqlite_path: Path, migrations: list[Migration], clock: Clock | None) -> list[Migration]` ([source](../../../../../../src/learnloop/db/migrate.py), line 258) — Create a brand-new database with every migration, fast and atomically.
+- `_existing_companion_files(sqlite_path: Path) -> list[Path]` ([source](../../../../../../src/learnloop/db/migrate.py), line 306)
+- `_remove_companion_files(sqlite_path: Path, *, include_database: bool) -> None` ([source](../../../../../../src/learnloop/db/migrate.py), line 311) — Delete companions of a database that does not exist (or is being replaced).
 
 ## Who imports or calls it
 
@@ -99,11 +101,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
-- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`, `wal_unavailable_reason`; calls `connect`, `wal_unavailable_reason`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `dataclasses`, `os`, `pathlib`, `re`, `sqlite3`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `logging`, `os`, `pathlib`, `re`, `sqlite3`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -200,6 +202,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reveal_ledger.py](../../../../../../tests/test_reveal_ledger.py) — direct import
   - `test_migration_154_adds_the_ledger_and_the_question_event_columns`
 - [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
+  - `test_affected_sqlite_leaves_databases_in_rollback_mode_and_doctor_says_why`
+  - `test_fixed_sqlite_switches_to_wal_and_doctor_is_quiet`
   - `test_fresh_creation_discards_an_orphaned_wal_from_a_deleted_database`
   - `test_fresh_database_is_created_in_wal_mode_without_companion_files`
   - `test_idle_connection_elsewhere_does_not_block_the_switch`

@@ -1094,8 +1094,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_source_sets.py](../../../../../../tests/test_source_sets.py) — direct import
   - `test_one_source_two_sets_different_roles`
   - `test_source_coverage_readiness_report`
-- [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
-  - `test_read_only_reports_work_in_a_read_only_vault`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_live_rebuild_truncates_the_wal_it_grew`
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`

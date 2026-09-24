@@ -7,8 +7,8 @@ version: "1.0.0"
 source_path: "src/learnloop/db/connection.py"
 source_paths:
   - "src/learnloop/db/connection.py"
-source_commit: "8a3586fadb840cea61417b11816fd9c346e2d0fd"
-source_commit_timestamp: "2026-09-23T18:49:46-04:00"
+source_commit: "e851e5c3b2e5a710a4a851a7b245c7e2f851e5cd"
+source_commit_timestamp: "2026-09-23T20:44:21-04:00"
 source_worktree_state: "clean"
 generated: true
 generated_at: "2026-09-23"
@@ -40,7 +40,7 @@ Up: [[Reference/Modules/learnloop/db/_package|learnloop.db]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `connect`.
+This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `linked_sqlite_version`, `wal_reset_bug_fixed`, `wal_unavailable_reason`, `connect`.
 
 The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -51,32 +51,36 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py) |
-| Source lines | 115 |
+| Source lines | 146 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 | Worktree state | `clean` |
-| Source commit | `8a3586fadb840cea61417b11816fd9c346e2d0fd` |
-| Commit timestamp | `2026-09-23T18:49:46-04:00` |
+| Source commit | `e851e5c3b2e5a710a4a851a7b245c7e2f851e5cd` |
+| Commit timestamp | `2026-09-23T20:44:21-04:00` |
 
 ## Public API
 
-- `class UnsupportedSQLiteVersion(RuntimeError)` ([source](../../../../../../src/learnloop/db/connection.py), line 20) — The SQLite library linked into Python is too old for WAL vaults.
-- `require_supported_sqlite() -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 25) — Fail once, clearly, when the runtime SQLite cannot open WAL vaults.
-- `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 36) — Open a configured SQLite connection.
+- `class UnsupportedSQLiteVersion(RuntimeError)` ([source](../../../../../../src/learnloop/db/connection.py), line 33) — The SQLite library linked into Python is too old for WAL vaults.
+- `require_supported_sqlite() -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 38) — Fail once, clearly, when the runtime SQLite cannot open WAL vaults.
+- `linked_sqlite_version() -> tuple[int, int, int]` ([source](../../../../../../src/learnloop/db/connection.py), line 49)
+- `wal_reset_bug_fixed(version: tuple[int, int, int] | None=None) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 53) — Whether ``version`` (default: the linked SQLite) has the WAL-reset fix.
+- `wal_unavailable_reason(version: tuple[int, int, int] | None=None) -> str | None` ([source](../../../../../../src/learnloop/db/connection.py), line 66) — Why WAL must not be enabled with ``version``, or ``None`` when it may be.
+- `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 82) — Open a configured SQLite connection.
 
 ### Module constants
 
-- `MINIMUM_SQLITE_VERSION` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 12)
-- `BUSY_TIMEOUT_MS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 13)
-- `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 17)
+- `MINIMUM_SQLITE_VERSION` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 11)
+- `BUSY_TIMEOUT_MS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 12)
+- `WAL_RESET_FIX_RELEASES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 20)
+- `WAL_RESET_FIXED_VERSIONS_TEXT` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 25)
+- `WAL_RESET_ADVISORY_URL` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 26)
+- `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 30)
 
 ## Internal implementation anchors
 
-- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 65)
-- `_open_read_only(sqlite_path: Path) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 71) — Open ``mode=ro``, falling back to ``immutable=1`` only when that is exact.
-- `_directory_is_read_only(sqlite_path: Path) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 106)
-- `_has_uncheckpointed_wal(sqlite_path: Path) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 110)
+- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 111)
+- `_open_read_only(sqlite_path: Path) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 117) — Open with ``mode=ro`` and surface a WAL open failure here.
 
 ## Who imports or calls it
 
@@ -85,10 +89,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] — imports `connect`; statically calls `connect`
-- [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `connect`, `wal_unavailable_reason`; statically calls `connect`, `wal_unavailable_reason`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `WAL_RESET_ADVISORY_URL`, `WAL_RESET_FIXED_VERSIONS_TEXT`, `linked_sqlite_version`, `wal_unavailable_reason`; statically calls `linked_sqlite_version`, `wal_unavailable_reason`
 - [[Reference/Modules/learnloop/substrate/data_quality|learnloop.substrate.data_quality]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/substrate/model_usage|learnloop.substrate.model_usage]] — imports `connect`; statically calls `connect`
@@ -105,7 +110,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `functools`, `os`, `pathlib`, `sqlite3`
+- Standard library: `__future__`, `functools`, `pathlib`, `sqlite3`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -115,13 +120,14 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]], [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]], [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]], [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]], [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/conftest.py](../../../../../../tests/conftest.py) — direct import
+- [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
@@ -229,11 +235,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_connect_sets_production_pragmas_and_never_changes_the_journal_mode`
   - `test_fresh_creation_discards_an_orphaned_wal_from_a_deleted_database`
   - `test_read_only_open_in_a_read_only_directory_reads_commits_still_in_the_wal`
-  - `test_read_only_open_of_a_wal_database_in_a_read_only_directory_without_companions`
-  - `test_read_only_open_refuses_a_wal_it_cannot_index`
+  - `test_read_only_open_without_a_shm_in_a_read_only_directory_fails_with_what_to_do`
+  - `test_read_only_reports_work_in_a_read_only_vault_whose_wal_files_exist`
   - `test_runtime_sqlite_below_the_minimum_fails_with_a_clear_message`
   - `test_switch_fails_clearly_and_leaves_the_mode_unchanged_while_a_reader_is_open`
+  - `test_wal_reset_fix_matches_the_advisory`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
+  - `test_backup_gives_up_on_a_source_locked_after_its_probe_and_removes_the_copy`
   - `test_doctor_reports_wal_size_and_warns_when_it_is_large`
   - `test_finished_ingest_batch_truncates_the_wal`
   - `test_live_rebuild_truncates_the_wal_it_grew`

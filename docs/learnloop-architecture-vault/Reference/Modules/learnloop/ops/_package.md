@@ -15,7 +15,7 @@ source_paths:
   - "src/learnloop/ops/vault_lock.py"
   - "src/learnloop/ops/vault_upgrade.py"
 source_commit: "aggregate; see module notes"
-source_commit_timestamp: "2026-09-23T18:50:00-04:00"
+source_commit_timestamp: "2026-09-23T20:44:21-04:00"
 generated: true
 generated_at: "2026-09-23"
 package: "learnloop.ops"
@@ -68,7 +68,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 11 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 8 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 9 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 6 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 5 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 4 static module edges
@@ -114,7 +114,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_attempts["learnloop.attempts"]
     center -->|11| n_learnloop_vault
-    center -->|8| n_learnloop_db
+    center -->|9| n_learnloop_db
     n_learnloop_learner -->|1| center
     center -->|6| n_learnloop_learner
     n_learnloop -->|1| center

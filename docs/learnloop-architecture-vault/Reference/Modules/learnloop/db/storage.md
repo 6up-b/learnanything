@@ -136,14 +136,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_production_lane_and_live_backup_preserve_committed_state`
 - [tests/test_sqlite_wal.py](../../../../../../tests/test_sqlite_wal.py) — direct import
   - `test_a_long_read_transaction_delays_checkpoints_only_until_it_ends`
+  - `test_affected_sqlite_leaves_databases_in_rollback_mode_and_doctor_says_why`
   - `test_checkpoint_is_a_no_op_for_a_rollback_database`
   - `test_connect_sets_production_pragmas_and_never_changes_the_journal_mode`
+  - `test_fixed_sqlite_switches_to_wal_and_doctor_is_quiet`
   - `test_fresh_database_is_created_in_wal_mode_without_companion_files`
   - `test_idle_connection_elsewhere_does_not_block_the_switch`
   - `test_migration_switches_an_existing_rollback_database_to_wal`
   - `test_read_only_open_in_a_read_only_directory_reads_commits_still_in_the_wal`
-  - `test_read_only_reports_work_in_a_read_only_vault`
+  - `test_read_only_reports_work_in_a_read_only_vault_whose_wal_files_exist`
   - `test_switch_fails_clearly_and_leaves_the_mode_unchanged_while_a_reader_is_open`
+  - `test_switch_in_a_read_only_directory_names_the_directory_and_changes_nothing`
+  - `test_switch_on_a_read_only_file_names_the_file_and_changes_nothing`
 - [tests/test_sqlite_wal_lifecycle.py](../../../../../../tests/test_sqlite_wal_lifecycle.py) — direct import
   - `test_doctor_warns_when_the_vault_is_on_a_network_mount`
   - `test_finished_ingest_batch_truncates_the_wal`
