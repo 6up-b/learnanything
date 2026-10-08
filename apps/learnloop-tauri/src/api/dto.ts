@@ -5480,6 +5480,8 @@ export interface ReaderAskInput {
   extractionId: string;
   spanId: string;
   question: string;
+  /** Completed reader-answer event ID; omitted/null starts a new root. */
+  parentExchangeId?: string | null;
   answerMode?: ReaderAnswerMode;
   targetKey?: string | null;
   revealedSurfaceIds?: string[];
@@ -5492,6 +5494,7 @@ export interface ReaderAskInput {
 export interface ReaderAnswerDto {
   eventId: string;
   readerAnswerEventId: string;
+  parentExchangeId: string | null;
   answerMd: string;
   answerMode: ReaderAnswerMode;
   citations: TutorCitationDto[];
@@ -5505,12 +5508,16 @@ export interface ReaderAnswerDto {
 /** A completed Reader Ask restored from the durable interaction-event log. */
 export interface ReaderAskHistoryExchangeDto {
   eventId: string;
+  /** Older saved exchanges have no parent and remain readable as roots. */
+  parentExchangeId?: string | null;
+  selectionSpanIds?: string[];
+  selectionQuoteMd?: string | null;
   extractionId: string;
   spanId: string;
   questionMd: string;
   answerMd: string;
   answerMode: ReaderAnswerMode;
-  citations: unknown[];
+  citations: TutorCitationDto[];
   createdAt: string | null;
 }
 export interface ReaderAskHistoryDto {
