@@ -111,7 +111,7 @@ READER_EVENT_KINDS = (
 # The valid reading phases for an owner-placed question (migration 076 doc).
 READING_PHASES = ("before_section", "during_section", "after_section")
 
-READER_PROMPT_CONTRACT_VERSION = "p2-reader-v1"
+READER_PROMPT_CONTRACT_VERSION = "p3-reader-branches-v1"
 
 # Coarse reading-answer outcome class -> triage-reason weight seed (design A.1).
 # Lowercase so the parameter-registry AST scan (UPPERCASE only) does not require
@@ -167,7 +167,7 @@ def reader_prompt_contract() -> dict[str, Any]:
             "the exact source span(s) in view (block-level span_view text + citation ids)",
             "the learner question text",
             "the goal-contract task invariants + required capabilities (read-only head)",
-            "prior reader exchanges on the same span only",
+            "the selected branch's reader ancestors only (most recent 12)",
             "the chosen answer mode for this ask",
         ],
         "manifest_never_includes": [
@@ -194,6 +194,7 @@ def build_reader_manifest(
     goal_invariants: Mapping[str, Any] | None = None,
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    prior_exchanges: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """The exact bounded context handed to the reader tutor (design A.2).
 
@@ -210,7 +211,7 @@ def build_reader_manifest(
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
     )
-    prior = repository.question_events(
+    prior = prior_exchanges if prior_exchanges is not None else repository.question_events(
         context="reader", note_id=span_key, answer_status="answered"
     )
     return {
@@ -240,6 +241,35 @@ def build_reader_manifest(
 # ---------------------------------------------------------------------------
 # Learner -> AI (Ask).
 # ---------------------------------------------------------------------------
+
+def _branch_ancestors(
+    repository: Repository, *, extraction_id: str, span_id: str,
+    parent_exchange_id: str | None,
+) -> list[dict[str, Any]]:
+    """Resolve completed event IDs in this vault; never trust caller history.
+
+    An immutable exchange can only point to an already completed parent. Legacy
+    exchanges without a parent remain roots. Fail closed for damaged links,
+    cycles, other extractions, and changed anchors before logging or generation.
+    """
+    if parent_exchange_id is None:
+        return []
+    exchanges = {e["event_id"]: e for e in ask_history(repository, extraction_id=extraction_id)}
+    ancestors: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    current: str | None = parent_exchange_id
+    while current is not None:
+        if current in seen:
+            raise ReaderDialogueError("Reader branch contains a cycle.")
+        seen.add(current)
+        exchange = exchanges.get(current)
+        if exchange is None or exchange["span_id"] != span_id:
+            raise ReaderDialogueError("Reader parent must be a completed exchange on the same source span.")
+        ancestors.append(exchange)
+        current = exchange["parent_exchange_id"]
+    ancestors.reverse()
+    return ancestors
+
 
 def set_answer_mode(
     repository: Repository,
@@ -402,11 +432,17 @@ def ask(
     revealed_surface_ids: Sequence[str] = (),
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    parent_exchange_id: str | None = None,
     cold_active: bool = False,
     cold_attempt_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``parent_exchange_id`` identifies a completed reader-answer event in this
+    vault and on this extraction/span. Follow-ups inherit its saved selection;
+    only the latest 12 ancestors enter the tutor context. No parent starts a
+    fresh root. All links remain durable even when prompt history is bounded.
 
     ``selection_span_ids``/``selection_quote_md`` carry the learner's full
     multi-block capture selection: ``span_id`` stays the primary grounding
@@ -431,6 +467,19 @@ def ask(
     if answer_mode not in READER_ANSWER_MODES:
         raise ReaderDialogueError(f"unknown reader answer mode: {answer_mode!r}")
 
+    ancestors = _branch_ancestors(
+        repository, extraction_id=extraction_id, span_id=span_id,
+        parent_exchange_id=parent_exchange_id,
+    )
+    if ancestors:
+        # The saved passage wins over an unrelated current UI selection.
+        parent = ancestors[-1]
+        selection_span_ids = parent["selection_span_ids"]
+        selection_quote_md = parent["selection_quote_md"]
+    thread = [
+        {"question_md": e["question_md"], "answer_md": e["answer_md"], "question_type": "other"}
+        for e in ancestors[-12:]
+    ]
     span_key = tutor_qa.reader_span_key(extraction_id, span_id)
     manifest = build_reader_manifest(
         repository,
@@ -441,7 +490,13 @@ def ask(
         goal_invariants=goal_invariants,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        prior_exchanges=thread,
     )
+    if ancestors and not manifest["source_spans"]:
+        raise ReaderDialogueError("The branch's source passage is no longer available. Reopen the source and start a new thread.")
+    manifest["parent_exchange_id"] = parent_exchange_id
+    manifest["ancestor_exchange_ids"] = [e["event_id"] for e in ancestors[-12:]]
+    manifest["omitted_ancestor_count"] = max(0, len(ancestors) - len(thread))
 
     # Signal ordering: mode + asked land before the (possibly failing) provider call.
     set_answer_mode(repository, extraction_id=extraction_id, span_id=span_id,
@@ -457,6 +512,7 @@ def ask(
             "extraction_id": extraction_id,
             "span_id": span_id,
             "selection_span_ids": list(dict.fromkeys(selection_span_ids)),
+            "parent_exchange_id": parent_exchange_id,
         },
         clock=clock,
     )
@@ -472,6 +528,7 @@ def ask(
         answer_mode=answer_mode,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        reader_thread=thread,
         clock=clock,
     )
 
@@ -528,6 +585,7 @@ def ask(
         subject_id=span_key,
         payload={
             "question_event_id": result["event_id"],
+            "parent_exchange_id": parent_exchange_id,
             "extraction_id": extraction_id,
             "span_id": span_id,
             "answer_mode": answer_mode,
@@ -565,6 +623,7 @@ def ask(
     return {
         "event_id": result["event_id"],
         "reader_answer_event_id": submitted_event_id,
+        "parent_exchange_id": parent_exchange_id,
         "answer_md": result["answer_md"],
         "answer_mode": answer_mode,
         "citations": result["citations"],
@@ -584,6 +643,7 @@ def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str,
     events.  This projection makes that existing history available to the Reader
     UI without creating a second persistence path.  Failed/pending provider calls
     are intentionally absent because they have no answer to reopen.
+    Pre-branching events project a null parent and an optional saved selection.
     """
 
     prefix = f"span:{extraction_id}/"
@@ -599,8 +659,11 @@ def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str,
         exchanges.append(
             {
                 "event_id": str(event["id"]),
+                "parent_exchange_id": payload.get("parent_exchange_id"),
                 "extraction_id": extraction_id,
                 "span_id": str(payload.get("span_id") or subject_id[len(prefix):]),
+                "selection_span_ids": list((manifest.get("selection") or {}).get("span_ids") or []),
+                "selection_quote_md": (manifest.get("selection") or {}).get("quote_md"),
                 "question_md": str(manifest.get("question_md") or ""),
                 "answer_md": str(payload.get("answer_md") or ""),
                 "answer_mode": str(payload.get("answer_mode") or READER_ANSWER_MODE_DEFAULT),

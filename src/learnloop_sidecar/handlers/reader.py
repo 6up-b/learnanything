@@ -81,6 +81,7 @@ class ReaderAskInput(ParamsModel):
     extraction_id: str
     span_id: str
     question: str
+    parent_exchange_id: str | None = None
     answer_mode: str = RD.READER_ANSWER_MODE_DEFAULT
     target_key: str | None = None
     revealed_surface_ids: list[str] = []
@@ -113,6 +114,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             extraction_id=params.extraction_id,
             span_id=params.span_id,
             question_md=params.question,
+            parent_exchange_id=params.parent_exchange_id,
             answer_mode=params.answer_mode,
             target_key=params.target_key,
             revealed_surface_ids=params.revealed_surface_ids,
@@ -139,6 +141,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
         {
             "event_id": result["event_id"],
             "reader_answer_event_id": result["reader_answer_event_id"],
+            "parent_exchange_id": result["parent_exchange_id"],
             "answer_md": result["answer_md"],
             "answer_mode": result["answer_mode"],
             "citations": result["citations"],

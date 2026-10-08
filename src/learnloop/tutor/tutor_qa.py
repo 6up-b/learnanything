@@ -297,6 +297,7 @@ def ask_question(
     answer_mode: str | None = None,
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    reader_thread: Sequence[Mapping[str, Any]] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -364,7 +365,9 @@ def ask_question(
         raise QuestionLimitReached(context=context, limit=limit, used=used)
 
     candidates = _candidate_facets(vault, repository, context, item=item, note=note)
-    thread = _thread(
+    # Reader dialogue resolves durable branch ancestors server-side. An explicit
+    # empty sequence starts a new root; None preserves legacy direct callers.
+    thread = [dict(turn) for turn in reader_thread] if context == "reader" and reader_thread is not None else _thread(
         repository,
         context=context,
         practice_item_id=practice_item_id,
