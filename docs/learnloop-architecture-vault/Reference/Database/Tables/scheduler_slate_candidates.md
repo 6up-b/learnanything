@@ -3,13 +3,13 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
-source_commit_timestamp: "2026-10-12T16:53:07-04:00"
+source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
+source_commit_timestamp: "2026-10-12T17:19:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
   - "table scheduler_slate_candidates"
-schema_head: 175
+schema_head: 176
 table_name: "scheduler_slate_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/010_scheduler_training_logs.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/db/stores/router.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/field/probability_states.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/substrate/data_quality.py"
-  - "src/learnloop_sidecar/handlers/practice.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
@@ -120,6 +120,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/db/stores/router.py`
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/field/probability_states.py`
 
@@ -154,6 +155,7 @@ Indexes and uniqueness:
 - `tests/test_migrations.py`
 - `tests/test_probability_prep.py`
 - `tests/test_probe_episodes.py`
+- `tests/test_router_offer_log.py`
 - `tests/test_scheduler.py`
 - `tests/test_sidecar_teach_back.py`
 - `tests/test_agent_runs.py`

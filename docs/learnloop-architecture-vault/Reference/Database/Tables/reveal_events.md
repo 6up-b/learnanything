@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
-source_commit_timestamp: "2026-10-12T16:53:07-04:00"
+source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
+source_commit_timestamp: "2026-10-12T17:19:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 175
+schema_head: 176
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/154_reveal_ledger.sql`.
-- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`.
+- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`, `176_router_decisions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -99,6 +99,7 @@ Database triggers:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/split/card.py`
+- `src/learnloop/router/outcomes.py`
 
 ### Direct SQL writers
 
@@ -121,6 +122,7 @@ Database triggers:
 - `tests/test_contamination_report.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_reveal_ledger.py`
+- `tests/test_router_outcomes.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_practice_index_admission.py`

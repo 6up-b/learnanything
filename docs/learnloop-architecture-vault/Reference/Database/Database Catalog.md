@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
-source_commit_timestamp: "2026-10-12T16:53:07-04:00"
+source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
+source_commit_timestamp: "2026-10-12T17:19:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 175
-table_count: 291
+schema_head: 176
+table_count: 293
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_175/state.sqlite"
+  - "fixtures/migration_head_176/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-175"
+  - "learnloop/database/schema-head-176"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 291 user tables at migration head 175. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 293 user tables at migration head 176. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,8 +38,8 @@ This is the exhaustive map of the 291 user tables at migration head 175. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 135 |
-| [[Table Roles#Derived|`derived`]] | 13 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 136 |
+| [[Table Roles#Derived|`derived`]] | 14 |
 | [[Table Roles#Receipt|`receipt`]] | 61 |
 | [[Table Roles#Workflow|`workflow`]] | 72 |
 | [[Table Roles#Compat|`compat`]] | 10 |
@@ -48,7 +48,7 @@ This is the exhaustive map of the 291 user tables at migration head 175. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 278 |
+| `active` | 280 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -56,7 +56,7 @@ This is the exhaustive map of the 291 user tables at migration head 175. Use [[T
 
 ## DERIVED tables
 
-The exact clearable set is: [[Reference/Database/Tables/ability_transition_events|ability_transition_events]], [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/capability_residual_state|capability_residual_state]], [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]], [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], [[Reference/Database/Tables/family_memory_state|family_memory_state]], [[Reference/Database/Tables/item_fingerprints|item_fingerprints]], [[Reference/Database/Tables/item_parameter_state|item_parameter_state]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]], [[Reference/Database/Tables/practice_item_quality_state|practice_item_quality_state]], [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]]. Ownership and dependency order live in [[Rebuild Ownership]]. ^derived-table-index
+The exact clearable set is: [[Reference/Database/Tables/ability_transition_events|ability_transition_events]], [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/capability_residual_state|capability_residual_state]], [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]], [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], [[Reference/Database/Tables/family_memory_state|family_memory_state]], [[Reference/Database/Tables/item_fingerprints|item_fingerprints]], [[Reference/Database/Tables/item_parameter_state|item_parameter_state]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]], [[Reference/Database/Tables/practice_item_quality_state|practice_item_quality_state]], [[Reference/Database/Tables/router_outcomes|router_outcomes]], [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]]. Ownership and dependency order live in [[Rebuild Ownership]]. ^derived-table-index
 
 ## How to use this catalog
 
@@ -231,6 +231,8 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/policy_experiment_assignments|policy_experiment_assignments]] — `receipt` · `active` · Records governed assignments for policy experiment so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `experiment_id`, `decision_id`, `unit_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_item_snapshots|practice_item_snapshots]] — `receipt` · `active` · Keeps one content-addressed copy of every practice-item revision the scheduler scored, keyed by the SHA-256 of its canonical JSON, so selection decision features can be joined to the exact item text after the vault item changes. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `practice_item_id`, `content_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/queue_state|queue_state]] — `workflow` · `active` · Stores the mutable practice queue head and its workflow position. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `singleton`, `revision`, making the operational relationship explicit.
+- [[Reference/Database/Tables/router_decisions|router_decisions]] — `raw_ledger` · `active` · Gives router decision a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `session_id`, `parent_decision_id`, `scheduler_slate_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/router_outcomes|router_outcomes]] — `derived` · `active` · Records the measured outcome and lineage for router so queue and controller decisions can resume safely and explain why an activity was selected. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `decision_id`, `target_practice_item_id`, `target_learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_explanations|scheduler_explanations]] — `receipt` · `active` · Gives scheduler explanation a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_offer_receipts|scheduler_offer_receipts]] — `receipt` · `active` · Freezes the ordered candidates returned after adapter filtering so later queue refreshes cannot rewrite an earlier offer. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `slate_id`, `collection_version`, `entry_surface`, making the operational relationship explicit.
 - [[Reference/Database/Tables/scheduler_slate_candidates|scheduler_slate_candidates]] — `workflow` · `active` · Holds candidates for scheduler slate while policy selects or reviews one so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `slate_id`, `practice_item_id`, `learning_object_id`, making the operational relationship explicit.

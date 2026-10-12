@@ -34,8 +34,9 @@ Algorithm versions identify persisted meaning, not package releases.
 | `mvp-0.9` | successor retaining mvp-0.8 projection semantics and adding cross-channel reveal accounting |
 | `mvp-0.10` | successor retaining that projection and splitting grading: a learner-blind grader plus an asynchronous history-aware diagnoser (Slice 1 M2; kill switch `diagnosis.split_enabled`) |
 | `mvp-0.11` | successor to `mvp-0.10` keeping its split and changing serving only: no opening probe per new LO, new material as learning, "assumed known (not tested)" checked in the first review (learner field F2; kill switch `placement.enabled`) |
+| `mvp-0.12` | successor to `mvp-0.11` keeping its split and placement and changing serving only: PROBE-intent near-ties (in-episode diagnostic probes, teach-backs) join the Today queue's seeded epsilon tie-break, so their decisions log a true propensity (router R1; kill switch `router.probe_tie_admission`) |
 
-The chain is linear: each successor means its predecessor's semantics plus its own change, so a gate asks "is this version at or after X" through an explicit set (`DIAGNOSIS_SPLIT_VERSIONS` = `mvp-0.10`, `mvp-0.11`; `PLACEMENT_VERSIONS` = `mvp-0.11`), never by equality. New vaults start at `mvp-0.9`; `learnloop upgrade` targets `mvp-0.11` by default (from `mvp-0.10`, or from `mvp-0.9` through `mvp-0.10`).
+The chain is linear: each successor means its predecessor's semantics plus its own change, so a gate asks "is this version at or after X" through an explicit set (`DIAGNOSIS_SPLIT_VERSIONS` = `mvp-0.10`, `mvp-0.11`, `mvp-0.12`; `PLACEMENT_VERSIONS` = `mvp-0.11`, `mvp-0.12`; `PROBE_TIE_VERSIONS` = `mvp-0.12`), never by equality. New vaults start at `mvp-0.9`; `learnloop upgrade` targets `mvp-0.12` by default (from `mvp-0.11`, or from `mvp-0.9` / `mvp-0.10` through it).
 
 Successor sets are explicit so a new version does not accidentally fall back to a legacy projection through an equality check.
 

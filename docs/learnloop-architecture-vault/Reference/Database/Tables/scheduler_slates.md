@@ -3,13 +3,13 @@ title: "scheduler_slates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
-source_commit_timestamp: "2026-10-12T16:53:07-04:00"
+source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
+source_commit_timestamp: "2026-10-12T17:19:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slates"
   - "table scheduler_slates"
-schema_head: 175
+schema_head: 176
 table_name: "scheduler_slates"
 table_role: "workflow"
 functionality_status: "active"
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_intent_planner.py`
 - `tests/test_km5_sim_gates.py`
 - `tests/test_probe_episodes.py`
+- `tests/test_router_offer_log.py`
 - `tests/test_scheduler.py`
 - `tests/test_show.py`
 - `tests/test_source_ingestion.py`

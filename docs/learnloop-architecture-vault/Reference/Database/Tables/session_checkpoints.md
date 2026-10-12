@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
-source_commit_timestamp: "2026-10-12T16:53:07-04:00"
+source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
+source_commit_timestamp: "2026-10-12T17:19:24-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 175
+schema_head: 176
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -104,6 +104,7 @@ Indexes and uniqueness:
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
+- `src/learnloop_sidecar/handlers/queue.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 - `src/learnloop_sidecar/handlers/teach_back.py`
 
