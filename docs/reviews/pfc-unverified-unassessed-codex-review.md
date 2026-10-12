@@ -310,3 +310,137 @@ no import cycle results. Both lanes were then rerun:
 5. **History score.** History shows the blind record's own `rubric_score`,
    which is the grader's sum, not the applied grade. It is display only and no
    longer drives failures. Show the applied grade instead?
+
+## Re-review
+
+Codex re-reviewed the branch at `7a30f8e6`. Codex job:
+`~/.cache/codex-agent/jobs/20261012-143407-BB44Hl`. It confirmed F1–F5 fixed,
+reopened F6, and raised one new finding, F7. It ran no integration tests
+(read-only sandbox), so its checks were database-free. F6 and F7 describe the
+same defect. I reproduced it here first, as failing tests on `7a30f8e6`, then
+fixed both in one commit.
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Unverified facets still get learner-field outcomes without an explicit map | confirmed fixed | `068fd00e` | no change |
+| F2 | High | An entirely unassessed attempt can confirm a repair | confirmed fixed | `f9c42bf9` | no change |
+| F3 | High | Pinned probes turn unverified points into authoritative observations | confirmed fixed | `d9710cb4` | no change |
+| F4 | High | Diagnosis history accepts unassessed criteria as recurring failures | confirmed fixed | `2606e810` | no change |
+| F5 | Medium | Reusing `mvp-0.10` mixes historical scores with changed evidence semantics | confirmed fixed | `04ada248` | no change |
+| F6 | Medium | (reopened) The exemption also admits grades with a separate unresolved concern | fixed | `eea629fc` | the F7 tests |
+| F7 | Medium | PF-c retention exemption masks genuinely unresolved grades | fixed | `eea629fc` | `test_a_separate_review_concern_survives_the_pfc_flag[low_grader_confidence / grader_recommended]`, `test_nothing_assessed_is_read_from_the_evidence_not_the_review_reason`, `test_retention_exclusions_keep_the_pfc_state_and_the_review_independent`; control `test_the_pfc_flag_is_the_reason_only_when_it_is_the_sole_concern` |
+
+### Reproduction on the pre-fix code
+
+I ran `tests/test_pfc_unassessed_readers.py` against `7a30f8e6`'s `src`, using
+a `git archive` copy on `PYTHONPATH` with `-o pythonpath=`. Result: 4 failed,
+13 passed. The control and the 12 earlier tests passed.
+
+| test | failure on `7a30f8e6` |
+|---|---|
+| `…survives_the_pfc_flag[low_grader_confidence]` | The outcome was graded at confidence 0.2 with `setup` assessed and `result` unverified. The scheduling evaluation excluded `{}`: the label was eligible. The attempt's reason was `valid_alternative_unverified`. |
+| `…survives_the_pfc_flag[grader_recommended]` | Same failure, for a grade where the grader itself set `manual_review_recommended`. |
+| `…read_from_the_evidence_not_the_review_reason` | The outcome had nothing assessed and its review cleared. Excluded `{'intervening_practice': 1}`, expected `{'intervening_practice': 1, 'outcome_unassessed': 2}`. |
+| `…keep_the_pfc_state_and_the_review_independent` | Nothing assessed plus another reason gave `['outcome_unassessed']`, expected `['outcome_unassessed', 'unresolved_grade']`. |
+
+Codex's chain needs one correction; the consequence is the same. Validation
+never reaches `low_grader_confidence`. The gate sets
+`manual_review_recommended` on the proposal, so validation's first-match chain
+stops at `codex_manual_review`. The attempt step then replaced that with the
+PF-c reason. Two other concerns were masked the same way: the grader's own
+review recommendation and a pending clarification
+(`provisional_pending_clarification`). The masking itself dates from Slice 1
+M2. F6's exemption is what let it reach retention.
+
+### What changed (`eea629fc`)
+
+- **The reason.** `grading_support.gated_review_reason` returns `None` when
+  the gate did not apply. When it did, it validates the grader's proposal as
+  the grader returned it, before the gate. That proposal is the modal one and
+  is now kept on `BlindGradingRun.ungated_proposal`. If that validation gives
+  any reason, the attempt keeps it. The PF-c reason is recorded only when the
+  gate is the grade's sole review concern. The live door
+  (`_complete_blind_graded_attempt`) and the regrade both use it. A PF-c
+  attempt that carries another reason stays `manual_review` with that reason,
+  so retention reads it as `unresolved_grade`. The PF-c state is still on the
+  evidence rows and the blind record.
+- **The contract.** `retention_exclusions` now checks the two conditions
+  independently. Nothing assessed gives `outcome_unassessed`. A review gives
+  `unresolved_grade` unless its reason is PF-c on a marked attempt. Both can
+  apply to the same outcome.
+- **The callers.** The scheduling evaluation, the dataset export and the
+  data-quality report now read `pfc_assessments` for every outcome. Before,
+  they read it only for attempts carrying the PF-c reason. A nothing-assessed
+  outcome therefore stays excluded when its reason is another concern, and
+  when the reason has been cleared. `expire_clarifications` is the one writer
+  that clears it, and a PF-c grade can now reach it.
+- **Docs.** Spec §5.5 (`spec_embedding_consumers_v1.md`) and the stage
+  review's open question 4 now say the flag is the reason only as the sole
+  concern.
+
+Other effects:
+
+- **Feedback screen.** A PF-c grade with a separate concern shows that concern
+  ("manual review recommended: low_grader_confidence") instead of the
+  different-route note. Its criterion rows still read "not assessed (a
+  different route)". No frontend change was needed.
+- **Clarifications.** A PF-c grade with a licensed clarification now reads as
+  provisional, as every other grade with one does. The clarification row was
+  already recorded either way.
+- **Blind record.** It keeps the gated grade's own reason, as M2 wrote it.
+  Nothing reads that field.
+- **Cost.** A gated blind grade costs one extra deterministic validation. It
+  makes no model call.
+
+### Joint-vault retention readers are unchanged
+
+I made backup-API copies of the worktree's committed fixtures under
+`fixtures-local/pfc-f7-proof/`. I ran the three retention readers on each copy
+with `7a30f8e6` and with this branch. The readers were the evaluation's
+retention section, the dataset's `R_next` exclusions per source, and the
+data-quality report. All outputs matched. The one masked field was the
+report's `generated_at`, which also varies between two runs of the same code.
+
+| copy | eligible labels | exclusions | `R_next` rows | pre-fix vs fixed |
+|---|---|---|---|---|
+| `migration_head_170` | 1 | hinted 1, insufficient_delay 1, same_session 1 | 6 | identical |
+| `linear_algebra` | 1 | hinted 1, insufficient_delay 15, intervening_practice 10, same_session 2 | 70 | identical |
+| `probability` | 0 | insufficient_delay 1, primed 1, same_session 1 | 2 | identical |
+| `arxiv_v2` | 0 | none | 3 | identical |
+
+No rebuild was needed. The change touches only the grading write path and
+read-only readers, and replay does not regrade.
+
+### Paid calls
+
+None. Every test uses fakes, and no external interface needed checking.
+
+### Gate (re-review)
+
+Run on `eea629fc`.
+
+- `uv sync --extra dev` and `uv pip install pypdfium2`: done. `learnloop_mobile`
+  is untouched, so no `--extra mobile`.
+- `uv run lint-imports --no-cache`: **10 kept, 0 broken**.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **7297 passed**,
+  0 failed, 14 warnings, 228 s. That is the earlier 7292 plus the 5 new tests.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **77 passed**, 7220 deselected, 66 s.
+- Frontend: unchanged (`git diff 7a30f8e6 HEAD -- apps/` is empty), so it was
+  not run.
+- Schema: unchanged (no migration), so the DB reference scripts were not
+  needed.
+- `git diff --check`: clean. Tracked fixtures: unchanged.
+
+### Open question (new)
+
+6. **The grader's own review recommendation next to PF-c.** It is now a
+   blocking review: the outcome stays out of retention, and the feedback
+   screen shows the review. A grader that sets `manual_review_recommended`
+   whenever it declares a criterion unverified would keep most PF-c outcomes
+   out of retention. Those outcomes were all out before F6, so this costs no
+   labels compared with the original stage. I kept the recommendation
+   blocking because it is the grader's explicit statement. The other choice
+   is to treat a recommendation that only accompanies declared unverified
+   criteria as part of the PF-c log. That would read the grader's intent,
+   which I can't verify.
