@@ -535,7 +535,7 @@ class ValidAlternativeSuite:
                                             learner_answer_md=case["trace"])
             call = ctx.caller.call(grader, prompt=blind_grading_prompt(context),
                                    prompt_version=BLIND_GRADING_PROMPT_VERSION, result_model=BlindGradingProposal,
-                                   output_tokens=4000, isolated=True)
+                                   output_tokens=4000)
             rubric = ctx.vault.rubric_for_item(item)
             maximum = getattr(rubric, "max_points", None) or 1
             score = min(1.0, call.result.rubric_score / maximum)

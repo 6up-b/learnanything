@@ -14,6 +14,15 @@ bound (``single_request``). Codex routes are billed to the owner's subscription:
 no physical-request bound, token and dollar caps recorded but not enforced, cost
 estimated from reported tokens and labelled ``estimated_only``. The call,
 candidate, pair and retry caps are shared across both billing classes.
+
+Isolation: every PF role runs as an isolated, tool-free turn
+(``ISOLATED_TURN``). A chat completion is isolated by construction; a Codex
+route starts its turn in an empty directory under LearnLoop's permission
+profile with the shell and every connector off, so a solver can never read a
+persisted candidate's answer and a closed-book model never sees the sources. A
+route that cannot isolate is refused before any request, and the isolation
+boundary is part of every checkpoint key: a result produced without it is never
+reused.
 """
 from __future__ import annotations
 
@@ -33,7 +42,7 @@ from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
     is_subscription_transport, subscription_usage_estimate,
 )
-from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, execute_structured_operation
+from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION, ISOLATED_TURN, execute_structured_operation
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.vault.models import LoadedVault
@@ -41,6 +50,8 @@ from learnloop.vault.models import LoadedVault
 METERED_TYPES = frozenset({"openai_chat", "openrouter"})
 SCHEMA_ALLOWANCE = 512
 CHECKPOINT_PREFIX = "pf:"
+# Part of every checkpoint key: results from before the boundary are never reused.
+ISOLATION_BOUNDARY = "isolated_tool_free_turn_v1"
 
 # Roles -> the configured AI task route that serves them.
 ROLE_TASKS: dict[str, str] = {
@@ -146,6 +157,8 @@ def resolve_role_clients(vault: LoadedVault, role: str, *, injected: Any | None 
         client = resolved.client
         if not subscription and not client.supports(BOUNDED_STRUCTURED_COMPLETION):
             raise PFUnavailable(f"PF role {role!r} route {provider!r} cannot bound physical requests")
+        if not client.supports(ISOLATED_TURN):
+            raise PFUnavailable(f"PF role {role!r} route {provider!r} cannot run an isolated, tool-free turn")
         model = getattr(client, "model", None) or profile.model
         result.append(RoleClient(
             role=role, provider=provider, model=model, profile_type=profile.type,
@@ -243,11 +256,13 @@ class PFCaller:
         return content_key({
             "prompt": prompt, "schema": result_model.model_json_schema(),
             "settings": entry.settings, "output_tokens": output_tokens,
+            "isolation": ISOLATION_BOUNDARY,
         })
 
     def call(self, entry: RoleClient, *, prompt: str, prompt_version: str,
              result_model: type[BaseModel], output_tokens: int,
-             candidates: int = 0, pairs: int = 0, isolated: bool = False) -> CallResult:
+             candidates: int = 0, pairs: int = 0) -> CallResult:
+        """One isolated, tool-free structured turn (never the vault, files or tools)."""
         role = entry.role
         input_hash = self.input_hash(entry, prompt, result_model, output_tokens)
         cache_key = CHECKPOINT_PREFIX + input_hash
@@ -263,6 +278,9 @@ class PFCaller:
                 return CallResult(result, model, input_hash, prompt_version, True, saved["usage"])
         if entry.client is None:
             raise PFUnavailable(f"PF role {role!r} has no client")
+        if not entry.client.supports(ISOLATED_TURN):
+            # Refused before admission: no request, no retry, no charge.
+            raise PFUnavailable(f"PF role {role!r} route {entry.provider!r} cannot run an isolated, tool-free turn")
         budget = self.subscription if entry.subscription else self.metered
         tokens = estimate_tokens(prompt, result_model, output_tokens)
         usage: dict[str, Any] = {}
@@ -308,7 +326,7 @@ class PFCaller:
                         with bound, generation_limit(output_tokens):
                             result = execute_structured_operation(
                                 entry.client, purpose=f"pf_{role}", prompt=prompt,
-                                result_model=result_model, isolated=isolated,
+                                result_model=result_model, isolated=True,
                             )
                     finally:
                         spent = (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
@@ -422,7 +440,7 @@ class PFCaller:
 
 
 __all__ = [
-    "CallResult", "LIST_ROLES", "METERED_TYPES", "PFCaller", "PFUnavailable", "ROLE_TASKS",
+    "CallResult", "ISOLATION_BOUNDARY", "LIST_ROLES", "METERED_TYPES", "PFCaller", "PFUnavailable", "ROLE_TASKS",
     "RoleClient", "TIERED_ROLES", "distinct_models", "estimate_tokens", "planned_role_clients",
     "resolve_role_clients", "role_providers",
 ]
