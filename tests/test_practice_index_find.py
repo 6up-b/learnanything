@@ -229,3 +229,22 @@ def test_usage_signals_are_ledgered_and_joined_to_attempts(indexed):
     summary = usage_summary(repository)
     assert summary["signals_by_path"] == {"direct": {"exact_key:practised": 1, "learner_card:too_easy": 1}}
     assert QUERY not in json.dumps(summary)
+
+
+def test_a_partial_rerank_is_retried_then_reported_unreranked(indexed):
+    _paths, vault, repository, _llm, embedder = indexed
+
+    class Partial(FakePracticeLLM):
+        def _practice_rerank(self, context):
+            result = super()._practice_rerank(context)
+            return result.model_copy(update={"judgments": result.judgments[1:]})
+
+    partial = Partial()
+    result = find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=partial)
+    assert result["rerank_status"] == "failed: AIInvalidOutput"
+    assert result["reranked"] is False
+    assert len(partial.calls) == 2  # the first answer and one retry
+    assert len(result["items"]) == vault.config.practice_index.proposals
+    with repository.connection() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM judgment_ledger WHERE task='practice_relevance'").fetchone()[0] == 0

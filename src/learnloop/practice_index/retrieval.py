@@ -177,6 +177,7 @@ class IndexSnapshot:
             "item_recipe": self.item_recipe,
             "item_recipe_version": EMBEDDING_RECIPES[self.item_recipe].version if self.item_recipe else None,
             "dossier_prompt_versions": sorted({row.prompt_version for row in self.dossiers.values()}),
+            "dossier_models": sorted({row.model_id for row in self.dossiers.values()}),
             "dossier_recipe_versions": {name: EMBEDDING_RECIPES[name].version for name in DOSSIER_RECIPES},
             "dossier_vectors": self.dossier_vectors_complete,
             "rrf_k": self.rrf_k,
@@ -401,10 +402,12 @@ def _candidate_context(vault: LoadedVault, pool: Sequence[str]) -> list[dict[str
 
 
 def _validate_rerank(result: PracticeRerank, refs: Mapping[str, str]) -> PracticeRerank:
-    judged = [j for j in result.judgments if j.ref in refs]
-    if not judged:
-        raise AIInvalidOutput("The rerank judged none of the candidates")
-    return result
+    # Every candidate must be judged: the verdicts are written once, append-only,
+    # under ids derived from this exact request, so a partial answer could never
+    # be completed later. A partial answer is retried, then reported unreranked.
+    if {judgment.ref for judgment in result.judgments} >= set(refs):
+        return result
+    raise AIInvalidOutput("The rerank did not judge every candidate")
 
 
 def rerank_pool(
@@ -435,7 +438,7 @@ def rerank_pool(
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         cached = judgments_by_ids(connection, ids.values())
     if cached and all(ids[item_id] in cached for item_id in pool):
-        return _from_ledger(pool, ids, cached, "cached")
+        return _from_ledger(pool, ids, cached, "cached", pick_at_most)
     if client is None:
         client, reason = resolve_client(vault, route)
         if client is None:
@@ -483,13 +486,14 @@ def rerank_pool(
                                      ensure_ascii=False, sort_keys=True),
             )
         cached = judgments_by_ids(connection, ids.values())
-    outcome = _from_ledger(pool, ids, cached, "reranked")
+    outcome = _from_ledger(pool, ids, cached, "reranked", pick_at_most)
     outcome.usage = calls.report()
     return outcome
 
 
 def _from_ledger(pool: Sequence[str], ids: Mapping[str, str],
-                 rows: Mapping[str, Mapping[str, Any]], status: str) -> RerankOutcome:
+                 rows: Mapping[str, Mapping[str, Any]], status: str,
+                 pick_at_most: int) -> RerankOutcome:
     judgments: dict[str, dict[str, Any]] = {}
     ranked: list[tuple[int, str]] = []
     model = None
@@ -503,7 +507,8 @@ def _from_ledger(pool: Sequence[str], ids: Mapping[str, str],
         model = row["judge_model"]
         if details.get("pick_rank"):
             ranked.append((int(details["pick_rank"]), item_id))
-    return RerankOutcome(status, [item_id for _, item_id in sorted(ranked)], judgments, model)
+    picks = [item_id for _, item_id in sorted(ranked)][:pick_at_most]
+    return RerankOutcome(status, picks, judgments, model)
 
 
 def admissible_corpus(vault: LoadedVault, repository: Repository,

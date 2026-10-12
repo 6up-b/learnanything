@@ -38,7 +38,7 @@ from typing import Any
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
@@ -424,12 +424,28 @@ def run_retrieval_evaluation(
         report.update(status=blocked[0], reason=blocked[1])
         return report
     try:
-        budget.check(writer.estimate(sum(writer_tokens), candidates=len(seeds), calls=len(batches)))
+        # Caps are checked against the whole plan before any request is sent.
+        budget.check(_combined(
+            writer.estimate(sum(writer_tokens), candidates=len(seeds), calls=len(batches)),
+            judge.estimate(sum(labels_plan["tokens"]), pairs=labels_plan["pairs"],
+                           calls=len(labels_plan["tokens"])),
+            SpendEstimate(candidates=embed_plan["pending"], calls=embed_plan["calls"],
+                          total_tokens=embed_plan.get("estimated_tokens", 0),
+                          estimated_usd=embed_plan["estimated_usd"]),
+        ))
     except AIInterrupted:
         report["status"] = "cancelled"
         return report
     except SpendLimitExceeded as exc:
-        report.update(status="over_budget", reason=str(exc))
+        unknown = [name for name, route in (("query writer", writer), ("relevance judge", judge))
+                   if not route.subscription and price_per_million is None]
+        if embed_plan["estimated_usd"] is None:
+            unknown.append("query embedding")
+        reason = str(exc)
+        if unknown and "Unknown price" in reason:
+            reason = (f"Unknown price for the metered {', '.join(unknown)} route(s): pass "
+                      "--price-per-million (LLM routes), or use a Codex route.")
+        report.update(status="over_budget", reason=reason)
         return report
     if dry_run:
         return report
@@ -515,6 +531,15 @@ def _run(vault, repository, snapshot, corpus, batches, logged, writer, writer_ro
         ),
         **usage_summary(repository),
     }
+
+
+def _combined(*estimates: SpendEstimate) -> SpendEstimate:
+    usd = [estimate.estimated_usd for estimate in estimates]
+    return SpendEstimate(
+        **{name: sum(getattr(estimate, name) for estimate in estimates)
+           for name in ("candidates", "pairs", "retries", "calls", "total_tokens")},
+        estimated_usd=None if any(value is None for value in usd) else sum(usd),
+    )
 
 
 class _Stop(Exception):
@@ -646,6 +671,7 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
             continue
         per_query.append({
             "seed_kind": row["seed_kind"],
+            "query_model": row["model_id"] or "logged",
             "direct": query_metrics(rankings[row["id"]]["direct"], gains, relevant),
             "dossier": query_metrics(rankings[row["id"]]["dossier"], gains, relevant),
             "pool": len(pool), "relevant": len(relevant),
@@ -661,23 +687,27 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
             "dossier_mean": _mean([q["dossier"][metric] for q in scored]),
             "difference": paired_bootstrap(differences[metric], samples=bootstrap_samples, seed=seed),
         }
-    by_seed: dict[str, dict[str, Any]] = defaultdict(dict)
-    for kind in sorted({q["seed_kind"] for q in per_query}):
-        rows = [q for q in per_query if q["seed_kind"] == kind]
-        for metric in ("ndcg@10", "recall@10"):
-            scored = [q for q in rows if q["direct"][metric] is not None]
-            by_seed[kind][metric] = {
-                "queries": len(scored),
-                "direct_mean": _mean([q["direct"][metric] for q in scored]),
-                "dossier_mean": _mean([q["dossier"][metric] for q in scored]),
-            }
+    def split(key: str) -> dict[str, dict[str, Any]]:
+        groups: dict[str, dict[str, Any]] = defaultdict(dict)
+        for value in sorted({q[key] for q in per_query}):
+            rows = [q for q in per_query if q[key] == value]
+            for metric in ("ndcg@10", "recall@10"):
+                scored = [q for q in rows if q["direct"][metric] is not None]
+                groups[value][metric] = {
+                    "queries": len(scored),
+                    "direct_mean": _mean([q["direct"][metric] for q in scored]),
+                    "dossier_mean": _mean([q["dossier"][metric] for q in scored]),
+                }
+        return dict(groups)
+
     winner, reason = decide(summaries["ndcg@10"]["difference"], summaries["recall@10"]["difference"])
     metrics = {
         "queries": len(query_set), "scored_queries": len(per_query),
         "incomplete_queries": incomplete,
         "mean_pool": _mean([q["pool"] for q in per_query]),
         "mean_relevant_in_pool": _mean([q["relevant"] for q in per_query]),
-        "summary": summaries, "by_seed_kind": dict(by_seed),
+        "summary": summaries, "by_seed_kind": split("seed_kind"),
+        "by_query_writer_model": split("query_model"),
         "label_agreement": agreement(pairs),
         "label_models": dict(label_models),
     }

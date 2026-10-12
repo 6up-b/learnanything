@@ -1,8 +1,6 @@
 """The retrieval evaluation: metrics, the bar, and an end-to-end run with fakes."""
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from learnloop.ai.spend import SpendCaps
@@ -19,6 +17,7 @@ from learnloop.practice_index.retrieval import find_practice
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 from tests.practice_index_fakes import (
+    FakePracticeLLM,
     HashingEmbedder,
     build_practice_vault,
     enable_practice_index,
@@ -181,8 +180,25 @@ def test_switch_off_and_caps_stop_before_a_decision(indexed):
     vault.config.practice_index.evaluation_enabled = True
     tight = SpendCaps(max_candidates=500, max_pairs=5, max_calls=400, max_retries=0,
                       max_total_tokens=10_000_000, max_estimated_usd=1.0)
-    report = run_retrieval_evaluation(vault, caps=tight, queries=4, query_client=llm,
-                                      judge_client=llm, embedder=embedder)
+    fresh = FakePracticeLLM()
+    report = run_retrieval_evaluation(vault, caps=tight, queries=4, query_client=fresh,
+                                      judge_client=fresh, embedder=embedder)
     assert report["status"] == "over_budget"
     assert "decision" not in report
-    assert json.dumps(report["charged"])
+    assert "pairs exceeds max_pairs" in report["reason"]
+    assert fresh.calls == []  # the whole plan is refused before any request
+
+
+def test_caps_are_checked_against_the_whole_plan_first(indexed):
+    _paths, vault, _repository, _llm, embedder = indexed
+    metered = FakePracticeLLM(provider_type="openrouter")
+    report = run_retrieval_evaluation(vault, caps=CAPS, queries=4, query_client=metered,
+                                      judge_client=metered, embedder=embedder)
+    assert report["status"] == "over_budget"
+    assert "--price-per-million" in report["reason"]
+    few_calls = SpendCaps(max_candidates=500, max_pairs=4000, max_calls=3, max_retries=0,
+                          max_total_tokens=10_000_000, max_estimated_usd=1.0)
+    llm = FakePracticeLLM()
+    report = run_retrieval_evaluation(vault, caps=few_calls, queries=4, query_client=llm,
+                                      judge_client=llm, embedder=embedder)
+    assert report["status"] == "over_budget" and llm.calls == []
