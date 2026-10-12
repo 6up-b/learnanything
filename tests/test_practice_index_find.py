@@ -28,7 +28,7 @@ from tests.practice_index_fakes import (
 CAPS = SpendCaps(max_candidates=1000, max_calls=100, max_total_tokens=10_000_000, max_estimated_usd=1.0)
 QUERY = "eigenvalues of a matrix"
 OWN_TABLES = {"practice_index_proposals", "judgment_ledger", "embedding_vectors",
-              "model_call_receipts", "sqlite_sequence"}
+              "model_call_receipts", "model_work_checkpoints", "sqlite_sequence"}
 
 
 def _index(paths, *, embeddings=True):

@@ -212,6 +212,36 @@ def latest_evaluation(connection: sqlite3.Connection,
     return value
 
 
+# -- checkpointed paid answers (model_work_checkpoints) -------------------
+
+
+def checkpointed_keys(connection: sqlite3.Connection, keys: Collection[str]) -> set[str]:
+    """Which of these request identities already have a checkpointed answer."""
+    if not keys or not table_exists(connection, "model_work_checkpoints"):
+        return set()
+    found: set[str] = set()
+    ordered = sorted(set(keys))
+    for start in range(0, len(ordered), 500):
+        chunk = ordered[start:start + 500]
+        marks = ",".join("?" for _ in chunk)
+        found |= {str(row[0]) for row in connection.execute(
+            f"SELECT cache_key FROM model_work_checkpoints WHERE cache_key IN ({marks})", tuple(chunk),
+        )}
+    return found
+
+
+def checkpoints_for_purpose(connection: sqlite3.Connection, *, prefix: str,
+                            purpose: str) -> list[dict[str, Any]]:
+    """Checkpointed answers of one paid role, oldest first (crash recovery)."""
+    if not table_exists(connection, "model_work_checkpoints"):
+        return []
+    return [{"cache_key": str(row[0]), "result": json.loads(row[1])} for row in connection.execute(
+        "SELECT cache_key, result_json FROM model_work_checkpoints "
+        "WHERE purpose=? AND substr(cache_key, 1, ?)=? ORDER BY created_at, cache_key",
+        (purpose, len(prefix), prefix),
+    )]
+
+
 # -- judgment_ledger reads for this index ---------------------------------
 
 

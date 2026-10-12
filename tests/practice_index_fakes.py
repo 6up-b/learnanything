@@ -13,7 +13,11 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.execution import model_call, report_call_usage
-from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import (
+    BOUNDED_STRUCTURED_COMPLETION,
+    STRUCTURED_COMPLETION,
+    StructuredRequest,
+)
 from learnloop.practice_index.contracts import (
     CandidateJudgment,
     DossierContrast,
@@ -78,7 +82,8 @@ class FakePracticeLLM:
         self.calls: list[tuple[str, dict[str, Any]]] = []
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION
+        # One fake "physical request" per complete(): no hidden retry or repair.
+        return capability in {STRUCTURED_COMPLETION, BOUNDED_STRUCTURED_COMPLETION}
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         payload = _payload(request.prompt)

@@ -10,18 +10,28 @@ Two billing modes (Slice A §5 rule 6):
   labelled ``estimated_only``. Call, candidate, pair and retry caps still apply,
   so a runaway loop stops.
 * **metered** (OpenRouter, OpenAI-compatible keys, anything else) keeps every
-  cap. An unknown price fails closed unless the owner supplies one. A metered
-  chat ``complete`` may send one JSON-repair request after an invalid first
-  answer, so each call reserves twice its estimate; reported usage reconciles
-  upward and never refunds.
+  cap. An unknown price fails closed unless the owner supplies one. Each
+  admitted attempt runs under ``single_request()``: exactly one physical
+  request, with no hidden transport retry and no hidden JSON repair. A retry or
+  repair is a new attempt, admitted and charged on its own under the retry
+  cap. A metered transport that cannot bound its physical requests is refused
+  before any request, and a second physical request inside one admitted
+  attempt is stopped before it is sent. Reported usage reconciles upward and
+  never refunds.
 
-Every call is admitted by ``SpendBudget.request`` before it is sent, and its
+Every attempt is admitted by ``SpendBudget.request`` before it is sent, and its
 receipts carry the caps plus a ``practice_index`` block naming the task,
 billing, cost basis, prompt version and input hash.
+
+A validated answer is checkpointed (``model_work_checkpoints``) under its full
+request identity before the caller writes it anywhere, so a crash or a failed
+write after a paid response never pays for it again: the rerun recovers the
+answer and materializes it idempotently.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 import json
 from typing import Any, Literal
@@ -29,10 +39,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
-from learnloop.ai.execution import generation_limit, observe_model_calls
+from learnloop.ai.execution import content_key, generation_limit, observe_model_calls, single_request
 from learnloop.ai.routing import MANUAL_PROVIDER, AITask, provider_for_task, ready_client_for_task
-from learnloop.ai.spend import SpendBudget, SpendEstimate
-from learnloop.ai.transport import STRUCTURED_COMPLETION, execute_structured_operation
+from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
+from learnloop.ai.transport import (
+    BOUNDED_STRUCTURED_COMPLETION,
+    STRUCTURED_COMPLETION,
+    execute_structured_operation,
+)
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
 
@@ -41,8 +55,28 @@ Billing = Literal["subscription", "metered"]
 SUBSCRIPTION_PROFILE_TYPES = frozenset({"codex_sdk", "http", "http_adapter"})
 #: Framing allowance for system prompts and transport envelopes, in tokens.
 FRAMING_TOKENS = 512
-#: A metered structured completion may send one JSON-repair request.
-METERED_REQUESTS_PER_CALL = 2
+#: Physical requests per admitted metered attempt (``single_request()``).
+METERED_REQUESTS_PER_CALL = 1
+
+
+class UnboundedTransport(AIProviderUnavailable):
+    """A metered transport that cannot bound its physical requests."""
+
+
+def transport_problem(route: PaidRoute, client: Any) -> str | None:
+    """Why ``client`` cannot run this route's paid calls, or None.
+
+    A metered route needs ``BOUNDED_STRUCTURED_COMPLETION``: one physical
+    request per admitted attempt. Codex (subscription) is exempt by the owner's
+    decision (Slice A §5 rule 6).
+    """
+    name = getattr(client, "provider_name", None) or route.provider or "the provider"
+    if not client.supports(STRUCTURED_COMPLETION):
+        return f"{name} cannot run structured completions"
+    if route.billing == "metered" and not client.supports(BOUNDED_STRUCTURED_COMPLETION):
+        return (f"{name} cannot bound physical requests; a metered route needs one request per "
+                "admitted call (openai_chat or openrouter), or route the role to Codex.")
+    return None
 
 
 def billing_for(profile_type: str | None) -> Billing:
@@ -93,8 +127,9 @@ def resolve_client(vault: LoadedVault, route: PaidRoute) -> tuple[Any | None, st
     resolved = ready_client_for_task(vault.root, vault.config, route.task, explicit=route.provider)
     if not resolved.ready or resolved.client is None:
         return None, resolved.runtime.message or f"{route.provider} is not ready"
-    if not resolved.client.supports(STRUCTURED_COMPLETION):
-        return None, f"{route.provider} cannot run structured completions"
+    problem = transport_problem(route, resolved.client)
+    if problem is not None:
+        return None, problem
     return resolved.client, None
 
 
@@ -113,12 +148,28 @@ class UsageTotals:
     reported_cost_usd: float = 0.0
     estimated_only_tokens: int = 0
     estimated_only_usd: float | None = 0.0
+    #: Answers recovered from a checkpoint instead of being paid for again.
+    recovered: int = 0
     resolved_models: set[str] = field(default_factory=set)
 
     def as_dict(self) -> dict[str, Any]:
         values = asdict(self)
         values["resolved_models"] = sorted(self.resolved_models)
         return values
+
+
+_MISSING = object()
+CHECKPOINT_PREFIX = "practice_index:"
+
+
+def checkpoint_key(route: PaidRoute, *, purpose: str, prompt: str,
+                   result_model: type[BaseModel], output_tokens: int) -> str:
+    """A paid answer's request identity: purpose, prompt, schema, output budget,
+    provider and model (the identity its destination rows are keyed by)."""
+    return CHECKPOINT_PREFIX + content_key({
+        "purpose": purpose, "prompt": prompt, "schema": result_model.model_json_schema(),
+        "output_tokens": output_tokens, "provider": route.provider, "model": route.model,
+    })
 
 
 class PaidCalls:
@@ -180,15 +231,32 @@ class PaidCalls:
             "usage": self.totals.as_dict(),
         }
 
+    def checkpoint_key(self, *, purpose: str, prompt: str, result_model: type[BaseModel],
+                       output_tokens: int) -> str:
+        """The full request identity a paid answer is checkpointed under."""
+        return checkpoint_key(self.route, purpose=purpose, prompt=prompt,
+                              result_model=result_model, output_tokens=output_tokens)
+
     def call(self, client: Any, *, purpose: str, prompt: str,
              result_model: type[BaseModel], output_tokens: int,
              metadata: Mapping[str, Any], candidates: int = 0, pairs: int = 0,
-             validate: Callable[[Any], Any] | None = None) -> Any:
+             validate: Callable[[Any], Any] | None = None,
+             context: Mapping[str, Any] | None = None) -> Any:
         """One logical call, retried on provider failure within the retry cap.
 
         ``validate`` may raise ``AIInvalidOutput`` for a semantically unusable
-        answer; it is then retried like a provider failure.
+        answer; it is then retried like a provider failure. A validated answer
+        is checkpointed (with ``context``) before it is returned, and an
+        existing checkpoint for the same request is returned without a request.
         """
+        key = self.checkpoint_key(purpose=purpose, prompt=prompt, result_model=result_model,
+                                  output_tokens=output_tokens)
+        recovered = self._recover(key, result_model, validate)
+        if recovered is not _MISSING:
+            return recovered
+        problem = transport_problem(self.route, client)
+        if problem is not None:
+            raise UnboundedTransport(problem)
         tokens = estimated_call_tokens(prompt, result_model, output_tokens)
         attempt = 0
         while True:
@@ -199,9 +267,11 @@ class PaidCalls:
             events: list[dict[str, Any]] = []
             try:
                 with self.budget.request(estimate) as charge:
+                    # Metered: exactly one physical request per admitted attempt.
+                    bound = nullcontext() if self.subscription else single_request()
                     try:
                         with observe_model_calls(self._observer(metadata, events)), \
-                                generation_limit(output_tokens):
+                                generation_limit(output_tokens), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
                             )
@@ -213,13 +283,47 @@ class PaidCalls:
                     )
                 except ValidationError as exc:
                     raise AIInvalidOutput(f"{purpose} returned an invalid {result_model.__name__}") from exc
-                return validate(result) if validate is not None else result
+                value = validate(result) if validate is not None else result
+                self._checkpoint(key, purpose, result, context)
+                return value
             except AIInterrupted:
                 raise
             except AIProviderUnavailable:
                 if self.budget.used.retries >= self.budget.caps.max_retries:
                     raise
                 attempt += 1
+
+    def _recover(self, key: str, result_model: type[BaseModel],
+                 validate: Callable[[Any], Any] | None) -> Any:
+        if self.repository is None:
+            return _MISSING
+        saved = self.repository.model_checkpoint(key)
+        if saved is None:
+            return _MISSING
+        try:
+            result = result_model.model_validate(saved["result"]["answer"])
+            value = validate(result) if validate is not None else result
+        except (KeyError, TypeError, ValidationError, AIInvalidOutput):
+            # Write-once checkpoints: an unusable one would block every rerun.
+            self.repository.discard_model_checkpoint(key)
+            return _MISSING
+        self.totals.recovered += 1
+        model = saved["result"].get("resolved_model")
+        self.last_resolved_model = str(model) if model else None
+        if self.last_resolved_model:
+            self.totals.resolved_models.add(self.last_resolved_model)
+        return value
+
+    def _checkpoint(self, key: str, purpose: str, result: BaseModel,
+                    context: Mapping[str, Any] | None) -> None:
+        if self.repository is None:
+            return
+        self.repository.save_model_checkpoint(key, purpose=purpose, result={
+            "answer": result.model_dump(mode="json"),
+            "resolved_model": self.last_resolved_model,
+            "route": {"provider": self.route.provider, "model": self.route.model},
+            "context": dict(context or {}),
+        })
 
     def _observer(self, metadata: Mapping[str, Any], events: list[dict[str, Any]]):
         declared_block = {
@@ -231,11 +335,22 @@ class PaidCalls:
             "requests_reserved_per_call": None if self.subscription else METERED_REQUESTS_PER_CALL,
         }
 
+        physical = [0]
+
         def observe(action: str, event: dict[str, Any]) -> None:
             if action == "start" and event.get("parent_call_id") is None:
                 declared = json.loads(event.get("budget_json") or "{}")
                 declared["practice_index"] = declared_block
                 event = {**event, "budget_json": json.dumps(declared, sort_keys=True, default=str)}
+            elif action == "start" and not self.subscription:
+                # Raised before the request is sent: an admitted metered attempt
+                # never carries a second physical request.
+                physical[0] += 1
+                if physical[0] > METERED_REQUESTS_PER_CALL:
+                    raise SpendLimitExceeded(
+                        "A metered transport tried a second physical request inside one "
+                        "admitted call"
+                    )
             if action == "finish":
                 events.append(event)
             if self.repository is not None:
@@ -272,13 +387,17 @@ class PaidCalls:
 
 
 __all__ = [
+    "CHECKPOINT_PREFIX",
     "FRAMING_TOKENS",
     "METERED_REQUESTS_PER_CALL",
     "SUBSCRIPTION_PROFILE_TYPES",
     "PaidCalls",
     "PaidRoute",
+    "UnboundedTransport",
     "billing_for",
+    "checkpoint_key",
     "estimated_call_tokens",
     "plan_route",
     "resolve_client",
+    "transport_problem",
 ]

@@ -50,7 +50,7 @@ from learnloop.db.stores.practice_index import (
 from learnloop.ids import new_ulid
 from learnloop.practice_index.catalog import facet_label, item_facets, registered_facets
 from learnloop.practice_index.contracts import RELEVANCE_SCORE, PracticeRerank
-from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client
+from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.query_vectors import embed_queries, embedding_ready, normalize_query, query_id
 from learnloop.practice_index.text import BM25, reciprocal_rank_fusion
 from learnloop.practice_index.admission import PracticeAdmission
@@ -441,8 +441,10 @@ def rerank_pool(
         return _from_ledger(pool, ids, cached, "cached", pick_at_most)
     if client is None:
         client, reason = resolve_client(vault, route)
-        if client is None:
-            return RerankOutcome(f"unavailable: {reason}")
+    else:
+        reason = transport_problem(route, client)
+    if client is None or reason is not None:
+        return RerankOutcome(f"unavailable: {reason}")
     caps = SpendCaps(max_candidates=len(pool), max_pairs=len(pool), max_retries=1, max_calls=2,
                      max_total_tokens=400_000, max_estimated_usd=config.rerank_max_cost_usd)
     calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=price,

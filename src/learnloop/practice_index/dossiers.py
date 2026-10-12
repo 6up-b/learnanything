@@ -31,6 +31,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.practice_index import (
+    checkpointed_keys,
     current_dossiers,
     dossier_exists,
     insert_dossier,
@@ -46,7 +47,14 @@ from learnloop.practice_index.catalog import (
     registered_facets,
 )
 from learnloop.practice_index.contracts import FacetDossierDraft
-from learnloop.practice_index.paid import PaidCalls, estimated_call_tokens, plan_route, resolve_client
+from learnloop.practice_index.paid import (
+    PaidCalls,
+    checkpoint_key,
+    estimated_call_tokens,
+    plan_route,
+    resolve_client,
+    transport_problem,
+)
 from learnloop.vault.embedding_recipes import facet_content_hash
 from learnloop.vault.models import EvidenceFacet, LoadedVault, PracticeItem
 from learnloop.vault.paths import VaultPaths
@@ -333,6 +341,20 @@ def _pending(sqlite_path: Path, plans: list[DossierPlan], model_id: str) -> list
         ]
 
 
+def _checkpoint_key(route, plan: DossierPlan) -> str:
+    return checkpoint_key(route, purpose="practice_dossier", prompt=plan.prompt,
+                          result_model=FacetDossierDraft, output_tokens=DOSSIER_OUTPUT_TOKENS)
+
+
+def _recoverable(sqlite_path: Path, route, pending: list[DossierPlan]) -> set[str]:
+    """Facets whose paid answer is checkpointed but whose row never committed."""
+    if not pending or not sqlite_path.exists():
+        return set()
+    keys = {_checkpoint_key(route, plan): plan.facet_id for plan in pending}
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        return {keys[key] for key in checkpointed_keys(connection, keys)}
+
+
 def dossier_status(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
     """Per registered facet: current, stale (sources changed) or missing."""
     plans = build_plans(vault, repository)
@@ -371,18 +393,22 @@ def generate_dossiers(
     route = plan_route(vault, "practice_dossier", client)
     model_id = route.model or "unspecified"
     pending = _pending(sqlite_path, plans, model_id)
+    recoverable = _recoverable(sqlite_path, route, pending)
+    to_pay = [plan for plan in pending if plan.facet_id not in recoverable]
     budget = SpendBudget(caps, cancelled=cancelled)
     run_id = new_ulid()
     calls = PaidCalls(route=route, budget=budget, price_per_million=price_per_million,
                       repository=None if dry_run else repository,
                       owner_kind="practice_dossiers", owner_id=run_id)
-    tokens = [estimated_call_tokens(p.prompt, FacetDossierDraft, DOSSIER_OUTPUT_TOKENS) for p in pending]
-    plan_view = calls.plan(tokens, candidates=len(pending))
+    tokens = [estimated_call_tokens(p.prompt, FacetDossierDraft, DOSSIER_OUTPUT_TOKENS) for p in to_pay]
+    plan_view = calls.plan(tokens, candidates=len(to_pay))
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "route": route.as_dict(), "model_id": model_id,
         "prompt_version": DOSSIER_PROMPT_VERSION,
         "facets": len(plans), "cached": len(plans) - len(pending), "pending": len(pending),
+        # Paid answers checkpointed by an interrupted run: written without a request.
+        "recoverable": len(recoverable),
         "generated": 0, "failed": [], "caps": caps.as_dict(), "estimate": plan_view,
         "dossiers_enabled": vault.config.practice_index.dossiers_enabled,
         "manifest": {
@@ -393,7 +419,7 @@ def generate_dossiers(
     }
     report.update(calls.report())
     try:
-        budget.check(calls.estimate(sum(tokens), candidates=len(pending), calls=len(pending)))
+        budget.check(calls.estimate(sum(tokens), candidates=len(to_pay), calls=len(to_pay)))
     except AIInterrupted:
         report["status"] = "cancelled"
         return report
@@ -414,12 +440,15 @@ def generate_dossiers(
         return report
     with _generation_lock(vault.root):
         pending = _pending(sqlite_path, plans, model_id)
-        report.update(pending=len(pending), cached=len(plans) - len(pending))
+        report.update(pending=len(pending), cached=len(plans) - len(pending),
+                      recoverable=len(_recoverable(sqlite_path, route, pending)))
         if client is None:
             client, reason = resolve_client(vault, route)
-            if client is None:
-                report.update(status="unavailable", reason=reason)
-                return report
+        else:
+            reason = transport_problem(route, client)
+        if client is None or reason is not None:
+            report.update(status="unavailable", reason=reason)
+            return report
         report["run_id"] = run_id
         try:
             for plan in pending:

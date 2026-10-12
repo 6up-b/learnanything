@@ -218,3 +218,34 @@ def test_rebuild_preserves_dossiers_and_calls_no_model(practice, monkeypatch):
     for _ in range(2):
         rebuild_all_derived_state(load_vault(paths.root), Repository(paths.sqlite_path))
     assert _rows(paths) == before
+
+
+def test_a_paid_answer_survives_a_failed_write_and_is_not_paid_again(practice, monkeypatch):
+    """F8: the response is checkpointed before insert_dossier; a rerun recovers it."""
+    import sqlite3
+
+    from learnloop.practice_index import dossiers as dossiers_module
+
+    paths = practice
+    llm = FakePracticeLLM()
+    real_insert = dossiers_module.insert_dossier
+
+    def failing_insert(connection, **values):
+        if values["facet_id"] == "facet_span":
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_insert(connection, **values)
+
+    monkeypatch.setattr(dossiers_module, "insert_dossier", failing_insert)
+    with pytest.raises(sqlite3.OperationalError):
+        generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    paid = [payload["context"]["facet"]["id"] for _, payload in llm.calls]
+    assert "facet_span" in paid and "facet_span" not in {row["facet_id"] for row in _rows(paths)}
+    monkeypatch.setattr(dossiers_module, "insert_dossier", real_insert)
+    planned = generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True, client=llm)
+    assert planned["recoverable"] == 1
+    assert planned["estimate"]["calls"] == planned["pending"] - 1
+    report = generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    assert report["status"] == "complete", report
+    assert report["usage"]["recovered"] == 1
+    assert [payload["context"]["facet"]["id"] for _, payload in llm.calls].count("facet_span") == 1
+    assert len(_rows(paths)) == 6

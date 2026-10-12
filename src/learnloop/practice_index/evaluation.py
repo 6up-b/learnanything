@@ -45,6 +45,8 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.practice_index import (
+    checkpointed_keys,
+    checkpoints_for_purpose,
     eval_queries,
     insert_eval_query,
     insert_evaluation,
@@ -54,7 +56,15 @@ from learnloop.db.stores.practice_index import (
 from learnloop.ids import new_ulid
 from learnloop.practice_index.catalog import facet_items, facet_label, registered_facets
 from learnloop.practice_index.contracts import RELEVANCE_SCORE, RelevanceLabels, WrittenQueries
-from learnloop.practice_index.paid import PaidCalls, estimated_call_tokens, plan_route, resolve_client
+from learnloop.practice_index.paid import (
+    CHECKPOINT_PREFIX,
+    PaidCalls,
+    checkpoint_key,
+    estimated_call_tokens,
+    plan_route,
+    resolve_client,
+    transport_problem,
+)
 from learnloop.practice_index.query_vectors import (
     cached_query_vectors,
     embed_queries,
@@ -180,6 +190,47 @@ def _logged_queries(repository: Repository, existing: set[tuple[str, str]],
     return sorted(found.items())
 
 
+def _recovered_queries(sqlite_path: Path, existing: set[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Written queries whose paid batch was checkpointed but never committed.
+
+    A rerun plans its batches from what is already stored, so an interrupted
+    batch would be planned differently and paid for again; its checkpoint is
+    materialized first instead.
+    """
+    if not sqlite_path.exists():
+        return []
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        saved = checkpoints_for_purpose(connection, prefix=CHECKPOINT_PREFIX,
+                                        purpose="practice_query_writer")
+    found: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in saved:
+        context = row["result"].get("context") or {}
+        if context.get("prompt_version") != QUERY_PROMPT_VERSION:
+            continue
+        seeds = context.get("seeds") or {}
+        try:
+            answer = WrittenQueries.model_validate(row["result"]["answer"])
+        except Exception:  # noqa: BLE001 - an unreadable checkpoint is simply not recovered
+            continue
+        for entry in answer.queries:
+            seed = seeds.get(entry.seed_ref)
+            text = " ".join(entry.query.split())
+            if not seed or not text:
+                continue
+            key = (str(seed["kind"]), str(seed["seed_id"]))
+            if key in existing or key in found:
+                continue
+            found[key] = {"kind": key[0], "seed_id": key[1], "text": text[:400],
+                          "model_id": row["result"].get("resolved_model")
+                          or (row["result"].get("route") or {}).get("model"),
+                          "input_hash": str(context.get("input_hash") or row["cache_key"])}
+    return [found[key] for key in sorted(found)]
+
+
+def _query_row_id(kind: str, seed_id: str) -> str:
+    return "peq_" + content_key([QUERY_PROMPT_VERSION, kind, seed_id])[:32]
+
+
 # -- labels ----------------------------------------------------------------
 
 
@@ -241,12 +292,14 @@ def _upper_bound_tokens() -> int:
 
 
 def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int,
-                judge_model: str) -> dict[str, Any]:
+                judge_model: str, judge_route) -> dict[str, Any]:
     """Exact pending label work for queries that can be ranked now; a full-pool
-    upper bound for queries not yet written or embedded."""
+    upper bound for queries not yet written or embedded. Passes whose paid answer
+    is already checkpointed are recoverable, not paid for."""
     tokens: list[int] = []
     pairs = 0
     exact = bounded = 0
+    recoverable = 0
     vectors = {}
     if snapshot.uses_vectors:
         vectors = cached_query_vectors(repository, snapshot.embedding_model,
@@ -262,15 +315,22 @@ def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int
                 vault, repository, row["query_text"], pool, pass_index, judge_model)
             if missing:
                 refs = {f"c{i}": candidates[item_id] for i, item_id in enumerate(missing, start=1)}
-                tokens.append(estimated_call_tokens(
-                    _label_prompt(row["query_text"], pass_index, refs), RelevanceLabels, LABEL_OUTPUT_TOKENS))
+                prompt = _label_prompt(row["query_text"], pass_index, refs)
+                key = checkpoint_key(judge_route, purpose="practice_relevance_judge", prompt=prompt,
+                                     result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS)
+                with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+                    if checkpointed_keys(connection, [key]):
+                        recoverable += 1
+                        continue
+                tokens.append(estimated_call_tokens(prompt, RelevanceLabels, LABEL_OUTPUT_TOKENS))
                 pairs += len(missing)
     if not snapshot.dossier_available:
         new_queries += len(query_set)
     bounded = new_queries
     tokens += [_upper_bound_tokens()] * (len(LABEL_PROMPT_VERSIONS) * bounded)
     pairs += len(LABEL_PROMPT_VERSIONS) * 2 * TOP_K * bounded
-    return {"tokens": tokens, "pairs": pairs, "exact_queries": exact, "upper_bound_queries": bounded}
+    return {"tokens": tokens, "pairs": pairs, "exact_queries": exact, "upper_bound_queries": bounded,
+            "recoverable_calls": recoverable}
 
 
 # -- metrics -----------------------------------------------------------------
@@ -368,7 +428,9 @@ def run_retrieval_evaluation(
     with closing(connect(sqlite_path, read_only=True)) as connection:
         query_set = eval_queries(connection, (QUERY_PROMPT_VERSION, LOGGED_PROMPT_VERSION))
     existing = {(row["seed_kind"], row["seed_id"]) for row in query_set}
-    generated = sum(1 for row in query_set if row["seed_kind"] != "logged")
+    recovered = _recovered_queries(sqlite_path, existing)
+    existing |= {(entry["kind"], entry["seed_id"]) for entry in recovered}
+    generated = sum(1 for row in query_set if row["seed_kind"] != "logged") + len(recovered)
     seeds = _seeds(vault, corpus, existing, max(0, queries - generated), seed)
     batches = _query_batches(seeds)
     logged = _logged_queries(repository, existing, max(0, logged_queries - sum(
@@ -383,21 +445,23 @@ def run_retrieval_evaluation(
                       repository=None if dry_run else repository,
                       owner_kind="practice_eval", owner_id=run_id)
     judge_model = judge_route.model or "unspecified"
-    total_queries = len(query_set) + len(seeds) + len(logged)
+    total_queries = len(query_set) + len(recovered) + len(seeds) + len(logged)
     labels_plan = _label_plan(vault, repository, snapshot, corpus, query_set,
-                              len(seeds) + len(logged), judge_model)
+                              len(recovered) + len(seeds) + len(logged), judge_model, judge_route)
     writer_tokens = [estimated_call_tokens(prompt, WrittenQueries, QUERY_OUTPUT_TOKENS)
                      for _, prompt in batches]
     embed_plan = plan_query_embedding(
         vault, repository, {**{row["id"]: row["query_text"] for row in query_set},
+                            **{_query_row_id(e["kind"], e["seed_id"]): e["text"] for e in recovered},
                             **{qid: text for qid, text in logged},
                             **{f"new{i}": "x" * 160 for i in range(len(seeds))}},
     ) if snapshot.uses_vectors else {"pending": 0, "calls": 0, "estimated_usd": 0.0}
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run, "run_id": run_id,
         "corpus": {"admissible_items": len(corpus), "excluded": exclusions},
-        "query_set": {"existing": len(query_set), "new_generated": len(seeds),
-                      "new_logged": len(logged), "total": total_queries},
+        "query_set": {"existing": len(query_set), "recovered": len(recovered),
+                      "new_generated": len(seeds), "new_logged": len(logged),
+                      "total": total_queries},
         "index": {**snapshot.manifest(), "dossier_available": snapshot.dossier_available,
                   "dossier_reason": snapshot.dossier_reason,
                   "embedding_reason": snapshot.embedding_reason},
@@ -407,6 +471,7 @@ def run_retrieval_evaluation(
                 **judge.plan(labels_plan["tokens"], pairs=labels_plan["pairs"]),
                 "exact_queries": labels_plan["exact_queries"],
                 "upper_bound_queries": labels_plan["upper_bound_queries"],
+                "recoverable_calls": labels_plan["recoverable_calls"],
             },
             "query_embedding": embed_plan,
             "note": ("Label work is exact for queries that can be ranked now and an upper bound "
@@ -453,8 +518,8 @@ def run_retrieval_evaluation(
         report.update(status="disabled", reason="Enable practice_index.evaluation_enabled explicitly.")
         return report
     with _evaluation_lock(vault.root):
-        _run(vault, repository, snapshot, corpus, batches, logged, writer, writer_route, judge,
-             judge_route, judge_model, budget, report, query_client=query_client,
+        _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer, writer_route,
+             judge, judge_route, judge_model, budget, report, query_client=query_client,
              judge_client=judge_client, embedder=embedder, cancelled=cancelled, seed=seed,
              bootstrap_samples=bootstrap_samples, run_id=run_id, clock=clock)
     if output_dir is not None:
@@ -483,12 +548,12 @@ def _evaluation_lock(root: Path) -> Iterator[None]:
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def _run(vault, repository, snapshot, corpus, batches, logged, writer, writer_route, judge,
-         judge_route, judge_model, budget, report, *, query_client, judge_client, embedder,
+def _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer, writer_route,
+         judge, judge_route, judge_model, budget, report, *, query_client, judge_client, embedder,
          cancelled, seed, bootstrap_samples, run_id, clock) -> None:
     sqlite_path = repository.sqlite_path
     try:
-        _generate_queries(vault, repository, batches, logged, writer, writer_route,
+        _generate_queries(vault, repository, batches, recovered, logged, writer, writer_route,
                           query_client, run_id, report, clock)
         with closing(connect(sqlite_path, read_only=True)) as connection:
             query_set = eval_queries(connection, (QUERY_PROMPT_VERSION, LOGGED_PROMPT_VERSION))
@@ -508,8 +573,10 @@ def _run(vault, repository, snapshot, corpus, batches, logged, writer, writer_ro
         }
         if judge_client is None:
             judge_client, reason = resolve_client(vault, judge_route)
-            if judge_client is None:
-                raise _Stop("unavailable", reason or "relevance judge unavailable")
+        else:
+            reason = transport_problem(judge_route, judge_client)
+        if judge_client is None or reason is not None:
+            raise _Stop("unavailable", reason or "relevance judge unavailable")
         labels = _label_all(vault, repository, query_set, rankings, judge, judge_client,
                             judge_model, report, clock)
         _score(vault, repository, query_set, rankings, labels, snapshot, report,
@@ -549,9 +616,16 @@ class _Stop(Exception):
         self.reason = reason
 
 
-def _generate_queries(vault, repository, batches, logged, writer, route, client,
+def _generate_queries(vault, repository, batches, recovered, logged, writer, route, client,
                       run_id, report, clock) -> None:
     with repository.connection() as connection:
+        for entry in recovered:
+            insert_eval_query(
+                connection, id=_query_row_id(entry["kind"], entry["seed_id"]),
+                query_text=entry["text"], seed_kind=entry["kind"], seed_id=entry["seed_id"],
+                model_id=entry["model_id"], prompt_version=QUERY_PROMPT_VERSION,
+                input_hash=entry["input_hash"], run_id=run_id, created_at=utc_now_iso(clock),
+            )
         for query, text in logged:
             insert_eval_query(
                 connection, id="peq_" + content_key([LOGGED_PROMPT_VERSION, "logged", query])[:32],
@@ -560,9 +634,12 @@ def _generate_queries(vault, repository, batches, logged, writer, route, client,
                 created_at=utc_now_iso(clock),
             )
     written = 0
-    if batches and client is None:
-        client, reason = resolve_client(vault, route)
+    if batches:
         if client is None:
+            client, reason = resolve_client(vault, route)
+        else:
+            reason = transport_problem(route, client)
+        if client is None or reason is not None:
             raise _Stop("unavailable", reason or "query writer unavailable")
     for batch, prompt in batches:
         refs = {f"s{index}": entry for index, entry in enumerate(batch, start=1)}
@@ -580,13 +657,16 @@ def _generate_queries(vault, repository, batches, logged, writer, route, client,
                             result_model=WrittenQueries, output_tokens=QUERY_OUTPUT_TOKENS,
                             candidates=len(batch),
                             metadata={"prompt_version": QUERY_PROMPT_VERSION, "input_hash": input_hash},
-                            validate=validate)
+                            validate=validate,
+                            context={"prompt_version": QUERY_PROMPT_VERSION, "input_hash": input_hash,
+                                     "seeds": {ref: {"kind": entry["kind"], "seed_id": entry["seed_id"]}
+                                               for ref, entry in refs.items()}})
         with repository.connection() as connection:
             for ref, text in sorted(found.items()):
                 entry = refs[ref]
                 written += int(insert_eval_query(
                     connection,
-                    id="peq_" + content_key([QUERY_PROMPT_VERSION, entry["kind"], entry["seed_id"]])[:32],
+                    id=_query_row_id(entry["kind"], entry["seed_id"]),
                     query_text=text[:400], seed_kind=entry["kind"], seed_id=entry["seed_id"],
                     model_id=writer.last_resolved_model or route.model,
                     prompt_version=QUERY_PROMPT_VERSION, input_hash=input_hash, run_id=run_id,

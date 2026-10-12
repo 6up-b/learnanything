@@ -100,7 +100,8 @@ def test_dry_run_estimates_without_clients_or_writes(indexed):
                                       query_client=Forbidden(), judge_client=Forbidden(),
                                       embedder=HashingEmbedder())
     assert report["status"] == "dry_run", report
-    assert report["query_set"] == {"existing": 0, "new_generated": 12, "new_logged": 0, "total": 12}
+    assert report["query_set"] == {"existing": 0, "recovered": 0, "new_generated": 12,
+                                   "new_logged": 0, "total": 12}
     assert report["estimate"]["relevance_labels"]["calls"] == 24
     assert report["estimate"]["query_writer"]["cost_basis"] == "estimated_only"
     assert report["estimate"]["query_embedding"]["pending"] == 12
@@ -202,3 +203,54 @@ def test_caps_are_checked_against_the_whole_plan_first(indexed):
     report = run_retrieval_evaluation(vault, caps=few_calls, queries=4, query_client=llm,
                                       judge_client=llm, embedder=embedder)
     assert report["status"] == "over_budget" and llm.calls == []
+
+
+def test_paid_labels_and_queries_survive_a_failed_write(indexed, monkeypatch):
+    """F8: written queries and label passes are checkpointed before their rows commit."""
+    import sqlite3
+
+    from learnloop.practice_index import evaluation as evaluation_module
+
+    _paths, vault, _repository, llm, embedder = indexed
+    real_query, real_judgment = evaluation_module.insert_eval_query, evaluation_module.append_judgment
+    writes = {"queries": 0}
+
+    def failing_query(connection, **values):
+        if values["seed_kind"] != "logged":
+            writes["queries"] += 1
+            if writes["queries"] > 8:  # the second writer batch
+                raise sqlite3.OperationalError("disk I/O error")
+        return real_query(connection, **values)
+
+    monkeypatch.setattr(evaluation_module, "insert_eval_query", failing_query)
+    with pytest.raises(sqlite3.OperationalError):
+        run_retrieval_evaluation(vault, caps=CAPS, queries=12, query_client=llm,
+                                 judge_client=llm, embedder=embedder)
+    writer_calls = sum(1 for purpose, _ in llm.calls if purpose == "practice_query_writer")
+    assert writer_calls == 2
+    monkeypatch.setattr(evaluation_module, "insert_eval_query", real_query)
+
+    def failing_judgment(connection, **values):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(evaluation_module, "append_judgment", failing_judgment)
+    planned = run_retrieval_evaluation(vault, caps=CAPS, dry_run=True, queries=12, logged_queries=0,
+                                       query_client=llm, judge_client=llm, embedder=embedder)
+    assert planned["query_set"]["recovered"] == 4
+    assert planned["query_set"]["new_generated"] == 0
+    with pytest.raises(sqlite3.OperationalError):
+        run_retrieval_evaluation(vault, caps=CAPS, queries=12, logged_queries=0, query_client=llm,
+                                 judge_client=llm, embedder=embedder)
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_query_writer") == writer_calls
+    judged = sum(1 for purpose, _ in llm.calls if purpose == "practice_relevance_judge")
+    assert judged == 1
+    monkeypatch.setattr(evaluation_module, "append_judgment", real_judgment)
+    report = run_retrieval_evaluation(vault, caps=CAPS, queries=12, logged_queries=0,
+                                      query_client=llm, judge_client=llm, embedder=embedder)
+    assert report["status"] == "complete", report
+    assert report["query_set"]["total"] == 12
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_query_writer") == writer_calls
+    # The interrupted label pass was recovered, not paid for again.
+    assert report["spend"]["relevance_judge"]["usage"]["recovered"] == 1
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_relevance_judge") == (
+        judged + report["label_calls"] - 1)
