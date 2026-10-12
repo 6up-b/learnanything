@@ -250,7 +250,8 @@ There is no minimum number of attempts.
     success head for: T8's own "weak signal" scale (the gain at block variance
     0.25 in the v2 table above).
   - **m = 0.0** is unchanged (D9).
-  - **6 clusters** is derived, not chosen. Even the widest interval, the full
+  - **6 clusters** is derived, not chosen (this stage added it; see open
+    question 1 in `t8-interval-rule.md`). Even the widest interval, the full
     range of G cluster means, misses their median with probability
     2^(1−G): 6.25% at G = 5 and 3.1% at G = 6. Below 6 clusters no
     distribution-free 95% interval exists.
