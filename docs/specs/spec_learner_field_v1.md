@@ -382,6 +382,10 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
     - If V3 clearly beats V2 (bootstrap interval excluding 0 at D9's margin), the rich history carries information the numeric arms miss. That is evidence for the router's card (router spec §4), and for reconsidering `idea_hier_llm_prior` (§11).
     - If V1 ≈ V2 ≈ V3, the models' value lies in judgment, and the numbers keep coming from the explicit arms.
     - The Decider-vs-LLM split within each variant is reported too, as the router's first evidence on which model to weight (router spec §10).
+  - **Retired and merged arms** (owner, 2026-10-12, at the router R0 merge).
+    - Phase 2's numeric `llm_probability` arm is retired, with its route `ai.routing.field_llm_probability`. `--llm-cache` and `--prepare-llm` now serve only these V1–V3 arms. A vault that still sets the route loads; `learnloop doctor` warns that the value is ignored.
+    - Slice 2 T8's zero-data LLM arm is the V2 arm on the LLM judge (`llm_probability/v2/llm`), reported in the T8 report under its pre-registered names (`llm_zero_data`, `llm_zero_data:recalibrated`). One implementation, one cache and one ledger, so the two are comparable and paid for once. T8's registered arm had no difficulty prior; its pre-registration is unchanged and the report records the alias.
+    - The comparisons stay pooled. Attempts without a provable start (no scheduler offer or diagnostic presentation) count as they are, with no history shown.
 - **Population memory-model arm** (optional; added 2026-10-12).
   - **What it is:** a content-agnostic recall model pretrained on a population. It sees only review timing and grades, like the population sequence models in the public srs-benchmark. Public results favour such models over per-user FSRS fits.
   - **Comparison:** run as an arm against FSRS (fitted weights and `FSRS6_DEFAULT_WEIGHTS`) on retention prediction for graded cold reviews.

@@ -44,9 +44,13 @@ MAIN_SIDECAR_RPCS = (
     "get_placement_state",
     "start_quick_check",
 )
+# Router R0's Settings additions: get_settings carries the read-only
+# "Decision models" disclosures (judges) and update_ai_settings refuses
+# decision-model profiles. Desktop only.
+ROUTER_R0_SETTINGS_RPCS = ("get_settings", "update_ai_settings")
 
 
-@pytest.mark.parametrize("method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS)
+@pytest.mark.parametrize("method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS)
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY

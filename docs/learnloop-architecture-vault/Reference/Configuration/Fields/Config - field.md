@@ -3,8 +3,8 @@ title: "Config - field"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
+source_commit_timestamp: "2026-10-12T16:11:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml field"
@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/cli/field_classification.py"
-  - "src/learnloop/cli/field_llm.py"
+  - "src/learnloop/cli/probability_arms.py"
   - "src/learnloop/placement/decisions.py"
   - "src/learnloop/placement/predictor.py"
   - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/cli/success_head.py"
+  - "src/learnloop_sidecar/context.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
   - "tests/split_live_helpers.py"
@@ -55,11 +55,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `field.enabled` | `false` | boolean | modeled default or validator seed | Allows explicitly requested paid field experiments; never changes serving or evidence. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1500`; `src/learnloop/cli/field_classification.py:83`; `src/learnloop/cli/field_llm.py:56` |
-| `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1501`; `src/learnloop/placement/decisions.py:75`; `src/learnloop/placement/predictor.py:177` |
-| `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1502`; `src/learnloop/field/outcomes.py:205` |
-| `field.question_classification_enabled` | `false` | boolean | explicit template decision | Additional opt-in for bounded classification of missing question metadata; replay only reads cached output. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1503`; `src/learnloop/cli/field_classification.py:83` |
-| `field.llm_probability_enabled` | `false` | boolean | explicit template decision | Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1504`; `src/learnloop/cli/field_llm.py:56`; `src/learnloop/cli/success_head.py:93` |
+| `field.enabled` | `false` | boolean | modeled default or validator seed | Allows explicitly requested paid field experiments; never changes serving or evidence. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1571`; `src/learnloop/cli/field_classification.py:89`; `src/learnloop/cli/probability_arms.py:150` |
+| `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1572`; `src/learnloop/placement/decisions.py:75`; `src/learnloop/placement/predictor.py:177` |
+| `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1573`; `src/learnloop/field/outcomes.py:205` |
+| `field.question_classification_enabled` | `false` | boolean | explicit template decision | Additional opt-in for bounded classification of missing question metadata; replay only reads cached output. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1574`; `src/learnloop/cli/field_classification.py:89` |
+| `field.llm_probability_enabled` | `false` | boolean | explicit template decision | Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1575`; `src/learnloop/cli/probability_arms.py:150`; `src/learnloop_sidecar/context.py:483` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

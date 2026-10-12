@@ -39,6 +39,7 @@ AUDITED_COPIERS: dict[str, tuple[int, str]] = {
     "tests/test_goal_decay_projection.py": (1, _TRACKED_FIXTURE),
     "tests/test_goal_scope_material.py": (1, _TRACKED_FIXTURE),
     "tests/test_graph_editor_reads.py": (1, _TRACKED_FIXTURE),
+    "tests/test_judge_routes.py": (2, _MIGRATION_SQL),
     "tests/test_learner_read_model_pinning.py": (1, _TRACKED_FIXTURE),
     "tests/test_migrate_fresh.py": (1, _TRACKED_FIXTURE),
     "tests/test_migrations.py": (

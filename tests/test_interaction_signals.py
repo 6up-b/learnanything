@@ -231,7 +231,8 @@ def test_classification_cli_is_offline_lazy_bounded_and_resumable(repository, mo
     )
     loaded = SimpleNamespace(root=root, config=config, learning_objects={}, evidence_facets={})
     def load(path, *, load_environment):
-        assert path == root and load_environment is False
+        # A dry run reads only the TOML; a paid run loads keys like T8's paid steps.
+        assert path == root and load_environment is (not dry_run)
         return loaded
     monkeypatch.setattr(cli, "load_vault", load)
     calls = []
@@ -326,9 +327,10 @@ class CodexClassifier:
         self.usage, self.purpose, self.turns = usage, physical_purpose, 0
 
     def supports(self, capability):
-        return capability == "structured_completion"
+        return capability in {"structured_completion", "isolated_turn"}
 
     def complete(self, request):
+        assert request.isolated  # never a turn that starts in the vault
         for _ in range(2):  # a repair turn: unbounded on the subscription
             with model_call(self, purpose=self.purpose):
                 self.turns += 1
@@ -593,3 +595,44 @@ def test_tied_linked_practice_assistance_independent_flags(flags):
     enriched, = enrich_attempts([original], rows)
     assert enriched.help_before_work is ("seconds_into_attempt" in flags)
     assert enriched.features.cold is ("seconds_into_attempt" in flags)
+
+
+# Carried fix (owner, 2026-10-12): classify-questions sends isolated turns and
+# loads settings the way T8's success-head paid steps do.
+
+def test_classification_loads_settings_only_for_a_paid_run(repository, monkeypatch):
+    from learnloop.cli import field_classification as cli
+
+    loads = []
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk", client=CodexClassifier())
+    recorded = cli.load_vault
+
+    def spy(path, *, load_environment):
+        loads.append(load_environment)
+        return recorded(path, load_environment=load_environment)
+
+    monkeypatch.setattr(cli, "load_vault", spy)
+    assert invoke("--dry-run")[1]["status"] == "dry_run"
+    assert invoke()[1]["status"] == "complete"
+    assert loads == [False, True]
+
+
+def test_classification_turns_are_isolated(repository, monkeypatch):
+    client = CodexClassifier()
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk", client=client)
+    code, report = invoke()
+    assert code == 0 and report["status"] == "complete", report
+    assert client.turns == 2  # CodexClassifier.complete asserts request.isolated
+
+
+def test_a_classifier_that_cannot_isolate_the_turn_is_refused_before_any_call(repository, monkeypatch):
+    client = CodexClassifier()
+    client.supports = lambda capability: capability == "structured_completion"
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk", client=client)
+    code, report = invoke()
+    assert code == 1 and report["error_type"] == "AIProviderUnavailable"
+    assert client.turns == 0
+    with repository.connection() as connection:
+        assert connection.execute("SELECT count(*) FROM judgment_ledger").fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT count(*) FROM model_call_receipts WHERE purpose LIKE '%sdk_turn'").fetchone()[0] == 0

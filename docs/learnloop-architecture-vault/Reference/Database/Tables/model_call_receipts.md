@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
+source_commit_timestamp: "2026-10-12T16:11:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 174
+schema_head: 175
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -52,7 +52,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `175_decider_judgments_and_receipt_labels.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -91,6 +91,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `cache_write_tokens` | `INTEGER` | no | — | — | Stored value |
 | `usage_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `budget_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `judge` | `TEXT` | no | — | — | Stored value |
+| `question_set_version` | `TEXT` | no | — | — | Stored value |
+| `state_hash` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -137,13 +140,13 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_family_proposals.py`
-- `tests/test_field_llm_cli.py`
 - `tests/test_graph_nomination.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_judge_routes.py`
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
@@ -193,7 +196,8 @@ CREATE TABLE model_call_receipts (
   error_type TEXT,
   output_budget_tokens INTEGER,
   collection_version TEXT NOT NULL DEFAULT 'learnloop-events-v1'
-, endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT, budget_json TEXT);
+, endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT, budget_json TEXT, judge TEXT
+  CHECK(judge IS NULL OR judge IN ('decider', 'llm')), question_set_version TEXT, state_hash TEXT);
 ```
 
 ## Related notes

@@ -714,7 +714,7 @@ algorithm_version = "mvp-0.9"
 
 # AI is optional; an unavailable provider keeps today's manual workflow.
 # Precedence: explicit flag > LEARNLOOP_AI_PROVIDER > task route > active provider.
-# Exception: embeddings use only their explicit route, never env/active/fallback.
+# Exception: embeddings use only their own route, never env/active/fallback.
 [ai]
 active_provider = "codex"
 fallback_provider = ""
@@ -753,7 +753,6 @@ video_generation = ""
 embedding = "openrouter_embedding"
 # project = ""  # project understanding: probe authoring + closed-book check (empty = the grading route)
 field_question_classifier = ""
-field_llm_probability = ""
 
 # Embeddings are opt-in: both switches stay off until you enable them.
 # Remote embeddings send learner-derived text to OpenRouter and its upstream
@@ -828,7 +827,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # lines equal to modelled defaults were left out to keep the 80-line cap
     # (the bare [ingest] header, the embedding profile's max_input_tokens and
     # animation's enabled = true); the effective config is unchanged by that.
-    "mvp-0.9": "a52240e82b673fcd1b0f935840343fa3ae32bf07f0c66fc15e08fb87aa078bfd",
+    # Router R0 adds the decider provider type, the code-default
+    # openrouter_embedding and openrouter_decider profiles (B6) and the unset
+    # router/llm_probability judgment routes. The routes have no live consumer
+    # (the router is R2; the llm_probability arms are an opt-in offline
+    # harness): no scoring, scheduling, projection or serving change.
+    # At its merge (owner, 2026-10-12) ai.routing.field_llm_probability is
+    # retired with Phase 2's numeric arm (its template line dropped), and an
+    # unset ai.routing.embedding means openrouter_embedding, still gated by
+    # embedding.enabled = false. All three snapshots were recomputed then
+    # (mvp-0.10 and mvp-0.11 from DEFAULT_CONFIG_TEXT with only
+    # algorithm_version replaced); no serving change.
+    "mvp-0.9": "499d442dcf92b543f7f1f9e4c343b529d41292804319931488b6e40f00ba9cf1",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -837,7 +847,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
     # Phase 5a's [pf] section and routes move it too (no serving change).
-    "mvp-0.10": "173f457c70d3cb6ee5ffb6a90b94904aad191a17aeace03732c82e02d687e1d3",
+    # Router R0's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.10": "cdf9d100616ff76dab8c311f418f768abf83243228f1d76d3d7f0c92f3c604d3",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -850,7 +861,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # merge (they move only because the effective config gains the section).
     # All three were recomputed again at the Phase 5a merge for [pf] and the
     # two PF routes (content generation behind pf.generation_enabled, off).
-    "mvp-0.11": "e828bc611890ea06caa425f089d2c0de59641345910ed7ae8af9f118713833b3",
+    # Router R0's merge moves it too (see mvp-0.9; no serving change).
+    "mvp-0.11": "5054e83db3136b7869fed191723e76843f3cd54785c158d5c6e3da27722eaff7",
 }
 
 

@@ -17,7 +17,8 @@ function settings(enabled: boolean): SettingsDto {
       envProviderOverride: null,
       providers: [
         ["codex", "codex"], ["openrouter", "openrouter"],
-        ["openrouter_embedding", "openai_embedding"], ["custom_vectors", "openai_embedding"]
+        ["openrouter_embedding", "openai_embedding"], ["custom_vectors", "openai_embedding"],
+        ["openrouter_decider", "decider"], ["perplexity_direct", "decider"]
       ].map(([name, type]) => ({
         name, type, model: "test-model", baseUrl: null, apiKeyEnv: null, inputModalities: []
       }))
@@ -31,6 +32,17 @@ function settings(enabled: boolean): SettingsDto {
         + "plaintext: protect them like practice attempts in backups, exports and sync; "
         + "never share them across vaults."
     },
+    judges: [
+      {
+        route: "llm_probability_decider", judge: "decider", consumer: "llm_probability",
+        provider: "openrouter_decider", providerType: "decider", model: "perplexity/pplx-decider-v1.1-27b",
+        ready: true, disclosure: "Learner text goes to OpenRouter, which forwards it to Perplexity."
+      },
+      {
+        route: "router_llm", judge: "llm", consumer: "router", provider: "codex", providerType: "codex_sdk",
+        model: "gpt-5.6-sol", ready: false, disclosure: "Nothing is sent yet: the router has no live consumer."
+      }
+    ],
     ingest: {
       pdfEngine: "auto", audioMode: "transcription",
       native: {
@@ -98,6 +110,22 @@ it("excludes embedding profiles by type from every generation provider selector"
     expect(options).toContain("openrouter");
     expect(options).not.toContain("openrouter_embedding");
     expect(options).not.toContain("custom_vectors");
+    expect(options).not.toContain("openrouter_decider");
+    expect(options).not.toContain("perplexity_direct");
     fireEvent.keyDown(selector, { key: "Escape" });
   }
+});
+
+it("discloses each judgment route read-only, with honest key status", async () => {
+  const value = settings(false);
+  showSettings(value);
+  const section = await screen.findByRole("region", { name: "Decision models" });
+  const content = within(section);
+  for (const judge of value.judges ?? []) {
+    expect(content.getByText(judge.route)).toBeTruthy();
+    expect(content.getByText(judge.disclosure)).toBeTruthy();
+  }
+  expect(content.getByText("key present")).toBeTruthy();
+  expect(content.getByText("not ready")).toBeTruthy();
+  expect(section.querySelector("input, select, button, [role=checkbox], [role=combobox]")).toBeNull();
 });

@@ -188,7 +188,8 @@ export function SettingsScreen({
   const providerOptions = useMemo(
     () =>
       (settings?.ai.providers ?? [])
-        .filter((provider) => provider.type !== "openai_embedding")
+        // Embedding and decision-model profiles have no chat transport.
+        .filter((provider) => provider.type !== "openai_embedding" && provider.type !== "decider")
         .map((provider) => provider.name)
         .filter((name) => name === "openrouter" || !name.startsWith("openrouter_")),
     [settings]
@@ -461,6 +462,27 @@ export function SettingsScreen({
           <span style={hintStyle}>{settings.embedding.privacyDisclosure}</span>
         </div>
       </section>
+
+      {settings.judges && settings.judges.length > 0 ? (
+        <section aria-label="Decision models">
+          <SectionHeader>Decision models</SectionHeader>
+          {settings.judges.map((judge) => (
+            <div key={judge.route} style={{ ...rowStyle, flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <span style={labelStyle}>{judge.route}</span>
+                <span style={{ flex: 1 }}>
+                  {judge.provider ?? "unset"}
+                  {judge.model ? ` · ${judge.model}` : ""}
+                </span>
+                <span style={{ color: judge.ready ? COLOR.green : COLOR.textDim, fontSize: 11 }}>
+                  {judge.ready ? "key present" : "not ready"}
+                </span>
+              </div>
+              <span style={hintStyle}>{judge.disclosure}</span>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <SectionHeader>OpenRouter API key</SectionHeader>
       <div style={rowStyle}>

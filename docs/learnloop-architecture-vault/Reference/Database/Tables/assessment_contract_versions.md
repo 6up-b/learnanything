@@ -3,13 +3,13 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
+source_commit_timestamp: "2026-10-12T16:11:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
   - "table assessment_contract_versions"
-schema_head: 174
+schema_head: 175
 table_name: "assessment_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
-  - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
@@ -97,6 +97,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/probability_states.py`
 - `src/learnloop/placement/state.py`
 
 ### Direct SQL writers

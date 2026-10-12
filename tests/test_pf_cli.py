@@ -37,8 +37,8 @@ def test_list_routes_resolve_in_order_and_fall_back_to_the_active_provider(tmp_p
         model = "vendor/model-b"
     """)
     text = (paths.root / "learnloop.toml").read_text()
-    text = text.replace('field_llm_probability = ""',
-                        'field_llm_probability = ""\npf_proposers = ["or_a", "or_b", "or_a"]\n'
+    text = text.replace('field_question_classifier = ""',
+                        'field_question_classifier = ""\npf_proposers = ["or_a", "or_b", "or_a"]\n'
                         'pf_solver_panel = ["codex", "or_b"]\npf_selection_judge = "or_a"')
     (paths.root / "learnloop.toml").write_text(text)
     vault = load_vault(paths.root)

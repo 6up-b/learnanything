@@ -156,6 +156,19 @@ export interface SettingsIngestDto {
   providerLimits: IngestProviderLimitsDto;
 }
 
+// One judgment route (router spec §6.2): who would receive learner text and
+// when. Read-only; the sidecar computes readiness from key presence only.
+export interface SettingsJudgeRouteDto {
+  route: string;
+  judge: "decider" | "llm";
+  consumer: "llm_probability" | "router";
+  provider: string | null;
+  providerType: string | null;
+  model: string | null;
+  ready: boolean;
+  disclosure: string;
+}
+
 export interface SettingsDto {
   version: number;
   ai: SettingsAiDto;
@@ -169,6 +182,7 @@ export interface SettingsDto {
     mapNeighborsEnabled: boolean;
     privacyDisclosure: string;
   };
+  judges?: SettingsJudgeRouteDto[];
   ingest: SettingsIngestDto;
   animation: SettingsAnimationDto;
   health?: RuntimeHealth;

@@ -10,14 +10,13 @@ import numpy as np
 import pytest
 from typer.testing import CliRunner
 
-from learnloop.cli import app
+from learnloop.cli import app, probability_arms
 from learnloop.clock import FrozenClock
 from learnloop.config.loader import global_settings_path as ORIGINAL_SETTINGS_PATH
 from learnloop.config.loader import load_dotenv as ORIGINAL_LOAD_DOTENV
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import put_vector
-from learnloop.field import zero_data_llm as zero
 from learnloop.field.item_content import load_content_index
 from learnloop.field.success_head import preregistration_hash
 from learnloop.field.types import AttemptRow, ItemFeatures
@@ -26,7 +25,6 @@ from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES, EmbeddingRecipe
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault
 from tests.test_facet_evidence_timeline import _attempt
-from tests.test_field_llm_cli import _enable_codex_field_routes
 from tests.test_km3_projections import build_blueprint_vault
 
 
@@ -62,10 +60,28 @@ def _forbid_models(monkeypatch):
     def forbidden(*args, **kwargs):
         raise AssertionError("success-head replay must not call a model or load secrets")
 
+    # The LLM arm is router R0's V2 arm: its client seam too. Patched first,
+    # with the module imported at the top of this file, so it never binds a
+    # patched routing function at import time.
+    monkeypatch.setattr(probability_arms, "ready_client_for_task", forbidden)
+    monkeypatch.setattr(probability_arms, "load_machine_environment", forbidden)
     monkeypatch.setattr("learnloop.config.loader.load_dotenv", forbidden)
     monkeypatch.setattr("learnloop.config.loader.global_settings_path", forbidden)
     monkeypatch.setattr("learnloop.ai.client.make_ai_provider_client", forbidden)
     monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", forbidden)
+
+
+def _enable_field_switches(root):
+    """Both field switches on; ai.routing.llm_probability_llm stays unset (template Codex)."""
+    config = root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    for old, new in (
+        ("[field]\n", "[field]\nenabled = true\n"),
+        ("llm_probability_enabled = false", "llm_probability_enabled = true"),
+    ):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    config.write_text(text, encoding="utf-8")
 
 
 def _allow_environment(monkeypatch):
@@ -197,11 +213,39 @@ def test_llm_cache_requires_switches_and_prepare_requires_cache(seeded, tmp_path
     assert result.exit_code == 1 and json.loads(result.output)["status"] == "disabled"
 
 
+class _Transport:
+    """An LLM judge transport seen through the real execute_structured_operation."""
+
+    provider_name, provider_type, model = "codex", "codex_sdk", "fake-codex"
+
+    def __init__(self, *capabilities, p=.6):
+        self.capabilities, self.requests, self.p = set(capabilities), [], p
+
+    def supports(self, capability):
+        return capability in self.capabilities
+
+    def complete(self, request):
+        self.requests.append(request)
+        return request.result_model(p_correct=self.p)
+
+
+def _route_transport(monkeypatch, transport):
+    monkeypatch.setattr("learnloop.cli.probability_arms.ready_client_for_task", lambda *a, **k: SimpleNamespace(
+        client=transport, runtime=SimpleNamespace(ready=True)))
+
+
+def _ledgered(paths):
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        return connection.execute(
+            "SELECT COUNT(*) FROM judgment_ledger WHERE task='llm_probability' AND judge='llm'").fetchone()[0]
+
+
 def test_llm_prepare_dry_run_then_fake_codex_then_cache_only_replay(seeded, monkeypatch, tmp_path):
-    from learnloop.cli.field_llm import ProbabilityResult
+    """T8's zero-data arm is R0's llm_probability/v2/llm under T8's names (owner, 2026-10-12)."""
+    from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
 
     paths, vault = seeded
-    _enable_codex_field_routes(paths.root)
+    _enable_field_switches(paths.root)
     cache = tmp_path / "cache"
     common = ("--vault", str(paths.root), "--legacy-fallback", "current_content",
               "--llm-cache", str(cache), "--output", str(tmp_path / "out"), "--json")
@@ -210,37 +254,42 @@ def test_llm_prepare_dry_run_then_fake_codex_then_cache_only_replay(seeded, monk
     result = _invoke(*common, "--prepare-llm", "--dry-run", "--max-tokens", "0", "--max-cost-usd", "0")
     assert result.exit_code == 0, result.output
     plan = json.loads(result.output)
-    assert plan["llm"]["status"] == "dry_run" and plan["llm"]["billing"] == "subscription"
-    assert plan["llm"]["estimate"]["calls"] == len(ITEMS) and plan["llm"]["charged"]["calls"] == 0
+    llm = plan["llm"]
+    assert llm["status"] == "dry_run" and llm["selection"] == ["v2/llm"]
+    assert llm["aliases"] == {"llm_zero_data": "llm_probability/v2/llm",
+                              "llm_zero_data:recalibrated": "llm_probability/v2/llm+recal"}
+    judge = llm["judges"]["llm"]
+    assert judge["billing"] == "subscription" and judge["charged"]["calls"] == 0
+    assert judge["pending"] == judge["requests"] > 0
     assert _digest(paths) == before and not cache.exists()
-    # Cache status without --prepare-llm is a dry run too: nothing cached yet.
+    # A dry run without --prepare-llm plans the same work: nothing cached yet.
     status = json.loads(_invoke(*common, "--dry-run").output)["llm"]
-    assert status["status"] == "dry_run" and status["pending"] == len(ITEMS)
+    assert status["status"] == "dry_run" and status["judges"]["llm"]["pending"] == judge["pending"]
 
-    prompts = []
-
-    def execute(client, **kwargs):
-        prompts.append(kwargs["prompt"])
-        assert kwargs["purpose"] == zero.TASK
-        return ProbabilityResult(p_success=.6)
-
-    client = SimpleNamespace(provider_name="codex", provider_type="codex_sdk", model="fake-codex")
-    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", lambda *a, **k: SimpleNamespace(
-        client=client, runtime=SimpleNamespace(ready=True)))
-    monkeypatch.setattr("learnloop.ai.transport.execute_structured_operation", execute)
+    transport = _Transport(STRUCTURED_COMPLETION, ISOLATED_TURN)
+    _route_transport(monkeypatch, transport)
     environment = _allow_environment(monkeypatch)
+    monkeypatch.setattr("learnloop.cli.probability_arms.load_machine_environment",
+                        lambda root: environment.append(root))
     result = _invoke(*common, "--prepare-llm", "--bootstrap-samples", "10")
     assert result.exit_code == 0, result.output
     assert environment  # the paid step lets the app load its keys itself
-    assert len(prompts) == len(ITEMS)
-    assert all("learner_answer" not in prompt and "An answer." not in prompt for prompt in prompts)
+    assert len(transport.requests) == judge["pending"]
+    assert all(request.isolated for request in transport.requests)
+    assert all("learner_answer" not in request.prompt and "An answer." not in request.prompt
+               for request in transport.requests)
     report = json.loads(result.output)["evaluation"]
-    assert report["offline_preparation"]["cost_basis"] == "estimated_only"
-    assert {"llm_zero_data", "llm_zero_data:recalibrated"} <= set(report["report1"]["arms"])
+    assert report["offline_preparation"]["judges"]["llm"]["cost_basis"] == "estimated_only"
+    arms = report["report1"]["arms"]
+    assert {"llm_zero_data", "llm_zero_data:recalibrated"} <= set(arms)
+    assert not any(name.startswith("llm_probability/") for name in arms)
+    assert report["t8_inputs"]["llm_aliases"]["llm_zero_data"] == "llm_probability/v2/llm"
+    assert "difficulty prior" in report["t8_inputs"]["llm_alias_note"]
     assert report["analyses"]["t8"]["descriptive"]["llm_zero_data"]["vs_emb_ridge"]["status"] == "computed"
-    with sqlite3.connect(paths.sqlite_path) as connection:
-        assert connection.execute(
-            "SELECT COUNT(*) FROM judgment_ledger WHERE task=?", (zero.TASK,)).fetchone()[0] == len(ITEMS)
+    # The pre-registration is untouched: same version and hash.
+    assert report["analyses"]["t8"]["preregistration"]["version"] == "t8-preregistration-v3"
+    assert report["analyses"]["t8"]["preregistration"]["hash"] == preregistration_hash()
+    assert _ledgered(paths) == len(transport.requests)
     # Replay from the cache: no client, no writes.
     _forbid_models(monkeypatch)
     before = _digest(paths)
@@ -249,77 +298,67 @@ def test_llm_prepare_dry_run_then_fake_codex_then_cache_only_replay(seeded, monk
     assert _digest(paths) == before
 
 
-class _Transport:
-    """A structured transport seen through the real execute_structured_operation."""
-
-    provider_name, provider_type, model = "codex", "codex_sdk", "fake-codex"
-
-    def __init__(self, *capabilities):
-        self.capabilities, self.requests = set(capabilities), []
-
-    def supports(self, capability):
-        return capability in self.capabilities
-
-    def complete(self, request):
-        self.requests.append(request)
-        return request.result_model(p_success=.6)
-
-
-def _route_transport(monkeypatch, transport):
-    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", lambda *a, **k: SimpleNamespace(
-        client=transport, runtime=SimpleNamespace(ready=True)))
-
-
-def test_codex_predictions_are_isolated_turns_and_older_caches_are_not_reused(seeded, monkeypatch, tmp_path):
+def test_the_t8_alias_and_the_v2_llm_arm_are_one_arm_paid_for_once(seeded, monkeypatch, tmp_path):
+    """Owner decision 2026-10-12: comparable, and never paid for twice."""
     from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
-    from learnloop.cli.field import _replay_inputs
-    from learnloop.cli.success_head import _route_settings
-    from learnloop.field.evaluation import _hash
 
     paths, _ = seeded
-    _enable_codex_field_routes(paths.root)
-    cache = tmp_path / "cache"
-    common = ("--vault", str(paths.root), "--legacy-fallback", "current_content",
-              "--llm-cache", str(cache), "--output", str(tmp_path / "out"), "--json")
-    # Checkpoints prepared before turns were isolated (settings without the
-    # isolation key) must not be replayed: they are re-asked, isolated.
-    loaded = load_vault(paths.root)
-    profile, settings, _ = _route_settings(loaded, 256)
-    legacy = {key: value for key, value in settings.items() if key != "turn"}
-    inputs = _replay_inputs(loaded, legacy_fallback="current_content")
-    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
-        connection.execute("BEGIN")
-        content, _ = load_content_index(connection, loaded, inputs["attempts"])
-    cache.mkdir()
-    for digest in zero.prediction_requests(inputs["attempts"], content):
-        zero._cache_path(cache, profile.model, _hash(legacy), digest).write_text(json.dumps({
-            "model": profile.model, "input_hash": digest, "prompt_version": zero.PROMPT_VERSION,
-            "settings_hash": _hash(legacy), "p_success": .9, "judgment_id": "unisolated",
-        }), encoding="utf-8")
+    _enable_field_switches(paths.root)
     transport = _Transport(STRUCTURED_COMPLETION, ISOLATED_TURN)
     _route_transport(monkeypatch, transport)
-    _allow_environment(monkeypatch)
-    result = _invoke(*common, "--prepare-llm", "--bootstrap-samples", "5")
+    monkeypatch.setattr("learnloop.cli.probability_arms.load_machine_environment", lambda root: None)
+    cache = tmp_path / "cache"
+    field = CliRunner().invoke(app, [
+        "eval", "--vault", str(paths.root), "--section", "field", "--legacy-fallback", "current_content",
+        "--probability-arm", "v2/llm", "--llm-cache", str(cache), "--prepare-llm",
+        "--output", str(tmp_path / "field"), "--bootstrap-samples", "5", "--json",
+    ])
+    assert field.exit_code == 0, field.output
+    paid = len(transport.requests)
+    assert paid > 0 and _ledgered(paths) == paid
+    field_report = json.loads(field.output)["evaluation"]
+
+    # T8 replays the field section's cache with no client.
+    _forbid_models(monkeypatch)
+    result = _invoke("--vault", str(paths.root), "--legacy-fallback", "current_content",
+                     "--llm-cache", str(cache), "--output", str(tmp_path / "t8"),
+                     "--bootstrap-samples", "5", "--json")
     assert result.exit_code == 0, result.output
-    assert len(transport.requests) == len(ITEMS)
-    assert all(request.isolated for request in transport.requests)
+    t8 = json.loads(result.output)["evaluation"]
+    for alias, arm in (("llm_zero_data", "llm_probability/v2/llm"),
+                       ("llm_zero_data:recalibrated", "llm_probability/v2/llm+recal")):
+        assert t8["manifest"]["arm_hashes"][alias] == field_report["manifest"]["arm_hashes"][arm]
+        assert t8["report1"]["arms"][alias]["overall"]["log_loss"]["mean"] == pytest.approx(
+            field_report["report1"]["arms"][arm]["overall"]["log_loss"]["mean"])
+
+    # A T8 preparation into a new cache recovers the ledgered verdicts: no new call.
+    _route_transport(monkeypatch, transport)
+    monkeypatch.setattr("learnloop.cli.probability_arms.load_machine_environment", lambda root: None)
+    _allow_environment(monkeypatch)
+    result = _invoke("--vault", str(paths.root), "--legacy-fallback", "current_content",
+                     "--llm-cache", str(tmp_path / "other-cache"), "--prepare-llm",
+                     "--output", str(tmp_path / "t8b"), "--bootstrap-samples", "5", "--json")
+    assert result.exit_code == 0, result.output
+    assert len(transport.requests) == paid and _ledgered(paths) == paid
+    recovered = json.loads(result.output)["evaluation"]["offline_preparation"]["judges"]["llm"]
+    assert recovered["recovered"] == recovered["requests"] and recovered["completed"] == 0
 
 
 def test_a_transport_that_cannot_isolate_the_turn_is_refused_before_any_call(seeded, monkeypatch, tmp_path):
     from learnloop.ai.transport import STRUCTURED_COMPLETION
 
     paths, _ = seeded
-    _enable_codex_field_routes(paths.root)
+    _enable_field_switches(paths.root)
     transport = _Transport(STRUCTURED_COMPLETION)
     _route_transport(monkeypatch, transport)
     _allow_environment(monkeypatch)
+    monkeypatch.setattr("learnloop.cli.probability_arms.load_machine_environment", lambda root: None)
     result = _invoke("--vault", str(paths.root), "--legacy-fallback", "current_content",
                      "--llm-cache", str(tmp_path / "cache"), "--prepare-llm", "--json")
-    assert result.exit_code == 1 and json.loads(result.output)["status"] == "unavailable"
+    assert result.exit_code == 1
+    assert json.loads(result.output)["status"] == "provider_failed"
     assert not transport.requests
-    with sqlite3.connect(paths.sqlite_path) as connection:
-        assert connection.execute(
-            "SELECT COUNT(*) FROM judgment_ledger WHERE task=?", (zero.TASK,)).fetchone()[0] == 0
+    assert _ledgered(paths) == 0
 
 
 def _row(item_id, at, *, status, digest=None):
