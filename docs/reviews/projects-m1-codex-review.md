@@ -102,3 +102,61 @@ Run at `fbaf4b7e`, with only the review files uncommitted.
 | `db_generate_reference.py` + `db_validate_reference.py` | **0 errors**: schema head 166 (no vault migration), 261 table notes, 532 config leaves. `validate_vault.py` passed (1,022 notes) |
 | Frontend (`apps/learnloop-tauri`) | Not changed; npm checks not applicable |
 | Live or paid model calls | None. Every model is a fake; bubblewrap, git worktrees and hooks ran for real in temporary directories |
+
+## Re-review
+
+Codex re-reviewed `adc8fba0..projects/m1` (codex-job `20261012-021848-f1r8XV`). It confirmed F1 and F3 fixed, reopened F2, and raised two new Medium findings, F16 and F17. The fixes run from `fcf45cf7` to `e3cd6a38`.
+
+As before, each finding was reproduced as a failing test before it was fixed. F2 was also reproduced by hand with real bubblewrap: a launcher at `repo/codex` read `repo/model.py` from inside the sandbox.
+
+### Findings
+
+| Id | Severity | Title | Verdict | Commit | Test, or reason |
+|---|---|---|---|---|---|
+| F1 | High | Secrets in Git hunk headers bypass redaction | confirmed fixed | `0fa326ee` | Re-review confirmed; no change |
+| F2 | High | The sandbox mounts an executable's whole directory and masks hidden paths only in system trees | fixed (reopened) | `fcf45cf7` | `test_ai_tool_isolation.py::test_a_launcher_inside_a_hidden_repo_is_refused_not_exposed[codex, tools/codex]`, `::test_only_the_executable_itself_is_mounted_not_its_directory`, `::test_a_hidden_path_inside_a_mounted_package_is_masked` (a real Node launcher), `::test_a_hidden_path_inside_the_working_directory_is_masked`, `::test_a_hidden_path_holding_the_working_directory_or_agent_home_is_refused`. All run real bubblewrap; before the fix the repo, the nested checkout and the vault were readable |
+| F3 | High | Metered output estimates are not enforced on requests | confirmed fixed | `128759f9` | Re-review confirmed; no change |
+| F16 | Medium | Valid ADR rationale is rejected as code | fixed | `833de67d` | `test_project_probes.py::test_a_plain_markdown_adr_paragraph_states_its_reason` (file and diff citations), `::test_adr_prose_must_still_state_the_proposed_reason`, `::test_a_fenced_code_block_in_an_adr_is_still_code` |
+| F17 | Medium | Dry-run silently migrates existing project stores | fixed | `0d65bad5` | `test_project_cli.py::test_dry_runs_leave_an_older_store_unmigrated[sweep, probes, grade, answer]` (a schema-1 store stays byte-identical, still at version 1 and without `pending_commits`, and a real sweep then upgrades it); `test_project_experiment_store.py::test_a_read_only_open_neither_upgrades_nor_writes_an_older_store`, `::test_a_read_only_open_still_refuses_a_newer_store` |
+
+Fixed: 3 (F2, F16, F17). Rejected: 0. F1 and F3 were confirmed and left as they are. Both High findings still open after the first round are now closed: F2 is fixed, and F1 and F3 were confirmed.
+
+### How each finding was fixed
+
+- **F2.** `sandbox_arguments` now mounts only what the executable needs. That is the resolved file itself, or the package of a Node launcher, which needs `package.json` and its vendored binary. It never mounts the directory the executable sits in. Hidden paths are masked in every mounted tree: the system trees, the executable's package and the working directory. A layout the mask can't honour raises `ToolIsolationUnavailable` before anything launches, so nothing runs. That covers a hidden path that holds the executable, the working directory, the agent home or a bound credential file. The message tells the owner to move the item outside the vault and the enrolled repos. An executable outside the system trees runs by its resolved path, because only that path is mounted. The real `/usr/bin/codex` Node launcher still starts inside the narrowed sandbox (`codex --version` from an empty scratch agent home).
+- **F16.** `_prose` recognises prose documents by the citation's path:
+  - the suffixes `.md`, `.markdown`, `.mdx`, `.rst`, `.txt`, `.adoc`, `.asciidoc` and `.org`;
+  - the suffix-less names `README`, `CHANGELOG`, `CHANGES`, `NEWS`, `HISTORY`, `NOTES` and `DECISIONS`.
+
+  Their text is prose unless it sits in a fenced code block. A fence counts when it opens in the stored excerpt, or on the new side of the hunk, before the cited span. The rest of the check is unchanged: the citation must resolve to the stored excerpt with a verbatim quote, carry a reason cue and share at least two content terms with the reference answer. The authoring prompt now names ADR and design-note prose as a rationale source. Its version stays `project-probe-authoring-v1`, because the prompt hasn't shipped outside this branch.
+- **F17.** `ProjectStore(..., read_only=True)` and `ProjectStore.existing(..., read_only=True)` open the store for a dry run:
+  - connections use SQLite's read-only mode (`connect(read_only=True)`), so any write fails at the database boundary;
+  - there is no schema upgrade and no journal-mode switch;
+  - a newer store is still refused;
+  - a version-1 store's missing `pending_commits` queue reads as empty.
+
+  The `sweep`, `probes`, `grade` and `answer` dry runs and `discover_captures` use it. A writing command still upgrades the store on open.
+
+### Notes
+
+- **Docs.** `project-understanding-m1.md` now describes the narrower mounts and the refusal, prose documents as rationale, and read-only dry runs. In the configuration reference, `Config - project.md` was regenerated for the moved `cli/project.py` line citations. The other regenerated notes changed only their commit stamp and were left out, as in `fbaf4b7e`.
+- **No vault migration, no new config leaves.** `state.sqlite` is untouched, and the project store stays at `user_version` 2.
+- **Residuals:**
+  - A Node launcher still mounts its whole package. If an enrolled repo vendors Codex in its own `node_modules`, the run is refused rather than partly exposed.
+  - Fence detection in F16 sees only the stored excerpt or hunk. A span inside a fence that opened above the excerpt is read as prose, but it must still pass the reason-cue and term checks.
+  - `project status` has no dry-run promise and still opens the store for writing, so it upgrades an older store.
+
+### Gate results
+
+Run at `e3cd6a38`, with only this file uncommitted.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | OK (the stage doesn't touch `learnloop_mobile`) |
+| `uv run lint-imports --no-cache` | **8 contracts kept, 0 broken** |
+| `uv run pytest -n auto` | **6,324 passed**, 14 existing deprecation warnings, 160 s (6,309 before; 15 new tests) |
+| `uv run pytest -m durability` | **63 passed**, 6,261 deselected |
+| Project and isolation tests (`test_project*.py`, `test_ai_tool_isolation.py`) with `--durable-sqlite` | **176 passed** |
+| `db_generate_reference.py` + `db_validate_reference.py` | **0 errors**: schema head 166 (no vault migration), 261 table notes, 532 config leaves. `validate_vault.py` passed (1,022 notes) |
+| Frontend (`apps/learnloop-tauri`) | Not changed; npm checks not applicable |
+| Live or paid model calls | None. Every model is a fake. bubblewrap, git and Node ran for real in temporary directories |
