@@ -235,3 +235,209 @@ tests (106 → 109; the four `searchBasis` tests rewritten).
 3. **Lone-token answers** (`3`, `yes`, a single word) cannot be told apart from
    incidental mentions lexically; for them the verifier's instruction is the
    only guard.
+
+## Re-review
+
+The Codex re-review reopened F1 and added F15-F20 (verdict REOPENED). Each
+finding was reproduced first (a failing test, plus the reviewer's script or a
+measurement where one applies), then fixed. None was rejected.
+
+### How the findings were reproduced
+
+- **F1** with the reviewer's `repro_worked.py` on `af930115`: the workbook's
+  "Example 5.2 … lambda_1 = 2, lambda_2 = 3" block, linked to `pi_eigen_1` as
+  `primary`, was the tutor's second span and was cited, with
+  `withheld_answer_overlap = 0` and no `reveal_events` row. After the fix the
+  same script shows it nowhere (spans, citations, candidates).
+- **The 18 new tests** in `test_source_retrieval_rereview.py` (before the cost
+  ones moved to `test_source_retrieval_rereview_cost.py`) were run against the
+  unfixed tree with only the new `embedding_request_timeout` API added: **18
+  failed** (the F1 leak assertions, the missing `item=` scope argument, no
+  request timeout, `provider_failed` for a timed-out request, manifests rebuilt
+  on every keystroke, the set-less source in scope, `ready` without a key, the
+  heading-cued blocks dropped). The F1 re-extraction test and the F20 test
+  were each confirmed failing with their fix removed.
+- **F1 on real data (no call).** On the three fixtures-local copies, with the
+  item's own prompt as an adversarial query, an item-linked span reached the
+  top-24 keyword candidates of the item-bound scope for 6 of 31 linked items
+  (arxiv_v2), 9 of 9 (linear_algebra) and 55 of 67 (probability) without the
+  item exclusions, and for 0 of them with them.
+- **F16** measured with the reviewer's synthetic vault (`meaning_search_state`
+  alone, warm, production SQLite settings): HEAD 6.4 ms per keystroke at 52
+  sources and **119 ms at 82 sources** (the manifest LRU thrashes); fixed
+  3.1 ms and **3.5 ms**.
+- **F19 on real data.** On the probability copy, 7 teaching paragraphs of the
+  Elevator paradox web page (heading "Modeling the elevator problem", hinted
+  `exercise` by the heading cue) were dropped from practice grounding; now they
+  are kept. The other 62 exercise/solution exclusions (lead cues) are
+  unchanged; the arxiv_v2 and linear_algebra copies have none either way.
+- **F20.** All four fixtures-local copies (`t6_arxiv_v2`, `t6_linear_algebra`,
+  `t6_probability`, `t6_probability_fakes`) had applied the earlier 175 and
+  kept rowid-only delete triggers. The tracked fixtures in this worktree were
+  never migrated by the branch (clean status). The owner's working vaults
+  cannot be checked from here (their databases are not read), so 176 repairs
+  any vault rather than relying on that.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | (reopened) A practice item's own linked passage reaches the tutor and is cited, unwithheld and uncounted | fixed | `2e7f9fd1` | `test_source_retrieval_rereview.py`: `test_a_passage_linked_to_the_item_never_reaches_the_practice_tutor` (`primary`, `support`, `alternate`; practice and feedback), `test_the_reviewers_repro_is_no_longer_cited_or_uncounted`, `test_an_item_link_that_names_no_block_excludes_its_whole_extraction` (4 locator shapes), `test_an_items_yaml_source_ref_is_excluded_without_a_link_row`, `test_an_item_link_into_an_older_run_is_matched_in_the_re_extraction`, `test_the_body_after_an_item_linked_example_lead_is_excluded` |
+| F15 | Low | The query embedding is not covered by the retrieval time box | fixed | `81660f97` | `test_source_retrieval_rereview_cost.py`: `test_the_tutors_query_embedding_request_carries_the_time_left`, `test_the_deep_library_search_query_embedding_carries_the_time_left`, `test_a_query_embedding_that_runs_out_of_time_is_labelled_timed_out`, `test_the_openai_embedding_client_sends_the_request_timeout` |
+| F16 | Low | Every keystroke computes meaning-search coverage; the manifest cache thrashes on large libraries | fixed | `81660f97` | `test_typing_searches_reuse_the_coverage_until_the_library_changes` (manifest LRU forced to 1); 119 ms to 3.5 ms measured above |
+| F17 | Low | Sources in no source set still ground the tutor in the fallback scope | fixed | `2e7f9fd1` | `test_a_source_in_no_set_never_grounds_the_tutor` (and a teaching link restores standing) |
+| F18 | Low | "Enter also searches by meaning" ignores whether the embedding provider is ready | fixed | `81660f97` | `test_meaning_search_is_unavailable_when_the_embedding_route_is_not_ready`; two typing-state tests now set the key (no call is made) |
+| F19 | Low | Heading cues make whole teaching sections disappear from practice and feedback grounding | fixed | `2e7f9fd1` | `test_heading_cues_do_not_drop_teaching_sections_from_practice`; the existing `test_practice_and_feedback_drop_exercise_and_solution_blocks` passes unchanged |
+| F20 | Low | Migration 175 was edited in place | fixed (new migration 176) | `75d76b8d`, `52ec05e6` | `test_source_block_fts.py`: `test_a_vault_that_applied_the_earlier_175_gets_the_identity_delete_paths`, `test_a_fresh_vault_has_the_same_triggers_through_176` |
+
+### What changed
+
+**F1 (High).** `corpus.item_exclusions(repository, item)` is applied by
+`teaching_scope(..., item_bound=True, item=item)` in practice and feedback
+(the tutor passes the bound item):
+- **Every relation.** The item's `entity_source_links` rows (every relation
+  and status) and its YAML `provenance.source_refs` (block locators and
+  `span_ids`) both count. A ref to another entity or a note names no source
+  and excludes nothing.
+- **No block named: whole extraction.** A link or ref whose locator names no
+  block (heading path, time range, arXiv label, opaque, or none) excludes its
+  extraction, else its revision's or source's extractions, as `_link_exclusions`
+  does for assessment links.
+- **The body after a linked lead.** A linked block hinted `worked_example`,
+  `exercise` or `solution` takes the body after it (unhinted prose, equations,
+  tables, figures, at most 20 blocks, up to the next header or structural
+  hint), the same region rule as a solution lead. The reviewer's
+  "Example 5.2" block is one block; Marker usually splits the lead from its
+  worked body.
+- **Re-extractions.** The tutor reads a source's latest run, while an item
+  links the run it was made from. A linked block's text is matched (by
+  `content_hash`, indexed) in the source's other extraction runs.
+- **Notes.** The scope notes how many blocks and whole extractions were
+  excluded as linked to the item.
+
+`worked_example` is **not** added to the excluded hints. The item's own
+example is now excluded structurally through its links (with its body). Any
+other worked example is the tutor's best scaffold, and the practice prompt
+guides rather than solves. Heading and lead cues cannot tell "the item's
+example" from "an example". The answer-overlap filter and the v2 verifier
+still apply to unlinked passages, and cited ones are still debited as reveals.
+
+What remains, so it is not overclaimed: an *unlinked* passage that solves the
+same problem with the answer written non-adjacently ("lambda_1 = 2,
+lambda_2 = 3" for "2 and 3"), or a lone-token answer, is caught only by the
+verifier's instruction (owner question 3 of the first round still stands).
+
+**F15.** `ai.embedding.embedding_request_timeout(seconds)` is a context-local
+bound, so the `EmbeddingClient` protocol and its fakes are unchanged. The
+OpenRouter embedding client passes it as the request's `timeout` when set,
+and sends nothing extra otherwise. `practice_index.query_vectors.embed_queries`
+takes `deadline`: no request starts after it, each carries the time left, and
+an `APITimeoutError` (or the time box running out) is labelled `timed_out`.
+`search_spans` passes the tutor's and the deep library search's deadline
+through `embed_query_texts`. With no deadline (`find_practice`, backfills)
+nothing changes.
+
+**F16.** `dense._coverage` first looks up a cheap scope fingerprint: each
+extraction's block count and largest rowid (one grouped query,
+`extraction_fingerprints`) plus the stored-vector fingerprint. Only on a miss
+are manifests built (with the fingerprints passed in, so no per-extraction
+query is repeated). Both the typing state and the deep search's index lookup
+use it. The per-extraction manifest LRU keeps its size; it is no longer on the
+keystroke path.
+
+Not fixed here (pre-existing on main): the rest of a typing search's cost is
+`library_scope` → `current_extractions`, which opens about six repository
+connections per source. It took about 1.1 s at 82 sources with production
+SQLite settings. Today's `search_sources` on main does the same per-source
+resolution, so T6 did not add it. Owner question 1 below.
+
+**F17.** The fallback scope (no LO, or no source found for the LOs) now
+searches only sources with a role: a source-set member, or a source a
+learning object, facet or concept cites with a `primary`, `support` or
+`alternate` link (`teaching_link_locators`). Others fail closed like unknown
+roles; the scope notes how many were left out. On the copies the fallback
+would leave out one source (arxiv_v2: 1 of 12 sources is in no set and cited by no teaching
+link; linear_algebra and probability: none).
+
+**F18.** `library.embedding_route_problem` checks the `embedding` route
+without a call: a route is configured, and `runtime_for_provider(...,
+task="embedding")` is ready (for OpenRouter, the API key is set). Embeddings
+never fall back to another provider, so this is the route Enter will use.
+`meaning_search` reports `unavailable` with that reason and keeps its counts;
+the reader already hides the hint for any status but `ready` and `partial`.
+An injected embedder counts as its own route. A provider that is down is only
+found by calling it, and Enter then reports `provider_failed`.
+
+**F19.** The `exercise` and `solution` hints (and `worked_example`, for a
+linked lead) count only when they came from the block's own lead text
+(`block_roles.lead_role`: "Solution:", "Problem 4.", "Example 5.2"), or from
+a heading that names the whole unit (`block_roles.unit_heading_role`:
+"Exercises", "Exercises for Section 5.3", "Problem Set 4", "Solutions to
+Selected Exercises"). A heading that only contains such a word ("Solutions of
+linear systems", "The eigenvalue problem", "Least-squares problems") makes
+the hint count as ordinary prose, including for region bodies. Stored hints
+and `classify_block_role` are unchanged (`lead_role` is its own first step,
+extracted). The scope notes how many exercise or solution blocks it dropped.
+
+**F20.** Migration 175 is not edited again. `176_source_block_fts_identity_triggers.sql`
+drops and recreates the delete and update triggers with the identity match,
+and recreates them unchanged on a vault that applied the edited 175. The
+insert trigger never changed. `fixtures/migration_head_175` became
+`migration_head_176`:
+- upgraded with 176 and left in rollback mode;
+- `integrity_check` ok, `foreign_key_check` empty;
+- README updated;
+- the six test paths and the two reference scripts (three mentions in the
+  generator) point at it;
+- `SCHEMA_HEAD = 176` in both scripts.
+
+**T6 now owns two migrations, 175 and 176.** Main is at 174, and T1, R0 and
+the stuck prompt take 175-178 at merge, so both will be renumbered.
+
+### Real calls (fixtures-local copy `t6_linear_algebra`, OpenRouter)
+
+The dry run came first: `sources search --deep --dry-run "change of basis
+matrix columns"` planned one query embedding (no rewrite, not a conceptual
+question), 158 estimated tokens, $0.0000016. `meaning_search` was `ready`, so
+the F18 route check passed with the app loading the key itself.
+
+| Run | Calls | Tokens | Billed |
+|---|---|---|---|
+| `sources search --deep` (default caps): one query embedding under the 15 s time box, sent with its per-request timeout | 1 | 24 in | $0.00000024 (receipt `call_423790d3c92b449f8bdcfc92fe5ba467`, 1.5 s, completed) |
+| **Total** | **1** | | **$0.00000024** |
+
+The search ranked by `keyword+meaning` and returned 20 hits. Opening the copy
+applied migration 176: its delete trigger now matches the block's identity.
+The F1, F17 and F19 checks on the copies above made no call.
+
+### Gate (re-review)
+
+Run on `52ec05e6` (fixes, migration 176 and regenerated references), after
+`uv sync --extra dev --extra mobile` and `uv pip install pypdfium2`.
+
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 12 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7957 passed**, 0 failed, 0 skipped (209.7 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **84 passed**, 7873 deselected (60.7 s) |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated; validator `errors: []` (schema head 176, 292 table notes, 3832 wikilinks) |
+| Frontend (`npm install`, `typecheck`, `npm test`) | not run: no frontend file changed (the reader already hides the hint for `unavailable`) |
+
+The pytest runs added `-p no:cacheprovider`; the selection is unchanged.
+Since the first fix round's gate, 21 new Python test items (7936 → 7957: 13
+scope, 6 cost, 2 migration); two existing typing-state tests now set the
+OpenRouter key (no call is made).
+
+### Owner questions (re-review)
+
+1. **Typing-search latency on large libraries.** `library_scope` resolves each
+   source's current extraction with about six connection opens, as main's
+   `search_sources` does: about 1.1 s per keystroke at 82 sources with
+   production SQLite settings. One batched query would make it a few
+   milliseconds. It is pre-existing and outside this stage; fix it in T6's
+   merge or separately?
+2. **Set-less sources and the library tutor.** Under F17, a source imported
+   into the library but never added to the study map does not ground a
+   library-context tutor question until it is in a set or cited by synthesis.
+   That keeps unknown roles failing closed. The alternative is to search them
+   in the library context only, with a label.
