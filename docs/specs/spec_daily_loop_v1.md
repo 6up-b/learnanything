@@ -218,16 +218,27 @@ One tap, from the receipt, the Captures strip or the phone (mobile M3). It is of
 **For item-producing kinds, adoption also:**
 - **Files the item under the capture's LO.** An unfiled capture is filed under a "Captured" LO in an auto-created "Captured" subject, labelled as auto-created. "Move" re-files it in one tap later.
 - **Creates a `help_me_remember` commitment** (`remember_key_ideas`) with a `legacy_practice_item` target. The item is then a learner request through the existing branch of `requested_practice_item_ids` (`learnloop/db/repositories.py:4574`): it is eligible for the requested front slot (§6.1, "Requests first") and exempt from the cold-start gate (§3.1) and from the new-material cap (§6.3).
-- **Adds a one-member practice family** whose `reference.verification` is the processor's result, once Phase 3 is merged. PF-b can then generate isomorphs of a captured problem. `ActivityFamily.source_kind` gains `captured`.
+- **Adds a one-member practice family** whose `reference.verification` is the processor's result, once Phase 3 is merged. PF-b can then generate isomorphs of a captured problem, but only once its reference is `verified` (below). `ActivityFamily.source_kind` gains `captured`.
 - **Records the route** with `route_capture(…, route="practice_this", result_refs=…)`.
 
 **Before processing finishes,** the tap records the request (`capture_processing.adopt_requested_at`, creating the row if needed). The receipt says "Will be ready once the answer is worked out", and adoption completes when the processor does.
 
 **An unverified answer never certifies anything (C3, L4).** By default (D5) adoption is still allowed:
 - The item is labelled "answer key not verified" wherever it shows.
-- Its attempts are ordinary practice evidence, the same standard as a learner-written card.
-- It is excluded from certification cold probes, exam pools and Phase 6's assumed-known checks.
-- Verification is retried in the background. If it later succeeds, the label clears. If it finds the stored key wrong, the key is replaced through `edit_item` and the learner sees "answer key corrected".
+- **Its attempts schedule and teach, but never certify.** They update FSRS and count as learning evidence on the map. They earn no certification credit, by an attempt-time gate:
+  - **Recorded at attempt time.** Every attempt records the served item's reference status in a new column, `practice_attempts.reference_status` (`not_applicable` | `verified` | `unverified`). It defaults to `not_applicable` for existing rows and for every item not made from a capture. The attempt transaction sets it from `capture_processing.verification`, and nothing updates it afterwards, so replay reads the same value.
+  - **Enforced where certification is decided.** `resolve_attempt_activity_policy` (`learnloop/diagnosis/causal_activity_policy.py:202`) takes `reference_status` as an immutable attempt signal, like `primed` and `hints_used`. `unverified` forces `eligible_for_certification = False` and leaves FSRS eligibility and assistance unchanged. Both certification projections already take eligibility from that resolver: the canonical projection (`learnloop/substrate/canonical_projection.py:677`, gating credit at `:852`) and the facet timeline (`learnloop/learner/facet_evidence_timeline.py:668`, `:740`). An ordinary independent attempt is otherwise eligible (`learnloop/diagnosis/causal_activity_policy.py:145`) and would earn credit (`learnloop/learner/capability_mapping.py:246`). Excluding pools alone therefore isn't enough.
+  - **Never retroactive.** A later verification doesn't make earlier attempts certify, because they were graded against an unchecked key. Attempts made after the label clears record `verified` and certify normally. Attempts graded against a key that was later corrected stay ineligible.
+  - **A projection successor.** This changes what a projection means, so it is the successor `capture_reference_v1` (§11). With no `unverified` attempts, every projection equals its predecessor's.
+- It is also excluded from certification cold probes, exam pools and Phase 6's assumed-known checks.
+- Verification is retried in the background for adopted captures (§4.3). If it later succeeds, the label clears. If it finds the stored key wrong, the key is replaced through `edit_item` and the learner sees "answer key corrected".
+
+**How this fits PF's no-publish rule** (`spec_embedding_consumers_v1.md` §5.3). PF never publishes an unverified *generated* candidate, because that would serve the system's own unchecked key to a learner who didn't ask for it. Adoption is narrower:
+- the problem is the learner's own capture;
+- it is served only because the learner asked ("Practice this", L3);
+- it is labelled, and it never certifies.
+
+It is not a PF publish path. The one-member family's reference stays `unverified`, so §5.3's rule still blocks every generated variant until that reference verifies. With `capture.unverified_adoption = false`, PF's rule governs captures too: adoption waits until the answer is `verified`.
 
 **Undo** retires the item through the existing retire path (`item_authoring.retire_item`) and the commitment through `commitments.retire`, the same pairing as `fix/daily-loop-followups` F4.
 
@@ -581,6 +592,7 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 | `attention_blocks` (existing, migration 096) | WORKFLOW | DL1 | `ADD COLUMN daily_plan_id TEXT`, `plan_ordinal INTEGER`, `lane TEXT`, `chosen_by TEXT`, `decision_ref TEXT`. Existing rows stay null |
 | `attention_block_events` (existing) | RECEIPT | DL1 | New kinds: `block_chosen`, `block_started`, `block_ended`, `item_planned`, `item_served`, `item_done`, `item_skipped`, `item_displaced`. `detail_json` carries `practice_item_id`, `scheduler_candidate_id`, `est_minutes`, `wall_ms` and `serving_origin` (`daily_plan` \| `learner_pick`) |
 | `capture_inbox` (existing, from mobile M1) | RAW_LEDGER | DL3 | `ADD COLUMN source_anchor_json TEXT` (nullable; set at insert for reader captures, part of the request fingerprint, cleared by purge) |
+| `practice_attempts` (existing) | RAW_LEDGER | DL3 | `ADD COLUMN reference_status TEXT NOT NULL DEFAULT 'not_applicable'` (`not_applicable` \| `verified` \| `unverified`), set once at attempt time (§4.4) |
 | `capture_processing` | WORKFLOW (paid outputs; never re-run on rebuild) | DL3 | `capture_id` (PK), `processed_at`, `kind`, `transcript_md`, `transcript_confidence`, filing (`subject_id`, `learning_object_id`, `confidence`, `filing_status` = `filed` \| `unfiled` \| `moved`), answer (`solution_md`, `final_answer`, `verification` = `pending` \| `verified` \| `unverified`, `verification_check`), adoption (`adopt_requested_at`, `practice_item_ids_json`, `commitment_id`, `family_id`), `model_ids_json`, `prompt_versions_json`, `estimated_cost_usd`, `cost_kind` (`metered` \| `estimated_only`), `attempts`, `last_error`, `updated_at` |
 
 **Vault model additions** (optional, omitted when null, outside the scheduling hash):
@@ -605,17 +617,18 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 
 ## 11. Algorithm successors and kill switches
 
-| Change to what is served | Successor | Kill switch | The switch restores |
+| Change to what is served or projected | Successor | Kill switch | The switch restores |
 |---|---|---|---|
 | Today serves the finite plan: split, blocks, new-material admission, reading blocks, plan-based and goal-optional re-entry, auto-advance within the plan | `daily_plan_v1` (the next free algorithm version at DL1's landing) | `plan.enabled`; sub-switches `plan.new_admission_enabled` and `plan.reading_blocks` | DL0's Today: the open queue with `fix/daily-loop-bugs`' re-entry cap |
 | Intent: exclusion by disposition, per-intent recall targets, push from Learn and Master, re-entry triage by intent | `intent_v1` (the next free version at DL2's landing) | `intent.enabled`; sub-switch `intent.recall_targets_enabled` | Serving reads commitments only for requested items, as today |
 | Capture adoption | None: content, like writing a card | `capture.enabled`, `capture.processor_enabled` | No box, no processor; M1's manual routes |
+| Certification ignores attempts on unverified keys (§4.4) | `capture_reference_v1`, a projection successor (the next free version at DL3's landing) | None that re-enables certification (C3). `capture.unverified_adoption = false` stops new unverified adoptions, so the gate has nothing to act on | — (with no `unverified` attempts, projections equal the predecessor's) |
 | Reader presets through adoption | None: content path | `capture.reader_presets_adopt` | Reviewable proposals |
 | DL0's UI changes, the headline, the streak label, pre-questions | None: display and formative only | `plan.headline` (the headline only) | — |
 
 **For each successor** (`docs/algorithm-change-playbook.md`):
 - an upgrade function and a fingerprint entry;
-- a shadow rebuild on a `fixtures-local/` backup-API copy of each tracked fixture, showing **zero** mastery, facet and projection deltas, since both successors change serving only;
+- a shadow rebuild on a `fixtures-local/` backup-API copy of each tracked fixture, showing **zero** mastery, facet and projection deltas. `daily_plan_v1` and `intent_v1` change serving only, and `capture_reference_v1` acts only on `unverified` attempts, which the fixtures don't have;
 - a served-set diff documented in the phase review;
 - the head fixture regenerated.
 
@@ -632,7 +645,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | **DL0: start friction** | Minutes-only Start (desktop and TUI); remembered minutes (last session's); one-tap minute chips; auto-advance from feedback to the head of the live queue, with the list one key away; the honest streak label | Nothing (this base) | None (UI only) | G11; vitest and pytest for each item; `get_today_queue` output unchanged on fixture copies |
 | **DL1: the finite plan** | `daily_plans` and the `attention_blocks` columns (one migration); `split_v1`; §6.3 admission; §6.4 estimator and `PracticeItem.expected_minutes`; `legacy_lanes_v1` and `lane_quota_v1` behind §6.8's interface; plan RPCs (`get_daily_plan`, `set_plan_minutes`, `next_plan_item`, `plan_keep_going`, `plan_more_new`, `plan_learner_pick`, `get_today_headline`); Today plan view, block lines, done screen, keep going; goal-optional re-entry (§7); reading blocks without pre-questions; the headline; `learnloop plan show \| report` | DL0; `fix/daily-loop-followups` merged (F1). Phase 6 preferred, not required | `daily_plan_v1`, `plan.enabled` | G1–G3, G10, G12, G13; shadow rebuild with zero projection deltas. **Owner checkpoint:** two weeks of use, then read `learnloop plan report` (days active, plan starts and completions, estimated vs actual minutes, keep-going rate, open-to-first-item time). That answers Q0 (§14) |
 | **DL2: intent** | Intent resolution (§5.1, §5.3 precedence); the single control (§5.2) on LO, subject, source, item and capture views, with the cost preview; serving-time recall targets; disposition exclusion; push from intent; deadlines (a learner goal linked through the commitment version's `goal_id`); re-entry triage by intent; assumed-known as Keep (§5.6) | DL1 | `intent_v1`, `intent.enabled` | G4; shadow rebuild with zero projection deltas; uncommitted items' order byte-identical at 0.90. **Owner checkpoint:** the target table (Q8) |
-| **DL3: capture** | `capture.create` and the box (Alt+C, text, URL, image paste and drop stored); the Captures strip replacing M1's Inbox strip; the processor (§4.3) for text and URL captures (images wait for DL4); `capture_processing` and `capture_inbox.source_anchor_json` (one migration); Practice this (§4.4); Move and undo; spend controls and `learnloop capture add \| list \| process [--dry-run]`; the "Practice on…" box (§6.9) | DL1 (the "Practice on…" block); mobile M1 merged; Slice A Phase 5a merged for verification (otherwise answers stay `unverified`, §4.3); Phase 3 for the one-member family; Phase 5b for `find_practice` (text search until then) | None (content) | G5–G9. **Owner checkpoint:** capture report (captures per week by channel, filing confidence, Moves, verification rate, adoption rate) |
+| **DL3: capture** | `capture.create` and the box (Alt+C, text, URL, image paste and drop stored); the Captures strip replacing M1's Inbox strip; the processor (§4.3) for text and URL captures (images wait for DL4); `capture_processing`, `capture_inbox.source_anchor_json` and `practice_attempts.reference_status` (one migration); the attempt-time certification gate (§4.4); Practice this (§4.4); Move and undo; spend controls and `learnloop capture add \| list \| process [--dry-run]`; the "Practice on…" box (§6.9) | DL1 (the "Practice on…" block); mobile M1 merged; Slice A Phase 5a merged for verification (otherwise answers stay `unverified`, §4.3); Phase 3 for the one-member family; Phase 5b for `find_practice` (text search until then) | `capture_reference_v1` (projection; otherwise content) | G5–G9; shadow rebuild with zero projection deltas. **Owner checkpoint:** capture report (captures per week by channel, filing confidence, Moves, verification rate, adoption rate) |
 | **DL4: images, reader presets, pre-questions** | Image transcription in the processor (the `image_transcription` route, added here if the image drop-in spec hasn't landed); image drop-in on the Ingest screen into `capture_inbox`; reader presets through adoption (§4.5); pre-questions in reading blocks (§6.10) | DL3 | None | G5–G9 for images; G14 |
 | *Router R2 (router spec)* | The staged-frame source and the router chooser through §6.8 | DL1; R1 | The router's successor | Router G1–G9 |
 | *Mobile M2a (mobile spec)* | The phone shows the plan through allowlisted plan RPCs | DL1; mobile M2 prerequisites | — | Mobile gates |
@@ -651,7 +664,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | G4 | **Intent kill switch and identity.** With `intent.enabled = false`, serving matches DL1. With it on, uncommitted items' effective due equals `due_at` exactly (ratio 1 at 0.90). Exclusion by paused, stopped, reference-only and satisfied commitments follows the union rule (§5.3). "Check once" serves exactly one item, after the delay, then nothing. Persisted `due_at` never changes |
 | G5 | **Saving is a reference.** `capture.create` creates no practice item and no commitment. "Practice this" creates exactly one adoption per capture, idempotent under retries and concurrent runners; undo retires the item and the commitment |
 | G6 | **No decisions at capture.** The capture API has no subject, LO or intent parameter. Filing never blocks saving, and unfiled captures are found by search |
-| G7 | **Verification.** `verified` requires the §4.3 checks (PF's tests reused). An item with an unverified key is excluded from certification cold probes, exam pools and assumed-known checks, and is labelled everywhere it shows |
+| G7 | **Verification.** `verified` requires the §4.3 checks (PF's tests reused). An item with an unverified key is excluded from certification cold probes, exam pools and assumed-known checks, and is labelled everywhere it shows. An ordinary independent, unassisted attempt on it schedules FSRS but earns zero certification credit in both projections. That still holds after the key later verifies; attempts made after verification certify; a rebuild reproduces both |
 | G8 | **Replay.** Rebuild makes zero model and embedding calls with capture and plan tables populated; `capture_processing` is never re-run; DL1 and DL2 shadow rebuilds show zero projection deltas |
 | G9 | **Spend.** The processor respects per-capture and daily caps; `--dry-run` prints calls, tokens and cost; Codex receipts are `estimated_only`; every filing and verification verdict is in `judgment_ledger` |
 | G10 | **Re-entry.** It shows without any goal after the gap (measured per F1); it respects the minute and item caps; Light touch is excluded; no overdue count and no streak text appear; no due date is rewritten |
@@ -678,7 +691,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `tests/test_capture_box.py`;
   - `test_capture_processor.py` (classify, file, unfiled, solve-verify agreement and disagreement, caps, dry-run, resume, leases, ledger);
   - `test_capture_adopt.py` (idempotence, request front slot, family, undo);
-  - `test_capture_unverified.py` (G7);
+  - `test_capture_unverified.py` (G7: an independent attempt on an unverified key earns no credit in the canonical projection or the facet timeline; it still updates FSRS; a later verification doesn't retroactively certify it; the next attempt after verification does; a rebuild reproduces the same ledger; `capture.unverified_adoption = false` defers adoption until `verified`);
   - `test_capture_replay.py` (G8).
 - **DL4:** `tests/test_capture_images.py`; `test_reader_presets_adopt.py`; `test_reader_pre_questions.py` (G14).
 
@@ -707,7 +720,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | D2 | Split caps | Repair ≤ 30%, maintain ≤ 60%, the rest to new and push (§6.2) |
 | D3 | "Keep going" size | +10 minutes per tap |
 | D4 | Capture shortcut | Alt+C, in-app (an OS-global hotkey is deferred) |
-| D5 | Adopting a capture whose answer isn't verified | Allowed: labelled, practice evidence only, never certifies, retried (§4.4) |
+| D5 | Adopting a capture whose answer isn't verified | Allowed: labelled; it schedules and teaches but never certifies (an attempt-time gate); verification is retried (§4.4) |
 | D6 | Auto-confirming a source import from "Practice this" | When estimated cost ≤ $0.50; otherwise Quick Add's single confirm |
 | D7 | The Today headline | Shown by default, one line, hideable |
 | D8 | Streak semantics | Count unchanged (days with a started session); label made honest |
