@@ -14,11 +14,12 @@
   The specs so far served "catch my mistakes" and "remember my mistake". PF serves the practice and retention intentions, which had no track before M3.
 - **Synthetic per-item anchor sets are no longer built by default** (§5.5). Judges are about twice as wrong on real answers as on synthetic ones. The replacement is a verified reference, a valid-alternative path, and solve-first grading for items without a reference.
 - **Order revised (owner, 2026-10-11):** PF-a and PF-b are built in Slice A (`spec_slice_a_practice_and_field_v1.md`), ahead of Slice 1. They take the embedding substrate from Slice A Phase 1. PF-c (§5.5) stays after Slice 1 S1.3, and its rules join Slice 1's blind prompt.
-- **PF does not depend on T1's calibrator framework.** It runs in R4's no-calibrator mode: embeddings block candidates, and the LLM judge decides every pair above the blocking cutoff.
+- **No calibrators anywhere (owner, 2026-10-11).** Embeddings shortlist candidates at a recall-oriented blocking cutoff set from a benchmark, and an LLM judge, a verifier, or an exact key decides every candidate above it (R4). Nothing learns a threshold for skipping the judge. `judgment_ledger` stays as evaluation data. `embedding_calibrators`, `learnloop embeddings calibrate`, conformal zones, and score-based auto-accept and auto-reject are not built.
+- **T6 moves earlier (owner, 2026-10-11).** It needs only the embedding substrate, so it is built alongside the daily loop, after Slice A, instead of after T4 (§2).
 - **Small follow-on edits:** T1's B1 compares OpenRouter embedding models through Slice 1's client (§3.3), and T8's difficulty prior comes from PF's solver panel (§11).
 - **Not changed:** T1's recurrence design and T4–T7.
 - **Ensemble generation (owner, 2026-10-11, later the same day).** A second generation path, `ensemble`, is added for quantitative and conceptual families (§5.3). Several different models propose candidates; the solver panel verifies them by solving first with an agreement requirement; an LLM judge selects among verified survivors. The judge never establishes correctness. Generator programs stay as the cheap path for procedural drill, and the pilot compares both paths (§5.6).
-- **Recorded but not applied:** the review's other recommendations are in the sweep §10 and await owner decision. They are dropping T1's calibrator/skip-LLM machinery, and a thin router.
+- **Recorded but not applied:** a thin router (sweep §10), awaiting owner decision.
 
 **T1 runs after** `spec_blind_grading_diagnosis_split_v1.md` (Slice 1) has completed milestone M2 and its exit review; **PF is built in Slice A, before Slice 1** (`spec_slice_a_practice_and_field_v1.md`; §5.7). **T1 is milestone M3**, the third learner-signal checkpoint. It depends on these Slice 1 pieces:
 - the `EmbeddingClient` interface with its one Slice 1 implementation: the OpenAI-compatible client pointed at OpenRouter, running `qwen/qwen3-embedding-8b`. It reaches every OpenRouter embedding model, so B1 needs no new client;
@@ -30,7 +31,7 @@
 - the M1 review exports (the owner's pattern-link verdicts).
 
 **Proceed only if the Slice 1 M1/M2 reports support the direction** (Slice 1 §12.1, §12.3).
-- If M1 showed that embedding retrieval adds no confirmed patterns to the diagnoser (Slice 1 history mode stays `full`, `snapshot`, or `exact`), T1 still proceeds on validated citations and the LLM judge, and T4–T6 are deprioritized.
+- If M1 showed that embedding retrieval adds no confirmed patterns to the diagnoser (Slice 1 history mode stays `full`, `snapshot`, or `exact`), T1 still proceeds on validated citations and the LLM judge, and T4–T5 are deprioritized. T6 is unaffected: it serves source retrieval, not diagnosis, and runs earlier (§2).
 - PF proceeds regardless. Its embedding uses (candidate blocking, variant distance) do not depend on the diagnoser's retrieval verdict.
 
 **Source material:**
@@ -61,14 +62,12 @@ This slice replaces or supplements them with **one pattern**, applied consistent
 2. **The frozen embedder does recall:** blocking, shortlisting, ranking, and disagreement signals.
 3. **An LLM judge, a verifier, or an exact key decides** anything that writes evidence, merges identity, or blocks an item.
 
-**The flywheel.** Every step-3 decision is logged as a labelled pair in embedding space. As labels accumulate, per-task calibrators let the clear cases skip the LLM, while the LLM keeps the ambiguous middle band. These labels are machine-generated, so the n=1 ceiling on learner events does not apply to them. LR-on-embeddings matches large-LLM prompting at tens of labels per class (Buckmann & Hill 2024). This is the bitter-lesson direction for this product: judgment migrates into cheap calibrated probes; learner evidence never does.
-
-*Note (2026-10-11):* the bitter-lesson review disputes this paragraph and recommends dropping the calibrators and skip logic while keeping the ledger as evaluation data. Its reasons:
+**Every step-3 decision is logged, and nothing is distilled from it** (owner decision, 2026-10-11). An earlier draft had a "flywheel": per-task calibrators fit on the logged verdicts would let clear cases skip the LLM. That is dropped, for three reasons (sweep §2):
 - distillation has won only with ~10⁴ labels and a closed label set;
 - it underperforms on unseen items;
 - LLM price per unit of capability falls 5–10× a year.
 
-This is pending owner decision (sweep §2, §10). PF does not use calibrators either way.
+Every verdict still goes to `judgment_ledger`, which is evaluation data. It is used to score judges, to benchmark embedding models, and for the model-tier scaling check. Cost is controlled by the blocking cutoff, top-k limits, and spend caps, never by skipping the judge.
 
 ---
 
@@ -86,7 +85,11 @@ Inherited: Slice 1 S1–S7, plan invariants 1–15, and `spec_causal_attribution
   - combinatorial set queries (LIMIT);
   - exact presentation identity: `surface_hash`, `semantic_fingerprint`, `probe_instrument_class`, `repair_equivalence_id`, provenance anchors.
 - **R3. Embed LLM-written or canonical text.** Every `record_kind` declares its text recipe. Response embeddings are compared only within an item family, or via LLM-written deltas.
-- **R4. Calibrated, per-model thresholds.** Cosine cutoffs are never hand-set in code. Every decision threshold comes from a calibrator fit on logged adjudications, keyed by `(model_id, record_kind, task)`, and refit when the model changes. Until a calibrator exists, the consumer runs in shadow or routes everything above a recall-oriented blocking cutoff to the judge. PF uses the second mode throughout this slice. Its blocking cutoff is set per view from B2 recall and is recorded in the report; it is not a hand-set decision threshold.
+- **R4. Embeddings shortlist; judges decide** (revised 2026-10-11: no calibrators).
+  - **Blocking cutoffs.** A recall-oriented cutoff per `(model_id, record_kind, view)` decides which candidates reach the judge. It is set from a benchmark's recall on confirmed matches (B2 for PF, B3 for T1) and recorded in that benchmark's report.
+  - **Who decides.** Every candidate above the cutoff goes to an LLM judge, a verifier, or an exact key. There is no score-based auto-accept or auto-reject, and no learned skip threshold.
+  - **Hand-set values.** Cosine cutoffs are never hand-set in code.
+  - **Model changes.** Cutoffs are re-derived whenever the model changes.
 - **R5. Grading stays learner-blind (Slice 1 S1).** PF's grading support (§5.5) uses item-side material only: verified references and valid-alternative regression traces. The owner's real answers are used to *evaluate* the grader, never as grader input. Neighbor-disagreement uncertainty is computed *after* grading, as a validator-side signal; it is never shown to the grader.
 - **R6. Reports, not thresholds, until baselines exist.** As in Slice 1 §13: every shadow → live decision is made on a report with a noise floor.
 
@@ -97,7 +100,7 @@ Inherited: Slice 1 S1–S7, plan invariants 1–15, and `spec_causal_attribution
 | Track | Consumer | Default authority at landing | Depends on |
 |---|---|---|---|
 | **PF** | Practice families (§5):<br>• family contract + idea-level retention key (shadow)<br>• generator programs and verified references<br>• verifier filters and freshness gate (**owns benchmark B2**)<br>• selection<br>• grading support (verified reference, valid-alternative path, solve-first) | *Revised 2026-10-11:* live (published verified items, capped per day); retention key live if its replay favours it (successor + kill switch); shadow (familiarity, uncertainty); grading support after Slice 1 | Slice 1 M1 (OpenRouter embedding client) + S1.1 (`embedding_vectors`); grading support after Slice 1 S1.3 |
-| **T1 (= M3)** | Recurrence with authority, **including the foundations it needs**: adjudication ledger, `same_cause` calibrator, Eedi + vault-replay benchmarks, recurrence groups, escalated-repair display | live after report | Slice 1 M2 |
+| **T1 (= M3)** | Recurrence with authority, **including the foundations it needs**: the `same_cause` judge task in `judgment_ledger`, candidate blocking, Eedi + vault-replay benchmarks, recurrence groups, escalated-repair display | live after report | Slice 1 M2 |
 | ~~T2~~ | Absorbed into PF (§6) | — | — |
 | ~~T3~~ | Absorbed into PF (§6) | — | — |
 | **T4** | Contamination: exam leakage, tutor answer leak, reader reveal | shadow flags; lexical floor stays | T1 framework |
@@ -106,15 +109,20 @@ Inherited: Slice 1 S1–S7, plan invariants 1–15, and `spec_causal_attribution
 | **T7** | Display: knowledge-map neighbors | live (display only) | substrate only |
 | **T8** | Research: learner success head on new items | offline replay only | PF skeletons |
 
-**Why the former T0 is split rather than done up front.** T0 bundled foundations for every track: the isomorph benchmark B2 only serves PF (formerly T3), the PDF-page benchmark B4 only serves T6, and calibrators serve every task. Building all of that before any learner-facing result would delay the M3 signal for work that may not be needed.
+**Why the former T0 is split rather than done up front.** T0 bundled foundations for every track: the isomorph benchmark B2 only serves PF (formerly T3), and the PDF-page benchmark B4 only serves T6. Building all of that before any learner-facing result would delay the M3 signal for work that may not be needed.
 
-So T1 carries exactly what recurrence needs. The ledger and calibrator are built as a **framework** (task-keyed), so later tracks add a task, not a new mechanism. B2 and B4 move into the tracks that consume them.
+So T1 carries exactly what recurrence needs. The ledger is task-keyed, so later tracks add a task, not a new mechanism. B2 and B4 move into the tracks that consume them.
 
-**Recommended order.** PF starts when Slice 1 M1 is reviewed and runs alongside M2 and T1. After M3: T4 → T6 → T5 → T7 → T8. The reasoning:
-- PF does not wait for M3. Practice and retention are the intentions Slice 1 and T1 don't serve, and PF's embedding uses don't depend on the M1 retrieval verdict.
-- T4 protects cold measurement cheaply.
-- T6 is high learner-visible value at low risk.
-- T6 and T7 can run in parallel with anything.
+**Order** (revised 2026-10-11, owner):
+1. **PF** is built in Slice A, before Slice 1.
+2. **T6** is built alongside the daily loop, after Slice A.
+3. **After Slice 1 M2's exit review:** T1 (M3) → T4 → T5 → T7 → T8.
+
+The reasoning:
+- **PF does not wait for M3.** Practice and retention are the intentions Slice 1 and T1 don't serve, and PF's embedding uses don't depend on the M1 retrieval verdict.
+- **T6 needs only the substrate.** It is the most learner-visible track, and it overlaps the daily loop: capture filing, "practice this", and tutor answers that cite sources.
+- **T4 protects cold measurement cheaply.**
+- **T7 can run in parallel with anything.**
 
 Each track starts only after the owner reviews the previous track's report.
 
@@ -139,23 +147,17 @@ It is seeded by importing the M1 review's pattern-link verdicts (`judge='owner'`
 - **Owner verdicts** from the M1 export and later reviews.
 - **Learner card taps.** "Not the same mistake" on a cited answer (Slice 1 §12.2) is recorded with `judge='learner_card'`.
 
-**Authority for calibration:** owner > verifier > llm / diagnoser > learner_card. The same rule as `diagnosis_adjudications`, plus bounded trust for in-flow learner taps.
+**Authority when verdicts conflict:** owner > verifier > llm / diagnoser > learner_card. The same rule as `diagnosis_adjudications`, plus bounded trust for in-flow learner taps.
 
-**Label backlog.** Labels are machine-generated, so they are not bound by n=1 event volume. Run `learnloop embeddings adjudicate --task same_cause --backlog` to judge the existing hypothesis history once, so the calibrator does not wait for new attempts.
+**Backlog.** Run `learnloop embeddings adjudicate --task same_cause --backlog` once, to judge the blocked candidate pairs in the existing hypothesis history. That way recurrence groups cover past mistakes, not only new ones. It runs under Slice A's spend controls, with `--dry-run` first.
 
-### 3.2 Calibrator (framework; `same_cause` first)
+### 3.2 Candidate blocking (no calibrator; owner, 2026-10-11)
 
-`embedding_calibrators` (WORKFLOW; versioned artifact rows):
-- keyed by `(model_id, record_kind, task)`;
-- a logistic fit on mean-centered cosine + rank + hubness features;
-- training adjudication ids, fit time, and a reliability summary.
-
-It outputs P(same | features) and **three zones**, set from conformal recall targets over confirmed matches:
-- **auto-reject** below the low cutoff;
-- **judge** in the middle band;
-- **auto-accept** above the high cutoff, **for reversible actions only** (R1). T1 merges are not reversible in effect, so T1 never auto-accepts (P2).
-
-Refit on schedule and on every model change: `learnloop embeddings calibrate --task same_cause --report`. Later tracks register new tasks; they don't add a mechanism.
+- **Which pairs reach the judge.** Candidate pairs for the same-cause judge come from kNN over hypothesis embeddings, within the learner's history, facet-filtered as in Slice 1 §9.5. Two limits apply: a top-k per hypothesis, and a recall-oriented blocking cutoff that B3 sets from recall on confirmed matches and records in its report.
+- **What the judge decides.** Every pair above the cutoff that the diagnoser's validated citations do not already settle goes to the same-cause judge.
+- **Below the cutoff,** only exact `statement_normalized` equality and validated citations can link hypotheses.
+- **No score-based decisions.** Nothing is merged or rejected by score. `embedding_calibrators` and `learnloop embeddings calibrate` are not built.
+- **Cost** is bounded by the top-k and Slice A's spend caps.
 
 ### 3.3 Benchmarks owned by T1
 
@@ -167,7 +169,7 @@ Offline; results land in `docs/reviews/`.
   - Metrics: recall@25, MAP@25.
   - Purpose: chooses the default embedding model on a public set. Slice 1 uses `qwen/qwen3-embedding-8b` alone (revised 2026-10-11), so this is the first multi-model comparison. It also settles whether any fine-tune question ever arises.
   - No new client is needed. A local sentence-transformers client is optional, for offline use. T6 uses Gemini Embedding 2's image input, through OpenRouter or a direct client if PDF pages need one. A model switch fully re-embeds before retrieval moves (Slice 1 §9.6).
-- **B3 Vault replay.** Slice 1 E5 data and the imported M1 verdicts, re-scored under the candidate models, plus the calibrator's held-out reliability.
+- **B3 Vault replay.** Slice 1 E5 data and the imported M1 verdicts, re-scored under the candidate models, plus the blocking cutoff's recall on confirmed matches. This sets the cutoff (§3.2).
 - **Harness:** `learnloop embeddings compare --models a,b,c --bench B1,B3`, on the harness PF built for B2. T6 adds B4.
 
 ### 3.4 Recurrence groups
@@ -192,7 +194,7 @@ Offline; results land in `docs/reviews/`.
 
 ### 3.5 Registry agreement (reduced)
 
-Slice 1 already retired `misconception_match`; the diagnoser's `registry_match` is the only registry decision. T1 therefore adds only a **disagreement log**: when the calibrated top-1 registry neighbour differs from the diagnoser's `registry_match`, record an adjudication case for review. There is no gating and no call-skipping.
+Slice 1 already retired `misconception_match`; the diagnoser's `registry_match` is the only registry decision. T1 therefore adds only a **disagreement log**: when the top-1 registry neighbour by embedding differs from the diagnoser's `registry_match`, record an adjudication case for review. There is no gating and no call-skipping.
 
 ### 3.6 Same-answer/different-cause guard
 
@@ -215,7 +217,7 @@ A one-tap usefulness rating (**helped / didn't help / not sure**) is recorded in
 | Group precision: audited sample of merged groups + "not the same mistake" taps on cited answers | Merges are often wrong |
 | Repeated diagnostic episodes per recurring cause, before vs after `mvp-0.11` | No reduction |
 | Next / cold-retry outcomes after escalated repairs (slow; directional only) | Consistently worse than non-escalated repairs |
-| Refused-union log volume | High volume means the judges disagree with each other; the calibrator or prompts need work |
+| Refused-union log volume | High volume means the judges disagree with each other; the judge prompts need work |
 
 **Why:** "it remembers my mistake" — a recurring misconception gets escalated repair instead of a fresh episode each time.
 
@@ -223,9 +225,9 @@ A one-tap usefulness rating (**helped / didn't help / not sure**) is recorded in
 
 ## 4. Shared framework notes for later tracks
 
-- Every later track that decides "same / different" registers a `task` in `judgment_ledger` and a calibrator for it. None hand-sets a cosine cutoff (R4).
+- Every later track that decides "same / different" registers a `task` in `judgment_ledger`, shortlists with a benchmark-set blocking cutoff, and lets a judge, verifier or exact key decide. None hand-sets a cosine cutoff or learns a skip threshold (R4).
 - Benchmarks share one harness, `learnloop embeddings compare`. PF builds it first for B2 (isomorph / near-duplicate, §5.6); T1 adds B1/B3 (§3.3), and T6 adds B4 (multimodal pages, §9).
-- A model switch triggers a refit of **all** registered calibrators and a rerun of every registered benchmark before retrieval moves to the new `model_id`.
+- A model switch triggers a full re-embed and a rerun of every registered benchmark, which re-derives the blocking cutoffs, before retrieval moves to the new `model_id`.
 
 ---
 
@@ -454,7 +456,7 @@ For each family cell (`variant_relation` × difficulty band), over-generate N ca
 
   Plus a **symbolic fingerprint**: normalized answer, key quantities, sympy normal form where parseable, and the generator hash. It is stored in `item_fingerprints` (DERIVED, deterministic, rebuild owner registered).
 - **Candidate pairs** come from kNN over administered surfaces of the same LO, in any view. A matching fingerprint marks a pair isomorph-suspect regardless of cosine.
-- **Every pair above the blocking cutoff goes to the LLM isomorph judge** (R4's no-calibrator mode).
+- **Every pair above the blocking cutoff goes to the LLM isomorph judge** (R4).
 - **The verdict is checked against the declared `variant_relation`:**
   - a declared `near` or `far` variant judged `isomorph` is relabelled;
   - a declared `isomorph` or `same_target` judged *the same surface* as an administered item is rejected as a duplicate.
@@ -601,7 +603,7 @@ Facet dossiers moved here from the learner-field spec. That spec was reshaped an
 | T3 familiarity writer, transfer-distance sensor | Kept, shadow (§5.4) |
 | T3 novelty selection | Kept, after the verifier filters (§5.4) |
 | T3 exemplar retrieval | Kept (§5.4) |
-| B2 and the `isomorph` / `same_problem` calibrator tasks | B2 is owned by PF (§5.6). The calibrator tasks are registered only if T1's calibrator framework is kept |
+| B2 and the `isomorph` / `same_problem` calibrator tasks | B2 is owned by PF (§5.6). Calibrators are not built (owner, 2026-10-11); `isomorph` verdicts are ledger rows used for evaluation |
 | Plan §A contrast-set factory (`ContrastSetV1`) | Its slots map onto `variant_relation`:<br>• same capability / different surface → `isomorph`<br>• different representation → `same_target` or `near`, as declared by the generator and checked by the judge<br>• same surface / different required operation → `near`, with declared checkpoint changes<br>• near transfer → `near`<br>• structurally isomorphic holdout → an `isomorph` reserved as a cold holdout |
 
 ---
@@ -610,7 +612,7 @@ Facet dossiers moved here from the learner-field spec. That spec was reshaped an
 
 | Detector | Current | Addition |
 |---|---|---|
-| Held-out exam leakage — `content/authoring/practice_leakage.py:82-243` | 6-word shingle / distinctive numeric literal | Embedding kNN of generated practice vs held-out spans → `leak` flag for review. Middle band → LLM judge |
+| Held-out exam leakage — `content/authoring/practice_leakage.py:82-243` | 6-word shingle / distinctive numeric literal | Embedding kNN of generated practice vs held-out spans shortlists candidates; an LLM judge decides each `leak` flag, which goes for review |
 | Tutor answer leak — `tutor/tutor_qa.py:685-721` | Substring / token recall ≥ 0.8 (its docstring admits it under-reports paraphrase) | Embedding similarity of tutor reply vs expected answer → shadow reveal flag. Math answers also go through the symbolic check (R2) |
 | Reader reveal — `reader/reader_dialogue.py:333-387` | Word-bigram overlap ≥ 0.5 vs reserved assessment surfaces | Same as above. Flags propose reserve burns; they do not execute them until the report is reviewed |
 
@@ -655,8 +657,8 @@ Facet dossiers moved here from the learner-field spec. That spec was reshaped an
 - **PDF pages.** Page-image embeddings alongside Marker text chunks, if B4 supports it. Gemini Embedding 2 accepts PDF and image input; the text-only candidates embed Marker chunks only.
 - **Benchmark B4 (owned by T6).**
   - Compares page-image embeddings (Gemini Embedding 2) vs Marker text chunks (all candidates) on the owner's math-heavy PDFs (fixtures `probability`, `linear_algebra`, `arxiv_v2`).
-  - Measured by retrieval of hand-labelled question → page pairs.
-  - Runs in the T1 harness (`--bench B4`).
+  - Measured by retrieval on question → page pairs. An LLM labels them in two passes with agreement reported; owner labels are optional (frictionless defaults R1).
+  - Runs in the shared `learnloop embeddings compare` harness (`--bench B4`), which PF built for B2.
 - **Nearest-LO suggestion** for spans without provenance, labelled as a suggestion.
 - **Grounding stays two-stage:** retrieve spans, then verify with an NLI checker or LLM.
 
@@ -693,7 +695,6 @@ New tables use the next free migration numbers after Slice 1's 166, following th
 | Table | Role | Track |
 |---|---|---|
 | `judgment_ledger` | RAW_LEDGER | Slice A (PF §5.8); T1 adds `same_cause` (formerly `embedding_adjudications`) |
-| `embedding_calibrators` | WORKFLOW | T1 (framework) |
 | `hypothesis_recurrence_groups` | DERIVED (rebuild owner registered) | T1 |
 | ~~`item_anchor_responses`~~ | not built (§5.5) | — |
 | `item_fingerprints` | DERIVED (rebuild owner registered) | PF |
@@ -727,7 +728,7 @@ Report-based, with a noise floor, as in Slice 1 §13.
 - The same-answer/different-cause regression suite has zero false merges.
 - The no-chaining rule: a fixture with A~B, B~C, and A≁C never yields one group.
 - Singleton recurrence groups rebuild identically to the pre-T1 `statement_normalized` keys.
-- Calibrators refuse to load across `model_id`s.
+- Blocking cutoffs are keyed by `model_id` and re-derived on a model change. No code path merges, rejects, or skips the judge by score.
 - **PF gates:**
   - Replay never executes a generator program.
   - Vaults with no families rebuild byte-identically.
@@ -757,7 +758,7 @@ Report-based, with a noise floor, as in Slice 1 §13.
   - valid-alternative false rejection and real-answer error before vs after §5.5.
 - **T4:** flag rates with audited samples.
 - **T5:** nomination recall on doctor-found duplicates.
-- **T6:** B4; retrieval recall on labelled question → span pairs.
+- **T6:** B4; retrieval recall on LLM-labelled question → span pairs (two passes, with agreement reported).
 - **T8:** replay calibration.
 
 ---
@@ -774,8 +775,9 @@ Report-based, with a noise floor, as in Slice 1 §13.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| P1 | Track order | *Revised 2026-10-11:* PF alongside Slice 1 M2 and T1. Then T1 (= M3, including its foundations) → T4 → T6 → T5 → T7 → T8; each after the previous report is reviewed |
-| P2 | Auto-accept zone allowed for any task in this slice? | Only for reversible, display- or nomination-level actions (T5 nominations, T7). Never for T1 merges or PF freshness/novelty |
+| P1 | Track order | **Decided (owner, 2026-10-11):** PF in Slice A; T6 alongside the daily loop after Slice A; after Slice 1 M2's exit review, T1 (= M3) → T4 → T5 → T7 → T8, each after the previous report is reviewed |
+| P2 | Auto-accept zone allowed for any task in this slice? | **Obsolete (2026-10-11):** calibrators are dropped, so nothing is auto-accepted by score. PF families are auto-accepted only when two judge passes agree (§5.2), with one-step undo |
+| P13 | Calibrators and skip-the-LLM logic? | **Decided (owner, 2026-10-11): dropped.** Embeddings shortlist at benchmark-set blocking cutoffs, and judges decide everything above them (R4). `judgment_ledger` is evaluation data |
 | P3 | ~~Anchor-set generation cost~~ | **Obsolete (2026-10-11):** synthetic anchor sets are not built (§5.5) |
 | P4 | Page-image retrieval (T6) default on for PDFs? | Only if B4 shows a gain over text chunks |
 | P5 | ~~Local model evaluation timing~~ | **Revised 2026-10-11 (owner):** Slice 1 uses `qwen/qwen3-embedding-8b` via OpenRouter, and learner text leaving the machine is acceptable. The comparison happens in T1's B1/B3, and local models are optional |

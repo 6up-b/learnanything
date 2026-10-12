@@ -96,11 +96,13 @@ These are the prompts for the agents that build the rest of Slice A and the slic
 | **After Phase 2's checkpoint and the bug fixes merge** | Phase 6 (starting new material) | Phase 2 reviewed; `fix/daily-loop-bugs` |
 | **Only if a challenger predictor won reports 1–2** | Phase 4 (activation + map fog) | Phase 2 checkpoint; preferably after Phase 6 |
 | **After Slice A stops and the owner reviews** | Daily-loop implementation, from its spec | Daily-loop spec accepted |
+| | Slice 2 T6 (source retrieval), alongside the daily loop | Slice A merged; it reuses the Phase 5a compare harness |
 | | Slice 1 M1 (offline review) | It can be built any time. The owner runs it once `learnloop field data-check` shows ≥ ~40 graded wrong answers across topics |
 | | Slice 1 M2, then PF-c | M1 report reviewed |
+| **After Slice 1's exit review (S1.5) supports it** | Slice 2 T1 (M3: recurrence with authority) | Slice 1 M2 merged; trustworthy pattern links |
+| **Then, each after the previous report is reviewed** | T4 → T5 → T7 → T8 | The previous track's report |
 | **After Phase 6 and the daily plan** | Mobile M2 prerequisites, then M2a | Phase 6; the daily loop's finite plan |
-| **Not promptable yet** | Slice 2 T1 (M3) | Slice 1 exit review and the T1 calibrator decision |
-| | Mobile M2b/M3 | — |
+| **Not promptable yet** | Mobile M2b/M3 | — |
 | | Project understanding M2+ | PF-a/b and Slice 1 |
 | | Learner-field deferred items | Triggers in `spec_learner_field_v1.md` §11 |
 
@@ -552,6 +554,134 @@ Done also means: the review file gives the owner the commands to run:
 2. sweep and status;
 3. answering probes;
 4. the report.
+```
+
+### Slice 2 T6: source retrieval (alongside the daily loop)
+
+```text
+Implement Slice 2 track T6 of LearnLoop: source retrieval for the reader, the tutor,
+Quick Add and PDF pages. Follow the standard rules in
+docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/slice-2-t6.md.
+
+Specs:
+- docs/specs/spec_embedding_consumers_v1.md: §1 (R1–R6), §4, §9 (T6) in full,
+  §12–§13 (T6 entries) and §15 P4;
+- the Phase 1 embedding substrate (src/learnloop/ai/embedding.py,
+  db/stores/embedding_vectors.py, vault/embedding_recipes.py,
+  ops/embedding_backfill.py);
+- docs/specs/spec_daily_loop_v1.md, if it exists: capture filing and "Practice this"
+  may consume this retrieval, so keep the API usable by them.
+
+Prerequisite: Slice A has merged; T6 reuses Phase 5a's `learnloop embeddings
+compare` harness. Branch slice-2/t6 from origin/main.
+
+Must hold:
+- Hybrid retrieval:
+  - source_block_fts (FTS5 BM25; DERIVED, with exactly one registered replayer);
+  - dense retrieval over source blocks (a new recipe named by kind and field);
+  - the two fused by RRF.
+- LLM query rewriting for conceptual questions. An LLM listwise rerank only on
+  consequential paths.
+- Consumers:
+  - tutor_qa spans become question-dependent, replacing the fixed top-4 LO-linked
+    spans;
+  - library search goes beyond instr();
+  - Quick Add scope goes beyond substring matching;
+  - spans without provenance get a nearest-LO suggestion, labelled as a
+    suggestion.
+- Grounding stays two-stage: retrieve spans, then verify them.
+- Retrieval is context, so no successor is needed unless something persisted
+  changes meaning. Say which applies in the review file.
+- B4 compares page-image embeddings with Marker text chunks:
+  - question → page pairs labelled by an LLM in two passes, with agreement
+    reported; owner labels are optional;
+  - page-image retrieval is the default only if B4 shows a gain (P4).
+- The source-block backfill and B4 are paid: spend caps, with --dry-run first.
+
+Done also means:
+- the retrieval evaluation runs with fakes on a fixtures-local copy and compares
+  against today's substring search;
+- the review file gives the owner the commands for the backfill dry-run, the real
+  backfill, B4 and the evaluation.
+```
+
+### Slice 2 T1 (M3): recurrence with authority
+
+```text
+Implement Slice 2 track T1 (milestone M3) of LearnLoop: recurrence with authority.
+Mistakes that share a cause across different problems are grouped, and the third
+recurrence escalates to a different repair, shown with its evidence. Follow the
+standard rules in docs/specs/implementation_handoffs.md §0. Review file:
+docs/reviews/slice-2-t1.md.
+
+Specs:
+- docs/specs/spec_embedding_consumers_v1.md: §1 (R1–R6; R4 means no calibrators),
+  §3 in full, §4, §5.8 (judgment_ledger), §12–§13 (T1 entries), §15 P6 and P13;
+- docs/specs/spec_blind_grading_diagnosis_split_v1.md: §5.4 (citation validation),
+  §7.6 (the recurrence_key seam), §9.5 (the would-merge log), §12.2–§12.3;
+- Slice 1's exit review (docs/reviews/), which must support T1: pattern links were
+  judged trustworthy. If it doesn't, stop and say so.
+
+Branch slice-2/t1 from origin/main after Slice 1 M2 has merged.
+
+Must hold:
+- No calibrators.
+  - Candidate pairs come from hypothesis-embedding kNN, with a top-k and a
+    blocking cutoff that B3 sets from recall on confirmed matches.
+  - The same-cause judge decides every pair that validated citations don't
+    already settle. It is its own route, defaulting to the diagnosis route.
+  - Nothing is merged or rejected by score.
+- The M1 pattern-link verdicts are imported into judgment_ledger (judge = owner).
+  The backlog command runs under spend caps, with --dry-run first.
+- B1 (Eedi 2024) and B3 (vault replay) run on the shared compare harness. If the
+  Eedi data needs a login, build the loader and leave the download to the owner.
+- hypothesis_recurrence_groups (DERIVED) has the no-chaining rule and logs refused
+  unions. recurrence_key returns the group id, and singleton groups hash to the old
+  key, so vaults with no merges rebuild identically.
+- The promotion and escalation change is an algorithm successor with a kill switch.
+  It takes the next free version label; the spec's "mvp-0.11" is a placeholder.
+  Any false merge in the same-answer/different-cause suite blocks the switch.
+- Escalated repairs are shown with their cited earlier answers and a one-tap
+  usefulness rating (diagnosis_feedback, response prefixed "escalation:").
+
+Done also means:
+- a shadow rebuild of a fixtures-local copy shows only the documented differences;
+- the review file gives the owner the commands for the backlog dry-run, B1 and B3,
+  the shadow-rebuild review before the switch, and the M3 signals report after
+  2–4 weeks.
+```
+
+### Slice 2 T4, T5, T7, T8 (one at a time, after T1)
+
+Fill in the track, then give it to an agent once the previous track's report has been reviewed.
+
+```text
+Implement Slice 2 track <T4 | T5 | T7 | T8> of LearnLoop, as specified in
+docs/specs/spec_embedding_consumers_v1.md <§7 | §8 | §10 | §11>, with the standing
+rules in §1 (R1–R6; R4 means embeddings shortlist and judges decide, with no
+calibrators) and §4. Follow the standard rules in
+docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/slice-2-<track>.md.
+
+Prerequisite: the owner has reviewed the previous track's report (order T1 → T4 →
+T5 → T7 → T8; Slice 2 §2). Branch slice-2/<track> from origin/main.
+
+Track rules:
+- T4: shadow flags only, and the lexical detectors stay as the floor. Flags may
+  propose reserve burns but never execute them until the report is reviewed. Math
+  answers also go through the symbolic check.
+- T5: nominations only, never identity (spec_knowledge_model.md: no embeddings for
+  facet identity). The structuring LLM or the owner decides. Doctor and review
+  passes show a cosine column next to Jaccard.
+- T7: display only, with zero effect on learner state.
+- T8: offline research only, with no live consumer.
+  - Pre-register the evaluation in the review file before running anything.
+  - Build it as arms in the `learnloop eval` harness from Slice A Phase 2,
+    including the zero-data LLM probability arm.
+  - Use solver-panel difficulty, never LLM-labelled difficulty.
+
+Done also means: the track's report (Slice 2 §13) generates with fakes on a
+fixtures-local copy, and the review file gives the owner the commands to run it for
+real, with the dry-run first.
 ```
 
 ---

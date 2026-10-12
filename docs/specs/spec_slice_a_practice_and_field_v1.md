@@ -138,7 +138,7 @@ Phase 1 merges first. Phases 2 and 3 then run in parallel, each branched from th
   - Facet dossiers live in the practice index (§5.9).
   - PF-c stays after Slice 1 S1.3.
   - B2 builds the shared compare harness.
-  - T1's adjudication ledger is `judgment_ledger`, created in Slice A Phase 1 and formerly named `embedding_adjudications`. T1 adds the `same_cause` task. Its calibrators remain a pending owner decision.
+  - T1's adjudication ledger is `judgment_ledger`, created in Slice A Phase 1 and formerly named `embedding_adjudications`. T1 adds the `same_cause` task. Calibrators are dropped (owner, 2026-10-11): T1 uses benchmark-set blocking cutoffs and a judge.
 - **Learner field.**
   - Reshaped: F1 is Slice A Phase 2, and F2 is Phase 6.
   - Consumers depend on the `LearnerPredictor` interface.

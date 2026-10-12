@@ -554,7 +554,7 @@ Hubness is monitored with the k-occurrence skew, reported by `learnloop doctor`.
 
 When a hypothesis is minted, record its nearest prior hypotheses for this learner (facet-filtered) with cosine and rank, next to the exact-key group. Stored in `diagnosis_context_receipts.retrieval_json` under `would_merge`.
 
-This produces E5's labelled pairs. Every later LLM or owner adjudication of "same cause?" is logged as a labelled pair; the calibrator itself is Slice 2.
+This produces E5's labelled pairs. Every later LLM or owner adjudication of "same cause?" is logged as a labelled pair in `judgment_ledger`. Slice 2 T1 uses these as evaluation data and to set its blocking cutoff; there is no calibrator (owner, 2026-10-11).
 
 ### 9.6 Privacy and failure
 
@@ -941,7 +941,7 @@ Embedding items below are specified in **`spec_embedding_consumers_v1.md`** (Sli
   - through `decide_probe` as a new verb.
 - **Grader reference policy for generated practice:** verified references, a valid-alternative path, and solve-first grading for items with no reference. This replaces the former "per-item synthetic anchor sets" plan, which is not built by default (Slice 2 §5.5; E1's real-vs-synthetic probe informs it).
 - **Other embedding consumers:** freshness/isomorph gate, leak/reveal detectors, ingest nomination, knowledge-map neighbors.
-- **The would-merge calibrator** fit from logged adjudications.
+- ~~**The would-merge calibrator** fit from logged adjudications.~~ Dropped (owner, 2026-10-11): Slice 2 T1 uses a benchmark-set blocking cutoff and the same-cause judge.
 - **Learner success prediction** over frozen embeddings (Integration Map #10).
 - **A full `LearnerStateCardV1` projection.** `DiagnosisContext` is its first consumer and a prototype of its content.
 - **Fixing divergence classification to use `repair_equivalence_id`** instead of `repair_class_id`, which hashes model-reported `expected_minutes` (`causal_attribution.py:643-688`; `probe_targeting.py:262-360`). See O8.

@@ -654,10 +654,12 @@ These are gaps worth rechecking in later sweeps.
 | Slice 2: PF track (practice families) absorbs T2 and T3 and runs in parallel with M2 | g97u4, sj3w7, 2610.10548, srs-benchmark, 2606.22328, 2511.07932, 2504.09763, 2602.05114, 2605.29277, 2601.14289, 2504.20781, 2506.14649, 2606.12071, 2608.27953, 2604.23733, 2510.04721, 2609.27063, 2601.09953 |
 | Slice 2: synthetic anchor sets dropped from grading; verified reference, valid-alternative path, solve-first, one high-effort pass | 2606.10254, 2608.17938, 2608.28725, 2607.05904, 2607.12885, 2510.13744, 2603.14732, 2608.00004, 2604.26954 |
 
+**Applied later (owner, 2026-10-11):**
+- **T1:** the calibrator, conformal-zone, and skip-the-LLM machinery is dropped, and the ledger is kept as evaluation data (2605.14752, 2606.28823, 2511.23455). Slice 2 R4 and §3.2 now use benchmark-set blocking cutoffs plus a judge.
+- **Project-understanding vertical:** specified in `docs/specs/spec_project_understanding_v1.md`.
+
 **Recommended but not yet applied** (owner decision pending):
-- **T1:** drop the calibrator, conformal-zone, and skip-the-LLM machinery, and keep the adjudication ledger as evaluation data (2605.14752, 2606.28823, 2511.23455).
 - **Router:** keep it thin, add a scored "let them continue" no-op, and shadow an LLM P(correct) sensor (2610.04825, 2607.21306, 2610.11135, 2608.16907).
-- **Project-understanding vertical:** an explain-to-accept gate and Code-QA-style items (2602.20206, 2607.26375, 2605.29277, 2607.08849).
 
 
 ## 11. Facet representation and the learner-field kernel (second sweep, 2026-10-11)
