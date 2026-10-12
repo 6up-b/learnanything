@@ -160,3 +160,27 @@ def test_image_capture_kind_matches_desktop_dto(tmp_path):
     create_capture(repo, client_capture_id=new_ulid(), kind="image", media=media.getvalue())
     result = list_capture_inbox(_context(root), ListCaptureInput())
     assert result["captures"][0]["kind"] == "image"
+
+
+def test_desktop_photo_preview_rpc_reads_only_the_capture_original(tmp_path):
+    import io
+
+    from PIL import Image
+
+    from learnloop_sidecar.handlers.capture import get_capture_media
+
+    root = tmp_path / "vault"
+    create_basic_vault(root)
+    output = io.BytesIO()
+    Image.new("RGB", (64, 48), "green").save(output, format="JPEG")
+    repository = Repository(root / "state.sqlite")
+    receipt = create_capture(repository, root=root, client_capture_id=new_ulid(),
+                             kind="image", media=output.getvalue())
+    ctx = _context(root)
+    result = get_capture_media(ctx, CaptureInput(capture_id=receipt["capture_id"]))
+    assert result["dataUrl"].startswith("data:image/jpeg;base64,")
+    assert (result["width"], result["height"]) == (64, 48)
+    _, text_id = _capture(root)
+    with pytest.raises(SidecarError) as error:
+        get_capture_media(ctx, CaptureInput(capture_id=text_id))
+    assert error.value.code == "validation_error"

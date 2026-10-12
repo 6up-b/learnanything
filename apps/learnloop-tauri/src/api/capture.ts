@@ -25,3 +25,14 @@ export interface InboxSummary {
   vaultMismatch: boolean;
   enabled: boolean;
 }
+
+/** A bounded, desktop-only preview of a photo capture's sanitized original. */
+export interface CaptureMediaDto {
+  captureId: string;
+  mime: "image/jpeg" | "image/png";
+  dataUrl: string;
+  width: number;
+  height: number;
+  originalWidth: number;
+  originalHeight: number;
+}

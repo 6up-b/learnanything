@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import io
 import json
@@ -21,6 +22,8 @@ from .devices import _now
 from .errors import CaptureError
 
 _ULID = re.compile(r"[0-7][0-9A-HJKMNP-TV-Z]{25}\Z")
+_DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
+PREVIEW_MAX_SIDE = 2048
 _ARXIV = re.compile(r"(?:arXiv:)?(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?/\d{7})(?:v[1-9]\d*)?\Z")
 _SELECT = """SELECT i.*,r.state,r.route,r.routed_at,r.dismissed_at,r.result_refs_json,
                     r.media_delete_pending,r.media_retained_shared,
@@ -306,6 +309,54 @@ def purge_capture(repo: Repository, capture_id: str, *, root: Path | None = None
         result = get_capture(repo, capture_id)
     result.update(media_retained_shared=retained, media_delete_pending=deletion_error)
     return result
+
+
+def capture_media_preview(
+    repo: Repository, capture_id: str, *, root: Path | None = None,
+    max_side: int = PREVIEW_MAX_SIDE,
+) -> dict:
+    """Desktop-only, read-only bounded preview of a photo capture.
+
+    The file is resolved from the capture's stored content hash alone, never a
+    caller-supplied path, and its bytes must still hash to that value.
+    """
+    root = Path(root) if root is not None else repo.sqlite_path.parent
+    capture = get_capture(repo, capture_id)
+    if capture["kind"] != "image":
+        raise CaptureError("validation_error", 422, "Only photo captures have an image")
+    if capture["purged_at"]:
+        raise CaptureError("capture_conflict", 409, "Capture was purged")
+    digest = capture["media_sha256"] or ""
+    if not _DIGEST.fullmatch(digest):
+        raise CaptureError("not_found", 404, "The captured photo is unavailable")
+    try:
+        raw = canonical_source_raw_path(root, digest).read_bytes()
+    except OSError:
+        raise CaptureError("not_found", 404, "The captured photo is missing from the originals store") from None
+    if "sha256:" + hashlib.sha256(raw).hexdigest() != digest:
+        raise CaptureError("not_found", 404, "The captured photo no longer matches its stored hash")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(raw)) as image:
+                original = image.size
+                image.thumbnail((max_side, max_side))
+                alpha = "A" in image.getbands()
+                output = io.BytesIO()
+                if alpha:
+                    image.save(output, format="PNG")
+                else:
+                    image.convert("RGB").save(output, format="JPEG", quality=85)
+                size = image.size
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning, UnidentifiedImageError,
+            OSError, ValueError):
+        raise CaptureError("not_found", 404, "The captured photo cannot be decoded") from None
+    mime = "image/png" if alpha else "image/jpeg"
+    return dict(
+        capture_id=capture_id, mime=mime, width=size[0], height=size[1],
+        original_width=original[0], original_height=original[1],
+        data_url=f"data:{mime};base64," + base64.b64encode(output.getvalue()).decode("ascii"),
+    )
 
 
 def report_orphan_originals(repo: Repository, *, root: Path | None = None) -> list[str]:

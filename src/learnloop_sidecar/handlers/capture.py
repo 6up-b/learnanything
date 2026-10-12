@@ -141,6 +141,14 @@ def dismiss_capture(ctx: SidecarContext, params: CaptureInput) -> dict[str, Any]
     return versioned({"capture": capture_call(capture.dismiss_capture, repository, params.capture_id)})
 
 
+@method("get_capture_media", CaptureInput)
+def get_capture_media(ctx: SidecarContext, params: CaptureInput) -> dict[str, Any]:
+    """Bounded photo preview for manual routing; resolved from the stored hash only."""
+    vault, repository = ctx.require_vault()
+    return versioned(capture_call(capture.capture_media_preview, repository, params.capture_id,
+                                  root=vault.root))
+
+
 @method("resume_capture_route", CaptureInput)
 def resume_capture_route(ctx: SidecarContext, params: CaptureInput) -> dict[str, Any]:
     """Finish a capture's unfinished save from its persisted request.

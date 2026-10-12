@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type { CommandError } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, TermSelect } from "./term";
+import { CapturePhoto } from "./CapturePhoto";
 
 const PRACTICE_MODES = [
   { value: "short_answer", label: "short answer" },
@@ -20,6 +21,7 @@ export function WriteCardDialog({
   defaultLearningObjectTitle,
   initialPrompt,
   captureId,
+  photoCaptureId,
   onClose,
   onCreated
 }: {
@@ -27,6 +29,8 @@ export function WriteCardDialog({
   defaultLearningObjectTitle?: string | null;
   initialPrompt?: string;
   captureId?: string;
+  /** A photo capture to show beside the editor while writing its card by hand. */
+  photoCaptureId?: string;
   onClose: () => void;
   onCreated: (practiceItemId: string) => void;
 }) {
@@ -123,6 +127,7 @@ export function WriteCardDialog({
 
         <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
           {captureId ? <p>Capture provenance: {captureId}. Saving this card does not start practice.</p> : null}
+          {photoCaptureId ? <CapturePhoto captureId={photoCaptureId} /> : null}
           <Label>learning object</Label>
           <TermSelect
             value={learningObjectId}

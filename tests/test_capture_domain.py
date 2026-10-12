@@ -207,3 +207,64 @@ def test_old_handled_capture_is_reachable_past_100_newer_and_tombstones(repo, mo
         sensitive["capture_id"]]
     purge_capture(repo, sensitive["capture_id"])
     assert get_inbox_summary(repo)["delete_pending"] == []
+
+
+def _photo(size=(3000, 2000)):
+    output = io.BytesIO()
+    Image.new("RGB", size, "blue").save(output, format="JPEG")
+    return output.getvalue()
+
+
+def test_photo_preview_is_resolved_from_the_stored_hash_only(repo):
+    import base64
+
+    from learnloop.capture import capture_media_preview
+
+    receipt = create_capture(repo, client_capture_id=new_ulid(), kind="image", media=_photo())
+    preview = capture_media_preview(repo, receipt["capture_id"])
+    assert preview["mime"] == "image/jpeg"
+    assert (preview["width"], preview["height"]) == (2048, 1365)
+    assert (preview["original_width"], preview["original_height"]) == (3000, 2000)
+    prefix = "data:image/jpeg;base64,"
+    assert preview["data_url"].startswith(prefix)
+    with Image.open(io.BytesIO(base64.b64decode(preview["data_url"][len(prefix):]))) as image:
+        assert image.size == (2048, 1365)
+    # Read-only: the preview never changes capture state.
+    assert get_capture(repo, receipt["capture_id"])["status"] == "new"
+
+    text = create_capture(repo, client_capture_id=new_ulid(), kind="text", text="no photo")
+    with pytest.raises(CaptureError) as error:
+        capture_media_preview(repo, text["capture_id"])
+    assert error.value.code == "validation_error"
+
+
+def test_photo_preview_refuses_tampered_hashes_missing_files_and_purge(repo):
+    from learnloop.capture import capture_media_preview
+
+    receipt = create_capture(repo, client_capture_id=new_ulid(), kind="image", media=_photo((40, 30)))
+    capture_id = receipt["capture_id"]
+    digest = get_capture(repo, capture_id)["media_sha256"]
+    path = canonical_source_raw_path(repo.sqlite_path.parent, digest)
+    secret = repo.sqlite_path.parent / "learnloop.toml"
+    for tampered in ("../../learnloop.toml", "sha256:../../learnloop.toml", str(secret),
+                     "sha256:" + "A" * 64):
+        with repo.connection() as conn:
+            conn.execute("UPDATE capture_inbox SET media_sha256=? WHERE id=?", (tampered, capture_id))
+            conn.commit()
+        with pytest.raises(CaptureError) as error:
+            capture_media_preview(repo, capture_id)
+        assert error.value.code == "not_found"
+    with repo.connection() as conn:
+        conn.execute("UPDATE capture_inbox SET media_sha256=? WHERE id=?", (digest, capture_id))
+        conn.commit()
+    original = path.read_bytes()
+    path.write_bytes(_photo((41, 30)))  # Bytes that do not match the stored hash.
+    with pytest.raises(CaptureError) as error:
+        capture_media_preview(repo, capture_id)
+    assert error.value.code == "not_found"
+    path.write_bytes(original)
+    assert capture_media_preview(repo, capture_id)["width"] == 40
+    purge_capture(repo, capture_id)
+    with pytest.raises(CaptureError) as error:
+        capture_media_preview(repo, capture_id)
+    assert error.value.code == "capture_conflict"

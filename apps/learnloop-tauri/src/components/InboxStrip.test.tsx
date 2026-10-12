@@ -5,7 +5,7 @@ import type { CaptureDto } from "../api/capture";
 
 const { api, card, source } = vi.hoisted(() => ({
   api: { getInboxSummary: vi.fn(), listCaptureInbox: vi.fn(), dismissCapture: vi.fn(), purgeCapture: vi.fn(),
-    resumeCaptureRoute: vi.fn() },
+    resumeCaptureRoute: vi.fn(), getCaptureMedia: vi.fn() },
   card: vi.fn(), source: vi.fn()
 }));
 vi.mock("../api/client", () => ({ api }));
@@ -33,6 +33,8 @@ beforeEach(() => {
   api.dismissCapture.mockResolvedValue({});
   api.purgeCapture.mockResolvedValue({ capture: { ...capture(), status: "purged" } });
   api.resumeCaptureRoute.mockResolvedValue({ route: "make_card", result: { practiceItemId: "pi_capture_x" } });
+  api.getCaptureMedia.mockResolvedValue({ captureId: "capture-1", mime: "image/jpeg", dataUrl: "data:image/jpeg;base64,AAAA",
+    width: 4, height: 3, originalWidth: 4, originalHeight: 3 });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 async function show() {
@@ -73,7 +75,11 @@ it.each(["url", "image"] as const)("routes %s into its existing dialog with capt
   const props = (kind === "url" ? source : card).mock.lastCall?.[0];
   expect(props.captureId).toBe("capture-1");
   if (kind === "url") expect(props.defaultSource).toBe("https://example.org/book");
-  else expect(screen.getByText(/Photo → card \(manual\)/)).toBeTruthy();
+  else {
+    expect(screen.getByText(/Photo → card \(manual\)/)).toBeTruthy();
+    // The card editor is handed the photo to show beside the prompt and answer.
+    expect(props.photoCaptureId).toBe("capture-1");
+  }
   expect(api.dismissCapture).not.toHaveBeenCalled();
 });
 
@@ -193,4 +199,16 @@ it("keeps deletion-pending captures reachable from the summary in both views", a
   expect(screen.getAllByText(/Original media deletion is pending/)).toHaveLength(1);
   await act(async () => { fireEvent.click(screen.getByText("Retry delete")); });
   expect(api.purgeCapture).toHaveBeenCalledWith("gone-1");
+});
+
+it("shows a photo-only capture's image from its capture id, not a path", async () => {
+  api.getInboxSummary.mockResolvedValue(summary(capture("image")));
+  await show();
+  expect(screen.getByText("Photo capture")).toBeTruthy();
+  expect(api.getCaptureMedia).not.toHaveBeenCalled();
+  await act(async () => { fireEvent.click(screen.getByText("View photo")); });
+  expect(api.getCaptureMedia).toHaveBeenCalledWith("capture-1");
+  expect(screen.getByAltText("Captured photo").getAttribute("src")).toBe("data:image/jpeg;base64,AAAA");
+  fireEvent.click(screen.getByText("Hide photo"));
+  expect(screen.queryByAltText("Captured photo")).toBeNull();
 });

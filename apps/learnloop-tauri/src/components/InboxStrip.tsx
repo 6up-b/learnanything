@@ -4,6 +4,7 @@ import type { CaptureDto, InboxSummary } from "../api/capture";
 import type { AskTarget } from "./AskOverlay";
 import { WriteCardDialog } from "./WriteCardDialog";
 import { QuickAddDialog } from "./QuickAddDialog";
+import { CapturePhoto } from "./CapturePhoto";
 import { COLOR, FONT_MONO } from "./term";
 import { errorMessage } from "../errors";
 
@@ -35,6 +36,7 @@ export function InboxStrip({ subjects, onAsk }: {
   const [hasOlder, setHasOlder] = useState(false);
   const [purgeResult, setPurgeResult] = useState<CaptureDto | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
   const alive = useRef(false);
   const request = useRef(0);
   const refresh = useCallback(async () => {
@@ -163,6 +165,11 @@ export function InboxStrip({ subjects, onAsk }: {
           {capture.kind === "text" && capture.status === "new" ? (
             <button disabled={!subjectId} title={!subjectId ? "Create a subject before asking the tutor" : undefined} onClick={() => onAsk({ context: "library", initialQuestion: capture.text ?? "", captureId: capture.captureId, subjectId })}>Ask tutor</button>
           ) : null}
+          {capture.kind === "image" && capture.status !== "purged" ? (
+            <button onClick={() => setViewing(viewing === capture.captureId ? null : capture.captureId)}>
+              {viewing === capture.captureId ? "Hide photo" : "View photo"}
+            </button>
+          ) : null}
           {capture.kind === "image" ? <span>Photo → card (manual); capture kept as provenance.</span> : null}
           {capture.mediaDeletePending && !pendingIds.has(capture.captureId) ? <span role="alert">Original media deletion is pending. <button disabled={busy !== null} onClick={() => void remove(capture.captureId, true)}>Retry delete</button></span> : null}
           {capture.mediaRetainedShared ? <span>Original media is retained because another source or capture still references these bytes.</span> : null}
@@ -170,6 +177,9 @@ export function InboxStrip({ subjects, onAsk }: {
           {purging === capture.captureId ? (
             <span>Delete captured content permanently? Notes/cards already created are kept. <button disabled={busy !== null} onClick={() => void remove(capture.captureId, true)}>Confirm purge</button> <button onClick={() => setPurging(null)}>Cancel</button></span>
           ) : capture.status !== "purged" ? <button disabled={busy !== null} onClick={() => setPurging(capture.captureId)}>Purge</button> : null}
+          {viewing === capture.captureId && capture.kind === "image" && capture.status !== "purged" ? (
+            <div style={{ flexBasis: "100%" }}><CapturePhoto captureId={capture.captureId} /></div>
+          ) : null}
         </div>
       ))}
       {showAll && hasOlder ? <button onClick={() => setPages((value) => value + 1)}>Load older</button> : null}
@@ -177,6 +187,7 @@ export function InboxStrip({ subjects, onAsk }: {
         <WriteCardDialog
           captureId={selected.capture.captureId}
           initialPrompt={selected.capture.text ?? selected.capture.note ?? ""}
+          photoCaptureId={selected.capture.kind === "image" ? selected.capture.captureId : undefined}
           onClose={() => setSelected(null)}
           onCreated={() => void refresh()}
         />
