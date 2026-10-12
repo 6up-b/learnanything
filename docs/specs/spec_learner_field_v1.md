@@ -1,184 +1,77 @@
-# Learner field — placement, probe targeting, and map uncertainty (v1)
+# Learner field: honest placement and a low-dimensional predictor (v1, reshaped)
 
-**Status:** draft for owner review (2026-10-11). This is the first implementation slice of workstream B ("Learner field + two-projection state communication") in `docs/brainstorming/Pipeline Augmentation Plan.md` (lines 216–277).
-- It builds the probabilistic field and three consumers:
-  - **(1)** placement after import;
-  - **(2)** choosing where to probe next;
-  - **(4)** an uncertainty layer on the knowledge map.
-- The transfer-gap alarm, feature (3), is out of scope (§1).
-- **Implementation order (owner, 2026-10-11):** S0b–S3, S5 and S7 are built as part of Slice A (`spec_slice_a_practice_and_field_v1.md`), ahead of Slice 1. S0b is Slice A Phase 1. There are no shadow stages; each live consumer is a successor with a kill switch.
+**Status:** reshaped 2026-10-11 after two independent reviews (a Codex agent and an Opus 5.5 agent), which reached the same verdict. The previous full design is preserved at commit `936813f` and listed in §11, each item with the trigger that would bring it back. That design was a facet-level graph Gaussian process with facet dossiers as kernel text, LLM-adjudicated edges, kernel ensembles, population-fit kernel scalars, and a public-data benchmark.
 
-**Source material:**
-- Plan B and its refusal list (the guards in §2 come from there).
-- `docs/brainstorming/Bitter Lesson Research Sweep.md` §5: learning rates vary little between learners while starting knowledge varies a lot (2604.03246); LLM difficulty labels correlate at ρ = 0.06 with real difficulty (2609.27063).
-- The daily-loop audit and open questions Q0–Q18 (chat, 2026-10-11; not yet answered by the owner).
+**Why it was reshaped** (facts checked against the repo):
+- **The unit was wrong.** The design assumed "hundreds of facets per vault". The owner's working vaults have 39 facets over 21 LOs (`linear_algebra`), 29 over 18 (`probability`) and 59 over 34 (`arxiv_v2`). That is about 1.5–2 facets per LO, so a facet-level model adds little resolution over an LO-level one.
+- **Facet-level outcomes are noisy.**
+  - Without criterion→facet weights, a facet's outcome falls back to whole-item correctness (`learner/recall_coverage.py:266-270`).
+  - For older and generated items, those weights are guessed lexically (`:832+`).
+  - Propagating these outcomes across a graph would spread the attribution error.
+- **It conflicted with the knowledge-model spec** (`spec_knowledge_model.md` §8.1, §8.3):
+  - "`part_of` MUST NOT propagate mastery".
+  - Dense LLM-generated "related" graphs are rejected.
+  - Graph priors steer live decisions only after held-out support. The one live consumer was deliberately disabled (`diagnosis/calibration_sessions.py:221-228`).
+- **The reports could not decide anything at n=1, and the old switching rule kept the most complex model by default.**
+- **The research points the same way.** One learner's data identifies a general level plus a few coarse factors (sweep §11), and text similarity predicts co-performance only weakly.
 
-**Relationship to other documents:**
+**Principle.** Nuance lives in text that LLM components read: dossiers, item outlines, attempt analyses. The numeric learner state stays low-dimensional. **The simplest predictor is the incumbent; anything more complex must earn activation, and "can't tell" keeps the simpler one.**
 
-| Document | Relationship |
-|---|---|
-| Plan workstream B | This spec implements the field's estimator and three consumers. It inherits B's guards: derived and replayable, density guard, no per-learner-fitted hyperparameters, metric claims only. `RouterStateV1` / `LearnerStateCardV1` and the B0.5 temporal residual are not built here |
-| Slice 1 (`spec_blind_grading_diagnosis_split_v1.md`) §9 | Prerequisite 2 pulls its embedding substrate forward on its own: `EmbeddingClient` (OpenRouter `qwen/qwen3-embedding-8b`), `embedding_vectors`, the backfill command, model-change re-embedding. Nothing from the diagnoser is needed |
-| Slice 2 (`spec_embedding_consumers_v1.md`) | Uses its `facet/definition` and `concept/definition` record kinds and R2's wrong-tool list. Optional: PF solver-panel difficulty (§5.4) and P12 (the `activity_families` overlap) if placement items need a family |
-| `learner/mastery.py` | The field's observation model is the existing 2PL EKF, generalized from one LO to a vector of facets (§5). The module's docstrings cite `spec_irt_difficulty.md`, which is not in `docs/specs/` |
-| Daily-loop questions Q5, Q7, Q9, Q11 | Gate placement-live and probe-targeting-live (§2 F7, §9) |
-
-**What exists in the code today (audited 2026-10-11):**
-- **Placement means "probe every new topic once".**
-  - Every active, unattempted LO that has an active item or is in an active goal's scope gets an initial diagnostic episode (`substrate/state_sync.py:175-211`, `_enter_initial_probes`).
-  - One qualifying observation completes it (`config/schema.py:206-208`, `placement_minimum_observations = 1`).
-  - Nothing infers one topic from another.
-- **Per-LO Bayesian mastery already exists, independent per LO.**
-  - `learner/mastery.py` runs a 2PL EKF on a logit-scale state (`logit_mean`, `logit_variance`).
-  - Variance grows by drift: `P + sigma2_drift·days`, capped at `p_max` (`:342-353`).
-  - Observations are reliability-weighted (`observation_weight`, `:321-339`).
-  - Item difficulty is an empirical-Bayes `b` with a strong prior (`resolve_item_irt_params`, `update_item_difficulty`, `:381-447`).
-  - Learner claims set the prior (`covering_learner_claim`, `apply_claim_evidence`).
-- **Per-facet state is a Beta per facet × capability with no cross-facet smoothing.** It lives in `facet_recall_state` and `facet_capability_evidence` (migration 037; DERIVED). This plus per-LO mastery plus FSRS is the **no-smoothing baseline** (§8.2).
-- **Probe machinery:**
-  - Re-probing for stale uncertainty uses per-LO `logit_variance ≥ reprobe_stale_uncertainty_variance` (0.6) after 30 days (`diagnosis/probe_episodes.py:528-572`, called from `state_sync.py:156-158`).
-  - The queue's probe term is `probe_eig_weight = 0.25` (`config/schema.py:81`).
-  - Diagnostic blocks already select several items jointly by greedy expected information gain (EIG) (`plan_precommitted_block`, `probe_episodes.py:1196`).
-- **Serving propensities are mostly unknown.**
-  - The scheduler computes design propensities (`_selection_propensities`, `scheduling/scheduler.py:1494`).
-  - But the queue is a list the learner picks from, so every candidate is logged `propensity_kind = "unavailable_composed_offer"` (`scheduler.py:629, 682`).
-  - What was offered, and which candidate was answered, is recorded: `scheduler_offer_receipts` and `submission_intents.scheduler_candidate_id` (migration 161).
-  - Probe presentations are chosen by the system and carry selection telemetry.
-- **The map draws no inferred state.**
-  - `get_knowledge_map` (`learnloop_sidecar/handlers/knowledge_map.py:46`) gives a facet with no recall state `ready = 0.5` and variance 1/12 (`:362-374`).
-  - `KnowledgeWellView.tsx` makes well depth `ready · visibility(evidenceMass)`. Demonstrated status is a separate bead channel, never a second depth (`:7-25`).
-- **No GP, graph kernel, or embedding code exists** (grep: no `gaussian`, `heat_kernel`, or `matern` in `src/learnloop`).
+**Relationship to other specs:**
+- `spec_slice_a_practice_and_field_v1.md` sequences this spec (Phases 2 and 6).
+- Facet dossiers moved to the practice-family track as a retrieval index (`spec_embedding_consumers_v1.md` §5.9).
+- The daily-loop track owns intent, the finite plan and re-entry.
 
 ---
 
-## 0. Thesis
+## 0. What this builds
 
-Today LearnLoop knows only the regions it has measured directly. A freshly imported book costs one probe per topic, and every unvisited facet sits at "ready = 0.5", indistinguishable from a facet you've never been near.
+- **F1, which changes nothing that is served:**
+  - the outcome view (§3);
+  - `learnloop field data-check`;
+  - the evaluation harness (§7.2);
+  - the `LearnerPredictor` interface (§4.1);
+  - the incumbent `mastery_ekf` (§4.2);
+  - the challenger `lo_general` with four extension arms (§4.3);
+  - the `idea_hier` arm once practice families exist (§4.3);
+  - an explicit **untested** state on the map (§5.1).
+- **F2, live behind an algorithm successor and a kill switch:** placement after import, built on calibration sessions (§5.2).
+- **Nothing else.** Everything previously specified is in §11 with its trigger.
 
-The learner field keeps one Gaussian belief over **all** facets jointly. Facets are coupled by a graph that combines authored structure with embedding neighbourhoods. Each graded answer then moves nearby, unmeasured facets a little and shrinks their uncertainty.
-
-This makes three things cheap:
-- **Placement.** A few well-chosen questions place you across a whole import. Starting knowledge varies widely between learners while learning rates don't (2604.03246), so placement is where your scarce evidence buys the most.
-- **Probe targeting.** Probe where the field is most uncertain about something you care about.
-- **Honest maps.** Show "estimated from nearby evidence" separately from "demonstrated", and show "unknown" where nothing is nearby.
-
-**The field is a smoother over the ledger, not a replacement for it.**
-- Grades, certification, cold checks, and per-LO mastery are unchanged.
-- The field is a DERIVED projection that never writes evidence.
-- **Revised 2026-10-11 (owner):** consumers go live without a shadow period.
-  - The S2 replay report against the no-smoothing baseline is reviewed once before the first consumer switches on.
-  - Each live consumer is its own algorithm successor with a kill switch.
-  - Confirm probes and receipts measure the consumers afterwards.
-
----
-
-## 1. Scope
-
-**In scope:**
-- **A1.** Prerequisite 2: the embedding substrate pulled forward, plus embeddings of facet definitions and LO summaries (§4.1).
-- **A2.** Prerequisite 3: a symmetric per-facet outcome view (§4.2).
-- **A3.** The field: graph, prior, observation model, inference, outputs (§5).
-- **A4.** Consumer (4), the map uncertainty layer (§6.1).
-- **A5.** Consumer (1), placement: live (§6.2). The shadow stage S4 was dropped on 2026-10-11.
-- **A6.** Consumer (2), probe targeting: live (§6.3). The shadow stage S6 was dropped on 2026-10-11.
-- **A7.** Replay reports and correctness gates (§8).
-- **A8.** The `LearnerPredictor` interface the consumers depend on (§6.0), and the item-anchored predictors `lo_general`, `idea_hier` and `idea_hier_llm_prior` (§5.6), which compete with the facet field under the §8.2 switching rule.
-
-**Out of scope:**
-- **The transfer-gap alarm**, feature (3). It needs PF variant labels.
-- **Retention timing and neighbour credit spreading.** The field never moves a review date, and a success on facet A never counts as a review of B.
-- **Grading, evidence, certification, and recurrence.**
-- **The B0.5 GRU/SSM residual, cross-vault priors, and `RouterStateV1`.**
-- **Capability and representation regions.** v1's region is the facet (§11 D1).
-
----
-
-## 2. Standing constraints
-
-Inherited: plan invariants 1–15; Slice 1 S6/S7 (no step depends on embeddings for correctness; replay never calls an LLM or the embedding API); Slice 2 R1/R2. In addition, from Plan B:
+## 1. Standing constraints
 
 - **F1. Derived and replayable.**
-  - Field state is rebuilt deterministically from ledgers, vault content, and stored vectors.
-  - A rebuild makes zero LLM or embedding calls.
-  - If vectors are missing, the graph falls back to authored edges only and the snapshot records it.
+  - Predictor state is rebuilt deterministically from ledgers and vault content.
+  - Rebuild and replay make zero LLM or embedding calls.
 - **F2. Never evidence.**
-  - The field writes only its own DERIVED and RECEIPT tables. It never touches `grading_evidence`, `facet_recall_state`, `facet_capability_evidence`, mastery, certification, or coldness.
-  - "Likely known" is a scheduling and display claim, never "demonstrated".
-- **F3. Live changes go through the playbook.** *Revised 2026-10-11 (owner): no shadow periods.*
-  - Each consumer that changes what is served is its own algorithm successor under `docs/algorithm-change-playbook.md`.
-  - Each sits behind a kill switch that restores the previous behaviour exactly.
-  - Each logs receipts of what it did and, where cheap, what the old rule would have chosen.
-  - The S2 replay report is reviewed once before the first consumer switches on.
-- **F4. Density guard.**
-  - A facet with too little nearby evidence reports `unknown` and prior variance. It never reports a confident inferred value.
-  - Computational shortcuts (kNN sparsification, truncation, variance caps) may only widen reported variance.
-- **F5. No per-learner-fitted hyperparameters.**
-  - Kernel bandwidth, prior variance, and edge weights are set a priori from interpretable targets (§5.2) and versioned in config.
-  - The replay report includes a sensitivity sweep; the field is not tuned on your log.
-- **F6. Metric claims only.** The field speaks in distances, neighbourhoods, means, and variances, never in coordinates or "directions" in embedding space. Embeddings never decide difficulty, isomorphism, or prerequisite direction (Slice 2 R2). The graph is undirected for smoothing, and direction-bearing edges keep their authored type.
-- **F7. Biased sampling is declared, not ignored.**
-  - Raw per-region averages are biased because the scheduler chose what you saw.
-  - Every observation records its **serving origin**: learner-picked list row (propensity unknown), system-chosen probe presentation (propensity logged), forced follow-up, or requested.
-  - Model-based posteriors are used, not raw means.
-  - Off-policy claims in reports use only system-chosen observations until a finite system-ordered plan exists (daily-loop Q9).
-- **F8. Never blend.** In the UI, inferred values never change well depth, demonstrated beads, or the "ready" number (owner's well-view contract, `KnowledgeWellView.tsx:7-25`).
+  - Predictors write only their own DERIVED and RECEIPT tables.
+  - They never touch `grading_evidence`, `facet_recall_state`, `facet_capability_evidence`, mastery, certification, coldness or FSRS state.
+- **F3. Live changes go through the playbook.** Each change to what is served:
+  - is an algorithm successor under `docs/algorithm-change-playbook.md`;
+  - has a kill switch that restores the previous behaviour exactly;
+  - writes receipts, including what the old rule would have done where that is cheap to compute.
+- **F4. Untested is not known.**
+  - No LO or facet without direct evidence is ever reported or treated as known.
+  - Inference across LOs may change the *order* of checks. It never skips material (§5.2).
+- **F5. No per-learner-fitted hyperparameters.** Priors and constants are set a priori and versioned. Latent state (abilities, offsets) is estimated with uncertainty.
+- **F6. Knowledge-model alignment** (`spec_knowledge_model.md` §8.1, §8.3):
+  - no propagation along `part_of`, `related`, `analogous_to` or `confusable_with`;
+  - no LLM-generated relation graphs;
+  - any cross-LO sharing, including the general level, steers a live decision only after the F1 replay shows held-out support (the §7.4 switching rule).
+- **F7. Biased sampling is declared.** Every observation records its serving origin. Off-policy claims use only system-chosen observations until a finite, system-ordered plan exists (daily-loop Q9).
+- **F8. Never blend.** On the map, nothing inferred changes well depth or the demonstrated beads (owner's well-view contract, `KnowledgeWellView.tsx:7-25`).
+
+## 2. Prerequisites
+
+- **Daily loop.** Fix the dormant/resolved-LO serving bug before F2: the queue checks item status but not LO lifecycle at its main eligibility point (`scheduling/scheduler.py:212`). Q7 (single intent control) lets placement results map onto intent; until then §5.2 uses minimal semantics. Q5 (pre-questions at import) and Q9 (finite plan) refine F2 but don't block it.
+- **Embeddings.** Not needed by this spec. The embedding substrate serves the practice-family track (`spec_slice_a_practice_and_field_v1.md` Phase 1).
+- **Data.** `learnloop field data-check` reports graded attempts, LOs and facets with direct evidence, separately measured facets per LO, and revision status. The owner runs it on a copy.
 
 ---
 
-## 3. Prerequisites and their order
+## 3. The outcome view (F1)
 
-| # | Prerequisite | Built here? | Blocks |
-|---|---|---|---|
-| **P1** | **Daily-loop decisions and fixes.**<br>• Q7: one intent control the queue reads.<br>• Q11: a new-material policy.<br>• Q9: a finite plan the system orders, which makes propensities known.<br>• Q5: placement or pre-questions at import.<br>• The dormant/resolved-LO serving bug. | No: owner decisions plus daily-loop work | *Revised 2026-10-11:* nothing blocks. Placement uses minimal semantics until Q7/Q11 exist (§6.2). Q9 improves evaluation only (F7) |
-| **P2** | **Embedding substrate**, pulled forward from Slice 1 §9 on its own | Yes, as a subset (§4.1) | The graph's embedding edges. Without it the field runs on authored edges only |
-| **P3** | **Symmetric per-facet outcome view** | Yes (§4.2) | The field |
-| **P4** | **The field**, with its replay report | Yes (§5, §8.2) | All consumers |
-| **P5** | **Placement items at import** | Partly. Imported exercises, plus PF-b's published verified items (Slice A Phase 5). With no eligible items, today's per-topic initial probes run | Placement on reader-on imports |
-
-**Order:** P2 → P3 → P4 + replay report → map layer → placement live (+ P5) → probe targeting live (§9). P1 proceeds in parallel and refines placement once it exists.
-
----
-
-## 4. Prerequisite contracts
-
-### 4.1 Embedding substrate and region text (P2)
-
-- **Pulled forward from Slice 1 §9.1–9.2:**
-  - `ai/embedding.py` with the `EmbeddingClient` protocol;
-  - the OpenAI-compatible client against OpenRouter (`qwen/qwen3-embedding-8b`, `data_collection = "deny"`);
-  - `embedding_vectors` (WORKFLOW);
-  - the backfill command;
-  - receipts via `model_call(purpose="embedding")`.
-
-  If Slice 1 has not landed migration 166, this slice lands the `embedding_vectors` table at the next free migration number and Slice 1 reuses it.
-- **Facet dossiers** (revised 2026-10-11 after the facet-representation research, sweep §11). A frontier model writes one dossier per active facet. It is grounded in the facet's source spans, the items and rubric criteria that test it, and its structured fields. A dossier has four discriminative fields:
-  - **scope:** what the facet covers and what it excludes;
-  - **moves:** the reasoning steps it requires;
-  - **errors:** its typical mistakes;
-  - **contrast:** how it differs from its nearest neighbours. This field is written against the facet's *actual* top-k embedding neighbours and regenerated when they change. Contrastive descriptions beat generic ones (FuDD, 2311.07593) and add about 0.01 AUC in cognitive diagnosis (2505.21239).
-
-  Storage and cost rules:
-  - Dossiers live in `facet_dossiers` (WORKFLOW), keyed by facet content hash, source hash, model, and prompt version.
-  - They are generated under Slice A's spend caps.
-  - They are regenerated only when the facet or its sources change, and never on rebuild.
-  - The structured `EvidenceFacet` fields stay as they are, for rubrics and validators.
-- **Record kinds and text recipes** (Slice 2 R3: canonical or LLM-written text only). Each discriminative field is embedded as **its own vector**, not the whole dossier. Pair similarity is the mean of the per-field mean-centered cosines.
-
-| `record_kind` / `field` | Text | Source |
-|---|---|---|
-| `facet/dossier_scope`, `facet/dossier_moves`, `facet/dossier_errors`, `facet/dossier_contrast` | The corresponding dossier field | `facet_dossiers` |
-| `facet/definition` | title + `claim` + `description` + `preconditions` + up to two `positive_examples` | `EvidenceFacet` (`vault/models.py:766+`); kept as the V0 baseline (§4.3) and as the fallback when dossiers are disabled |
-| `learning_object/summary` (new) | title + `concept` + `summary` | `LearningObject` (`vault/models.py:320+`) |
-
-- **Embedding instruction and post-processing.**
-  - One short, symmetric task instruction, chosen by the representation experiment (§4.3). Prompt choice alone moves clustering quality by up to 0.15 (2605.22544), and long instructions hurt.
-  - The mean direction is projected out, estimated under the same instruction prefix (2511.11041). No whitening: it hurt every model it was tested on.
-- **Legacy facets.** A schema-v1 facet with only a title gets a dossier written from its LO and source context, so it no longer needs to borrow its LO's summary. With dossiers disabled, it inherits edges from its LO's summary embedding as before (§5.1).
-- **Content changes.** Vectors are keyed by `content_hash`. An edited facet re-embeds on the next backfill, and the graph rebuild uses the newest vector per record.
-
-### 4.2 The per-facet outcome view (P3)
-
-The field needs, for every graded attempt and every facet it bears on: pass/fail in both directions, its reliability, whether it was cold, the item, and how it came to be served.
+Predictors and diagnostics need, for every graded attempt and every facet it bears on: pass/fail in both directions, its reliability, whether it was cold, the item, and how it came to be served.
 
 **Reused:**
 - `derive_facet_outcomes` (`learner/recall_coverage.py:219`): outcome fraction per covered facet from criterion points, criterion→facet weights, error attributions, and `dont_know`.
@@ -232,569 +125,315 @@ The field needs, for every graded attempt and every facet it bears on: pass/fail
 
 ---
 
-### 4.3 Representation experiment and collapse diagnostics (added 2026-10-11)
+**Attempt-level rows.** The item-anchored predictors (§4.3) observe attempts, not facets. Each attempt contributes one row, derived from the same inputs and never stored separately:
+- `outcome`: the attempt's rubric fraction;
+- `effective_mass`: from `EffectiveObservation`;
+- flags: cold, assisted, primed;
+- the item's LO, `capability`, `variant_relation` and `family_id`;
+- `serving_origin` and `revision_status`.
 
-This runs in Phase 2, before the graph is fixed. It decides which text representation proposes graph edges.
-
-- **Variants:**
-
-  | Variant | Representation |
-  |---|---|
-  | V0 | Raw `facet/definition` |
-  | V1 | V0 under each of 5 short instructions |
-  | V2 | Discriminative dossier fields, embedded separately |
-  | V3 | V2 plus mean-direction projection |
-  | V4 | The LLM-adjudicated graph of §5.1 |
-
-- **Labels.**
-  - An LLM judges every pair in the union of each variant's top-20 neighbours, plus random pairs, using the transfer question of §5.1.
-  - There are two passes with different prompts, and the report gives their agreement.
-  - Verdicts go to `judgment_ledger` (task `facet_relation`), under spend caps.
-- **Separation metrics:**
-  - AUC of "strong/partial" vs "distinct";
-  - the hard-negative margin.
-- **Collapse diagnostics:**
-  - the condition number κ and effective rank of the embedding block, flagged when κ > 30. Embedding-derived loadings with κ = 137 inflated posterior uncertainty about 4× in an adaptive test (2608.09058);
-  - k-occurrence skewness at k = 10 (hubness), and mean cosine;
-  - mutual-kNN@10 overlap with authored edges, against a permutation null (2602.14486).
-
-  Uniformity and isotropy are **not** targets. Strict isotropy conflicts with cluster structure (2402.03191), and uniformity misses dimensional collapse (2403.00642).
-- **Transfer guard (report 6d).** On the public benchmark, compute the Spearman correlation between each variant's pair similarity and the empirical residual correlation of KC performance (ability and difficulty removed). **A variant that separates better but correlates worse is rejected.** Separation is not the goal (2405.12442; 2609.00100). Prediction of co-performance is.
-- **Choice.** The default is the variant with the best transfer-guard correlation among those not flagged for collapse. Ties go to the simpler variant.
+Per-facet rows feed the `facet_beta` arm and diagnostics.
 
 ---
 
-## 5. The field (P4)
+## 4. Predictors
 
-### 5.1 Graph
+### 4.1 The `LearnerPredictor` interface
 
-- **Nodes:** active canonical facets, F of them; hundreds per vault.
-- **Weighted undirected adjacency:** `W = W_auth + W_emb`.
-  - **`W_auth`** comes from authored structure, lifted to facets:
-    - same LO blueprint: `w_bp`;
-    - an LO `prerequisites` link or concept `prerequisite` edge between the facets' LOs/concepts: `w_pre`;
-    - concept `part_of`: `w_part`;
-    - concept `related`: `w_rel`;
-    - `confusable_with`: `w_conf`, **0 by default**, because confusables share surface, not ability (D3).
-    - Concept edges reach facets through `LearningObject.concept` and blueprint membership. Each lifted edge is scaled by the authored `ConceptEdge.strength`.
-  - **`W_text`: LLM-adjudicated text edges** (revised 2026-10-11; replaces the raw-cosine `W_emb`). Text never sets an edge by itself.
-    - **Candidates:** the chosen representation (§4.3) proposes each facet's top-20 neighbours.
-    - **Verdicts:** an LLM judges each candidate pair on a transfer question: "If a learner can reliably do A, how likely are they to be able to do B?" The answers are `strong` | `partial` | `prerequisite` (with direction) | `distinct` | `unsure`. Verdicts go to `judgment_ledger` (task `facet_relation`).
-    - **Cost:** about 20 judgments per facet, once, and about 20 per new facet, all under spend caps. LLM verdicts used as the representation beat both raw embeddings and embeddings fine-tuned on LLM triplets (2510.06747), and LLM pairwise similarity beat embedding cosine against student responses (KCluster, 2505.06469).
-    - **Weights:** the edge weight is `w_llm × s(verdict)`, with `strong` 1.0, `partial` 0.5, `prerequisite` 0.6 (direction kept for display) and `distinct`/`unsure` 0. Cosine only orders the candidates.
-    - **Fallback:** with LLM verdicts disabled, the V3 kNN graph with weight `max(0, cos − c₀)/(1 − c₀)` is used, and the snapshot is flagged `text_edges = "cosine_fallback"`.
-  - **Optional text projection** (§5.2): adopted only if report 6d supports it.
-- **Normalized Laplacian:** `L = I − D^{-1/2} W D^{-1/2}`.
-- **Disconnected facets** (no edges) are their own components. They share only the general factor (§5.2) and otherwise keep prior variance (F4).
-- **Text-only correlation cap.** A facet pair whose only support is `W_text` has its prior correlation capped at `field.text_corr_cap` (default 0.7) by shrinking the corresponding kernel entries. Capping only reduces sharing, so it can only widen posteriors (F4). Near-duplicate dossiers would otherwise become near-1 correlations and make inferred estimates overconfident (2608.09058).
-- **Co-measured classes** (identifiability).
-  - Facets that no item measures separately are grouped into equivalence classes, derived **only** from the item→facet loading matrix (`facet_share` across items), never from embeddings (1303.0426; 1803.04353).
-  - Class members carry `class_id` and are reported as "jointly estimated".
-  - `inferred` requires support from evidence **outside** the facet's own class.
-
-### 5.2 Prior
-
-- **Latent ability per facet**, on the logit scale: `θ ∈ ℝ^F`, with `θ ~ N(m₀, K)`.
-- **Prior mean `m₀`:**
-  - per facet, the covering learner claim when one exists (reusing `covering_learner_claim`; weak);
-  - otherwise 0.
-- **Covariance:** a general factor plus a heat kernel, `K = σ_g² · 11ᵀ + σ_h² · D_s · exp(−t L) · D_s`, with `σ_g² + σ_h² = σ₀²` and `D_s` rescaling so the heat part has diagonal `σ_h²`. *Revised 2026-10-11: the general factor is added.*
-  - `σ₀² = mastery.cold_start_prior_logit_variance` (3.0), the same prior uncertainty the per-LO EKF starts from.
-  - **General factor** `σ_g² = 0.25 · σ₀²` by default. Much apparent transfer is one general ability: a single-factor 2PL beat 12 Q-matrix structures (2609.31976), and topic-level profiles added nothing over one latent ability (2509.23484). Without this term, the heat kernel gives zero correlation across disconnected components.
-  - **Density guard.** The general factor is kept separate in the outputs (§5.5). The guard uses information *excluding* the general component, so a facet informed only through the general factor stays `unknown`, labelled "general level only".
-  - Graph Matérn is an alternative (D2).
-- **Hyperparameters are set a priori (F5), from interpretable targets, versioned as `field.kernel_version`:**
-  - `t` is chosen so the median prior correlation of the heat part is ≈ 0.5 for one-hop blueprint neighbours and ≤ 0.1 at three hops;
-  - `k = 8`, `c₀ = 0.35`;
-  - `w_bp = 1.0`, `w_pre = 0.6`, `w_part = 0.6`, `w_rel = 0.3`, `w_llm = 0.6`, `w_lo = 0.5`, `w_conf = 0`;
-  - `σ_g² = 0.75`, `text_corr_cap = 0.7`.
-
-  These are starting values, not fits. §8.2 reports a sensitivity sweep around them.
-- **Population-fit option** (added 2026-10-11).
-  - **What is fitted:** the seven scalars `t`, `w_bp`, `w_pre`, `w_part`, `w_rel`, `w_llm`, `σ_g²`.
-  - **How:** pooled type-II maximum likelihood across the **training half** of the public-benchmark learners, shrunk toward the a-priori values, then frozen as a new `kernel_version`.
-  - **Never fitted to the owner** (F5). Pre-training a GP prior on related tasks and freezing it for new ones is the HyperBO precedent (2109.08215, JMLR 2024). Empirical GPs (2602.12082) are a diagnostic upper bound only.
-  - **Adopted only if** report 6c shows it beats the a-priori kernel on the held-out half.
-- **Optional text projection** (the evidence-supported form of "metric learning"; added 2026-10-11).
-  - **What it is:** a low-rank (rank ≤ 32) residual linear projection of the dossier embeddings, anchored to the identity by a penalty on its deviation (Search-Adaptor, 2310.08750).
-  - **How it's trained:** offline on public KT data, to predict the **residual co-performance correlation** of KC pairs, not to separate them. The closest evidence: frozen text similarity predicted measured item correlations at r ≈ 0.19, and a model fine-tuned on empirical correlations reached 0.71, or 0.59 on new items (Hommel & Arslan, AMPPS 2025).
-  - **Validation:** cross-dataset (train on one dataset, test on another).
-  - **Adoption:** it feeds `W_text` candidate ordering only if report 6d shows a margin, fixed in advance, over the general-plus-authored kernel.
-  - **What stays out:**
-    - learning a metric or deep kernel on the owner's own data. Marginal-likelihood deep kernels overfit on small data (2102.12108);
-    - fine-tuning the embedder itself. It's a Slice 2 non-goal, and the OpenRouter-served model can't be fine-tuned anyway.
-
-### 5.3 Observation model
-
-- **Each `facet_outcome_observations` row is one 2PL observation:** `y ≈ σ(a(θ_f − b))`, using `mastery.py`'s probability-space EKF.
-  - **Sensitivity:** `H = a·p(1−p)`.
-  - **Measurement noise:** `R = base_observation_variance · p(1−p) / w`, with weight `w = effective_mass · facet_share`. *Revised 2026-10-11:* there is no weight floor.
-    - **Zero-mass rows are skipped.** A row with `w ≤ 1e-9` (quarantined, unassessable, excluded revision) applies no update. Under the previous `max(w, 0.10)` floor, quarantined rows still moved the field.
-    - **Per-attempt information budget.** `facet_share` sums to 1 per attempt, so one attempt's total precision `Σ_f w_f / base` equals what a single-facet attempt of the same mass would contribute. Spreading an attempt over more facets dilutes each facet's update rather than multiplying the attempt's influence.
-- **Item offset.**
-  - `(a, b)` come from `resolve_item_irt_params`: the empirical-Bayes `b` when enabled, otherwise the authored difficulty, otherwise the LO prior, otherwise the default.
-  - **LLM-estimated difficulty is never trusted as a point value** (ρ = 0.06). When `difficulty_source ∈ {"llm_estimate", None}`, `b` is treated as uncertain. Its variance `σ_b²` (default 1.0) is folded into noise: `R += a²·p²(1−p)²·σ_b²`. This only widens.
-  - PF solver-panel difficulty (`difficulty_source = "solver_panel"`, Slice 2 §5.4) gets the authored treatment when present.
-- **Weights.**
-  - Cold attempts use full weight.
-  - Assisted attempts arrive discounted through `effective_mass`.
-  - **Primed attempts** follow `mastery.py` exactly (revised 2026-10-11). The item's `b` is shifted easier by the same primed shift the attempt path applies (`attempts.py:2458`), so a primed success barely moves θ and a primed failure moves it strongly. Primed rows are not discounted a second time through mass.
-  - `dont_know` gives outcome 0 at full attempt-type mass, as in `derive_facet_outcomes`.
-  - A skip gives no row.
-- **Regrades.** Superseded grading epochs are dropped; the latest epoch is used.
-
-### 5.4 Inference and time
-
-- **Sequential EKF over the joint state `(μ, Σ)`, in time order.**
-  - Each observation applies a rank-1 update along the facet's column of `Σ`.
-  - This is exact linear algebra at F ≤ ~1,000: O(F²) per observation and O(N·F²) for a full rebuild. At ~10³ observations and F = 500 that is about 2.5 × 10⁸ flops, a few seconds in numpy.
-  - Laplace or EP batch inference is an alternative with the same outputs (D2).
-- **Time.** Between observations Δ days apart, `Σ ← Σ + σ²_drift · Δ · K/σ₀²`, with diagonal entries capped at `p_max`.
-  - This is the existing drift form (`mastery.py:342-353`), correlated along the graph.
-  - No mean decay: retention timing stays FSRS's job, and the field estimates ability, not today's recall.
-- **Numerics.** Σ is kept symmetric positive-definite by a jitter that only adds variance (F4). Exact rebuilds use float64; determinism is enforced by fixed observation ordering (`observed_at`, then `attempt_id`, then `facet_id`).
-
-### 5.5 Outputs (per facet, per snapshot)
-
-| Output | Definition |
-|---|---|
-| `mean`, `variance` | Posterior `μ_f`, `Σ_ff` |
-| `p_available` | `E[σ(θ_f)]`, by probit approximation |
-| `interval80` | `σ(μ_f ± 1.2816·√Σ_ff)` |
-| `n_eff` | `σ₀²/Σ_ff − 1`: the information gained, in units of the prior |
-| `direct_mass` | Σ of `effective_mass · facet_share` of the facet's own rows |
-| `inferred` | true when `direct_mass` < `field.direct_threshold` (default 0.5) but `n_eff` ≥ `field.unknown_threshold` (default 0.25) |
-| `n_eff_local`, `general_share` | Information gained excluding the general component, and the share of the posterior shift that came through the general factor |
-| `class_id` | The co-measured equivalence class (§5.1); null when the facet is separately measured |
-| `unknown` | true when `n_eff_local` < `field.unknown_threshold`, **or** the graph distance to the nearest facet with direct evidence > `field.max_support_hops` (default 3) (F4). Shown as "general level only" when `general_share` is high |
-| `support` | The top 3 facets and attempts contributing to the posterior shift (influence = covariance-weighted innovation), for explanations |
-
-### 5.6 Item-anchored predictors (added 2026-10-11)
-
-The facet field is one way to predict. Two lower-dimensional alternatives use the same observations and are compared in the harness (§8.3). Either can replace the facet field under the consumers (§6.0) if it wins (§8.2). They follow from the research finding that one learner's data identifies a general ability plus a few coarse factors, not hundreds of facet coordinates (sweep §11).
-
-- **Model.** For an attempt on item `i` in LO `L` and practice family `F`:
-
-  ```
-  logit P(success) = a_i · ( θ_general + θ_L + u_F ) − b_i
-  ```
-
-  | Term | Meaning | Prior |
-  |---|---|---|
-  | `θ_general` | Overall level in the subject | `N(m₀, σ_g²)`; one per subject |
-  | `θ_L` | The LO's deviation from the general level | `N(0, σ_L²)`, coupled across LOs by a heat kernel over **authored** LO edges only (prerequisite, part_of, related) |
-  | `u_F` | The family's deviation from its LO | `N(0, σ_F²)`, independent in v1 (D22); 0 for items without a family |
-  | `a_i`, `b_i` | Item discrimination and difficulty | From `resolve_item_irt_params`: empirical-Bayes `b` when present, solver-panel difficulty, then the LO prior. LLM difficulty labels are only ever uncertain inputs (§5.3) |
-
-- **Inference.** The same sequential EKF as §5.4, over the joint state `[θ_general, θ_L…, u_F…]`. Its dimension is 1 + #LOs + #families with data, much smaller than F. Observations, weights, zero-mass skipping, primed handling and drift are as in §5.3–5.4. Facets play no part in the state: rubric criteria still map to facets for evidence and display, but prediction is per item.
-- **Arms:**
-  - **`lo_general`**: `θ_general + θ_L` only. Available in S2, because per-LO 2PL filtering already exists in `learner/mastery.py`.
-  - **`idea_hier`**: adds `u_F`. Available once PF-a has created families (Slice A Phase 3).
-  - **`idea_hier_llm_prior`**: `idea_hier` plus the LLM sensor as an **item-side prior**. For an item with no attempts, the calibrated `llm_probability` prediction `p̂` shifts the prior mean of `b_i` so that the model's predicted probability moves toward `p̂`. The shift has fixed prior variance `σ_llm²`, set a priori from the arm's calibration report (D21).
-    - The prior acts **only on item parameters**. It never moves `θ`, so an LLM's opinion is never evidence about you (G20).
-    - Once the item has attempts, its own data dominates.
-- **Region estimates.** These predictors report regions at the granularity they model: LOs and families, with `mean`, `variance`, `n_eff_local`, `unknown` and `inferred` defined as in §5.5 over their own state. Facet-level estimates are not invented.
-- **Persistence.** Only the *active* predictor (§6.0) persists a snapshot. `lo_general` and `idea_hier` use `hier_model_snapshot` (DERIVED, rebuild owner); in reports they run on copies.
-
----
-
-## 6. Consumers
-
-### 6.0 The predictor interface (added 2026-10-11)
-
-Placement (§6.2), probe targeting (§6.3) and the map layer (§6.1) depend only on this interface, never on the facet field's internals. Whichever predictor wins can therefore be swapped in without redesigning the consumers (G18).
+Every predictor, incumbent or challenger, implements one contract. It extends the harness `Predictor` contract (§7.2). Consumers (§5) depend only on it (G10).
 
 ```
-class LearnerPredictor(Protocol):            # extends the harness Predictor contract (§8.3)
+class LearnerPredictor(Protocol):
     name: str; version_hash: str
-    def predict_item(item_id) -> ItemPrediction        # p_success, logit variance, region loadings
+    def predict_item(item_id) -> ItemPrediction           # p_success, logit variance, region loadings
     def conditional_gain(item_id, chosen: list[item_id], weights: dict[region_id, float]) -> float
-    def region_estimates(scope) -> dict[region_id, RegionEstimate]   # mean, variance, n_eff_local, unknown, inferred, class_id?
-    def rebuild() / observe(rows)                       # deterministic, zero model calls on rebuild (F1)
+    def region_estimates(scope) -> dict[region_id, RegionEstimate]   # mean, variance, n_eff, untested
+    def rebuild() / observe(rows)                          # deterministic, zero model calls (F1)
 ```
 
-- **Implementations:**
-  - the facet field (regions = facets);
-  - `lo_general` and `idea_hier` (regions = LOs and families);
-  - `idea_hier_llm_prior` (same regions as `idea_hier`).
-- **Eligibility.** Only predictors with calibrated uncertainty can be active (G19). `llm_probability` on its own gives a point estimate, so it can't drive placement or probe targeting. It can only feed `idea_hier_llm_prior` as an item-side prior.
-- **Choosing the active predictor.** `field.active_predictor` defaults to `facet_field` (D20). Switching to another predictor changes what is served, so it is an algorithm successor with a kill switch that restores the previous predictor. It is decided by the switching rule in §8.2.
-- **Ensemble.** The §6.2 kernel ensemble generalizes to "three fixed variants of the active predictor". For the facet field these are the three kernels. For hierarchical predictors they are the a-priori variances, the population-fit variances (report 6c), and topic-only (`lo_general`).
+- **Eligibility.** Only predictors with calibrated uncertainty (`conditional_gain` plus region variances) can be active (G11). A point-only predictor such as `llm_probability` can never be active.
+- **Active predictor.** `field.active_predictor` defaults to `mastery_ekf` (D1). Switching it changes what is served, so it is a successor with a kill switch, decided by §7.4.
 
-### 6.1 (4) Map uncertainty layer
+### 4.2 Incumbent: `mastery_ekf`
 
-- **RPC.** `get_knowledge_map` gains an optional `field` block per point: `p_available`, `interval80`, `inferred`, `unknown`, `support`, `predictor`, `field_version`. It comes from the active predictor's `region_estimates` (§6.0), at that predictor's granularity. For a hierarchical predictor that means LOs and families, drawn over the LO's sectors. The block is absent when the field is disabled.
-- **Existing fields are unchanged:** `ready`, `ready_ghost`, `ready_variance`, `evidence_mass`, `demonstrated_mass`.
-- **Rendering in `KnowledgeWellView`, with an "Estimated from nearby evidence" toggle that is on by default** (revised 2026-10-11) and hides the layer when off:
-  - **`inferred` facets:** a stippled fog over the sector. Fog density ∝ `1 − variance/σ₀²`, and its tone encodes `p_available` in a separate fog palette, never the well palette. Well depth stays `ready · visibility(evidenceMass)`, so inferred-but-unmeasured facets stay flat.
-  - **`unknown` facets:** no fog and a small `?` glyph. A blank is honest ignorance.
-  - **Demonstrated beads, ghost rings, and decay markers are unchanged** (F8).
-- **Side panel:** "Estimated 62% (80%: 38–81%) from nearby evidence: [support facets], [n] answers. Not demonstrated."
+An adapter over the existing per-LO 2PL EKF in `learner/mastery.py`:
+- LOs are independent;
+- item difficulty comes from `resolve_item_irt_params`.
 
-### 6.2 (1) Placement after import
+It is what LearnLoop already believes, and it propagates nothing across LOs, so it satisfies F4 and F6 by construction. Its regions are LOs.
+
+### 4.3 Challengers: `lo_general`, its extension arms, and `idea_hier`
+
+**`lo_general`.** For an attempt on item `i` in LO `L`:
+
+```
+logit P(success) = a_i · ( θ_general + θ_L ) − b_i
+```
+
+- `θ_general ~ N(m₀, σ_g²)`, one per subject. `m₀` comes from the covering learner claim when one exists (weak); otherwise it is 0.
+- `θ_L ~ N(0, σ_L²)`. **LOs are independent beyond the shared general level. No graph coupling** (F6, D2).
+- `σ_g² = 0.75` and `σ_L² = 2.25`, so `σ_g² + σ_L² = 3.0`, the per-LO EKF's cold-start prior variance.
+
+**Extension arms.** These are the pieces that were missing for predicting ability. Each is a separate harness arm with a-priori, versioned constants (D3); the composite is scored too.
+
+| Arm | Adds | Prior | Evidence |
+|---|---|---|---|
+| `lo_general+practice` | Learning from practice: `θ_L` gains `γ` per graded cold opportunity, predicted *before* the outcome is seen | `γ = 0.2` logits per opportunity. A median of ~7 opportunities takes a learner from 50% to 80% | Learning rates are consistent across learners while starting knowledge varies widely (2604.03246) |
+| `lo_general+capability` | An offset `δ_cap` per item `capability` (`retrieval`, `schema_interpretation`, `procedure_execution`, `method_selection`, `coordination`), shared across LOs in a subject. Latent state, not a fitted hyperparameter | `N(0, 0.5²)` | Recall, procedure, method choice and transfer are different abilities on the same topic |
+| `lo_general+transfer` | An offset by `variant_relation` (PF): `same_target` 0, `isomorph`, `near`, `far` | Means 0 / −0.25 / −0.5, sd 0.5 | Retrieval practice transfers strongly to isomorphs, weakly to near variants, little to far ones (PsyArXiv sj3w7) |
+| `lo_general+retrievability` | For items with FSRS state, `β · logit(R_FSRS(t))`, combining ability with forgetting | `β = 0.5`; the report sweeps {0, 0.5, 1} | FSRS and mastery currently predict separately |
+| `idea_hier` | Family effects `u_F ~ N(0, σ_F²)`, independent in v1 (practice-family track §5.1–5.2). Available after PF-a | `σ_F² = 0.5` | Families are the finest unit with a shared retrieval target |
+
+**Observation model and inference** (shared by all challengers; the incumbent keeps `mastery.py` as is):
+- **Observations.**
+  - One 2PL observation per attempt row, using `mastery.py`'s probability-space EKF.
+  - Sensitivity `H = a·p(1−p)`; noise `R = base_observation_variance · p(1−p) / w`, with `w = effective_mass`.
+  - **Zero-mass rows are skipped**: quarantined, unassessable, or `excluded` revision.
+  - **Primed attempts** shift `b` exactly as the attempt path does (`attempts.py:2458`). They are never discounted a second time through mass.
+  - `dont_know` is outcome 0 at full mass, and a skip gives no row.
+  - Superseded grading epochs are dropped.
+- **Item difficulty.**
+  - `(a, b)` come from `resolve_item_irt_params`: empirical-Bayes `b`, then solver-panel difficulty (`difficulty_source = "solver_panel"`), then authored, then the LO prior.
+  - **LLM-estimated difficulty is never a point value** (ρ = 0.06). Its variance `σ_b² = 1.0` is folded into `R`, which only widens.
+- **Inference.**
+  - A sequential EKF over the small joint state: general level, LO deviations, plus whichever extension terms the arm has.
+  - The state has 1 + #LOs (+ capabilities, relations, families) dimensions, tens rather than hundreds.
+  - Fixed ordering (`observed_at`, `attempt_id`); float64; any jitter only adds variance.
+- **Time.**
+  - Variance grows by the existing drift form (`mastery.py:342-353`).
+  - There is no mean decay. Retention timing stays FSRS's job, except for the explicit `+retrievability` covariate.
+
+**Region estimates.**
+- Regions are LOs (plus families, capabilities and relations where the arm has them).
+- Each region reports `mean`, `variance` and `n_eff` (the information gained, in prior units).
+- `untested` is true when the region has **no direct evidence**, whatever the inference says (F4).
+
+---
+
+## 5. Consumers
+
+### 5.1 Map: an explicit untested state (F1; no predictor needed)
+
+- **The fix.** Today a facet with no evidence is drawn at `ready = 0.5` (`learnloop_sidecar/handlers/knowledge_map.py:371-374`), which looks like a half-known skill.
+- **The change.** `get_knowledge_map` instead marks such points `untested: true` and omits `ready`. `KnowledgeWellView` draws them as flat and outlined, with a small "untested" label.
+- **What stays the same.** Demonstrated beads, ghost rings and decay markers (F8).
+- **Version impact.** This is display honesty, not served behaviour, so it needs no successor.
+- **Deferred.** Showing a predictor's inferred estimates on the map ("fog") is deferred (§11).
+
+### 5.2 Placement after import (F2; live; successor; kill switch `placement.enabled`)
+
+**Built on what exists.**
+- `start_calibration_session(learning_object_ids=…, time_budget_minutes=…)` (`diagnosis/calibration_sessions.py:156`) with `CalibrationScreen`.
+- Its plain predictive-rate ordering (§8.3 of the knowledge-model spec) is kept. The active predictor's `conditional_gain` replaces it only when §7.4 has activated a challenger.
 
 **When.**
-- **Trigger:** an import or study-map apply that adds ≥ `placement.min_new_facets` (default 4) active facets in a goal's or the import's scope.
-- **Placement items must exist.**
-  - Imports that create items qualify: exercise import, ingest-exam mode, and Quick Add with the reader off.
-  - Reader-on imports have no items until sections are read (P5). They qualify once PF-b has published verified items for the imported topics (Slice 2 §5.3–5.4; Slice A Phase 5).
-  - With no eligible items, today's per-topic initial probes run unchanged.
-
-**Selection.** Choose a set S of at most `placement.k` items (default 4, within about 8 minutes) from the eligible items `I_new` (active, unattempted, not exam-reserved, not reveal-burned). Greedily maximize:
-
-```
-gain(i | S) = Σ_f g_f · ( (Σ_S h_i)_f² / (h_iᵀ Σ_S h_i + R_i) )  −  λ · minutes(i)
-```
-
-- `Σ_S` is the covariance after conditioning on the already-picked items. That conditioning is predicted variance reduction only, with no outcome needed, because the linearized variance update doesn't depend on y.
-- `h_i` holds the item's facet loadings: `facet_share · a·p(1−p)` at the prior mean.
-- `R_i` is its noise at full cold weight.
-- `g_f` = 1 for facets in the import or goal scope, and `placement.g_outside` (default 0.2) otherwise.
-- `minutes(i)` comes from your own past durations per item type, with a flat 3-minute fallback.
-- **Kernel ensemble** (added 2026-10-11). Gains and conclusions are computed under three fixed kernels:
-  1. the default kernel;
-  2. authored edges plus the general factor only;
-  3. the population-fit kernel, once adopted (§5.2).
-
-  An item's gain is its minimum across the ensemble. A facet is "likely known" only if **every** kernel agrees; otherwise it is "start here". Conclusions that flip between plausible kernels are not trusted (kernel ensembles over hyperparameter sampling: 2608.24721). The goal-weighted gain `g_f` matches weighted A-optimal design for the multidimensional 2PL (2608.00201).
-
-This formula is the facet field's implementation of `conditional_gain` (§6.0). Hierarchical predictors implement the same quantity over their own state, and placement calls the interface, never the formula. It is the field's analogue of `plan_precommitted_block`'s greedy joint EIG (`probe_episodes.py:1196`), and it reuses that path. Presentations are committed in order, carry `placement_block` telemetry with each pick's gain, and are served as a precommitted block. That makes them system-chosen observations with logged propensities (F7).
+- **Trigger:** an import or study-map apply that adds ≥ `placement.min_new_los` (default 3) active LOs with eligible items.
+- **Eligible items:** imported exercises, or practice-family items published under the PF-b rules. They must be active, unattempted, not exam-reserved and not reveal-burned.
+- **No eligible items:** today's per-LO initial probes run unchanged.
 
 **Learner experience.**
-1. **Offer:** "Quick placement: 4 questions (~6 min) so LearnLoop can skip what you already know." Choices: **Start / Later / Skip placement**. Skipping is never negative evidence.
-2. **Each question** has **"I don't know"** (recorded as `dont_know`) and **Skip** (no row). Hints are off.
-3. **Answers are revealed at the end of the block.** Every reveal is recorded in `reveal_events`, so later cold checks on those surfaces stay honest.
-4. **Results screen.** Each facet in scope is shown in one of three groups, in plain language and never as "mastered" or "demonstrated":
-   - **"Likely known — we'll check again around [date]":** `P(θ_f > θ_known) ≥ q` and not `unknown`.
-   - **"Start here":** unknown, or neither threshold met.
-   - **"Looks shaky — may depend on [prerequisite]":** `P(θ_f < θ_gap) ≥ q`.
-   - The defaults are `θ_known = logit(0.75)`, `θ_gap = logit(0.35)` and `q = 0.8` (D6).
-5. **Override:** "Actually, I don't know this" moves a facet to **Start here**. It's a routing preference, never evidence. It appends to `judgment_ledger` (task `placement_override`, judge `owner`; Slice 2 §5.8), so overrides count against the field's "likely known" in report 3.
+1. **Triage, one tap per LO** (or per chapter group): **know / new / unsure**.
+   - The answers are recorded as weak learner claims through the existing claim machinery, never as evidence.
+   - **"new"** LOs aren't checked; they start normally.
+2. **Offer:** "Quick check: up to 4 questions (~6–8 min) so LearnLoop can skip what you already know." Choices: **Start / Later / Skip**. Skipping is never negative evidence.
+3. **Adaptive checks.**
+   - Each next item maximizes `conditional_gain` over the "know" and "unsure" LOs, weighted toward checks that could actually skip work.
+   - The block **stops early** when no remaining candidate could change what happens next, or when the budget runs out.
+   - Each question has **"I don't know"** (`dont_know`) and **Skip** (no row), and hints are off.
+4. **Answers are revealed at the end of the block.** Every reveal is recorded in `reveal_events`.
+5. **Results, in plain language and never as "mastered":**
+   - **"Checked: solid, we'll confirm around [date]":** the LO was **directly checked** and `P(θ_L > θ_known) ≥ q` (D6).
+   - **"Checked: needs practice":** the LO was directly checked and did not meet that bar.
+   - **"Not checked":** everything else, including LOs a predictor *infers* to be strong. Inference never skips material (F4).
+6. **Override.** "Actually, I don't know this" moves an LO to **Not checked**. It is a routing preference, appended to `judgment_ledger` (task `placement_override`, judge `owner`).
 
-**Effect (S5, live; algorithm successor; kill switch `placement.enabled`).** *Revised 2026-10-11: no shadow stage, and not gated on Q7/Q11.*
-- **The placement block replaces today's per-topic initial probes** for LOs in its scope. LOs outside it keep `_enter_initial_probes` behaviour.
-- **"Likely known" LOs** (all in-scope facets likely known):
-  - no initial episode is opened now;
-  - one **confirm episode** is entered after `placement.confirm_after_days` (default 10), and its first presentation is a normal cold check;
-  - until then, their items are served only through the existing goal-frontier path, unchanged.
+**Effect.**
+- **"Solid" LOs.**
+  - No initial probe episode now.
+  - One **confirm probe** after `placement.confirm_after_days` (default 10), as a normal cold check.
+  - Until then their items are served only through the goal-frontier path, unchanged. Once daily-loop Q7 exists, "solid" maps onto maintain-level intent instead.
+- **"Needs practice" LOs** get their initial episode now, first.
+- **"Not checked" LOs** keep today's behaviour.
+- **Nothing is certified.** A failed confirm probe restores the normal path.
+- **Grader risk.** A grader that accepts a wrong answer could produce a false "solid". Confirm probes catch that afterwards, and Slice 1's E1 grader probes measure the grader's error rate (D7).
 
-  This uses only the scheduler's existing cold-start gate (items of unattempted LOs are served via a goal frontier or an open episode). When the daily loop adds a single intent control (Q7) and a new-material policy (Q11), "likely known" maps onto maintain-level intent instead.
-- **"Looks shaky" LOs** get their initial episode as today, entered first.
-- **"Start here" LOs** get their initial episode as today.
-- **Nothing is certified.** A failed confirm probe simply restores the normal path.
-- **Thin data.** If report 2 couldn't run on your data, `q` starts at the value report 6 (public benchmark) suggests for a miss rate of ~10%, or at 0.9 if that isn't available, until report 3 has a miss rate.
-- **Receipts.** `placement_decisions` records the conclusions and the episodes that were *not* entered. Report 3 scores them against the confirm probes.
+### 5.3 Not built here
 
-### 6.3 (2) Choosing where to probe next
-
-**Score, per LO** (shown for the facet field; any active predictor supplies `region_estimates` and `conditional_gain`, and probe targeting uses those through §6.0):
-
-```
-s(LO) = max over facets f in LO of  g_f · Σ_ff / σ₀² · 1 / (1 + n_served_f / n₀)
-```
-
-- `n_served_f` is the number of distinct surface groups served that cover f, so rarely-served regions score higher (Plan B's exposure-density amendment).
-- `n₀` defaults to 3.
-- `unknown` facets score at prior variance. Exploring them is the point, but only for facets with `g_f > 0`.
-
-**Live (S7; algorithm successor; kill switch `field.probe_targeting_enabled`).** *Revised 2026-10-11: no shadow stage, not gated on Q9.*
-- **(a) Stale-uncertainty re-probes.** `enter_stale_uncertainty_reprobes` keeps its trigger shape but enters the field's set: LOs with `s(LO)` ≥ `field.reprobe_score` whose last episode is terminal and older than `reprobe_stale_uncertainty_days`. The old variance-threshold set is computed and logged beside it.
-- **(b) The queue's probe term.** The per-LO information-gain input to `probe_eig_weight` is replaced by the field's expected variance reduction per candidate item (`field_eig`), with fixed weights as today. The old component stays in the explanation components for comparison.
-- **What Q9 changes.** Until a finite, system-ordered plan exists, learner-picked observations have unknown propensity. Report 4 is then model-based, not off-policy (F7). This weakens the evaluation, not the change.
+- **Probe targeting by a predictor** (§11).
+- **Re-entry after a lapse.** The daily-loop track can reuse the placement block for a few high-information checks after a break.
 
 ---
 
-## 7. Persistence
-
-All new tables take the next free migration numbers at build time, following the `CLAUDE.md` head-fixture procedure.
+## 6. Persistence
 
 | Table | Role (`db/table_roles.py`) | Contents |
 |---|---|---|
-| `embedding_vectors` | WORKFLOW (Slice 1 §9.2; created here if Slice 1 hasn't) | Vectors for `facet/definition`, `learning_object/summary` |
-| `facet_outcome_observations` | DERIVED (rebuild owner) | §4.2 |
-| `facet_dossiers` | WORKFLOW (paid outputs; never regenerated on rebuild) | Per facet: scope, moves, errors, contrast fields; `facet_content_hash`, `source_hash`, `model`, `prompt_version`, `neighbour_ids_json` the contrast was written against |
-| `learner_field_graph` | DERIVED (rebuild owner) | Edges (`facet_a`, `facet_b`, `weight`, `sources_json` listing authored types, embedding cosine, and the `judgment_ledger` verdict ids behind each text edge, `capped`), `class_id` per facet, `kernel_version`, `representation_variant`, `embedding_model_id`, `vectors_missing_count`, `text_edges` (`llm_verdicts` \| `cosine_fallback`) |
-| `learner_field_snapshot` | DERIVED (rebuild owner) | Per facet: §5.5 outputs + `as_of_observation_id`, `field_version`, `kernel_version`. Latest snapshot only; history is reproducible by replay |
-| `placement_decisions` | RECEIPT | `id`, `trigger_ref` (import batch or study-map apply), `scope_facet_ids_json`, `candidate_items_json`, `chosen_json` (item, gain, minutes), `conclusions_json` (per facet: group, `p_available`, interval), `episodes_skipped_json`, `confirm_due_json`, `q_used`, `predictor`, `predictor_version`, `field_version`, `created_at`; later joined to confirm-probe outcomes by report 3 |
-| `field_probe_target_receipts` | RECEIPT | `sync_id`, `lo_id`, `score`, `entered`, `variance_rule_would_enter`, `predictor`, `predictor_version`, `field_version`, `created_at` |
-| `hier_model_snapshot` | DERIVED (rebuild owner; only while a hierarchical predictor is active) | Per region (general, LO, family): §5.6 outputs, `predictor`, `as_of_observation_id`, `version` |
+| `facet_outcome_observations` | DERIVED (rebuild owner) | §3 |
+| `learner_predictor_snapshot` | DERIVED (rebuild owner; only while a non-incumbent predictor is active) | Per region: `mean`, `variance`, `n_eff`, `untested`, `predictor`, `version`, `as_of_observation_id` |
+| `placement_decisions` | RECEIPT | `id`, `trigger_ref`, `scope_lo_ids_json`, `triage_json`, `candidate_items_json`, `chosen_json` (item, gain, minutes, stop reason), `conclusions_json` (per LO: label, `p`, interval), `episodes_skipped_json`, `confirm_due_json`, `q_used`, `predictor`, `predictor_version`, `created_at`. Joined to confirm-probe outcomes by report 3 |
 
 - **Config:**
-  - `[field]`: `enabled` (template default false; owner vault true); kernel and threshold values from §5–6; `kernel_version`; `probe_targeting_enabled`; `legacy_fallback` (`exclude` \| `current_content`, default `exclude`).
-  - `[placement]`: `enabled`, `k`, `min_new_facets`, `g_outside`, `confirm_after_days`, thresholds.
+  - `[field]`: `enabled`, `active_predictor` (default `mastery_ekf`), arm constants (D3), `legacy_fallback` (`exclude` \| `current_content`, default `exclude`).
+  - `[placement]`: `enabled`, `k` (4), `budget_minutes` (8), `min_new_los`, `confirm_after_days`, thresholds.
 - **Algorithm versions:**
-  - S1–S3 add only DERIVED and RECEIPT tables and a display layer, and change nothing that is served: no successor.
-  - S5 (placement live) and S7 (probe targeting live) are separate successors (D11). Each comes with the playbook's upgrade function, a shadow rebuild on a backup-API copy, a head fixture, and a kill switch that restores the previous behaviour exactly.
+  - F1 needs none: derived tables plus a display change.
+  - F2 (placement live) is one successor.
+  - Activating a challenger predictor is a further successor.
 
 ---
 
-## 8. Evaluation
+## 7. Evaluation
 
-### 8.1 Correctness gates (pass/fail)
+### 7.1 Correctness gates (pass/fail)
 
 | Id | Gate |
 |---|---|
-| G1 | **Deterministic rebuild:** the same ledgers, vault, vectors, and config give a byte-identical `learner_field_graph` and `learner_field_snapshot` (hash compared on fixture vaults) |
-| G2 | **Zero LLM and embedding calls** during rebuild or replay (fakes assert). Missing vectors → authored-only graph, recorded |
-| G3 | **No evidence writes:** an import-linter contract forbids the field package from importing evidence/projection writers. A test asserts that evidence, mastery, facet-recall, and certification tables are byte-identical with the field on vs off |
-| G4 | **Density guard:** a disconnected facet, and a facet more than `max_support_hops` from any evidence, report `unknown` with variance = prior variance |
-| G5 | **Shortcuts widen:** on small graphs, the kNN-sparsified, capped, and jittered posterior variance is ≥ the exact dense posterior variance for every facet |
-| G6 | **Never blend:** the map DTO keeps `field.*` separate. Vitest asserts that well depth and beads are identical with the layer on vs off |
-| G7 | **No certification:** placement-live never marks any facet demonstrated or cold-verified; "likely known" changes only episode entry and intent |
-| G8 | **Reproducibility:** placement selection given a snapshot is deterministic (ties broken by item id), and `placement_decisions` records everything needed to recompute it |
-| G9 | **Model change:** the graph rebuild after an embedding-model change waits for a full re-embed of the affected record kinds (Slice 1 §9.6) |
-| G10 | **Weight invariances:**<br>• adding quarantined, unassessable, or `excluded` rows leaves the posterior byte-identical;<br>• splitting one facet's share across two duplicate facets leaves the attempt's total information unchanged;<br>• at F = 1, primed handling matches `mastery.py` |
-| G11 | **No silent substitution:** every `facet_outcome_observations` row has a `revision_status`; with `legacy_fallback = "exclude"` no row uses current content for a missing revision. The row count matches the debug-payload copy for `exact` rows (validation) |
-| G12 | **Kill switches:** with `placement.enabled = false` or `field.probe_targeting_enabled = false`, episode entry and queue ranking are identical to the previous algorithm version on fixture copies |
-| G13 | **No leakage in evaluation:** the harness gives each arm a row's outcome only after that arm has predicted it; arms have no store access; the standalone `llm_probability` arm is unreachable from serving code; serving reaches its calibrated predictions only through `idea_hier_llm_prior`'s item-side prior (G20) |
-| G14 | **No per-learner kernel fitting:** no code path fits a kernel hyperparameter, projection, or metric to the owner's data. `kernel_version` records whether the scalars are a-priori or population-fit, and from which dataset and split |
-| G15 | **Text never acts alone:** every `W_text` edge cites `judgment_ledger` verdicts (or is flagged `cosine_fallback`). The prior correlation of every text-only pair is ≤ `text_corr_cap`. Capping never narrows any posterior variance (checked on small graphs) |
-| G16 | **Classes from measurement:** `class_id` is a function of the item→facet loading matrix only. Changing embeddings or verdicts never changes a class |
-| G17 | **Dossiers are inputs:** a rebuild reads `facet_dossiers` and makes no LLM call. Dossiers regenerate only when the facet content hash or source hash changes |
-| G18 | **Consumers use the interface:** an import-linter contract forbids the placement, probe-targeting and map modules from importing any predictor's internals. Swapping `field.active_predictor` between two implementations changes no consumer code |
-| G19 | **Only calibrated-uncertainty predictors can be active:** activating a predictor without `conditional_gain` and region variances fails config validation. `llm_probability` alone is rejected |
-| G20 | **The LLM prior never moves ability:** under `idea_hier_llm_prior`, every `θ` posterior is byte-identical with the prior on vs off; only item-side predictions change. The prior's weight is a fixed, versioned constant |
+| G1 | **Deterministic rebuild:** the same inputs give byte-identical derived tables (hash compared on fixture copies) |
+| G2 | **Zero LLM and embedding calls** during rebuild or replay (fakes assert) |
+| G3 | **No evidence writes:** an import-linter contract forbids predictor packages from importing evidence writers. Evidence, mastery, facet-recall and certification tables are byte-identical with the field on vs off |
+| G4 | **Untested is not known:** no region without direct evidence is reported as known, "solid", or `untested = false`. Neighbour inference never changes episode entry |
+| G5 | **Knowledge-model alignment:** no prior or update propagates along `part_of`, `related`, `analogous_to` or `confusable_with`, and no LLM relation edges are read |
+| G6 | **Never blend:** with the untested state on vs off, well depth and demonstrated beads are identical except at untested points (vitest) |
+| G7 | **Placement skips only what it checked:** only directly checked "solid" LOs lose their initial episode. Nothing is certified |
+| G8 | **Placement reproducibility:** selection given a snapshot is deterministic (ties broken by item id), and `placement_decisions` records everything needed to recompute it |
+| G9 | **Kill switches:** with `placement.enabled = false`, or the active predictor reverted, episode entry and ordering match the previous version on fixture copies |
+| G10 | **Consumers use the interface:** placement and map modules can't import any predictor's internals (import-linter) |
+| G11 | **Only calibrated-uncertainty predictors can be active:** config validation rejects the others |
+| G12 | **Weight and provenance invariances:**<br>• zero-mass rows leave every posterior byte-identical;<br>• primed handling matches `mastery.py` (at one LO, `lo_general` with `σ_g² → 0` reduces to it);<br>• every outcome row has a `revision_status`, and with `exclude` no current content substitutes for a missing revision |
 
-### 8.2 Quality reports (no thresholds; noise floors via bootstrap over attempts)
 
-All reports run on the shared harness (§8.3). None is a one-off script.
+### 7.2 Evaluation harness: `learnloop eval`
 
-**Data prerequisite.** These reports need a few hundred graded attempts spread over many facets (the count query from 2026-10-11). At n=1 they detect only large effects. Intervals are reported, and "can't tell" is a valid outcome.
-
-1. **Prequential replay, S2.**
-   - **Setup:** for every graded attempt in time order, each facet outcome is predicted from state built strictly before it.
-   - **Compared against the no-smoothing baseline:** per-facet Beta mean (`facet_recall_state`), per-LO mastery EKF, and FSRS retention.
-   - **Metrics:** log loss, Brier, and a reliability diagram.
-   - **Splits:** facets **with** vs **without** prior direct evidence (the field's value should show in the latter), and observation `serving_origin` (F7).
-   - **Sensitivity sweep:** `t` ×{0.5, 1, 2}, `k` ∈ {4, 8, 16}, `c₀` ∈ {0.25, 0.35, 0.45}, and `w_*` ±50%. If the conclusion flips inside the sweep, that is a reason not to promote.
-2. **Placement simulation, S2.**
-   - **Setup:** for each topic you started with ≥ 6 graded attempts, keep the first k chosen by §6.2's rule from what was actually answered, and predict the first attempt on each other in-scope facet.
-   - **Compared against:** prior only, and the baseline.
-   - **Reported:** the share of facets that would be "likely known", and the **miss rate** among them (failed when attempted). The miss rate is the safety number.
-3. **Confirm-probe scoring, S5** (revised 2026-10-11: live, not shadow).
-   - **Miss rate** of "likely known" against its confirm probes. This is the safety number.
-   - **"Looks shaky" hit rate** against the initial episodes that ran.
-   - **Placement minutes** vs the estimated minutes of probing every topic.
-4. **Probe targeting, S7.**
-   - **Decision-change rate:** the share of syncs where the field's set differs from the logged variance-rule set.
-   - **Realized information** (posterior change) per probe, for the field's probes vs the rule's choices where both ran.
-   - **Rank agreement** of `field_eig` with the old information-gain component.
-5. **Map layer, S3.** Calibration of `p_available` on `inferred` facets when they are later measured directly. Plus your qualitative note: is the fog legible, and does it help?
-
-**Decision rules (directional, owner-reviewed; revised 2026-10-11).** The consumers ship live after the S2 checkpoint, and the reports decide tuning or reversal:
-- **Map layer.** If (1) shows the field *worse* than the baseline on facets without direct evidence, fix the field before relying on the fog.
-- **Placement.** If (3)'s miss rate is higher than you accept, raise `q` or `θ_known`. If it stays high, set `placement.enabled = false`.
-- **Switching the active predictor** (added 2026-10-11). A challenger (`lo_general`, `idea_hier`, `idea_hier_llm_prior`) replaces the incumbent only if all of these hold:
-  - it beats the incumbent on your replay (report 1, attempt-level log loss) **and** on the benchmark (report 6a), each by the margin fixed in advance (D19's form: the bootstrap interval excludes 0);
-  - its placement-simulation miss rate (reports 2 and 6b) is no worse.
-
-  The switch is an algorithm successor with a kill switch back to the incumbent. If no challenger clears the bar, the facet field stays active.
-- **Probe targeting.** If (4) shows the field's probes carry less realized information than the rule's, set `field.probe_targeting_enabled = false`.
-
-### 8.3 Shared evaluation harness: `learnloop eval` (added 2026-10-11)
-
-The harness is how the pivot gets tested. Every predictor, hand-built or learned, is a **registered arm** scored on the same rows with the same rules. A future learned feature is "register an arm, run the report", never a new script.
-
-- **Predictor contract.** `observe(row)` and `predict(row) -> p ∈ (0, 1)`, plus `name`, `version_hash` and `granularity` (`facet` or `attempt`).
-  - The harness walks `facet_outcome_observations` in a fixed time order (`observed_at`, `attempt_id`, `facet_id`). For each attempt it asks every arm to predict **before** showing it the outcome.
-  - An arm has no other read access to the store, so leakage is impossible by construction.
-  - Attempt-level arms are scored against the attempt's rubric fraction. Facet arms are aggregated to attempt level by `facet_share`, so all arms meet on one scale. Facet arms are also scored per facet.
-- **Metrics.**
-  - Log loss and Brier (fractional targets allowed), a reliability diagram, and AUC at attempt level.
-  - Splits by direct-evidence status, `serving_origin`, revision status, and topic.
-  - Bootstrap intervals clustered by attempt.
-  - A version manifest: arm hashes, algorithm, kernel, embedding model, config hash, data snapshot.
-- **Arms at launch:**
+- **Contract.** `observe(row)` and `predict(row) -> p ∈ (0, 1)`, plus `name`, `version_hash` and `granularity` (`attempt` or `facet`).
+  - The harness walks rows in a fixed time order and asks every arm to predict **before** it sees the outcome.
+  - Arms have no other store access, so leakage is impossible by construction.
+  - Facet arms are aggregated to attempt level by `facet_share`.
+- **Arms:**
 
   | Arm | What it is |
   |---|---|
-  | `base_rate_lo` | Per-topic running success rate |
+  | `base_rate_lo` | Per-LO running success rate |
   | `facet_beta` | `facet_recall_state` |
-  | `mastery_ekf` | Per-LO mastery |
-  | `fsrs_retrievability` | Item-level, attempt granularity |
-  | `field` | The default kernel plus the §8.2 sensitivity variants |
-  | `field_kernel_*` | Kernel arms for report 6c: A default; B population-fit scalars; C A plus general factor only (no text); D text-only; E authored-only; F empirical KC covariance from the training half (an oracle upper bound, benchmark only) |
-  | `family_memory` (per item / per family / per LO) | Added by PF-a for the idea-identity replay |
-  | `lo_general` | General + LO abilities + item difficulty (§5.6). Available from S2 |
-  | `idea_hier` | `lo_general` + family effects (§5.6). Available after PF-a |
-  | `idea_hier_llm_prior` | `idea_hier` with the calibrated `llm_probability` as an item-side prior (§5.6). Available after PF-a; only with the LLM arm enabled |
+  | `mastery_ekf` | The incumbent (§4.2) |
+  | `lo_general` and its four extension arms (+ composite) | §4.3 |
+  | `idea_hier` | §4.3, after PF-a creates families |
+  | `family_memory` (per item / family / LO) | The practice-family idea-identity replay |
+  | `llm_probability` | **Optional, off by default** (D8). A frontier model reads recent graded attempts and predicts the next item; one-parameter recalibration on past predictions only; spend-capped; cached outside the vault. It can't be active (G11). It is a one-off offline test of "LLM as sensor", nothing more |
 
-- **Optional arm: `llm_probability`.**
-  - **What it does:** a frontier model reads the last 25 graded attempts (item excerpt, outcome, timestamp, gap) and the next item, and returns P(correct). It's a config route (`ai.routing.eval_llm_probability`).
-  - **Calibration:** a one-parameter temperature fitted prequentially, on past predictions only.
-  - **Cost control:** it runs under Slice A's spend caps. Predictions are cached outside the vault, in `fixtures-local/eval-cache.sqlite`, keyed by input hash, model and prompt version, so reruns don't re-pay.
-  - **Status:** on its own it never feeds serving: it has no calibrated uncertainty (G19). Its calibrated predictions reach serving only as the item-side prior inside `idea_hier_llm_prior`, and only if that predictor wins activation (§8.2). It is the test of "frontier model as sensor" against the hand-built arms (sweep: 2610.11135). A local decision model such as Kev can be added later as one more arm with the same contract.
+- **Metrics.**
+  - Log loss, Brier, a reliability diagram, and AUC at attempt level.
+  - Splits: **first attempt on a never-seen LO vs later attempts** (cross-LO prediction only matters for the first), serving origin, revision status and topic.
+  - Bootstrap intervals clustered by attempt.
+  - A version manifest: arm hashes, algorithm, config hash, data snapshot.
 - **Outputs.** JSON plus markdown, aggregates only and never learner text. Written to a path the owner chooses (default `fixtures-local/reports/`).
 
-### 8.4 Public-data benchmark: time-to-useful-vault (report 6, added 2026-10-11)
+### 7.3 Reports
 
-Your vault alone may be too small to separate the arms. The benchmark replays **each learner of a public dataset as an independent n=1 vault**, which gives the statistical power your own history can't.
+1. **Prequential replay (F1).** Every arm on the owner's graded log, with the splits above.
+   - **Key question:** does `lo_general` (or an extension) beat `mastery_ekf` on first attempts at never-seen LOs?
+   - **Validity:** at n=1 this detects only large differences.
+2. **Placement simulation (F1).** For each LO group the owner started historically, simulate up to k checks chosen by §5.2's rule from what was actually answered, then score predictions of the first attempts on the rest.
+   - **Reported:** the share that would be "solid", and their **miss rate**.
+   - **Named bias:** checks can only be chosen from what was historically answered.
+3. **Confirm-probe report (after F2).**
+   - **Reported:** the miss rate of "solid" against its confirm probes; the "needs practice" hit rate; placement minutes against the estimated minutes of probing every LO.
+   - **Named confounds:** ten days of learning and forgetting, and goal-frontier serving in that window.
 
-- **Dataset.** One with native item text, a concept or KC hierarchy, and a licence that permits research use. Candidates are listed in `docs/brainstorming/Datasets.md` (for example Eedi NeurIPS 2020 with its subject tree). The Phase 2b agent verifies text availability, structure and licence, recommends one, and stops for the owner (D12).
-  - Data lives under gitignored `fixtures-local/benchmarks/<dataset>/` and is never committed.
-  - The source, version and licence are recorded in every manifest.
-- **Adapter.** Converts the dataset into the harness's row shape, outside any vault:
-  - items carry their text;
-  - each KC becomes a facet, with an LLM-written definition embedded like `facet/definition`;
-  - the hierarchy becomes `part_of` edges;
-  - responses become cold, binary rows with `serving_origin = unknown`.
+### 7.4 Switching rule (simplest is the incumbent)
 
-  KC definitions are paid outputs, generated once per dataset version and model under the spend caps, then persisted in the benchmark directory.
-- **Report 6.**
-  - **(a) Per-learner prequential replay** of every arm. Shown as the distribution across learners (median, interquartile range, share of learners where the field beats each baseline), not only as pooled means.
-  - **(b) Time-to-useful-vault** (Plan §D's `K_useful`). For K ∈ {0, 1, 4, 16} placement answers, chosen by §6.2's rule from what each learner actually answered, it reports the log loss on that learner's remaining items and the "likely known" miss rate. `K_useful(ε)` is the smallest K within ε of that learner's mature-history loss, reported at ε ∈ {0.01, 0.02, 0.05} nats.
-  - **(c) Kernel fit (added 2026-10-11).**
-    - **Split:** learners are split 50/50.
-    - **Fit:** on the training half, fit the population scalars (§5.2).
-    - **Score:** on the test half, run (a) and (b) for kernel arms A–F (§8.3), reporting log loss, 80%-interval coverage, and the "likely known" miss rate at K ∈ {0, 1, 4, 16}.
-    - **Adoption:** the population-fit kernel is adopted only if it beats A on the test half.
-  - **(d) Representation transfer guard (added 2026-10-11).**
-    - **Target:** for each KC pair, the empirical residual correlation of performance (ability and item difficulty removed).
-    - **Predictors:** Spearman correlation with the target for terse-name cosine, raw dossier cosine (V0/V2), mean-centered dossier cosine (V3), authored-graph distance, the LLM transfer verdict (V4), and, if trained, the text projection, scored cross-dataset.
-    - **Decision rule:** a representation or projection is used only if it beats the general-plus-authored kernel by the margin fixed in advance (D19). One prior experiment found text-embedding smoothing worked within a lecture but failed across lectures until both were taught (Fitzpatrick et al., Nat Commun 2026). The guard checks this before it reaches you.
-- **Caveats, stated in the report.**
-  - The benchmark validates the machinery, not your effect sizes. School-platform data doesn't transfer to your content (Plan §D transfer gate).
-  - Choosing placement items from what a learner happened to answer is a selection bias the report names.
-  - The miss-rate curve is used only to set placement's starting `q` (§6.2).
+**How a challenger is activated.**
+- **Who can challenge:** `lo_general`, an extension, the composite, or `idea_hier`.
+- **Conditions:** it beats `mastery_ekf` on report 1's attempt-level log loss (overall *and* on the first-attempt split), with a bootstrap interval excluding 0 and the margin fixed before the run (D9). Its report-2 miss rate must also be no worse.
+- **"Can't tell" keeps the incumbent.**
+- **The switch:** activation is a successor with a kill switch.
+
+**What activation enables.** It is also the held-out support that knowledge-model §8.3 requires before cross-LO sharing (the general level) can steer a live decision. Until a challenger is activated, placement ordering uses the plain predictive rate and "solid" uses `mastery_ekf`.
 
 ---
 
-## 9. Rollout
+## 8. Rollout
 
-| Step | Contents | Needs | Gate to proceed |
+| Step | Contents | Needs | Gate |
 |---|---|---|---|
-*Revised 2026-10-11: S4 and S6 dropped (owner: no shadow periods). Built as Slice A (`spec_slice_a_practice_and_field_v1.md`).*
-
-| Step | Contents | Needs | Gate to proceed |
-|---|---|---|---|
-| **S0a** Daily-loop prerequisites | Owner answers to Q5/Q7/Q9/Q11; dormant/resolved serving fix (daily-loop spec, not this one) | — | Refines S5 and S7 when available; blocks nothing |
-| **S0b** Embedding substrate | §4.1: client, `embedding_vectors`, backfill of `facet/definition` and `learning_object/summary` (Slice A Phase 1) | — | Client tests; backfill idempotent on a `fixtures-local/` copy |
-| **S1** Outcome view | `facet_outcome_observations` with revision status and serving-origin join (§4.2) | — | G1–G3, G11 on the view; spot-check vs mastery traces |
-| **S2** Field + replay report | Graph, prior, EKF, snapshot (§5); the `LearnerPredictor` interface (§6.0), implemented by the facet field and `lo_general` (§5.6); the shared harness `learnloop eval` with its launch arms and the optional `llm_probability` arm (§8.3); `learnloop field rebuild` / `data-check`; reports 1–2 | S1 (S0b optional; authored-only fallback) | G1–G5, G10, G13; owner reviews the replay report once |
-| **S2b** Public-data benchmark | Dataset recommendation → owner pick (D12); adapter; KC definitions; report 6 (§8.4) | S2 harness | Report 6 reviewed with or after S2's; finishes before S5 when possible, without blocking it |
-| **S3** Map layer | §6.1, on by default | S2 checkpoint | G6; report 5 after use |
-| ~~S4~~ | Dropped; merged into S5 | — | — |
-| **S5** Placement live | Algorithm successor + kill switch; trigger, selection, results, episode effects (§6.2) | S2 checkpoint; item supply (exercises; PF-b published items) | G7, G8, G12; report 3 after several imports |
-| ~~S6~~ | Dropped; merged into S7 | — | — |
-| **S7** Probe targeting live | Algorithm successor + kill switch (§6.3) | S2 checkpoint | G12; report 4 |
+| **F0** Prerequisites | The dormant/resolved-LO serving fix; daily-loop Q7 when available (daily-loop track) | — | Blocks F2 only |
+| **F1** Predictors, harness, untested state | §3, §4, §5.1, §7.2, reports 1–2, `data-check` | — | G1–G6, G10–G12; owner reviews reports 1–2 once |
+| **F2** Placement live | §5.2; successor + kill switch | F0 fix; F1 reports reviewed; eligible items (imported exercises; PF-b published items) | G7–G9; report 3 after several imports |
+| **Activation** (optional) | A challenger becomes `active_predictor` | §7.4 rule met | Successor + kill switch |
 
 ---
 
-## 10. Tests
+## 9. Tests
 
-- `test_facet_outcome_view.py`:
-  - one row per (attempt, facet) for the latest grading epoch;
-  - `facet_share` sums to 1 per attempt;
-  - `dont_know` → 0;
-  - quarantined → mass 0;
-  - canonical facet resolution through `facet_merges`;
-  - serving-origin join for list picks, probe presentations, forced follow-ups, and pre-161 attempts;
-  - `revision_status`: `exact` via snapshot hash, `excluded` by default when the graded revision is missing, `reconstructed_current` only under the fallback flag (G11);
+- **`test_facet_outcome_view.py`:**
+  - one row per (attempt, facet) for the latest epoch;
+  - `facet_share` sums to 1;
+  - `dont_know` gives 0, and quarantined rows get mass 0;
+  - canonical facet resolution;
+  - the serving-origin join, including pre-161 attempts;
+  - `revision_status` (G12);
   - agreement with the debug-payload copy for `exact` rows;
-  - rebuild determinism.
-- `test_learner_field_graph.py`:
-  - authored edges lifted correctly per type and strength;
-  - `w_conf = 0`;
-  - symmetric kNN over mean-centered vectors;
-  - LO-summary fallback for legacy facets;
-  - authored-only fallback with no vectors;
-  - `kernel_version` hash changes on config change;
-  - G15: text edges cite verdicts and are capped; G16: classes come from the loading matrix only;
-  - the general factor: disconnected facets share only `σ_g²`, and `general_share` is reported.
-- `test_facet_dossiers.py`:
-  - generation under spend caps (fake client);
-  - contrast fields written against the stored neighbour ids;
-  - regeneration only on facet or source hash change;
-  - G17: a rebuild makes no LLM call;
-  - legacy title-only facets get dossiers.
-- `test_representation_experiment.py`:
-  - variants V0–V4 computed on a fixture copy;
-  - κ, effective rank, k-occurrence skew, and mutual-kNN vs a permutation null are deterministic;
-  - two-pass label agreement is reported;
-  - the transfer guard rejects a variant that separates better but correlates worse (synthetic case).
-- `test_learner_field_inference.py`:
-  - a single observation moves neighbours in proportion to prior covariance;
-  - a disconnected component is untouched;
-  - drift widens variance up to `p_max`;
-  - uncertain `b` widens R;
-  - equivalence to `mastery.py`'s EKF when F = 1, including primed handling;
-  - G10: zero-mass rows leave the posterior byte-identical, and facet-splitting invariance;
-  - G4 and G5;
-  - float64 determinism.
-- `test_placement_selection.py`:
-  - greedy gain matches brute force on small instances;
-  - conditioning reduces later gains;
-  - eligibility excludes reserved and reveal-burned surfaces;
-  - G8;
-  - the results grouping uses thresholds exactly;
-  - an override moves a facet to "start here" and writes no evidence;
-  - live effects: no initial episode for likely-known LOs; a confirm episode is entered after `confirm_after_days`; a failed confirm restores the normal path; `q_used` = 0.9 when report 2 had too little data; with no eligible items, today's initial probes run;
-  - G12: with `placement.enabled = false`, behaviour is identical to the previous version.
-- `test_field_probe_targets.py`:
-  - under the successor, the field's set is entered and the variance-rule set is logged beside it;
-  - `field_eig` replaces the per-LO information-gain input;
-  - G12: the kill switch restores the old ranking exactly.
-- `test_field_no_evidence_writes.py` (G3), and an import-linter contract entry.
-- `test_predictor_interface.py`:
-  - G18: consumers run unchanged against a fake predictor and against each real one;
-  - G19: activation is rejected for predictors without uncertainty;
-  - swapping the active predictor is an algorithm successor with a working kill switch;
-  - ensembles produce "likely known" only on agreement.
-- `test_hier_predictors.py`:
-  - `lo_general` matches `mastery.py`'s per-LO EKF when `σ_g² → 0` and LOs are uncoupled;
-  - family effects shrink to 0 without data;
-  - G20: the LLM prior changes item predictions but leaves every `θ` byte-identical;
+  - determinism.
+- **`test_predictor_interface.py`:**
+  - consumers run unchanged against a fake predictor and each real one (G10);
+  - activation is rejected without uncertainty (G11);
+  - switching is a successor with a working kill switch (G9).
+- **`test_lo_general.py`:**
+  - it reduces to `mastery.py`'s EKF at one LO with `σ_g² → 0`;
+  - zero-mass invariance and primed handling (G12);
+  - no propagation along forbidden edge types (G5);
+  - each extension arm moves predictions in the documented direction on synthetic data;
   - deterministic rebuild with zero model calls.
-- `test_eval_harness.py`:
-  - **G13:** no arm can read a row's outcome before predicting it, and arms have no store access;
-  - deterministic ordering and manifests;
-  - bootstrap clustered by attempt;
-  - facet→attempt aggregation by `facet_share`;
-  - registry version hashes change with config.
-- `test_llm_probability_arm.py`:
-  - fake client;
-  - spend caps checked before requests;
-  - temperature fitted only on past predictions;
-  - cache hits re-pay nothing;
-  - the standalone arm is never imported by serving code (import-linter); only the shared, cached sensor module is, and only by `idea_hier_llm_prior`.
-- `test_benchmark_adapter.py`:
-  - a tiny synthetic dataset, so tests make no network calls;
-  - KC→facet and hierarchy→edge mapping;
-  - persisted KC definitions are reused;
-  - the licence and source are recorded in the manifest;
-  - nothing is written under `fixtures/`.
-- Sidecar RPC tests for the `field` block in `get_knowledge_map`. Vitest for G6, and for the fog/`?` rendering.
-- **Durability lane:** the rebuild under production pragmas on a fresh vault.
+- **`test_eval_harness.py`:**
+  - no outcome is visible before prediction;
+  - arms have no store access;
+  - manifests and clustered bootstrap;
+  - the first-attempt split;
+  - `llm_probability` is off by default and spend-capped (fake client) when on.
+- **`test_placement_session.py`:**
+  - triage is recorded as claims, not evidence;
+  - adaptive selection and the early stop;
+  - only directly checked LOs become "solid" (G4, G7);
+  - the confirm episode is entered after `confirm_after_days`, and a failed confirm restores the normal path;
+  - with no eligible items, today's probes run;
+  - G8, plus the kill switch (G9);
+  - overrides go to `judgment_ledger`.
+- **`test_map_untested.py`** (sidecar RPC + vitest): the untested points; G6.
+- **Durability lane:** a rebuild of the derived tables under production pragmas on a fresh vault.
 
 ---
 
-## 11. Open decisions
+## 10. Open decisions
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Region granularity: facet only, or facet × capability now? | Facet only in v1. Capability-sliced regions multiply F and thin the evidence; add them once the replay report shows facet-level value |
-| D2 | Kernel and inference: heat kernel + sequential EKF, or graph Matérn / batch Laplace? | Heat kernel + EKF. One interpretable bandwidth, and it matches `mastery.py`, so F = 1 reduces to today's model. Matérn or Laplace only if the sweep shows heat-kernel conclusions are fragile |
-| D3 | Edge types and weights, especially `confusable_with` | `w_conf = 0`. Confusable facets share surface, not ability, and treating them as correlated would hide exactly the confusion you want detected |
-| D4 | Where placement items come from | Imported exercises, then PF-b's published verified items. With none, today's initial probes run (revised 2026-10-11: not blocked on Q5) |
-| D5 | Placement block size and reveal | k = 4 (≤ ~8 min); reveal answers at block end with `reveal_events`, except reserved surfaces |
-| D6 | "Likely known" thresholds and confirm delay | `q = 0.8`, or 0.9 when report 2 lacked data; `θ_known = logit(0.75)`; confirm after 10 days as a normal cold check. Tune from report 3's miss rate |
-| D7 | Learner-picked observations (unknown propensity) | Include them in the field, which is model-based. Exclude them from any off-policy claim and report both splits. A Q9 finite plan resolves this |
-| D8 | Should the field ever replace per-LO mastery? | No, not in v1. It runs in parallel, and per-LO mastery stays authoritative for everything it feeds today |
-| D9 | ~~Show placement results during shadow?~~ | **Obsolete (2026-10-11):** there is no shadow stage, and results are shown |
-| D10 | Learner claims as prior mean | Yes, weak, via the existing claim machinery. Never an observation |
-| D11 | One algorithm successor for S5 + S7, or separate? | Separate. They're separate consumers with separate kill switches and reports |
-| D12 | Which public dataset for report 6? | The Phase 2b agent verifies native item text, KC hierarchy and licence across `Datasets.md` candidates and recommends one. Prefer native text over image-only items, to avoid transcription spend |
-| D13 | Run the `llm_probability` arm by default? | Yes, under a spend cap (default $5 per run), cached. It's the cleanest test of frontier-model-as-sensor vs hand-built predictors |
-| D14 | `K_useful` tolerance | Report ε ∈ {0.01, 0.02, 0.05} nats; don't pick one until the curves exist |
-| D15 | Deep metric learning to separate facet dossiers? | **No.** Separation isn't the target. Better-separated representations barely improved downstream use (2405.12442) and can erase the behavioural structure the kernel needs (2609.00100). The supported version is the population-trained co-performance projection (§5.2), gated by report 6d |
-| D16 | LLM-adjudicated text edges (`W_text`) on by default? | Yes. About 20 judgments per facet once (~6k for 300 facets) under spend caps, then ~20 per new facet. Fallback: the cosine kNN graph, flagged |
-| D17 | General factor | On, `σ_g² = 0.25 · σ₀²`, kept out of the density guard (§5.2). Revisit with report 6c |
-| D18 | Population-fit kernel scalars | Fit on the public benchmark's training half, shrink toward a priori, adopt only if they win on the test half. Never fit to the owner |
-| D19 | Margin for adopting a text representation or projection | Fix before running 6d: an improvement in held-out log loss over the general-plus-authored kernel whose bootstrap interval excludes 0 *and* a Spearman gain ≥ 0.05 |
-| D20 | Active predictor at launch | `facet_field`, switchable by the §8.2 rule. The interface makes the switch a config change plus an algorithm successor |
-| D21 | Weight of the LLM item-side prior | Fixed a priori from the `llm_probability` calibration report: `σ_llm²` set so the prior counts as roughly a quarter of one observation. Versioned and never tuned on outcomes |
-| D22 | Family coupling in `idea_hier` v1 | Independent families (`u_F` uncoupled). Add coupling through LLM-adjudicated family links only if report 1/6 shows the uncoupled version leaving family residuals correlated |
+| D1 | Active predictor at launch | `mastery_ekf`, the existing per-LO filter. Challengers earn activation (§7.4) |
+| D2 | Cross-LO structure in `lo_general` | A shared general level only; no graph coupling (knowledge-model §8.1, §8.3). Prerequisite-directed coupling is deferred (§11) |
+| D3 | Extension-arm constants | `γ = 0.2`; capability `N(0, 0.5²)`; relation means 0 / −0.25 / −0.5 (sd 0.5); retrievability `β = 0.5` (sweep 0, 0.5, 1). Versioned, never fitted to the owner |
+| D4 | Placement block | k ≤ 4, ≤ 8 minutes, adaptive with an early stop |
+| D5 | Triage | know / new / unsure, recorded as weak claims; "new" skips checks |
+| D6 | "Solid" threshold and confirm delay | `q = 0.8` at `θ_known = logit(0.75)`, or `q = 0.9` if report 2 lacked data; confirm after 10 days. Tune from report 3 |
+| D7 | Wait for Slice 1's grader probes before F2? | No, per the owner's live-with-kill-switch preference. Confirm probes are the safety net; review E1 when Slice 1 produces it |
+| D8 | `llm_probability` | Off by default; at most a one-off offline test |
+| D9 | Switching margin | The attempt-level log-loss improvement's bootstrap interval excludes 0, overall and on first attempts, and the miss rate is no worse. Fixed before running |
+| D10 | Revisions missing from snapshots | `exclude` by default; `current_content` only by explicit config, flagged |
 
 ---
 
-*Related: [[Pipeline Augmentation Plan]] (workstream B) · `spec_blind_grading_diagnosis_split_v1.md` §9 · `spec_embedding_consumers_v1.md` §5 · `learner/mastery.py` · `docs/algorithm-change-playbook.md` · [[Bitter Lesson Research Sweep]]*
+## 11. Deferred, with triggers
+
+The full design for everything below is preserved at commit `936813f` (`docs/specs/spec_learner_field_v1.md` and the Slice A plan at that commit).
+
+| Deferred | Revisit when |
+|---|---|
+| **Facet-level graph field:** heat kernel over facets, LLM-adjudicated text edges, the representation experiment (V0–V4), the general factor inside a facet kernel, kernel ensembles, population-fit kernel scalars, the co-performance text projection | `data-check` shows hundreds of active facets with ≥ 3 *separately measured* facets per LO and ≥ 1–2k graded attempts, **and** an activated LO-level predictor still leaves residuals correlated along authored or semantic neighbours |
+| **Prerequisite-directed coupling** between LOs | `lo_general` is activated and the replay shows residual correlation along prerequisite edges. It must respect direction (knowledge-model §8.3) |
+| **Map fog** (predictor estimates on the map) | A challenger is activated on the first-attempt split (§7.4) |
+| **Probe targeting** by the active predictor | A challenger is active, and the daily loop's finite plan (Q9) makes propensities known for evaluation |
+| **`idea_hier_llm_prior`**, or any live use of `llm_probability` | The offline test shows calibrated gains over the best LO-level arm on first attempts |
+| **Public-data benchmark** (time-to-useful-vault, kernel fits, transfer guard) | A specific question the owner's replay can't answer, such as whether a deferred facet-level design is worth reviving |
+| **Learned action router** using dossier embeddings as features | Pipeline plan F/G gates. Prefer an LLM agent reading dossiers as text first (`spec_embedding_consumers_v1.md` §5.9) |
+| **Facet dossiers** | Not deferred: **moved** to the practice-family track as the practice index (`spec_embedding_consumers_v1.md` §5.9) |
+
+---
+
+*Related: [[Pipeline Augmentation Plan]] (workstream B) · `spec_knowledge_model.md` §8 · `spec_slice_a_practice_and_field_v1.md` · `spec_embedding_consumers_v1.md` §5 · `learner/mastery.py` · `diagnosis/calibration_sessions.py` · `docs/algorithm-change-playbook.md` · [[Bitter Lesson Research Sweep]]*

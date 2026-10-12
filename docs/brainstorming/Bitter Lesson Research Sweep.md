@@ -721,6 +721,16 @@ Three research agents asked whether deep metric learning should separate facet d
 - an optional co-performance projection trained on public data and gated by a transfer guard;
 - no separation-targeted metric learning, and no per-learner metric learning.
 
+**Reshaped later the same day.** Two independent reviews (Codex and Opus 5.5) found:
+- the owner's vaults have about 1.5–2 facets per LO, not hundreds;
+- facet-level outcomes are noisy;
+- the design conflicted with `spec_knowledge_model.md` §8.1 and §8.3.
+
+As a result:
+- **Learner field:** reshaped to an LO-level predictor competition (incumbent: the existing per-LO mastery filter), an honest "untested" map state, and placement through calibration sessions.
+- **Deferred with triggers:** the facet-level kernel design above (`spec_learner_field_v1.md` §11; full design at commit `936813f`).
+- **Facet dossiers:** moved to the practice-family track as a natural-language retrieval index (`spec_embedding_consumers_v1.md` §5.9).
+
 ---
 
 *Related: [[Pipeline Augmentation Plan]] · [[Embedding Integration Map]] · [[User intentions]] · [[LearnLoop_User_Intentions_v2]] · `docs/specs/spec_blind_grading_diagnosis_split_v1.md` · `docs/specs/spec_embedding_consumers_v1.md`*

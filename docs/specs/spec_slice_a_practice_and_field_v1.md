@@ -1,40 +1,48 @@
 # Slice A: practice families and the learner field, ahead of Slice 1 (v1)
 
-**Status:** implementation plan (2026-10-11). Revised the same day after an adversarial review by a Codex agent and two owner decisions.
+**Status:** implementation plan (2026-10-11). Revised the same day three times:
+1. after an adversarial review by a Codex agent;
+2. after two owner decisions;
+3. after two independent architecture reviews (Codex and Opus 5.5), which reshaped the learner-field part. The pre-reshape plan is preserved at commit `936813f`.
 
-**What this document is.** It sequences two existing specs into one implementation slice that lands **before** Slice 1:
-- `spec_embedding_consumers_v1.md` §5, the practice-family track (PF);
-- `spec_learner_field_v1.md`, the learner field.
+**What this document is.** It sequences two specs into one implementation slice that lands **before** Slice 1:
+- `spec_embedding_consumers_v1.md` §5, the practice-family track (PF), including the new practice index (§5.9);
+- `spec_learner_field_v1.md`, the learner field, reshaped. It is now a low-dimensional predictor competition, an honest "untested" map state, and placement through calibration sessions.
 
 It adds no new learning mechanism. It only:
 - carves out the shared embedding substrate;
 - fixes cross-spec dependencies;
-- adds the engineering rules the review found missing (spend caps, sandboxing, fixture safety, integration);
-- adds an evaluation layer that tests the bitter-lesson pivot itself (§1a);
+- adds the engineering rules a review found missing (spend caps, sandboxing, fixture safety, integration);
+- adds an evaluation layer that tests the bitter-lesson pivot (§1a);
 - gives implementing agents a phase-by-phase contract and a prompt template (§6).
 
 **Owner decisions (2026-10-11):**
-1. **Order.** PF and the learner field come before Slice 1 (the blind grader / diagnoser split).
-   - Both serve learning, retention and placement directly.
-   - Slice 1's M1 waits on data anyway: it needs ≥ ~40 graded wrong answers across topics.
+1. **Order.** PF and the learner field come before Slice 1 (the blind grader / diagnoser split). Slice 1's M1 waits on data anyway: it needs ≥ ~40 graded wrong answers across topics.
 2. **Change what is served; no shadow periods.**
-   - Generated items that pass verification are published.
-   - Placement and probe targeting go live.
-   - Each serving change is its own algorithm successor with a kill switch (§5.5), so it is reversible and measurable, not tentative.
+   - Verified generated items are published.
+   - Placement goes live.
+   - Each serving change is its own algorithm successor with a kill switch (§5.5).
+3. **Reshape the learner field** (after the architecture reviews):
+   - **The simplest predictor is the incumbent.** That is the existing per-LO mastery filter, and challengers must earn activation.
+   - **Facet dossiers move to PF** as a retrieval index.
+   - **Deferred, each with a trigger** (field §11): the facet-level graph model, map fog, probe targeting, the LLM-prior hybrid and the public benchmark.
 
 ---
 
 ## 0. What changes because of the new order
 
-1. **The embedding substrate moves into Slice A** (Phase 1). This is the `EmbeddingClient`, the OpenRouter client and `embedding_vectors`, which Slice 1 §9 defined and which PF and the field both need. Slice 1 later adds only its own record kinds (hypotheses, registry).
+1. **The embedding substrate moves into Slice A** (Phase 1). This is the `EmbeddingClient`, the OpenRouter client and `embedding_vectors`, which Slice 1 §9 defined.
+   - **Its consumers are now PF's:** the practice index (§5.9), the freshness and isomorph gate, and blocking for very large LOs in family proposals.
+   - The learner field no longer needs embeddings.
+   - Slice 1 later adds only its own record kinds (hypotheses, registry).
 2. **PF's grading support (Slice 2 §5.5, step PF-c) stays after Slice 1.** It changes the grader prompt, which Slice 1 rewrites into the blind grader. Its rules (verified reference, valid-alternative path, solve-first, one high-effort pass) are folded into Slice 1's blind prompt at S1.1. Slice A builds only the valid-alternative **regression suite**, as a harness.
 3. **Slice A takes the next migration numbers and algorithm versions.**
-   - **It mints successors** for each change to what is served or what persisted state means:
-     - placement live (field S5);
-     - probe targeting live (field S7);
-     - PF's idea-level retention key, only if its replay favours it (Phase 3b).
+   - **It mints successors only for:**
+     - placement live (field F2);
+     - activating a challenger predictor, if one wins under field §7.4;
+     - PF's idea-level retention key, if its replay favours it (Phase 3b).
    - **Publishing verified PF items is a content change**, like writing a card, not an algorithm change.
-   - **Slice 1's labels shift.** Its "migration 166" and `mvp-0.10` become whatever is next free when it is implemented.
+   - **Slice 1's labels shift.** Its "migration 166" and `mvp-0.10` become whatever is next free.
 
 ## 1. Scope and stop lines
 
@@ -42,75 +50,66 @@ It adds no new learning mechanism. It only:
 
 | Source | What Slice A builds |
 |---|---|
-| Slice 1 §9.1–9.2, §9.6, learner field §4.1 | The embedding substrate, subset only, plus the spend controls every paid command uses (§5.6) |
-| Learner field | S1 outcome view, S2 field + replay report, S3 map layer, **S5 placement live**, **S7 probe targeting live**. The shadow stages S4 and S6 are dropped |
-| Slice 2 PF | PF-a (§5.1–5.2), including the idea-key switch if the replay favours it, and PF-b (§5.3–5.4, §5.6), including **publication** of verified items |
+| Slice 1 §9.1–9.2, §9.6 | The embedding substrate, subset only, plus the spend controls every paid command uses (§5.6) |
+| Learner field | **F1:** the outcome view, `data-check`, the evaluation harness, the `LearnerPredictor` interface, the incumbent `mastery_ekf`, the challenger `lo_general` with four extension arms (practice, capability, transfer, retrievability), `idea_hier` after PF-a, and the explicit **untested** map state. **F2:** placement after import through calibration sessions (live) |
+| Slice 2 PF | PF-a (§5.1–5.2), including the idea-key switch if the replay favours it; PF-b (§5.3–5.4, §5.6), including **publication** of verified items; the **practice index** (§5.9: facet dossiers, `find_practice`, coverage report, retrieval evaluation) |
 | Slice 2 PF §5.5 | The valid-alternative regression suite, as a harness only |
-| Evaluation layer (§1a) | The shared harness `learnloop eval` with pluggable predictor arms (field §8.3); the public-data benchmark and time-to-useful-vault, report 6 (field §8.4); the model-tier scaling check (PF §5.6); `judgment_ledger` and per-component model routes (PF §5.8) |
+| Evaluation layer (§1a) | The shared harness `learnloop eval` (field §7.2); the model-tier scaling check (PF §5.6); `judgment_ledger` and per-component model routes (PF §5.8) |
 
 **Out (stop lines):**
 - PF-c (grader changes), after Slice 1 S1.3.
 - Everything in Slice 1, T1, and Slice 2 T4–T8.
-- The transfer-gap alarm (field feature 3).
-- The daily-loop work: capture box, single intent control, finite plan, the bugs. That has its own track, and Slice A defines minimal behaviour where it would otherwise depend on it (Phase 6).
+- **The deferred learner-field items, each with its trigger** (field §11): the facet-level graph model, map fog, probe targeting, `idea_hier_llm_prior` and any live use of the LLM predictor, the public-data benchmark, prerequisite-directed coupling, and a learned action router.
+- The daily-loop work: capture box, single intent control, finite plan, re-entry. That has its own track. Slice A needs only the dormant/resolved-LO serving fix before Phase 6.
 
 ## 1a. How Slice A tests the pivot
 
-The pivot's claim: **model compute, pretrained components and principled uncertainty beat hand-built rules for this learner.** Slice A builds such components (an embedding-based graph model, generate-and-verify practice, LLM judges). Four pieces make the claim testable rather than assumed:
+The pivot's claim: **model compute, pretrained components and principled uncertainty beat hand-built rules for this learner, where the data can tell.** Three pieces make it testable rather than assumed:
 
-1. **One evaluation harness** (field §8.3). Every predictor, hand-built or learned, is a registered arm scored prequentially on the same per-facet outcome rows. The launch arms are:
-   - the hand-built baselines (per-topic base rate, facet Beta, per-LO mastery, FSRS);
-   - the learner field;
-   - optionally, a frontier LLM giving P(correct);
-   - the item-anchored predictors `lo_general` and `idea_hier`, plus `idea_hier_llm_prior`, which uses the LLM as an item-side prior (field §5.6).
+1. **One evaluation harness** (field §7.2). Every predictor is a registered arm scored prequentially on the same rows. The arms are:
+   - the per-LO base rate;
+   - facet Beta;
+   - the incumbent `mastery_ekf`;
+   - `lo_general` and its extensions (learning from practice, capability, transfer distance, FSRS retrievability);
+   - `idea_hier` after PF-a;
+   - optionally, an offline-only LLM predictor.
 
-   Later learned features join as arms, not as new scripts. Placement and probe targeting depend only on a `LearnerPredictor` interface (field §6.0). So whichever predictor wins under the switching rule (field §8.2), whether the facet field, an item-anchored model, or the LLM-prior hybrid, becomes the model under them without redesign.
-2. **A public-data benchmark** (field §8.4). Each learner of a public dataset is replayed as an independent n=1 vault. That gives the statistical power your own history can't, and it measures the plan's headline metric, time-to-useful-vault (`K_useful`). It also tests the facet representation itself: whether text similarity predicts measured co-performance (report 6d), and whether population-fit kernel scalars beat a-priori ones (6c).
-3. **A scaling check** (PF §5.6). The generator and judges run at two model tiers on identical inputs. If quality rises with the model, the bitter-lesson bet holds for that component; if not, the report says where hand-built structure should stay.
-4. **One judgment ledger** (PF §5.8). Every LLM, verifier and owner verdict is stored append-only with model, prompt version and input hash. It is the ground truth for all of the above, and it is never re-run on rebuild.
+   Placement depends only on the `LearnerPredictor` interface. A challenger that wins under the switching rule (field §7.4) becomes the model underneath without redesign, and "can't tell" keeps the incumbent.
+2. **A scaling check** (PF §5.6). The generator and judges run at two model tiers on identical inputs. If quality rises with the model, the bitter-lesson bet holds for that component; if not, the report says where hand-built structure should stay.
+3. **One judgment ledger** (PF §5.8). Every LLM, verifier and owner verdict is stored append-only with model, prompt version and input hash: family judgments, practice relevance, placement overrides. It is the ground truth for the above, and it is never re-run on rebuild.
+
+**The principle the reviews converged on:** nuance lives in text that LLM components read (dossiers, item outlines, attempt analyses). The numeric learner state stays low-dimensional.
 
 ## 2. Phase 0: pre-flight (owner and housekeeping)
 
-- [ ] **Base branch.** Migrations 159–165 and the PR #5 work exist only on `fix/review-recovery-and-telemetry`; `main` stops at 158. Merge that branch into `main` first (preferred), or base Slice A on it.
-- [ ] **Commit the planning docs.** These specs and brainstorming docs are untracked, so an agent in a worktree or another checkout can't see them. The files are:
-  - `docs/specs/spec_blind_grading_diagnosis_split_v1.md`
-  - `docs/specs/spec_embedding_consumers_v1.md`
-  - `docs/specs/spec_learner_field_v1.md`
-  - this file
-  - `docs/brainstorming/Bitter Lesson Research Sweep.md`
-  - the user-intentions docs
-  - the updated `CLAUDE.md`
-
-  The project-understanding and mobile specs can ride along.
-- [ ] **`OPENROUTER_API_KEY`** is available to the app before the Phase 1 backfill.
-- [ ] **Data check.** The owner runs the attempt/error count query once now. Phase 2 ships it as a repeatable command (`learnloop field data-check`). Thin data never blocks building (§5.9).
+- [x] **Base branch.** `fix/review-recovery-and-telemetry` was fast-forwarded into `main` on 2026-10-11 (migrations through 165).
+- [x] **Planning docs committed** on `main`.
+- [ ] **`OPENROUTER_API_KEY`** is available to the app before the Phase 1 backfill. LearnLoop reads the shell environment, `<vault>/.env`, or `~/.config/learnloop/settings.env`, not the repo-root `.env`.
+- [ ] **Data check.** The owner runs the attempt/error count query once now. Phase 2 ships it as `learnloop field data-check`. Thin data never blocks building (§5.9).
 - [ ] **Owner decisions, needed before the phase that uses them.** Defaults are each spec's recommendations; say "defaults" to accept them.
 
   | Phase | Decisions |
   |---|---|
-  | 2 | Field D1 (facets only), D2 (heat kernel + EKF), D3 (confusables weighted 0), D8, D10, D13 (`llm_probability` arm on, $5 cap per run), D16 (LLM-adjudicated text edges on), D17 (general factor on), D20 (facet field active at launch, switchable). D15 is settled: no deep metric learning to separate dossiers |
-  | 2b | Field D12 (which public dataset; the agent recommends, then stops for you), D14 (`K_useful` tolerance), D18 (population-fit kernel scalars), D19 (the margin a text representation or projection must beat, fixed before 6d runs) |
-  | 3 | Field D21 (LLM item-prior weight), D22 (independent families in `idea_hier` v1). **Slice 2 P12**: how `PracticeFamily` maps onto the existing `activity_families` → cards → surfaces substrate (migration 065). This one has no safe default: the Phase 3 agent's first task is a short investigation and recommendation, then it stops for the owner. Also P8 (family backfill) and P11 (isomorphs count as reps) |
-  | 5 | P10 (solver panel); the two model tiers for the scaling check (default: your configured cheap and frontier routes). P7 and P9 are settled by this revision: bubblewrap sandbox; unverified references are never published |
-  | 6 | Field D4–D6 |
+  | 2 | Field D1 (`mastery_ekf` is the incumbent), D2 (general level only, no graph coupling), D3 (extension-arm constants), D8 (LLM predictor off by default), D9 (switching margin), D10 (missing revisions excluded) |
+  | 3 | **Slice 2 P12**: how `PracticeFamily` maps onto the existing `activity_families` → cards → surfaces substrate (migration 065). This one has no safe default: the Phase 3 agent's first task is a short investigation and recommendation, then it stops for the owner. Also P8 (family backfill) and P11 (isomorphs count as reps) |
+  | 5 | P10 (solver panel); the two model tiers for the scaling check (default: your configured cheap and frontier routes); the practice-index retrieval bar (§5.9: dossiers must beat direct item search). P7 and P9 are settled: bubblewrap sandbox; unverified references are never published |
+  | 6 | Field D4 (k ≤ 4, ≤ 8 min, adaptive stop), D5 (triage), D6 ("solid" threshold, confirm delay), D7 (don't wait for Slice 1's grader probes) |
 
 ## 3. Phases
 
-Phase 1 merges first. Phases 2 and 3 then run in parallel, each branched from the merged Phase 1, and integrate one at a time (§5.2). Phase 2b starts once Phase 2's harness has merged, and runs alongside Phase 3.
+Phase 1 merges first. Phases 2 and 3 then run in parallel, each branched from the merged Phase 1, and integrate one at a time (§5.2). The former Phases 2b (public benchmark), 4 (map fog) and 7 (probe targeting) are deferred with triggers (field §11).
 
 | Phase | Builds (spec refs) | Depends on | Checkpoint before the next phase |
 |---|---|---|---|
-| **1. Embedding substrate + spend controls** | `ai/embedding.py` `EmbeddingClient` protocol; `ai/providers/openai_embedding.py` (OpenRouter base URL, `qwen/qwen3-embedding-8b`, batched input, provider routing via `extra_body={"provider": {"data_collection": "deny"}}`); `openai_embedding` profile, `embedding` `AITask` with no fallback to `active_provider`, readiness branch; `embedding_vectors` (WORKFLOW); `model_call(purpose="embedding")` receipts; `learnloop embeddings backfill` (idempotent via `content_hash`); record kinds `facet/definition` and `learning_object/summary` (field §4.1), with recipes that declare their text (Slice 2 R3). **The spend-control framework of §5.6**, used by every paid command in Slice A. **`judgment_ledger`** (RAW_LEDGER) and its append API (PF §5.8), used from Phase 3 on. Template defaults: `embedding.enabled = false`, `embedding.backfill_enabled = false` (Slice 1 §9.1–9.2, §9.6; field §4.1) | Phase 0 | Client, store and spend-cap tests; backfill idempotent on a `fixtures-local/` copy; replay makes zero embedding calls |
-| **2. Field: outcome view + field + replay report** | Field S1–S2: `facet_outcome_observations` with authoritative inputs, revision status and serving origin (field §4.2, revised). **Facet representation** (field §4.1, §4.3, §5.1–5.2; added 2026-10-11):<br>• `facet_dossiers` (scope, moves, errors, contrast), spend-capped and never regenerated on rebuild;<br>• dossier fields embedded separately, with the mean direction projected out and no whitening;<br>• LLM-adjudicated text edges in `judgment_ledger` (task `facet_relation`);<br>• the representation experiment (V0–V4 with collapse diagnostics), which picks the variant;<br>• a kernel with a general factor, a text-only correlation cap, co-measured classes from the loading matrix, and the placement kernel ensemble.<br>**Predictor interface** (field §6.0): `LearnerPredictor`, implemented by the facet field and by the `lo_general` item-anchored predictor (field §5.6), both registered as harness arms.<br> graph, prior and EKF with zero-mass skipping, the per-attempt information budget and primed handling as in `mastery.py` (field §5.3, revised); `learner_field_graph`, `learner_field_snapshot`; **the shared harness `learnloop eval`** with the launch arms and the optional `llm_probability` arm (field §8.3); `learnloop field rebuild` / `data-check`; reports 1–2 on the harness. Authored-only fallback when no vectors exist | Phase 1 (embeddings optional) | Field gates G1–G5, G10, G11, G13–G17; the representation-experiment report. **The owner reviews the replay report once**, running it on a copy of their vault. This is a checkpoint, not a shadow period |
-| **2b. Public-data benchmark** | Field §8.4: dataset recommendation, then an owner pick (D12); adapter into harness rows outside any vault; LLM-written KC definitions (spend-capped, persisted) embedded with the Phase 1 client; report 6, per-learner replay of every arm plus time-to-useful-vault (`K_useful`). Also 6c, population-fit kernel scalars scored on held-out learners against kernel arms A–F, and 6d, the representation transfer guard, with the optional co-performance text projection trained offline and scored cross-dataset. Data stays in gitignored `fixtures-local/benchmarks/` | Phase 2 harness | Report 6 reviewed. Should finish before Phase 6, because it sets placement's starting `q` when your own data is thin; it doesn't block Phase 6 |
-| **3. PF-a: families (+3b idea key)** | P12 investigation → owner decision. Then:<br>• the `PracticeFamily` vault model and `PracticeItem.family_id` / `variant_relation` (items without a family serialize byte-identically);<br>• `learnloop families propose`, using an **exhaustive LLM judge within each topic** (no embedding cutoff, no skeletons needed), with every judge verdict and your accept/reject decisions appended to `judgment_ledger`, and `family_proposals` (WORKFLOW) holding queue state only, so a rebuild never re-judges. The judge is its own model route, `ai.routing.pf_family_judge`;<br>• owner review in batches of 25 that can be deferred;<br>• `family_memory_state` (DERIVED);<br>• the idea-identity replay, as harness arms: memory keyed per item, per family, and per LO (Slice 2 §5.1–5.2, revised);<br>• the `idea_hier` and `idea_hier_llm_prior` predictors (field §5.6) as harness arms, now that families exist.<br>**3b:** if the replay clearly favours per-family memory state, switch it live for family items (algorithm successor, kill switch `families.retention_key_live`). If it can't tell, don't switch; families still drive generation and transfer probes | Phase 1; P12 | Owner reviews proposals and the replay report; 3b only after that review |
-| **4. Field: map layer** | Field S3 (§6.1): fog for inferred facets, `?` for unknown ones; demonstrated beads and well depth untouched. **On by default**; a toggle hides it | Phase 2 checkpoint | Gate G6; report 5 after use |
-| **5. PF-b: generate → verify → select → publish** | Generator programs in the **bubblewrap sandbox** (Slice 2 §5.3, revised); verified references; closed-book, figure-only and provenance filters; solution skeletons persisted in `item_skeletons` (WORKFLOW, never regenerated on rebuild); freshness/isomorph gate with `item_fingerprints`; solver panel (`difficulty_source = "solver_panel"`); diversity selection; candidates and their filter results in `pf_candidates` (WORKFLOW). **Items that pass verification and the filters publish into their family as ordinary items**, capped at `pf.max_published_per_day` (default 10) until the daily-loop new-material policy (Q11) exists. Items whose reference is unverified are never published. Also: B2 on the shared `learnloop embeddings compare` harness; the valid-alternative regression suite as a harness; the first run is the pilot (one chapter, one paper or repo), whose report tunes the filters. **The pilot includes the scaling check** (PF §5.6): generator and judges at two model tiers on identical inputs. Every paid component is its own model route, and every verdict and rating appends to `judgment_ledger` (PF §5.8). Generation has its own switch, `pf.generation_enabled`, off in the template | Phase 3 | B2 report; pilot report (survival per filter, the owner's blind rating of 15 filtered vs 15 single-shot items, and the per-tier scaling-check results) |
-| **6. Field: placement live** | Field S5 (§6.2, revised): trigger, selection, results screen, `placement_decisions`, all through the `LearnerPredictor` interface. The active predictor is `field.active_predictor`; switching it is a separate successor under field §8.2's rule. **Algorithm successor**; kill switch `placement.enabled`. Placement items come from imported exercises and PF-b's published items. With no eligible items, today's per-topic initial probes run. Until daily-loop Q7/Q11 exist, "likely known" means: no initial episode now, one confirm probe after `placement.confirm_after_days`. If the Phase 2 placement simulation couldn't run (thin data), start `q` from report 6's miss-rate curve, or at 0.9 if that isn't available, until confirm probes give a miss rate. "Actually, I don't know this" overrides append to `judgment_ledger` | Phase 2 checkpoint; Phase 5 (for item supply) | Gates G7, G8; report 3 (confirm-probe miss rate) after several imports |
-| **7. Field: probe targeting live** | Field S7 (§6.3, revised): the active predictor's score, read through the interface, drives stale-uncertainty re-probes and the queue's probe-information input. **Algorithm successor**; kill switch `field.probe_targeting_enabled`. The old variance rule's choice is logged beside each decision | Phase 2 checkpoint | Report 4 |
+| **1. Embedding substrate + spend controls + ledger** | `ai/embedding.py` `EmbeddingClient` protocol; `ai/providers/openai_embedding.py` (OpenRouter base URL, `qwen/qwen3-embedding-8b`, batched input, provider routing via `extra_body={"provider": {"data_collection": "deny"}}`); `openai_embedding` profile, `embedding` `AITask` with no fallback to `active_provider`, readiness branch; `embedding_vectors` (WORKFLOW); `model_call(purpose="embedding")` receipts; `learnloop embeddings backfill` (idempotent via `content_hash`), with record-kind recipes that declare their text (Slice 2 R3). **The spend-control framework of §5.6**, used by every paid command in Slice A. **`judgment_ledger`** (RAW_LEDGER) and its append API (PF §5.8). Template defaults: `embedding.enabled = false`, `embedding.backfill_enabled = false` | Phase 0 | Client, store, ledger and spend-cap tests; backfill idempotent on a `fixtures-local/` copy; replay makes zero embedding calls |
+| **2. Learner field F1: predictors, harness, untested state** (no change to what is served) | Field §3–§4, §5.1, §7.2–7.3:<br>• `facet_outcome_observations` (authoritative inputs, revision status, serving origin) and attempt-level rows;<br>• `learnloop field data-check`;<br>• the `LearnerPredictor` interface;<br>• the `mastery_ekf` adapter (incumbent);<br>• `lo_general` and its four extension arms plus the composite;<br>• the shared harness `learnloop eval` with its arms (the LLM predictor off by default);<br>• reports 1–2;<br>• the explicit **untested** state on the map in place of `ready = 0.5` | Phase 1 (ledger only; embeddings not needed) | Field gates G1–G6, G10–G12. **The owner reviews reports 1–2 once**, run on a copy of their vault. A challenger is activated only under field §7.4 |
+| **3. PF-a: families (+3b idea key)** | P12 investigation → owner decision. Then:<br>• the `PracticeFamily` vault model and `PracticeItem.family_id` / `variant_relation`. Items without a family serialize byte-identically;<br>• `learnloop families propose`, using an **exhaustive LLM judge within each LO** (route `ai.routing.pf_family_judge`). Every verdict and every accept/reject goes to `judgment_ledger`; `family_proposals` (WORKFLOW) holds queue state only;<br>• owner review in batches of 25 that can be deferred;<br>• `family_memory_state` (DERIVED);<br>• the idea-identity replay as harness arms (memory per item / family / LO);<br>• the `idea_hier` challenger arm (field §4.3).<br>**3b:** if the replay clearly favours per-family memory state, switch it live for family items (algorithm successor, kill switch `families.retention_key_live`). If it can't tell, don't switch | Phase 1; P12 | Owner reviews proposals and the replay; 3b only after that review |
+| **5. PF-b: generate → verify → select → publish, plus the practice index** | Generator programs in the **bubblewrap sandbox** (Slice 2 §5.3); verified references; closed-book, figure-only and provenance filters; solution outlines persisted in `item_skeletons` (WORKFLOW, never regenerated on rebuild); freshness/isomorph gate with `item_fingerprints`; solver panel (`difficulty_source = "solver_panel"`); diversity selection; candidates in `pf_candidates` (WORKFLOW).<br>**Items that pass verification and the filters publish into their family as ordinary items**, capped at `pf.max_published_per_day` (default 10) until the daily-loop new-material policy (Q11) exists. Unverified references are never published.<br>Also:<br>• B2 on the shared `learnloop embeddings compare` harness;<br>• the valid-alternative regression suite as a harness;<br>• the pilot (one chapter, one paper or repo) **including the scaling check** at two model tiers;<br>• **the practice index** (§5.9): `facet_dossiers`, dossier-field embeddings, `find_practice` (two-level retrieval → LLM rerank → scheduler admission), the coverage report, and the retrieval evaluation against direct item search.<br>Every paid component is its own model route, and every verdict and rating appends to `judgment_ledger`. Generation has its own switch, `pf.generation_enabled`, off in the template | Phase 3 | B2 report; pilot report (survival per filter, your blind rating of 15 filtered vs 15 single-shot items, per-tier scaling-check results); practice-index retrieval report |
+| **6. Learner field F2: placement live** | Field §5.2:<br>• built on `start_calibration_session` / `CalibrationScreen`;<br>• triage (know / new / unsure, recorded as weak claims);<br>• up to 4 adaptive checks with an early stop;<br>• results "Checked: solid" / "Checked: needs practice" / "Not checked". **Only directly checked LOs can be skipped**;<br>• a confirm probe after 10 days, overrides to `judgment_ledger`, and `placement_decisions`.<br>**Algorithm successor**; kill switch `placement.enabled`. Items come from imported exercises and PF-b's published items; with none eligible, today's per-LO initial probes run. Until daily-loop Q7 exists, "solid" means no initial episode now and one confirm probe later | Phase 2 checkpoint; the dormant/resolved-LO serving fix (daily-loop track); Phase 5 for item supply on reader-on imports | Gates G7–G9; report 3 (confirm-probe miss rate) after several imports |
 
-**After Phase 7, stop.** The owner then decides:
-- tuning from reports 3–5 (thresholds, publish cap, kill switches);
+**After Phase 6, stop.** The owner then decides:
+- tuning from report 3 (thresholds, publish cap, kill switches);
+- whether any deferred learner-field item's trigger has fired (field §11);
 - the daily-loop track;
 - Slice 1, starting with the two-stage M1.
 
@@ -119,23 +118,25 @@ Phase 1 merges first. Phases 2 and 3 then run in parallel, each branched from th
 - **Slice 1.**
   - §9.1–9.2 are delivered by Slice A Phase 1, and Slice 1 S1.4a adds only the `hypothesis` and `misconception` record kinds.
   - M1's pattern-link verdicts import into `judgment_ledger`.
-  - The blind grader and diagnoser can be added as `learnloop eval` arms where they make predictions.
   - Its migration and algorithm-version labels follow Slice A's successors.
   - M1 arm (c) reuses the Phase 1 client.
   - PF-c's grading rules join the blind prompt at S1.1.
+  - Slice 1's E1 grader probes also measure the risk behind placement's "solid" label.
+  - The diagnoser can use `find_practice` for repair targeting.
 - **Slice 2 PF.**
   - PF-a and PF-b depend on Slice A Phase 1.
-  - Family backfill uses the exhaustive within-topic judge.
+  - Family backfill uses the exhaustive within-LO judge.
   - Generator programs run under bubblewrap.
   - Verified items publish.
+  - Facet dossiers live in the practice index (§5.9).
   - PF-c stays after Slice 1 S1.3.
   - B2 builds the shared compare harness.
   - T1's adjudication ledger is `judgment_ledger`, created in Slice A Phase 1 and formerly named `embedding_adjudications`. T1 adds the `same_cause` task. Its calibrators remain a pending owner decision.
 - **Learner field.**
-  - Its S0b is Slice A Phase 1.
-  - Its consumers depend on the `LearnerPredictor` interface. Item-anchored predictors (§5.6) compete with the facet field under the §8.2 switching rule, and PF-a's families make `idea_hier` possible.
-  - S4 and S6 are dropped, and S5 and S7 are built here.
-  - Its daily-loop dependencies are reduced to the minimal behaviour in Phase 6.
+  - Reshaped: F1 is Slice A Phase 2, and F2 is Phase 6.
+  - Consumers depend on the `LearnerPredictor` interface.
+  - The deferred items and their triggers are in its §11, with the full prior design at commit `936813f`.
+  - It aligns with `spec_knowledge_model.md` §8.1 and §8.3.
 
 ## 5. Rules for implementing agents
 
@@ -185,7 +186,7 @@ Phase 1 merges first. Phases 2 and 3 then run in parallel, each branched from th
    - Never run backfills, family proposals, generation, rebuilds or reports against tracked fixtures. `linear_algebra`, `probability` and `arxiv_v2` are the owner's working vaults. Use backup-API copies (`learnloop.db.copies`) under gitignored `fixtures-local/`.
    - Never revert, stash or commit changes in those working vaults. Only the migration-head fixture follows the upgrade procedure.
    - Never read `~/.config/learnloop/` or search for the owner's vault. Reports that need it are delivered as commands for the owner to run on a copy.
-9. **Thin data never blocks building.** It only affects data-dependent decisions: the 3b switch, and placement's starting threshold. Every report states:
+9. **Thin data never blocks building.** It only affects data-dependent decisions: the 3b switch, activating a challenger predictor (field §7.4), and placement's starting threshold. Every report states:
    - sample counts and exclusions (including field §4.2's revision status);
    - uncertainty intervals;
    - a version manifest (algorithm, kernel, embedding model, config hash);

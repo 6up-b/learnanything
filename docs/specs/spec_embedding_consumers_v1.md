@@ -321,7 +321,7 @@ Items without a family keep today's behaviour. Vaults with no families load and 
 - **Prediction from g97u4:** per family beats per item; per LO is worse; the distance discount helps.
   - **If confirmed:** an algorithm successor makes `family_memory_state` the live scheduling key for family items, following `docs/algorithm-change-playbook.md`, with kill switch `families.retention_key_live`. *Revised 2026-10-11:* this happens in this track (Slice A Phase 3b), not later. If the replay can't tell, the key stays per item.
   - **If not:** families still drive generation, freshness, and transfer probes.
-  - **Either way, families also feed the learner field's `idea_hier` predictor** (`spec_learner_field_v1.md` §5.6). Each family's effect `u_F` is one of the item-anchored model's few ability dimensions.
+  - **Either way, families also feed the learner field's `idea_hier` challenger** (`spec_learner_field_v1.md` §4.3). Each family's effect `u_F` is one of that model's few ability dimensions.
 - **Not in PF:** population-pretrained memory models. Public srs-benchmark results favour population-trained sequence models over per-user fitting, but no model there uses card content. They stay a plan B/J question (sweep §5).
 
 ### 5.3 Generators and verified references
@@ -461,7 +461,7 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
 | Step | Contents | Needs | Gate to proceed |
 |---|---|---|---|
 | **PF-a** | Family contract and fields (§5.1); `families propose` (exhaustive within-LO judge) + owner review; `family_memory_state`; replay report (§5.2). If the replay favours it: retention key live (successor, kill switch) | Slice A Phase 1 (embedding substrate; only needed for LOs above the exhaustive limit) | Correctness gates (§13); replay report reviewed |
-| **PF-b** | Generators in bubblewrap, verified references, filters, freshness gate, solver panel, selection, **publication** (§5.3–5.4); B2; pilot (§5.6). Generation switch `pf.generation_enabled`, off in the template; Slice A spend controls | PF-a | Pilot and B2 reports reviewed |
+| **PF-b** | Generators in bubblewrap, verified references, filters, freshness gate, solver panel, selection, **publication** (§5.3–5.4); B2; pilot (§5.6); **the practice index** (§5.9: dossiers, `find_practice`, coverage report, retrieval evaluation). Generation switch `pf.generation_enabled`, off in the template; Slice A spend controls | PF-a | Pilot and B2 reports reviewed |
 | **PF-c** | Grading support (§5.5) | Slice 1 S1.3 (blind grader live) | E1-style report: valid-alternative false rejection, before vs after; error on real adjudicated answers |
 
 **Why:** "I want to be able to transfer the concepts to other similar problems instead of having a fragile brittle memorization of the solution". Families separate the maintenance reps that keep a solution retrievable from the transfer probes that show it generalizes. Verified references and the source-span rules keep "why" items honest about what the authors (or past-you) actually said.
@@ -491,6 +491,36 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
 - `pf_reference_verifier`, `pf_solver_panel`.
 
 Receipts record model id and prompt version, and every PF report splits its results by model id.
+
+### 5.9 Practice index: facet dossiers and `find_practice` (added 2026-10-11)
+
+Facet dossiers moved here from the learner-field spec. That spec was reshaped and no longer uses them for prediction. Their real job is **organizing the vault's item–facet hypergraph for natural-language retrieval**: "which questions address this?" The pattern is the usual one: embeddings recall, an LLM decides, and the scheduler admits.
+
+- **Facet dossiers.**
+  - **Contents.** A frontier model writes one per active facet, grounded in its source spans, the items and rubric criteria that test it, and its structured fields. A dossier has four fields:
+    - **scope:** covers and excludes;
+    - **moves:** reasoning steps;
+    - **errors:** typical mistakes;
+    - **contrast:** how it differs from its nearest neighbours. Contrastive descriptions beat generic ones (FuDD, 2311.07593).
+  - **Storage.** `facet_dossiers` (WORKFLOW), keyed by facet content hash, source hash, model and prompt version.
+  - **Generation and cost.** Generated under Slice A's spend caps; regenerated only when the facet or its sources change, never on rebuild. That's cheap at 30–60 facets per vault.
+  - **Embedding.** Each field is embedded as its own vector (`facet/dossier_scope`, `facet/dossier_moves`, `facet/dossier_errors`, `facet/dossier_contrast`). Embeddings use one short instruction, with the mean direction projected out under the same prefix and no whitening (2511.11041).
+- **`find_practice(query, constraints)`**, a sidecar RPC and agent tool:
+  1. **Which skill?** Facets ranked by dossier embeddings plus keyword (BM25) search over dossier text.
+  2. **Which question?** Items tagged with those facets, ranked by item-outline embeddings (`item/skeleton`, §5.4) once they exist, otherwise by item text, plus keyword search over items. Facets are coarse (about 1.5–2 per LO), so the final ranking is always item-level.
+  3. **Rerank.** An LLM picks and explains the best few. Verdicts go to `judgment_ledger` (task `practice_relevance`).
+  4. **Admit.** Candidates pass the scheduler's eligibility rules: active status, LO lifecycle, freshness, the reveal ledger, reserved cold checks, exam reserves. **The tool proposes; it never serves directly.**
+- **Consumers:**
+  - the tutor or an agent asked "give me practice on X";
+  - a "practice this" box in the daily loop;
+  - **coverage:** facets with few eligible items become PF-b generation targets;
+  - **capture routing:** filing a newly captured problem under facets;
+  - **repair targeting:** diagnosis hypothesis text → facets → practice items (Slice 1 consumer).
+- **Evaluation: retrieval, not prediction.**
+  - **Labels.** A small set of query→item relevance labels, from the owner and from the LLM in two passes with agreement reported, stored in `judgment_ledger`.
+  - **Metrics.** Recall@10 and nDCG@10.
+  - **The bar.** Two-level search through dossiers must beat **direct item search** (BM25 + item-outline or item-text embeddings) on held-out queries to stay in the path. Otherwise `find_practice` uses direct item search, and dossiers remain only as readable facet explanations for the tutor, diagnoser and map.
+- **Not a router.** A learned action router using dossier embeddings as features is deferred (learner-field spec §11). The near-term version is an LLM agent that reads dossiers as **text** when choosing practice.
 
 ---
 
@@ -605,6 +635,7 @@ New tables use the next free migration numbers after Slice 1's 166, following th
 | `family_proposals` | WORKFLOW (backfill review queue and judge verdicts) | PF |
 | `pf_candidates` | WORKFLOW (generated candidates, filter results, verification status, cost) | PF |
 | `item_skeletons` | WORKFLOW (LLM-written solution skeletons keyed by item content hash; never regenerated on rebuild) | PF |
+| `facet_dossiers` | WORKFLOW (paid outputs; never regenerated on rebuild) | PF §5.9 |
 | `source_block_fts` (FTS5) | DERIVED (rebuild owner registered) | T6 |
 
 **Vault content changes (PF):**
@@ -615,7 +646,7 @@ New tables use the next free migration numbers after Slice 1's 166, following th
 All are additive; vaults without families load and rebuild unchanged.
 
 **New `record_kind`s** in `embedding_vectors`, each declaring its text recipe (R3):
-- `item/stem`, `item/skeleton`, `facet/definition` (PF), `concept/definition`;
+- `item/stem`, `item/skeleton`, `facet/definition` (PF), `facet/dossier_scope`, `facet/dossier_moves`, `facet/dossier_errors`, `facet/dossier_contrast` (PF §5.9), `concept/definition`;
 - `source_block/text`, `source_page/image`.
 
 ---
