@@ -149,3 +149,50 @@ def test_capture_never_stores_secret_files_or_lines(isolated_git, tmp_path):
     for secret in (AWS_KEY, OPENAI_KEY, GITHUB_TOKEN, ENV_SECRET, ENTROPY_TOKEN, "MIIBOgIBAAJBAKj34"):
         assert secret.encode() not in stored
     assert b".env" not in bundle_bytes and b"deploy.pem" not in bundle_bytes
+
+
+def test_hunk_header_context_is_scanned_and_coordinates_kept():
+    # Git repeats the enclosing function's line after the hunk coordinates.
+    counter = RedactionCounter()
+    diff = (
+        "diff --git a/c.py b/c.py\n--- a/c.py\n+++ b/c.py\n"
+        f"@@ -10,3 +10,4 @@ def connect(key=\"{OPENAI_KEY}\"):\n"
+        "     a = 1\n+    b = 2\n     return a\n"
+        "@@ -30,2 +31,2 @@ def harmless():\n-    x = 1\n+    x = 2\n"
+    )
+    redacted = redact_diff(diff, counter)
+    assert OPENAI_KEY not in redacted
+    assert "@@ -10,3 +10,4 @@ [REDACTED:api_key_sk]" in redacted
+    assert "@@ -30,2 +31,2 @@ def harmless():" in redacted
+    assert counter.as_dict() == {"api_key_sk": 1}
+
+
+def _hunk_header_secret_repo(tmp_path):
+    repo = TempRepo(tmp_path / "repo")
+    body = "".join(f"    step_{index} = {index}\n" for index in range(12))
+    repo.write("conn.py", f'def connect(key="{OPENAI_KEY}"):\n{body}    return step_0\n')
+    repo.commit("init", trailer=None)
+    tail = "    total = step_0 + step_11\n    total *= 2\n    total -= step_5\n    total += step_7\n    return total\n"
+    repo.write("conn.py", f'def connect(key="{OPENAI_KEY}"):\n{body}{tail}')
+    repo.commit("Sum the first and last steps")
+    return repo
+
+
+def test_hunk_header_secrets_never_reach_the_store(isolated_git, tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    repo = _hunk_header_secret_repo(tmp_path)
+    raw = repo.git("show", "HEAD")
+    headers = [line for line in raw.splitlines() if line.startswith("@@")]
+    assert OPENAI_KEY in headers[0]  # git repeats the signature in the hunk header
+    config = LearnLoopConfig()
+    enroll_repo(vault, config, repo.path, clock=clock_at(0))
+    sweep(vault, config, clock=clock_at(0))
+    store = ProjectStore.for_vault(vault)
+    (diff,) = store.diffs()
+    stored = canonical_source_raw_path(vault, diff["bundle_hash"]).read_bytes() + store_path(vault).read_bytes()
+    for wal in store_path(vault).parent.glob("*-wal"):
+        stored += wal.read_bytes()
+    assert OPENAI_KEY.encode() not in stored
+    bundle = load_bundle(vault, diff["bundle_hash"])
+    assert "@@ -" in bundle["files"][0]["diff"]

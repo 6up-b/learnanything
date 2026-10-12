@@ -25,7 +25,7 @@ from tests.project_support import (
     make_model_repo,
     project_fake,  # noqa: F401
 )
-from tests.test_project_redaction import AWS_KEY, ENV_SECRET, GITHUB_TOKEN, OPENAI_KEY
+from tests.test_project_redaction import AWS_KEY, ENV_SECRET, GITHUB_TOKEN, OPENAI_KEY, _hunk_header_secret_repo
 
 runner = CliRunner()
 
@@ -152,6 +152,15 @@ def test_secrets_never_reach_a_model(isolated_git, project_fake, cli, tmp_path):
     for secret in (AWS_KEY, OPENAI_KEY, GITHUB_TOKEN, ENV_SECRET, "DATABASE_PASSWORD"):
         assert secret not in prompts
     assert ".env" not in prompts
+
+
+def test_hunk_header_secrets_never_reach_a_model(isolated_git, project_fake, cli, tmp_path):
+    repo = _hunk_header_secret_repo(tmp_path)
+    cli(["enroll", str(repo.path)])
+    cli(["sweep"])
+    assert {purpose for purpose, _ in project_fake.requests} >= {"project_probe_authoring"}
+    prompts = "\n".join(prompt for _purpose, prompt in project_fake.requests)
+    assert OPENAI_KEY not in prompts and "@@ -" in prompts
 
 
 def test_metered_routes_fail_closed_without_a_price(tmp_path):

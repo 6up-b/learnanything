@@ -6,7 +6,8 @@ Two layers:
   or the noise list (lockfiles, minified bundles) are left out entirely: their
   names stay in the local skip list, their contents never enter a diff,
   excerpt, store row or prompt.
-- **Lines.** Every remaining diff line, context line and commit-message line is
+- **Lines.** Every remaining diff line (including the source text git repeats
+  after a hunk header's coordinates), context line and commit-message line is
   scanned for known key prefixes, PEM blocks, credential assignments and long
   high-entropy tokens. A matching line is replaced whole by
   ``[REDACTED:<kind>]``. Storage and model calls only ever read the redacted
@@ -25,7 +26,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-SECRET_PATTERN_VERSION = "project-secrets-v1"
+# v2: the source text git repeats in hunk headers is scanned too.
+SECRET_PATTERN_VERSION = "project-secrets-v2"
 
 SECRET_PATH_PATTERNS: tuple[str, ...] = (
     ".env*",
@@ -172,11 +174,39 @@ def redact_lines(lines: list[str], counter: RedactionCounter) -> list[str]:
     ]
 
 
+_HUNK_COORDINATES = re.compile(r"^(@@+ [^@]*@@+)(.*)$")
+
+
+def _redact_hunk_header(line: str, counter: RedactionCounter) -> str:
+    """Keep a hunk header's coordinates; scan the source text git repeats after them.
+
+    Git appends the enclosing function's line ("funcname" context) to each
+    ``@@ … @@`` header, so a signature holding a credential would otherwise
+    travel verbatim in the header.
+    """
+
+    match = _HUNK_COORDINATES.match(line)
+    if match is None:
+        kind = scan_line(line)
+        if kind is None:
+            return line
+        counter.add(kind)
+        return "@@ " + REDACTED.format(kind=kind)
+    coordinates, suffix = match.groups()
+    kind = scan_line(suffix) if suffix.strip() else None
+    if kind is None:
+        return line
+    counter.add(kind)
+    return f"{coordinates} {REDACTED.format(kind=kind)}"
+
+
 def redact_diff(diff_text: str, counter: RedactionCounter) -> str:
     """Redact the content lines of a unified diff, keeping its +/-/space markers.
 
-    Header lines (``diff --git``, ``index``, ``---``/``+++``, ``@@``) carry no
-    file content and are kept so hunks still parse.
+    Header lines (``diff --git``, ``index``, ``---``/``+++``) carry no file
+    content and are kept so hunks still parse. A hunk header (``@@``) keeps its
+    coordinates, but the source line git repeats after them is scanned like
+    any content line.
     """
 
     output: list[str] = []
@@ -190,7 +220,7 @@ def redact_diff(diff_text: str, counter: RedactionCounter) -> str:
             continue
         if line.startswith("@@"):
             in_hunk = True
-            output.append(line)
+            output.append(_redact_hunk_header(line, counter))
             continue
         if in_hunk and line[:1] in {"+", "-", " "}:
             replacement = redactor.redact(line[1:])
