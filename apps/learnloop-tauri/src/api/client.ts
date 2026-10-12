@@ -405,6 +405,8 @@ export const api = {
     call<{ captures: import("./capture").CaptureDto[] }>("list_capture_inbox", { input }),
   dismissCapture: (captureId: string) => call("dismiss_capture", { input: { captureId } }),
   purgeCapture: (captureId: string) => call<{ capture: import("./capture").CaptureDto }>("purge_capture", { input: { captureId } }),
+  resumeCaptureRoute: (captureId: string) =>
+    call<{ route: string; result: unknown }>("resume_capture_route", { input: { captureId } }),
   selectVault: (path?: string | null) => call<VaultSummary | null>("select_vault", { path }),
   loadVault: () => call<AppSnapshot>("load_vault"),
   getReviewCounts: () => call<ReviewCountsDto>("get_review_counts"),

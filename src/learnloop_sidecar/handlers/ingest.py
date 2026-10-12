@@ -1343,7 +1343,7 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
     from learnloop.capture.routing import update_route_intent
 
     vault, repository = ctx.require_vault()
-    intent = route_intent(repository, params, "quick_add", create=False)
+    intent = route_intent(repository, params, "quick_add", create=False, ctx=ctx)
     batch_id = "batch_capture_" + intent["destination_id"] if intent else None
     if intent and (intent.get("response") or repository.get_ingest_batch(batch_id) is not None):
         response = intent.get("response") or intent["prepared_response"]
@@ -1365,7 +1365,7 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
             brief_overrides=_validated_brief(params.brief),
         )
         if intent is None:
-            intent = route_intent(repository, params, "quick_add")
+            intent = route_intent(repository, params, "quick_add", ctx=ctx)
             batch_id = "batch_capture_" + intent["destination_id"] if intent else None
         if intent:
             # Persist enough to reconstruct the original confirmation even if

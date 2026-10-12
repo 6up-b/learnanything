@@ -4,7 +4,8 @@ import { InboxStrip } from "./InboxStrip";
 import type { CaptureDto } from "../api/capture";
 
 const { api, card, source } = vi.hoisted(() => ({
-  api: { getInboxSummary: vi.fn(), listCaptureInbox: vi.fn(), dismissCapture: vi.fn(), purgeCapture: vi.fn() },
+  api: { getInboxSummary: vi.fn(), listCaptureInbox: vi.fn(), dismissCapture: vi.fn(), purgeCapture: vi.fn(),
+    resumeCaptureRoute: vi.fn() },
   card: vi.fn(), source: vi.fn()
 }));
 vi.mock("../api/client", () => ({ api }));
@@ -18,7 +19,8 @@ vi.mock("./QuickAddDialog", () => ({ QuickAddDialog: (props: { onClose: () => vo
 function capture(kind: CaptureDto["kind"] = "text"): CaptureDto {
   return { captureId: "capture-1", kind, text: kind === "text" ? "Why eigenvectors?" : null,
     url: kind === "url" ? "https://example.org/book" : null, note: null,
-    mediaSha256: null, mediaMime: null, mediaDeletePending: false, mediaRetainedShared: false, status: "new", receivedAt: "2026-10-11" };
+    mediaSha256: null, mediaMime: null, mediaDeletePending: false, mediaRetainedShared: false, status: "new",
+    pendingRoute: null, receivedAt: "2026-10-11" };
 }
 function summary(row = capture()) {
   return { count: 1, newCount: 1, captures: [row], pinnedVault: "/other", vaultMismatch: true, enabled: true };
@@ -30,6 +32,7 @@ beforeEach(() => {
   api.listCaptureInbox.mockResolvedValue({ captures: [{ ...capture(), status: "routed" }] });
   api.dismissCapture.mockResolvedValue({});
   api.purgeCapture.mockResolvedValue({ capture: { ...capture(), status: "purged" } });
+  api.resumeCaptureRoute.mockResolvedValue({ route: "make_card", result: { practiceItemId: "pi_capture_x" } });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 async function show() {
@@ -130,4 +133,25 @@ it("reports shared-original retention from the purge response", async () => {
   await act(async () => { fireEvent.click(screen.getByText("Confirm purge")); });
   expect(screen.getByText(/another source or capture still references these bytes/)).toBeTruthy();
   expect(screen.queryByText("Retry delete")).toBeNull();
+});
+
+it("finishes an unfinished save after a restart without the lost form values", async () => {
+  // A fresh mount: no dialog state survives; only the persisted intent does.
+  api.getInboxSummary.mockResolvedValue(summary({ ...capture(), pendingRoute: "make_card" }));
+  await show();
+  expect(screen.getByText(/An earlier save did not finish/)).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByText("Finish saving card")); });
+  expect(api.resumeCaptureRoute).toHaveBeenCalledWith("capture-1");
+  expect(card).not.toHaveBeenCalled();
+  expect(api.getInboxSummary).toHaveBeenCalledTimes(2);
+  expect(screen.getByText(/Finished the earlier save/)).toBeTruthy();
+});
+
+it("reports a resume failure without hiding the capture", async () => {
+  api.getInboxSummary.mockResolvedValue(summary({ ...capture(), pendingRoute: "ask_tutor" }));
+  api.resumeCaptureRoute.mockRejectedValue({ code: "capture_question_incomplete", message: "No second question was created." });
+  await show();
+  await act(async () => { fireEvent.click(screen.getByText("Finish saving tutor question")); });
+  expect(screen.getByRole("alert").textContent).toContain("No second question was created.");
+  expect(screen.getByText("Dismiss")).toBeTruthy();
 });

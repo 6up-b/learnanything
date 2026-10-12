@@ -170,7 +170,7 @@ def remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeIn
 @method("author_practice_item", AuthorPracticeItemInput)
 def author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]:
     root, repository = _root(ctx)
-    intent = route_intent(repository, params, "make_card", create=False)
+    intent = route_intent(repository, params, "make_card", create=False, ctx=ctx)
     if intent and intent.get("response"):
         response = intent["response"]
         return finish_route(ctx, repository, params.capture_id, "make_card",
@@ -180,7 +180,7 @@ def author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -
             vault, _ = ctx.require_vault()
             validate_author_item(vault, learning_object_id=params.learning_object_id,
                                  prompt=params.prompt, expected_answer=params.expected_answer)
-            intent = route_intent(repository, params, "make_card")
+            intent = route_intent(repository, params, "make_card", ctx=ctx)
         row = author_item(
             root,
             repository,

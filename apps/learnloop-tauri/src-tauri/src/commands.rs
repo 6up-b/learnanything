@@ -594,6 +594,7 @@ sidecar_passthrough!(get_inbox_summary, "get_inbox_summary");
 sidecar_passthrough!(list_capture_inbox, "list_capture_inbox");
 sidecar_passthrough!(dismiss_capture, "dismiss_capture");
 sidecar_passthrough!(purge_capture, "purge_capture");
+sidecar_passthrough!(resume_capture_route, "resume_capture_route");
 
 sidecar_passthrough!(confirm_quick_add, "confirm_quick_add");
 

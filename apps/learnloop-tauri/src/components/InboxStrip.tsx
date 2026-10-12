@@ -7,6 +7,10 @@ import { QuickAddDialog } from "./QuickAddDialog";
 import { COLOR, FONT_MONO } from "./term";
 import { errorMessage } from "../errors";
 
+const PENDING_LABEL: Record<NonNullable<CaptureDto["pendingRoute"]>, string> = {
+  make_card: "card", quick_add: "source", ask_tutor: "tutor question",
+};
+
 /** References only: no queue mutation or practice navigation on receipt or save. */
 export function InboxStrip({ subjects, onAsk }: {
   subjects: { id: string; title: string }[];
@@ -21,6 +25,7 @@ export function InboxStrip({ subjects, onAsk }: {
   const [showAll, setShowAll] = useState(false);
   const [history, setHistory] = useState<CaptureDto[]>([]);
   const [purgeResult, setPurgeResult] = useState<CaptureDto | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const alive = useRef(false);
   const request = useRef(0);
   const refresh = useCallback(async () => {
@@ -69,6 +74,20 @@ export function InboxStrip({ subjects, onAsk }: {
     }
   }
 
+  async function resume(captureId: string) {
+    setBusy(captureId);
+    setNotice(null);
+    try {
+      await api.resumeCaptureRoute(captureId);
+      setNotice("Finished the earlier save.");
+      await refresh();
+    } catch (err) {
+      setError(errorMessage(err, "Could not finish the earlier save."));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <section aria-label="Capture inbox" style={{ padding: "12px 20px", borderBottom: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 12 }}>
       {summary?.vaultMismatch ? (
@@ -83,6 +102,7 @@ export function InboxStrip({ subjects, onAsk }: {
         </select></label>
       ) : null}
       {error ? <p role="alert">{error} <button onClick={() => void refresh()}>Retry</button></p> : null}
+      {notice ? <p role="status">{notice}</p> : null}
       {!showAll && purgeResult?.mediaDeletePending ? (
         <p role="alert">Captured content was cleared, but original media deletion is pending. <button disabled={busy !== null} onClick={() => void remove(purgeResult.captureId, true)}>Retry delete</button></p>
       ) : null}
@@ -99,6 +119,11 @@ export function InboxStrip({ subjects, onAsk }: {
           ) : (
             <button onClick={() => setSelected({ capture, route: "card" })}>Make a card</button>
           )}
+          {capture.status === "new" && capture.pendingRoute ? (
+            <span>An earlier save did not finish. <button disabled={busy !== null} onClick={() => void resume(capture.captureId)}>
+              Finish saving {PENDING_LABEL[capture.pendingRoute]}
+            </button></span>
+          ) : null}
           {capture.kind === "text" && capture.status === "new" ? (
             <button disabled={!subjectId} title={!subjectId ? "Create a subject before asking the tutor" : undefined} onClick={() => onAsk({ context: "library", initialQuestion: capture.text ?? "", captureId: capture.captureId, subjectId })}>Ask tutor</button>
           ) : null}

@@ -345,6 +345,7 @@ fn main() {
             list_capture_inbox,
             dismiss_capture,
             purge_capture,
+            resume_capture_route,
             confirm_quick_add,
             get_span_view,
             get_subject_registry,

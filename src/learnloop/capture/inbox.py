@@ -23,7 +23,8 @@ from .errors import CaptureError
 _ULID = re.compile(r"[0-7][0-9A-HJKMNP-TV-Z]{25}\Z")
 _ARXIV = re.compile(r"(?:arXiv:)?(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?/\d{7})(?:v[1-9]\d*)?\Z")
 _SELECT = """SELECT i.*,r.state,r.route,r.routed_at,r.dismissed_at,r.result_refs_json,
-                    r.media_delete_pending,r.media_retained_shared
+                    r.media_delete_pending,r.media_retained_shared,
+                    CASE WHEN r.intent_json IS NOT NULL THEN r.intent_route END AS pending_route
              FROM capture_inbox i JOIN capture_routes r ON r.capture_id=i.id"""
 
 
@@ -82,6 +83,9 @@ def _decode(row) -> dict:
     value = dict(row)
     value["capture_id"] = value["id"]
     value["status"] = "purged" if value["purged_at"] else value["state"]
+    # An unfinished desktop save (route intent without a recorded route).
+    if value["status"] != "new":
+        value["pending_route"] = None
     value["media_delete_pending"] = bool(value["media_delete_pending"])
     value["media_retained_shared"] = bool(value["media_retained_shared"])
     value["result_refs"] = json.loads(value.pop("result_refs_json") or "{}")

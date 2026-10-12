@@ -127,7 +127,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
     vault, repository = ctx.require_vault()
     if params.capture_id is not None and params.context != "library":
         raise SidecarError("validation_error", "Captured questions must use the library context.")
-    intent = route_intent(repository, params, "ask_tutor", create=False)
+    intent = route_intent(repository, params, "ask_tutor", create=False, ctx=ctx)
     event_id = intent["destination_id"] if intent else None
     if intent:
         response = intent.get("response")
@@ -187,7 +187,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
         if params.subject_id not in vault.subjects:
             raise SidecarError("unknown_subject", "Choose an existing subject for this tutor reference.")
         if intent is None:
-            intent = route_intent(repository, params, "ask_tutor")
+            intent = route_intent(repository, params, "ask_tutor", ctx=ctx)
             event_id = intent["destination_id"]
         # Library requires a note. Only actual send creates this reference,
         # never opening/cancelling the dialog; no practice is started.

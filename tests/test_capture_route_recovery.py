@@ -247,3 +247,120 @@ def test_purge_during_tutor_answer_does_not_restore_capture(tmp_path, monkeypatc
         _assert_single("tutor", root, repo, result, server)
     finally:
         server.stop()
+
+
+class _Crash(BaseException):
+    """A process death: nothing after it runs, including the dialog's state."""
+
+
+def _crash_before_destination(patch, route):
+    def crash(*args, **kwargs):
+        raise _Crash()
+    if route == "card":
+        patch.setattr(item_authoring, "author_item", crash)
+    elif route == "quick_add":
+        import learnloop.content.pipeline.quick_add as quick_add
+        patch.setattr(quick_add, "enqueue_quick_add", crash)
+    else:
+        patch.setattr(tutor_qa, "ask_question", crash)
+
+
+def _fresh_params(route, capture_id):
+    # Rebuilt from nothing after a restart: the form values were never persisted
+    # by the frontend, so the learner re-enters them (differently).
+    if route == "card":
+        return item_authoring.AuthorPracticeItemInput(
+            capture_id=capture_id, learning_object_id="lo_svd_definition",
+            prompt="Re-typed after restart", expected_answer="Something else.",
+        )
+    if route == "quick_add":
+        return ingest.ConfirmQuickAddInput(
+            capture_id=capture_id, source="https://example.org/book",
+            subject_id="linear-algebra", role_override="reference",
+        )
+    return tutor_qa.AskTutorQuestionInput(
+        capture_id=capture_id, subject_id="linear-algebra",
+        context="library", question="Re-typed question after restart?",
+    )
+
+
+def test_crash_before_destination_accepts_new_inputs_after_restart(destination, monkeypatch):
+    route, root, repo, capture_id, ctx, handler, module, params, server = destination
+    with monkeypatch.context() as patch:
+        _crash_before_destination(patch, route)
+        with pytest.raises(_Crash):
+            handler(ctx, params)
+    assert get_capture(repo, capture_id)["status"] == "new"
+    del params
+    ctx.reload(maintenance=False)
+    fresh = _fresh_params(route, capture_id)
+    result = handler(ctx, fresh)
+    assert get_capture(repo, capture_id)["status"] == "routed"
+    assert handler(ctx, fresh) == result
+    _assert_single(route, root, repo, result, server)
+
+
+@pytest.mark.parametrize("stage", ["before_destination", "after_destination"])
+def test_resume_finishes_an_unfinished_route_without_any_inputs(destination, monkeypatch, stage):
+    route, root, repo, capture_id, ctx, handler, module, params, server = destination
+    with monkeypatch.context() as patch:
+        if stage == "before_destination":
+            _crash_before_destination(patch, route)
+        else:
+            def crash(*args, **kwargs):
+                raise _Crash()
+            patch.setattr(module, "finish_route", crash)
+        with pytest.raises(_Crash):
+            handler(ctx, params)
+    expected = {"card": "make_card", "quick_add": "quick_add", "tutor": "ask_tutor"}[route]
+    assert get_capture(repo, capture_id)["pending_route"] == expected
+    del params
+    ctx.reload(maintenance=False)
+    if stage == "after_destination":
+        # The destination exists: different inputs must not mint a second one.
+        with pytest.raises(SidecarError, match="original capture route"):
+            handler(ctx, _fresh_params(route, capture_id))
+    resumed = capture_rpc.resume_capture_route(ctx, capture_rpc.CaptureInput(capture_id=capture_id))
+    assert resumed["route"] == expected
+    capture = get_capture(repo, capture_id)
+    assert capture["status"] == "routed" and capture["pending_route"] is None
+    _assert_single(route, root, repo, resumed["result"], server)
+    with pytest.raises(SidecarError, match="no unfinished save"):
+        capture_rpc.resume_capture_route(ctx, capture_rpc.CaptureInput(capture_id=capture_id))
+
+
+@pytest.mark.parametrize("destination", ["quick_add"], indirect=True)
+def test_crash_before_destination_allows_choosing_another_route(destination, monkeypatch):
+    route, root, repo, capture_id, ctx, handler, module, params, server = destination
+    card = item_authoring.AuthorPracticeItemInput(
+        capture_id=capture_id, learning_object_id="lo_svd_definition",
+        prompt="Card first", expected_answer="Then crash.",
+    )
+    with monkeypatch.context() as patch:
+        _crash_before_destination(patch, "card")
+        with pytest.raises(_Crash):
+            item_authoring.author_practice_item(ctx, card)
+    ctx.reload(maintenance=False)
+    result = handler(ctx, params)
+    assert get_capture(repo, capture_id)["route"] == "quick_add"
+    _assert_single(route, root, repo, result, server)
+    assert len(load_vault(root).practice_items) == 1
+
+
+def test_purge_erases_the_persisted_request(destination, monkeypatch):
+    from learnloop.capture import purge_capture
+
+    route, root, repo, capture_id, ctx, handler, module, params, server = destination
+    with monkeypatch.context() as patch:
+        _crash_before_destination(patch, route)
+        with pytest.raises(_Crash):
+            handler(ctx, params)
+    field = getattr(params, {"card": "prompt", "quick_add": "source", "tutor": "question"}[route])
+    with repo.connection() as conn:
+        assert field in conn.execute("SELECT intent_json FROM capture_routes").fetchone()[0]
+    purge_capture(repo, capture_id, root=root)
+    with repo.connection() as conn:
+        assert conn.execute("SELECT intent_json FROM capture_routes").fetchone()[0] is None
+    assert get_capture(repo, capture_id)["pending_route"] is None
+    with pytest.raises(SidecarError, match="no unfinished save"):
+        capture_rpc.resume_capture_route(ctx, capture_rpc.CaptureInput(capture_id=capture_id))

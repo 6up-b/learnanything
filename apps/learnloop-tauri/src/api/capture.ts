@@ -9,6 +9,8 @@ export interface CaptureDto {
   mediaDeletePending: boolean;
   mediaRetainedShared: boolean;
   status: "new" | "routed" | "dismissed" | "purged";
+  /** A desktop save that began but did not record its route (e.g. a crash). */
+  pendingRoute: "make_card" | "quick_add" | "ask_tutor" | null;
   receivedAt: string;
 }
 
