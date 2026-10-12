@@ -76,6 +76,17 @@ def test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call(tmp_path, mo
     monkeypatch.setattr("learnloop.diagnosis.split.contract.execute_structured_operation", refuse)
     monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", refuse)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    # Live state against the FIRST rebuild (review note): every stuck
+    # attempt's field row, the stuck read-back and its confusion signal are
+    # what the live doors wrote.
+    rebuilt_rows, rebuilt_signals, rebuilt_stuck = _field(vault, repository)
+    stuck_ids = {row["attempt_id"] for row in before_field[2]}
+    live_rows = {row.attempt_id: row for row in before_field[0] if row.attempt_id in stuck_ids}
+    assert {row.attempt_id: row for row in rebuilt_rows if row.attempt_id in stuck_ids} == live_rows
+    assert rebuilt_stuck == before_field[2]
+    assert [signal for signal in rebuilt_signals if signal.signal_type == "stuck_confusion"] == [
+        signal for signal in before_field[1] if signal.signal_type == "stuck_confusion"
+    ]
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     first = _snapshot(repository, tables)
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
@@ -148,3 +159,30 @@ def test_historical_dont_know_rows_replay_unchanged_under_the_successor(tmp_path
     assert previous_rows[dont_know_ids[0]].effective_mass == pytest.approx(0.7) or previous_rows[
         dont_know_ids[1]
     ].effective_mass == pytest.approx(0.7)
+
+
+def test_a_joint_stuck_reading_survives_rebuild_with_no_model_call(tmp_path, monkeypatch):
+    """Review F3/F6: with the split off the reading lives only in its
+    judgment_ledger verdict (a raw ledger), so rebuild reads it back as is."""
+
+    _paths, vault, repository = split_vault(
+        tmp_path, version="mvp-0.11", config="[diagnosis]\nsplit_enabled = false"
+    )
+    confused = StuckFake(
+        reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "where Sigma comes from"}
+    )
+    _grade(vault, repository, confused, _draft("I can't see where Sigma comes from"), when=20)
+    live = _field(vault, repository)
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("replay must not call a model")
+
+    monkeypatch.setattr(transport_module, "execute_structured_operation", refuse)
+    monkeypatch.setattr("learnloop.attempts.grading.execute_structured_operation", refuse)
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", refuse)
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    _rows, signals, stuck = _field(vault, repository)
+    assert stuck == live[2] and stuck[0]["describes_confusion"] is True
+    assert [signal for signal in signals if signal.signal_type == "stuck_confusion"] == [
+        signal for signal in live[1] if signal.signal_type == "stuck_confusion"
+    ]
