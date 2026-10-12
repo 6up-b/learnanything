@@ -32,12 +32,12 @@
 ## 0. What this builds
 
 - **F1, which changes nothing that is served:**
-  - the outcome view (§3);
+  - the outcome view (§3) and interaction signals from your questions and hints (§3.1);
   - `learnloop field data-check`;
   - the evaluation harness (§7.2);
   - the `LearnerPredictor` interface (§4.1);
   - the incumbent `mastery_ekf` (§4.2);
-  - the challenger `lo_general` with four extension arms (§4.3);
+  - the challenger `lo_general` with its extension arms (§4.3), including the interaction-signal arms;
   - the `idea_hier` arm once practice families exist (§4.3);
   - an explicit **untested** state on the map (§5.1).
 - **F2, live behind an algorithm successor and a kill switch:** starting new material without ceremony (§5.2):
@@ -143,6 +143,38 @@ Predictors and diagnostics need, for every graded attempt and every facet it bea
 
 Per-facet rows feed the `facet_beta` arm and diagnostics.
 
+### 3.1 Interaction signals: what your questions and hints reveal (added 2026-10-11, owner)
+
+**The idea.** These signals replace opening probes as the cheap source of "where you're shaky": what you ask the tutor, when you ask for hints, how you do afterwards, and what you ask after the feedback. They are already logged:
+
+| Source | Where it lives today | What it reveals |
+|---|---|---|
+| Hints within an attempt | `practice_attempts.hints_used`, including substantive mid-attempt tutor questions folded in as hint equivalents (`hint_equivalents_for_submission`, `handlers/practice.py:499-501`) | How much help the answer needed |
+| When help came | `question_events.seconds_into_attempt` | Help **before any work** means you didn't know where to start. Help late in the attempt means you got partway |
+| Tutor questions during practice and after feedback | `question_events` (migration 019): `context` (`practice` \| `feedback`), `attempt_id`, `question_type` (`clarification` \| `prerequisite` \| `mechanism` \| `strategy` \| `verification` \| `other`), `facets_json`, `hint_equivalent`, `leak_suspected` | *What* was unclear, and about which facets. A `prerequisite` question points below the item; a post-answer `mechanism` question after a correct answer suggests the answer was procedural rather than understood |
+| Questions while reading | Reader-dialogue `interaction_events` and `question_events` with `context = library`, tied to source spans and so to LOs | Confusion about new material **before any practice**. This is free placement |
+| What happened next | The graded outcome after hints, and the following attempts | Whether the help repaired the gap |
+
+**Derivation.** One signal row is derived per question or hinted attempt, and never stored separately: LO or facet, signal type, timing, and the subsequent outcome.
+- **Mapping.** It uses the logged `question_type` and `facets_json` where present.
+- **Classification.** Only questions missing them, such as reader questions without a type, are classified by an LLM, in the Plan B tutor-dialogue-compiler style (LLMKT, 2409.16490). Results are cached in `question_classifications` (WORKFLOW, paid output, never re-run on rebuild).
+- **The classification is a proposal.** LLMs are weak at cognitive-skill diagnosis (MathCog, 2504.00843), so its influence is small and capped (below).
+
+**How the signals are used.**
+1. **Routing for new material (§5.2), live with F2:**
+   - LOs you asked confused questions about while reading, or needed help before starting, are **taught first and never fast-tracked** on early answers alone. "I know this" still works.
+   - LOs answered without help and without follow-up questions are the **fast-track** candidates.
+2. **As predictor observations** (harness arms §4.3; activated only under §7.4):
+   - hint depth and timing turn a binary outcome into a graded one;
+   - typed questions become weak observations.
+
+**Guards.**
+- **Asking is never penalized in the record.** Signals change routing and predictor state, never evidence, mastery, certification or the demonstrated record (F2). The learner sees the consequence, not a penalty: "We'll revisit conditional independence, since you asked about it." Help is never withheld (intentions §13).
+- **No double counting.** Hinted attempts are already dampened as evidence. In the predictor, the hint-depth arm *replaces* that dampening instead of stacking on it.
+- **Repeated questions are not repeated evidence** (Plan B). Signal mass per LO per day is capped.
+- **Reveals stay honest.** A question flagged `leak_suspected`, or one that revealed the answer, makes the attempt non-cold through the existing reveal ledger.
+- **Curiosity is not confusion.** `other` and extension questions after a correct answer carry no negative signal.
+
 ---
 
 ## 4. Predictors
@@ -190,6 +222,8 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | `lo_general+practice` | Learning from practice: `θ_L` gains `γ` per graded cold opportunity, predicted *before* the outcome is seen | `γ = 0.2` logits per opportunity. A median of ~7 opportunities takes a learner from 50% to 80% | Learning rates are consistent across learners while starting knowledge varies widely (2604.03246) |
 | `lo_general+capability` | An offset `δ_cap` per item `capability` (`retrieval`, `schema_interpretation`, `procedure_execution`, `method_selection`, `coordination`), shared across LOs in a subject. Latent state, not a fitted hyperparameter | `N(0, 0.5²)` | Recall, procedure, method choice and transfer are different abilities on the same topic |
 | `lo_general+transfer` | An offset by `variant_relation` (PF): `same_target` 0, `isomorph`, `near`, `far` | Means 0 / −0.25 / −0.5, sd 0.5 | Retrieval practice transfers strongly to isomorphs, weakly to near variants, little to far ones (PsyArXiv sj3w7) |
+| `lo_general+hints` | **Graded outcome by help depth** (§3.1). An unassisted correct answer is 1. A correct answer after `k` hints is `1 − 0.2k` (floor 0.2). Help requested before any work caps the outcome at 0.3. This replaces the hinted-attempt dampening inside the predictor; it doesn't stack with it | Constants a priori and versioned (D12) | Hint use is a standard knowledge-tracing feature; LearnLoop already logs it per attempt |
+| `lo_general+tutor_signals` | **Typed questions as weak observations** on the mapped LO (§3.1): `prerequisite` → 0 on the prerequisite's LO at mass 0.15; `mechanism` or `clarification` after a correct answer → 0.5 at mass 0.1; `strategy` before attempting → treated as a hint; `verification` and `other` → no observation. Capped per LO per day | Masses a priori and versioned (D12) | Question density marks unresolved uncertainty but is not repeated ability evidence (Plan B tutor-dialogue compiler); interaction traces predict uptake (2609.12600) |
 | `lo_general+retrievability` | For items with FSRS state, `β · logit(R_FSRS(t))`, combining ability with forgetting | `β = 0.5`; the report sweeps {0, 0.5, 1} | FSRS and mastery currently predict separately |
 | `idea_hier` | Family effects `u_F ~ N(0, σ_F²)`, independent in v1 (practice-family track §5.1–5.2). Available after PF-a | `σ_F² = 0.5` | Families are the finest unit with a shared retrieval target |
 
@@ -239,9 +273,13 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   - `_enter_initial_probes` (`substrate/state_sync.py:175-211`) no longer opens an initial diagnostic episode for every new LO (`placement.initial_probes = false`).
   - Diagnostic episodes still open when a wrong answer leaves a real choice of repair (existing probe machinery; intentions §11).
 - **New material starts as learning.** It is ordered by prerequisites and by the active predictor's predicted difficulty, easiest first within a prerequisite layer. The first practice answers on each LO update the predictor: **practice is the placement.**
+- **Your questions are the rest of the placement** (§3.1).
+  - LOs you asked confused questions about while reading, or needed help before starting, are taught first and never fast-tracked on early answers alone.
+  - LOs you breeze through without help or follow-up questions are fast-track candidates.
+  - No probe is needed to find either.
 - **Assumed known (not tested).** An LO is marked assumed when any of these holds:
   - **the learner says so:** "I know this" on the LO, its chapter or an item, or "too easy";
-  - **fast-track:** its first ≥ 2 cold answers are correct and the active predictor gives `P(θ_L > θ_known) ≥ q` (D6);
+  - **fast-track:** its first ≥ 2 cold answers are correct **with no hints, no help before starting, and no confusion questions** (§3.1), and the active predictor gives `P(θ_L > θ_known) ≥ q` (D6);
   - **prediction:** an activated challenger with cross-LO sharing gives `P(θ_L > θ_known) ≥ q` before any attempt. With the incumbent `mastery_ekf` this can't happen; it requires §7.4.
 - **What "assumed known" does:**
   - The LO's remaining learning items are not served as new material.
@@ -270,6 +308,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 |---|---|---|
 | `facet_outcome_observations` | DERIVED (rebuild owner) | §3 |
 | `learner_predictor_snapshot` | DERIVED (rebuild owner; only while a non-incumbent predictor is active) | Per region: `mean`, `variance`, `n_eff`, `untested`, `predictor`, `version`, `as_of_observation_id` |
+| `question_classifications` | WORKFLOW (paid outputs; never re-run on rebuild) | LLM classification of tutor and reader questions missing `question_type` or facets: `question_event_id` / `interaction_event_id`, type, mapped LO and facets, model, prompt version (§3.1) |
 | `assumption_decisions` | RECEIPT | `id`, `lo_id`, `source` (`self_report` \| `fast_track` \| `predictor` \| `quick_check`), `trigger_ref`, `p`, interval, `q_used`, `predictor`, `predictor_version`, `first_review_due`, `quick_check_session_id?`, `created_at`. Its outcome is joined from the first review's attempt by report 3, never written back |
 
 - **Config:**
@@ -300,6 +339,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | G10 | **Consumers use the interface:** placement and map modules can't import any predictor's internals (import-linter) |
 | G11 | **Only calibrated-uncertainty predictors can be active:** config validation rejects the others |
 | G12 | **Weight and provenance invariances:**<br>• zero-mass rows leave every posterior byte-identical;<br>• primed handling matches `mastery.py` (at one LO, `lo_general` with `σ_g² → 0` reduces to it);<br>• every outcome row has a `revision_status`, and with `exclude` no current content substitutes for a missing revision |
+| G13 | **Asking is never penalized in the record:** with interaction signals on vs off, evidence, mastery, certification and demonstrated beads are byte-identical. Only routing and predictor state may differ. The hint-depth arm replaces, rather than stacks on, hinted-attempt dampening. Signal mass per LO per day respects its cap |
 
 
 ### 7.2 Evaluation harness: `learnloop eval`
@@ -331,6 +371,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 
 1. **Prequential replay (F1).** Every arm on the owner's graded log, with the splits above.
    - **Key question:** does `lo_general` (or an extension) beat `mastery_ekf` on first attempts at never-seen LOs?
+   - **Extra split for the signal arms:** attempts preceded by tutor questions or hints vs those without. This shows whether `+hints` and `+tutor_signals` earn their place.
    - **Validity:** at n=1 this detects only large differences.
 2. **Fast-track simulation (F1).** On historical LOs, apply §5.2's fast-track rule to the first answers, then score the later attempts.
    - **Reported:** the share that would have been assumed known, and their **miss rate** (later failures).
@@ -401,6 +442,13 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   - no evidence or certification writes;
   - `assumption_decisions` is complete (G8);
   - the kill switch restores initial probes exactly (G9).
+- **`test_interaction_signals.py`:**
+  - signal derivation from `question_events`, hint counts and timing, and reader questions;
+  - LLM classification only when the type is missing, cached, and with zero calls on rebuild;
+  - confusion signals block fast-track, while "I know this" still assumes known;
+  - curiosity questions carry no negative signal;
+  - leak-suspected questions make the attempt non-cold;
+  - G13.
 - **`test_quick_check.py`:** an optional calibration session with adaptive selection and early stop, reveal at the end, and results feeding the assumed/learning split.
 - **`test_map_untested.py`** (sidecar RPC + vitest): untested and assumed points are drawn distinctly from demonstrated ones; G6.
 - **Durability lane:** a rebuild of the derived tables under production pragmas on a fresh vault.
@@ -421,6 +469,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | D8 | `llm_probability` | Off by default; at most a one-off offline test |
 | D9 | Switching margin | The attempt-level log-loss improvement's bootstrap interval excludes 0, overall and on first attempts, and the miss rate is no worse. Fixed before running |
 | D10 | Revisions missing from snapshots | `exclude` by default; `current_content` only by explicit config, flagged |
+| D12 | Interaction-signal constants | Hint depth: `1 − 0.2k` (floor 0.2), and help before any work caps at 0.3. Typed-question masses: 0.15 (prerequisite), 0.1 (mechanism or clarification after a correct answer); capped per LO per day. A priori and versioned, and the harness reports a sweep. Routing use (§5.2) is live with F2; predictor use waits for §7.4 activation |
 | D11 | Opening probes for new LOs | Off by default (`placement.initial_probes = false`). Diagnosis happens when a wrong answer leaves a real choice of repair |
 
 ---

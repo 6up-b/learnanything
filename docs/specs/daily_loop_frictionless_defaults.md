@@ -32,6 +32,7 @@ It supersedes the older "evidence first" rules where they made the learner do ex
 | S2 | **Assume known when it's likely, and check later.** A topic the learner says they know, or that early answers or the active predictor say is likely known, is marked **"assumed known (not tested)"**. It goes straight into maintenance with a long first interval, and that first review is the check. Failing it quietly returns the topic to learning |
 | S3 | **"Too easy" and "I don't know this" act immediately** on any item. They are routing preferences, labelled as such |
 | S4 | **A "Check what I already know" quick check is available but never required** |
+| S5 | **Your questions and hints are the placement signal** (owner, 2026-10-11).<br>• Tutor questions while reading, hints and their timing, and questions after feedback show where you're shaky. Those topics are taught first and never fast-tracked.<br>• Asking never lowers your record. It only changes what you practise next (`spec_learner_field_v1.md` §3.1) |
 
 ### The daily plan
 
