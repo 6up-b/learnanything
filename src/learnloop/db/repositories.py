@@ -8863,15 +8863,29 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         return dict(row) if row is not None else None
 
     def most_recent_ended_at(self) -> str | None:
-        """The end timestamp of the most recently completed session, or None.
+        """When the learner was last really active outside an open session, or None.
 
-        Powers the F7 welcome-back diff (§4.4): the "time since last session
-        end" gap the re-entry panel is gated on. Read-only, outside replay.
+        Powers the F7 welcome-back diff (§4.4): the break the re-entry panel is
+        gated on. That is the latest completed-session end or the latest attempt
+        that belongs to no still-open session (an attempt outside any session is
+        real activity too). The open session's own attempts are excluded so
+        practising inside the re-entry session never ends it. Stale sessions
+        are ended at their last activity (``end_open_sessions_except``), so the
+        app noticing them late does not reset the break. Read-only, outside replay.
         """
 
         with self.connection() as connection:
             row = connection.execute(
-                "SELECT MAX(ended_at) AS latest FROM sessions WHERE ended_at IS NOT NULL"
+                """
+                SELECT MAX(at) AS latest FROM (
+                  SELECT ended_at AS at FROM sessions WHERE ended_at IS NOT NULL
+                  UNION ALL
+                  SELECT attempt.created_at AS at
+                  FROM practice_attempts attempt
+                  LEFT JOIN sessions session ON session.id = attempt.session_id
+                  WHERE session.id IS NULL OR session.ended_at IS NOT NULL
+                )
+                """
             ).fetchone()
         return row["latest"] if row is not None else None
 
@@ -9054,15 +9068,29 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         ]
 
     def end_open_sessions_except(self, session_id: str, *, clock: Clock | None = None) -> int:
+        """End every other open (stale) session at its own last activity.
+
+        A session left open because the app closed mid-session ends where the
+        learner stopped: its last attempt or checkpoint write, else its start.
+        Stamping "now" would stretch it over the whole break and reset the
+        welcome-back gap (daily-loop follow-up, 2026-10-11)."""
+
         now = utc_now_iso(clock)
         with self.connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE sessions
-                SET ended_at = ?, updated_at = ?
+                SET ended_at = MAX(
+                      started_at,
+                      COALESCE((SELECT MAX(attempt.created_at) FROM practice_attempts attempt
+                                WHERE attempt.session_id = sessions.id), started_at),
+                      COALESCE((SELECT checkpoint.updated_at FROM session_checkpoints checkpoint
+                                WHERE checkpoint.session_id = sessions.id), started_at)
+                    ),
+                    updated_at = ?
                 WHERE ended_at IS NULL AND id != ?
                 """,
-                (now, now, session_id),
+                (now, session_id),
             )
             connection.commit()
             return cursor.rowcount
