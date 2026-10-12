@@ -106,3 +106,91 @@ New and changed tests:
 1. **Isolate the joint-grader baseline in M1?** See deviation 1.
 2. **Synthetic probe coverage.** With symbolic references the probe is mostly excluded. Should M1 also accept owner-confirmed synthetic answers, or is the binary, SymPy-decidable subset enough for the real-vs-synthetic decision?
 3. **Supersedes `slice-1-m1.md` open question 1.** The read-only workspace no longer uses `sandbox="read-only"`; it uses the permission-profile overrides above.
+
+## Re-review
+
+Review job `codex-agent/jobs/20261012-025612-TfErU7`, against `93951f2b..a0ad170f`. It confirmed F1, F2, F3, F6, F7, F8, F9, F10, F13 and F15 as fixed. It reopened F4, F5, F11, F12, F14 and F16, and added F17. Each reopened finding was reproduced with a failing test first, then fixed in its own commit (F4 and F17 share one, because they share the rewritten checker). F16 is rejected again, with a test that pins the spec's rule. Fakes only. No live or paid model call was made.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F4 | High | E1 ground truth: unparsed steps are skipped, and token presence stands in for the asserted conclusion | fixed | `2b4c6703` | `tests/test_diagnose_review.py`: `test_every_relation_in_an_alternative_is_checked_never_skipped` (reproduced `verified` for `Let x=1. Then x+x=99.\nTherefore 2.`), `test_the_asserted_conclusion_is_parsed_not_found_as_a_token` (reproduced `verified_wrong` for `1+1=2.\nThe answer is 2, not 3.` declared `3`), `test_sympy_never_sees_model_text_outside_a_safe_math_alphabet` (extended) |
+| F5 | Medium | As-of history ignores when a record was written | fixed | `d157ec7f` | `tests/test_diagnosis_history_modes.py::test_as_of_history_needs_each_record_written_before_the_cutoff` (reproduced: an owner and a hypothesis version written at hour 7 about a hour-1 attempt, and a cold observation recorded at hour 7 for a hour-2 cold attempt, were all visible at a hour-5 cutoff) |
+| F11 | Medium | The route binding omits `profile.max_tokens` | fixed | `065b6c80` | `test_a_resume_refuses_a_changed_output_limit` (reproduced: a resume with `max_tokens` 9,000 → 100 completed) |
+| F12 | Medium | A probe draft is checkpointed only after grading returns | fixed | `ddfe88cd` | `test_a_probe_draft_survives_an_interruption_while_it_is_graded` (reproduced: zero checkpoints after a cancellation while the first draft was graded) |
+| F14 | Medium | Unvalidated quotes remain an E4 alignment fallback | fixed | `b35575d8` | `test_e4_aligns_only_on_localization_validated_in_the_answer` (reproduced: two `whole_answer` anchors with null offsets and the same invented text aligned, n=1) |
+| F16 | Medium | Subscription requests still reserve `calls=1` against the shared cap | rejected | `6e48861d` (test only) | It conflicts with the spec. Slice A §5 rule 6 exempts Codex from a **physical-request** bound, tokens and dollars, but says "**Caps still apply** to call count, candidates and pairs, so a runaway loop stops". The shared implementation on `integrate/slice-a-2-3` (`ai/spend.py`, `SpendBudget(subscription=True)`) does the same: only `max_total_tokens` and `max_estimated_usd` go unenforced, and "the candidate, pair, call and retry caps still stop a runaway loop". `max_calls=0` refusing a Codex unit is that call-count cap, set by the owner. Exempting it would leave nothing to stop a Codex loop. `tests/test_diagnose_review_spend.py::test_the_call_count_cap_still_stops_subscription_work` pins the behaviour: nothing is sent, and tokens and dollars are never capped. |
+| F17 | Medium | Numeric verification strips leading minus signs | fixed | `2b4c6703` | `test_numeric_checks_keep_unary_signs_and_whole_expressions` (reproduced: the old checker returned `['1 + 3 = 2.']` for `-1 + 3 = 2.`) |
+
+### What changed, by finding
+
+- **F4 (E1 probe ground truth).**
+  - **Every relation is checked.** `probes.check_relations` tokenizes the whole derivation and takes every maximal run of math tokens that holds a relation as one chain. It decides a chain only when each side parses as plain arithmetic over numbers and single-letter symbols into an exact polynomial normal form (fractions, unary signs, brackets, `^`, implicit products such as `2x`).
+    - A definition (`Let x = 1`) binds the symbol, so `x+x=99` is then **false**.
+    - Constant sides are compared exactly, to half a unit of a stated rounded decimal.
+    - An identity holds when its normal forms match.
+  - **What is unchecked.** A conditional equation (`x+x=99` with `x` free), any other relation (`<`, `\neq`, `=>`), LaTeX, functions, a comma-joined tuple (`x, y = 2, 1`, `f(1, 2) = 3`, `1,000`), and a chain next to a prose word that is not a plain connective (`3 times 2 = 2`, `1 + 1 = 2 times 2`) are all **unchecked**. An unchecked chain excludes the draft (`unchecked_relation`); it is never skipped.
+  - **The asserted conclusion is parsed.** `asserted_conclusion` reads the last line's structure (`Final answer: X`, `... the answer is X`, `Therefore X`, or the whole line; `x = X` also offers `X`). The assertion must equal the declared final answer, and only then is it compared with the reference. `2, not 3` asserts neither 2 nor 3, so the reviewer's case is `unverified`, not `verified_wrong`.
+  - **A difference must be proven.** A synthetic answer is `verified_wrong` only when the difference is decided: exact arithmetic, distinct polynomial normal forms, or SymPy's `Expr.equals` finding a nonzero value. A simplification that fails to reach zero no longer counts. A rounded decimal within its stated precision is not "wrong".
+  - **SymPy hardening.** SymPy now sees only bounded safe text: no power towers or computed exponents, no attribute access (`pi.n(...)`), at most 200 characters, and single letters bound to plain symbols.
+  - **Prompts.** The probe prompts ask for a closing `Final answer: <answer>` line and plain ASCII equations, one chain per sentence (`grader-probes-v3`).
+  - **Recorded detail.** Each check records `asserted_answer` and, when verified, `relations_checked`.
+- **F17.** It is fixed by the same checker. Whole expressions are parsed with their unary signs, so `-1 + 3 = 2`, `2 * (-1) = -2`, `-(1 - 3) = 2` and `(1 + 3) / 2 = 2` hold, and `-1 + 3 = -2` is false. A run starts at the first math token, never inside an expression.
+- **F5 (as-of history).**
+  - **Written before the cutoff.** In a vault, every record must now also have been written before the diagnosed attempt (its `created_at`, parsed as UTC; an unparseable time fails closed). That covers cold observations, repair owners, hypotheses, unresolved factors, misconceptions and registry candidates. A source attempt that precedes the cutoff is no longer enough.
+  - **Hypothesis versions.** All causal-hypothesis versions are loaded, since they are immutable audit rows. At each cutoff, the latest version written before it is shown, and a repair class's owners are those versions.
+  - **Timestamps.** A mutable row's `last_updated` falls back to its creation time when the last update postdates the cutoff.
+- **F11.** The route binding now records the profile's `max_tokens` and the output limit each metered request is held to (`spend.admitted_output_limit`: the route allowance or the profile's larger limit; `None` on subscription routes). A mismatch names the changed settings.
+- **F12.**
+  - **Drafted checkpoint.** A new probe draft is written at once as `drafted`, a retryable status that carries the draft and its probe id. That happens before it is verified or graded.
+  - **Resume.** `drafted` and `grading_failed` rows are re-verified and graded under the same probe id. A cancellation or spend refusal mid-grading never pays to regenerate a draft.
+  - **Excluded probes.** These now keep their draft in `detail` for audit.
+- **F14.**
+  - **Validated anchors.** Every E4 anchor is validated against the learner's answer, which the report now loads from the scratch copy. Offsets count only when the text there is the quote, up to whitespace. Otherwise the quote must occur exactly once.
+  - **What never aligns.** Invented quotes, empty quotes (for example `missing_required_step` events) and ambiguous quotes are reported as *not localized*.
+  - **Correspondence.** It needs overlapping validated spans and compatible targets.
+  - **Report.** It shows unlocalized blind and stored events next to the unmatched and ambiguous counts.
+
+### Deviations and notes
+
+1. **Narrower valid-alternative coverage on symbolic vaults.** Any equation the exact checker cannot decide now excludes the draft, for example `A = U Sigma V^T`, LaTeX, `sqrt`, or `2x + 3 = 7`. This is what F4 asks for (nothing skipped), but in linear-algebra-style vaults most alternatives will now be `unverified`. The prompts steer generators toward checkable ASCII arithmetic, and the report shows every status.
+2. **Prose is not machine-checkable.** A step written in words is not verified. For those steps the spec's "checked by CAS/sympy or the exact key" is met by the key check on the asserted conclusion. `relations_checked` records how much of a verified draft was actually checked.
+3. **"and" is not a connective next to an equation**, because English uses it for addition ("1 and 1 = 2"). One existing test's derivation text changed from ", and 1+1 = 2" to ", so 1+1 = 2".
+4. **Mutable registry rows still show their current status.** Factors, misconceptions and candidates have no status history. They now appear only once written before the cutoff, but their status is today's. The receipt's `lagged_attempts` discloses this as before. Causal hypotheses, which are versioned, are fully as-of.
+5. **Older run directories cannot be resumed.** Runs started before these commits get `incompatible_resume`, because the probe prompt version and the route-binding fields changed. No owner run exists yet.
+
+### Manual check (fakes only, on a backup-API copy)
+
+- **Setup.** The earlier smoke run (`fixtures-local/m1-runs/review-fixes-smoke`) was copied with `learnloop.db.copies.copy_tree_with_databases`. `learnloop diagnose report --vault fixtures-local/m1-linear_algebra` rendered the report (15.6 KB).
+- **E4 counts per arm.**
+  - **Blind:** 6 localized but unmatched, 0 ambiguous, 0 not localized.
+  - **Stored joint:** 3 localized but unmatched, 6 not localized. All 6 have no quote: `missing_required_step`, or an anchor with no kind.
+- **Cleanup.** The copy was deleted afterwards.
+
+### Gate (re-review)
+
+All results are on `6e48861d`, the last fix commit; the commit after it records only this section.
+
+| Gate | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 6 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` (run with `-q -p no:cacheprovider`) | **6265 passed**, 0 failed (14 warnings, pre-existing), 2 m 52 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` (run with `-q -p no:cacheprovider`) | **63 passed**, 6202 deselected, 0 failed, 37 s |
+| Frontend (`npm run typecheck`, `npm test`) | not run: no frontend change |
+| DB reference generate/validate | not run: no schema change |
+
+New and changed tests:
+- **`tests/test_diagnose_review.py`:**
+  - **New:** 6 tests: the 3 F4/F17 checker tests, F11, F12 and F14.
+  - **Extended:** `test_sympy_never_sees_model_text_outside_a_safe_math_alphabet`.
+  - **Changed:** one derivation text in `test_a_valid_alternative_is_verified_on_its_submitted_derivation`; the E4 fixture now carries the learner answer.
+- **`tests/test_diagnosis_history_modes.py`:** +1 (F5).
+- **`tests/test_diagnose_review_spend.py`:** +1 (F16, pinned).
+- **`tests/diagnosis_fakes.py`:** the fake valid alternative ends with a `Final answer:` line.
+
+### Open questions for the owner (re-review)
+
+1. **Valid-alternative coverage on symbolic items.** Should M1 add an owner-confirmed path for alternatives whose equations the exact checker cannot decide? See deviation 1. Today only checkable arithmetic and exact-key conclusions count.
+2. **F16.** Should Codex also be exempt from `--max-calls`? That would change Slice A §5 rule 6 and the shared `SpendBudget(subscription=True)`, not just M1. Until then the call cap is the only bound on a runaway Codex loop.
