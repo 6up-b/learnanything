@@ -291,6 +291,8 @@ def scan_exam_leakage(loaded: LoadedVault, repository: Repository, vectors: Stor
                     continue
                 found = True
                 for rank, match in enumerate(index.ranked(query, limit=top_k), start=1):
+                    if match.record_id not in span_by_key:
+                        continue  # changed between the index manifest and this scan
                     hit = candidate(item, match.record_id)
                     hit.reasons.add("embedding")
                     hit.note_embedding(query=recipe, score=match.score, rank=rank)
@@ -443,6 +445,8 @@ def scan_reader_reveal(loaded: LoadedVault, repository: Repository, vectors: Sto
                 continue
             with_vectors += 1
             for rank, match in enumerate(index.ranked(query, limit=top_k), start=1):
+                if match.record_id not in by_id:
+                    continue  # a reserve released between the index manifest and this scan
                 hit = candidate(event, match.record_id)
                 hit.reasons.add("embedding")
                 hit.note_embedding(query="question_event/answer", score=match.score, rank=rank)
