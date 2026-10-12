@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 173
+schema_head: 174
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -29,6 +29,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
+  - "src/learnloop/daily_plan/headline.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
+- `src/learnloop/daily_plan/headline.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
@@ -117,7 +119,6 @@ Indexes and uniqueness:
 - `src/learnloop/learner/recall_calibration.py`
 - `src/learnloop/ops/doctor.py`
 - `src/learnloop/placement/predictor.py`
-- `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

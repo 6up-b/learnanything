@@ -3,13 +3,13 @@ title: "parameter_registry_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry_manifests"
   - "table parameter_registry_manifests"
-schema_head: 173
+schema_head: 174
 table_name: "parameter_registry_manifests"
 table_role: "receipt"
 functionality_status: "active"
@@ -96,6 +96,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_mvp011_upgrade.py`
+- `tests/test_mvp012_upgrade.py`
 - `tests/test_p0_cutover_mvp08.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

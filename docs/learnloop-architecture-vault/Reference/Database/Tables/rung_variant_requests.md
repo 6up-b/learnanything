@@ -3,13 +3,13 @@ title: "rung_variant_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite rung_variant_requests"
   - "table rung_variant_requests"
-schema_head: 173
+schema_head: 174
 table_name: "rung_variant_requests"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/pipeline/runner.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/scheduling/scheduler.py"
-  - "src/learnloop_sidecar/handlers/item_authoring.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`
 

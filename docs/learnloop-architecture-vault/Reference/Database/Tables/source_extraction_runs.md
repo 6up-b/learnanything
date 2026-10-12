@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 173
+schema_head: 174
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -116,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
+- `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_authoring.py`
@@ -135,6 +136,7 @@ Indexes and uniqueness:
 
 - `tests/test_ingest_runner.py`
 - `tests/test_migrations.py`
+- `tests/test_daily_plan_reading.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_primed_attempts.py`
 - `tests/test_sidecar_ingest_m3.py`

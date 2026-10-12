@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 173
+schema_head: 174
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -27,9 +27,9 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
-  - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop/diagnosis/followups.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -106,6 +106,8 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
+- `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
@@ -116,6 +118,7 @@ Indexes and uniqueness:
 - `src/learnloop/scheduling/reentry_summary.py`
 - `src/learnloop/scheduling/session_minutes.py`
 - `src/learnloop_sidecar/context.py`
+- `src/learnloop_sidecar/handlers/daily_plan.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
@@ -131,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_reentry_break.py`
 - `tests/test_daily_loop_reentry_cap.py`
 - `tests/test_daily_loop_start_minutes.py`
+- `tests/test_daily_plan_reentry.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_init.py`
 - `tests/test_mobile_doctor.py`
@@ -144,7 +148,6 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnosis_async_router.py`
-- `tests/test_e2e_codex_mock.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

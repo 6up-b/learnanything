@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 173
+schema_head: 174
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -112,6 +112,9 @@ Indexes and uniqueness:
 - `src/learnloop/content/proposals/patches.py`
 - `src/learnloop/content/synthesis/coverage_rollup.py`
 - `src/learnloop/curriculum/golden_path_compose.py`
+- `src/learnloop/daily_plan/engine.py`
+- `src/learnloop/daily_plan/headline.py`
+- `src/learnloop/daily_plan/reentry.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
@@ -122,9 +125,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
-- `src/learnloop/diagnosis/probe_lifecycle.py`
-- `src/learnloop/diagnosis/probe_remint.py`
-- `src/learnloop/diagnosis/quick_check.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

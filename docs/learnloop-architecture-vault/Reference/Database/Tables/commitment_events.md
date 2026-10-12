@@ -3,13 +3,13 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
   - "table commitment_events"
-schema_head: 173
+schema_head: 174
 table_name: "commitment_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
-  - "src/learnloop/scheduling/controller_snapshot.py"
+  - "src/learnloop/daily_plan/engine.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -100,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/curriculum/depth_rungs.py`
 - `src/learnloop/curriculum/depth_transition.py`
+- `src/learnloop/daily_plan/engine.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/scheduling/scheduler.py`

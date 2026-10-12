@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 173
+schema_head: 174
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/cli/data.py"
+  - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/graph_nomination_report.py"
   - "src/learnloop/substrate/dataset.py"
@@ -104,6 +105,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/ops/graph_nomination_report.py`
 
@@ -126,6 +128,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_daily_plan_reading.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_migrations.py`
 - `tests/test_model_usage_report.py`

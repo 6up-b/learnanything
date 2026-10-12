@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "381987d2fd39f858c3fc99d0ac619b0882a3e8ac"
+source_commit_timestamp: "2026-10-12T16:23:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 173
-table_count: 288
+schema_head: 174
+table_count: 289
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_173/state.sqlite"
+  - "fixtures/migration_head_174/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-173"
+  - "learnloop/database/schema-head-174"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 288 user tables at migration head 173. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 289 user tables at migration head 174. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 288 user tables at migration head 173. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 135 |
 | [[Table Roles#Derived|`derived`]] | 12 |
 | [[Table Roles#Receipt|`receipt`]] | 61 |
-| [[Table Roles#Workflow|`workflow`]] | 70 |
+| [[Table Roles#Workflow|`workflow`]] | 71 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 275 |
+| `active` | 276 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -213,7 +213,7 @@ Diagnostic probes, causal attribution, misconceptions, and repair evidence. This
 Queue selection, sessions, controller decisions, and policy evaluation. This is a navigational grouping, not permission for cross-domain imports. ^family-scheduling
 
 - [[Reference/Database/Tables/attention_block_events|attention_block_events]] — `receipt` · `active` · Preserves an append-only chronology of attention block so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `block_id`, `event_ordinal`, `kind`, making the operational relationship explicit.
-- [[Reference/Database/Tables/attention_blocks|attention_blocks]] — `workflow` · `active` · Gives attention block a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `commitment_id`, `short_circuit_reason`, making the operational relationship explicit.
+- [[Reference/Database/Tables/attention_blocks|attention_blocks]] — `workflow` · `active` · Gives attention block a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `session_id`, `commitment_id`, `daily_plan_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/composed_selector_telemetry_horizons|composed_selector_telemetry_horizons]] — `workflow` · `active` · Gives composed selector telemetry horizon a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `horizon_days`, `opened_at`, `retires_at`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_candidates|controller_candidates]] — `workflow` · `active` · Holds candidates for controller while policy selects or reviews one so queue and controller decisions can resume safely and explain why an activity was selected. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `decision_id`, `learning_object_id`, `comparator_score`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_constraint_manifests|controller_constraint_manifests]] — `receipt` · `active` · Pins the complete input identity for controller constraint so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `manifest_hash`, making the operational relationship explicit.
@@ -224,6 +224,7 @@ Queue selection, sessions, controller decisions, and policy evaluation. This is 
 - [[Reference/Database/Tables/controller_prequential_reports|controller_prequential_reports]] — `receipt` · `dormant-shadow` · Stores delayed evaluation reports over controller shadow predictions. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `target_kind`, `horizon_kind`, `report_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_shadow_predictions|controller_shadow_predictions]] — `receipt` · `dormant-shadow` · Stores non-authoritative controller predictions; a schema CHECK fixes authority to 'none'. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `scorer_kind`, `model_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/controller_snapshots|controller_snapshots]] — `receipt` · `active` · Gives controller snapshot a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `snapshot_hash`, `param_manifest_hash`, making the operational relationship explicit.
+- [[Reference/Database/Tables/daily_plans|daily_plans]] — `workflow` · `active` · Holds each local day's finite daily plan (daily-loop DL1, mvp-0.12): its kind (normal, re-entry or a keep-going extension), budget and remembered minutes, the split_v1 lane minutes and the new-material admission it was built with, and its status. Its blocks are attention_blocks rows (daily_plan_id, plan_ordinal, lane, chosen_by) whose every decision is an attention_block_events receipt; nothing here is evidence and replay never reads it. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `parent_plan_id`, `estimator_version`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/decision_features|decision_features]] — `receipt` · `active` · Freezes the decision-time inputs of scheduler, probe and grading decisions. Selection rows (`feature_schema` `selection_features_v1`) hold the learner's ability vector for the item's learning object and the item's scored demand vector; `item_demand_vector.content_hash` joins to `practice_item_snapshots.content_hash`, and components, propensity and policy stay on the scheduler candidate and slate rows that `decision_id` names. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `decision_id`, `decision_type`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/familiarity_kernel_events|familiarity_kernel_events]] — `receipt` · `active` · Preserves an append-only chronology of familiarity kernel so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `model_id`, `event_kind`, `event_ordinal`, making the operational relationship explicit.
 - [[Reference/Database/Tables/familiarity_kernel_features|familiarity_kernel_features]] — `receipt` · `active` · Gives familiarity kernel feature a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `model_id`, `subject_surface_id`, `kin_surface_id`, making the operational relationship explicit.
