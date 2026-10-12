@@ -136,6 +136,24 @@ def set_status(
     connection.execute(f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", params)
 
 
+def graded_contract_version_ids(connection: sqlite3.Connection) -> list[str]:
+    """Every assessment contract version a live grading row was written against.
+
+    Their criteria are frozen: the canonical projection replays an attempt
+    from its contract, never from the item as it loads today (review F1).
+    """
+
+    rows = connection.execute(
+        """
+        SELECT DISTINCT assessment_contract_version_id FROM grading_evidence
+         WHERE superseded_at IS NULL
+           AND assessment_contract_version_id IS NOT NULL
+           AND assessment_contract_version_id != ''
+        """
+    ).fetchall()
+    return sorted(str(row[0]) for row in rows)
+
+
 def delete_merge_rows(connection: sqlite3.Connection, rows: Iterable[Sequence[str]]) -> int:
     """Remove exactly the ``facet_merges`` rows an action inserted (its undo)."""
 
@@ -152,6 +170,7 @@ __all__ = [
     "ACTION_COLUMNS",
     "action_by_id",
     "delete_merge_rows",
+    "graded_contract_version_ids",
     "insert_action",
     "list_actions",
     "set_status",

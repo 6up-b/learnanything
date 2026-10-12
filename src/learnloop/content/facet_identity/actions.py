@@ -240,6 +240,96 @@ def lock_reasons(vault: LoadedVault, repository: Repository, facet_ids: Iterable
     return out
 
 
+def graded_shared_criteria(
+    vault: LoadedVault, repository: Repository, facet_ids: Iterable[str],
+) -> list[dict[str, Any]]:
+    """Graded criteria whose frozen contract names two of ``facet_ids`` at one capability.
+
+    The canonical projection replays an attempt from the assessment contract
+    it was graded against (not from the item as it loads today) and resolves
+    each target through aliases and ``facet_merges``. Merging two facets that
+    one such criterion targets at the same capability would leave that
+    criterion naming one cell twice: a correct answer's mass split and
+    discounted, a wrong one read as two candidate causes and never counted
+    (review F1). The loader collapses those duplicates for items as they load
+    today; frozen history keeps them, so a merge must not create them.
+    """
+
+    members = {str(facet_id) for facet_id in facet_ids}
+    if len(members) < 2:
+        return []
+    with repository.connection() as connection:
+        contract_ids = store.graded_contract_version_ids(connection)
+    if not contract_ids:
+        return []
+    contracts = repository.effective_assessment_contract_versions(
+        contract_ids, projection_version=vault.config.algorithms.algorithm_version,
+    )
+    merge_map = repository.facet_merge_map()
+
+    def resolve(facet_id: str) -> str:
+        current = vault.canonical_facet_id(facet_id)
+        seen: set[str] = set()
+        while current in merge_map and current not in seen:
+            seen.add(current)
+            current = merge_map[current]
+        return current
+
+    shared: list[dict[str, Any]] = []
+    for source_id, stored in sorted(contracts.items()):
+        for criterion in (stored.get("contract") or {}).get("criteria") or []:
+            named: dict[str, set[str]] = {}
+            for target in criterion.get("targets") or []:
+                facet = resolve(str(target.get("facet") or ""))
+                if facet in members:
+                    named.setdefault(str(target.get("capability") or ""), set()).add(facet)
+            for capability, facets in sorted(named.items()):
+                if len(facets) > 1:
+                    shared.append({
+                        "contract_version_id": source_id,
+                        "practice_item_id": stored.get("practice_item_id"),
+                        "criterion_id": str(criterion.get("id") or ""),
+                        "capability": capability,
+                        "facets": sorted(facets),
+                    })
+    return shared
+
+
+def hold_back_shared(
+    survivor: str, retired: Sequence[str], shared: Sequence[Mapping[str, Any]],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Split ``retired`` into the facets that can merge and those a graded criterion holds back.
+
+    Greedy in the judge's order: a retiree is held back when a graded
+    criterion names it together with the survivor or a retiree already kept
+    (review F1). Returns ``(kept, held_back)``.
+    """
+
+    group = {survivor}
+    kept: list[str] = []
+    held: list[dict[str, Any]] = []
+    for facet_id in retired:
+        hits = [dict(criterion) for criterion in shared
+                if facet_id in criterion["facets"] and (set(criterion["facets"]) - {facet_id}) & group]
+        if hits:
+            held.append({
+                "facet_id": facet_id,
+                "with": sorted({other for hit in hits for other in hit["facets"] if other != facet_id} & group),
+                "criteria": hits,
+            })
+            continue
+        group.add(facet_id)
+        kept.append(facet_id)
+    return kept, held
+
+
+#: Why a held-back facet stays registered (review F1); shown with each one.
+HELD_BACK_NOTE = (
+    "not merged: a graded criterion targets both facets at one capability, and its frozen contract "
+    "would then count one facet twice"
+)
+
+
 def affected_learning_objects(vault: LoadedVault, facet_ids: Iterable[str]) -> list[str]:
     wanted = {vault.canonical_facet_id(facet_id) for facet_id in facet_ids} | set(facet_ids)
     affected: set[str] = set()
@@ -287,7 +377,11 @@ def merge_registered_facets(
 
     Returns ``{"status": "applied" | "refused", ...}``. A refusal (an unknown
     or already-aliased facet, a locked facet under the strict policy, or a
-    ``facet_merges`` conflict) writes nothing.
+    ``facet_merges`` conflict) writes nothing. A retiree that a graded
+    criterion names together with the survivor (or with a retiree already
+    kept) is held back under either lock policy and listed in ``held_back``
+    (review F1); when every retiree is held back the merge is refused
+    (``shared_graded_criterion``).
     """
 
     from learnloop.vault_lock import vault_mutation_lock
@@ -302,10 +396,17 @@ def merge_registered_facets(
         unknown = [facet_id for facet_id in (survivor, *retired) if facet_id not in vault.evidence_facets]
         if unknown:
             return {"status": "refused", "reason": "unknown_facet", "facet_ids": unknown}
+        retired, held_back = hold_back_shared(
+            survivor, retired, graded_shared_criteria(vault, repository, (survivor, *retired)),
+        )
+        if not retired:
+            return {"status": "refused", "reason": "shared_graded_criterion", "held_back": held_back,
+                    "note": HELD_BACK_NOTE}
         locks = lock_reasons(vault, repository, (survivor, *retired))
         policy = vault.config.facet_identity.merge_locked_facets if merge_locked is None else merge_locked
         if locks and not policy:
-            return {"status": "refused", "reason": "identity_locked", "lock_reasons": locks}
+            return {"status": "refused", "reason": "identity_locked", "lock_reasons": locks,
+                    "retired_facet_ids": retired, "held_back": held_back}
         merge_map = repository.facet_merge_map()
         already = [facet_id for facet_id in retired if facet_id in merge_map]
         if already:
@@ -336,7 +437,8 @@ def merge_registered_facets(
             "merge_rows": [[facet_id, survivor] for facet_id in retired],
             "judgment_ids": list(judgment_ids), "judge": judge,
             "judge_model": judge_model, "prompt_version": prompt_version,
-            "detail": {**dict(detail or {}), "absorb_as": absorb_as, "lock_reasons": locks},
+            "detail": {**dict(detail or {}), "absorb_as": absorb_as, "lock_reasons": locks,
+                       **({"held_back": held_back} if held_back else {})},
             "status": "applying", "created_at": now,
         }
         # 1. The intent: the action row and its facet_merges rows, one transaction.
@@ -362,6 +464,7 @@ def merge_registered_facets(
         "status": "applied", "action_id": action_id, "action": action, "survivor_facet_id": survivor,
         "retired_facet_ids": retired, "absorb_as": absorb_as,
         "locked": bool(locks), "lock_reasons": locks, "affected_learning_objects": affected_before,
+        "held_back": held_back,
     }
 
 
@@ -461,6 +564,8 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
         }),
         # Why an attach left a registered facet's contract as it was.
         "contract_note": detail.get("contract_note"),
+        # Retirees of the judged set a graded criterion kept registered (review F1).
+        "held_back": [str(held.get("facet_id")) for held in detail.get("held_back") or []],
         # What an undo does not move back (review F9).
         "undo_limits": UNDO_LIMITS,
         "judge": record["judge"],
@@ -705,10 +810,13 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
 
 __all__ = [
     "FacetIdentityActionError",
+    "HELD_BACK_NOTE",
     "append_owner_verdicts",
     "action_by_id",
     "affected_learning_objects",
     "describe",
+    "graded_shared_criteria",
+    "hold_back_shared",
     "effective_status",
     "insert_action",
     "list_actions",

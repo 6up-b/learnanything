@@ -20,6 +20,7 @@ from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.spend import ESTIMATED_ONLY, SpendBudget, SpendLimitExceeded
 from learnloop.clock import Clock
 from learnloop.content.facet_identity.actions import (
+    HELD_BACK_NOTE,
     action_by_id,
     describe,
     lock_reasons,
@@ -223,8 +224,17 @@ def run_dedupe(
                 })
             elif result.get("reason") == "identity_locked":
                 report["locked_proposals"].append(_locked_proposal(vault, decided, outcome, result))
-            else:
+            elif result.get("reason") != "shared_graded_criterion":
                 report["refused"].append({"survivor": decided.survivor, "retired": decided.retired, **result})
+            # Retirees a graded criterion names together with the set (review
+            # F1) stay registered under either lock policy.
+            if result.get("held_back"):
+                report["refused"].append({
+                    "survivor": decided.survivor,
+                    "retired": [held["facet_id"] for held in result["held_back"]],
+                    "status": "refused", "reason": "shared_graded_criterion",
+                    "held_back": result["held_back"], "note": HELD_BACK_NOTE,
+                })
     report["charged"] = judge.charged()
     statuses = {outcome.status for outcome in outcomes}
     if statuses <= {"judged", "reused"}:
@@ -248,7 +258,7 @@ def _locked_proposal(vault: LoadedVault, decided: Any, outcome: Any, result: dic
         "action": decided.action,
         "absorb_as": decided.absorb_as,
         "survivor": facet(decided.survivor),
-        "retired": [facet(facet_id) for facet_id in decided.retired],
+        "retired": [facet(facet_id) for facet_id in result.get("retired_facet_ids") or decided.retired],
         "rationale": decided.rationale,
         "lock_reasons": result.get("lock_reasons") or {},
         "judge": outcome.judge,

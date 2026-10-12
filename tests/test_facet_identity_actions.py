@@ -246,8 +246,9 @@ def _vault_targeting(root, targets, *, recipe_facets=()):
         {"id": DUP, "kind": "definition", "claim": "Every matrix A can be written A = U Sigma V^T."},
     ])
     write_yaml(paths.practice_item_path("linear-algebra", "pi_both_001"), _item(
-        "pi_both_001", "lo_svd_application", evidence_facets=sorted({facet for facet, _role in targets}),
-        rubric=_rubric("states", [{"facet": facet, "capability": "retrieval", "role": role} for facet, role in targets],
+        "pi_both_001", "lo_svd_application", evidence_facets=sorted({target[0] for target in targets}),
+        rubric=_rubric("states", [{"facet": target[0], "capability": target[2] if len(target) > 2 else "retrieval",
+                                   "role": target[1]} for target in targets],
                        correlation_group="both"),
         fingerprint={"source_family": "both"},
     ))
@@ -312,6 +313,83 @@ def test_authored_duplicate_targets_without_an_alias_load_unchanged(tmp_path):
     paths, _repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (SHARED, "supporting")])
     targets = load_vault(paths.root).practice_items["pi_both_001"].grading_rubric.criteria[0].targets
     assert [(target.facet, target.role) for target in targets] == [(SHARED, "primary"), (SHARED, "supporting")]
+
+
+@pytest.mark.parametrize("score", [4, 0])
+def test_a_criterion_graded_before_the_merge_keeps_its_two_facets_apart(tmp_path, score):
+    """Re-review F1: history is replayed from its frozen contract, which still names both facets.
+
+    Merging would resolve that criterion's targets to the survivor twice: a
+    correct answer read alpha 1.625 / mass 0.5 (one target: 2.0 / 1.0), and a
+    wrong one wrote no recall row (one target: beta 2.0). The merge now holds
+    the retiree back, under either lock policy, and changes nothing.
+    """
+
+    paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
+    _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": score}, FrozenClock(NOW))
+    before_belief = _belief(repository)
+    before_file = paths.facets_path.read_text(encoding="utf-8")
+
+    refused = _merge(paths, repository)  # the owner's override: the lock policy is not what refuses
+    assert refused["status"] == "refused" and refused["reason"] == "shared_graded_criterion"
+    (held,) = refused["held_back"]
+    assert held["facet_id"] == DUP and held["with"] == [SHARED]
+    assert [(hit["practice_item_id"], hit["criterion_id"], hit["capability"], hit["facets"])
+            for hit in held["criteria"]] == [("pi_both_001", "states", "retrieval", sorted([SHARED, DUP]))]
+    assert paths.facets_path.read_text(encoding="utf-8") == before_file
+    assert list_actions(repository) == [] and _merge_rows(paths) == []
+    assert _belief(repository) == before_belief
+
+
+def test_a_held_back_retiree_stays_registered_while_the_rest_of_the_set_merges(tmp_path):
+    paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
+    _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": 0}, FrozenClock(NOW))
+    result = merge_registered_facets(
+        paths.root, repository, survivor=SHARED, retired=[DUP, "recall"], action="merge", absorb_as=None,
+        origin="dedupe", run_id="run1", judge="llm", judge_model="fake", prompt_version="v1", clock=_CLOCK,
+        merge_locked=True,
+    )
+    assert result["status"] == "applied" and result["retired_facet_ids"] == ["recall"]
+    assert [held["facet_id"] for held in result["held_back"]] == [DUP]
+    vault = load_vault(paths.root)
+    assert DUP in vault.evidence_facets and "recall" in vault.evidence_facets[SHARED].aliases
+    (record,) = list_actions(repository)
+    assert record["retired_facet_ids"] == ["recall"] and _merge_rows(paths) == [("recall", SHARED)]
+    from learnloop.content.facet_identity.actions import describe
+
+    assert describe(record, vault)["held_back"] == [DUP]
+
+
+def test_a_criterion_naming_the_two_facets_at_different_capabilities_does_not_hold_back(tmp_path):
+    paths, repository = _vault_targeting(
+        tmp_path / "vault", [(SHARED, "primary", "retrieval"), (DUP, "primary", "method_selection")],
+    )
+    _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": 4}, FrozenClock(NOW))
+    result = _merge(paths, repository)
+    assert result["status"] == "applied" and result["held_back"] == []
+
+
+def test_dedupe_reports_a_held_back_retiree_as_refused(tmp_path):
+    from learnloop.content.facet_identity.dedupe import run_dedupe
+
+    from tests.facet_identity_fakes import FakeFacetJudge
+    from tests.helpers import append_config_toml
+
+    paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
+    facets = read_yaml(paths.facets_path)
+    for entry in facets["facets"]:
+        entry["concept_id"] = "singular_value_decomposition"
+    write_yaml(paths.facets_path, facets)
+    _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": 0}, FrozenClock(NOW))
+    append_config_toml(paths.root, "[facet_identity]\nmerge_locked_facets = true")
+    judge = FakeFacetJudge(clusters=[["SVD factorizes into U, Sigma, V^T.",
+                                      "Every matrix A can be written A = U Sigma V^T."]])
+    report = run_dedupe(paths.root, client=judge, clock=_CLOCK)
+    assert report["status"] == "complete" and report["actions"] == [] and report["locked_proposals"] == []
+    (refused,) = report["refused"]
+    assert refused["reason"] == "shared_graded_criterion" and refused["retired"] == [DUP]
+    assert refused["survivor"] in {SHARED, DUP} and refused["held_back"][0]["criteria"]
+    assert list_actions(repository) == [] and DUP in load_vault(paths.root).evidence_facets
 
 
 # --- review F4: merge and undo survive an interrupted process ------------------------
