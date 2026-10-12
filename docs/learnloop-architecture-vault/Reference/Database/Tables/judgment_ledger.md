@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 173
+schema_head: 174
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/cli/diagnose.py"
+  - "src/learnloop/cli/embeddings.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
-  - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/db/stores/pf.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -101,6 +102,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/cli/families.py`
 - `src/learnloop/db/stores/families.py`
+- `src/learnloop/db/stores/pf.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/offline_review/links.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
@@ -112,6 +114,9 @@ None found by exact static reference scan.
 - `src/learnloop/ops/contamination/report.py`
 - `src/learnloop/ops/family_proposals.py`
 - `src/learnloop/ops/graph_nomination_report.py`
+- `src/learnloop/ops/pf_calls.py`
+- `src/learnloop/ops/pf_publish.py`
+- `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/substrate/families.py`
 
@@ -134,12 +139,15 @@ None found by exact static reference scan.
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_diagnosis_reports.py`
+- `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`
 - `tests/test_family_proposals.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judgment_ledger.py`
+- `tests/test_pf_generation.py`
+- `tests/test_pf_reports.py`
 - `tests/test_practice_index_evaluation.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_success_head_cli.py`

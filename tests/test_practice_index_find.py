@@ -488,3 +488,41 @@ def test_a_rerank_whose_checkpoint_failed_is_recovered_from_its_receipt(indexed,
     assert result["rerank_status"] == "reranked" and result["items"]
     assert sum(1 for purpose, _ in llm.calls if purpose == "practice_rerank") == reranks
     assert result["rerank_model"] == llm.model
+
+
+def _store_skeletons(repository, vault, item_ids):
+    from learnloop.db.stores.pf import insert_skeleton
+    from learnloop.vault.hashes import skeleton_content_hash
+
+    with repository.connection() as connection:
+        for item_id in item_ids:
+            item = vault.practice_items[item_id]
+            insert_skeleton(
+                connection, skeleton_id=f"sk_{item_id}",
+                content_hash=skeleton_content_hash(item.prompt, item.expected_answer),
+                subject_kind="practice_item", subject_id=item_id, model_id="fake/skeleton",
+                prompt_version="pf-skeleton-test", techniques=["outline"], operations=[],
+                checkpoints=[], skeleton_text=f"Outline: {item.prompt}",
+                created_at="2026-10-12T00:00:00Z",
+            )
+
+
+def test_item_skeleton_vectors_rank_items_only_once_they_cover_every_item(indexed):
+    """Phase 5a merge: PF-b skeletons exist only for the items it generated or
+    judged, so a partial item/skeleton index never displaces item-text vectors."""
+    paths, vault, repository, llm, embedder = indexed
+    assert load_snapshot(vault, repository, embedder=embedder).item_recipe == "item/stem"
+    items = sorted(item_id for item_id, item in vault.practice_items.items() if item.status != "retired")
+    _store_skeletons(repository, vault, items[:1])
+    vault = load_vault(paths.root)
+    assert backfill_embeddings(vault, caps=CAPS, client_factory=lambda: embedder)["status"] == "complete"
+    partial = load_snapshot(vault, repository, embedder=embedder)
+    assert partial.item_recipe == "item/stem"
+    assert set(partial.item_manifest) == set(items)
+    _store_skeletons(repository, vault, items[1:])
+    vault = load_vault(paths.root)
+    assert backfill_embeddings(vault, caps=CAPS, client_factory=lambda: embedder)["status"] == "complete"
+    full = load_snapshot(vault, repository, embedder=embedder)
+    assert full.item_recipe == "item/skeleton" and set(full.item_manifest) == set(items)
+    result = find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert result["signals"]["item"] == ["item_bm25", "item_vector"]

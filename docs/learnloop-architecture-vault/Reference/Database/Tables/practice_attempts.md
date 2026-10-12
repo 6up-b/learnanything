@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 173
+schema_head: 174
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -186,6 +186,8 @@ Indexes and uniqueness:
 - `src/learnloop/field/signals.py`
 - `src/learnloop/goals/goal_series.py`
 - `src/learnloop/ops/contamination/detectors.py`
+- `src/learnloop/ops/pf_generation.py`
+- `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/placement/decisions.py`
 - `src/learnloop/placement/report.py`
 - `src/learnloop/placement/state.py`
@@ -238,13 +240,13 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_replay.py`
 - `tests/test_diagnostic_augmentation.py`
 - `tests/test_dialogue_causal_join.py`
+- `tests/test_embedding_compare.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_exam_seeding.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_forecast_ledger.py`
 - `tests/test_gate_fit.py`
 - `tests/test_goal_pace.py`
-- `tests/test_goal_series.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

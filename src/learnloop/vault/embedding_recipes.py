@@ -14,6 +14,11 @@ written for the facet's current content (one record id, several content
 hashes), because which revision serves depends on the facet's current sources,
 which only the practice index can compute. Retrieval then reads exactly the
 selected revision's vector by its content hash.
+
+``item/skeleton`` likewise reads persisted paid output: Phase 5a's (PF-b) LLM
+solution skeletons (``item_skeletons``) for each item's CURRENT text, one per
+item. It never calls a model and yields nothing for an item PF-b has not
+skeletonized, so it covers the items PF-b generated or judged, not the bank.
 """
 from __future__ import annotations
 
@@ -26,7 +31,9 @@ from types import MappingProxyType
 from typing import Any
 
 from learnloop.db.connection import connect
+from learnloop.db.stores.pf import skeletons_for_hashes
 from learnloop.db.stores.practice_index import dossier_candidates
+from learnloop.vault.hashes import skeleton_content_hash
 from learnloop.vault.models import EvidenceFacet, LoadedVault
 from learnloop.vault.paths import VaultPaths
 
@@ -204,6 +211,36 @@ def _dossier_field(field: str) -> Callable[[LoadedVault], Iterator[tuple[str, st
     return texts
 
 
+def _item_skeletons(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+    """PF-b's persisted LLM skeletons for each item's CURRENT text (Slice 2 §5.4).
+
+    Reads ``item_skeletons`` (paid output, never regenerated here) keyed by the
+    item text's content hash; one skeleton per item, newest prompt version
+    first, then model id. Yields nothing until skeletons exist.
+    """
+    items = {item_id: item for item_id, item in sorted(loaded.practice_items.items())
+             if item.status != "retired"}
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    if not items or not sqlite_path.exists():
+        return
+    hashes = {item_id: skeleton_content_hash(item.prompt, item.expected_answer)
+              for item_id, item in items.items()}
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        if not connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_skeletons'"
+        ).fetchone():
+            return
+        skeletons = skeletons_for_hashes(connection, hashes.values())
+    for item_id, content_hash in hashes.items():
+        rows = sorted(skeletons.get(content_hash, ()),
+                      key=lambda row: (row["prompt_version"], row["model_id"]), reverse=False)
+        if rows:
+            newest = max(row["prompt_version"] for row in rows)
+            chosen = min((row for row in rows if row["prompt_version"] == newest),
+                         key=lambda row: row["model_id"])
+            yield item_id, chosen["skeleton_text"]
+
+
 def _registry(*recipes: EmbeddingRecipe) -> Mapping[str, EmbeddingRecipe]:
     registry = {recipe.name: recipe for recipe in recipes}
     if len(registry) != len(recipes):
@@ -247,6 +284,13 @@ EMBEDDING_RECIPES: Mapping[str, EmbeddingRecipe] = _registry(
         "One record per distinct instructional repair of a non-retired facet, "
         "keyed by the repair text's digest; excludes every other facet field.",
         _facet_repairs,
+    ),
+    EmbeddingRecipe(
+        "item", "skeleton", 1,
+        "The persisted LLM solution skeleton (technique sequence, checkpoints, "
+        "summary) for the item's current text, from item_skeletons; excludes "
+        "retired items and learner responses.",
+        _item_skeletons,
     ),
 )
 

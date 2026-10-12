@@ -151,6 +151,9 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     DerivedStateReplayer(
         "family_memory", frozenset({"family_memory_state"}), ("learning_state",),
     ),
+    # PF-b symbolic fingerprints of family members: vault content plus persisted
+    # skeletons and sandbox outputs; never a model call or a generator run.
+    DerivedStateReplayer("item_fingerprints", frozenset({"item_fingerprints"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -421,6 +424,17 @@ def _run_family_memory(
                           rows_processed=report["reviews"], details=report)
 
 
+def _run_item_fingerprints(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.substrate.item_fingerprints import rebuild_item_fingerprints
+
+    # Whole-vault: a family member's keys never depend on the requested LO subset.
+    report = rebuild_item_fingerprints(context.vault, context.repository)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
+                          rows_processed=report["written"], details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "learning_state": _run_learning_state,
@@ -428,6 +442,7 @@ _RUNNERS = {
     "identifiability": _run_identifiability,
     "field_outcomes": _run_field_outcomes,
     "family_memory": _run_family_memory,
+    "item_fingerprints": _run_item_fingerprints,
 }
 
 

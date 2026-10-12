@@ -737,7 +737,6 @@ type = "openai_embedding"
 base_url = "https://openrouter.ai/api/v1"
 api_key_env = "OPENROUTER_API_KEY"
 # embedding.model and embedding.dimensions are authoritative for this route.
-max_input_tokens = 32768
 timeout_seconds = 180
 
 [ai.routing]
@@ -766,6 +765,9 @@ backfill_enabled = false
 model = "qwen/qwen3-embedding-8b"
 dimensions = 4096
 
+[pf]
+generation_enabled = false # PF-b publishes only verified items, capped per day
+
 # F1 is offline analysis, not serving. Paid analysis is independently opt-in.
 [field]
 active_predictor = "mastery_ekf"
@@ -773,12 +775,10 @@ legacy_fallback = "exclude"
 question_classification_enabled = false
 llm_probability_enabled = false
 
-[ingest]
 [ingest.pdf]
 engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
 
 [animation]
-enabled = true
 renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.routing] video_generation)
 
 # All other policy uses modeled defaults. Inspect it with:
@@ -820,7 +820,15 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # structuring / append models and cosine review columns. It acts only when
     # embedding.enabled (default false) is also on, changes no scoring,
     # scheduling, projection or serving, and enabled = false is its kill switch.
-    "mvp-0.9": "a9a1916d48890a88b359d751f6c5006559ae26677a1fa23422d75f101c4a8a6f",
+    # Slice A Phase 5a (PF-b) adds the [pf] section (generation_enabled off,
+    # the daily publish cap and generation bounds; only the off switch is in
+    # the decision-only template) and the pf_proposers / pf_selection_judge
+    # routes: publishing verified items is a content change, gated by its own
+    # kill switch, not an algorithm successor. At its merge three template
+    # lines equal to modelled defaults were left out to keep the 80-line cap
+    # (the bare [ingest] header, the embedding profile's max_input_tokens and
+    # animation's enabled = true); the effective config is unchanged by that.
+    "mvp-0.9": "a52240e82b673fcd1b0f935840343fa3ae32bf07f0c66fc15e08fb87aa078bfd",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -828,7 +836,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
-    "mvp-0.10": "ab768a5d5345cd5524f492845ecad427fbc95c0eecdc7ce0d68d90f0f2f17af9",
+    # Phase 5a's [pf] section and routes move it too (no serving change).
+    "mvp-0.10": "173f457c70d3cb6ee5ffb6a90b94904aad191a17aeace03732c82e02d687e1d3",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -839,7 +848,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # with only algorithm_version changed. [placement] is dormant below
     # mvp-0.11, so the mvp-0.9 and mvp-0.10 snapshots were recomputed at the
     # merge (they move only because the effective config gains the section).
-    "mvp-0.11": "36b5b6c3cb3d6d5c5b332ca14679cdcb30dc5a20b00c6aabc7542e87cc22c4c9",
+    # All three were recomputed again at the Phase 5a merge for [pf] and the
+    # two PF routes (content generation behind pf.generation_enabled, off).
+    "mvp-0.11": "e828bc611890ea06caa425f089d2c0de59641345910ed7ae8af9f118713833b3",
 }
 
 

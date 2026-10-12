@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -23,6 +23,7 @@ source_paths:
   - "tests/conftest.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
+  - "tests/pf_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_activity_backfill.py"
   - "tests/test_activity_families.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_agent_runs.py"
   - "tests/test_answer_calibration_duel.py"
   - "tests/test_anti_double_count.py"
-  - "tests/test_apply_write_ahead.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -64,6 +64,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
+- `tests/pf_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_families.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_agent_runs.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_anti_double_count.py`
-- `tests/test_apply_write_ahead.py`
 
 ## Extension and modification guidance
 

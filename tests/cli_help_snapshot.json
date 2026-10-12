@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 22482,
-    "sha256": "8685899a8c237182b94f56bd66feb965fea3c0ababafa46d0658ff5b8216354c"
+    "bytes": 22652,
+    "sha256": "d8fd335912eaa6311f4175a03e20e84c854597b5da638db208d5dd098089f411"
   },
   "accept": {
     "bytes": 1593,
@@ -300,24 +300,36 @@
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
   },
   "embeddings": {
-    "bytes": 1757,
-    "sha256": "4a27b845060672870f3d4024be50df620c781d2b6232b9c99fb798ec7466c04f"
+    "bytes": 1927,
+    "sha256": "ad234a3c4be747506c733f5380419d95dfddc634f0f5186d295722b793c5a03a"
   },
   "embeddings backfill": {
-    "bytes": 5258,
-    "sha256": "ee8326ec8a9e0946aff2640dcb57154b3eebcb056ecf02ac4d2fbd37731e9340"
+    "bytes": 5343,
+    "sha256": "58fe9d718ce9897904bfd1f8f67a064a20b731cb8a8f733d03d06b9ff4848e35"
+  },
+  "embeddings compare": {
+    "bytes": 7490,
+    "sha256": "19892e6b9dfcc317a49ddcd406bb889cda2cabfdb69f69d2d85ce1a51ac57da6"
   },
   "embeddings nomination-report": {
     "bytes": 3651,
     "sha256": "cc6a828826ccbc828ba92aecfc6a4b2e4a81eaa72f021973445a78596faaddc4"
   },
   "eval": {
-    "bytes": 8045,
-    "sha256": "8df1d2916e58f6c9bd4a2672fba9e4c2ca6b8eb26e56d00fdc10c695f4703941"
+    "bytes": 8385,
+    "sha256": "cf1b6c60a614fe02ac4708f5918ed042904a61479db9eb98ce269e03133cf025"
   },
   "eval families": {
     "bytes": 3491,
     "sha256": "5f262a093a607c08e55fdf64b56d9e19856049638acf8fce37424e74f297d569"
+  },
+  "eval pf-pilot": {
+    "bytes": 3503,
+    "sha256": "27d31caa6c6f5e1e61b36bed482c816a0e980b76029f991a4575a58cb6409271"
+  },
+  "eval pf-scaling": {
+    "bytes": 3252,
+    "sha256": "eed0f194ffba6b4197e803550dd680447322c7f6f969f72ff862aa6148986e72"
   },
   "eval placement": {
     "bytes": 1789,
@@ -546,6 +558,22 @@
   "persona-realism": {
     "bytes": 2145,
     "sha256": "4d9fde4345e6aa483fd682920f2efa59203cd9c6a54e921070ff1ae27fade4b3"
+  },
+  "pf": {
+    "bytes": 1927,
+    "sha256": "faebeb365d27b8e26c577c1fe71e703ee9216a1840fc1aeb7efb8beb6faa5e58"
+  },
+  "pf generate": {
+    "bytes": 8769,
+    "sha256": "0c1e16e901d7ced0a6081af3d7c6d852a89a5bf71b2719cd328389ac3a86880f"
+  },
+  "pf publish": {
+    "bytes": 1206,
+    "sha256": "67475d71495f4bd1c1360dff2928e3ffe9aed1d3c344fa638059364f0c6510c1"
+  },
+  "pf status": {
+    "bytes": 1125,
+    "sha256": "15bc0244f55ae11e49b7ebefdb0620b95a2eaeae75e96447ab34149a9fa84a3b"
   },
   "placement": {
     "bytes": 1587,

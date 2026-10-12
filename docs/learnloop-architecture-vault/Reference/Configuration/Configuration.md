@@ -35,7 +35,7 @@ Configuration is split by responsibility: `schema.py` owns typed canonical model
 ## Map of content
 
 - [[learnloop.toml]] — exact generated template, explicit decisions, and safe examples.
-- [[Configuration Field Catalog]] — all 599 effective leaf values grouped into 35 top-level sections.
+- [[Configuration Field Catalog]] — all 615 effective leaf values grouped into 36 top-level sections.
 - [[Legacy Configuration Compatibility]] — accepted old spellings, retired keys, and canonicalization rules.
 - [[Environment and Machine Settings]] — precedence, secrets, global settings, and AI defaults inheritance.
 - [[Runtime and Vault Data Files]] — files around the TOML that configure or define a vault.
@@ -92,7 +92,7 @@ The second form reparses the raw TOML and therefore does not include compatibili
 
 The current generated mvp-0.9 effective configuration hashes to:
 
-`f4d980dd6ce089cba25da9e2f41392be048b89503e0f9fd2fc08789982adf786`
+`a52240e82b673fcd1b0f935840343fa3ae32bf07f0c66fc15e08fb87aa078bfd`
 
 The successors' snapshots (`mvp-0.10`, `mvp-0.11`) are the same template with only `algorithm_version` changed; all three are recorded in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`).
 

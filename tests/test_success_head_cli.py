@@ -105,7 +105,9 @@ def test_dry_run_plans_coverage_without_calls_or_writes(seeded, monkeypatch, tmp
     coverage = plan["content"]["by_revision_status"]["reconstructed_current"]
     assert coverage["attempts"] == len(ITEMS) and coverage["stem_vector"] == len(ITEMS)
     assert plan["unavailable"]["success_head+difficulty"].startswith("no solver_panel")
-    assert plan["content"]["skeleton"].startswith("unavailable")
+    # Phase 5a registers item/skeleton; this vault has no PF-b skeletons yet.
+    assert plan["content"]["skeleton"].startswith("available")
+    assert coverage["skeleton_vector"] == 0
     assert not (tmp_path / "out").exists()
     assert _digest(paths) == before
     assert not any(secret in result.output for secret in _private_text(vault))
@@ -155,7 +157,9 @@ def test_report_runs_all_arms_read_only_and_aggregate_only(seeded, monkeypatch, 
     assert t8["gated"]["success_head+difficulty"]["status"] == "unavailable"
     assert t8["descriptive"]["llm_zero_data"]["status"] == "unavailable"
     assert report["manifest"]["embedding_model"] == vault.config.embedding.model
-    assert report["manifest"]["t8"]["views"] == ["stem"]
+    # Phase 5a registers item/skeleton, so the index carries both views; this
+    # vault has no skeletons, so the skeleton block of every design row is zero.
+    assert report["manifest"]["t8"]["views"] == ["stem", "skeleton"]
     files = [output / name.rsplit("/", 1)[-1] for name in runs[0]["reports"].values()]
     assert all(path.name.startswith("t8-success-head-") for path in files)
     markdown = next(path for path in files if path.suffix == ".md").read_text()
@@ -386,6 +390,35 @@ def test_loader_clears_ambiguous_identities_and_reads_skeletons_for_current_text
     ambiguous = index.get(rows[1].features)
     assert ambiguous.stem is None and not ambiguous.vectors
     assert report["ambiguous_attempt_identities"] == 1
+
+
+def test_loader_reads_phase_5a_skeletons_keyed_by_item_id(tmp_path):
+    """Phase 5a merge: the real item/skeleton recipe yields each item's current
+    PF-b skeleton keyed by item id, and its stored vector reaches the view."""
+    from learnloop.db.stores.pf import insert_skeleton
+    from learnloop.vault.hashes import skeleton_content_hash
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    item_id, item = next(iter(sorted(vault.practice_items.items())))
+    model = vault.config.embedding.model
+    recipe = EMBEDDING_RECIPES["item/skeleton"]
+    with closing(connect(paths.sqlite_path)) as connection, connection:
+        insert_skeleton(
+            connection, skeleton_id="sk_test", subject_kind="practice_item", subject_id=item_id,
+            content_hash=skeleton_content_hash(item.prompt, item.expected_answer),
+            model_id="fake/skeleton", prompt_version="pf-skeleton-test", techniques=["reduce"],
+            operations=[], checkpoints=[], skeleton_text="steps: reduce, read rank",
+            created_at="2026-01-01T00:00:00Z",
+        )
+    assert [(r.record_id, r.text) for r in recipe.records(vault)] == [(item_id, "steps: reduce, read rank")]
+    _store(paths, model, item_id, item.prompt)
+    _store(paths, model, item_id, "steps: reduce, read rank", field="skeleton", recipe=recipe)
+    rows = [_row(item_id, "2026-01-01T00:00:00Z", status="reconstructed_current")]
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        index, report = load_content_index(connection, vault, rows)
+    assert set(index.get(rows[0].features).vectors) == {"stem", "skeleton"}
+    assert index.views == ("stem", "skeleton") and report["skeleton"].startswith("available")
 
 
 class FakeEmbedder:

@@ -5,8 +5,9 @@ that kind, so the pins below are literal digests of fixed sample inputs. All
 pins except the two Slice 2 T5 recipes were computed on main before the T5
 merge (f948926d), when T5 moved the facet/definition text composition into
 ``facet_definition_text`` and ``EmbeddingRecipe.record``; the merge must match
-them exactly. A deliberate recipe change bumps that recipe's version (and
-thereby its hash) and updates its pins here, never silently.
+them exactly. Phase 5a's ``item/skeleton`` was pinned at its merge from the
+branch's own hash composition. A deliberate recipe change bumps that recipe's
+version (and thereby its hash) and updates its pins here, never silently.
 """
 from __future__ import annotations
 
@@ -155,3 +156,15 @@ def test_slice_2_t5_recipe_hashes_are_pinned():
     assert EMBEDDING_RECIPES["facet_repair/text"].content_hash("Check symmetry first.") == (
         "052cfbc04bd2b55311642accddbc183ecf4cdd5dfee6e5f8d4b086da80ded2d2"
     )
+
+
+def test_phase_5a_item_skeleton_recipe_hashes_are_pinned():
+    # First pinned at the Phase 5a merge: sha256 of ["item", "skeleton", 1, text],
+    # the composition the branch's own recipe used.
+    recipe = EMBEDDING_RECIPES["item/skeleton"]
+    pins = (
+        "b4e0996060f5c883df2d5d26578f7d34aac2f3db8a13e28ee7daebc8de51072b",
+        "74e84869cf02c6b408c4540a0557b55bfa63e072b688d46810888d611576d14d",
+    )
+    assert tuple(recipe.content_hash(text) for text in TEXTS) == pins
+    assert recipe.record("pi_1", TEXTS[0]).content_hash == pins[0]

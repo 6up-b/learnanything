@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 173
+schema_head: 174
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/diagnosis/split/reports.py"
-  - "src/learnloop/substrate/data_quality.py"
-  - "src/learnloop/substrate/model_usage.py"
+  - "src/learnloop/ops/embedding_compare.py"
+  - "src/learnloop/ops/pf_calls.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/split/reports.py`
+- `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
 
@@ -146,10 +147,10 @@ None found by exact static reference scan.
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
+- `tests/test_pf_generation.py`
 - `tests/test_post_attempt_worker.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_practice_index_find.py`
-- `tests/test_practice_index_paid.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

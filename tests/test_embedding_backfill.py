@@ -21,11 +21,13 @@ from tests.openai_fakes import install_fake_openai
 # Phase 5b's practice-index recipes: one per dossier field, sorted by name.
 DOSSIER_RECIPES = [f"facet/dossier_{field}" for field in ("contrast", "errors", "moves", "scope")]
 # The default vault-content registry, in selection (name) order: Phase 1's
-# facet/item recipes, Phase 5b's dossier fields and Slice 2 T5's concept
-# definitions and instructional repairs. Consumer registries (T4) and
+# facet/item recipes, Phase 5b's dossier fields, Slice 2 T5's concept
+# definitions and instructional repairs, and Phase 5a's item/skeleton (persisted
+# PF-b skeletons; none exist in these vaults). Consumer registries (T4) and
 # database-backed kinds (Slice 1 M2) never join it.
 DEFAULT_RECIPES = sorted([
     "facet/definition", "item/stem", *DOSSIER_RECIPES, "concept/definition", "facet_repair/text",
+    "item/skeleton",
 ])
 
 
@@ -101,12 +103,12 @@ def test_recipes_are_selected_by_kind_or_by_kind_and_field():
     # Slice 2 R3 adds fields per kind (item/skeleton, facet/dossier_*); a bare
     # kind selects all of its fields, kind/field exactly one.
     assert [r.name for r in select_recipes()] == DEFAULT_RECIPES
-    assert [r.name for r in select_recipes(["item"])] == ["item/stem"]
+    assert [r.name for r in select_recipes(["item"])] == ["item/skeleton", "item/stem"]
     assert [r.name for r in select_recipes(["facet/definition", "facet"])] == [
         "facet/definition", *DOSSIER_RECIPES,
     ]
     assert [r.name for r in select_recipes(["facet/definition"])] == ["facet/definition"]
-    for selectors in (["item/skeleton"], ["facet/stem"], ["attempt"]):
+    for selectors in (["item/outline"], ["facet/stem"], ["attempt"]):
         with pytest.raises(ValueError, match="Unknown embedding recipes"):
             select_recipes(selectors)
     with pytest.raises(ValueError, match="at least one"):

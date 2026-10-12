@@ -5,8 +5,8 @@
    least ``facet_top_k`` facets are kept, and more in rank order until their
    admissible items fill the candidate pool.
 2. **Which question?** Items are ranked by item-outline embeddings
-   (``item/skeleton``) once that index exists, otherwise by item text
-   (``item/stem``), plus BM25 over item text. In the two-level path only items
+   (``item/skeleton``) once that index exists for every item, otherwise by item
+   text (``item/stem``), plus BM25 over item text. In the two-level path only items
    tagged with the top facets are candidates, and the facet rank is a third list.
 3. **Rerank.** An LLM judges the candidate pool and picks the best few; every
    verdict goes to ``judgment_ledger`` (task ``practice_relevance``).
@@ -263,10 +263,16 @@ def load_snapshot(vault: LoadedVault, repository: Repository, *,
     dossier_vectors = False
     if model_id is not None:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            # Phase 5a's skeletons exist only for the items PF-b generated or
+            # judged: a partial skeleton index must not displace the item-text
+            # vectors of every other item, so a preferred recipe must cover them.
+            text_ids = set(_manifest(vault, ITEM_RECIPE_PREFERENCE[-1]))
             for name in ITEM_RECIPE_PREFERENCE:
                 if name not in EMBEDDING_RECIPES:
                     continue
                 manifest = _manifest(vault, name)
+                if not text_ids <= set(manifest):
+                    continue
                 if manifest and _complete(connection, name, manifest, model_id):
                     item_recipe, item_manifest = name, manifest
                     break

@@ -39,7 +39,7 @@ def embeddings_backfill(
         "--record-kind",
         help=(
             "A record kind (facet, item, concept, facet_repair) or one recipe (facet/definition, "
-            "facet/dossier_scope, item/stem, concept/definition, ...); "
+            "facet/dossier_scope, item/stem, item/skeleton, concept/definition, ...); "
             "repeatable. Default: all vault recipes. Slice 1 adds hypothesis, misconception and attempt "
             "(attempt/divergence, for history_mode=hybrid), embedded only when named."
         ),
@@ -57,7 +57,7 @@ def embeddings_backfill(
     )] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Embed facet definitions, dossier fields, item stems, concept definitions and repairs.
+    """Embed facet definitions, dossier fields, item stems and PF-b skeletons, concept definitions and repairs.
 
     Reruns skip saved hashes, and a text already paid for under another record
     id (an ingest-time nomination, say) is reused, not bought again.
@@ -152,6 +152,71 @@ def embeddings_nomination_report(
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
+    if report["status"] == "cancelled":
+        raise typer.Exit(code=130)
+    if report["status"] not in {"dry_run", "complete"}:
+        raise typer.Exit(code=1)
+
+
+@embeddings_app.command("compare")
+def embeddings_compare(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root (routes, ledger, checkpoints); use a fixtures-local copy.")],
+    suite: Annotated[str, typer.Option("--suite", help="Registered suite: b2 (isomorph/near-duplicate) or valid_alternative.")],
+    output_dir: Annotated[Path, typer.Option("--output", "--output-dir", help="Report and vector-cache directory (outside the vault).")] = Path("fixtures-local/reports/compare"),
+    benchmark: Annotated[Path | None, typer.Option("--benchmark", help="Benchmark directory: manifest.json (source, version, licence) and pairs.jsonl.")] = None,
+    model: Annotated[list[str] | None, typer.Option("--model", help="Embedding model id (OpenRouter); repeatable. Default: embedding.model.")] = None,
+    dims: Annotated[list[int] | None, typer.Option("--dims", min=1, help="MRL dimension sweep; repeatable. Default: embedding.dimensions.")] = None,
+    view: Annotated[list[str] | None, typer.Option("--view", help="b2 views: stem, skeleton, fingerprint, judge; repeatable. Default: all.")] = None,
+    family: Annotated[list[str] | None, typer.Option("--family", help="valid_alternative: activity family id; repeatable.")] = None,
+    target_recall: Annotated[float, typer.Option("--target-recall", min=0.5, max=1.0, help="Recall on positives that sets each blocking cutoff.")] = 0.95,
+    max_cases: Annotated[int | None, typer.Option("--max-cases", min=1)] = None,
+    max_items: Annotated[int, typer.Option("--max-items", min=1, help="valid_alternative: family items to cover.")] = 20,
+    alternatives: Annotated[int, typer.Option("--alternatives", min=1, max=6, help="valid_alternative: alternative traces per item.")] = 2,
+    tier: Annotated[str | None, typer.Option("--tier", help="Run the PF roles at a [pf.scaling] tier (cheap or frontier); B2's judge view then measures that tier's judge on labelled pairs.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls and tokens; no client, request or write.")] = False,
+    max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,
+    max_pairs: Annotated[int, typer.Option("--max-pairs", min=0)] = 2000,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 500,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 2,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 4_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 2.0,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Owner price bound for metered LLM roles (USD per million tokens). Codex roles estimate only.")] = None,
+    embedding_price_per_million: Annotated[float | None, typer.Option("--embedding-price-per-million", min=0, help="Embedding input price for models without a built-in estimate.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run one registered benchmark suite on the shared harness (B2 sets PF's blocking cutoffs).
+
+    Writes aggregate-only JSON and Markdown reports named by content. Every
+    verdict appends to judgment_ledger; replay never reads these reports.
+    """
+    from learnloop.ops.embedding_compare import CompareRequest, run_compare
+
+    # This command is the shared harness's composition root: every consumer
+    # suite (Phase 5a's b2 and valid_alternative; Slice 2 T1's B1/B3 and T6's
+    # B4 later) joins `embedding_compare.SUITES`, and any extra LLM role joins
+    # `pf_calls.ROLE_TASKS`, here before run_compare, through the consumer's
+    # `register_suites(SUITES, role_tasks=ROLE_TASKS)`.
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must name a vault containing learnloop.toml")
+        loaded = load_vault(vault)
+        request = CompareRequest(
+            suite=suite, output_dir=output_dir, benchmark_dir=benchmark, models=tuple(model or ()),
+            dims=tuple(dims or ()), views=tuple(view or ()), family_ids=tuple(family or ()),
+            target_recall=target_recall, max_cases=max_cases, alternatives=alternatives,
+            max_items=max_items, tier=tier, dry_run=dry_run,
+        )
+        caps = SpendCaps(
+            max_candidates=max_candidates, max_pairs=max_pairs, max_retries=max_retries,
+            max_calls=max_calls, max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd,
+        )
+        with _cancellation() as stop:
+            report = run_compare(loaded, request=request, caps=caps, price_per_million=price_per_million,
+                                 embedding_price_per_million=embedding_price_per_million,
+                                 cancelled=stop.is_set)
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    typer.echo(json.dumps(report, sort_keys=True, default=str, indent=None if json_output else 2))
     if report["status"] == "cancelled":
         raise typer.Exit(code=130)
     if report["status"] not in {"dry_run", "complete"}:

@@ -3,13 +3,13 @@ title: "activity_families"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_families"
   - "table activity_families"
-schema_head: 173
+schema_head: 174
 table_name: "activity_families"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/ops/pf_generation.py"
+  - "src/learnloop/ops/pf_publish.py"
   - "src/learnloop/substrate/families.py"
   - "src/learnloop/substrate/family_memory.py"
-  - "src/learnloop/vault/loader.py"
-  - "src/learnloop/vault/models.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
@@ -112,6 +112,8 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_goal_contracts.py`
+- `tests/test_pf_generation.py`
+- `tests/test_pf_reports.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_card_lineage.py`
@@ -125,7 +127,6 @@ Indexes and uniqueness:
 - `tests/test_progression.py`
 - `tests/test_reader_authoring.py`
 - `tests/test_substrate_cutover.py`
-- `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

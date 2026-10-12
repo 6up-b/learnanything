@@ -21,6 +21,8 @@ AITask = Literal[
     "field_question_classifier",
     "field_llm_probability",
     "pf_generator",
+    "pf_proposers",
+    "pf_selection_judge",
     "pf_family_judge",
     "pf_isomorph_judge",
     "pf_closed_book",
@@ -165,6 +167,10 @@ def provider_for_task(
     if env_provider:
         return AIProviderSelection(provider_name=env_provider, from_env=True)
     routed = getattr(config.ai.routing, task, None)
+    if task in LIST_ROUTE_TASKS:
+        # A list route's single-provider view is its first entry; callers that
+        # need the whole panel use provider_list_for_task.
+        routed = _route_list(routed)[0] if _route_list(routed) else None
     if task == "canonical_ingest_retry" and not routed:
         return AIProviderSelection(provider_name="")
     if task == "project" and not routed:
@@ -177,6 +183,48 @@ def provider_for_task(
         # stronger model by config alone and otherwise matches the grader.
         return provider_for_task(config, "grading", allow_env=allow_env)
     return AIProviderSelection(provider_name=routed or config.ai.active_provider)
+
+
+# Routes that may name several profiles (Slice 2 §5.8): the ensemble proposers
+# and a solver panel at different tiers (P10).
+LIST_ROUTE_TASKS: frozenset[str] = frozenset({"pf_proposers", "pf_solver_panel"})
+
+
+def _route_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [str(entry) for entry in value if str(entry).strip()]
+
+
+def route_names(value: Any) -> list[str]:
+    """The profile names one route value names: a single profile or a list route."""
+
+    return _route_list(value)
+
+
+def provider_list_for_task(
+    config: LearnLoopConfig,
+    task: AITask,
+    *,
+    allow_env: bool = True,
+) -> list[AIProviderSelection]:
+    """Every configured profile of a list route, in order, duplicates removed.
+
+    An unset list route falls back like any route: the environment override,
+    then the active provider. Receipts still record each resolved model.
+    """
+
+    if task not in LIST_ROUTE_TASKS:
+        return [provider_for_task(config, task, allow_env=allow_env)]
+    env_provider = os.environ.get("LEARNLOOP_AI_PROVIDER") if allow_env else None
+    if env_provider:
+        return [AIProviderSelection(provider_name=env_provider, from_env=True)]
+    names = list(dict.fromkeys(_route_list(getattr(config.ai.routing, task, None))))
+    if not names:
+        return [AIProviderSelection(provider_name=config.ai.active_provider)]
+    return [AIProviderSelection(provider_name=name, explicit=True) for name in names]
 
 
 def provider_for_operation(
@@ -423,6 +471,7 @@ def _manual_resolution(
 __all__ = [
     "EMBEDDING_PROFILE_TYPE",
     "MANUAL_PROVIDER",
+    "LIST_ROUTE_TASKS",
     "ROUTE_FOR_OPERATION",
     "AIProviderSelection",
     "AITask",
@@ -432,6 +481,8 @@ __all__ = [
     "is_embedding_profile",
     "provider_for_operation",
     "provider_for_task",
+    "provider_list_for_task",
+    "route_names",
     "ready_client_for_task",
     "route_profile_mismatch",
     "runtime_for_provider",

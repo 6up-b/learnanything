@@ -62,6 +62,16 @@ def test_settings_health_checks_each_route_under_its_own_task(vault, codex_ready
     assert not _settings_ready(vault)
 
 
+def test_settings_health_checks_each_profile_of_a_pf_list_route(vault, codex_ready, monkeypatch):
+    # Phase 5a's list routes (ensemble proposers, solver panel) are checked
+    # profile by profile; a list must not break the health payload.
+    vault.config.ai.routing.pf_proposers = ["codex", "openrouter"]
+    vault.config.ai.routing.pf_solver_panel = ["codex_low"]
+    assert not _settings_ready(vault)  # the OpenRouter proposer has no key
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    assert _settings_ready(vault)
+
+
 @pytest.mark.parametrize("source", ["env", "explicit", "active", "route"])
 def test_generation_never_resolves_an_embedding_profile(vault, codex_ready, monkeypatch, source):
     install_fake_openai(monkeypatch)

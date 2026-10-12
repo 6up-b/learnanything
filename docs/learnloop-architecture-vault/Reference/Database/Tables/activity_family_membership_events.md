@@ -3,13 +3,13 @@ title: "activity_family_membership_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_family_membership_events"
   - "table activity_family_membership_events"
-schema_head: 173
+schema_head: 174
 table_name: "activity_family_membership_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 - `tests/test_activity_families.py`
 - `tests/test_family_proposals.py`
+- `tests/test_pf_generation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

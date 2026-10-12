@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
+source_commit_timestamp: "2026-10-12T15:19:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 173
+schema_head: 174
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/signals.py"
+  - "src/learnloop/ops/pf_reports.py"
   - "src/learnloop/reader/reader_dialogue.py"
-  - "src/learnloop/scheduling/action_loss.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/pf_reports.py`
 - `src/learnloop/scheduling/action_loss.py`
 
 ### Direct SQL writers

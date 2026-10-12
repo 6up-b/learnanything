@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.routing import is_embedding_profile, ready_client_for_task, runtime_for_provider
+from learnloop.ai.routing import is_embedding_profile, ready_client_for_task, route_names, runtime_for_provider
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
@@ -469,14 +469,16 @@ def _settings_ready(vault: LoadedVault) -> bool:
     network) and independent of the grading override. The embedding route counts
     only once embeddings are enabled: a disabled opt-in feature is not a missing
     setting. Each route is checked under its own task, so an embedding profile on
-    a generation route (or the reverse) reads as not ready."""
+    a generation route (or the reverse) reads as not ready. A list route (PF-b's
+    ``pf_proposers`` and ``pf_solver_panel``) is checked profile by profile."""
 
     config = vault.config
     routing = config.ai.routing
     routes = {
-        (task, getattr(routing, task))
+        (task, name)
         for task in type(routing).model_fields
-        if getattr(routing, task) and (task != "embedding" or config.embedding.enabled)
+        if task != "embedding" or config.embedding.enabled
+        for name in route_names(getattr(routing, task))
     }
     if not any(task != "embedding" for task, _name in routes):
         routes.add(("grading", config.ai.active_provider))
