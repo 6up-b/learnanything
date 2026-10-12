@@ -70,15 +70,25 @@ def _load_markdown_model(
         return None, ""
 
 
-def load_vault(root: Path | None = None, *, read_yaml_file: YamlFileReader = read_yaml_data) -> LoadedVault:
+def load_vault(
+    root: Path | None = None,
+    *,
+    read_yaml_file: YamlFileReader = read_yaml_data,
+    load_environment: bool = True,
+) -> LoadedVault:
     """Parse every vault file into a ``LoadedVault``; problems become ``issues``.
 
     ``read_yaml_file`` lets a caller that has already parsed the same files
-    (doctor) hand in its parsed copies.
+    (doctor) hand in its parsed copies. Offline evaluation passes
+    ``load_environment=False`` to avoid dotenv and global settings.
     """
 
     vault_root = root.resolve() if root else find_vault_root(Path.cwd())
-    config = load_config(vault_root / "learnloop.toml")
+    config = (
+        load_config(vault_root / "learnloop.toml")
+        if load_environment
+        else load_config(vault_root / "learnloop.toml", load_environment=False)
+    )
     paths = VaultPaths(vault_root, config)
     issues: list[DoctorIssue] = []
     loaded = LoadedVault(root=vault_root, config=config, issues=issues)

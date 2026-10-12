@@ -1,0 +1,305 @@
+"""Read-only interaction derivation. No model, evidence, or repository writes.
+
+``interaction-signals-v1`` chooses a conservative 0.3 mass per subject/LO/UTC
+day (D12 does not specify a number). Missing timing is NOT evidence of help
+before work: only an explicitly logged zero qualifies.
+"""
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Iterable, Mapping
+from dataclasses import replace
+from datetime import datetime, timezone
+import hashlib
+import json
+import logging
+import math
+from typing import Any
+
+from learnloop.field.types import AttemptRow, SignalRow
+
+SIGNAL_VERSION = "interaction-signals-v1"
+DAILY_SIGNAL_MASS_CAP = 0.3
+QUESTION_TYPES = frozenset({
+    "prerequisite", "mechanism", "clarification", "strategy", "verification", "other",
+})
+logger = logging.getLogger(__name__)
+
+
+def instant(value: str) -> datetime:
+    """Normalize ISO timestamps, including legacy naive UTC values."""
+    result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return result.replace(tzinfo=timezone.utc) if result.tzinfo is None else result.astimezone(timezone.utc)
+
+
+def _list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return []
+    return list(dict.fromkeys(x for x in (value or []) if isinstance(x, str) and x)) if isinstance(value, (list, tuple)) else []
+
+
+def normalize_question(event: Mapping[str, Any], *, reader: bool = False) -> dict[str, Any]:
+    """Flatten logged reader payloads without inventing a type or LO mapping."""
+    row = dict(event)
+    payload = row.get("payload", row.get("payload_json")) or {}
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    row = {**payload, **row}
+    source = row.get("source_context") or row.get("source_context_json") or {}
+    if isinstance(source, str):
+        source = json.loads(source)
+    if not (row.get("lo_ids") or row.get("lo_ids_json") or row.get("lo_id")):
+        row["lo_ids"] = _list(source.get("candidate_learning_object_ids"))
+    row["event_kind"] = "interaction_event" if reader or row.get("kind") == "learner_question_asked" else "question_event"
+    row["context"] = row.get("context") or ("library" if row["event_kind"] == "interaction_event" else "")
+    return row
+
+
+def classification_input(event: Mapping[str, Any]) -> dict[str, Any]:
+    """Whitelist question-time inputs; never include tutor answers/later grades."""
+    row = normalize_question(event)
+    return {
+        "id": row["id"], "event_kind": row["event_kind"],
+        "question_md": row.get("question_md", ""),
+        "context": row["context"],
+        "question_type": row.get("question_type"),
+        "facets": _list(row.get("facets_json", row.get("facets"))),
+        "lo_ids": _list(row.get("lo_ids_json", row.get("lo_ids"))) or ([row["lo_id"]] if row.get("lo_id") else []),
+        "source_id": row.get("source_id"),
+        "extraction_id": row.get("extraction_id"),
+        "span_id": row.get("span_id"),
+    }
+
+
+def input_hash(event: Mapping[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(classification_input(event), sort_keys=True).encode()).hexdigest()
+
+
+def _facet_los(mapping: Mapping[str, Any], facet: str) -> tuple[str, ...]:
+    value = mapping.get(facet, ())
+    return (value,) if isinstance(value, str) else tuple(value)
+
+
+def derive_interaction_signals(
+    question_events: Iterable[Mapping[str, Any]],
+    interaction_events: Iterable[Mapping[str, Any]],
+    attempts: Iterable[AttemptRow],
+    *,
+    facet_to_lo: Mapping[str, str | tuple[str, ...]],
+    cached_classifications: Iterable[Mapping[str, Any]] = (),
+    daily_mass_cap: float = DAILY_SIGNAL_MASS_CAP,
+    lo_to_subject: Mapping[str, str] | None = None,
+    diagnostics: dict[str, Any] | None = None,
+) -> tuple[SignalRow, ...]:
+    """Derive immutable rows using logged data and already-paid classifications.
+
+    Classifications supply ONLY missing fields. Their availability is their
+    creation time, not the historical question time. Feedback dependent on a
+    correct grade is available no earlier than that grade. Prerequisite targets
+    come from mapped question facets, never from the item's own LO by fallback.
+    Multi-target questions split one question's mass across their target LOs.
+    ``facet_to_lo`` may contain only immutable historical mapping evidence,
+    never current vault membership. Explicit targets override facet mappings.
+    ``lo_to_subject`` is retained for compatibility but cannot retarget history.
+    """
+    if not math.isfinite(daily_mass_cap) or daily_mass_cap < 0:
+        raise ValueError("daily_mass_cap must be finite and nonnegative")
+    attempts = tuple(attempts)
+    by_attempt = {a.attempt_id: a for a in attempts}
+    cache: dict[tuple[str, str, str], Mapping[str, Any]] = {}
+    for raw in sorted(cached_classifications, key=lambda c: (instant(c["created_at"]), c["id"])):
+        c = dict(raw)
+        kind = "question_event" if c.get("question_event_id") else "interaction_event"
+        event_id = c.get("question_event_id") or c.get("interaction_event_id")
+        # First paid proposal is the historical input. A later rerun/model
+        # must not retroactively replace what was available to an earlier arm.
+        cache.setdefault((kind, event_id, c["input_hash"]), c)
+    events = [normalize_question(e) for e in question_events]
+    events += [normalize_question(e, reader=True) for e in interaction_events if e["kind"] == "learner_question_asked"]
+    signals: list[SignalRow] = []
+    unmapped = 0
+    for event in events:
+        event_id = event["id"]
+        kind = event["event_kind"]
+        observed = event.get("received_at") or event["created_at"]
+        logged_at = observed
+        qtype = event.get("question_type")
+        logged_before = event.get("context") == "practice" and event.get("seconds_into_attempt") == 0 and (
+            bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}
+        )
+        facets = _list(event.get("facets_json", event.get("facets")))
+        los = _list(event.get("lo_ids_json", event.get("lo_ids")))
+        if event.get("lo_id"):
+            los.append(event["lo_id"])
+        classification = cache.get((kind, event_id, event.get("_classification_input_hash") or input_hash(event)))
+        if classification and (not qtype or not los):
+            qtype = qtype or classification["question_type"]
+            if not los:
+                facets = facets or _list(classification["facets_json"])
+                los = _list(classification["lo_ids_json"])
+            observed = max((observed, classification["created_at"]), key=instant)
+        los = sorted(set(los) if los else {lo for f in facets for lo in _facet_los(facet_to_lo, f)})
+        if not los:
+            unmapped += 1
+        attempt = by_attempt.get(event.get("attempt_id"))
+        help_requested = bool(event.get("hint_equivalent")) or qtype in {
+            "prerequisite", "mechanism", "clarification", "strategy",
+        }
+        before = help_requested and event.get("context") == "practice" and event.get("seconds_into_attempt") == 0
+        leak = bool(event.get("leak_suspected") or event.get("answer_revealed"))
+        if attempt is not None and event.get("context") == "practice" and (
+            leak or logged_before or event.get("hint_equivalent")
+        ):
+            # Explicit pre-result provenance survives coarse timestamp ties.
+            # Only logged facts belong here, never a later paid classification.
+            signals.append(SignalRow(
+                signal_id=f"{kind}:{event_id}:assistance", lo_id=attempt.lo_id,
+                observed_at=logged_at, signal_type="practice_assistance",
+                subject_id=attempt.features.subject_id, attempt_id=attempt.attempt_id,
+                help_before_work=logged_before,
+                leak_suspected=leak,
+            ))
+        outcome, mass = None, 0.0
+        signal_type = qtype or "unclassified"
+        if qtype == "prerequisite":
+            outcome, mass = 0.0, 0.15
+        elif qtype in {"mechanism", "clarification"}:
+            if event.get("context") == "feedback" and attempt is not None and attempt.outcome == 1:
+                outcome, mass = 0.5, 0.1
+                observed = max((observed, attempt.observed_at), key=instant)
+            elif event.get("context") in {"library", "reader"}:
+                signal_type = "reader_confusion"
+        elif qtype == "strategy" and before:
+            signal_type = "hint"
+        # Preserve assistance/leak telemetry even when there is no target
+        # classification. This is not a prerequisite mapping fallback.
+        if not los and attempt is not None and (before or leak or event.get("hint_equivalent")):
+            los = [attempt.lo_id]
+            outcome, mass = None, 0.0
+        for lo in los:
+            signals.append(SignalRow(
+                signal_id=f"{kind}:{event_id}:{lo}", lo_id=lo,
+                observed_at=observed, signal_type=signal_type, outcome=outcome,
+                effective_mass=mass / len(los),
+                subject_id=attempt.features.subject_id if attempt else (
+                    event.get("learner_subject_id") or event.get("subject_id") or "default"
+                ),
+                facet_id=next((f for f in facets if lo in _facet_los(facet_to_lo, f)), None),
+                attempt_id=event.get("attempt_id"), help_before_work=before,
+                leak_suspected=leak,
+            ))
+    for attempt in attempts:
+        if attempt.hints_used > 0:
+            before = attempt.help_before_work or any(
+                s.attempt_id == attempt.attempt_id and s.help_before_work
+                and _available_for_attempt(s, attempt) for s in signals
+            )
+            outcome = min(attempt.outcome, max(0.2, 1.0 - 0.2 * attempt.hints_used))
+            if before:
+                outcome = min(outcome, 0.3)
+            signals.append(SignalRow(
+                signal_id=f"hint:{attempt.attempt_id}", lo_id=attempt.lo_id,
+                observed_at=attempt.observed_at, signal_type="hint", outcome=outcome,
+                subject_id=attempt.features.subject_id, attempt_id=attempt.attempt_id,
+                help_before_work=before,
+            ))
+    used: dict[tuple[str, str, str], float] = defaultdict(float)
+    result = []
+    for signal in sorted(signals, key=lambda s: (instant(s.observed_at), s.signal_id)):
+        key = signal.subject_id, signal.lo_id, instant(signal.observed_at).date().isoformat()
+        mass = min(signal.effective_mass, max(0.0, daily_mass_cap - used[key]))
+        used[key] += mass
+        result.append(replace(signal, effective_mass=mass))
+    logger.info(
+        "Interaction mapping: %d questions, %d unmapped", len(events), unmapped,
+        extra={"interaction_questions": len(events), "interaction_unmapped": unmapped},
+    )
+    if diagnostics is not None:
+        diagnostics.update(
+            version=SIGNAL_VERSION, questions=len(events), unmapped_questions=unmapped,
+            signal_rows=len(result), weak_observations=sum(s.effective_mass > 0 for s in result),
+            cache_entries_considered=len(cache), daily_mass_cap=daily_mass_cap,
+        )
+    return tuple(result)
+
+
+def load_interaction_signals(
+    connection: Any, vault: Any, attempts: Iterable[AttemptRow],
+    *, diagnostics: dict[str, Any] | None = None,
+) -> tuple[SignalRow, ...]:
+    """Read logged mappings and paid outputs, never today's authored model.
+
+    Current facets, aliases, subjects and source provenance are mutable, even
+    when an object's updated_at predates an event. Without an immutable mapping
+    snapshot they cannot resolve historical questions. Unmapped questions are
+    counted in the derivation log, not guessed from present-day content.
+    """
+    def rows(table: str) -> list[dict[str, Any]]:
+        cursor = connection.execute(f"SELECT * FROM {table}")
+        names = [c[0] for c in cursor.description]
+        return [dict(zip(names, row, strict=True)) for row in cursor]
+
+    questions = rows("question_events")
+    readers = [r for r in rows("interaction_events") if r["kind"] == "learner_question_asked"]
+    # Read-only reports also open pre-classifier vaults; never migrate them just
+    # to discover that no paid classifications are available.
+    has_cache = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='question_classifications'"
+    ).fetchone()
+    cached = rows("question_classifications") if has_cache else ()
+    return derive_interaction_signals(
+        questions, readers, attempts,
+        facet_to_lo={}, cached_classifications=cached, diagnostics=diagnostics,
+    )
+
+
+def _available_for_attempt(signal: SignalRow, attempt: AttemptRow) -> bool:
+    """At tied timestamps only linked, logged practice assistance precedes the result."""
+    observed, completed = instant(signal.observed_at), instant(attempt.observed_at)
+    return observed < completed or (
+        observed == completed and signal.attempt_id == attempt.attempt_id
+        and signal.signal_type == "practice_assistance"
+    )
+
+
+def enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]) -> tuple[AttemptRow, ...]:
+    """Add predictor-only covariates without future-question leakage.
+
+    Grade-time hint counts are an outcome covariate, not a prediction feature.
+    Only linked, already-available signals change this attempt's assistance and
+    cold flags. Questions on the same LO can mark the chronological split.
+    """
+    signals = tuple(signals)
+    result = []
+    for attempt in attempts:
+        available = [s for s in signals if _available_for_attempt(s, attempt)]
+        prior = [s for s in available if s.lo_id == attempt.lo_id and s.subject_id == attempt.features.subject_id]
+        linked = [s for s in available if s.attempt_id == attempt.attempt_id]
+        leaked = any(s.leak_suspected for s in linked)
+        result.append(replace(
+            attempt,
+            features=replace(attempt.features, cold=False) if leaked else attempt.features,
+            help_before_work=attempt.help_before_work or any(s.help_before_work for s in linked),
+            preceded_by_question=attempt.preceded_by_question or any(not s.signal_id.startswith("hint:") for s in prior),
+        ))
+    return tuple(result)
+
+
+def confusion_blocks_fast_track(
+    signals: Iterable[SignalRow], *, lo_id: str, as_of: str,
+    subject_id: str = "default", self_report_known: bool = False,
+) -> bool:
+    """Pure report-2 eligibility only; does not implement or mutate F2 routing."""
+    if self_report_known:
+        return False
+    return any(
+        s.lo_id == lo_id and s.subject_id == subject_id
+        and instant(s.observed_at) <= instant(as_of)
+        and (s.help_before_work or s.leak_suspected or s.signal_type in {
+            "prerequisite", "mechanism", "clarification", "reader_confusion", "hint",
+        })
+        for s in signals
+    )

@@ -3,13 +3,13 @@ title: "facet_merges"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_merges"
   - "table facet_merges"
-schema_head: 166
+schema_head: 167
 table_name: "facet_merges"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/037_canonical_facet_state.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/learner/facet_state_reader.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
@@ -83,6 +84,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -103,6 +105,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_facet_outcome_view.py`
 - `tests/test_measurement_rank.py`
 - `tests/test_migrations.py`
 - `tests/test_conjunctive_instruments.py`

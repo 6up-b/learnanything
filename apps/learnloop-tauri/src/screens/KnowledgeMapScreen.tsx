@@ -394,9 +394,11 @@ export function FacetFieldDetail({
       ) : null}
       <SectionHeader>Two independent axes</SectionHeader>
       {stat("Demonstrated", `${Math.round(point.demonstratedMass * 100)}%`, COLOR.green)}
-      {stat("Ready", `${Math.round(point.ready * 100)}%`, COLOR.cyan)}
-      {point.readyGhost - point.ready >= 0.01 ? stat("Ready before decay", `${Math.round(point.readyGhost * 100)}%`, COLOR.textDim) : null}
-      {stat("Ready variance", point.readyVariance.toFixed(4))}
+      {point.untested ? <Pill color="slate">untested</Pill> : <>
+        {stat("Ready", `${Math.round(point.ready * 100)}%`, COLOR.cyan)}
+        {point.readyGhost - point.ready >= 0.01 ? stat("Ready before decay", `${Math.round(point.readyGhost * 100)}%`, COLOR.textDim) : null}
+        {stat("Ready variance", point.readyVariance.toFixed(4))}
+      </>}
       {stat("evidence mass", point.evidenceMass.toFixed(2))}
       {!point.hasBlueprints ? <Pill color="slate">absent · no blueprint</Pill> : null}
       {nextGap ? (

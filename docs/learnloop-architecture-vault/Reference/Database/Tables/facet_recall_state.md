@@ -3,13 +3,13 @@ title: "facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_recall_state"
   - "table facet_recall_state"
-schema_head: 166
+schema_head: 167
 table_name: "facet_recall_state"
 table_role: "derived"
 functionality_status: "active"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 
 - `tests/test_deferred_regrade.py`
 - `tests/test_doctor.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_km2_canonical.py`
 - `tests/test_migrations.py`
 - `tests/test_rebuild_orchestrator.py`
@@ -145,6 +146,7 @@ Indexes and uniqueness:
 - `tests/test_km2_sim_gates.py`
 - `tests/test_km2_write_path.py`
 - `tests/test_km2b_consumer_rekey.py`
+- `tests/test_map_untested.py`
 - `tests/test_measurement_corrections.py`
 - `tests/test_projection_evidence_polarity.py`
 - `tests/test_receipt_derivation.py`

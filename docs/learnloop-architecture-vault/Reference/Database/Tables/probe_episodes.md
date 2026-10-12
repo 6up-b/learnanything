@@ -3,13 +3,13 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
   - "table probe_episodes"
-schema_head: 166
+schema_head: 167
 table_name: "probe_episodes"
 table_role: "workflow"
 functionality_status: "active"
@@ -161,6 +161,7 @@ Indexes and uniqueness:
 - `tests/test_characterization_probe_submission.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_dual_authority_administration.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_independent_group_counting.py`
 - `tests/test_instrument_servability_journeys.py`
@@ -171,7 +172,6 @@ Indexes and uniqueness:
 - `tests/test_probe_dialogue.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_probe_hierarchy.py`
-- `tests/test_probe_instance_generation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

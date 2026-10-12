@@ -3,13 +3,13 @@ title: "decision_features"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite decision_features"
   - "table decision_features"
-schema_head: 166
+schema_head: 167
 table_name: "decision_features"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/011_training_dataset_logging.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/cli/app.py"
@@ -97,6 +98,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -119,6 +121,7 @@ Database triggers:
 
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_diagnostics_v03.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_migrations.py`
 - `tests/test_misconception_routing.py`
