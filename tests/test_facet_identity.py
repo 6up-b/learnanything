@@ -582,3 +582,54 @@ def test_an_undone_in_run_merge_stays_apart_when_the_run_is_planned_again(tmp_pa
 
 def candidate_keys(candidate):
     return [str(facet.client_item_id) for facet in candidate.facets]
+
+
+# --- review F11: splitting a large neighbourhood stays fast --------------------------------
+
+
+def _reference_agglomerate(members, unit, cap):
+    """The stage's original average-link split (recomputes every link each step)."""
+
+    clusters = [[key] for key in sorted(members)]
+    similarity = {(a, b): float(unit[a] @ unit[b]) for a in members for b in members if a < b}
+
+    def link(left, right):
+        return sum(similarity[(a, b) if a < b else (b, a)] for a in left for b in right) / (len(left) * len(right))
+
+    while True:
+        best = None
+        for i in range(len(clusters)):
+            for j in range(i + 1, len(clusters)):
+                if len(clusters[i]) + len(clusters[j]) > cap:
+                    continue
+                score = link(clusters[i], clusters[j])
+                if best is None or score > best[0]:
+                    best = (score, i, j)
+        if best is None:
+            return sorted(clusters)
+        _score, i, j = best
+        clusters[i] = sorted(clusters[i] + clusters[j])
+        del clusters[j]
+
+
+@pytest.mark.parametrize("seed,count,cap", [(1, 23, 6), (2, 40, 7), (3, 31, 40), (4, 12, 2)])
+def test_the_heap_split_matches_the_reference_average_link(seed, count, cap):
+    from learnloop.content.facet_identity.grouping import _agglomerate, centred_unit
+
+    rng = np.random.default_rng(seed)
+    unit = centred_unit({f"f{index:03d}": rng.normal(size=8) for index in range(count)})
+    assert _agglomerate(list(unit), unit, cap) == _reference_agglomerate(list(unit), unit, cap)
+
+
+def test_a_neighbourhood_of_hundreds_of_facets_splits_in_seconds():
+    import time
+
+    rng = np.random.default_rng(11)
+    nodes = [FacetNode(f"f{index:04d}", {"claim": f"claim {index}"}, concept="c0") for index in range(600)]
+    vectors = {node.key: rng.normal(size=32) for node in nodes}
+    started = time.monotonic()
+    grouping = neighbourhood_groups(nodes, vectors=vectors, max_group_size=40, shortlist_edges=False)
+    elapsed = time.monotonic() - started
+    members = [key for group in grouping.groups for key in group]
+    assert len(members) == len(set(members)) and all(len(group) <= 40 for group in grouping.groups)
+    assert elapsed < 30, elapsed

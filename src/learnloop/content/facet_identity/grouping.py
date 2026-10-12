@@ -23,6 +23,7 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+import heapq
 from typing import Any
 
 import numpy as np
@@ -198,33 +199,51 @@ def neighbourhood_groups(
 
 
 def _agglomerate(members: list[str], unit: Mapping[str, np.ndarray], cap: int) -> list[list[str]]:
-    """Average-link clustering under a size cap (deterministic)."""
+    """Average-link clustering under a size cap (deterministic), heap-based.
 
-    clusters: list[list[str]] = [[key] for key in sorted(members)]
-    similarity = {(a, b): float(unit[a] @ unit[b]) for a in members for b in members if a < b}
+    Each step merges the two clusters with the highest average similarity
+    whose joint size stays within ``cap``; ties go to the clusters whose first
+    keys sort first. Cluster similarity totals update in place (the sum over
+    the merged pair's rows), and a lazy max-heap keeps the next best pair, so
+    a neighbourhood of n facets costs O(n² log n) rather than recomputing
+    every pair's link each step (review F11). Pairs over the cap never come
+    back (clusters only grow).
+    """
 
-    def link(left: list[str], right: list[str]) -> float:
-        total = 0.0
-        for a in left:
-            for b in right:
-                total += similarity[(a, b) if a < b else (b, a)]
-        return total / (len(left) * len(right))
-
-    while True:
-        best: tuple[float, int, int] | None = None
-        for i in range(len(clusters)):
-            for j in range(i + 1, len(clusters)):
-                if len(clusters[i]) + len(clusters[j]) > cap:
-                    continue
-                score = link(clusters[i], clusters[j])
-                if best is None or score > best[0]:
-                    best = (score, i, j)
-        if best is None:
-            break
-        _score, i, j = best
-        clusters[i] = sorted(clusters[i] + clusters[j])
-        del clusters[j]
-    return sorted(clusters)
+    keys = sorted(members)
+    count = len(keys)
+    if count < 2:
+        return [keys] if keys else []
+    matrix = np.stack([np.asarray(unit[key], dtype=np.float64) for key in keys])
+    totals = matrix @ matrix.T  # sum of pairwise similarity between clusters
+    size = [1] * count
+    alive = [True] * count
+    version = [0] * count
+    clusters: dict[int, list[str]] = {index: [key] for index, key in enumerate(keys)}
+    heap: list[tuple[float, int, int, int, int]] = []
+    if cap >= 2:
+        heap = [(-float(totals[i, j]), i, j, 0, 0) for i in range(count) for j in range(i + 1, count)]
+        heapq.heapify(heap)
+    while heap:
+        _negative, i, j, version_i, version_j = heapq.heappop(heap)
+        if not (alive[i] and alive[j]) or version[i] != version_i or version[j] != version_j:
+            continue
+        if size[i] + size[j] > cap:
+            continue
+        # Merge j into i (i < j, so the merged cluster keeps the first key's slot).
+        totals[i, :] += totals[j, :]
+        totals[:, i] = totals[i, :]
+        size[i] += size[j]
+        alive[j] = False
+        clusters[i].extend(clusters.pop(j))
+        version[i] += 1
+        for other in range(count):
+            if other == i or not alive[other] or size[i] + size[other] > cap:
+                continue
+            first, second = (i, other) if i < other else (other, i)
+            average = float(totals[i, other]) / (size[i] * size[other])
+            heapq.heappush(heap, (-average, first, second, version[first], version[second]))
+    return sorted(sorted(cluster) for cluster in clusters.values())
 
 
 def _pack_by_concept(
