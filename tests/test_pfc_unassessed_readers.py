@@ -312,6 +312,56 @@ def test_the_cold_verification_guard_refuses_an_unassessed_attempt_directly(tmp_
     assert repository.unresolved_cause_factor(str(factor["id"]))["status"] == "open"
 
 
+# -- F3: a pinned probe never reads an unassessed criterion as a feature ----------------
+
+
+@pytest.mark.parametrize(
+    ("points", "unverified"),
+    [(0.0, False), (0.0, True), (2.0, True)],
+    ids=["assessed_zero", "unverified_zero", "unverified_partial"],
+)
+def test_a_pinned_probe_declines_to_classify_an_unassessed_criterion(tmp_path, points, unverified):
+    from learnloop.diagnosis.causal_orchestrator import (
+        auto_classify_pinned_probe,
+        deterministic_probe_features,
+    )
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+    from tests.test_causal_p2_acceptance import CLOCK as P2_CLOCK
+    from tests.test_causal_p2_acceptance import PROBE_ITEM, _acceptance_vault, _offered_probe
+
+    vault, repository, _paths = _acceptance_vault(tmp_path)
+    _result, factor_id, first_id, _second_id, offer = _offered_probe(
+        vault,
+        repository,
+        features=(
+            {"criterion:correctness:passed": False},
+            {"criterion:correctness:passed": True},
+        ),
+    )
+    probe = _apply_graded(
+        vault, repository, PROBE_ITEM, points={"correctness": points},
+        unverified=("correctness",) if unverified else (),
+        attempt_type="diagnostic_probe", presentation_id=offer.presentation_id, clock=P2_CLOCK,
+    )
+    features = deterministic_probe_features(vault, repository, probe.attempt_id)
+
+    evaluate_attempt_intervention_followup(vault, repository, result=probe, clock=P2_CLOCK)
+
+    observations = repository.causal_discriminating_observations(factor_id=factor_id)
+    if not unverified:
+        # The control: an assessed zero is a measured feature and classifies.
+        assert features["criterion:correctness:passed"] is False
+        assert [row["classified_as"] for row in observations] == [[first_id]]
+        assert repository.unresolved_cause_factor(factor_id)["status"] == "resolved"
+        return
+    # The unassessed criterion supplies no feature, so the declared-feature
+    # completeness check declines: nothing is recorded, the factor stays open.
+    assert observations == []
+    assert repository.unresolved_cause_factor(factor_id)["status"] == "open"
+    assert not any(key.startswith("criterion:correctness:") for key in features)
+    assert auto_classify_pinned_probe(vault, repository, attempt_id=probe.attempt_id, clock=P2_CLOCK) is None
+
+
 # -- F5: each record names the interpretation it was written under ------------------------
 
 

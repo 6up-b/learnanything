@@ -2729,7 +2729,9 @@ def deterministic_probe_features(
 ) -> dict[str, Any]:
     """The graded probe attempt's own criterion outcomes, as a feature vector.
 
-    ``{"criterion:<id>:passed": bool, "criterion:<id>:full_credit": bool}``.
+    ``{"criterion:<id>:passed": bool, "criterion:<id>:full_credit": bool}``,
+    for the assessed criteria only (a PF-c unassessed criterion has no
+    feature).
 
     This is the one probe sensor that runs no model: the values come from
     recorded grading evidence against the item's authored rubric.  A blind
@@ -2749,11 +2751,20 @@ def deterministic_probe_features(
     rubric = vault.rubric_for_item(item) if item is not None else None
     if item is None or rubric is None:
         return {}
+    from learnloop.substrate.canonical_projection import unassessed_evidence_row
+
     evidence = {
         row.criterion_id: row for row in repository.fetch_grading_evidence(attempt_id)
     }
     features: dict[str, Any] = {}
     for criterion in rubric.criteria:
+        row = evidence.get(criterion.id)
+        if row is not None and unassessed_evidence_row(row.attribution_json):
+            # PF-c (review F3): an unassessed criterion was not measured, so it
+            # supplies no feature - whatever points the grader left on it. A
+            # bundle that declares it then fails the declared-feature check in
+            # ``auto_classify_pinned_probe``, which declines.
+            continue
         awarded = float(
             evidence[criterion.id].points_awarded
             if criterion.id in evidence
