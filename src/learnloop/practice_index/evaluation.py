@@ -62,6 +62,7 @@ from learnloop.practice_index.paid import (
     checkpoint_key,
     estimated_call_tokens,
     plan_route,
+    planning_repository,
     resolve_client,
     transport_problem,
 )
@@ -421,7 +422,7 @@ def run_retrieval_evaluation(
     if queries < 0 or logged_queries < 0 or bootstrap_samples < 1:
         raise ValueError("queries and logged_queries must be nonnegative; bootstrap_samples positive")
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository(sqlite_path)
+    repository = planning_repository(sqlite_path, dry_run=dry_run)
     run_id = new_ulid()
     corpus, exclusions = admissible_corpus(vault, repository, PracticeConstraints(), clock=clock)
     snapshot = load_snapshot(vault, repository, embedder=embedder)

@@ -125,3 +125,62 @@ def test_sidecar_rpcs(vault_paths):
         call("find_practice", {"query": "x", "minDifficulty": 0.9, "maxDifficulty": 0.1})
     coverage = call("get_practice_coverage", {"minEligible": 3})
     assert coverage["targets"] == [] and coverage["facets"] == 6
+
+
+def _schema_166_rollback_database(paths) -> None:
+    """Replace the vault database with one built through migration 166 only."""
+    import shutil
+
+    from learnloop.db.connection import connect
+    from learnloop.db.migrate import apply_migrations, discover_migrations
+
+    for suffix in ("", "-wal", "-shm"):
+        candidate = paths.sqlite_path.with_name(paths.sqlite_path.name + suffix)
+        if candidate.exists():
+            candidate.unlink()
+    older = paths.root.parent / "migrations_166"
+    older.mkdir()
+    for migration in discover_migrations():
+        if migration.version <= 166:
+            shutil.copy2(migration.path, older / migration.path.name)
+    apply_migrations(paths.sqlite_path, migrations_dir=older)
+    connection = connect(paths.sqlite_path)
+    try:
+        connection.execute("PRAGMA journal_mode=DELETE")
+    finally:
+        connection.close()
+
+
+def _schema_state(paths):
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
+        journal = connection.execute("PRAGMA journal_mode").fetchone()[0]
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    return version, journal, "facet_dossiers" in tables
+
+
+@pytest.mark.durability
+def test_batch_dry_runs_never_migrate_an_older_rollback_database(tmp_path):
+    """F2: planning attaches read-only; a dry run applies no migration and keeps the journal."""
+    from learnloop.practice_index.evaluation import run_retrieval_evaluation
+
+    paths = build_practice_vault(tmp_path / "vault")
+    _schema_166_rollback_database(paths)
+    before = paths.sqlite_path.read_bytes()
+    assert _schema_state(paths) == (166, "delete", False)
+    vault = load_vault(paths.root)
+    report = generate_dossiers(vault, caps=SpendCaps(), dry_run=True)
+    assert report["status"] == "dry_run" and report["pending"] == 6, report
+    evaluation = run_retrieval_evaluation(vault, caps=SpendCaps(), dry_run=True, queries=4)
+    assert evaluation["status"] == "dossier_unavailable", evaluation
+    runner = CliRunner()
+    for command in (["dossiers"], ["eval", "--queries", "4"]):
+        result = runner.invoke(app, ["practice-index", *command, "--vault", str(paths.root),
+                                     "--dry-run", "--json"])
+        assert _json(result)["status"] in {"dry_run", "dossier_unavailable"}, result.output
+    assert _schema_state(paths) == (166, "delete", False)
+    assert paths.sqlite_path.read_bytes() == before

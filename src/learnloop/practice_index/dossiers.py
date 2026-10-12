@@ -52,6 +52,7 @@ from learnloop.practice_index.paid import (
     checkpoint_key,
     estimated_call_tokens,
     plan_route,
+    planning_repository,
     resolve_client,
     transport_problem,
 )
@@ -388,7 +389,7 @@ def generate_dossiers(
 ) -> dict[str, Any]:
     """Plan (dry run: no client, no writes) or write the missing dossiers."""
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    repository = Repository(sqlite_path)
+    repository = planning_repository(sqlite_path, dry_run=dry_run)
     plans = build_plans(vault, repository, facet_ids=facet_ids)
     route = plan_route(vault, "practice_dossier", client)
     model_id = route.model or "unspecified"

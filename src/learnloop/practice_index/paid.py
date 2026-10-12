@@ -34,6 +34,7 @@ from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 import json
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
@@ -131,6 +132,20 @@ def resolve_client(vault: LoadedVault, route: PaidRoute) -> tuple[Any | None, st
     if problem is not None:
         return None, problem
     return resolved.client, None
+
+
+def planning_repository(sqlite_path: Path, *, dry_run: bool) -> Repository:
+    """The repository a paid batch command plans with.
+
+    A dry run attaches read-only and never migrates, so planning an older
+    database changes neither its schema nor its journal mode; tables it does
+    not have yet read as empty. A real run opens (and migrates) as usual.
+    """
+    if not dry_run:
+        return Repository(sqlite_path)
+    if not Path(sqlite_path).exists():
+        raise ValueError(f"No database at {sqlite_path}; open the vault once before planning.")
+    return Repository.attach(sqlite_path, read_only=True)
 
 
 def estimated_call_tokens(prompt: str, result_model: type[BaseModel], output_tokens: int) -> int:
@@ -398,6 +413,7 @@ __all__ = [
     "checkpoint_key",
     "estimated_call_tokens",
     "plan_route",
+    "planning_repository",
     "resolve_client",
     "transport_problem",
 ]
