@@ -186,3 +186,109 @@ These checks ran on the final code tree (`74d94e04`). This record is the only co
    - This was Phase 2's deliberate rule: missing or late timing is not evidence.
    - A defensible alternative signal is a "no draft yet" marker, such as `attempt_progress`, or a small threshold.
    - This is a product decision and was not changed here.
+
+---
+
+# Re-review: Codex job `20261012-012709-ZrDCP3`
+
+**Scope.** The re-review covered `3418d405..integrate/slice-a-2-3` and the record above.
+- F1 (High) is confirmed fixed. Nothing changed for it here.
+- F5 and F8 were reopened.
+- F11 (Medium) is new.
+- The owner-directed Codex change for the two Phase 2 paid routes (F3, `57730bec`) was not reopened.
+
+**Result.** F5 and F11 are fixed. F8 is fixed in part: the serving gate it asked for was added, and the algorithm successor was declined for the reason below. Each fix was reproduced first, and the new or changed tests named below fail on the code before it. The branch is still not rebased, merged or pushed.
+
+## Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Family application can overwrite concurrent learner edits | Confirmed fixed by the re-review; no change | `f0612d25` | Its tests are listed in the first table |
+| F5 | Medium (reopened) | Ordinary UI requests still miss early-help detection | **Fixed** | `6fe0d171` | `AskOverlay.test.tsx` (2), `PracticeScreen.test.tsx::tells the tutor whether an answer was started when the learner asks`, `test_field_signal_production_paths.py::test_practice_screen_payload_marks_help_before_work` (3 cases) |
+| F8 | Medium (reopened) | Disabling adoption leaves adopted cards served; no successor | **Fixed in part:** the serving gate was added; the algorithm successor was **rejected** (reason below) | `97123062` | `test_daily_loop_reference_adoption.py`: `test_adoption_kill_switch_restores_baseline_and_keeps_adopted_cards` (rewritten) and `test_write_time_adoption_is_not_gated_by_the_sweep_switch` |
+| F11 | Medium | Tutor mapping assigns prerequisite confusion to unrelated LOs | **Fixed** | `62e10724` | `test_field_signal_production_paths.py`: the cross-subject shared-facet test, the declared-prerequisite test (by LO and by edge), the ambiguous-prerequisite test, and the feedback and library own-LO tests (6 cases) |
+| F3 | (owner-directed) | Codex on `field classify-questions` and `eval --prepare-llm` | Done in the first pass; not reopened | `57730bec` | `test_field_llm_cli.py` and `test_interaction_signals.py`. They passed again in this gate |
+
+`b9725f4a` regenerates the DB and config references.
+
+## What changed, per finding
+
+### F5: the practice screen logs "no work yet"
+
+- **Reproduced.**
+  - `AskOverlay.tsx` sends fractional `secondsIntoAttempt`, and detection needed an exact zero.
+  - The ask was replayed through the `ask_tutor_question` and `submit_attempt` RPCs with 2.537 s. The correct one-hint answer kept the ordinary 0.8 cap.
+  - The earlier regression had passed only because it supplied a synthetic 0.0.
+- **The signal.** The practice screen now sends `attemptProgress` with every practice ask.
+  - `no_draft` means nothing was typed in the answer or the why-line. Hints already revealed are help, not work.
+  - `draft_started` means the learner had typed something.
+  - The overlay is modal, so the draft state when it opens is the state when the question is sent.
+  - The value is persisted in the existing `question_events.attempt_progress` column. There is no schema change.
+- **The loader.** `field.signals` treats a logged `no_draft` practice question the same as a logged zero: help came before work, so the answer is capped at 0.3. Missing or fractional timing on its own is still not evidence, as Phase 2 intended.
+- **Tests on the real payload.**
+  - `AskOverlay.test.tsx` pins the exact object the overlay sends: fractional seconds plus `attemptProgress`. It also checks that the marker never goes out in other contexts.
+  - `PracticeScreen.test.tsx` checks the marker before and after typing.
+  - The Python test sends that payload through the sidecar RPCs and reads the learner-field rows. `no_draft` gives 0.3. `draft_started` and a missing marker keep 0.8.
+- **Limit.** The command-palette ask path in `App.tsx` does not know the draft or the open time. It sends neither, so it makes no claim.
+
+### F8: switched-off adopted cards are not served
+
+- **Reproduced.** The previous test asserted that cards adopted earlier were still served after the switch was turned off. The rewritten test asserts the baseline instead, and it fails on the old code.
+- **Marker.** A card the sweep adopts records its versioned provenance on the card itself: `provenance.adoption = reader_reference_adoption_v1`.
+  - `author_item` gains `provenance_detail` to write it.
+  - The mechanism constant moves to `vault.lifecycle`.
+  - Write-time adoption (`reader_author_qa`) predates the sweep. It is not marked and never gated.
+- **Gate.** `vault.lifecycle.practice_item_serving_block` adds one rule to the LO lifecycle check: a sweep-adopted card is not servable while `tutor_qa.adopt_reference_questions` is off.
+  - The scheduler's candidate loop and its by-id follow-up lane use it, and so does the exam pool.
+  - The sidecar's by-id serve doors refuse such a card with `reference_adoption_disabled`. These are `open_queue_item`, a session `get_practice_item`, teach-back and the golden-path assessment.
+  - A read-only open, such as feedback or the inspector, still renders the card.
+- **Authored content is preserved.** The card stays on disk, active and marked, and stays linked to its commitment. Nothing is persisted or deactivated by the gate. Switching adoption back on serves the same cards again with their history.
+- **Why no algorithm successor (rejected).**
+  - **Playbook scope.** `docs/algorithm-change-playbook.md` applies when scoring, scheduling, projection or admissibility semantics change, or when persisted meaning changes. The sweep writes new authored cards and raw commitment events. The gate is a read of vault YAML and config, like the LO lifecycle gate. Neither changes how any existing row is interpreted, so replay and rebuild of the same vault are unchanged and a shadow rebuild would show no delta.
+  - **Owner decision.** The decision in force (2026-10-12) is "live changes behind kill switches, no shadow stages by default". A successor would hold the change back from existing vaults until an explicit `learnloop upgrade`. It would also need a new version tag, an upgrade function, a fingerprint and a migration-head fixture, and that work is outside this stage.
+  - **The actual defect is fixed.** The kill switch now restores baseline serving.
+  - The owner can still ask for a successor at the checkpoint (open question 2).
+
+### F11: tutor facet targets are grounded in the question
+
+- **Reproduced.** The question-time mapping from `c3c6f155` scanned every LO and active item sharing a logged facet.
+  - With an SVD item and a contract-law LO both measuring `recall`, a prerequisite question mapped to the contract-law LO. The loader made a 0.0 observation at mass 0.15 under the asking attempt's `linear-algebra` subject.
+  - A feedback `mechanism` question split its mass with every LO that shared the facet.
+- **Fix.** The mapping persisted with the answer is drawn only from the LOs the question is about.
+  - An item question (practice or feedback) targets its item's LO.
+  - A library question targets its note's related LOs.
+  - A `prerequisite` question points below those, to the LOs on the concepts they declare as prerequisites, either through `LearningObject.prerequisites` or through a `prerequisite` relation edge into the concept.
+- **Ambiguity.** A facet resolves only when exactly one grounded LO is responsible for it (`scope_facets`). When no LO or several LOs are, the facet is left unresolved for the opt-in classifier, which keeps the logged type and facets.
+- **Subjects.**
+  - Each mapped target's subject is persisted as `learning_object_subject_ids`, and the loader uses it.
+  - The linked attempt's own LO keeps the attempt's subject.
+  - Explicit and classifier-supplied targets keep the earlier fallback. The paid classifier returns no subject, and Phase 2's test pins that an unlinked event keeps its own logged subject.
+- **Effect.** A vault with no declared prerequisites now leaves prerequisite questions unresolved for classification. This is intended: a shared facet is not evidence of a prerequisite.
+
+## Integration choices (Unresolved item 4)
+
+These are unchanged from the first pass, and the re-review raised nothing new on them. Memory arms stay in the default field arm set. The integration follows Phase 2 and spec §3 on regrade and `dont_know`. Attempts without grading evidence still produce no outcome row.
+
+## Gate results (re-review)
+
+These checks ran on the final code tree (`b9725f4a`). This record is the only commit after it.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev`, then `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **8 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **6,723 passed**, 0 failed, 14 warnings (the existing Python 3.12 fork and SQLite datetime-adapter warnings); 195 s. That is the 6,713 before plus 10 new test cases |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **64 passed**, 6,659 deselected; 29 s |
+| Frontend: `npm install`, `npm run typecheck`, `npm test` in `apps/learnloop-tauri` | typecheck **0 errors**; vitest **38 passed in 12 files**, including 3 new tests. `npm run frontend:build` also passes |
+| `db_generate_reference.py` / `db_validate_reference.py` | Schema **168**, 266 table notes, **529** config leaves in 30 sections, **0 errors** |
+| `validate_vault.py` (extra) | Passed: 1,028 notes |
+| Migrations and fixtures | Unchanged: no migration and no new table. The tracked working vaults are untouched |
+
+`module_validate.py` reports the same 63 issues before and after these commits: notes are missing for modules added in earlier phases. It is not part of this gate.
+
+## Open questions for the owner (updated)
+
+1. **Spec §3 against §4 on `dont_know` mass.** Unchanged from the first pass.
+2. **F8 successor.** The re-review asked for an algorithm successor again. It was declined for the reason above. The kill switch now restores baseline serving, and the cards adopted earlier are kept. Say if you want an `mvp-0.10` successor anyway.
+3. **F11 prerequisite targets.** A prerequisite question now resolves only to an LO on a declared prerequisite concept, and only when exactly one such LO is responsible for the facet. Anything else goes to the opt-in classifier. Confirm this reading. Vaults with few declared prerequisites will send most prerequisite questions to the classifier.
+4. **"Help before work".** Resolved by F5. The practice screen's explicit `no_draft` marker now counts. The command-palette ask path sends no marker, so it makes no claim.
