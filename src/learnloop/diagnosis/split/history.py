@@ -38,7 +38,11 @@ from typing import Any, Iterable, Mapping, Protocol, Sequence
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
-from learnloop.substrate.canonical_projection import surface_group_id
+from learnloop.substrate.canonical_projection import (
+    UNVERIFIED_CRITERION_BLOCK,
+    surface_group_id,
+    unverified_evidence_row,
+)
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 #: Attempt types that measure nothing and never appear as history.
@@ -533,10 +537,19 @@ def history_attempt_from_blind_record(
     """Blind-grade-equivalent fields from a validated blind grade record."""
 
     maxima, max_points = _max_points_by_criterion(vault, item)
+    # PF-c (review F4): a criterion the valid-alternative gate recorded
+    # unverified was never exercised by the learner's route. It is neither a
+    # failed nor a passed criterion here, so it is no evidence unit and no
+    # recurrence can be cited on it. (A record written before the unassessed
+    # rule blocked its negative evidence too, so this holds for both.)
+    support = record.get("grading_support") or {}
+    unassessed = {str(value) for value in support.get("unverified_criterion_ids") or ()}
     failed: list[str] = []
     passed: list[str] = []
     for row in record.get("criteria") or []:
         criterion_id = str(row.get("criterion_id") or "")
+        if criterion_id in unassessed:
+            continue
         points = float(row.get("points_awarded") or 0.0)
         maximum = maxima.get(criterion_id)
         if maximum is not None and points + 1e-9 >= maximum:
@@ -632,10 +645,16 @@ class VaultHistoryStore:
                 "created_at FROM practice_attempts ORDER BY created_at, id"
             )]
             evidence: dict[str, dict[str, float]] = {}
+            #: Attempts with a PF-c unverified criterion row (review F4): those
+            #: rows are neither failures nor passes in the history.
+            unassessed_attempts: set[str] = set()
             for row in connection.execute(
-                "SELECT attempt_id, criterion_id, points_awarded FROM grading_evidence "
+                "SELECT attempt_id, criterion_id, points_awarded, attribution_json FROM grading_evidence "
                 "WHERE superseded_at IS NULL ORDER BY created_at, criterion_id"
             ):
+                if row[3] and UNVERIFIED_CRITERION_BLOCK in str(row[3]) and unverified_evidence_row(row[3]):
+                    unassessed_attempts.add(str(row[0]))
+                    continue
                 evidence.setdefault(str(row[0]), {})[str(row[1])] = float(row[2] or 0.0)
             events: dict[str, list[dict[str, Any]]] = {}
             for row in connection.execute(
@@ -700,7 +719,7 @@ class VaultHistoryStore:
             else:
                 record = self._from_stored(
                     row, item, evidence.get(attempt_id, {}), events.get(attempt_id, []),
-                    fatal.get(attempt_id, []),
+                    fatal.get(attempt_id, []), has_unassessed=attempt_id in unassessed_attempts,
                 )
             self._attempts.append(record)
             self._by_id[attempt_id] = record
@@ -942,8 +961,15 @@ class VaultHistoryStore:
         points: Mapping[str, float],
         events: Sequence[Mapping[str, Any]],
         fatal: Sequence[str],
+        *,
+        has_unassessed: bool = False,
     ) -> HistoryAttempt:
-        """A stored joint grade, reduced to blind-grade-equivalent fields (S3)."""
+        """A stored joint grade, reduced to blind-grade-equivalent fields (S3).
+
+        ``points`` holds the assessed criteria only; ``has_unassessed`` says
+        PF-c unverified rows were left out, so an empty ``points`` is not "no
+        criterion rows" (the score-only fallback below).
+        """
 
         vault = self.vault
         maxima, max_points = _max_points_by_criterion(vault, item)
@@ -959,7 +985,7 @@ class VaultHistoryStore:
         if attempt_type == "dont_know" and not failed:
             failed = sorted(maxima) or ["dont_know"]
         correctness = row.get("correctness")
-        if not points and correctness is not None and float(correctness) < 1.0 - 1e-9:
+        if not points and not has_unassessed and correctness is not None and float(correctness) < 1.0 - 1e-9:
             # No criterion rows (deterministic or legacy grades): the stored
             # score is the only measurement, so the attempt is a non-pass on
             # every criterion rather than silently a pass.

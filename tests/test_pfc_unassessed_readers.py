@@ -362,6 +362,80 @@ def test_a_pinned_probe_declines_to_classify_an_unassessed_criterion(tmp_path, p
     assert auto_classify_pinned_probe(vault, repository, attempt_id=probe.attempt_id, clock=P2_CLOCK) is None
 
 
+# -- F4: the diagnoser's history never reads an unassessed criterion as a failure ---------
+
+
+def test_a_later_diagnosis_cannot_cite_an_unassessed_shortfall_as_a_recurrence(tmp_path):
+    from learnloop.diagnosis.split.context import assemble_diagnosis_context, current_attempt_from
+    from learnloop.diagnosis.split.contract import DiagnosisProposal
+    from learnloop.diagnosis.split.history import VaultHistoryStore
+    from learnloop.diagnosis.split.live import live_history_store
+    from learnloop.diagnosis.split.settings import DiagnosisSettings
+    from learnloop.diagnosis.split.validation import validate_diagnosis_proposal
+
+    _paths, vault, repository = split_vault(tmp_path)
+    earlier = submit(vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER, when=at(100))
+    record = repository.latest_blind_grade_record(earlier.attempt_id)["record"]
+    assert record["grading_support"]["unverified_criterion_ids"] == ["result"]
+    assert record["error_attributions"] == []
+    later = submit(
+        vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002",
+        answer="B = U Sigma V nope", when=at(101),
+    )
+
+    store = live_history_store(vault, repository)
+    prior = store.attempt(earlier.attempt_id)
+    # Unassessed is neither a failure nor a pass, read from the blind record...
+    assert "result" not in prior.failed_criteria and "result" not in prior.passed_criteria
+    assert prior.failed_criteria == () and not prior.non_pass
+    assert prior.recurrence_invalid_reason({"recall"}) == "cited_attempt_passed"
+    # ...and from the stored rows when no blind overlay is at hand.
+    stored = VaultHistoryStore(vault, repository).attempt(earlier.attempt_id)
+    assert "result" not in stored.failed_criteria and "result" not in stored.passed_criteria
+    assert stored.recurrence_invalid_reason({"recall"}) is not None
+
+    # The later diagnosis cites the earlier answer as the same mistake on recall.
+    item = vault.practice_items["pi_svd_compute_002"]
+    current_attempt = store.attempt(later.attempt_id)
+    current = current_attempt_from(
+        vault, item, attempt_id=later.attempt_id, completed_at=current_attempt.completed_at,
+        learner_answer_md="B = U Sigma V nope",
+        blind_grade=repository.latest_blind_grade_record(later.attempt_id)["record"],
+    )
+    assembled = assemble_diagnosis_context(vault, store, current, DiagnosisSettings(), mode="full")
+    proposal = DiagnosisProposal.model_validate({
+        "analysis_md": "The final factor is not transposed, as before.",
+        "evidence_attempt_ids": [earlier.attempt_id],
+        "event_diagnoses": [{
+            "event_index": 0,
+            "causal_class": "learner_state",
+            "candidate_causes": [{
+                "statement": "Believes V needs no transpose.",
+                "cause_scope": "learner_state",
+                "prior_weight": 2,
+                "target_ref": {"kind": "facet_capability", "facet_id": "recall"},
+            }],
+            "registry_match": {"kind": "abstain"},
+            "history_changed_cause": {"changed": False, "note": ""},
+        }],
+        "pattern_claims": [{
+            "hypothesis_ref": "cause:0:0", "relation": "same_mechanism",
+            "cited": [{"attempt_id": earlier.attempt_id, "quote": "A different route."}],
+        }],
+    })
+    result = validate_diagnosis_proposal(
+        proposal, assembled=assembled, current=current, vault=vault, item=item,
+        rubric=resolved_rubric(vault, item), store=store,
+    )
+    reasons = {
+        issue["attempt_id"]: issue["reason"]
+        for issue in result.report["issues"]
+        if issue["rule"] == "citation_not_valid_for_recurrence"
+    }
+    assert reasons == {earlier.attempt_id: "cited_attempt_passed"}
+    assert result.validated_citations == ()
+
+
 # -- F5: each record names the interpretation it was written under ------------------------
 
 
