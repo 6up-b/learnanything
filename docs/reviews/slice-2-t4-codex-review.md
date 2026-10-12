@@ -350,3 +350,61 @@ None. Schema head stays 168. No table, no DERIVED replay, no config field.
    the PF auto-accept pattern.)
 3. **Owner verdicts.** These are still recorded only by direct ledger writes (stage open
    question 2). `owner_audit` stays at 0 until a `contamination verdict` command exists.
+
+## Re-review (Codex, 2026-10-12)
+
+Codex job `20261012-130213-5MVsaq`, verdict REOPENED. It confirmed the F1 fix and raised
+two Medium regressions in the F2 verifier link. Both reproduced on `e146182e` before
+the fix: F8 returned `decides=True` and F9 returned `decides=False`.
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Identical-text pairs shared one judgment id | Confirmed fixed (no change this step) | `21908854` | `test_contamination_report.py` (pair and pass identity, resume filtering) |
+| F8 | Medium | A different equation can become an authoritative reveal | Fixed | `122621c1` | `test_contamination_symbolic.py::test_a_relation_that_does_not_hold_for_the_item_never_decides` (4 cases; 3 failed before the fix) |
+| F9 | Medium | Earlier occurrences suppress a later valid symbolic reveal | Fixed | `122621c1` | `test_contamination_symbolic.py::test_an_earlier_occurrence_does_not_hide_a_later_worked_equation` (3 cases; 2 failed before the fix), `::test_repeated_sides_are_compared_once` |
+
+**F8 fix.** The item's expression in the reply's equation must itself be verified
+equal to the expected answer, by the same comparison as the answer side. Only then does
+the equation establish the item's answer.
+- `x + 1 = 2` for "Solve x + 1 = 3" shares the fragment `x + 1`, but `x + 1` is not
+  equal to 2, so the pair is only shortlisted.
+- A wrong relation (`12 * 12 = 124`) holds the item's expression but does not hold, so
+  it is also only shortlisted.
+- Both now go to the judge, and an LLM `clean` stands.
+- Solve-type items whose answer is a variable's value therefore never link. The judge
+  decides them, as it did at the base commit.
+
+**F9 fix.** The global `seen` set is now a cache from side to comparison result. Each
+distinct side is still compared once (bounded work, and `checked` counts distinct
+sides). Every equation reads every cached result, so "Read page 144. Then 12 * 12 = 144."
+decides again. The F8 check reads the same cache, so it makes no extra SymPy calls.
+
+**Label.** The decision rule changed, so `SYMBOLIC_VERSION` moves to
+`contamination-symbolic-v3`. Verifier ledger ids hash the version, so v2 verifier rows
+(including any false F8-type reveal written by the earlier build) are never consulted.
+New verifier verdicts are written under the v3 label. Earlier verdicts from the LLM
+judge are unaffected.
+
+**Manual check (no paid call).** `contamination report --dry-run --no-judge` on
+`fixtures-local/t4-real-linear_algebra`:
+- status `dry_run`, `symbolic_version` v3;
+- the database sha256 was unchanged;
+- the tutor detector had 0 math pairs, so the verifier is not exercised on any copy.
+
+F8 and F9 are covered by tests only. Spend this step: 0 calls, $0.
+
+### Re-review gate
+
+Run on `122621c1` (code and tests final; the commit after it adds only this section),
+clean tree.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 10 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,157 passed**, 14 warnings, 201.3 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **66 passed**, 7,091 deselected, 35.5 s |
+| T4 tests (`test_contamination_symbolic.py` 46, `test_contamination_report.py` 35) + `test_cli_help_snapshot.py` 1 | 82 passed |
+| `db_validate_reference.py` | 0 errors (no schema or config change) |
+
+Not applicable: frontend and mobile (untouched); no migration. Schema head stays 168.
