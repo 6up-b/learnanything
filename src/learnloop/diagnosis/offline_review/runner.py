@@ -1117,7 +1117,9 @@ class ReviewRun:
 
     # -- judging ----------------------------------------------------------------
 
-    def _ledger_has(self, task: str, left_kind: str, left_id: str, pass_index: int) -> bool:
+    def _ledger_has(self, task: str, left_kind: str, left_id: str, pass_index: int, revision: str) -> bool:
+        """Whether this judgment pass ran on exactly these inputs (``revision``)."""
+
         with closing(connect(self.scratch_path, read_only=True)) as connection:
             rows = connection.execute(
                 "SELECT rationale FROM judgment_ledger WHERE task = ? AND left_kind = ? AND left_id = ?",
@@ -1125,10 +1127,11 @@ class ReviewRun:
             ).fetchall()
         for row in rows:
             try:
-                if json.loads(row[0]).get("pass") == pass_index:
-                    return True
+                rationale = json.loads(row[0])
             except (TypeError, ValueError):
                 continue
+            if rationale.get("pass") == pass_index and rationale.get("revision") == revision:
+                return True
         return False
 
     def _append(self, connection: sqlite3.Connection, **values: Any) -> None:
@@ -1155,17 +1158,15 @@ class ReviewRun:
         planted = self.planted_cases()
         targets = self._rows("review_targets", order_by="position")
         for index, target in enumerate(targets):
-            diagnoses = {
-                row["arm"]: row
-                for row in self._rows("review_diagnoses", target_id=target["id"])
-                if row["status"] == "completed" and row.get("proposal")
-            }
+            rows = self._rows("review_diagnoses", target_id=target["id"])
+            diagnoses = judging.judged_arm_rows(rows)
             item = self.vault.practice_items[target["practice_item_id"]]
             answer = self.target_answer(target, planted)
-            judged_arms = [arm for arm in (*MAIN_ARMS, "b_prime") if arm in diagnoses]
+            judged_arms = list(diagnoses)
+            revision = judging.diagnosis_judgment_revision(diagnoses)
             if len(judged_arms) >= 2:
                 for pass_index in (0, 1):
-                    if self._ledger_has("diagnosis_best", "review_target", target["id"], pass_index):
+                    if self._ledger_has("diagnosis_best", "review_target", target["id"], pass_index, revision):
                         continue
                     labels = judging.assign_labels(judged_arms, seed=self.options.seed + index, pass_index=pass_index)
                     arm_to_label = {arm: label for label, arm in labels.items()}
@@ -1199,7 +1200,7 @@ class ReviewRun:
                             self._append(
                                 connection, task="diagnosis_rating", left_kind="review_diagnosis", left_id=diagnoses[arm]["id"],
                                 prompt_version=judging.JUDGE_PROMPT_VERSION, input_hash=digest, verdict=rating.rating,
-                                rationale=judging.stable_json({"pass": pass_index, "label": rating.label, "reason": rating.reason}),
+                                rationale=judging.stable_json({"pass": pass_index, "revision": revision, "label": rating.label, "reason": rating.reason}),
                             )
                         for pair in verdict.pairs:
                             left_arm, right_arm = labels.get(pair.left), labels.get(pair.right)
@@ -1210,40 +1211,24 @@ class ReviewRun:
                                 connection, task="diagnosis_pairwise", left_kind="review_diagnosis", left_id=diagnoses[first]["id"],
                                 right_kind="review_diagnosis", right_id=diagnoses[second]["id"],
                                 prompt_version=judging.JUDGE_PROMPT_VERSION, input_hash=digest, verdict=preferred,
-                                rationale=judging.stable_json({"pass": pass_index, "pair": [first, second], "reason": pair.reason}),
+                                rationale=judging.stable_json({"pass": pass_index, "revision": revision, "pair": [first, second], "reason": pair.reason}),
                             )
                         best_arm = labels.get(verdict.best)
                         self._append(
                             connection, task="diagnosis_best", left_kind="review_target", left_id=target["id"],
                             prompt_version=judging.JUDGE_PROMPT_VERSION, input_hash=digest,
                             verdict=diagnoses[best_arm]["id"] if best_arm else "none",
-                            rationale=judging.stable_json({"pass": pass_index, "best_arm": best_arm}),
+                            rationale=judging.stable_json({"pass": pass_index, "revision": revision, "best_arm": best_arm}),
                         )
-            self._judge_links(target, diagnoses, answer, item, planted, index)
+            self._judge_links(target, rows, answer, item, planted, index)
             if target["kind"] == "planted":
-                self._judge_planted(target, planted[target["attempt_id"]], item, answer, index)
+                self._judge_planted(target, rows, planted[target["attempt_id"]], item, answer, index)
 
-    def _links_for(self, target: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
-        links: dict[str, dict[str, Any]] = {}
-        for row in self._rows("review_diagnoses", target_id=target["id"]):
-            proposal = row.get("proposal") or {}
-            if row["status"] != "completed":
-                continue
-            for claim in proposal.get("pattern_claims") or []:
-                if claim.get("relation") == "disconfirming":
-                    continue
-                for citation in claim.get("cited") or []:
-                    cited = str(citation.get("attempt_id") or "")
-                    entry = links.setdefault(cited, {"arms": [], "relations": [], "claims": []})
-                    entry["arms"].append(row["arm"])
-                    entry["relations"].append(claim.get("relation"))
-                    entry["claims"].append(str(claim.get("hypothesis_ref") or ""))
-        return links
-
-    def _judge_links(self, target, diagnoses, answer, item, planted, index) -> None:
-        links = self._links_for(target)
+    def _judge_links(self, target, rows, answer, item, planted, index) -> None:
+        links = judging.cited_links(rows)
         if not links:
             return
+        revision = judging.link_judgment_revision(links)
         planted_case = planted.get(target["attempt_id"]) if target["kind"] == "planted" else None
         store = planted_history_store(self.vault, planted_case) if planted_case is not None else None
         cited_rows: dict[str, HistoryAttempt] = {}
@@ -1255,7 +1240,7 @@ class ReviewRun:
                 cited_rows[cited] = attempt
         order = sorted(cited_rows)
         for pass_index in (0, 1):
-            if self._ledger_has("same_cause_pass", "attempt", target["attempt_id"], pass_index):
+            if self._ledger_has("same_cause_pass", "attempt", target["attempt_id"], pass_index, revision):
                 continue
             ordered = order if pass_index == 0 else list(reversed(order))
             labels = {f"L{position + 1}": cited for position, cited in enumerate(ordered)}
@@ -1288,21 +1273,20 @@ class ReviewRun:
                         connection, task="same_cause", left_kind="attempt", left_id=target["attempt_id"],
                         right_kind="attempt", right_id=cited,
                         prompt_version=judging.LINK_JUDGE_PROMPT_VERSION, input_hash=digest, verdict=row.verdict,
-                        rationale=judging.stable_json({"pass": pass_index, "reason": row.reason, "arms": sorted(set(links[cited]["arms"])), "relations": sorted({str(value) for value in links[cited]["relations"]})}),
+                        rationale=judging.stable_json({"pass": pass_index, "revision": revision, "reason": row.reason, "arms": sorted(set(links[cited]["arms"])), "relations": sorted({str(value) for value in links[cited]["relations"]})}),
                     )
                 self._append(
                     connection, task="same_cause_pass", left_kind="attempt", left_id=target["attempt_id"],
                     prompt_version=judging.LINK_JUDGE_PROMPT_VERSION, input_hash=digest, verdict="judged",
-                    rationale=judging.stable_json({"pass": pass_index, "links": len(labels)}),
+                    rationale=judging.stable_json({"pass": pass_index, "revision": revision, "links": len(labels)}),
                 )
 
-    def _judge_planted(self, target, case: PlantedCase, item, answer, index) -> None:
-        if self._ledger_has("planted_cause_pass", "review_target", target["id"], 0):
-            return
-        rows = [row for row in self._rows("review_diagnoses", target_id=target["id"]) if row["status"] == "completed" and row.get("proposal")]
-        statements = {row["id"]: judging.primary_statement(row["proposal"]) for row in rows}
-        statements = {key: value for key, value in statements.items() if value}
+    def _judge_planted(self, target, rows, case: PlantedCase, item, answer, index) -> None:
+        statements = judging.planted_statements(rows)
         if not statements:
+            return
+        revision = judging.planted_judgment_revision(statements)
+        if self._ledger_has("planted_cause_pass", "review_target", target["id"], 0, revision):
             return
         ids = sorted(statements)
         random.Random(self.options.seed + 7 + index).shuffle(ids)
@@ -1332,12 +1316,12 @@ class ReviewRun:
                 self._append(
                     connection, task="planted_cause_match", left_kind="review_diagnosis", left_id=diagnosis_id,
                     prompt_version=judging.PLANTED_JUDGE_PROMPT_VERSION, input_hash=digest, verdict=row.matches,
-                    rationale=judging.stable_json({"pass": 0, "reason": row.reason}),
+                    rationale=judging.stable_json({"pass": 0, "revision": revision, "reason": row.reason}),
                 )
             self._append(
                 connection, task="planted_cause_pass", left_kind="review_target", left_id=target["id"],
                 prompt_version=judging.PLANTED_JUDGE_PROMPT_VERSION, input_hash=digest, verdict="judged",
-                rationale=judging.stable_json({"pass": 0}),
+                rationale=judging.stable_json({"pass": 0, "revision": revision}),
             )
 
     # -- probes -------------------------------------------------------------------

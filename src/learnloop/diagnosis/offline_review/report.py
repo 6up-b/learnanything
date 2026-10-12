@@ -20,6 +20,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.db.connection import connect
 from learnloop.db.stores.diagnosis_review import review_rows
+from learnloop.diagnosis.offline_review import judge as judging
 from learnloop.diagnosis.offline_review.judge import PAIRS_OF_INTEREST, RATINGS
 from learnloop.diagnosis.offline_review.runner import MAIN_ARMS, RUN_FILE, SCRATCH_FILE
 
@@ -114,6 +115,7 @@ def load_run(run_dir: Path) -> dict[str, Any]:
             "planted_cause_match",
         ):
             data[f"ledger:{task}"] = _ledger(connection, task)
+        data["superseded_judgments"] = _keep_current_revisions(data)
         real_ids = [row["attempt_id"] for row in data["review_targets"] if row["kind"] == "real"]
         evidence: dict[str, dict[str, float]] = defaultdict(dict)
         misconceptions: dict[str, list[str | None]] = defaultdict(list)
@@ -161,6 +163,52 @@ def load_run(run_dir: Path) -> dict[str, Any]:
         data["stored_fatal"] = fatal
         data["stored_score"] = scores
     return data
+
+
+def current_revisions(diagnosis_rows: Sequence[Mapping[str, Any]], targets: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, str]]:
+    """Per target, the judgment revision of its CURRENT candidates (F10).
+
+    ``diagnosis`` and ``planted`` are keyed by target id, ``links`` by the
+    target's attempt id (the ``same_cause`` rows' left side).
+    """
+
+    by_target: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in diagnosis_rows:
+        by_target[row["target_id"]].append(row)
+    revisions: dict[str, dict[str, str]] = {"diagnosis": {}, "links": {}, "planted": {}}
+    for target in targets:
+        rows = by_target.get(target["id"], [])
+        revisions["diagnosis"][target["id"]] = judging.diagnosis_judgment_revision(judging.judged_arm_rows(rows))
+        revisions["links"][target["attempt_id"]] = judging.link_judgment_revision(judging.cited_links(rows))
+        revisions["planted"][target["id"]] = judging.planted_judgment_revision(judging.planted_statements(rows))
+    return revisions
+
+
+def _keep_current_revisions(data: dict[str, Any]) -> dict[str, int]:
+    """Drop judge rows whose inputs are no longer the target's candidates."""
+
+    revisions = current_revisions(data["review_diagnoses"], data["review_targets"])
+    target_of = {row["id"]: row["target_id"] for row in data["review_diagnoses"]}
+
+    def keep(task: str, row: Mapping[str, Any]) -> bool:
+        revision = (row.get("rationale") or {}).get("revision")
+        if task in {"diagnosis_rating", "diagnosis_pairwise"}:
+            return revision == revisions["diagnosis"].get(target_of.get(row["left_id"], ""))
+        if task == "diagnosis_best":
+            return revision == revisions["diagnosis"].get(row["left_id"])
+        if task == "same_cause":
+            return revision == revisions["links"].get(row["left_id"])
+        if task == "planted_cause_match":
+            return revision == revisions["planted"].get(target_of.get(row["left_id"], ""))
+        return True
+
+    superseded: dict[str, int] = {}
+    for task in ("diagnosis_rating", "diagnosis_pairwise", "diagnosis_best", "same_cause", "planted_cause_match"):
+        rows = data[f"ledger:{task}"]
+        kept = [row for row in rows if keep(task, row)]
+        superseded[task] = len(rows) - len(kept)
+        data[f"ledger:{task}"] = kept
+    return superseded
 
 
 def _passes(rows: Iterable[Mapping[str, Any]]) -> dict[int, list[Mapping[str, Any]]]:
@@ -282,6 +330,7 @@ def _judge_section(data: Mapping[str, Any]) -> dict[str, Any]:
         best[arm_of.get(row["verdict"], "none") if row["verdict"] != "none" else "none"] += 1
     noise = pairwise.get("b_vs_b_prime")
     return {
+        "superseded_judgment_rows": dict(data.get("superseded_judgments") or {}),
         "ratings": rating_section,
         "rating_pass_agreement": wilson(sum(agree), len(agree)),
         "pairwise": pairwise,

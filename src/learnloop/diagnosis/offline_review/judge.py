@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from pydantic import Field
 
@@ -257,8 +257,100 @@ def stable_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
 
+# -- judgment revisions -------------------------------------------------------------
+#
+# A judgment is a checkpoint over its exact inputs, never over its target alone:
+# a diagnosis that completes on resume (or a new link) changes the inputs and
+# earns a new revision appended to the ledger. Every judge row carries its
+# revision in ``rationale.revision``; readers keep only the revision that
+# matches the target's CURRENT candidates.
+
+#: Arms the listwise judge compares, in label-assignment order.
+JUDGED_ARMS: tuple[str, ...] = ("a", "b", "c", "d", "e", "b_prime")
+
+
+def _revision(kind: str, version: str, inputs: Any) -> str:
+    digest = hashlib.sha256(stable_json({"kind": kind, "version": version, "inputs": inputs}).encode("utf-8")).hexdigest()
+    return digest[:24]
+
+
+def completed_diagnoses(rows: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    return [row for row in rows if row.get("status") == "completed" and row.get("proposal")]
+
+
+def judged_arm_rows(rows: Sequence[Mapping[str, Any]]) -> dict[str, Mapping[str, Any]]:
+    """arm -> the completed diagnosis the listwise judge rates."""
+
+    by_arm = {row["arm"]: row for row in completed_diagnoses(rows)}
+    return {arm: by_arm[arm] for arm in JUDGED_ARMS if arm in by_arm}
+
+
+def diagnosis_judgment_revision(by_arm: Mapping[str, Mapping[str, Any]]) -> str:
+    return _revision(
+        "diagnosis_best",
+        JUDGE_PROMPT_VERSION,
+        sorted([arm, str(row["id"]), content_hash(row.get("proposal"))] for arm, row in by_arm.items()),
+    )
+
+
+def cited_links(rows: Sequence[Mapping[str, Any]]) -> dict[str, dict[str, list[str]]]:
+    """cited attempt id -> the arms, relations and claims that proposed the link."""
+
+    links: dict[str, dict[str, list[str]]] = {}
+    for row in completed_diagnoses(rows):
+        for claim in (row.get("proposal") or {}).get("pattern_claims") or []:
+            if claim.get("relation") == "disconfirming":
+                continue
+            for citation in claim.get("cited") or []:
+                cited = str(citation.get("attempt_id") or "")
+                entry = links.setdefault(cited, {"arms": [], "relations": [], "claims": []})
+                entry["arms"].append(str(row["arm"]))
+                entry["relations"].append(str(claim.get("relation")))
+                entry["claims"].append(str(claim.get("hypothesis_ref") or ""))
+    return links
+
+
+def link_judgment_revision(cited_ids: Iterable[str]) -> str:
+    return _revision("same_cause", LINK_JUDGE_PROMPT_VERSION, sorted(set(cited_ids)))
+
+
+def planted_statements(rows: Sequence[Mapping[str, Any]]) -> dict[str, str]:
+    """diagnosis id -> primary cause statement, for the planted-cause matcher."""
+
+    statements = {str(row["id"]): primary_statement(row["proposal"]) for row in completed_diagnoses(rows)}
+    return {key: value for key, value in statements.items() if value}
+
+
+def planted_judgment_revision(statements: Mapping[str, str]) -> str:
+    return _revision("planted_cause", PLANTED_JUDGE_PROMPT_VERSION, sorted(statements.items()))
+
+
+def content_hash(value: Any) -> str:
+    return hashlib.sha256(stable_json(value).encode("utf-8")).hexdigest()
+
+
+def revision_of(row: Mapping[str, Any]) -> str | None:
+    rationale = row.get("rationale")
+    if isinstance(rationale, str):
+        try:
+            rationale = json.loads(rationale)
+        except ValueError:
+            return None
+    return rationale.get("revision") if isinstance(rationale, Mapping) else None
+
+
 __all__ = [
+    "JUDGED_ARMS",
     "JUDGE_PROMPT_VERSION",
+    "cited_links",
+    "completed_diagnoses",
+    "content_hash",
+    "diagnosis_judgment_revision",
+    "judged_arm_rows",
+    "link_judgment_revision",
+    "planted_judgment_revision",
+    "planted_statements",
+    "revision_of",
     "LINK_JUDGE_PROMPT_VERSION",
     "PAIRS_OF_INTEREST",
     "PLANTED_JUDGE_PROMPT_VERSION",

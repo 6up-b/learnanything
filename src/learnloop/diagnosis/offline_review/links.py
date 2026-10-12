@@ -20,6 +20,8 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.diagnosis_review import review_rows
 from learnloop.db.stores.judgments import append_judgment
+from learnloop.diagnosis.offline_review.judge import revision_of
+from learnloop.diagnosis.offline_review.report import current_revisions
 from learnloop.diagnosis.offline_review.runner import RUN_FILE, SCRATCH_FILE
 from learnloop.diagnosis.offline_review.spot_check import SPOT_CHECK_VERSION
 
@@ -40,13 +42,23 @@ def import_pattern_links(run_dir: Path, vault_repository: Repository, *, dry_run
     run_dir = Path(run_dir)
     run_id = str(json.loads((run_dir / RUN_FILE).read_text(encoding="utf-8"))["run_id"])
     candidates: list[dict[str, Any]] = []
+    superseded = 0
     with closing(connect(run_dir / SCRATCH_FILE, read_only=True)) as scratch:
         planted = _planted_ids(scratch, run_id)
+        # Only the judgment revision over each target's CURRENT links counts:
+        # a link set that changed on resume was re-judged as a new revision.
+        revisions = current_revisions(
+            review_rows(scratch, "review_diagnoses", where={"run_id": run_id}),
+            review_rows(scratch, "review_targets", where={"run_id": run_id}),
+        )["links"]
         for row in scratch.execute(
             "SELECT left_id, right_id, judge_model, prompt_version, input_hash, verdict, rationale "
             "FROM judgment_ledger WHERE task = 'same_cause' AND judge = 'llm' "
             "AND left_kind = 'attempt' AND right_kind = 'attempt' ORDER BY created_at, id"
         ):
+            if revision_of({"rationale": row[6]}) != revisions.get(str(row[0])):
+                superseded += 1
+                continue
             candidates.append(
                 {
                     "left_id": row[0], "right_id": row[1], "judge": "llm", "judge_model": row[2],
@@ -70,6 +82,7 @@ def import_pattern_links(run_dir: Path, vault_repository: Repository, *, dry_run
         "run_id": run_id,
         "candidates": len(candidates),
         "excluded_planted": len(candidates) - len(eligible),
+        "excluded_superseded_revision": superseded,
         "imported": 0,
         "already_present": 0,
         "dry_run": dry_run,

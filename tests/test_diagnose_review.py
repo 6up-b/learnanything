@@ -330,3 +330,33 @@ def test_rejected_planted_drafts_are_recorded_and_never_redrafted(tmp_path):
     resumed, again = _run(paths, vault, tmp_path / "run", client=ReviewFakeClient(), options=options)
     assert again["status"] == "complete"
     assert "diagnosis_planted_scenario" not in resumed.calls
+
+
+def test_a_diagnosis_repaired_on_resume_is_judged_and_only_the_current_revision_counts(tmp_path):
+    """F10: judgment checkpoints are keyed by the exact candidates, not the target."""
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    options = ReviewOptions(sample_size=3, arms=("a", "b", "d"), planted_per_shape=1, probes=False, sweep=False,
+                            repeat_subset=0, joint_repeat=False)
+    _client, first = _run(paths, vault, tmp_path / "run", client=ReviewFakeClient(fail_modes=("full",)), options=options)
+    assert first["status"] == "complete"
+    assert {row[0] for row in _scratch_rows(tmp_path / "run", "SELECT status FROM review_diagnoses WHERE arm = 'd'")} == {"failed"}
+    _client, resumed = _run(paths, vault, tmp_path / "run", client=ReviewFakeClient(), options=options)
+    assert resumed["status"] == "complete"
+    d_ids = [row[0] for row in _scratch_rows(tmp_path / "run", "SELECT id FROM review_diagnoses WHERE arm = 'd' AND status = 'completed'")]
+    assert d_ids
+    for diagnosis_id in d_ids:
+        passes = _scratch_rows(tmp_path / "run", "SELECT COUNT(*) FROM judgment_ledger WHERE task = 'diagnosis_rating' AND left_id = ?", (diagnosis_id,))[0][0]
+        assert passes == 2, diagnosis_id
+    planted_d = _scratch_rows(
+        tmp_path / "run",
+        "SELECT COUNT(*) FROM judgment_ledger j JOIN review_diagnoses d ON d.id = j.left_id "
+        "WHERE j.task = 'planted_cause_match' AND d.arm = 'd'",
+    )[0][0]
+    assert planted_d >= 1
+    report = offline_review_report(tmp_path / "run", vault=vault)
+    targets_with_a = _scratch_rows(tmp_path / "run", "SELECT COUNT(*) FROM review_diagnoses WHERE arm = 'a' AND status = 'completed'")[0][0]
+    # Arm (a) was rated in both revisions; the report counts only the current one.
+    assert sum(report["judge"]["ratings"]["a"]["distribution"].values()) == 2 * targets_with_a
+    assert sum(report["judge"]["ratings"]["d"]["distribution"].values()) == 2 * len(d_ids)
