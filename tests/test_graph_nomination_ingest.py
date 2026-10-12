@@ -577,8 +577,14 @@ def test_append_dry_run_estimates_known_queries_without_a_client(tmp_path, monke
     assert (plan["entry"], plan["status"]) == ("append", "may_embed")
     known = plan["known_queries"]
     assert known["texts"] >= 1 and known["pending"] == known["texts"] and known["stored"] == 0
-    assert known["estimated_usd"] > 0
+    assert known["estimated_usd"] > 0 and known["exceeds_caps"] is False
     assert plan["max_estimated_usd"] == pytest.approx(_cap_bound(root))
+    config_path = root / "learnloop.toml"
+    config_text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(config_text.replace("top_k = 2", "top_k = 2\nmax_query_tokens = 1"), encoding="utf-8")
+    capped = plan_append_embedding(root, "set_la", new_revision_ids=["rev_alt"])
+    assert capped["known_queries"]["exceeds_caps"] is True
+    config_path.write_text(config_text, encoding="utf-8")
 
     paid = len(embedder.calls)
     append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"],

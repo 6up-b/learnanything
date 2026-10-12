@@ -876,6 +876,14 @@ def plan_ingest_embedding(
         report.update(status=reason[0], reason=reason[1])
         return report
     cap_usd = min(caps.max_query_cost_usd, caps.max_query_tokens * price / 1_000_000)
+    # Past any cap the run stops embedding (batches of _BATCH, in order) and
+    # the remaining new text keeps today's lexical matching only.
+    report["known_queries"]["exceeds_caps"] = (
+        len(pending) > caps.max_query_texts
+        or tokens > caps.max_query_tokens
+        or -(-len(pending) // _BATCH) > caps.max_query_calls
+        or report["known_queries"]["estimated_usd"] > cap_usd
+    )
     known_usd = min(report["known_queries"]["estimated_usd"], cap_usd)
     generated_usd = cap_usd - known_usd if paid_when else 0.0
     report["generated_text"]["bound_usd"] = generated_usd
