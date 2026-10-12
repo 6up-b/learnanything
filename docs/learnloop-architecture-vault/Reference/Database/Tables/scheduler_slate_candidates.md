@@ -3,8 +3,8 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0cae91163d4b835f24a730d3b2cdd0257f096b7f"
-source_commit_timestamp: "2026-10-12T13:14:00-04:00"
+source_commit: "fc4085505df806cfb0660e94a23f9d3e91ce5f63"
+source_commit_timestamp: "2026-10-12T13:59:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop_sidecar/handlers/practice.py"
@@ -120,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -150,6 +152,7 @@ Indexes and uniqueness:
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
+- `tests/test_probability_prep.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_scheduler.py`
 - `tests/test_sidecar_teach_back.py`

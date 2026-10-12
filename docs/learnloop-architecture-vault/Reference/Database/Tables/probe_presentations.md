@@ -3,8 +3,8 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0cae91163d4b835f24a730d3b2cdd0257f096b7f"
-source_commit_timestamp: "2026-10-12T13:14:00-04:00"
+source_commit: "fc4085505df806cfb0660e94a23f9d3e91ce5f63"
+source_commit_timestamp: "2026-10-12T13:59:49-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
@@ -119,6 +120,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -147,6 +149,7 @@ Indexes and uniqueness:
 
 - `tests/test_facet_outcome_view.py`
 - `tests/test_grade_resolution_pipeline.py`
+- `tests/test_probability_prep.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_probe_audit.py`
 - `tests/test_probe_dialogue.py`
