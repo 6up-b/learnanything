@@ -142,3 +142,96 @@ def test_m2_report_counts_logical_diagnosis_calls_and_their_turns(tmp_path):
     assert e7["embedding_calls"] == 1
     # (110 + 132) + 55 tokens over the attempts with a diagnosis row (none here: divided by 1).
     assert e7["diagnosis_tokens_per_attempt"] == 297.0
+
+
+def _fake_route(monkeypatch, client):
+    import learnloop.diagnosis.split.jobs as jobs_module
+
+    monkeypatch.setattr(jobs_module, "default_diagnosis_client", lambda _vault: client)
+
+
+def test_cli_drain_and_retry_plan_and_estimate_before_spending(tmp_path, monkeypatch):
+    """Review F5: both commands have a dry run that plans the queue, estimates
+    the calls against the caps and changes nothing; a run over its caps is
+    refused before any call."""
+
+    paths, vault, repository = split_vault(tmp_path)
+    first = submit(vault, repository, ReviewFakeClient(), when=at(20))
+    submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(21))
+    client = ReviewFakeClient()
+    _fake_route(monkeypatch, client)
+    runner = CliRunner()
+    root = str(paths.root)
+
+    dry = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--dry-run", "--json"])
+    assert dry.exit_code == 0, dry.output
+    plan = json.loads(dry.output)
+    assert plan["status"] == "dry_run"
+    assert [job["action"] for job in plan["diagnose"]["jobs"]] == ["diagnose", "diagnose"]
+    assert plan["diagnose"]["calls"] == 2 and plan["diagnose"]["estimated_input_tokens"] > 0
+    assert plan["diagnose"]["route"]["billing"] == "subscription" and plan["diagnose"]["admissible"] is True
+    assert client.calls == []
+    assert {job["state"] for job in repository.post_attempt_jobs(kind="diagnose")} == {"queued"}
+    assert {job["attempt_count"] for job in repository.post_attempt_jobs(kind="diagnose")} == {0}
+
+    over = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--max-calls", "1", "--json"])
+    assert over.exit_code == 1 and json.loads(over.output)["status"] == "over_budget"
+    assert client.calls == []
+
+    retry_plan = runner.invoke(app, ["diagnose", "retry", "--vault", root, "--attempt", first.attempt_id, "--dry-run", "--json"])
+    assert retry_plan.exit_code == 0, retry_plan.output
+    assert json.loads(retry_plan.output)["diagnose"]["calls"] == 1
+    assert client.calls == []
+
+    ran = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--kind", "diagnose", "--json"])
+    assert ran.exit_code == 0, ran.output
+    assert [job["status"] for job in json.loads(ran.output)["jobs"]] == ["completed", "completed"]
+    assert json.loads(ran.output)["spend"]["charged"]["calls"] == 2
+
+
+def test_ctrl_c_stops_the_drain_before_the_next_paid_job(tmp_path, monkeypatch):
+    """Review F7: SIGINT during a drain stops it before the next job starts."""
+
+    import os
+    import signal
+
+    paths, vault, repository = split_vault(tmp_path)
+    submit(vault, repository, ReviewFakeClient(), when=at(20))
+    second = submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(21))
+
+    class Interrupting(ReviewFakeClient):
+        def _diagnosis(self, request, context):
+            os.kill(os.getpid(), signal.SIGINT)  # the owner presses Ctrl-C mid-call
+            return super()._diagnosis(request, context)
+
+    client = Interrupting()
+    _fake_route(monkeypatch, client)
+
+    result = CliRunner().invoke(app, ["diagnose", "drain", "--vault", str(paths.root), "--kind", "diagnose", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert client.calls.count("diagnosis") == 1
+    assert [job["state"] for job in repository.post_attempt_jobs(attempt_id=second.attempt_id)] == ["queued"]
+    assert json.loads(result.output)["status"] == "cancelled"
+
+
+def test_a_cancelled_job_is_released_unspent(tmp_path):
+    """Review F7: cancellation observed after the claim releases the lease."""
+
+    from learnloop.diagnosis.split.jobs import process_next_job
+
+    _paths, vault, repository = split_vault(tmp_path)
+    result = submit(vault, repository, ReviewFakeClient())
+    client = ReviewFakeClient()
+    checks = iter([False, True])
+
+    outcome = process_next_job(
+        vault, repository, kind="diagnose", owner="cli",
+        client_factory=lambda: client, embedding_factory=lambda: None,
+        cancelled=lambda: next(checks, True),
+    )
+
+    assert (outcome.state, outcome.error) == ("released", "cancelled")
+    job = repository.post_attempt_jobs(attempt_id=result.attempt_id)[0]
+    assert job["state"] == "queued" and job["attempt_count"] == 0
+    assert client.calls == []

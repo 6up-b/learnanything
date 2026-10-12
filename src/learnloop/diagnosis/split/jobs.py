@@ -17,13 +17,15 @@ from __future__ import annotations
 
 import logging
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Iterator, Mapping
 
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.runs import finish_agent_run
+from learnloop.ai.spend import SpendCaps, SpendLimitExceeded
 from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
@@ -38,6 +40,7 @@ from learnloop.diagnosis.split.live import (
     sampled_correct_answer,
     settings_from_config,
 )
+from learnloop.diagnosis.offline_review.spend import ReviewSpend
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import project_canonical_facet_state
@@ -58,8 +61,29 @@ SPLIT_OFF_RECHECK_SECONDS = 3_600
 MODEL_CALL_OWNER_KIND = "attempt_diagnosis"
 #: ``diagnosis_status`` values (§11 UI).
 PENDING, NOT_NEEDED, DONE, FAILED = "pending", "not_needed", "done", "failed"
+#: The spend route every diagnosis request is admitted on.
+DIAGNOSIS_ROUTE = "diagnosis"
+#: Per-job caps of a live diagnosis (sidecar worker, CLI/TUI inline path), in
+#: the shared spend framework (``ReviewSpend`` over ``SpendBudget``). A
+#: subscription route (Codex on the owner's ChatGPT plan, Slice A §5 rule 6)
+#: counts its one logical call and has no physical-request, token or dollar
+#: bound; its cost is estimated from reported usage. A metered route admits
+#: every physical request (transport retries, JSON repairs) against these
+#: caps before it is sent, and an unknown price fails closed (the job is
+#: skipped as ``budget``; ``learnloop diagnose retry --price-per-million``
+#: supplies one). ``diagnosis.max_calls_per_day`` caps logical calls across
+#: jobs, counted at admission.
+LIVE_DIAGNOSIS_CAPS = SpendCaps(
+    max_candidates=1,
+    max_pairs=0,
+    max_retries=4,
+    max_calls=5,
+    max_total_tokens=750_000,
+    max_estimated_usd=2.0,
+)
 
 ClientFactory = Callable[[], Any]
+Cancelled = Callable[[], bool]
 
 
 @dataclass
@@ -243,10 +267,20 @@ def process_next_job(
     embedding_factory: ClientFactory | None = None,
     attempt_id: str | None = None,
     session_id: str | None = None,
+    spend: ReviewSpend | None = None,
+    cancelled: Cancelled | None = None,
     clock: Clock | None = None,
 ) -> JobOutcome | None:
-    """Lease and run the next runnable job of ``kind``; None when none is."""
+    """Lease and run the next runnable job of ``kind``; None when none is.
 
+    ``spend`` is a command's shared budget (``learnloop diagnose drain`` /
+    ``retry``); without one each diagnosis runs under
+    :data:`LIVE_DIAGNOSIS_CAPS`. ``cancelled`` is checked before the claim and
+    again before the paid request; a cancelled job is released unspent.
+    """
+
+    if cancelled is not None and cancelled():
+        return None
     lease = DIAGNOSE_LEASE_SECONDS if kind == DIAGNOSE_KIND else EMBED_LEASE_SECONDS
     job = repository.lease_next_post_attempt_job(
         kind=kind, owner=owner, lease_seconds=lease, clock=clock, attempt_id=attempt_id
@@ -261,6 +295,8 @@ def process_next_job(
             client_factory=client_factory or (lambda: default_diagnosis_client(vault)),
             session_id=session_id,
             embedding_factory=embedding_factory or (lambda: default_embedding_client(vault)),
+            spend=spend,
+            cancelled=cancelled,
             clock=clock,
         )
     return run_embed_job(
@@ -392,6 +428,8 @@ def run_diagnose_job(
     client_factory: ClientFactory,
     embedding_factory: ClientFactory | None = None,
     session_id: str | None = None,
+    spend: ReviewSpend | None = None,
+    cancelled: Cancelled | None = None,
     clock: Clock | None = None,
 ) -> JobOutcome:
     attempt_id = str(job["attempt_id"])
@@ -429,7 +467,14 @@ def run_diagnose_job(
                 _finish(repository, job, "skipped", error="not_needed", clock=clock)
                 outcome.state, outcome.error, outcome.diagnosis_id = "skipped", "not_needed", diagnosis_id
                 return outcome
+            if cancelled is not None and cancelled():
+                _release(repository, job, not_before=utc_now_iso(clock), error="cancelled",
+                         refund=True, clock=clock)
+                outcome.state, outcome.error = "released", "cancelled"
+                return outcome
             limit = int(getattr(config, "max_calls_per_day", 500))
+            # Counted at admission: every diagnosis request that was sent
+            # today, failed ones included (review F5).
             if repository.diagnosis_calls_since(_day_start(clock)) >= limit:
                 diagnosis_id = _persist(repository, job, diagnosis_id=new_ulid(), values={
                     "attempt_id": attempt_id, "diagnosis_prompt_version": DIAGNOSIS_PROMPT_VERSION,
@@ -451,6 +496,7 @@ def run_diagnose_job(
             existing = _diagnose(
                 vault, repository, job, attempt, client=client, mode=mode, payload=payload,
                 embedding_factory=embedding_factory, clock=clock, outcome=outcome,
+                spend=spend, cancelled=cancelled,
             )
             if existing is None:
                 return outcome
@@ -475,6 +521,7 @@ def run_diagnose_job(
         _finish(repository, job, final_state, error=existing.get("error"),
                 payload={**payload, "diagnosis_id": existing["id"]}, clock=clock)
         outcome.state = final_state
+        outcome.error = outcome.error or existing.get("error")
         return outcome
     except _LeaseLost:
         outcome.state, outcome.error = "lease_lost", "lease_lost"
@@ -493,8 +540,15 @@ def _diagnose(
     embedding_factory: ClientFactory | None,
     clock: Clock | None,
     outcome: JobOutcome,
+    spend: ReviewSpend | None = None,
+    cancelled: Cancelled | None = None,
 ) -> dict[str, Any] | None:
-    """One model call; returns the persisted diagnosis row, or None when released."""
+    """One model call; returns the persisted diagnosis row, or None when released.
+
+    The request is admitted through the shared spend framework (the command's
+    ``spend``, else a per-job :data:`LIVE_DIAGNOSIS_CAPS` budget) before it is
+    sent; model-call receipts are written through the same observer.
+    """
 
     attempt_id = str(attempt["id"])
     settings = settings_from_config(vault)
@@ -548,9 +602,23 @@ def _diagnose(
             "status": "running",
         }
     )
+    job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled)
+    # Billed as the client actually built (a provider override included).
+    job_spend.register(DIAGNOSIS_ROUTE, client)
+    job_spend.collector.sink = lambda action, event: repository.record_model_event(
+        action, event, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=attempt_id
+    )
+    admitted = {"requests": 0}
+
+    @contextmanager
+    def guard(purpose: str, tokens: int) -> Iterator[Any]:
+        with job_spend.request(DIAGNOSIS_ROUTE, purpose, input_tokens=tokens) as call:
+            admitted["requests"] += 1
+            yield call
+
     started = time.monotonic()
     try:
-        with record_model_calls(repository, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=attempt_id):
+        with job_spend.collector.observing():
             result = run_diagnosis(
                 client,
                 vault=vault,
@@ -560,12 +628,41 @@ def _diagnose(
                 current=current,
                 settings=settings,
                 retriever=retriever,
+                guard=guard,
             )
-    except AIInterrupted:
-        finish_agent_run(repository, agent_run_id, client, status="failed", error_message="interrupted", clock=clock)
-        _release(repository, job, not_before=utc_now_iso(clock), error="interrupted", refund=True, clock=clock)
-        outcome.state, outcome.error = "released", "interrupted"
+    except AIInterrupted as exc:  # includes SpendCancelled
+        reason = "cancelled" if not admitted["requests"] else "interrupted"
+        # Nothing sent: the run is cancelled and does not count toward the
+        # daily cap; an interrupted request was sent and does.
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="cancelled" if not admitted["requests"] else "failed",
+            error_message=reason if reason == "interrupted" else f"cancelled: {exc}",
+            clock=clock,
+        )
+        _release(repository, job, not_before=utc_now_iso(clock), error=reason, refund=True, clock=clock)
+        outcome.state, outcome.error = "released", reason
         return None
+    except SpendLimitExceeded as exc:
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="cancelled" if not admitted["requests"] else "failed",
+            error_message=f"spend_refused: {exc}",
+            clock=clock,
+        )
+        if spend is not None:
+            # A COMMAND's caps are spent: the job is not at fault. Put it back
+            # unspent; the command stops (``drain`` stops on a release).
+            _release(repository, job, not_before=utc_now_iso(clock), error="over_budget", refund=True, clock=clock)
+            outcome.state, outcome.error = "released", "over_budget"
+            return None
+        row_id = _persist(repository, job, diagnosis_id=new_ulid(), values={
+            **base_values, "agent_run_id": agent_run_id, "status": "skipped", "proposal": None,
+            "causal_view": None, "receipt": None, "error": "budget",
+            "validation_report": {"skip_reason": "budget", "spend_refused": str(exc),
+                                  "caps": LIVE_DIAGNOSIS_CAPS.as_dict()},
+        }, clock=clock)
+        return repository.attempt_diagnosis(row_id)
     except Exception as exc:  # noqa: BLE001 - a diagnosis failure never touches the grade
         result = DiagnosisOutcome(attempt_id=attempt_id, mode=settings.history_mode, status="failed")
         result.error = type(exc).__name__
@@ -783,13 +880,22 @@ def drain(
     client_factory: ClientFactory | None = None,
     embedding_factory: ClientFactory | None = None,
     max_jobs: int = 1_000,
+    spend: ReviewSpend | None = None,
+    cancelled: Cancelled | None = None,
     clock: Clock | None = None,
 ) -> list[JobOutcome]:
-    """Run runnable jobs until none is left (``learnloop diagnose --drain``)."""
+    """Run runnable jobs until none is left (``learnloop diagnose --drain``).
+
+    Stops before the next job once ``cancelled()`` is true (SIGINT/SIGTERM in
+    the CLI), and after a release (provider not ready, cancelled, a
+    command's spend caps reached).
+    """
 
     outcomes: list[JobOutcome] = []
     for kind in kinds:
         while len(outcomes) < max_jobs:
+            if cancelled is not None and cancelled():
+                return outcomes
             result = process_next_job(
                 vault,
                 repository,
@@ -798,6 +904,8 @@ def drain(
                 client_factory=client_factory,
                 embedding_factory=embedding_factory,
                 attempt_id=attempt_id if kind == DIAGNOSE_KIND else None,
+                spend=spend if kind == DIAGNOSE_KIND else None,
+                cancelled=cancelled,
                 clock=clock,
             )
             if result is None:
@@ -808,8 +916,249 @@ def drain(
     return outcomes
 
 
+# -- dry-run planning (``learnloop diagnose drain|retry --dry-run``) ------------------
+
+
+def command_spend(
+    vault: LoadedVault,
+    caps: SpendCaps,
+    *,
+    price_per_million: float | None = None,
+    cancelled: Cancelled | None = None,
+) -> ReviewSpend:
+    """A command's shared budget; the diagnosis route is classified from config.
+
+    The run re-registers the route with the client it actually builds, so a
+    provider override is billed as what it is.
+    """
+
+    from learnloop.diagnosis.offline_review.runner import route_profiles
+
+    spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
+    profile = route_profiles(vault)[DIAGNOSIS_ROUTE]
+    spend.register_profile(
+        DIAGNOSIS_ROUTE,
+        provider=profile["provider"],
+        model=profile["model"],
+        subscription=bool(profile["subscription"]),
+        max_tokens=profile["max_tokens"],
+    )
+    return spend
+
+
+def _estimated_prompt_tokens(
+    vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], *, store: Any
+) -> int | None:
+    """The diagnosis prompt's token estimate, assembled offline (no call).
+
+    ``hybrid`` is estimated without its kNN additions (a dry run makes no
+    embedding call); every other mode assembles exactly what would be sent.
+    """
+
+    from learnloop.diagnosis.split.context import assemble_diagnosis_context
+    from learnloop.diagnosis.split.contract import diagnosis_prompt
+
+    record_row = repository.latest_blind_grade_record(str(attempt["id"]))
+    record = dict(record_row.get("record") or {}) if record_row is not None else joint_grade_record(vault, repository, attempt)
+    current = current_attempt_for(vault, attempt, record)
+    if current is None:
+        return None
+    assembled = assemble_diagnosis_context(vault, store, current, settings_from_config(vault))
+    return (len(diagnosis_prompt(assembled).encode("utf-8")) + 3) // 4
+
+
+def plan_diagnosis_jobs(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    spend: ReviewSpend,
+    attempt_id: str | None = None,
+    max_jobs: int = 1_000,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """What ``drain`` would run now, and its admission estimate (no call, no write).
+
+    Follows the queue exactly: one diagnosis at a time in attempt order, a
+    live lease or a backing-off head blocks the line, ``attempt_id`` runs
+    only while that attempt's job is the head. Each planned call is
+    estimated from its offline-assembled prompt plus the route's admitted
+    output limit, and checked against the command's caps; the vault's daily
+    cap turns calls past it into ``budget`` skips.
+    """
+
+    now = parse_utc(utc_now_iso(clock))
+    config = getattr(vault.config, "diagnosis", None)
+    open_jobs = repository.post_attempt_jobs(kind=DIAGNOSE_KIND, states=("queued", "leased"))
+    blocked: str | None = None
+    if any(
+        job["state"] == "leased" and job.get("lease_expires_at") and parse_utc(job["lease_expires_at"]) > now
+        for job in open_jobs
+    ):
+        blocked = "another worker holds a live diagnosis lease"
+    planned: list[dict[str, Any]] = []
+    store = live_history_store(vault, repository)
+    limit = int(getattr(config, "max_calls_per_day", 500))
+    used_today = repository.diagnosis_calls_since(_day_start(clock))
+    calls = 0
+    input_tokens = 0
+    for job in [] if blocked else open_jobs:
+        if len(planned) >= max_jobs:
+            break
+        not_before = parse_utc(job["not_before"]) if job.get("not_before") else None
+        expires = parse_utc(job["lease_expires_at"]) if job.get("lease_expires_at") else None
+        runnable = (job["state"] == "queued" and (not_before is None or not_before <= now)) or (
+            job["state"] == "leased" and (expires is None or expires <= now)
+        )
+        if not runnable:
+            blocked = f"job {job['id']} is backing off until {job.get('not_before')}"
+            break
+        if attempt_id is not None and job["attempt_id"] != attempt_id:
+            blocked = None if planned else f"an earlier attempt's diagnosis ({job['attempt_id']}) runs first"
+            break
+        mode = str((job.get("payload") or {}).get("mode") or "live")
+        entry: dict[str, Any] = {"job_id": job["id"], "attempt_id": job["attempt_id"], "mode": mode}
+        attempt = repository.fetch_practice_attempt(str(job["attempt_id"]))
+        record_row = repository.latest_blind_grade_record(str(job["attempt_id"])) if mode == "live" else None
+        if attempt is None:
+            entry["action"] = "skip:attempt_missing"
+        elif _existing_diagnosis(repository, job) is not None:
+            entry["action"] = "resume:no_call"
+        elif mode == "live" and not split_grading_active(vault):
+            entry["action"] = "hold:split_disabled"
+            planned.append(entry)
+            break
+        elif record_row is not None and not needs_diagnosis(record_row.get("record") or {}):
+            entry["action"] = "skip:not_needed"
+        elif used_today + calls >= limit:
+            entry["action"] = "skip:budget"
+            entry["max_calls_per_day"] = limit
+        else:
+            tokens = _estimated_prompt_tokens(vault, repository, attempt, store=store)
+            if tokens is None:
+                entry["action"] = "fail:item_missing"
+            else:
+                entry["action"] = "diagnose"
+                entry["estimated_input_tokens"] = tokens
+                calls += 1
+                input_tokens += tokens
+        planned.append(entry)
+    output_tokens = calls * spend.output_limit(DIAGNOSIS_ROUTE)
+    estimate = spend.estimate(DIAGNOSIS_ROUTE, calls=calls, input_tokens=input_tokens, output_tokens=output_tokens)
+    try:
+        spend.check(estimate)
+        admissible, reason = True, None
+    except SpendLimitExceeded as exc:
+        admissible, reason = False, str(exc)
+    info = spend.routes[DIAGNOSIS_ROUTE]
+    return {
+        "jobs": planned,
+        "blocked": blocked,
+        "calls": calls,
+        "estimated_input_tokens": input_tokens,
+        "admitted_output_tokens": output_tokens,
+        "estimate": {
+            "calls": estimate.calls,
+            "metered_total_tokens": estimate.total_tokens,
+            "estimated_usd": estimate.estimated_usd,
+        },
+        "route": info.as_dict(),
+        "daily_cap": {"max_calls_per_day": limit, "admitted_today": used_today},
+        "admissible": admissible,
+        "reason": reason,
+        "notes": (
+            ["subscription route: one logical call each counts against max_calls; tokens and dollars are estimated from usage, not capped"]
+            if info.billing == "subscription"
+            else ["metered route: every physical request (retries, JSON repairs) is admitted against the caps before it is sent"]
+        )
+        + (["hybrid history mode is estimated without its kNN additions"] if settings_from_config(vault).history_mode == "hybrid" else []),
+    }
+
+
+def plan_unqueued_diagnosis(
+    vault: LoadedVault, repository: Repository, *, attempt_id: str, spend: ReviewSpend
+) -> dict[str, Any]:
+    """The one diagnosis call ``retry`` would queue for an attempt not in the queue."""
+
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    tokens = (
+        _estimated_prompt_tokens(vault, repository, attempt, store=live_history_store(vault, repository))
+        if attempt is not None
+        else None
+    )
+    output_tokens = spend.output_limit(DIAGNOSIS_ROUTE)
+    estimate = spend.estimate(DIAGNOSIS_ROUTE, calls=1, input_tokens=tokens or 0, output_tokens=output_tokens)
+    try:
+        spend.check(estimate)
+        admissible, reason = True, None
+    except SpendLimitExceeded as exc:
+        admissible, reason = False, str(exc)
+    return {
+        "jobs": [{"attempt_id": attempt_id, "action": "diagnose", "estimated_input_tokens": tokens}],
+        "blocked": None,
+        "calls": 1,
+        "estimated_input_tokens": tokens,
+        "admitted_output_tokens": output_tokens,
+        "estimate": {
+            "calls": estimate.calls,
+            "metered_total_tokens": estimate.total_tokens,
+            "estimated_usd": estimate.estimated_usd,
+        },
+        "route": spend.routes[DIAGNOSIS_ROUTE].as_dict(),
+        "admissible": admissible,
+        "reason": reason,
+    }
+
+
+def plan_embed_jobs(vault: LoadedVault, repository: Repository, *, attempt_id: str | None = None) -> dict[str, Any]:
+    """Pending embed-on-write work (each job runs under its own embedding caps)."""
+
+    from learnloop.diagnosis.split.embeddings import (
+        LIVE_CAPS,
+        PRICES_PER_MILLION,
+        divergence_records,
+        hypothesis_records,
+        misconception_records,
+        pending_records,
+    )
+
+    jobs = [
+        job
+        for job in repository.post_attempt_jobs(kind=EMBED_KIND, states=("queued", "leased"))
+        if attempt_id is None or job["attempt_id"] == attempt_id
+    ]
+    model = vault.config.embedding.model if vault.config.embedding.enabled else None
+    if not jobs or model is None:
+        return {"jobs": len(jobs), "model": model, "records_pending": 0, "estimated_tokens": 0, "estimated_usd": 0.0}
+    records: dict[tuple[str, str, str], Any] = {}
+    for job in jobs:
+        payload = job.get("payload") or {}
+        for record in (
+            *hypothesis_records(repository, attempt_ids=[job["attempt_id"]]),
+            *misconception_records(repository),
+            *(divergence_records(vault, repository, attempt_ids=[job["attempt_id"]]) if payload.get("include_divergence") else ()),
+        ):
+            records[(record.record_kind, record.record_id, record.content_hash)] = record
+    pending = pending_records(repository, list(records.values()), model)
+    tokens = sum(len(record.text.encode("utf-8")) + 128 for record in pending)
+    price = PRICES_PER_MILLION.get(model)
+    return {
+        "jobs": len(jobs),
+        "model": model,
+        "records_pending": len(pending),
+        "estimated_tokens": tokens,
+        "estimated_usd": (tokens * price / 1_000_000) if price is not None else None,
+        "caps_per_job": LIVE_CAPS.as_dict(),
+    }
+
+
 __all__ = [
     "DIAGNOSE_KIND",
+    "DIAGNOSIS_ROUTE",
+    "LIVE_DIAGNOSIS_CAPS",
+    "command_spend",
+    "plan_diagnosis_jobs",
+    "plan_embed_jobs",
+    "plan_unqueued_diagnosis",
     "DONE",
     "EMBED_KIND",
     "FAILED",

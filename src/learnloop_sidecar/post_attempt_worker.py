@@ -133,6 +133,9 @@ class PostAttemptWorker:
                     embedding_factory=(
                         (lambda: self.embedding_factory(vault)) if self.embedding_factory is not None else None
                     ),
+                    # Shutdown stops before the next paid request; a job
+                    # leased by then is released unspent.
+                    cancelled=self._stop.is_set,
                     clock=clock,
                 )
             )

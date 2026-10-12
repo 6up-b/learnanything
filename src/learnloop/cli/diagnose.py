@@ -432,44 +432,118 @@ def _live_repository(vault: Path):
     return loaded, repository
 
 
+def _drain_caps(max_calls: int, max_retries: int, max_tokens: int, max_cost_usd: float) -> SpendCaps:
+    return SpendCaps(
+        max_candidates=max(max_calls, 1),
+        max_pairs=0,
+        max_retries=max_retries,
+        max_calls=max_calls,
+        max_total_tokens=max_tokens,
+        max_estimated_usd=max_cost_usd,
+    )
+
+
+def _plan_repository(vault: Path, dry_run: bool):
+    """A dry run only reads; a real run opens the vault for writing."""
+
+    if not dry_run:
+        return _live_repository(vault)
+    from learnloop.db.repositories import Repository
+
+    loaded = _load(vault)
+    return loaded, Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)
+
+
+def _outcome_rows(outcomes) -> list[dict]:
+    return [
+        {
+            "job_id": outcome.job_id,
+            "attempt_id": outcome.attempt_id,
+            "kind": outcome.kind,
+            "state": outcome.state,
+            "diagnosis_id": outcome.diagnosis_id,
+            "status": outcome.status,
+            "error": outcome.error,
+        }
+        for outcome in outcomes
+    ]
+
+
+_MAX_CALLS_HELP = "Diagnosis calls this command may admit (one per logical call; metered retries also count as calls)."
+_MAX_RETRIES_HELP = "Metered routes: physical retries and JSON repairs this command may admit."
+_MAX_TOKENS_HELP = "Metered routes: total tokens this command may admit (subscription routes are not token-capped)."
+_MAX_COST_HELP = "Metered routes: estimated USD this command may admit."
+_PRICE_HELP = "USD per million tokens for a metered route whose price is unknown (an unknown price fails closed)."
+
+
 @diagnose_app.command("drain")
 def diagnose_drain(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     attempt: Annotated[str | None, typer.Option("--attempt", help="Only this attempt's diagnosis (still in attempt order).")] = None,
     kind: Annotated[list[str] | None, typer.Option("--kind", help="diagnose and/or embed; repeatable. Default: both.")] = None,
     max_jobs: Annotated[int, typer.Option("--max-jobs", min=1)] = 1_000,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan and estimate only: no client, no call, no write.")] = False,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0, help=_MAX_CALLS_HELP)] = 500,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help=_MAX_RETRIES_HELP)] = 50,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help=_MAX_TOKENS_HELP)] = 5_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help=_MAX_COST_HELP)] = 5.0,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help=_PRICE_HELP)] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Run queued post-attempt jobs (diagnoses in attempt order, then embeddings).
 
     The CLI has no daemon: this is how queued diagnoses run outside the app.
     Uses ``ai.routing.diagnosis`` (unset: the grading route) and, for
-    embeddings, ``ai.routing.embedding`` when ``embedding.enabled``.
+    embeddings, ``ai.routing.embedding`` when ``embedding.enabled``. Run
+    ``--dry-run`` first: it plans the jobs and estimates their spend against
+    the caps. Every diagnosis request is admitted against the caps before it
+    is sent; Ctrl-C stops before the next job (an interrupted one is released
+    unspent).
     """
 
-    from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, EMBED_KIND, drain
+    from learnloop.diagnosis.split.jobs import (
+        DIAGNOSE_KIND,
+        EMBED_KIND,
+        command_spend,
+        drain,
+        plan_diagnosis_jobs,
+        plan_embed_jobs,
+    )
 
     kinds = tuple(kind or (DIAGNOSE_KIND, EMBED_KIND))
     unknown = sorted(set(kinds) - {DIAGNOSE_KIND, EMBED_KIND})
     if unknown:
         raise typer.BadParameter(f"unknown job kind(s): {', '.join(unknown)}")
-    loaded, repository = _live_repository(vault)
-    with _cancellation():
-        outcomes = drain(loaded, repository, owner="cli", kinds=kinds, attempt_id=attempt, max_jobs=max_jobs)
+    caps = _drain_caps(max_calls, max_retries, max_tokens, max_cost_usd)
+    loaded, repository = _plan_repository(vault, dry_run)
+    with _cancellation() as stop:
+        spend = command_spend(loaded, caps, price_per_million=price_per_million, cancelled=stop.is_set)
+        plan = {
+            "caps": caps.as_dict(),
+            "diagnose": plan_diagnosis_jobs(loaded, repository, spend=spend, attempt_id=attempt, max_jobs=max_jobs)
+            if DIAGNOSE_KIND in kinds
+            else None,
+            "embed": plan_embed_jobs(loaded, repository, attempt_id=attempt) if EMBED_KIND in kinds else None,
+        }
+        admissible = plan["diagnose"] is None or bool(plan["diagnose"]["admissible"])
+        if dry_run:
+            _echo({"status": "dry_run", **plan}, json_output)
+            if not admissible:
+                raise typer.Exit(code=1)
+            return
+        if not admissible:
+            _echo({"status": "over_budget", **plan}, json_output)
+            raise typer.Exit(code=1)
+        outcomes = drain(
+            loaded, repository, owner="cli", kinds=kinds, attempt_id=attempt, max_jobs=max_jobs,
+            spend=spend, cancelled=stop.is_set,
+        )
+        cancelled = stop.is_set()
     payload = {
-        "jobs": [
-            {
-                "job_id": outcome.job_id,
-                "attempt_id": outcome.attempt_id,
-                "kind": outcome.kind,
-                "state": outcome.state,
-                "diagnosis_id": outcome.diagnosis_id,
-                "status": outcome.status,
-                "error": outcome.error,
-            }
-            for outcome in outcomes
-        ],
+        "status": "cancelled" if cancelled else "done",
+        "jobs": _outcome_rows(outcomes),
         "remaining": repository.post_attempt_job_counts(),
+        "spend": spend.summary(),
     }
     _echo(payload, json_output)
 
@@ -479,30 +553,75 @@ def diagnose_retry(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     attempt: Annotated[str, typer.Option("--attempt", help="Attempt whose diagnosis runs again.")],
     run_now: Annotated[bool, typer.Option("--run/--queue-only", help="Run it now (default) or only queue it.")] = True,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan and estimate only: nothing is queued or called.")] = False,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0, help=_MAX_CALLS_HELP)] = 5,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help=_MAX_RETRIES_HELP)] = 4,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help=_MAX_TOKENS_HELP)] = 1_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help=_MAX_COST_HELP)] = 2.0,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help=_PRICE_HELP)] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Retry a failed or skipped diagnosis, or re-diagnose (appends, supersedes)."""
+    """Retry a failed or skipped diagnosis, or re-diagnose (appends, supersedes).
 
-    from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, diagnosis_status, drain, enqueue_diagnosis
+    ``--dry-run`` estimates the one diagnosis call against the caps and
+    changes nothing.
+    """
 
-    loaded, repository = _live_repository(vault)
+    from learnloop.diagnosis.split.jobs import (
+        DIAGNOSE_KIND,
+        command_spend,
+        diagnosis_status,
+        drain,
+        enqueue_diagnosis,
+        plan_diagnosis_jobs,
+        plan_unqueued_diagnosis,
+    )
+    from learnloop.diagnosis.split.live import needs_diagnosis
+
+    caps = _drain_caps(max_calls, max_retries, max_tokens, max_cost_usd)
+    loaded, repository = _plan_repository(vault, dry_run)
     jobs = repository.post_attempt_jobs(attempt_id=attempt, kind=DIAGNOSE_KIND)
     retried = next((job for job in reversed(jobs) if job["state"] in ("failed", "skipped")), None)
-    if retried is not None:
-        repository.requeue_post_attempt_job(str(retried["id"]))
-        queued = str(retried["id"])
-    else:
-        queued = enqueue_diagnosis(loaded, repository, attempt_id=attempt, rediagnose=bool(jobs))
-    if queued is None:
-        _echo({"attempt_id": attempt, "queued": False, "reason": "no diagnosis applies (not blind-graded or nothing failed)"}, json_output)
-        raise typer.Exit(code=1)
-    outcomes = drain(loaded, repository, owner="cli", kinds=(DIAGNOSE_KIND,), attempt_id=attempt) if run_now else []
+    with _cancellation() as stop:
+        spend = command_spend(loaded, caps, price_per_million=price_per_million, cancelled=stop.is_set)
+        if dry_run:
+            record = repository.latest_blind_grade_record(attempt)
+            applies = retried is not None or (record is not None and needs_diagnosis(record.get("record") or {}))
+            plan = plan_diagnosis_jobs(loaded, repository, spend=spend, attempt_id=attempt)
+            if applies and not any(row["attempt_id"] == attempt for row in plan["jobs"]):
+                # Not queued yet: estimate the call the retry would queue.
+                plan = plan_unqueued_diagnosis(loaded, repository, attempt_id=attempt, spend=spend)
+            _echo({"status": "dry_run", "attempt_id": attempt, "applies": applies, "caps": caps.as_dict(), "diagnose": plan}, json_output)
+            if not plan["admissible"]:
+                raise typer.Exit(code=1)
+            return
+        if run_now:
+            # Admission first: an over-budget retry changes nothing.
+            plan = plan_unqueued_diagnosis(loaded, repository, attempt_id=attempt, spend=spend)
+            if not plan["admissible"]:
+                _echo({"attempt_id": attempt, "queued": False, "status": "over_budget", "diagnose": plan}, json_output)
+                raise typer.Exit(code=1)
+        if retried is not None:
+            repository.requeue_post_attempt_job(str(retried["id"]))
+            queued = str(retried["id"])
+        else:
+            queued = enqueue_diagnosis(loaded, repository, attempt_id=attempt, rediagnose=bool(jobs))
+        if queued is None:
+            _echo({"attempt_id": attempt, "queued": False, "reason": "no diagnosis applies (not blind-graded or nothing failed)"}, json_output)
+            raise typer.Exit(code=1)
+        outcomes = []
+        if run_now:
+            outcomes = drain(
+                loaded, repository, owner="cli", kinds=(DIAGNOSE_KIND,), attempt_id=attempt,
+                spend=spend, cancelled=stop.is_set,
+            )
     _echo(
         {
             "attempt_id": attempt,
             "queued": queued,
             "ran": [outcome.state for outcome in outcomes],
             "status": diagnosis_status(repository, attempt),
+            "spend": spend.summary(),
         },
         json_output,
     )

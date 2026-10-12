@@ -562,3 +562,44 @@ def test_only_the_joint_doors_call_the_joint_grading_operation():
         "learnloop/diagnosis/diagnostic_augmentation.py",  # joint practice grading (split inactive)
         "learnloop/diagnosis/offline_review/runner.py",  # M1's joint baseline, on a scratch copy
     }
+
+
+def test_failed_calls_count_toward_the_daily_cap_at_admission(tmp_path):
+    """Review F5: a metered call that fails and backs off writes no diagnosis
+    row until its final attempt; the daily cap counts it anyway."""
+
+    _paths, vault, repository = split_vault(tmp_path, config="[diagnosis]\nmax_calls_per_day = 1\nmax_attempts = 5")
+    client = ReviewFakeClient(fail_purposes=("diagnosis",))
+    when = at(20)
+    result = submit(vault, repository, client, when=when)
+
+    first = drain_jobs(vault, repository, client, clock=FrozenClock(when))
+    assert [o.state for o in first] == ["released"]
+    assert repository.diagnosis_calls_since("2026-05-02T00:00:00Z") == 1
+    later = drain_jobs(vault, repository, client, clock=FrozenClock(when + timedelta(hours=1)))
+
+    assert [(o.state, o.error) for o in later] == [("skipped", "budget")]
+    assert client.calls.count("diagnosis") == 1
+    assert repository.latest_attempt_diagnosis(result.attempt_id)["error"] == "budget"
+
+
+def test_live_diagnosis_is_admitted_through_the_shared_spend_framework(tmp_path):
+    """Review F5: a metered diagnosis route with no known price fails closed
+    before anything is sent (a budget skip, never the grade); the subscription
+    route runs and its turns are receipted under the attempt."""
+
+    _paths, vault, repository = split_vault(tmp_path)
+    metered = ReviewFakeClient(provider_type="openai_compatible", model="unpriced/model")
+    result = submit(vault, repository, ReviewFakeClient())
+
+    outcomes = drain_jobs(vault, repository, metered)
+
+    assert [(o.state, o.error) for o in outcomes] == [("skipped", "budget")]
+    assert "diagnosis" not in metered.calls
+    row = repository.latest_attempt_diagnosis(result.attempt_id)
+    assert "Unknown price" in row["validation_report"]["spend_refused"]
+    # Refused before sending: not an admitted call.
+    assert repository.diagnosis_calls_since("2000-01-01T00:00:00Z") == 0
+    with repository.connection() as connection:
+        status = connection.execute("SELECT status FROM agent_runs WHERE purpose = 'diagnosis'").fetchone()[0]
+    assert status == "cancelled"

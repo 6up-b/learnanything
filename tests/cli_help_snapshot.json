@@ -220,8 +220,8 @@
     "sha256": "00689fa483289dc3772af53bde1c716ff4f3f5f2f3ce3f1e1971f529e465de6f"
   },
   "diagnose drain": {
-    "bytes": 1874,
-    "sha256": "efe69e1153ad3133039f12518a656f4458758afe0a9f0e2b8a27cb7969105dfc"
+    "bytes": 4833,
+    "sha256": "c5a73db4cda27559d856277822888f184ef3400f939575c16a800d9f1dc48134"
   },
   "diagnose import-links": {
     "bytes": 1546,
@@ -240,8 +240,8 @@
     "sha256": "e970f2bac7efc734be4230d40238937988665f9f5a4b84c350d989810ce32e40"
   },
   "diagnose retry": {
-    "bytes": 1465,
-    "sha256": "ab9aefc36bfffa61a3fd16314d453587a57a8d91b736c3aac3c5edceb6640491"
+    "bytes": 5365,
+    "sha256": "447588ec604157319172a18c651953159da5349378cae19da5d654cf65a310e3"
   },
   "diagnose review": {
     "bytes": 2299,

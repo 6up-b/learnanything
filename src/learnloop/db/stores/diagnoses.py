@@ -429,12 +429,20 @@ class DiagnosisStoreMixin:
         return value
 
     def diagnosis_calls_since(self, since_iso: str) -> int:
-        """Diagnoser calls made since ``since_iso`` (budget skips excluded)."""
+        """Diagnoser calls ADMITTED since ``since_iso``, failures included.
+
+        Counted at admission, not from the diagnosis ledger: every live
+        diagnosis call opens its ``agent_runs`` row (purpose ``diagnosis``)
+        before the request is sent, so a call that fails and backs off counts
+        even though its diagnosis row is written only on the final attempt. A
+        run refused or cancelled before anything was sent is ``cancelled`` and
+        does not count.
+        """
 
         with self.connection() as connection:
             row = connection.execute(
-                "SELECT COUNT(*) FROM attempt_diagnoses "
-                "WHERE created_at >= ? AND status != 'skipped'",
+                "SELECT COUNT(*) FROM agent_runs "
+                "WHERE purpose = 'diagnosis' AND started_at >= ? AND status != 'cancelled'",
                 (since_iso,),
             ).fetchone()
         return int(row[0] or 0)
