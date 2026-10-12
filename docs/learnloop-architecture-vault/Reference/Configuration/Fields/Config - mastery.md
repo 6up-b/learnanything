@@ -3,8 +3,8 @@ title: "Config - mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2b8bf8a8f6644f70a6746a9835b9391ec7f9656e"
-source_commit_timestamp: "2026-10-11T21:42:31-04:00"
+source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
+source_commit_timestamp: "2026-10-11T22:12:28-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml mastery"
@@ -30,11 +30,11 @@ source_paths:
   - "tests/test_concept_animation_service.py"
   - "tests/test_contract_commissioning.py"
   - "tests/test_embedding_backfill.py"
+  - "tests/test_embedding_route_isolation.py"
   - "tests/test_goal_intent.py"
   - "tests/test_goal_scope_material.py"
   - "tests/test_hypothesis_claim_dispatcher.py"
   - "tests/test_ingestion_checkpoints.py"
-  - "tests/test_intent_planner.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/mastery"
@@ -94,11 +94,11 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_config_refactor.py`
 - `tests/test_contract_commissioning.py`
 - `tests/test_embedding_backfill.py`
+- `tests/test_embedding_route_isolation.py`
 - `tests/test_goal_intent.py`
 - `tests/test_goal_scope_material.py`
 - `tests/test_hypothesis_claim_dispatcher.py`
 - `tests/test_ingestion_checkpoints.py`
-- `tests/test_intent_planner.py`
 
 ## Extension and modification guidance
 

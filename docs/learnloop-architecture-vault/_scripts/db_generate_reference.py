@@ -975,6 +975,32 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "configuration reason, runs the non-native path (PDF: marker/pypdf; audio: the transcription "
         "route or endpoint) with a health flag instead of failing closed."
     ),
+    "ai.routing.embedding": (
+        "Names the openai_embedding profile that embeds text. Unlike every other route it has no "
+        "fallback: LEARNLOOP_AI_PROVIDER, the active provider and the fallback provider never apply, "
+        "an empty route means no embeddings, and a chat profile here is refused (as is this profile "
+        "on any generation route)."
+    ),
+    "embedding.enabled": (
+        "Master switch for remote embeddings. While false, the embedding route resolves to no client, "
+        "so no consumer can send text, and the disabled route does not affect settings health."
+    ),
+    "embedding.backfill_enabled": (
+        "Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work "
+        "without it. Both switches must be true before any request is sent."
+    ),
+    "embedding.model": (
+        "The embedding model id to request and to key stored vectors by; authoritative over the "
+        "embedding profile's own model field. Changing it backfills a new model beside the old vectors."
+    ),
+    "embedding.dimensions": (
+        "Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per "
+        "model once vectors exist; consumers may request a narrower renormalized view at query time."
+    ),
+    "embedding.privacy_disclosure": (
+        "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
+        "setting it in learnloop.toml has no effect."
+    ),
 }
 
 
