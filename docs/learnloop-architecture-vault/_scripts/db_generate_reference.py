@@ -1023,8 +1023,8 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Answer-first candidates requested from the authoring model per diff before filtering."
     ),
     "project.min_diff_lines": (
-        "Diffs with fewer changed lines in probe-able files are captured but excluded from probing "
-        "(excluded_reason = trivial)."
+        "M1b gate randomization threshold (spec section 5.1): smaller diffs are left out of "
+        "randomization. M1 probes every capture with probe-able content."
     ),
     "project.context_lines": (
         "Head-side lines of context stored and sent around each hunk; extended to the enclosing "
@@ -1043,6 +1043,16 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "project.generate_before_serving": (
         "When true, `learnloop project probes` generates questions for due diffs that have none "
         "before serving, under the command's spend caps."
+    ),
+    "project.grading_reasoning_effort": (
+        "Reasoning effort for probe grading (closed-book judgments and answer grades), applied to the "
+        "grading route's profile when it takes an effort; empty keeps the route's own effort (spec "
+        "section 5.2: one high-effort pass)."
+    ),
+    "project.require_tool_isolation": (
+        "Kill switch for tool isolation: when true, an agentic transport (Codex) runs project calls in "
+        "a bubblewrap sandbox with no home, vault or repo visible, and a transport that can be neither "
+        "sandboxed nor is tool-free is refused; false runs unconfined and receipts record none."
     ),
 }
 
