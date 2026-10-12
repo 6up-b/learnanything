@@ -754,11 +754,17 @@ def _try_deterministic_grade(
     projection sees a normal graded attempt — but with grading_source
     'deterministic' and grader_confidence 1.0, which the reliability resolver
     exempts from the calibration-channel discount. Runs before the runtime
-    check: a constrained selection is gradable even when no agent is up.
+    check: a constrained selection is gradable even when no agent is up. A
+    declared-stuck answer (mvp-0.11) never takes it: it goes to the grader.
     """
 
     from learnloop.attempts.grading import deterministic_recognition_grade
 
+    if draft.declared_stuck:
+        # mvp-0.11 (review F1): text written under "I'm stuck" is the
+        # learner's own words, not an option pick. "Confused about ..." must
+        # never parse as option C; the grader reads it (and its confusion).
+        return None
     attempt_id = new_ulid()
     proposal = deterministic_recognition_grade(
         item, rubric, draft.learner_answer_md, attempt_id=attempt_id

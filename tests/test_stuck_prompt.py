@@ -556,3 +556,76 @@ def test_the_owner_summary_counts_text_share_confusion_and_grading_runs(tmp_path
     assert summary["graded_with_reading"] == 1 and summary["describes_confusion"] == 1
     # One stuck grading run (the ordinary answer's run is not counted).
     assert summary["grading_wait_seconds"]["runs"] == 1
+
+
+# -- review F1: a stuck answer never takes the option-letter shortcut ----------------
+
+MC_ITEM = "pi_svd_mc_001"
+
+
+def _with_mc_item(paths, repository):
+    """A multiple-choice item whose correct option is C (deterministic-gradable)."""
+
+    from learnloop.substrate.state_sync import sync_vault_state
+    from learnloop.vault.yaml_io import write_yaml
+
+    from tests.diagnosis_split_helpers import _item
+
+    payload = _item(
+        MC_ITEM, LO, "Which factor of A = U Sigma V^T is transposed?\nA. U\nB. Sigma\nC. V\nD. none",
+        "C", ["recall"], [("correct_selection", 4)], "svd_mc",
+    )
+    payload["practice_mode"] = "multiple_choice"
+    write_yaml(paths.practice_item_path("linear-algebra", MC_ITEM), payload)
+    vault = load_vault(paths.root)
+    sync_vault_state(vault, repository)
+    return vault
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "A bit lost: which one is it?",
+        "Because of the SVD I think, not sure",
+        "Confused about why the last factor is transposed",
+        "Don't see which factor flips",
+        "Every factor looks the same to me",
+        "First I wrote U, but I'm unsure",
+        "Got lost after Sigma",
+        "How do I tell which one is transposed?",
+        "C, but I don't understand why",
+    ],
+)
+def test_a_stuck_answer_on_a_choice_item_goes_to_the_grader_not_the_letter_shortcut(tmp_path, answer):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    vault = _with_mc_item(paths, repository)
+    client = StuckFake(
+        reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": ""}
+    )
+    result = _grade(vault, repository, client, _draft(answer, item_id=MC_ITEM))
+
+    assert client.calls[:1] == ["blind_grading"], "a stuck answer must be read by the grader"
+    assert result.grading_source != "deterministic"
+    record = repository.latest_blind_grade_record(result.attempt_id)["record"]
+    assert record[STUCK_READING_KEY]["describes_confusion"] is True
+
+
+def test_the_fallback_door_also_skips_the_letter_shortcut_for_a_stuck_answer(tmp_path):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    vault = _with_mc_item(paths, repository)
+    not_ready = SimpleNamespace(ready=False, status="codex_missing")
+    result = complete_attempt_with_ai_fallback(
+        vault, repository, _draft("Confused about why the last factor is transposed", item_id=MC_ITEM),
+        SelfGradeInput(criterion_points={"correct_selection": 0}, confidence=2),
+        runtime=not_ready, ai_client=None,
+    )
+    # No grader: the learner's own self-grade, never "Correct, option C".
+    assert result.grading_source == "self"
+    assert result.rubric_score == 0
+    # An ordinary (not stuck) letter answer still takes the free shortcut.
+    letter = complete_attempt_with_ai_fallback(
+        vault, repository, _draft("C", item_id=MC_ITEM, stuck=False),
+        SelfGradeInput(criterion_points={"correct_selection": 0}, confidence=2),
+        runtime=not_ready, ai_client=None,
+    )
+    assert (letter.grading_source, letter.rubric_score) == ("deterministic", 4)
