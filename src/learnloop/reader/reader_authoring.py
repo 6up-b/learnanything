@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from learnloop.clock import Clock
-from learnloop.content.authoring.item_authoring import author_item
+from learnloop.content.authoring.item_authoring import author_item, retire_item
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.repositories import Repository
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span, parse_block_span
@@ -329,6 +329,33 @@ def adopt_reference_questions(
     return adopted
 
 
+def _retire_adopted_items(
+    root: Path, repository: Repository, *, commitment_id: str, clock: Clock | None
+) -> list[str]:
+    """Retire the practice items a reader question (``reader_authored_qa``
+    commitment) was adopted into. Other commitments' targets are left alone."""
+
+    with repository.connection() as connection:
+        is_reader_question = connection.execute(
+            "SELECT 1 FROM commitment_versions WHERE commitment_id = ? AND reason = 'reader_authored_qa' LIMIT 1",
+            (commitment_id,),
+        ).fetchone()
+    if is_reader_question is None:
+        return []
+    vault = load_vault(root)
+    retired: list[str] = []
+    for target in C.resolve_head(repository, commitment_id).targets:
+        item = vault.practice_items.get(target.target_ref) if target.target_kind == "legacy_practice_item" else None
+        if item is None or item.status != "active":
+            continue
+        retire_item(
+            root, repository, practice_item_id=item.id, reason="no_longer_relevant",
+            note="the reader question was retired", clock=clock,
+        )
+        retired.append(item.id)
+    return retired
+
+
 def mint_ai_sibling(
     repository: Repository,
     *,
@@ -466,6 +493,7 @@ def maintain(
     bounds: Mapping[str, Any] | None = None,
     reviewed_edges: Any = (),
     scheduler_algorithm_version: str = "fsrs6",
+    root: Path | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """In-review maintenance verbs (§9.3), each routed through the LANDED P1 lineage
@@ -537,7 +565,18 @@ def maintain(
         # Retirement preserves commitment/evidence + provenance (§9.3): a disposition
         # event only, never a delete.
         disposition = C.retire(repository, commitment_id=commitment_id, clock=clock)
-        return {"action": "retire", "disposition": disposition, "evidence_preserved": True}
+        # A reader question adopted into practice takes its card with it (with the
+        # vault ``root``), through the learner retire path: off the queue, serving
+        # doors closed, surface work obsolete, history kept.
+        retired = (
+            _retire_adopted_items(root, repository, commitment_id=commitment_id, clock=clock)
+            if root is not None
+            else []
+        )
+        return {
+            "action": "retire", "disposition": disposition, "evidence_preserved": True,
+            "retired_practice_item_ids": retired,
+        }
 
     # change_depth
     if commitment_id is None:
