@@ -17,6 +17,10 @@ answer.
   attributions carry ``validity_scope = grader_interpretation`` (no negative
   facet evidence) and the attempt goes to review. The gate is server-side and
   deterministic; the grader's own ``unverified_criterion_ids`` only add to it.
+  Each unverified criterion is also persisted as such: its grading-evidence
+  row carries a ``negative_evidence_blocked`` attribution, so a criterion the
+  grader zeroed WITHOUT naming any error never reaches the projection's
+  single-target fallback (live grades and regrades alike).
 * **Solve-first without a reference.** The grader writes its own expected
   answer before reading the learner's, and scores claims, not prose.
 * **One pass.** No voting. Where k-sampling is configured, the modal
@@ -57,7 +61,10 @@ from learnloop.attempts.blind_grading import (
     blind_grading_prompt,
 )
 from learnloop.attempts.answer_check import final_answer_check
-from learnloop.substrate.canonical_projection import surface_group_id
+from learnloop.substrate.canonical_projection import (
+    UNVERIFIED_CRITERION_BLOCK,
+    surface_group_id,
+)
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 
 #: PF-c prompt identity (Slice 2 §5.5) and its calibration identity (§4.3), so
@@ -65,7 +72,9 @@ from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 REFERENCE_POLICY_PROMPT_VERSION = "mvp-2.1-blind-reference-policy"
 REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION = "grading_prompt_v2_1_blind_reference_policy"
 GRADING_SUPPORT_VERSION = "pf-c-grading-support-v1"
-UNVERIFIED_REVIEW_REASON = "valid_alternative_unverified"
+#: The manual-review reason, and the per-criterion block reason persisted in
+#: ``grading_evidence.attribution_json`` (one value, read by the projection).
+UNVERIFIED_REVIEW_REASON = UNVERIFIED_CRITERION_BLOCK
 
 REFERENCE_POLICY_RULES = (
     "REFERENCE POLICY (`context.reference_policy`). `reference_status` says "

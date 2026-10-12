@@ -390,6 +390,10 @@ class ApplyAttemptInput:
     # The calibration identity (prompt version, output schema version) the
     # grade channel stamps; None keeps the joint grader's (§4.3).
     grader_identity: tuple[str, str] | None = None
+    # PF-c: criteria the valid-alternative gate recorded as unverified. Their
+    # evidence rows are stamped with a negative-evidence block (never the
+    # projection's single-target fallback), with or without an attribution.
+    unverified_criterion_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -951,6 +955,7 @@ def complete_codex_graded_attempt(
     grader_mode: str | None = None,
     grader_identity: tuple[str, str] | None = None,
     manual_review_override: str | None = None,
+    unverified_criterion_ids: Iterable[str] = (),
     clock: Clock | None = None,
 ) -> AttemptResult:
     # `draft` is rebound: the resolver may have forced `primed` from the reveal
@@ -1001,6 +1006,7 @@ def complete_codex_graded_attempt(
             grading_agent_run_id=agent_run_id,
             grader_mode=grader_mode,
             grader_identity=grader_identity,
+            unverified_criterion_ids=tuple(str(value) for value in unverified_criterion_ids),
         ),
         clock=clock,
     )
@@ -1342,6 +1348,7 @@ def _complete_blind_graded_attempt(
             manual_review_override=(
                 UNVERIFIED_REVIEW_REASON if support.get("valid_alternative_gate_applied") else None
             ),
+            unverified_criterion_ids=tuple(support.get("unverified_criterion_ids") or ()),
             clock=clock,
         )
         repository.insert_blind_grade_record(
@@ -2200,10 +2207,13 @@ def _stamp_observation_lineage(
     }
     attempt_id = application.result.attempt_id
     revision = 0
+    unverified = {str(value) for value in attempt.unverified_criterion_ids}
     for row in application.evidence_rows:
         criterion_id = row.get("criterion_id")
         if criterion_id is None:
             continue
+        if row.get("attribution_json") is None and str(criterion_id) in unverified:
+            row["attribution_json"] = unverified_attribution_json()
         row.setdefault("assessment_contract_version_id", version_id)
         row.setdefault("grading_revision", revision)
         row.setdefault("observation_id", f"{attempt_id}:{criterion_id}:{revision}")
@@ -2329,6 +2339,18 @@ def _stamp_observation_lineage(
                     sort_keys=True,
                     separators=(",", ":"),
                 )
+
+
+def unverified_attribution_json() -> str:
+    """The persisted block of an unverified criterion (PF-c gate)."""
+
+    from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
+
+    return json.dumps(
+        {"targets": [], "negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def _criterion_correlation_group(item: PracticeItem, criterion_id: str) -> str | None:

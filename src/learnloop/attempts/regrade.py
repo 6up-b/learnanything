@@ -13,7 +13,7 @@ from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
-from learnloop.attempts.attempts import GradeAttribution
+from learnloop.attempts.attempts import GradeAttribution, unverified_attribution_json
 from learnloop.attempts.grading import (
     GradingValidationError,
     ValidatedCodexGrade,
@@ -204,6 +204,7 @@ def regrade_attempt(
         }
     )
     blind_record: dict | None = None
+    unverified: set[str] = set()
     try:
         if blind_plan is not None:
             from learnloop.attempts.blind_grading import (
@@ -232,6 +233,13 @@ def regrade_attempt(
                 "grading_support": dict(run.grading_support),
                 "regrade": True,
             }
+            # PF-c: a criterion the gate recorded unverified keeps its points
+            # but writes no negative evidence, exactly as on the live grade.
+            unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
+            if run.grading_support.get("valid_alternative_gate_applied"):
+                from learnloop.attempts.grading_support import UNVERIFIED_REVIEW_REASON
+
+                validated = replace(validated, manual_review_reason=UNVERIFIED_REVIEW_REASON)
         else:
             proposal = request_grading_proposal(client, context)
             validated = validate_codex_grading_proposal(
@@ -280,6 +288,11 @@ def regrade_attempt(
                 "local_grader_id": None,
                 "grader_tier": 3,
                 "created_at": now,
+                **(
+                    {"attribution_json": unverified_attribution_json()}
+                    if evidence.criterion_id in unverified
+                    else {}
+                ),
             }
         )
 

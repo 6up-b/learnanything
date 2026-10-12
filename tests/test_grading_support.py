@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from learnloop.attempts.blind_grading import (
     BLIND_GRADING_PROMPT_VERSION,
     BlindGradingProposal,
@@ -203,3 +205,89 @@ def test_worked_solution_references_check_against_their_numeric_conclusion():
     # A bare reference is compared whole, as before.
     assert reference_final_answer("4") is None
     assert final_answer_check("Final answer: 4", "4") == {"status": "matches_reference", "method": "exact_match"}
+
+
+class _ZeroWithoutAttribution(ReviewFakeClient):
+    """Marks ``result`` down to zero on any answer, naming no error at all."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        evidence = [
+            row.model_copy(update={"points_awarded": 0.0}) if row.criterion_id == "result" else row
+            for row in result.criterion_evidence
+        ]
+        return result.model_copy(
+            update={
+                "criterion_evidence": evidence,
+                "rubric_score": int(sum(row.points_awarded for row in evidence)),
+                "error_attributions": [],
+            }
+        )
+
+
+def _negative_mass(repository, facet: str) -> float:
+    return sum(
+        cell.direct_negative_mass + cell.embedded_negative_mass
+        for cell in repository.facet_capability_evidence_all()
+        if cell.facet_id == facet
+    )
+
+
+def test_an_unverified_criterion_writes_no_negative_evidence_even_without_an_attribution(tmp_path):
+    """Review F1: the final answer verifies, the grader zeroes a criterion and
+    names no error. The criterion is unverified; neither the live grade nor a
+    regrade may bank its failure on the criterion's facet through the
+    projection's single-target fallback."""
+
+    import json
+
+    from learnloop.attempts.regrade import regrade_attempt
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
+
+    from tests.split_live_helpers import ReadyRuntime
+
+    _paths, vault, repository = split_vault(tmp_path)
+    project_canonical_facet_state(vault, repository)
+    before = _negative_mass(repository, "recall")  # "result" measures recall
+    client = _ZeroWithoutAttribution()
+    result = submit(vault, repository, client, answer="A different route.\nFinal answer: U Sigma V^T")
+
+    record = repository.latest_blind_grade_record(result.attempt_id)
+    assert record["record"]["grading_support"]["unverified_criterion_ids"] == ["result"]
+    assert _negative_mass(repository, "recall") == pytest.approx(before)
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert rows["result"].points_awarded == 0
+    assert json.loads(rows["result"].attribution_json)["negative_evidence_blocked"] == UNVERIFIED_REVIEW_REASON
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    assert attempt["manual_review_reason"] == UNVERIFIED_REVIEW_REASON
+
+    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
+    rows = {row.criterion_id: row for row in repository.fetch_grading_evidence(result.attempt_id)}
+    assert json.loads(rows["result"].attribution_json)["negative_evidence_blocked"] == UNVERIFIED_REVIEW_REASON
+    assert _negative_mass(repository, "recall") == pytest.approx(before)
+    assert repository.fetch_practice_attempt(result.attempt_id)["manual_review_reason"] == UNVERIFIED_REVIEW_REASON
+    project_canonical_facet_state(vault, repository)
+    assert _negative_mass(repository, "recall") == pytest.approx(before)
+
+
+def test_an_unverified_multi_target_criterion_opens_no_unresolved_cause_factor(tmp_path):
+    """Review F1 (projection side): the block is enforced where evidence is
+    projected. An unverified failure on a criterion with two targets is not
+    an observed unresolved failure either, so it opens no factor."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    paths, _vault, repository = split_vault(tmp_path)
+    item_path = paths.practice_item_path("linear-algebra", "pi_svd_compute_001")
+    item = read_yaml(item_path)
+    for criterion in item["grading_rubric"]["criteria"]:
+        if criterion["id"] == "result":
+            criterion["targets"] = [
+                {"facet": "recall", "capability": "retrieval"},
+                {"facet": "compute", "capability": "procedure_execution"},
+            ]
+    write_yaml(item_path, item)
+    vault = load_vault(paths.root)
+    result = submit(vault, repository, _ZeroWithoutAttribution(), answer="A different route.\nFinal answer: U Sigma V^T")
+
+    assert repository.unresolved_cause_factors_for_attempt(result.attempt_id) == []

@@ -60,6 +60,13 @@ FAILURE_THRESHOLD = 0.40
 # no new independent-surface group. Overridable via [evidence.correlation].
 DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 
+# PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
+# UNVERIFIED (the final answer verified against the reference, and no error
+# was located in the learner's words). Its ``attribution_json`` carries this
+# block reason: the failure is neither negative facet evidence nor an
+# observed unresolved failure, whatever the criterion's target count.
+UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
+
 # Assistance channels that certify nothing (§5.4/§6).
 #
 # DEPRECATED as a decision point: the attempt-type set alone cannot see
@@ -798,7 +805,12 @@ def project_canonical_facet_state(
             observed_fraction = (
                 adjudicated_fraction if adjudicated_fraction is not None else raw_fraction
             )
-            unresolved_negative = observed_unresolved_failure(
+            unverified_failure = (
+                isinstance(raw_attribution, Mapping)
+                and raw_attribution.get("negative_evidence_blocked")
+                == UNVERIFIED_CRITERION_BLOCK
+            )
+            unresolved_negative = not unverified_failure and observed_unresolved_failure(
                 observed_fraction, targets, attribution
             )
             if unresolved_negative:
@@ -869,7 +881,7 @@ def project_canonical_facet_state(
                     acc.raw_mass += alloc.pseudo_mass
                     acc.last_observed_at = created_at
 
-            if negative_fraction <= 0 or unresolved_negative:
+            if negative_fraction <= 0 or unresolved_negative or unverified_failure:
                 continue
             if (
                 not attribution
