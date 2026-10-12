@@ -190,6 +190,128 @@ def test_a_criterion_without_targets_shares_its_facets_with_the_assessed_one(tmp
     assert _field_outcomes(vault, repository, result.attempt_id) == {"recall": 1.0, "compute": 1.0}
 
 
+# -- F2: an attempt with nothing assessed never verifies a repair ------------------------
+
+
+@pytest.mark.parametrize("assessed", [True, False], ids=["assessed", "nothing_assessed"])
+def test_a_cold_retry_with_nothing_assessed_neither_confirms_nor_fails_the_repair(tmp_path, assessed):
+    from learnloop.attempts.attempts import SelfGradeInput, complete_self_graded_attempt
+    from learnloop.diagnosis.causal_orchestrator import causal_repair_status
+    from learnloop.diagnosis.followups import evaluate_attempt_intervention_followup
+    from learnloop.diagnosis.remediation import prescribe_remediation, start_remediation_treatment
+    from learnloop.db.repositories import Repository
+    from learnloop.vault.loader import load_vault
+    from tests.helpers import NOW, create_basic_vault, set_algorithm_version
+    from tests.test_causal_orchestrator import CLOCK as START, _add_probe_item, _seed_factor
+
+    # PF-c rows exist only in the split successor (a canonical-state vault).
+    paths = create_basic_vault(tmp_path / "vault")
+    _add_probe_item(paths.root)
+    set_algorithm_version(paths, "mvp-0.10")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    factor_id, first_id, second_id = _seed_factor(
+        repository, first_repair="repair:recall", second_repair="repair:recall"
+    )
+    status = causal_repair_status(vault, repository, misconception_id=first_id, clock=START)
+    assert status.status == "safe_common_repair_available"
+    episode_id = status.episode["id"]
+    prescribe_remediation(vault, repository, episode_id, clock=START)
+    treatment = start_remediation_treatment(vault, repository, episode_id, clock=START)
+    complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id=treatment["primed_item_id"], learner_answer_md="U Sigma Q", primed=True),
+        SelfGradeInput(criterion_points={"correctness": 0}, confidence=4),
+        clock=START,
+    )
+    later = FrozenClock(NOW + timedelta(days=2))
+    cold_item = vault.practice_items[treatment["cold_item_id"]]
+    criteria = [criterion.id for criterion in resolved_rubric(vault, cold_item).criteria]
+    if assessed:
+        cold = _apply_graded(
+            vault, repository, cold_item.id,
+            points={cid: float(c.points) for cid, c in zip(criteria, resolved_rubric(vault, cold_item).criteria)},
+            clock=later,
+        )
+    else:
+        # The verified answer took a route no criterion measured.
+        cold = _apply_graded(
+            vault, repository, cold_item.id,
+            points={cid: 0.0 for cid in criteria}, unverified=tuple(criteria), clock=later,
+        )
+    attempt = repository.fetch_practice_attempt(cold.attempt_id)
+    assert attempt["correctness"] == 1.0  # correct for scheduling either way
+    rows = repository.fetch_grading_evidence(cold.attempt_id)
+    assert all(unassessed_evidence_row(row.attribution_json) for row in rows) is (not assessed)
+    task = repository.consumed_followup_task_for_attempt(cold.attempt_id, kind="cold_retry")
+    assert task is not None
+
+    evaluate_attempt_intervention_followup(vault, repository, result=cold, clock=later)
+
+    factor = repository.unresolved_cause_factor(factor_id)
+    disposition = repository.causal_cold_outcome_for_task(str(task["id"]))
+    verification = repository.causal_cold_verification_for_attempt(cold.attempt_id)
+    if assessed:
+        assert verification is not None and verification["success"] is True
+        assert disposition["outcome"] == "cold_success"
+        assert factor["status"] == "resolved" and factor["resolution_kind"] == "repair_confirmed"
+        return
+    # No success and no failure: no verification, a typed non-measurement, and
+    # the factor and its candidate beliefs exactly as they were.
+    assert verification is None
+    assert disposition["outcome"] == "missing_chain"
+    assert disposition["cold_verification_id"] is None
+    assert disposition["detail"]["reason"] == "cold_attempt_unassessed"
+    assert factor["status"] == "open" and factor.get("resolution_kind") is None
+    for hypothesis_id in (first_id, second_id):
+        hypothesis = repository.causal_hypothesis(hypothesis_id)
+        head = repository.latest_causal_hypothesis_for_episode(hypothesis["episode_key"])
+        assert head["status"] == "candidate"
+
+
+def test_the_cold_verification_guard_refuses_an_unassessed_attempt_directly(tmp_path):
+    """The guard sits in ``record_delayed_cold_verification`` itself, so no
+    caller can turn a nothing-assessed attempt into repair evidence."""
+
+    from learnloop.diagnosis.causal_probe_coherence import (
+        ColdVerificationPrecondition,
+        record_delayed_cold_verification,
+    )
+    from tests.test_causal_factor_deferral import (
+        ITEM_A,
+        ITEM_B,
+        _clock,
+        _factor_repair_class,
+        _failed_diagnostic,
+        _open_factor,
+        _vault as deferral_vault,
+    )
+
+    vault, repository = deferral_vault(tmp_path)
+    _failed_diagnostic(vault, repository, attempt_id="att_src", item_id=ITEM_A, clock=_clock())
+    factor = _open_factor(repository, "att_src")
+    repair_class_id, hypothesis_ids = _factor_repair_class(factor)
+    cold = _apply_graded(
+        vault, repository, ITEM_B, points={"correctness": 0.0}, unverified=("correctness",), clock=_clock(days=2),
+    )
+    with pytest.raises(ColdVerificationPrecondition) as raised:
+        record_delayed_cold_verification(
+            vault,
+            repository,
+            source_attempt_id="att_src",
+            cold_attempt_id=cold.attempt_id,
+            repair_class_id=repair_class_id,
+            hypothesis_ids=hypothesis_ids,
+            avoided_affordances=["primed_repair_context"],
+            clock=_clock(days=2),
+        )
+    assert raised.value.reason == "missing_chain"
+    assert raised.value.detail["reason"] == "cold_attempt_unassessed"
+    assert repository.causal_cold_verification_for_attempt(cold.attempt_id) is None
+    assert repository.unresolved_cause_factor(str(factor["id"]))["status"] == "open"
+
+
 # -- F5: each record names the interpretation it was written under ------------------------
 
 
