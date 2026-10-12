@@ -161,3 +161,48 @@ class EmbeddingVectorStore:
     def retrieve(self, **query) -> list[EmbeddingMatch]:
         with closing(connect(self.sqlite_path, read_only=True)) as connection:
             return retrieve(connection, **query)
+
+
+def nearest_among_current(connection: sqlite3.Connection, *, record_kind: str, field: str,
+                          model_id: str, task_prefix: str,
+                          expected_records: Mapping[str, str],
+                          limit: int) -> dict[str, list[EmbeddingMatch]]:
+    """Each current record's top ``limit`` neighbours among the other current ones.
+
+    The same mean-centred cosine as ``retrieve``, for every pair at once. Unlike
+    ``retrieve``, partial coverage is allowed: only records of
+    ``expected_records`` whose stored vector has the current content hash take
+    part, as sources and as candidates, and only they appear as keys. The
+    centroid is theirs alone. Callers must label that coverage. This ranks for
+    display or context and never decides anything (Slice 2 R1). Ties go to the
+    smaller record ID; a zero centred vector scores zero against everything.
+    """
+    if limit < 0:
+        raise ValueError("limit must be nonnegative")
+    rows = connection.execute(
+        "SELECT record_id,content_hash,vector FROM embedding_vectors "
+        "WHERE record_kind=? AND field=? AND model_id=? AND task_prefix=?",
+        (record_kind, field, model_id, task_prefix),
+    ).fetchall()
+    current = {str(row[0]): row[2] for row in rows
+               if expected_records.get(str(row[0])) == row[1]}
+    ids = sorted(current)
+    if len(ids) < 2 or limit == 0:
+        return {key: [] for key in ids}
+    matrix = np.stack([np.frombuffer(current[key], dtype="<f2").astype(np.float64)
+                       for key in ids])
+    unit = _unit_rows(matrix - matrix.mean(axis=0))
+    neighbours: dict[str, list[EmbeddingMatch]] = {}
+    block = 256  # bounds the score matrix held at once
+    for start in range(0, len(ids), block):
+        scores = unit[start:start + block] @ unit.T
+        for offset, row in enumerate(scores):
+            index = start + offset
+            ranked = row.copy()
+            ranked[index] = -np.inf  # never its own neighbour
+            # Stable sort keeps sorted-ID order among equal scores.
+            order = np.argsort(-ranked, kind="stable")[:min(limit, len(ids) - 1)]
+            neighbours[ids[index]] = [
+                EmbeddingMatch(ids[j], expected_records[ids[j]], float(row[j])) for j in order
+            ]
+    return neighbours

@@ -777,7 +777,9 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
     # routes only; no scoring, scheduling, projection or serving change.
-    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
+    # Slice 2 T7 adds embedding.map_neighbors_enabled, a display-only kill
+    # switch for the knowledge map's item neighbours (no learner-state effect).
+    "mvp-0.9": "f0de6e7618b210279b3cebc94f1ffbd62c5cb3cb56902de013afab7fcfc23917",
 }
 
 

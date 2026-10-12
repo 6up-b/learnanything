@@ -18,6 +18,7 @@ from learnloop.scheduling.scheduler import build_due_queue
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.item_text_neighbors import item_text_neighbors
 from learnloop_sidecar.registry import method
 
 # Distance blend for the 2D knowledge map. Facet similarity dominates (items
@@ -39,7 +40,8 @@ _TOP_FACETS = 3
 _TITLE_MAX = 80
 # Nearest neighbors shipped per point, ranked by the *blended* distance matrix
 # (not the lossy 2D embedding) — the chronicle draws these as labeled spokes so
-# unattempted probes show what they are actually similar to.
+# unattempted probes show what they are actually similar to. Slice 2 T7 ranks
+# them by stored item-text vectors instead where those exist (display only).
 _NEIGHBOR_COUNT = 4
 
 
@@ -64,6 +66,12 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
     ``stress`` is Kruskal stress-1 between the blended input distances and the
     embedded 2D distances — an honesty number: the plane is an approximation,
     and this is how approximate.
+
+    Each point's ``neighbors`` are its nearest items by the blended distance,
+    or, where its current stem has a stored vector, by item-text similarity
+    (Slice 2 T7, display only); ``neighbor_basis`` names which, and
+    ``item_text_neighbors`` reports the model and coverage. Reads stored
+    vectors only: no model or embedding call happens here.
 
     The ``facet_field`` companion object carries the facet-native dual field;
     each of its ``points`` also carries lock state for the padlock UI:
@@ -92,16 +100,33 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
     n = len(items)
 
     # Top-K neighbors per item from the true blended distances (ties broken by
-    # id so repeat calls stay byte-identical).
+    # id so repeat calls stay byte-identical). Slice 2 T7 (display only): an
+    # item whose current stem has a stored vector takes its spokes from
+    # item-text similarity when enough other items are embedded to fill as many
+    # spokes; `distance` stays the blended one. Coordinates, stress and the
+    # facet field never see this.
+    text_neighbors = item_text_neighbors(vault, repository.sqlite_path, limit=_NEIGHBOR_COUNT)
+    index_of = {item.id: index for index, item in enumerate(items)}
     neighbor_lists: list[list[dict[str, Any]]] = []
+    neighbor_basis: list[str] = []
     for i in range(n):
         order = sorted(
             (j for j in range(n) if j != i),
             key=lambda j: (distances[i][j], items[j].id),
         )
-        neighbor_lists.append(
-            [{"id": items[j].id, "distance": distances[i][j]} for j in order[:_NEIGHBOR_COUNT]]
-        )
+        blended = [{"id": items[j].id, "distance": distances[i][j]} for j in order[:_NEIGHBOR_COUNT]]
+        similar = text_neighbors.neighbors.get(items[i].id, [])
+        if similar and len(similar) == len(blended):
+            neighbor_basis.append("item_text")
+            neighbor_lists.append(
+                [
+                    {"id": other, "distance": distances[i][index_of[other]], "similarity": score}
+                    for other, score in similar
+                ]
+            )
+        else:
+            neighbor_basis.append("facet_graph")
+            neighbor_lists.append(blended)
 
     facet_count = len({facet for item in items for facet in item.evidence_facets})
     points: list[dict[str, Any]] = []
@@ -142,6 +167,7 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
                     "difficulty": item.difficulty,
                     "facets": top_facets,
                     "neighbors": neighbor_lists[index],
+                    "neighbor_basis": neighbor_basis[index],
                 }
             )
 
@@ -156,6 +182,7 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
             },
             "stress": stress,
             "facet_field": _facet_field(vault, repository),
+            "item_text_neighbors": text_neighbors.summary(),
         }
     )
 
