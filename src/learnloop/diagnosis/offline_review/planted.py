@@ -413,6 +413,7 @@ def _history_attempt(vault: LoadedVault, attempt: PlantedAttempt) -> HistoryAtte
         target_facets=facets if attempt.failed else (),
         validity_scopes=("valid_measurement",) if attempt.failed else (),
         item_facets=facets,
+        failed_criterion_facets=facets if attempt.failed else (),
         grader_mode="blind",
     )
 

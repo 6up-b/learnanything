@@ -20,6 +20,7 @@ import typer
 from learnloop.ai.spend import SpendCaps
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
+from learnloop.vault.repository import open_vault_repository
 
 diagnose_app = typer.Typer(
     no_args_is_help=True,
@@ -42,11 +43,21 @@ def _cancellation() -> Iterator[threading.Event]:
 
 
 def _load(vault: Path):
+    """Load the vault; validation issues are reported, not fatal.
+
+    The review only reads the vault: an item that fails to load is simply not
+    sampled (its attempts are skipped), so one broken file must not block it.
+    """
+
     if not (vault / "learnloop.toml").is_file():
         raise typer.BadParameter("--vault must name a vault containing learnloop.toml")
     loaded = load_vault(vault)
     if loaded.issues:
-        raise typer.BadParameter(f"Vault has {len(loaded.issues)} validation issues; run doctor first.")
+        typer.echo(
+            f"warning: the vault has {len(loaded.issues)} validation issue(s); attempts on items "
+            "that fail to load are skipped. Run `learnloop doctor` to see them.",
+            err=True,
+        )
     return loaded
 
 
@@ -121,6 +132,7 @@ def diagnose_run(
         resolve_review_clients,
         route_profiles,
         run_review,
+        unavailable_arms,
     )
     from learnloop.diagnosis.offline_review.spend import ReviewSpend
     from learnloop.diagnosis.split.settings import DiagnosisSettings
@@ -167,7 +179,11 @@ def diagnose_run(
         for route, profile in profiles.items():
             if profile["enabled"]:
                 spend.register_profile(route, provider=profile["provider"], model=profile["model"], subscription=profile["subscription"])
-        plan = plan_review(loaded, Repository.attach(sqlite_path, read_only=True), options)
+        skip = unavailable_arms(
+            embedding_ready=profiles["embedding"]["enabled"],
+            workspace_ready=profiles["diagnosis"]["profile_type"] == "codex_sdk",
+        )
+        plan = plan_review(loaded, Repository.attach(sqlite_path, read_only=True), options, skip_arms=skip)
         estimate = estimate_spend(plan, spend)
         _echo(
             {
@@ -178,6 +194,7 @@ def diagnose_run(
                 "missing_attempt_ids": plan["missing_attempt_ids"],
                 "planted_cases": plan["planted_cases"],
                 "arms": plan["arms"],
+                "skipped_arms": plan["skipped_arms"],
                 "calls": plan["calls"],
                 "estimated_tokens": plan["estimated_tokens"],
                 "routes": profiles,
@@ -256,7 +273,6 @@ def diagnose_review(
     q saves your place and quits (rerun to resume).
     """
 
-    from learnloop.db.repositories import Repository
     from learnloop.diagnosis.offline_review.spot_check import (
         advance_session,
         record_diagnosis_screen,
@@ -267,7 +283,9 @@ def diagnose_review(
     )
 
     loaded = _load(vault)
-    vault_repository = Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    # Arm (a) verdicts are real vault writes: open the vault the way every
+    # application entry point does (migrated under the vault lock).
+    vault_repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
     session_id, plan, position = start_or_resume_session(run, loaded, seed=seed, new=new_session, max_items=max_items)
     if not plan:
         typer.echo("Nothing to review in this run.")
@@ -332,11 +350,19 @@ def diagnose_import_links(
 ) -> None:
     """Append the run's pattern-link verdicts (real attempts only) to judgment_ledger as same_cause rows."""
 
-    from learnloop.db.repositories import Repository
     from learnloop.diagnosis.offline_review.links import import_pattern_links
 
+    from learnloop.db.repositories import Repository
+
     loaded = _load(vault)
-    repository = Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    # A dry run only reads; a real import opens the vault the way every
+    # application entry point does (migrated under the vault lock).
+    repository = (
+        Repository.attach(sqlite_path, read_only=True)
+        if dry_run
+        else open_vault_repository(loaded.root, sqlite_path)
+    )
     _echo(import_pattern_links(run, repository, dry_run=dry_run), json_output)
 
 

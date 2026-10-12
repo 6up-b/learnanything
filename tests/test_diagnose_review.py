@@ -283,3 +283,22 @@ def test_cli_dry_run_report_review_and_data_check(reviewed, tmp_path):
     review = runner.invoke(app, ["diagnose", "review", "--run", str(run), "--vault", str(reviewed["paths"].root), "--new-session"], input="q\n")
     assert review.exit_code == 0, review.output
     assert "Saved. Rerun to resume." in review.output
+
+
+@pytest.mark.durability
+def test_review_round_trip_under_production_durability(tmp_path):
+    """WAL source, backup-API scratch copy, resumable writes: production pragmas."""
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    before = _snapshot_tables(paths.sqlite_path)
+    options = ReviewOptions(sample_size=3, arms=("a", "b", "d"), planted_per_shape=0, generate_planted=False, probes=False, repeat_subset=1)
+    client, result = _run(paths, vault, tmp_path / "run", options=options)
+    assert result["status"] == "complete"
+    assert _snapshot_tables(paths.sqlite_path) == before
+    statuses = {row[0] for row in _scratch_rows(tmp_path / "run", "SELECT status FROM review_diagnoses")}
+    assert statuses == {"completed"}
+    resumed, again = _run(paths, vault, tmp_path / "run", client=ReviewFakeClient(), options=options)
+    assert again["status"] == "complete" and resumed.calls == []
+    report = offline_review_report(tmp_path / "run", vault=vault)
+    assert report["run"]["targets"] == {"real": 3}

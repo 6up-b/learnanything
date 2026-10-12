@@ -223,3 +223,30 @@ def test_request_uses_the_blind_operation_and_hash_is_stable(seeded):
     assert blind_grading_context_hash(context) == blind_grading_context_hash(
         blind_grading_context(vault, item, attempt_id="att_new", learner_answer_md="U Sigma V")
     )
+
+
+def test_shared_fakes_answer_the_blind_and_diagnosis_purposes(seeded):
+    from tests import structured_ai
+    from tests.openai_fakes import blind_grading_json
+
+    vault, _repository = seeded
+    item = vault.practice_items["pi_svd_compute_001"]
+    context = blind_grading_context(vault, item, attempt_id="att_new", learner_answer_md="U Sigma V")
+
+    class Fake(structured_ai.StructuredClientFake):
+        def run_blind_grading_proposal(self, received):
+            assert isinstance(received, BlindGradingContext)
+            payload = json.loads(blind_grading_json())
+            payload.update(
+                attempt_id=received.attempt_id,
+                practice_item_id=received.practice_item_id,
+                criterion_evidence=[
+                    {"criterion_id": "setup", "points_awarded": 2, "evidence": "ok"},
+                    {"criterion_id": "result", "points_awarded": 2, "evidence": "ok"},
+                ],
+            )
+            return BlindGradingProposal.model_validate(payload)
+
+    proposal = request_blind_grading_proposal(Fake(), context)
+    assert proposal.rubric_score == 4 and proposal.local_analysis_md == "Correct."
+    assert structured_ai._HANDLER_FOR_PURPOSE["diagnosis"] == "run_diagnosis_proposal"

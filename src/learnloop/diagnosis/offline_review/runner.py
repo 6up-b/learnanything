@@ -299,15 +299,34 @@ def _placeholder_blind(item: PracticeItem, vault: LoadedVault) -> dict[str, Any]
     }
 
 
+def unavailable_arms(*, embedding_ready: bool, workspace_ready: bool) -> dict[str, str]:
+    """Arms the routes cannot run, with the honest reason (§12.1)."""
+
+    skipped: dict[str, str] = {}
+    if not embedding_ready:
+        skipped["c"] = "no ready embedding route (embedding.enabled and an openai_embedding profile)"
+    if not workspace_ready:
+        skipped["e"] = "the diagnosis provider lacks READ_ONLY_WORKSPACE (Codex SDK only in M1)"
+    return skipped
+
+
 def plan_review(
     vault: LoadedVault,
     repository: Repository,
     options: ReviewOptions,
     *,
     clients: ReviewClients | None = None,
+    skip_arms: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """Targets and a per-route call/token estimate. Makes no call, writes nothing."""
 
+    skip_arms = dict(skip_arms or {})
+    if clients is not None and not skip_arms:
+        skip_arms = unavailable_arms(
+            embedding_ready=clients.embedding is not None,
+            workspace_ready=clients.diagnosis is not None and supports_snapshot(clients.diagnosis),
+        )
+    options = replace(options, arms=tuple(arm for arm in options.arms if arm not in skip_arms))
     check = data_check(vault, repository)
     eligible = eligible_attempts(vault, repository, since=options.since)
     if options.attempt_ids:
@@ -399,6 +418,7 @@ def plan_review(
         "planted_cases": planted_cases,
         "targets": targets,
         "arms": list(options.arms),
+        "skipped_arms": {arm: reason for arm, reason in skip_arms.items()},
         "calls": calls,
         "estimated_tokens": tokens,
         "options": options.as_dict(),
@@ -496,6 +516,14 @@ class ReviewRun:
         self.run_id = ""
         self.repository: Repository | None = None
         self.notes: dict[str, Any] = {}
+        self._plain_store: VaultHistoryStore | None = None
+
+    def plain_store(self) -> VaultHistoryStore:
+        """The scratch copy's history without blind overlays (loaded once)."""
+
+        if self._plain_store is None:
+            self._plain_store = VaultHistoryStore(self.vault, self.repository)
+        return self._plain_store
 
     # -- setup ------------------------------------------------------------------
 
@@ -874,7 +902,7 @@ class ReviewRun:
     def stage_grades(self) -> None:
         planted = self.planted_cases()
         targets = self._rows("review_targets", order_by="position")
-        real_store = VaultHistoryStore(self.vault, self.repository)
+        real_store = self.plain_store()
         for target in targets:
             item = self.vault.practice_items[target["practice_item_id"]]
             answer = self.target_answer(target, planted)
@@ -1203,12 +1231,10 @@ class ReviewRun:
         planted_case = planted.get(target["attempt_id"]) if target["kind"] == "planted" else None
         store = planted_history_store(self.vault, planted_case) if planted_case is not None else None
         cited_rows: dict[str, HistoryAttempt] = {}
-        real = None
         for cited in links:
             attempt = store.attempt(cited) if store is not None else None
             if attempt is None:
-                real = real or VaultHistoryStore(self.vault, self.repository)
-                attempt = real.attempt(cited)
+                attempt = self.plain_store().attempt(cited)
             if attempt is not None:
                 cited_rows[cited] = attempt
         order = sorted(cited_rows)
@@ -1509,6 +1535,7 @@ __all__ = [
     "ReviewRun",
     "data_check",
     "eligible_attempts",
+    "unavailable_arms",
     "estimate_spend",
     "plan_review",
     "run_review",

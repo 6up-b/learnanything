@@ -76,15 +76,21 @@ def import_pattern_links(run_dir: Path, vault_repository: Repository, *, dry_run
     }
     seen: set[tuple[str, ...]] = set()
     with vault_repository.connection() as connection:
+        has_ledger = connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='judgment_ledger'"
+        ).fetchone() is not None
+        if not has_ledger and not dry_run:
+            raise ValueError("the vault database has no judgment_ledger; open the vault with learnloop once to migrate it")
+        report["vault_has_ledger"] = has_ledger
         for row in eligible:
             # A verdict's identity is its question, judge, input AND rationale:
             # the judge's two passes over one link may share an input.
             key = (row["left_id"], row["right_id"], row["judge"], row["input_hash"], row["rationale"])
-            exists = key in seen or connection.execute(
+            exists = key in seen or (has_ledger and connection.execute(
                 "SELECT 1 FROM judgment_ledger WHERE task = 'same_cause' AND left_kind = 'attempt' AND left_id = ? "
                 "AND right_kind = 'attempt' AND right_id = ? AND judge = ? AND input_hash = ? AND rationale = ?",
                 key,
-            ).fetchone() is not None
+            ).fetchone() is not None)
             seen.add(key)
             if exists:
                 report["already_present"] += 1
@@ -107,8 +113,6 @@ def import_pattern_links(run_dir: Path, vault_repository: Repository, *, dry_run
                 rationale=row["rationale"],
             )
             report["imported"] += 1
-        if dry_run:
-            connection.rollback()
     return report
 
 

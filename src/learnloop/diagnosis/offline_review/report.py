@@ -25,7 +25,7 @@ from learnloop.diagnosis.offline_review.runner import MAIN_ARMS, RUN_FILE, SCRAT
 
 REPORT_VERSION = "slice1-m1-report-v1"
 ARM_LABELS = {
-    "a": "(a) stored joint grader",
+    "a": "(a) joint grader (stored; rerun on planted)",
     "b": "(b) exact",
     "b_prime": "(b') exact, repeat",
     "b0": "(b0) no history",
@@ -333,7 +333,10 @@ def _planted_section(data: Mapping[str, Any]) -> dict[str, Any]:
         validated = {str(value.get("attempt_id")) for value in (receipts.get(row["id"], {}).get("validated_citations") or [])}
         expected = set(truth.get("expected_link_attempt_ids") or [])
         forbidden = set(truth.get("forbidden_link_attempt_ids") or [])
+        receipt = receipts.get(row["id"], {})
+        shown = set(receipt.get("failure_attempt_ids") or []) | set(receipt.get("history_attempt_ids") or [])
         bucket["expected_links_total"] += len(expected)
+        bucket["expected_links_present"] += len(expected & shown)
         bucket["expected_links_cited"] += len(expected & cited)
         bucket["expected_links_validated"] += len(expected & validated)
         bucket["forbidden_link_cited"] += 1 if forbidden & cited else 0
@@ -364,6 +367,7 @@ def _planted_section(data: Mapping[str, Any]) -> dict[str, Any]:
                 "anchoring_suspect": bucket["anchoring_suspect"],
                 "expected_links": {
                     "total": bucket["expected_links_total"],
+                    "present_inline": bucket["expected_links_present"],
                     "cited": bucket["expected_links_cited"],
                     "validated": bucket["expected_links_validated"],
                 },
@@ -612,6 +616,7 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
     for arm in ("b", "c", "d", "e"):
         agree = 0
         compared = 0
+        both_abstain = 0
         disagreements = []
         for row in data["review_diagnoses"]:
             if row["arm"] != arm or row["status"] != "completed":
@@ -627,12 +632,20 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
                 legacy = stored[index]
                 match = event.get("registry_match") or {}
                 proposed = match.get("id") if match.get("kind") in {"durable", "candidate"} else None
+                if not legacy and not proposed:
+                    # Neither linked a registry row: not evidence of agreement.
+                    both_abstain += 1
+                    continue
                 compared += 1
-                if (legacy or None) == (proposed or None):
+                if legacy == proposed:
                     agree += 1
                 else:
                     disagreements.append({"target_id": row["target_id"], "event_index": index, "legacy_id": legacy, "proposed_kind": match.get("kind"), "proposed_id": proposed})
-        out[arm] = {"agreement": wilson(agree, compared), "disagreements": disagreements}
+        out[arm] = {
+            "agreement_where_either_linked": wilson(agree, compared),
+            "both_unlinked": both_abstain,
+            "disagreements": disagreements,
+        }
     return out
 
 
@@ -761,13 +774,13 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     if not planted.get("cases"):
         lines.append(f"- {planted.get('note')}")
     else:
-        lines += [f"- cases: {planted['cases']} {json.dumps(planted['shapes'], sort_keys=True)}", "", "| arm | shape | cause recovered | other planted cause | changed flagged | expected links cited/validated/total | kept apart |", "|---|---|---|---|---|---|---|"]
+        lines += [f"- cases: {planted['cases']} {json.dumps(planted['shapes'], sort_keys=True)}", "", "| arm | shape | cause recovered | other planted cause | changed flagged | expected links present/cited/validated/total | kept apart |", "|---|---|---|---|---|---|---|"]
         for arm, shapes in planted["by_arm"].items():
             for shape, row in shapes.items():
                 links = row["expected_links"]
                 lines.append(
                     f"| {ARM_LABELS.get(arm, arm)} | {shape} | {_fmt_rate(row['cause_recovered'])} | {_fmt_rate(row['cause_is_other_planted'])} "
-                    f"| {row['history_changed_cause_flagged']} | {links['cited']}/{links['validated']}/{links['total']} | {_fmt_rate(row['kept_apart'])} |"
+                    f"| {row['history_changed_cause_flagged']} | {links['present_inline']}/{links['cited']}/{links['validated']}/{links['total']} | {_fmt_rate(row['kept_apart'])} |"
                 )
         if planted["context_length_sweep"]:
             lines += ["", "Context-length sweep, (d) on planted cases:", "", "| budget | diagnoses | mean context tokens | cause recovered | expected links cited | unknown ids |", "|---|---|---|---|---|---|"]
@@ -795,7 +808,10 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     ]
     lines += ["", "## Registry match vs the legacy misconception match (E4)", ""]
     for arm, row in report["registry_match"].items():
-        lines.append(f"- {ARM_LABELS.get(arm, arm)}: agreement {_fmt_rate(row['agreement'])}; disagreements {len(row['disagreements'])}")
+        lines.append(
+            f"- {ARM_LABELS.get(arm, arm)}: agreement where either linked a registry row {_fmt_rate(row['agreement_where_either_linked'])}; "
+            f"both unlinked {row['both_unlinked']}; disagreements to audit {len(row['disagreements'])} (ids in report.json)"
+        )
     spot = report["spot_check"]
     lines += ["", "## Owner spot-check", ""]
     if not spot["ran"]:

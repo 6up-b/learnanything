@@ -96,6 +96,9 @@ class HistoryAttempt:
     target_criteria: tuple[str, ...] = ()
     validity_scopes: tuple[str, ...] = ()
     item_facets: tuple[str, ...] = ()
+    #: Facets the FAILED criteria measure (their authored targets, else the
+    #: item's facets). With ``target_facets`` this is what S4 checks.
+    failed_criterion_facets: tuple[str, ...] = ()
     assisted: bool = False
     primed: bool = False
     grader_mode: str = "joint"
@@ -126,6 +129,11 @@ class HistoryAttempt:
 
     def facets(self) -> frozenset[str]:
         return frozenset((*self.target_facets, *self.item_facets))
+
+    def failure_facets(self) -> frozenset[str]:
+        """Where this attempt's blind grade shows a non-pass (S4 overlap)."""
+
+        return frozenset((*self.target_facets, *self.failed_criterion_facets))
 
 
 @dataclass(frozen=True)
@@ -324,6 +332,32 @@ def _max_points_by_criterion(vault: LoadedVault, item: PracticeItem | None) -> t
     return {criterion.id: float(criterion.points) for criterion in rubric.criteria}, float(rubric.max_points)
 
 
+def criterion_facets(vault: LoadedVault, item: PracticeItem | None) -> dict[str, tuple[str, ...]]:
+    """Each criterion's measured facets: authored targets, else the item's facets."""
+
+    if item is None:
+        return {}
+    try:
+        rubric = resolved_rubric(vault, item)
+    except Exception:  # noqa: BLE001
+        return {}
+    fallback = tuple(vault.canonical_facet_id(str(value)) for value in item.evidence_facets)
+    return {
+        criterion.id: (
+            tuple(vault.canonical_facet_id(str(target.facet)) for target in criterion.targets)
+            if criterion.targets
+            else fallback
+        )
+        for criterion in rubric.criteria
+    }
+
+
+def _failed_facets(vault: LoadedVault, item: PracticeItem | None, failed: Sequence[str]) -> tuple[str, ...]:
+    mapping = criterion_facets(vault, item)
+    fallback = tuple(vault.canonical_facet_id(str(value)) for value in (item.evidence_facets if item else []))
+    return tuple(dict.fromkeys(facet for criterion in failed for facet in mapping.get(criterion, fallback)))
+
+
 def _target_facets_from(attribution: Mapping[str, Any], vault: LoadedVault) -> list[str]:
     facets = [
         vault.canonical_facet_id(str(value))
@@ -400,6 +434,7 @@ def history_attempt_from_blind_record(
         item_facets=tuple(
             vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
         ),
+        failed_criterion_facets=_failed_facets(vault, item, failed),
         assisted=bool(hints_used) or attempt_type in ASSISTED_ATTEMPT_TYPES,
         primed=bool(primed),
         grader_mode="blind",
@@ -719,6 +754,7 @@ class VaultHistoryStore:
             item_facets=tuple(
                 vault.canonical_facet_id(str(facet)) for facet in (item.evidence_facets if item else [])
             ),
+            failed_criterion_facets=_failed_facets(vault, item, failed),
             assisted=bool(row.get("hints_used")) or attempt_type in ASSISTED_ATTEMPT_TYPES,
             primed=bool(row.get("primed")),
             grader_mode="joint",
@@ -898,6 +934,7 @@ __all__ = [
     "RepairRecord",
     "StaticHistoryStore",
     "VaultHistoryStore",
+    "criterion_facets",
     "history_attempt_from_blind_record",
     "learning_object_neighborhood",
 ]

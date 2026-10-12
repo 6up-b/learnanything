@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from learnloop.ai.strict_schema import strict_output_schema
@@ -172,18 +174,34 @@ def test_citation_validity_requires_a_blind_non_pass_on_an_overlapping_target(wo
 
 def test_citation_without_target_overlap_or_valid_measurement_is_not_counted(world):
     vault, store = world
-    # Re-key the hypothesis to a facet no cited attempt touches.
+    store.hypotheses.append(
+        HypothesisRecord(
+            id="hyp_transpose", kind="causal_hypothesis", statement="Thinks transposes are optional.",
+            scope="learner_state", status="candidate", lifecycle="candidate", learning_object_id="lo_svd_compute",
+            source_attempt_id="att_01_transpose_fail", validated_evidence_count=1, last_updated=None,
+            target_facets=("transpose",),
+        )
+    )
+    eigen = store.attempt("att_05_eigen_fail")
+    store.replace_attempt(dataclasses.replace(eigen, validity_scopes=("item_contract",)))
     result = _validate(vault, store, {
         "analysis_md": "a",
-        "evidence_attempt_ids": ["att_02_svd_fail"],
-        "event_diagnoses": [_event(candidate_causes=[{"statement": "s", "cause_scope": "learner_state",
-                                                      "target_ref": {"kind": "facet_capability", "facet_id": "transpose", "capability": "retrieval"}}])],
-        "pattern_claims": [{"hypothesis_ref": "cause:0:0", "relation": "same_mechanism",
-                            "cited": [{"attempt_id": "att_02_svd_fail", "quote": "U Sigma V"}]}],
+        "evidence_attempt_ids": ["att_02_svd_fail", "att_05_eigen_fail"],
+        "event_diagnoses": [_event()],
+        "pattern_claims": [
+            # att_02 failed on recall; the hypothesis is about transposes.
+            {"hypothesis_ref": "hyp_transpose", "relation": "same_mechanism",
+             "cited": [{"attempt_id": "att_02_svd_fail", "quote": "U Sigma V"}]},
+            # att_05 overlaps on recall but its blind grade flagged the item.
+            {"hypothesis_ref": "cause:0:0", "relation": "same_mechanism",
+             "cited": [{"attempt_id": "att_05_eigen_fail", "quote": "P D P"}]},
+        ],
     })
-    reasons = [issue.get("reason") for issue in result.report["issues"] if issue["rule"] == "citation_not_valid_for_recurrence"]
-    assert reasons == []  # recall overlaps via the current blind attribution's targets
-    assert result.validated_citations
+    reasons = {issue["attempt_id"]: issue["reason"] for issue in result.report["issues"] if issue["rule"] == "citation_not_valid_for_recurrence"}
+    assert reasons == {"att_02_svd_fail": "no_target_overlap", "att_05_eigen_fail": "not_valid_measurement"}
+    assert result.validated_citations == ()
+    # Both citations are still recorded on their claims (shadow), just never counted.
+    assert [len(claim["cited"]) for claim in result.proposal["pattern_claims"]] == [1, 1]
 
 
 def test_scope_firewall_rejects_a_causal_class_on_an_invalid_measurement(world):

@@ -551,7 +551,7 @@ def _citation_invalid_reason(prior: HistoryAttempt, targets: set[str]) -> str | 
         return "cited_attempt_passed"
     if not prior.valid_measurement:
         return "not_valid_measurement"
-    if targets and not (prior.facets() & targets):
+    if targets and not (prior.failure_facets() & targets):
         return "no_target_overlap"
     return None
 

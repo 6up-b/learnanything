@@ -13,6 +13,7 @@ from typing import Any
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
 from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.attempts.blind_grading import BlindGradingContext
 from learnloop.content.authoring.ai_contracts import (
     ConceptAnimationContext,
     ExerciseAuthoringContext,
@@ -50,6 +51,10 @@ _HANDLER_FOR_PURPOSE = {
     "authoring": "run_authoring_proposal",
     "canonical_ingest": "run_canonical_ingest",
     "grading": "run_grading_proposal",
+    # Slice 1: the learner-blind grader and the history-aware diagnoser. The
+    # diagnosis context is not a dataclass; handlers read it as a mapping.
+    "blind_grading": "run_blind_grading_proposal",
+    "diagnosis": "run_diagnosis_proposal",
     "tutor_qa": "run_tutor_qa",
     "teach_back": "run_teach_back_question",
     "teach_back_authoring": "run_teach_back_authoring",
@@ -78,6 +83,7 @@ _CONTEXT_FOR_PURPOSE = {
     "authoring": AuthoringContext,
     "canonical_ingest": CanonicalIngestContext,
     "grading": GradingContext,
+    "blind_grading": BlindGradingContext,
     "tutor_qa": TutorQAContext,
     "teach_back": TeachBackQuestionContext,
     "teach_back_authoring": TeachBackAuthoringContext,
