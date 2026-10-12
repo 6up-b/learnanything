@@ -775,9 +775,9 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
-    # routes only; no scoring, scheduling, projection or serving change.
-    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
+    # Slice A Phase 3 adds explicit-command family proposal blocking defaults.
+    # No live scoring, scheduling or serving default changes (no Phase 3b).
+    "mvp-0.9": "a0a5305cc39b08235deb10157900a39d6cddc04c69aff3d42ebe982fd52c04bd",
 }
 
 

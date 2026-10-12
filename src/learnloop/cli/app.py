@@ -2982,7 +2982,6 @@ def today(
 
     launch_tui(_root(vault))
 
-@app.command("eval")
 def eval_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     section: Annotated[

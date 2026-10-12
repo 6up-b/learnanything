@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from learnloop.attempt_types import AttemptType
 from learnloop.config import LearnLoopConfig
@@ -623,6 +623,39 @@ class TeachBackSourceContract(VaultModel):
     authoring_mode: Literal["ai", "deterministic_fallback"] = "deterministic_fallback"
 
 
+VariantRelation = Literal["same_target", "isomorph", "near", "far"]
+
+
+class FamilyReference(VaultModel):
+    """Minimal reference status; verification must name its performed check."""
+
+    verification: Literal["verified", "unverified"] = "unverified"
+    check: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def _verified_check(self) -> FamilyReference:
+        if self.verification == "verified" and (self.check is None or not self.check.strip()):
+            raise ValueError("Verified family reference requires a check")
+        return self
+
+
+class ActivityFamily(VaultModel):
+    """Versioned authored content of a purpose-practice activity family."""
+
+    schema_version: int = 1
+    id: str
+    purpose: Literal["practice"] = "practice"
+    learning_object_id: str
+    idea_statement: str
+    retrieval_target: str
+    source_kind: Literal["generator", "source_anchored", "authored"] = "authored"
+    reference: FamilyReference = Field(default_factory=FamilyReference)
+    generator: dict[str, Any] | None = None
+    provenance: Provenance = Field(default_factory=Provenance)
+    created_at: str
+    updated_at: str
+
+
 class PracticeItem(VaultModel):
     schema_version: int = 1
     id: str
@@ -692,6 +725,25 @@ class PracticeItem(VaultModel):
     provenance: Provenance = Field(default_factory=Provenance)
     created_at: str
     updated_at: str
+
+    family_id: str | None = None
+    variant_relation: VariantRelation | None = None
+
+    @model_validator(mode="after")
+    def _family_relationship(self) -> PracticeItem:
+        if (self.family_id is None) != (self.variant_relation is None):
+            raise ValueError("family_id and variant_relation must be specified together")
+        if self.family_id is not None and not self.family_id.strip():
+            raise ValueError("family_id must not be empty")
+        return self
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_family_fields(self, handler: Any) -> dict[str, Any]:
+        result = handler(self)
+        for name in ("family_id", "variant_relation"):
+            if getattr(self, name) is None:
+                result.pop(name, None)
+        return result
 
 
 def discriminates(item: "PracticeItem", rubric: "Rubric | None" = None) -> dict[str, list[str]]:
@@ -838,6 +890,7 @@ class LoadedVault:
     subjects: dict[str, Subject] = field(default_factory=dict)
     learning_objects: dict[str, LearningObject] = field(default_factory=dict)
     practice_items: dict[str, PracticeItem] = field(default_factory=dict)
+    activity_families: dict[str, ActivityFamily] = field(default_factory=dict)
     default_rubrics: dict[str, Rubric] = field(default_factory=dict)
     error_types: dict[str, ErrorType] = field(default_factory=dict)
     evidence_facets: dict[str, EvidenceFacet] = field(default_factory=dict)

@@ -22,7 +22,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_166"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_167"
 )
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
 
@@ -235,6 +235,16 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "algorithm_version": "stale",
             "created_at": at,
             "updated_at": at,
+        },
+        "family_memory_state": {
+            "family_id": "stale_family",
+            "difficulty": 1.0,
+            "stability": 1.0,
+            "retrievability": 0.5,
+            "last_review_at": at,
+            "review_count": 1,
+            "weights_hash": "stale",
+            "projection_version": "stale",
         },
         "item_parameter_state": {
             "practice_item_id": "stale_item",
