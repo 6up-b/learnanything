@@ -1301,7 +1301,8 @@ class ProjectConfig(BaseModel):
     probe_delay_days: int = Field(default=7, ge=0, le=365)
     probes_per_diff: int = Field(default=2, ge=1, le=6)
     candidates_per_diff: int = Field(default=6, ge=1, le=12)
-    # Diffs with fewer changed lines in probe-able files are captured but not probed.
+    # M1b (spec §5.1): diffs under this many changed lines are excluded from
+    # gate randomization. M1 probes every diff with probe-able content.
     min_diff_lines: int = Field(default=5, ge=0)
     # Lines of head-side context sent around each hunk (D7).
     context_lines: int = Field(default=40, ge=0, le=400)

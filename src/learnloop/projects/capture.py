@@ -669,12 +669,18 @@ def _parse_commit_record(record: str) -> dict[str, Any]:
 
 
 def _excluded_reason(bundle: Bundle, config: LearnLoopConfig) -> str | None:
-    changed = bundle.lines_added + bundle.lines_removed
+    """Why a capture is not probed: only when no probe-able file is left.
+
+    Small diffs are probed: a flipped comparison or a changed parameter is two
+    lines and very much worth a question. ``project.min_diff_lines`` is the
+    spec's M1b randomization threshold (§5.1), not an M1 probing filter;
+    candidate validity and the survivor count decide whether a small change
+    is under-probed.
+    """
+
     included = [entry for entry in bundle.files if not entry["omitted"]]
     if not included:
         return "no_probeable_content"
-    if changed < config.project.min_diff_lines:
-        return "trivial"
     return None
 
 

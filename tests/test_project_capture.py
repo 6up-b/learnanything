@@ -183,17 +183,32 @@ def test_merge_commits_are_not_captured(isolated_git, tmp_path, vault):
     assert capture_commit(store, vault, config, row, merge, capture_source="accept", trigger="manual").status == "refused"
 
 
-def test_trivial_diffs_are_captured_but_not_probed(isolated_git, tmp_path, vault):
+def test_small_behavioural_changes_are_probed(isolated_git, tmp_path, vault):
+    # One flipped comparison is two changed lines, below project.min_diff_lines
+    # (an M1b randomization threshold); M1 still asks about it.
+    repo = TempRepo(tmp_path / "repo")
+    repo.write("auth.py", "def allowed(user):\n    return user.level >= 3\n")
+    repo.commit("init", trailer=None)
+    repo.write("auth.py", "def allowed(user):\n    return user.level > 3\n")
+    repo.commit("Tighten the admin check")
+    row, store, config = _enroll(vault, repo)
+    assert config.project.min_diff_lines > 2
+    report = sweep(vault, config, clock=clock_at(0))
+    assert report.captured == 1 and report.excluded == 0
+    (diff,) = store.diffs()
+    assert diff["excluded_reason"] is None and diff["probe_status"] == "pending"
+
+
+def test_a_diff_with_nothing_probeable_is_still_excluded(isolated_git, tmp_path, vault):
     repo = TempRepo(tmp_path / "repo")
     repo.write("a.py", "a = 1\n")
     repo.commit("init", trailer=None)
-    repo.write("a.py", "a = 2\n")
-    repo.commit("typo")
+    repo.write("uv.lock", "lock\n")
+    repo.commit("Bump the lockfile")
     row, store, config = _enroll(vault, repo)
-    report = sweep(vault, config, clock=clock_at(0))
-    assert report.excluded == 1
+    sweep(vault, config, clock=clock_at(0))
     (diff,) = store.diffs()
-    assert diff["excluded_reason"] == "trivial" and diff["probe_status"] == "excluded"
+    assert diff["excluded_reason"] == "no_probeable_content" and diff["probe_status"] == "excluded"
 
 
 def test_pending_list_feeds_trailerless_commits_to_the_unattributed_list(isolated_git, tmp_path, vault):

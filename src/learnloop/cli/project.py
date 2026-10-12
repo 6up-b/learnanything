@@ -286,7 +286,7 @@ def project_enroll(
     text = (
         f"{'Enrolled' if created else 'Already enrolled'} {row['name']} ({row['path']}).\n"
         f"Captured {swept.captured} agent commit(s) since {row['capture_since']}"
-        + (f"; {swept.excluded} too small or nothing to ask about" if swept.excluded else "")
+        + (f"; {swept.excluded} with nothing to ask about" if swept.excluded else "")
         + ".\n"
         + (f"Hook: {hook_result['status']} at {hook_result['hook']}\n" if hook_result else "")
         + "".join(f"{note}\n" for note in notes)
