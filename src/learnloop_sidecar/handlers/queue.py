@@ -8,6 +8,7 @@ from learnloop.substrate.instrument_serving import (
     unservable_refusal,
 )
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
+from learnloop.scheduling.reentry_summary import reentry_session_cap
 from learnloop.scheduling.scheduler import (
     SchedulerSession,
     build_due_queue,
@@ -18,6 +19,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.goals import _nearest_active_goal
 from learnloop_sidecar.handlers.serializers import (
     latest_scheduler_explanation_dto,
     practice_item_detail,
@@ -82,6 +84,13 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     # the Today refresh.
     with repository.pinned():
         queue_accepted_diagnostic_followups(repository)
+    # Owner decision P6: after a break the session is the welcome-back panel's
+    # "N refreshers" -- the scheduler's top N picks, never more (a smaller
+    # requested limit still wins). The panel reads the cap back from this reply.
+    reentry_cap = reentry_session_cap(vault, repository, _nearest_active_goal(vault))
+    limit = params.limit
+    if reentry_cap is not None:
+        limit = reentry_cap if limit is None else min(limit, reentry_cap)
     queue = build_due_queue(
         vault,
         repository,
@@ -90,7 +99,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             available_minutes=params.available_minutes,
             energy=params.energy,
         ),
-        limit=params.limit,
+        limit=limit,
     )
     slate_id = queue[0].scheduler_slate_id if queue else None
     # Teach-back items dead-end without their AI provider, so they are dropped
@@ -148,6 +157,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             "sections": _sections(dtos),
             "total_items": len(dtos),
             "deferred_cold_checks": deferrals,
+            "reentry_refresher_cap": reentry_cap,
         }
     )
 

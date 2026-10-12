@@ -659,6 +659,9 @@ export interface QueueSnapshot {
   sections: QueueSection[];
   totalItems: number;
   deferredColdChecks?: DeferredColdCheckDto[];
+  /** Set while the welcome-back panel shows: the re-entry session is capped at
+   *  this many items (owner decision P6). Null/absent: no re-entry cap. */
+  reentryRefresherCap?: number | null;
 }
 
 /** Knowledge-model §5.1: what a rubric criterion actually observes. `role`
