@@ -405,15 +405,16 @@ export interface KnowledgeMapSnapshot {
 
 export type CapabilityArcStatus = "demonstrated" | "required" | "absent";
 
-export interface KnowledgeFacetPoint {
+export type KnowledgeFacetPoint = KnowledgeFacetPointBase & (
+  | { untested: true; ready?: never; readyGhost?: never; readyVariance?: never }
+  | { untested?: false; ready: number; readyGhost: number; readyVariance: number }
+);
+
+interface KnowledgeFacetPointBase {
   id: string;
   title: string;
   x: number;
   y: number;
-  ready: number;
-  /** Undecayed prediction used as the retrievability well's ghost outline. */
-  readyGhost: number;
-  readyVariance: number;
   evidenceMass: number;
   demonstratedMass: number;
   requiredCapabilities: string[];

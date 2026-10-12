@@ -141,6 +141,11 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
         frozenset({"subject_identifiability_watermarks"}),
         ("canonical_projection",),
     ),
+    DerivedStateReplayer(
+        "field_outcomes",
+        frozenset({"facet_outcome_observations"}),
+        ("learning_state",),
+    ),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -377,11 +382,22 @@ def _run_identifiability(
     )
 
 
+def _run_field_outcomes(spec, context):
+    from learnloop.field.outcomes import rebuild_outcome_view
+
+    with context.repository.connection() as connection:
+        written = rebuild_outcome_view(connection, context.vault)
+    return ReplayerResult(
+        spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written,
+    )
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "learning_state": _run_learning_state,
     "canonical_projection": _run_canonical_projection,
     "identifiability": _run_identifiability,
+    "field_outcomes": _run_field_outcomes,
 }
 
 

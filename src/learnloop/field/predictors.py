@@ -43,9 +43,10 @@ def _order(row: ObservationRow) -> tuple[str, str, str]:
             row.signal_id if isinstance(row, SignalRow) else getattr(row, "facet_id", ""))
 
 
-def _eligible(row: ObservationRow) -> bool:
+def _eligible(row: ObservationRow, mass: float | None = None) -> bool:
+    mass = row.effective_mass if mass is None else mass
     return (
-        isfinite(row.effective_mass) and row.effective_mass > 0
+        isfinite(mass) and mass > 0
         and row.outcome is not None and isfinite(row.outcome)
         and getattr(row, "revision_status", "exact") != "excluded"
     )
@@ -72,7 +73,7 @@ class LoGeneral:
         self.general_means = dict(general_means or {})
         self.lo_priors = dict(lo_priors or {})
         self.version_hash = _hash({
-            "implementation": "field-ekf-v1-ability-scale-b",
+            "implementation": "field-ekf-v2-hint-mass-practice-gain",
             "name": name, "extensions": sorted(self.extensions),
             "constants": asdict(self.constants), "mastery": self.config.model_dump(mode="json"),
             "general_means": self.general_means, "lo_priors": self.lo_priors,
@@ -193,8 +194,19 @@ class LoGeneral:
             self._prior_variances[key] = variance
 
     def observe(self, row: ObservationRow) -> None:
+        mass = row.effective_mass
+        replace_assistance = (
+            not isinstance(row, SignalRow) and "hints" in self.extensions
+            and (row.hints_used or row.help_before_work)
+        )
+        if replace_assistance:
+            if row.revision_status == "excluded":
+                return
+            if row.mass_without_assistance is None:
+                raise ValueError("hint replacement requires mass_without_assistance")
+            mass = row.mass_without_assistance
         # Must precede even region allocation, clocks, counts, and item caching.
-        if not _eligible(row):
+        if not _eligible(row, mass):
             return
         if isinstance(row, SignalRow):
             if "tutor_signals" not in self.extensions:
@@ -209,14 +221,9 @@ class LoGeneral:
             outcome = float(row.outcome)
             interpretation = 0.0
         else:
-            f, outcome, mass = row.features, row.outcome, row.effective_mass
+            f, outcome = row.features, row.outcome
             interpretation = row.interpretation_variance
-            if "hints" in self.extensions and (row.hints_used or row.help_before_work):
-                if row.mass_without_assistance is None:
-                    raise ValueError("hint replacement requires mass_without_assistance")
-                mass = row.mass_without_assistance
-                if not isfinite(mass) or mass <= 0:
-                    return
+            if replace_assistance:
                 cap = max(self.constants.hint_floor, 1 - self.constants.hint_step * row.hints_used)
                 if row.help_before_work:
                     cap = min(cap, self.constants.early_help_cap)
@@ -302,6 +309,10 @@ class LoGeneral:
 
         for other in selected:
             covariance -= reduction(other, covariance)
+            # Carry each hypothetical opportunity forward, without observing
+            # an outcome or changing the live posterior.
+            if "practice" in self.extensions and other.cold:
+                mean[keys.index(f"lo:{other.lo_id}")] += self.constants.practice_gamma
         delta = reduction(f, covariance)
         regions = dict(self._regions)
         for feature in [*catalog, *selected, f]:

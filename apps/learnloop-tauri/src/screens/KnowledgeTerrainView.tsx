@@ -60,7 +60,7 @@ function diffuse(field: KnowledgeFacetField, key: MassKey): Map<string, number> 
   const mass = new Map<string, number>();
   for (const node of field.graphNodes) {
     const point = pointById.get(node);
-    mass.set(node, point?.hasBlueprints ? point[key] : 0);
+    mass.set(node, point?.hasBlueprints ? (point[key] ?? 0) : 0);
   }
   let values = new Map(mass);
   // Stable Jacobi solve of (I + τL)x = m: a normalized graph potential.
@@ -105,7 +105,7 @@ function buildCells(field: KnowledgeFacetField): Cell[][] {
         // each other away. Epsilon bounds the node singularity.
         const distance = Math.sqrt(d2);
         const weight = 1 / (distance + 0.075);
-        const evidenceConfidence =
+        const evidenceConfidence = point.untested ? 0 :
           (point.evidenceMass / (point.evidenceMass + 1)) *
           (1 / (1 + 18 * point.readyVariance));
         demo += weight * (demoPotential.get(point.id) ?? 0);
@@ -285,7 +285,7 @@ export function KnowledgeTerrainView({
   const pins = field.points
     .map((point) => {
       const z = sheetZ(sample(cells, point.x, point.y));
-      return { point, demo: proj(point.x, point.y, z.demo), ready: proj(point.x, point.y, z.ready) };
+      return { point, demo: proj(point.x, point.y, point.untested ? 0 : z.demo), ready: proj(point.x, point.y, z.ready) };
     })
     .sort((a, b) => a.demo.depth - b.demo.depth);
 
@@ -340,6 +340,20 @@ export function KnowledgeTerrainView({
         const active = point.id === selected;
         const fade = depthFade(demoPoint.depth, 0.58, 1);
         const radius = active ? 10 : 8;
+        if (point.untested) {
+          return (
+            <g key={point.id} opacity={active ? 1 : fade}
+              style={{ cursor: "pointer" }}
+              onMouseEnter={() => { onSelect(point.id); pauseDrift(); }}
+              onClick={(event) => { event.stopPropagation(); if (point.learningObjectIds[0]) onInspect(point.learningObjectIds[0]); }}
+            >
+              <circle cx={demoPoint.x} cy={demoPoint.y} r={3.8} fill="none" stroke={COLOR.textDim} />
+              <text x={demoPoint.x + 7} y={demoPoint.y} fill={COLOR.textDim} fontSize={9.5}>untested</text>
+              <circle cx={demoPoint.x} cy={demoPoint.y} r={12} fill="transparent" />
+              <title>{`${point.title}\nuntested`}</title>
+            </g>
+          );
+        }
         const tooltip = `${point.title}\nDemonstrated ${Math.round(point.demonstratedMass * 100)}%\nReady ${Math.round(point.ready * 100)}%`;
         if (!point.hasBlueprints) {
           return (

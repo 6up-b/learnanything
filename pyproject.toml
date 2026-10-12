@@ -183,6 +183,8 @@ type = "acyclic_siblings"
 ancestors = ["learnloop"]
 depth = 0
 ignore_imports = [
+    # Composition-root registration of the field's sole DERIVED-table owner.
+    "learnloop.substrate.rebuild_orchestrator -> learnloop.field.outcomes",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",

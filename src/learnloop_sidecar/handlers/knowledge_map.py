@@ -360,17 +360,23 @@ def _facet_field(vault, repository) -> dict[str, Any]:
             len(demonstrated_caps) / len(requirement) if requirement else 0.0
         )
         state = recall_by_facet.get(facet_id)
-        if state is not None:
+        # A seeded Beta prior is not a measurement. Only positive direct
+        # evidence earns a Ready estimate on the map; no predictor is consulted.
+        untested = state is None or state["evidence_mass"] <= 0.0
+        readiness: dict[str, Any] = {}
+        if not untested:
             total = state["alpha"] + state["beta"]
             ready_ghost = state["alpha"] / total
             retention = retention_by_facet.get(facet_id, 1.0)
             ready = ready_ghost * retention
             variance = state["alpha"] * state["beta"] / (total**2 * (total + 1.0))
             evidence_mass = state["evidence_mass"]
+            readiness = {
+                "ready": ready,
+                "ready_ghost": ready_ghost,
+                "ready_variance": variance,
+            }
         else:
-            ready = 0.5
-            ready_ghost = 0.5
-            variance = 1.0 / 12.0
             evidence_mass = 0.0
         registry = vault.evidence_facets.get(facet_id)
         capabilities = []
@@ -389,9 +395,8 @@ def _facet_field(vault, repository) -> dict[str, Any]:
                 "title": (registry.title if registry and registry.title else facet_id),
                 "x": coords[index][0],
                 "y": coords[index][1],
-                "ready": ready,
-                "ready_ghost": ready_ghost,
-                "ready_variance": variance,
+                "untested": untested,
+                **readiness,
                 "evidence_mass": evidence_mass,
                 "demonstrated_mass": demonstrated_mass,
                 "required_capabilities": requirement,

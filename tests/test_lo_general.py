@@ -1,4 +1,5 @@
 from dataclasses import replace
+from math import exp
 
 import numpy as np
 import pytest
@@ -34,7 +35,8 @@ def test_one_lo_limit_matches_incumbent_including_drift_and_priming(primed, a):
 
 @pytest.mark.parametrize("name", registered_predictors())
 @pytest.mark.parametrize("excluded", [False, True])
-def test_zero_mass_byte_invariance_including_no_new_region(name, excluded):
+@pytest.mark.parametrize("outcome", [0, None])
+def test_zero_mass_byte_invariance_including_no_new_region(name, excluded, outcome):
     model = create_predictor(name)
     first = FacetRow("first", features(facet_id="f"), 1, 1, facet_id="f")
     model.observe(first)
@@ -43,9 +45,55 @@ def test_zero_mass_byte_invariance_including_no_new_region(name, excluded):
                  capability="coordination", variant_relation="far", facet_id="new")
     # Predictions must not register the unseen region either.
     model.predict(f)
-    model.observe(FacetRow("skip", f, 0, 1 if excluded else 0,
+    model.observe(FacetRow("skip", f, outcome, 1 if excluded else 0,
                            revision_status="excluded" if excluded else "exact",
-                           hints_used=2, mass_without_assistance=1, facet_id="new"))
+                           hints_used=2, mass_without_assistance=0, facet_id="new"))
+    assert model.snapshot_bytes() == before
+
+
+@pytest.mark.parametrize("name", registered_predictors())
+def test_assistance_only_zero_mass_is_replaced_only_by_hint_arms(name):
+    model = create_predictor(name)
+    reference = create_predictor(name)
+    before = model.snapshot_bytes()
+    f = features(facet_id="f")
+    model.observe(FacetRow("help", f, 1, 0, hints_used=2,
+                           mass_without_assistance=0.8, facet_id="f"))
+    if "hints" in getattr(model, "extensions", ()):
+        graded_outcome = max(model.constants.hint_floor, 1 - 2 * model.constants.hint_step)
+        reference.observe(FacetRow("help", f, graded_outcome, 0.8, facet_id="f"))
+        assert model.snapshot_bytes() == reference.snapshot_bytes()
+        assert model.snapshot_bytes() != before
+    else:
+        assert model.snapshot_bytes() == before
+
+
+@pytest.mark.parametrize("name", ["lo_general+hints", "lo_general+composite"])
+@pytest.mark.parametrize("mass", [0, -1, float("nan"), float("inf")])
+def test_invalid_hint_replacement_mass_is_a_complete_noop(name, mass):
+    model = create_predictor(name)
+    before = model.snapshot_bytes()
+    model.observe(replace(row(hints_used=2, mass_without_assistance=mass),
+                          effective_mass=0))
+    assert model.snapshot_bytes() == before
+
+
+@pytest.mark.parametrize("name", ["lo_general+hints", "lo_general+composite"])
+def test_excluded_hint_row_cannot_be_restored_by_replacement_mass(name):
+    model = create_predictor(name)
+    before = model.snapshot_bytes()
+    model.observe(row(hints_used=2, mass_without_assistance=1, revision_status="excluded"))
+    assert model.snapshot_bytes() == before
+
+
+@pytest.mark.parametrize("predictor", [LoGeneral, MasteryEKF])
+@pytest.mark.parametrize("a", [0.6, 1.7])
+def test_priming_probability_uses_shifted_difficulty_without_mutation(predictor, a):
+    model = predictor()
+    f = features(a=a, b=0.8, primed=True)
+    before = model.snapshot_bytes()
+    b_eff = f.b - model.config.irt.priming_b_offset
+    assert model.predict(f) == pytest.approx(1 / (1 + exp(a * b_eff)), abs=1e-14)
     assert model.snapshot_bytes() == before
 
 
@@ -86,6 +134,47 @@ def test_practice_is_predicted_before_outcome_and_not_committed_by_prediction():
         practice.observe(row(i))
     assert practice.predict(features()) > base.predict(features())
     assert practice.predict(features(cold=False)) < practice.predict(features())
+
+
+@pytest.mark.parametrize("cold", [False, True])
+def test_practice_zero_innovation_commits_exactly_gamma_only_when_cold(cold):
+    model = create_predictor("lo_general+practice")
+    f = features(cold=cold, a=1.7, b=0.4)
+    gamma = model.constants.practice_gamma
+    for i in range(4):
+        expected_mean = (i + 1) * gamma if cold else 0
+        expected_p = 1 / (1 + exp(-f.a * (expected_mean - f.b)))
+        before = model.snapshot_bytes()
+        assert model.predict(f) == pytest.approx(expected_p, abs=1e-14)
+        assert model.snapshot_bytes() == before
+        model.observe(AttemptRow(str(i), f, model.predict(f), 1))
+        assert model.mean[model.keys.index("general:default")] == 0
+        assert model.mean[model.keys.index("lo:L")] == pytest.approx(expected_mean, abs=1e-14)
+
+
+@pytest.mark.parametrize("chosen_cold", [[], [True], [True, True], [False, False],
+                                       [True, False, True]])
+@pytest.mark.parametrize("candidate_cold", [False, True])
+def test_practice_conditional_gain_accumulates_only_chosen_cold_transitions(
+    chosen_cold, candidate_cold,
+):
+    # A single scalar LO makes each hypothetical covariance update analytic.
+    model = LoGeneral(extensions=("practice",),
+                      constants=ArmConstants(general_variance=0, lo_variance=3))
+    f = features(a=1.7, b=-0.3, cold=candidate_cold)
+    chosen = [replace(f, item_id=str(i), cold=cold) for i, cold in enumerate(chosen_cold)]
+    variance, mean = 3.0, 0.0
+    for cold in [*chosen_cold, candidate_cold]:
+        predicted_mean = mean + (model.constants.practice_gamma if cold else 0)
+        p = 1 / (1 + exp(-f.a * (predicted_mean - f.b)))
+        h = f.a * p * (1 - p)
+        noise = model.config.base_observation_variance * p * (1 - p)
+        reduction = (variance * h) ** 2 / (h * h * variance + noise)
+        variance -= reduction
+        mean = predicted_mean
+    before = model.snapshot_bytes()
+    assert model.conditional_gain(f, chosen, {"L": 1}) == pytest.approx(reduction, abs=1e-14)
+    assert model.snapshot_bytes() == before
 
 
 def test_capability_and_transfer_offsets():
@@ -222,11 +311,20 @@ def test_rebuild_deterministic_and_no_external_io(name, monkeypatch):
     import socket
     import sqlite3
 
+    from learnloop.ai.providers.codex import SdkCodexClient
+    from learnloop.ai.providers.codex_http import HttpCodexClient
+    from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
+    from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
+
     def forbidden(*args, **kwargs):
         raise AssertionError("predictors must not perform I/O")
 
     monkeypatch.setattr(socket, "socket", forbidden)
     monkeypatch.setattr(sqlite3, "connect", forbidden)
+    monkeypatch.setattr(OpenAIChatProviderClient, "complete", forbidden)
+    monkeypatch.setattr(SdkCodexClient, "complete", forbidden)
+    monkeypatch.setattr(HttpCodexClient, "complete_legacy", forbidden)
+    monkeypatch.setattr(OpenAIEmbeddingProviderClient, "embed", forbidden)
     model = create_predictor(name)
     rows = [FacetRow(str(i), features(facet_id="f"), float(i % 2), 1, facet_id="f")
             for i in range(8)]
