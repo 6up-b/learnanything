@@ -289,6 +289,24 @@ class StoreSchemaError(RuntimeError):
     """The store was written by a newer LearnLoop."""
 
 
+_JUDGMENT_COLUMNS = (
+    "id", "created_at", "supersedes_id", "task", "left_kind", "left_id", "judge",
+    "judge_model", "prompt_version", "input_hash", "verdict", "score", "rationale",
+)
+
+
+def _insert_judgment(connection: sqlite3.Connection, judgment: dict[str, Any]) -> str:
+    """Insert one ``judgments`` row on ``connection`` (inside its transaction)."""
+
+    row = {**judgment, "id": judgment.get("id") or new_ulid()}
+    connection.execute(
+        f"INSERT INTO judgments ({', '.join(_JUDGMENT_COLUMNS)}) "
+        f"VALUES ({', '.join('?' for _ in _JUDGMENT_COLUMNS)})",
+        tuple(row.get(column) for column in _JUDGMENT_COLUMNS),
+    )
+    return str(row["id"])
+
+
 class ProjectStore:
     """Short transactions over the standalone store; owns every SQL write."""
 
@@ -556,7 +574,9 @@ class ProjectStore:
                 )
             ]
 
-    def insert_probe_candidates(self, rows: list[dict[str, Any]]) -> None:
+    def insert_probe_candidates(self, rows: list[dict[str, Any]], judgments: list[dict[str, Any]] = ()) -> None:
+        """Insert a diff's candidates and their validity verdicts in one transaction."""
+
         columns = (
             "id", "diff_id", "candidate_index", "kind", "question", "reference_answer",
             "citations_json", "rationale_label", "validity", "validity_detail", "status",
@@ -568,6 +588,8 @@ class ProjectStore:
                 f"INSERT INTO probes ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
                 [tuple(row.get(column) for column in columns) for row in rows],
             )
+            for judgment in judgments:
+                _insert_judgment(connection, judgment)
 
     def record_closed_book_answers(self, answers: dict[str, str], *, model: str) -> None:
         with self.connection() as connection:
@@ -577,13 +599,27 @@ class ProjectStore:
                 [(answer, model, probe_id) for probe_id, answer in answers.items()],
             )
 
-    def record_closed_book_grade(self, probe_id: str, *, verdict: str, score: float, generic: bool) -> None:
+    def record_closed_book_grades(self, grades: list[dict[str, Any]]) -> int:
+        """Each ``{probe_id, verdict, score, generic, judgment}`` with its judgment, atomically.
+
+        A probe no longer awaiting its closed-book grade (another run got
+        there first) gets neither the verdict nor a second judgment.
+        Returns how many verdicts were recorded.
+        """
+
+        recorded = 0
         with self.connection() as connection:
-            connection.execute(
-                "UPDATE probes SET closed_book_verdict = ?, closed_book_score = ?, status = ? "
-                "WHERE id = ? AND status = 'pending_closed_book_grade'",
-                (verdict, score, "rejected_generic" if generic else "survivor", probe_id),
-            )
+            for grade in grades:
+                cursor = connection.execute(
+                    "UPDATE probes SET closed_book_verdict = ?, closed_book_score = ?, status = ? "
+                    "WHERE id = ? AND status = 'pending_closed_book_grade'",
+                    (grade["verdict"], grade["score"], "rejected_generic" if grade["generic"] else "survivor",
+                     grade["probe_id"]),
+                )
+                if cursor.rowcount == 1:
+                    _insert_judgment(connection, grade["judgment"])
+                    recorded += 1
+        return recorded
 
     def select_probes(self, probe_ids: list[str]) -> None:
         with self.connection() as connection:
@@ -620,7 +656,9 @@ class ProjectStore:
 
     # --- responses --------------------------------------------------------------
 
-    def insert_response(self, row: dict[str, Any]) -> bool:
+    def insert_response(self, row: dict[str, Any], judgment: dict[str, Any] | None = None) -> bool:
+        """Insert a response (and the owner verdict it carries) in one transaction."""
+
         columns = (
             "id", "probe_id", "response_kind", "answer", "declaration", "served_at", "answered_at",
             "due_at", "lateness_seconds", "grade_status",
@@ -631,7 +669,10 @@ class ProjectStore:
                 f"VALUES ({', '.join('?' for _ in columns)})",
                 tuple(row.get(column) for column in columns),
             )
-            return cursor.rowcount == 1
+            inserted = cursor.rowcount == 1
+            if inserted and judgment is not None:
+                _insert_judgment(connection, judgment)
+            return inserted
 
     def response(self, response_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -655,14 +696,26 @@ class ProjectStore:
             return [dict(row) for row in connection.execute(query + " ORDER BY answered_at, id", params)]
 
     def record_grade(self, response_id: str, *, score: float, verdict: str, feedback: str,
-                     provider: str, model: str, prompt_version: str, graded_at: str) -> None:
+                     provider: str, model: str, prompt_version: str, graded_at: str,
+                     judgment: dict[str, Any]) -> bool:
+        """The grade and its judgment, atomically; ``False`` if the answer was no longer pending.
+
+        Only a pending answer takes a grade, so two graders racing on one
+        answer can never leave two outcomes or two unsuperseded judgments:
+        the loser writes nothing and reads back the stored grade.
+        """
+
         with self.connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 "UPDATE probe_responses SET grade_status = 'graded', score = ?, verdict = ?, feedback = ?, "
                 "grader_provider = ?, grader_model = ?, grader_prompt_version = ?, graded_at = ?, "
-                "grade_attempts = grade_attempts + 1 WHERE id = ? AND grade_status IN ('pending', 'failed')",
+                "grade_attempts = grade_attempts + 1 WHERE id = ? AND grade_status = 'pending'",
                 (score, verdict, feedback, provider, model, prompt_version, graded_at, response_id),
             )
+            if cursor.rowcount != 1:
+                return False
+            _insert_judgment(connection, judgment)
+            return True
 
     def record_grade_failure(self, response_id: str, *, max_attempts: int) -> None:
         with self.connection() as connection:
@@ -673,13 +726,30 @@ class ProjectStore:
                 (max_attempts, response_id),
             )
 
-    def record_adjudication(self, response_id: str, *, score: float, note: str, adjudicated_at: str) -> None:
+    def record_adjudication(
+        self, response_id: str, *, score: float, note: str, adjudicated_at: str, judgment: dict[str, Any],
+    ) -> bool:
+        """The owner's adjudication and its judgment, atomically.
+
+        The judgment supersedes the response's latest grade judgment, read in
+        the same transaction. ``False`` when the response is not graded.
+        """
+
         with self.connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 "UPDATE probe_responses SET contested = 1, adjudicated_score = ?, adjudication_note = ?, "
-                "adjudicated_at = ? WHERE id = ?",
+                "adjudicated_at = ? WHERE id = ? AND grade_status = 'graded'",
                 (score, note, adjudicated_at, response_id),
             )
+            if cursor.rowcount != 1:
+                return False
+            prior = connection.execute(
+                "SELECT id FROM judgments WHERE task = ? AND left_kind = ? AND left_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (judgment["task"], judgment["left_kind"], response_id),
+            ).fetchone()
+            _insert_judgment(connection, {**judgment, "supersedes_id": None if prior is None else prior["id"]})
+            return True
 
     # --- unattributed commits ---------------------------------------------------
 
@@ -723,18 +793,16 @@ class ProjectStore:
         prompt_version: str | None = None,
         supersedes_id: str | None = None,
     ) -> str:
-        judgment_id = new_ulid()
         with self.connection() as connection:
-            connection.execute(
-                "INSERT INTO judgments (id, created_at, supersedes_id, task, left_kind, left_id, judge, "
-                "judge_model, prompt_version, input_hash, verdict, score, rationale) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    judgment_id, created_at, supersedes_id, task, left_kind, left_id, judge,
-                    judge_model, prompt_version, input_hash, verdict, score, rationale,
-                ),
+            return _insert_judgment(
+                connection,
+                {
+                    "created_at": created_at, "supersedes_id": supersedes_id, "task": task,
+                    "left_kind": left_kind, "left_id": left_id, "judge": judge, "judge_model": judge_model,
+                    "prompt_version": prompt_version, "input_hash": input_hash, "verdict": verdict,
+                    "score": score, "rationale": rationale,
+                },
             )
-        return judgment_id
 
     def judgments(self, *, task: str | None = None, left_id: str | None = None) -> list[dict[str, Any]]:
         clauses, params = [], []

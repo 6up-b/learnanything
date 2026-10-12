@@ -505,18 +505,23 @@ def _author(
                 "created_at": now,
             }
         )
-    store.insert_probe_candidates(rows)
-    for row in rows:
-        store.append_judgment(
-            task="project_probe_validity",
-            left_kind="project_probe",
-            left_id=row["id"],
-            judge="verifier",
-            input_hash=_input_hash({"citations": row["citations_json"], "bundle": diff["bundle_hash"]}),
-            verdict=row["validity"],
-            rationale=json.dumps({"detail": row["validity_detail"], "rationale_label": row["rationale_label"]}),
-            created_at=now,
-        )
+    # The candidates and their verifier verdicts commit together (F5).
+    store.insert_probe_candidates(
+        rows,
+        [
+            {
+                "task": "project_probe_validity",
+                "left_kind": "project_probe",
+                "left_id": row["id"],
+                "judge": "verifier",
+                "input_hash": _input_hash({"citations": row["citations_json"], "bundle": diff["bundle_hash"]}),
+                "verdict": row["validity"],
+                "rationale": json.dumps({"detail": row["validity_detail"], "rationale_label": row["rationale_label"]}),
+                "created_at": now,
+            }
+            for row in rows
+        ],
+    )
 
 
 def _closed_book(
@@ -572,26 +577,36 @@ def _closed_book_grades(
     ]
     grades = grade_items(paid, route, items, diff_id=diff["id"], stage="closed_book_grading")
     now = _now(clock)
+    entries = []
     for item, probe in zip(items, probes):
         grade = grades[item["key"]]
         generic = grade.verdict in GENERIC_VERDICTS
-        store.record_closed_book_grade(probe["id"], verdict=grade.verdict, score=_clamp(grade.score), generic=generic)
-        store.append_judgment(
-            task="project_closed_book",
-            left_kind="project_probe",
-            left_id=probe["id"],
-            judge="llm",
-            judge_model=route.model or route.provider_name,
-            prompt_version=PROBE_GRADING_PROMPT_VERSION,
-            input_hash=_input_hash(item),
-            verdict="generic" if generic else "specific",
-            score=_clamp(grade.score),
-            rationale=json.dumps(
-                {"grade_verdict": grade.verdict, "feedback": grade.feedback,
-                 "closed_book_prompt_version": CLOSED_BOOK_PROMPT_VERSION}
-            ),
-            created_at=now,
+        entries.append(
+            {
+                "probe_id": probe["id"],
+                "verdict": grade.verdict,
+                "score": _clamp(grade.score),
+                "generic": generic,
+                "judgment": {
+                    "task": "project_closed_book",
+                    "left_kind": "project_probe",
+                    "left_id": probe["id"],
+                    "judge": "llm",
+                    "judge_model": route.model or route.provider_name,
+                    "prompt_version": PROBE_GRADING_PROMPT_VERSION,
+                    "input_hash": _input_hash(item),
+                    "verdict": "generic" if generic else "specific",
+                    "score": _clamp(grade.score),
+                    "rationale": json.dumps(
+                        {"grade_verdict": grade.verdict, "feedback": grade.feedback,
+                         "closed_book_prompt_version": CLOSED_BOOK_PROMPT_VERSION}
+                    ),
+                    "created_at": now,
+                },
+            }
         )
+    # Every verdict commits with its judgment (F5).
+    store.record_closed_book_grades(entries)
 
 
 def _select(store: ProjectStore, config: LearnLoopConfig, diff: dict[str, Any], clock: Clock | None) -> str:
@@ -756,6 +771,18 @@ def record_response(
     due = parse_utc(probe["sealed_until"])
     answered = parse_utc(now)
     response_id = new_ulid()
+    unfair = None
+    if kind == "unfair":
+        unfair = {
+            "task": "project_probe_unfair",
+            "left_kind": "project_probe",
+            "left_id": probe_id,
+            "judge": "owner",
+            "input_hash": _input_hash({"probe": probe_id, "question": probe["question"]}),
+            "verdict": "unfair_or_ambiguous",
+            "rationale": "owner tapped 'question is unfair/ambiguous'",
+            "created_at": now,
+        }
     inserted = store.insert_response(
         {
             "id": response_id,
@@ -768,21 +795,11 @@ def record_response(
             "due_at": probe["sealed_until"],
             "lateness_seconds": max(0, int((answered - due).total_seconds())) if due and answered else 0,
             "grade_status": "pending" if kind == "answer" else "not_applicable",
-        }
+        },
+        unfair,
     )
     if not inserted:
         raise ProbeStateError(f"probe {probe_id} was already answered")
-    if kind == "unfair":
-        store.append_judgment(
-            task="project_probe_unfair",
-            left_kind="project_probe",
-            left_id=probe_id,
-            judge="owner",
-            input_hash=_input_hash({"probe": probe_id, "question": probe["question"]}),
-            verdict="unfair_or_ambiguous",
-            rationale="owner tapped 'question is unfair/ambiguous'",
-            created_at=now,
-        )
     return store.response(response_id) or {}
 
 
@@ -823,24 +840,30 @@ def grade_responses(
         now = _now(clock)
         score = _clamp(grade.score)
         model = route.model or route.provider_name
-        store.record_grade(
+        recorded = store.record_grade(
             response["id"], score=score, verdict=grade.verdict, feedback=grade.feedback,
             provider=route.provider_name, model=model, prompt_version=PROBE_GRADING_PROMPT_VERSION,
             graded_at=now,
+            judgment={
+                "task": "project_probe_grade",
+                "left_kind": "probe_response",
+                "left_id": response["id"],
+                "judge": "llm",
+                "judge_model": model,
+                "prompt_version": PROBE_GRADING_PROMPT_VERSION,
+                "input_hash": _input_hash(item),
+                "verdict": grade.verdict,
+                "score": score,
+                "rationale": grade.feedback or grade.verdict,
+                "created_at": now,
+            },
         )
-        store.append_judgment(
-            task="project_probe_grade",
-            left_kind="probe_response",
-            left_id=response["id"],
-            judge="llm",
-            judge_model=model,
-            prompt_version=PROBE_GRADING_PROMPT_VERSION,
-            input_hash=_input_hash(item),
-            verdict=grade.verdict,
-            score=score,
-            rationale=grade.feedback or grade.verdict,
-            created_at=now,
-        )
+        if not recorded:
+            # Another grader finished first: report the outcome of record.
+            stored = store.response(response["id"]) or {}
+            results.append({"response_id": response["id"], "status": "already_graded",
+                            "score": stored.get("score"), "verdict": stored.get("verdict")})
+            continue
         results.append({"response_id": response["id"], "status": "graded", "score": score, "verdict": grade.verdict})
     return results
 
@@ -863,20 +886,22 @@ def contest_grade(
     if response["grade_status"] != "graded":
         raise ProbeStateError("only a graded answer can be contested")
     now = _now(clock)
-    prior = [row for row in store.judgments(task="project_probe_grade", left_id=response_id)]
-    store.record_adjudication(response_id, score=score, note=note, adjudicated_at=now)
-    store.append_judgment(
-        task="project_probe_grade",
-        left_kind="probe_response",
-        left_id=response_id,
-        judge="owner",
-        input_hash=_input_hash({"response": response_id, "score": score}),
-        verdict="adjudicated",
-        score=score,
-        rationale=note or "owner adjudication",
-        created_at=now,
-        supersedes_id=prior[-1]["id"] if prior else None,
+    recorded = store.record_adjudication(
+        response_id, score=score, note=note, adjudicated_at=now,
+        judgment={
+            "task": "project_probe_grade",
+            "left_kind": "probe_response",
+            "left_id": response_id,
+            "judge": "owner",
+            "input_hash": _input_hash({"response": response_id, "score": score}),
+            "verdict": "adjudicated",
+            "score": score,
+            "rationale": note or "owner adjudication",
+            "created_at": now,
+        },
     )
+    if not recorded:
+        raise ProbeStateError("only a graded answer can be contested")
     return store.response(response_id) or {}
 
 
