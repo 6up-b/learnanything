@@ -25,7 +25,8 @@ from learnloop.ai.providers.openrouter_catalog import (
     load_catalog,
     model_input_modalities,
 )
-from learnloop.ai.routing import is_embedding_profile
+from learnloop.ai.disclosures import judge_route_disclosures
+from learnloop.ai.routing import is_generation_profile, runtime_for_provider
 from learnloop.ai.runtime import check_ai_runtime
 from learnloop.content.authoring.concept_animation import video_generation_readiness
 from learnloop.config import CODEX_PROVIDER_NAMES, global_ai_defaults_path, global_settings_path
@@ -120,6 +121,15 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             "settings_env_path": str(global_settings_path()),
         },
         "embedding": config.embedding.model_dump(),
+        # Read-only: who would receive learner text on each judgment route,
+        # and whether its key is present (router spec §6.2, D6). No network.
+        "judges": [
+            {
+                **entry,
+                "ready": runtime_for_provider(vault.root, config, entry["provider"] or "", task=entry["route"]).ready,
+            }
+            for entry in judge_route_disclosures(config)
+        ],
         "ingest": {
             "pdf_engine": config.ingest.pdf.engine,
             "audio_mode": config.ingest.audio.mode,
@@ -232,17 +242,18 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
     known_providers = set(config.ai.providers) | CODEX_PROVIDER_NAMES
     updates: dict[tuple[str, ...], Any] = {}
 
-    # Embedding-only profiles have no completion transport; they serve only
-    # [ai.routing] embedding, which this generation-settings RPC never edits.
+    # Embedding-only and decision-model profiles have no completion transport;
+    # they serve only [ai.routing] embedding or the decider routes, which this
+    # generation-settings RPC never edits.
     generation_providers = {
-        name for name in known_providers if not is_embedding_profile(config, name)
+        name for name in known_providers if is_generation_profile(config, name)
     }
 
     if params.active_provider is not None:
         if params.active_provider not in generation_providers:
             raise SidecarError(
                 "invalid_provider",
-                f"Unknown or embedding-only provider {params.active_provider!r}. "
+                f"Unknown, embedding-only or decision-model provider {params.active_provider!r}. "
                 f"Generation providers: {', '.join(sorted(generation_providers))}.",
             )
         updates[("ai", "active_provider")] = params.active_provider
@@ -279,7 +290,7 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
             if choice.provider not in generation_providers:
                 raise SidecarError(
                     "invalid_provider",
-                    f"Unknown or embedding-only provider {choice.provider!r} for use case {use_case!r}.",
+                    f"Unknown, embedding-only or decision-model provider {choice.provider!r} for use case {use_case!r}.",
                 )
             target = choice.provider
         for task in routes:
