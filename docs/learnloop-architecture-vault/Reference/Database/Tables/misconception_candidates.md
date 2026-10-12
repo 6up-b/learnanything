@@ -3,8 +3,8 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c5ae36a289cdc1d3e99b3005be768f6ec07032c2"
-source_commit_timestamp: "2026-10-12T14:54:46-04:00"
+source_commit: "8e6dba5c326fb7cb0c03048a2475298a6732ec2a"
+source_commit_timestamp: "2026-10-12T16:12:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_recurrence_live.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_factor_deferral.py`

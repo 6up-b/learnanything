@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "c5ae36a289cdc1d3e99b3005be768f6ec07032c2"
-source_commit_timestamp: "2026-10-12T14:54:46-04:00"
+source_commit: "8e6dba5c326fb7cb0c03048a2475298a6732ec2a"
+source_commit_timestamp: "2026-10-12T16:12:54-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -36,12 +36,12 @@ source_paths:
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
   - "tests/project_support.py"
+  - "tests/recurrence_fakes.py"
   - "tests/test_activity_families.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_agent_runs.py"
   - "tests/test_ai_config.py"
-  - "tests/test_ai_tool_isolation.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -124,12 +124,12 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
 - `tests/project_support.py`
+- `tests/recurrence_fakes.py`
 - `tests/test_activity_families.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_agent_runs.py`
 - `tests/test_ai_config.py`
-- `tests/test_ai_tool_isolation.py`
 
 ## Extension and modification guidance
 
