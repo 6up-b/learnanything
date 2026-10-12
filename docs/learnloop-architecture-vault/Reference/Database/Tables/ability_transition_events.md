@@ -3,13 +3,13 @@ title: "ability_transition_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "86acbe31a63c8794824ff8d16351783dd768695c"
+source_commit_timestamp: "2026-10-12T15:36:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ability_transition_events"
   - "table ability_transition_events"
-schema_head: 171
+schema_head: 172
 table_name: "ability_transition_events"
 table_role: "derived"
 functionality_status: "active"

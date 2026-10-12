@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "86acbe31a63c8794824ff8d16351783dd768695c"
+source_commit_timestamp: "2026-10-12T15:36:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 171
+schema_head: 172
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,13 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/cli/diagnose.py"
+  - "src/learnloop/cli/facets.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
+  - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
-  - "src/learnloop/db/stores/practice_index.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `172_facet_identity_actions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -100,6 +101,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/cli/families.py`
+- `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/offline_review/links.py`
@@ -134,6 +136,8 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`
+- `tests/test_facet_identity.py`
+- `tests/test_facet_identity_ingest.py`
 - `tests/test_family_proposals.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`

@@ -3,13 +3,13 @@ title: "facet_merges"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "86acbe31a63c8794824ff8d16351783dd768695c"
+source_commit_timestamp: "2026-10-12T15:36:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_merges"
   - "table facet_merges"
-schema_head: 171
+schema_head: 172
 table_name: "facet_merges"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,7 +19,10 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/037_canonical_facet_state.sql"
+  - "src/learnloop/content/facet_identity/actions.py"
+  - "src/learnloop/content/facet_identity/dedupe.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/facet_identity.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/learner/facet_state_reader.py"
   - "src/learnloop/ops/doctor.py"
@@ -51,7 +54,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/037_canonical_facet_state.sql`.
-- **Schema touched by:** `037_canonical_facet_state.sql`.
+- **Schema touched by:** `037_canonical_facet_state.sql`, `172_facet_identity_actions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -84,14 +87,17 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_identity.py`
 - `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/facet_identity.py`
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
@@ -105,6 +111,9 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_architecture.py`
+- `tests/test_facet_identity.py`
+- `tests/test_facet_identity_actions.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_measurement_rank.py`
 - `tests/test_migrations.py`

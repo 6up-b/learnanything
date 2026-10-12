@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 171
+SCHEMA_HEAD = 172
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -841,6 +841,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
     "graph_nomination": "Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps",
+    "facet_identity": "facet identity at mint time and the dedupe command: the cheap judge's neighbourhood size, shortlist rank, lock policy and spend caps (merges apply live with an undo)",
     "project": "project-understanding M1: automatic capture of agent-written diffs and delayed probes in the standalone project store",
     "field": "offline learner-field analysis, revision exclusions, and opt-in paid experiments",
     "practice_index": "find_practice retrieval, rerank, coverage, and the paid dossier and evaluation switches",
