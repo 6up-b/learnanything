@@ -3,8 +3,8 @@ title: "Config - scheduler"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e07079932fc00729fa62fad21ea0a15401c37940"
-source_commit_timestamp: "2026-10-12T00:42:17-04:00"
+source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
+source_commit_timestamp: "2026-10-12T02:39:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml scheduler"
@@ -20,7 +20,7 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop_sidecar/context.py"
-  - "src/learnloop/tui/screens/today.py"
+  - "src/learnloop/tui/screens/start.py"
   - "src/learnloop/attempts/surprise.py"
   - "src/learnloop/diagnosis/signal_quantiles.py"
   - "src/learnloop/scheduling/evaluation.py"
@@ -65,7 +65,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `scheduler.goal_quota_floor_min` | `0.3` | number | modeled default or validator seed | Sets the minimum goal quota floor required by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:89`; `src/learnloop/scheduling/scheduler.py:1686` |
 | `scheduler.goal_quota_floor_max` | `0.7` | number | modeled default or validator seed | Caps goal quota floor allowed by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:90`; `src/learnloop/scheduling/scheduler.py:1687` |
 | `scheduler.goal_quota_ramp_days` | `28` | integer | modeled default or validator seed | Sets the goal quota ramp duration in days for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:91`; `src/learnloop/scheduling/scheduler.py:1688` |
-| `scheduler.short_session_minutes` | `20` | integer | modeled default or validator seed | Sets the short session duration in minutes for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:92`; `src/learnloop/scheduling/scheduler.py:160`; `src/learnloop/tui/screens/today.py:355` |
+| `scheduler.short_session_minutes` | `20` | integer | modeled default or validator seed | Sets the short session duration in minutes for queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:92`; `src/learnloop/scheduling/scheduler.py:160`; `src/learnloop/tui/screens/start.py:310` |
 | `scheduler.candidate_log_retention_limit` | `200` | integer | modeled default or validator seed | Caps candidate log retention allowed by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:93`; `src/learnloop/scheduling/scheduler.py:680` |
 | `scheduler.selection_exploration_rate` | `0.1` | number | modeled default or validator seed | Sets the rate of selection exploration used by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:97`; `src/learnloop/scheduling/scheduler.py:1541` |
 | `scheduler.selection_exploration_reward_window` | `0.15` | number | modeled default or validator seed | Sets the rolling selection exploration reward window used by queue scoring, exploration, surprise, and follow-up selection. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:98`; `src/learnloop/scheduling/scheduler.py:1547` |

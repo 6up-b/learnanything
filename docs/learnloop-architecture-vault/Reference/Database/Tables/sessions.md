@@ -3,8 +3,8 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "7f851d01abd50b2d070dbebb944682334f48b8bd"
-source_commit_timestamp: "2026-10-12T02:10:16-04:00"
+source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
+source_commit_timestamp: "2026-10-12T02:39:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
@@ -88,6 +88,7 @@ Indexes and uniqueness:
 - `Repository.end_session()`
 - `Repository.fetch_session()`
 - `Repository.find_record()`
+- `Repository.latest_session_minutes()`
 - `Repository.most_recent_ended_at()`
 - `Repository.most_recent_open_session()`
 - `Repository.review_session_rows()`
@@ -113,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/session_learning_diff.py`
 - `src/learnloop/scheduling/reentry_adapter.py`
 - `src/learnloop/scheduling/reentry_summary.py`
+- `src/learnloop/scheduling/session_minutes.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
@@ -127,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_calibration_sessions.py`
 - `tests/test_contrast_pairs.py`
 - `tests/test_daily_loop_reentry_cap.py`
+- `tests/test_daily_loop_start_minutes.py`
 - `tests/test_init.py`
 - `tests/test_probe_orchestration_remainder.py`
 - `tests/test_session_attempt_attribution.py`
@@ -142,7 +145,6 @@ Indexes and uniqueness:
 - `tests/test_learner_review_system_entries.py`
 - `tests/test_migrations.py`
 - `tests/test_repositories.py`
-- `tests/test_show.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
