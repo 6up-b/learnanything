@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
 from learnloop.attempts.ai_contracts import GradingContext
 from learnloop.attempts.blind_grading import BlindGradingContext
@@ -162,7 +162,8 @@ class StructuredClientFake:
     model = "fake-model"
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION
+        # No tools, files or network: every request is isolated by construction.
+        return capability in {STRUCTURED_COMPLETION, ISOLATED_TURN}
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         context = _request_context(request.prompt, request.purpose)

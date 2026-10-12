@@ -280,7 +280,11 @@ def request_diagnosis_proposal(
     *,
     workspace: Path | None = None,
 ) -> DiagnosisProposal:
-    """Run the diagnoser. ``workspace`` is the snapshot export (§5.6)."""
+    """Run the diagnoser. ``workspace`` is the snapshot export (§5.6).
+
+    Always an isolated turn: a non-snapshot diagnosis sees exactly its
+    assembled context, a snapshot diagnosis its context plus the export.
+    """
 
     result = execute_structured_operation(
         client,
@@ -288,6 +292,7 @@ def request_diagnosis_proposal(
         prompt=diagnosis_prompt(assembled),
         result_model=proposal_model_for(assembled.mode),
         workspace=workspace,
+        isolated=True,
     )
     return as_diagnosis_proposal(result)
 

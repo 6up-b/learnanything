@@ -353,6 +353,7 @@ def request_planted_scenario(client: OperationClient, prompt: str) -> PlantedSce
         purpose="diagnosis_planted_scenario",
         prompt=prompt,
         result_model=PlantedScenarioDraft,
+        isolated=True,
     )
 
 

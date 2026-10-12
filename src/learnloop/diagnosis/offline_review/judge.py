@@ -218,15 +218,15 @@ def planted_cause_prompt(
 
 
 def request_diagnosis_judgment(client: OperationClient, prompt: str) -> DiagnosisJudgment:
-    return execute_structured_operation(client, purpose="diagnosis_review_judgment", prompt=prompt, result_model=DiagnosisJudgment)
+    return execute_structured_operation(client, purpose="diagnosis_review_judgment", prompt=prompt, result_model=DiagnosisJudgment, isolated=True)
 
 
 def request_link_judgment(client: OperationClient, prompt: str) -> LinkJudgment:
-    return execute_structured_operation(client, purpose="diagnosis_link_judgment", prompt=prompt, result_model=LinkJudgment)
+    return execute_structured_operation(client, purpose="diagnosis_link_judgment", prompt=prompt, result_model=LinkJudgment, isolated=True)
 
 
 def request_planted_cause_judgment(client: OperationClient, prompt: str) -> PlantedCauseJudgment:
-    return execute_structured_operation(client, purpose="diagnosis_planted_cause_judgment", prompt=prompt, result_model=PlantedCauseJudgment)
+    return execute_structured_operation(client, purpose="diagnosis_planted_cause_judgment", prompt=prompt, result_model=PlantedCauseJudgment, isolated=True)
 
 
 def primary_statement(proposal: Mapping[str, Any]) -> str | None:

@@ -23,9 +23,17 @@ INTERRUPT = "interrupt"
 EMBEDDING = "embedding"
 # Read-only file access to a prepared directory for the turn (Slice 1 §5.6).
 # The directory REPLACES the transport's default working directory; a
-# transport advertising this capability guarantees the model can read only
-# that directory, cannot write anywhere, and has no network.
+# transport advertising this capability guarantees - by an enforced sandbox,
+# not by the working directory alone - that the model can read only that
+# directory (plus the platform's own system files), cannot write anywhere, and
+# has no network, connectors or other tools. A workspace request is always
+# also an isolated one.
 READ_ONLY_WORKSPACE = "read_only_workspace"
+# An isolated turn (Slice 1 §4, §5): the model sees the prompt and nothing
+# else - no files, shell, network, connectors, MCP servers or memories, and
+# never the vault. A chat-completion transport that offers the model no tools
+# is isolated by construction; an agentic transport must enforce it.
+ISOLATED_TURN = "isolated_turn"
 # Text-to-video generation (an async job API, not a chat completion).
 VIDEO_GENERATION = "video_generation"
 
@@ -48,6 +56,9 @@ class StructuredRequest(Generic[WireResult]):
     #: A directory the model may read (never write) during the turn. Only a
     #: transport that declares :data:`READ_ONLY_WORKSPACE` may receive one.
     workspace: Path | None = None
+    #: The turn must be isolated (:data:`ISOLATED_TURN`): only a transport that
+    #: declares the capability may receive it. Implied by ``workspace``.
+    isolated: bool = False
 
     @property
     def model_type(self) -> type[WireResult]:
@@ -138,6 +149,7 @@ def execute_structured_operation(
     legacy_capability: str | None = None,
     legacy_context: object | None = None,
     workspace: Path | None = None,
+    isolated: bool = False,
 ) -> WireResult:
     """Execute one feature-owned structured operation.
 
@@ -145,6 +157,9 @@ def execute_structured_operation(
     It is refused, before any request, unless the transport declares
     :data:`READ_ONLY_WORKSPACE`: silently dropping it would run a
     file-reading prompt with no files, and widening it is never an option.
+    ``isolated`` asks for a turn that sees only its prompt (and workspace);
+    it is refused unless the transport declares :data:`ISOLATED_TURN`. Legacy
+    endpoint adapters never receive an isolated operation.
 
     SDK and chat providers expose one capability and one method:
     :data:`STRUCTURED_COMPLETION` and :meth:`StructuredTransport.complete`.
@@ -161,6 +176,13 @@ def execute_structured_operation(
             f"AI provider {provider!r} does not support a read-only workspace "
             f"for structured operation {purpose!r}"
         )
+    isolated = isolated or workspace is not None
+    if isolated and not transport.supports(ISOLATED_TURN):
+        provider = getattr(transport, "provider_name", type(transport).__name__)
+        raise AIProviderUnavailable(
+            f"AI provider {provider!r} cannot isolate structured operation {purpose!r} "
+            "from files, tools and the vault"
+        )
     request = StructuredRequest(
         purpose=purpose,
         prompt=prompt,
@@ -168,6 +190,7 @@ def execute_structured_operation(
         timeout_seconds=timeout_seconds,
         output_budget_tokens=output_limit(),
         workspace=Path(workspace) if workspace is not None else None,
+        isolated=isolated,
     )
     with model_call(transport, purpose=purpose, prompt=prompt, schema=result_model.model_json_schema(), budget=request.output_budget_tokens) as metadata:
         result = _execute_request(transport, request, legacy_context, legacy_capability)
@@ -186,6 +209,7 @@ def _execute_request(transport, request, legacy_context, legacy_capability):
     if (
         legacy_context is not None
         and legacy_capability is not None
+        and not request.isolated
         and transport.supports(legacy_capability)
     ):
         return cast(LegacyOperationTransport, transport).complete_legacy(
@@ -243,6 +267,7 @@ def render_structured_prompt(
 __all__ = [
     "EMBEDDING",
     "INTERRUPT",
+    "ISOLATED_TURN",
     "CapabilityTransport",
     "InterruptibleTransport",
     "LegacyOperationTransport",

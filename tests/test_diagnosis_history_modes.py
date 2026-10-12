@@ -169,67 +169,12 @@ def test_snapshot_is_unavailable_without_the_capability(seeded):
         execute_structured_operation(client, purpose="diagnosis", prompt="{}", result_model=DiagnosisJudgment, workspace=Path("/tmp"))
 
 
-def _fake_sdk(monkeypatch, captured: dict[str, Any], *, sandbox_param: bool = True):
-    class FakeCodex:
-        def __init__(self, config):
-            captured["app_config"] = config.kwargs
+def test_codex_workspace_replaces_the_vault_root(tmp_path, monkeypatch):
+    """The snapshot workspace REPLACES the vault root (§5.6); the read boundary
+    itself is tested against the installed Codex in test_diagnosis_isolation."""
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return None
-
-        def close(self):
-            return None
-
-        if sandbox_param:
-            def thread_start(self, *, cwd=None, model=None, service_name=None, sandbox=None, approval_policy=None):
-                captured["thread_start"] = {"cwd": cwd, "sandbox": sandbox, "approval_policy": approval_policy}
-                return FakeThread()
-        else:
-            def thread_start(self, *, cwd=None, model=None, service_name=None):
-                captured["thread_start"] = {"cwd": cwd}
-                return FakeThread()
-
-    class FakeThread:
-        def turn(self, prompt, **kwargs):
-            captured["turn"] = kwargs
-            return FakeTurn()
-
-    class FakeTurn:
-        def run(self):
-            return SimpleNamespace(final_response='{"links": []}', items=[{"command": ["rg", "transpose", "attempts/"]}])
-
-        def interrupt(self):
-            return None
-
-    class SdkAppConfig:
-        def __init__(self, **kwargs):
-            self.kwargs = kwargs
-
-    class ReasoningEffort(Enum):
-        low = "low"
-
-    class ReasoningSummary:
-        @classmethod
-        def model_validate(cls, value):
-            return value
-
-    openai_codex = ModuleType("openai_codex")
-    openai_codex.Codex = FakeCodex
-    openai_codex.CodexConfig = SdkAppConfig
-    types = ModuleType("openai_codex.types")
-    types.Personality = SimpleNamespace(pragmatic="pragmatic")
-    types.ReasoningEffort = ReasoningEffort
-    types.ReasoningSummary = ReasoningSummary
-    openai_codex.types = types
-    monkeypatch.setitem(sys.modules, "openai_codex", openai_codex)
-    monkeypatch.setitem(sys.modules, "openai_codex.types", types)
-
-
-def test_codex_workspace_replaces_the_vault_root_in_a_read_only_sandbox(tmp_path, monkeypatch):
     from learnloop.diagnosis.offline_review.judge import LinkJudgment
+    from tests.test_diagnosis_isolation import _fake_sdk
 
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
@@ -237,36 +182,30 @@ def test_codex_workspace_replaces_the_vault_root_in_a_read_only_sandbox(tmp_path
     workspace.mkdir()
     captured: dict[str, Any] = {}
     _fake_sdk(monkeypatch, captured)
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex")), vault_root)
+
+    def turn_items(*_args, **_kwargs):
+        return SimpleNamespace(final_response='{"links": []}', items=[{"command": ["rg", "transpose", "attempts/"]}])
+
+    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex"), sdk_codex_bin="/usr/bin/codex-for-test"), vault_root)
+    monkeypatch.setattr(client, "_configured_mcp_server_ids", lambda _cwd: ())
     assert client.supports(READ_ONLY_WORKSPACE)
+    import openai_codex
+
+    original = openai_codex.Codex.thread_start
+
+    def thread_start(self, **kwargs):
+        thread = original(self, **kwargs)
+        thread.turn = lambda prompt, **turn_kwargs: (captured.__setitem__("turn", turn_kwargs), SimpleNamespace(run=turn_items, interrupt=lambda: None))[1]
+        return thread
+
+    monkeypatch.setattr(openai_codex.Codex, "thread_start", thread_start)
     result = client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace))
     assert result == LinkJudgment(links=[])
     for cwd in (captured["app_config"]["cwd"], captured["thread_start"]["cwd"], captured["turn"]["cwd"]):
         assert cwd == str(workspace.resolve())
         assert str(vault_root.resolve()) not in cwd
-    assert captured["thread_start"]["sandbox"] == "read-only"
-    assert captured["thread_start"]["approval_policy"] == "never"
+    assert "sandbox" not in captured["thread_start"]
     assert client.workspace_activity() == ["rg transpose attempts/"]
-    # Without a workspace nothing changes: the vault root, no sandbox override.
-    captured.clear()
-    client.complete(StructuredRequest(purpose="grading", prompt="p", result_model=LinkJudgment))
-    assert captured["thread_start"]["cwd"] == str(vault_root.resolve())
-    assert captured["thread_start"]["sandbox"] is None
-
-
-def test_codex_workspace_fails_closed_when_the_sdk_cannot_sandbox(tmp_path, monkeypatch):
-    from learnloop.diagnosis.offline_review.judge import LinkJudgment
-
-    vault_root = tmp_path / "vault"
-    vault_root.mkdir()
-    workspace = tmp_path / "snapshot"
-    workspace.mkdir()
-    captured: dict[str, Any] = {}
-    _fake_sdk(monkeypatch, captured, sandbox_param=False)
-    client = SdkCodexClient(CodexConfig(checkout_path=str(tmp_path / "codex")), vault_root)
-    with pytest.raises(CodexUnavailable):
-        client.complete(StructuredRequest(purpose="diagnosis", prompt="p", result_model=LinkJudgment, workspace=workspace))
-    assert "turn" not in captured
 
 
 # -- all modes ------------------------------------------------------------------------

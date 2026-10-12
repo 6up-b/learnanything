@@ -139,15 +139,15 @@ def paraphrase_prompt(vault: LoadedVault, item: PracticeItem, answer: str) -> st
 
 
 def request_valid_alternative(client: OperationClient, prompt: str) -> ValidAlternativeDraft:
-    return execute_structured_operation(client, purpose="diagnosis_valid_alternative", prompt=prompt, result_model=ValidAlternativeDraft)
+    return execute_structured_operation(client, purpose="diagnosis_valid_alternative", prompt=prompt, result_model=ValidAlternativeDraft, isolated=True)
 
 
 def request_synthetic_error(client: OperationClient, prompt: str) -> SyntheticErrorDraft:
-    return execute_structured_operation(client, purpose="diagnosis_synthetic_error", prompt=prompt, result_model=SyntheticErrorDraft)
+    return execute_structured_operation(client, purpose="diagnosis_synthetic_error", prompt=prompt, result_model=SyntheticErrorDraft, isolated=True)
 
 
 def request_paraphrase(client: OperationClient, prompt: str) -> ParaphraseDraft:
-    return execute_structured_operation(client, purpose="diagnosis_paraphrase", prompt=prompt, result_model=ParaphraseDraft)
+    return execute_structured_operation(client, purpose="diagnosis_paraphrase", prompt=prompt, result_model=ParaphraseDraft, isolated=True)
 
 
 def _normalized(value: str) -> str:

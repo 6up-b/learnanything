@@ -377,13 +377,19 @@ def request_blind_grading_proposal(
     client: OperationClient,
     context: BlindGradingContext,
 ) -> BlindGradingProposal:
-    """Run the blind grading operation on a structured provider."""
+    """Run the blind grading operation on a structured provider.
+
+    Always an isolated turn: structural blindness is meaningless if the
+    grader can read prior grades and diagnoses from the vault, so a
+    transport that cannot isolate the turn refuses it.
+    """
 
     return execute_structured_operation(
         client,
         purpose="blind_grading",
         prompt=blind_grading_prompt(context),
         result_model=BlindGradingProposal,
+        isolated=True,
     )
 
 

@@ -30,7 +30,7 @@ from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import model_settings
 from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
-from learnloop.ai.transport import READ_ONLY_WORKSPACE
+from learnloop.ai.transport import ISOLATED_TURN, READ_ONLY_WORKSPACE
 from learnloop.attempts.ai_contracts import GradingContext, GradingProposal
 from learnloop.attempts.blind_grading import (
     BLIND_GRADING_PROMPT_VERSION,
@@ -1666,6 +1666,11 @@ class ReviewRun:
         return manifest
 
 
+def _isolates(client: Any) -> bool:
+    supports = getattr(client, "supports", None)
+    return bool(callable(supports) and supports(ISOLATED_TURN))
+
+
 def run_review(
     vault: LoadedVault,
     *,
@@ -1688,7 +1693,19 @@ def run_review(
     prompt version differ from the run's.
     """
 
+    # Every M1 call is an isolated turn (blind grading, diagnosis, judging,
+    # generation): a route whose transport cannot isolate one is not ready.
+    for attribute, route in (("judge", "diagnosis_judge"), ("generator", "diagnosis_generator")):
+        client = getattr(clients, attribute)
+        if client is not None and not _isolates(client):
+            setattr(clients, attribute, None)
+            clients.notes[route] = "not ready: the transport cannot isolate a turn from files, tools and the vault"
     missing = [route for route, client in (("grading", clients.grading), ("diagnosis", clients.diagnosis)) if client is None]
+    missing += [
+        f"{route} (its transport cannot isolate a turn from files, tools and the vault)"
+        for route, client in (("grading", clients.grading), ("diagnosis", clients.diagnosis))
+        if client is not None and not _isolates(client)
+    ]
     if missing:
         # Without a blind grader or a diagnoser there is nothing to review:
         # refuse before copying anything rather than "complete" an empty run.

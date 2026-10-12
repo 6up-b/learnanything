@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.execution import model_call, report_call_usage
-from learnloop.ai.transport import READ_ONLY_WORKSPACE, STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import ISOLATED_TURN, READ_ONLY_WORKSPACE, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.attempts.ai_contracts import GradingProposal
 from learnloop.attempts.blind_grading import BlindGradingProposal
 from learnloop.diagnosis.offline_review.judge import DiagnosisJudgment, LinkJudgment, PlantedCauseJudgment
@@ -63,12 +63,14 @@ class ReviewFakeClient:
         #: Optional ``(purpose, prompt) -> bool``: fail exactly those requests.
         self.fail_when = fail_when
         self.calls: list[str] = []
+        #: ``request.isolated`` of every request, in order.
+        self.isolated: list[bool] = []
         self.workspaces: list[Path] = []
         self.workspace_files: list[list[str]] = []
         self.prompts: list[str] = []
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION or (capability == READ_ONLY_WORKSPACE and self.workspace)
+        return capability in {STRUCTURED_COMPLETION, ISOLATED_TURN} or (capability == READ_ONLY_WORKSPACE and self.workspace)
 
     def workspace_activity(self) -> list[str] | None:
         return ["cat INDEX.md"] if self.workspaces else None
@@ -80,6 +82,7 @@ class ReviewFakeClient:
         purpose = request.purpose
         self.calls.append(purpose)
         self.prompts.append(request.prompt)
+        self.isolated.append(request.isolated)
         with model_call(self, purpose=f"{purpose}:fake_turn", prompt=request.prompt):
             report_call_usage({"input_tokens": len(request.prompt) // 4, "output_tokens": 200})
         if request.workspace is not None:
