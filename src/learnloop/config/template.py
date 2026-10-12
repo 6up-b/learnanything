@@ -792,13 +792,13 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # scoring, scheduling, projection or serving change.
     # Slice 1 M2 adds the [diagnosis] section. It is dormant below mvp-0.10
     # (the algorithm version gates the split), so mvp-0.9 serving is unchanged.
-    "mvp-0.9": "f90aed02d3e5e5cd1ec1ca0fa4d02ea15beac8e5e8c1038b91d3b41f2d1d7cd4",
+    "mvp-0.9": "a9c38e2740473be98d7fc0d2a0baa9159c9565f1399a6bbf4b48ca7e4a47e96a",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review.
-    "mvp-0.10": "36721392646da742ec879f0267e089ca2d67fdd7052a51f35fa299d00c34fd9a",
+    "mvp-0.10": "e87a21d0d47f3e45dd06e9c3759cac41b61c07b4961de1ecc08b103c6e504100",
 }
 
 

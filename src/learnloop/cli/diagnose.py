@@ -18,6 +18,7 @@ from typing import Annotated, Iterator
 import typer
 
 from learnloop.ai.spend import SpendCaps
+from learnloop.cli.receipts import bind_command_repository, bind_command_vault
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
@@ -55,6 +56,9 @@ def _load(vault: Path):
     if not (vault / "learnloop.toml").is_file():
         raise typer.BadParameter("--vault must name a vault containing learnloop.toml")
     loaded = load_vault(vault)
+    # Model calls not wrapped in an owner of their own (e.g. embed-on-write)
+    # are receipted by the command; they go to this vault, not the cwd's.
+    bind_command_vault(loaded.root)
     if loaded.issues:
         typer.echo(
             f"warning: the vault has {len(loaded.issues)} validation issue(s); attempts on items "
@@ -424,6 +428,7 @@ def _live_repository(vault: Path):
 
     loaded = _load(vault)
     repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
+    bind_command_repository(repository)
     return loaded, repository
 
 

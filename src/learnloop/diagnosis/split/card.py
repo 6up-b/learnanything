@@ -21,6 +21,7 @@ mistake" tap is also a learner ``same_cause`` verdict in ``judgment_ledger``.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Mapping
 
 from learnloop.attempts.reveal_ledger import record_repair_display_reveals
@@ -100,6 +101,28 @@ def _prerequisite_gap(vault: LoadedVault, proposal: Mapping[str, Any]) -> dict[s
     return None
 
 
+_ULID = re.compile(r"\b[0-9A-HJKMNP-TV-Z]{26}\b")
+
+
+def plain_summary(repository: Repository, text: str) -> str:
+    """The diagnoser's ``analysis_md`` with record ids put in learner terms.
+
+    The diagnoser cites earlier attempts by id (that is how its citations are
+    validated); the card speaks of "your answer on <date>" instead. Any other
+    record id becomes "an earlier record". The wording is otherwise the
+    diagnoser's own.
+    """
+
+    def label(match: re.Match[str]) -> str:
+        attempt = repository.fetch_practice_attempt(match.group(0))
+        if attempt is None:
+            return "an earlier record"
+        created = str(attempt.get("created_at") or "")[:10]
+        return f"your answer on {created}" if created else "an earlier answer"
+
+    return _ULID.sub(label, text)
+
+
 def diagnosis_card(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]:
     """The card for one attempt (status first; content only when done)."""
 
@@ -125,7 +148,7 @@ def diagnosis_card(vault: LoadedVault, repository: Repository, attempt_id: str) 
         diagnosis_id=diagnosis.get("id"),
         created_at=diagnosis.get("created_at"),
         history_mode=diagnosis.get("history_mode"),
-        summary_md=str(proposal.get("analysis_md") or ""),
+        summary_md=plain_summary(repository, str(proposal.get("analysis_md") or "")),
         repair_suggestions=list(metadata.get("repair_suggestions") or []),
         made_before=_citations(repository, str(diagnosis.get("id"))),
         prerequisite_gap=_prerequisite_gap(vault, proposal),

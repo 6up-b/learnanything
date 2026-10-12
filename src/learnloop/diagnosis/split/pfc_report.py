@@ -33,6 +33,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendCaps
+from learnloop.attempts.answer_check import parse_answer, reference_final_answer
 from learnloop.attempts.blind_grading import (
     BLIND_GRADING_PROMPT_VERSION,
     blind_grading_context,
@@ -74,6 +75,15 @@ def _tokens(text: str) -> int:
     return (len(text.encode("utf-8")) + 3) // 4
 
 
+def checkable_reference(item: Any) -> bool:
+    """A bare parseable answer, or a worked solution with a numeric conclusion."""
+
+    expected = item.expected_answer
+    if not isinstance(expected, str) or not expected.strip():
+        return False
+    return reference_final_answer(expected) is not None or parse_answer(expected) is not None
+
+
 def plan_pfc(
     vault: LoadedVault,
     repository: Repository,
@@ -85,19 +95,24 @@ def plan_pfc(
     """Seeded, LO-stratified reference-bearing items + owner-adjudicated answers."""
 
     rng = random.Random(seed)
-    by_lo: dict[str, list[str]] = {}
+    # Items whose reference has a checkable final answer come first: only
+    # those can yield a deterministically verified alternative (a proof-style
+    # reference never verifies), so the spend goes where E1 can count.
+    tiers: tuple[dict[str, list[str]], dict[str, list[str]]] = ({}, {})
     for item_id, item in sorted(vault.practice_items.items()):
         if item.status == "retired" or not is_reference_bearing(item):
             continue
-        by_lo.setdefault(item.learning_object_id, []).append(item_id)
-    for ids in by_lo.values():
-        rng.shuffle(ids)
+        tier = tiers[0] if checkable_reference(item) else tiers[1]
+        tier.setdefault(item.learning_object_id, []).append(item_id)
     items: list[str] = []
-    los = sorted(by_lo)
-    while len(items) < max_items and any(by_lo.values()):
-        for lo in los:
-            if by_lo[lo] and len(items) < max_items:
-                items.append(by_lo[lo].pop())
+    for by_lo in tiers:
+        for ids in by_lo.values():
+            rng.shuffle(ids)
+        los = sorted(by_lo)
+        while len(items) < max_items and any(by_lo.values()):
+            for lo in los:
+                if by_lo[lo] and len(items) < max_items:
+                    items.append(by_lo[lo].pop())
     real: list[str] = []
     for row in repository.list_diagnosis_adjudications(active_only=True):
         if len(real) >= max_real:

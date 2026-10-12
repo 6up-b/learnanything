@@ -554,6 +554,50 @@ def asserted_conclusion(text: str) -> str | None:
     return answer or None
 
 
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[A-Z\\$(])")
+
+
+def reference_final_answer(reference: str) -> str | None:
+    """The final answer a worked-solution reference concludes with, or None.
+
+    Real references are often a short derivation ("... giving |E|=6.
+    Therefore P(E)=6/20=3/10."), which no answer equals as a whole. Only a
+    numeric conclusion is extracted, conservatively: the last sentence's
+    assertion when it is a number, or the last link of an equality chain
+    whose links after the first are all numbers and all equal ("P(E)=6/20=3/10"
+    -> "3/10"). Anything else returns None and the reference is compared whole.
+    """
+
+    if _parse_expression(reference) is not None:
+        return None
+    lines = [line for line in (reference or "").splitlines() if line.strip()]
+    if not lines:
+        return None
+    sentence = _SENTENCE_BREAK.split(lines[-1].strip())[-1]
+    asserted = asserted_conclusion(sentence)
+    if asserted is None:
+        return None
+    links = [link.strip() for link in asserted.split("=")]
+    values = links[1:] if len(links) > 1 else links
+    constants: list[Fraction] = []
+    for link in values:
+        parsed = _parse_expression(link) if link else None
+        constant = _constant_of(parsed[0]) if parsed is not None else None
+        if constant is None:
+            return None
+        constants.append(constant)
+    if any(value != constants[-1] for value in constants):
+        return None
+    return values[-1]
+
+
+def reference_answers(reference: str) -> list[str]:
+    """The reference as written, then its extracted numeric conclusion."""
+
+    extracted = reference_final_answer(reference)
+    return [reference] if extracted is None else [reference, extracted]
+
+
 def _answers_equal(left: str, right: str) -> tuple[bool | None, str]:
     """(True/False/None, method): exact text, exact arithmetic, then SymPy."""
 
@@ -585,17 +629,27 @@ def _answers_differ(left: str, right: str) -> tuple[bool | None, str]:
     return (None if equal is None else not equal), "symbolic_equality"
 
 
+def _conclusion_candidates(asserted: str) -> list[str]:
+    """The assertion, its single-letter assignment's value (``x = 3`` -> ``3``)
+    and the numeric end of a consistent equality chain (``P(E) = 0.3`` -> ``0.3``)."""
+
+    candidates = [asserted]
+    assignment = _ASSIGNMENT.match(asserted)
+    if assignment:
+        candidates.append(assignment.group(1).strip())
+    chain_end = reference_final_answer(asserted) if "=" in asserted else None
+    if chain_end is not None and chain_end not in candidates:
+        candidates.append(chain_end)
+    return candidates
+
+
 def _asserted_answer(text: str, declared: str) -> str | None:
     """The concluding line's assertion when it IS the declared answer."""
 
     asserted = asserted_conclusion(text)
     if asserted is None:
         return None
-    candidates = [asserted]
-    assignment = _ASSIGNMENT.match(asserted)
-    if assignment:
-        candidates.append(assignment.group(1).strip())
-    for candidate in candidates:
+    for candidate in _conclusion_candidates(asserted):
         if _answers_equal(candidate, declared)[0] is True:
             return candidate
     return None
@@ -617,20 +671,19 @@ def final_answer_check(learner_answer_md: str, expected_answer: Any) -> dict[str
     asserted = asserted_conclusion(learner_answer_md or "")
     if asserted is None:
         return {"status": "no_conclusion", "method": None}
-    candidates = [asserted]
-    assignment = _ASSIGNMENT.match(asserted)
-    if assignment:
-        candidates.append(assignment.group(1).strip())
+    candidates = _conclusion_candidates(asserted)
+    references = reference_answers(reference)
     undecided_method = None
     for candidate in candidates:
-        try:
-            equal, method = _answers_equal(candidate, reference)
-        except Exception:  # noqa: BLE001 - a checker failure is undecidable, never a verdict
-            equal, method = None, "error"
-        if equal is True:
-            return {"status": "matches_reference", "method": method}
-        if equal is None:
-            undecided_method = method
+        for target in references:
+            try:
+                equal, method = _answers_equal(candidate, target)
+            except Exception:  # noqa: BLE001 - a checker failure is undecidable, never a verdict
+                equal, method = None, "error"
+            if equal is True:
+                return {"status": "matches_reference", "method": method if target is reference else f"{method}+reference_conclusion"}
+            if equal is None and target is references[-1]:
+                undecided_method = method
     if undecided_method is not None:
         return {"status": "undecidable", "method": undecided_method}
     return {"status": "differs_from_reference", "method": "exact_or_symbolic"}
@@ -638,14 +691,18 @@ def final_answer_check(learner_answer_md: str, expected_answer: Any) -> dict[str
 
 #: Public names for the comparison primitives the grader probes reuse.
 answers_equal = _answers_equal
+parse_answer = _parse_expression
 answers_differ = _answers_differ
 asserted_answer = _asserted_answer
 
 
 __all__ = [
     "Poly",
+    "reference_answers",
+    "reference_final_answer",
     "answers_differ",
     "answers_equal",
+    "parse_answer",
     "asserted_answer",
     "RelationCheck",
     "asserted_conclusion",

@@ -6,7 +6,7 @@ import pytest
 
 from learnloop.db.repositories import Repository
 
-from tests.split_live_helpers import CitingFake, ReadyRuntime, split_vault
+from tests.split_live_helpers import CitingFake, ReadyRuntime, at, split_vault, submit
 
 
 class _Sidecar:
@@ -181,7 +181,7 @@ def test_repairs_first_displayed_on_the_card_are_debited_once(card_setup):
     assert card_reveals() == 1
 
 
-def test_card_kill_switch_shows_nothing_and_debits_nothing(tmp_path, monkeypatch):
+def test_card_kill_switch_hides_the_card_but_its_repairs_still_debit_once(tmp_path, monkeypatch):
     paths, _vault, _repository = split_vault(tmp_path, config="[diagnosis]\ncard_enabled = false")
     client = CitingFake()
     sidecar = _Sidecar(paths.root, client, monkeypatch)
@@ -191,12 +191,14 @@ def test_card_kill_switch_shows_nothing_and_debits_nothing(tmp_path, monkeypatch
     sidecar.ctx.post_attempt_worker.run_pending("diagnose")
 
     card = sidecar.result("diagnosis_status", {"attemptId": attempt_id})
+    sidecar.result("diagnosis_status", {"attemptId": attempt_id})
 
     assert card["status"] == "done" and card["cardEnabled"] is False
+    # The repairs still reach the feedback view (the bundle carries them).
     with Repository(paths.sqlite_path).connection() as connection:
         assert connection.execute(
             "SELECT COUNT(*) FROM reveal_events WHERE basis LIKE 'repair_display:diagnosis:%'"
-        ).fetchone()[0] == 0
+        ).fetchone()[0] == 1
 
 
 def test_joint_vault_feedback_carries_no_diagnosis_status(tmp_path, monkeypatch):
@@ -209,3 +211,15 @@ def test_joint_vault_feedback_carries_no_diagnosis_status(tmp_path, monkeypatch)
     assert "diagnosisStatus" not in submitted
     assert "diagnosisStatus" not in sidecar.result("get_feedback", {"attemptId": submitted["attemptId"]})
     assert sidecar.ctx.post_attempt_worker.running is False
+
+
+def test_card_summary_names_earlier_answers_by_date_not_id(tmp_path):
+    from learnloop.diagnosis.split.card import plain_summary
+
+    _paths, vault, repository = split_vault(tmp_path)
+    earlier = submit(vault, repository, CitingFake(), when=at(20)).attempt_id
+    created = str(repository.fetch_practice_attempt(earlier)["created_at"])[:10]
+
+    text = plain_summary(repository, f"You passed in {earlier}; hypothesis 01M4QP6KQCEP5W69B34E2HVHBV is withdrawn.")
+
+    assert text == f"You passed in your answer on {created}; hypothesis an earlier record is withdrawn."

@@ -112,3 +112,33 @@ def test_cli_retry_requeues_a_failed_diagnosis(tmp_path):
     assert repository.post_attempt_jobs(attempt_id=result.attempt_id)[0]["state"] == "queued"
     drain_jobs(vault, repository, ReviewFakeClient())
     assert repository.latest_attempt_diagnosis(result.attempt_id)["status"] == "completed"
+
+
+def test_m2_report_counts_logical_diagnosis_calls_and_their_turns(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path)
+    rows = [
+        # A Codex root (no usage) with a first turn and a JSON-repair turn.
+        ("root1", None, "diagnosis", None, None),
+        ("t1", "root1", "diagnosis:sdk_turn", 100, 10),
+        ("t2", "root1", "diagnosis_json_repair:sdk_turn", 120, 12),
+        # A provider that reports usage on the root itself.
+        ("root2", None, "diagnosis", 50, 5),
+        # The hybrid retrieval query embedding: an embedding call, not a diagnosis.
+        ("emb", None, "embedding", 7, 0),
+    ]
+    with repository.connection() as connection:
+        for row_id, parent, purpose, tokens_in, tokens_out in rows:
+            connection.execute(
+                "INSERT INTO model_call_receipts(id, parent_call_id, owner_kind, owner_id, purpose, status, "
+                "started_at, input_tokens, output_tokens) VALUES (?, ?, 'attempt_diagnosis', 'a', ?, 'completed', ?, ?, ?)",
+                (row_id, parent, purpose, "2026-10-12T00:00:00Z", tokens_in, tokens_out),
+            )
+        connection.commit()
+
+    e7 = m2_report(vault, repository)["e7_operational"]
+
+    assert e7["diagnosis_calls"] == 2
+    assert e7["diagnosis_repair_turns"] == 1
+    assert e7["embedding_calls"] == 1
+    # (110 + 132) + 55 tokens over the attempts with a diagnosis row (none here: divided by 1).
+    assert e7["diagnosis_tokens_per_attempt"] == 297.0

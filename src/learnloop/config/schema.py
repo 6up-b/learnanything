@@ -1310,12 +1310,18 @@ class DiagnosisConfig(BaseModel):
     exact_history_token_budget: int = Field(default=12_000, ge=1_000)
     history_error_limit: int = Field(default=6, ge=0, le=50)
     history_success_limit: int = Field(default=4, ge=0, le=50)
-    sample_count: int = Field(default=1, ge=1, le=9)
+    # Diagnoser k-sampling (cause disagreement, §4.4) is not built in M2: one
+    # diagnosis per attempt, so only 1 is accepted rather than ignored.
+    sample_count: int = Field(default=1, ge=1, le=1)
     correct_answer_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
     # Joint vaults only: run the diagnoser in shadow next to the joint grader.
     shadow: bool = False
     next_item_wait_seconds: float = Field(default=10.0, ge=0.0, le=120.0)
     max_attempts: int = Field(default=5, ge=1, le=20)
+    # Per-turn deadline for a Codex diagnoser turn. The diagnosis is async (no
+    # learner waits on it beyond next_item_wait_seconds), so it need not share
+    # the interactive ai.timeout_seconds; it stays under the job lease (1200 s).
+    timeout_seconds: int = Field(default=300, ge=30, le=1_000)
     # Diagnoser calls per UTC day; past it a job is skipped ("budget"), never the grade.
     max_calls_per_day: int = Field(default=500, ge=0)
     # The diagnosis card (§12.2) and whether its taps reach an open

@@ -3182,7 +3182,9 @@ def _compute_resolved_grade_application(
         "covered_facets": coverage.covered_facets,
         "facet_outcomes": facet_outcomes,
         "causal_attribution": {
-            "prompt_version": GRADING_PROMPT_VERSION,
+            # A blind grade names its own grader (its calibration identity),
+            # never the joint prompt it did not run.
+            "prompt_version": GRADING_PROMPT_VERSION if grader_identity is None else grader_identity[0],
             "diagnosis_present": bool((grade.diagnosis_md or "").strip()),
             "attribution_count": len(grade_attributions),
             "resolution_counts": {

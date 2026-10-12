@@ -41,7 +41,10 @@ def diagnosis_status(ctx: SidecarContext, params: DiagnosisStatusInput) -> dict[
     if attempt is None:
         raise SidecarError("not_found", f"Attempt {params.attempt_id} was not found.")
     card = diagnosis_card(vault, repository, params.attempt_id)
-    if card["status"] == DONE and card.get("card_enabled", True):
+    if card["status"] == DONE:
+        # The view shows the diagnosis's repairs once this reports done (in
+        # the card, and in the feedback bundle it then re-reads), whether or
+        # not the card itself is enabled: charge them now, once (§8).
         diagnosis = repository.attempt_diagnosis(str(card["diagnosis_id"])) or {}
         debit_displayed_repairs(
             repository,

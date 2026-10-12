@@ -187,3 +187,19 @@ def test_request_blind_grading_run_samples_and_gates(tmp_path):
     assert run.samples == 3 and run.prompt_version == REFERENCE_POLICY_PROMPT_VERSION
     assert run.grading_support["sampling"]["sample_count"] == 3
     assert run.grading_support["reference_policy"]["final_answer_check"]["status"] == "matches_reference"
+
+
+def test_worked_solution_references_check_against_their_numeric_conclusion():
+    from learnloop.attempts.answer_check import final_answer_check, reference_final_answer
+
+    worked = "Choose the first card in 3 ways and the second in 2, giving |E|=6. Therefore P(E)=6/20=3/10."
+    assert reference_final_answer(worked) == "3/10"
+    assert final_answer_check("Therefore P(E) = 0.3.", worked)["status"] == "matches_reference"
+    assert final_answer_check("Final answer: 3/10", worked)["method"].endswith("+reference_conclusion")
+    # Conservative: only a consistent, all-numeric chain or a bare number is extracted.
+    for text in ("Thus x = 2 when y = 3.", "Hence P = 6/20 = 1/3.", "So it is about 0.63.", "It equals 3/10 because z."):
+        assert reference_final_answer(text) is None
+    assert final_answer_check("Therefore P(E) = 6/20 = 1/3.", worked)["status"] == "undecidable"
+    # A bare reference is compared whole, as before.
+    assert reference_final_answer("4") is None
+    assert final_answer_check("Final answer: 4", "4") == {"status": "matches_reference", "method": "exact_match"}

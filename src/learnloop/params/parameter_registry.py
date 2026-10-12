@@ -841,10 +841,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "diagnosis.next_item_wait_seconds",
         "diagnosis.max_attempts",
         "diagnosis.max_calls_per_day",
+        "diagnosis.timeout_seconds",
         "diagnosis.full_history_token_budget",
         "diagnosis.exact_history_token_budget",
     ), "structural", "operational",
-        "diagnosis queue wait / retry / daily call cap / context token budget; no "
+        "diagnosis queue wait / retry / daily call cap / turn deadline / context token budget; no "
         "measurement authority (the diagnoser never writes evidence, S2)."),
     _ConfigRule(_prefix("project."), "structural", "operational",
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "

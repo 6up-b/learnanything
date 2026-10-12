@@ -213,7 +213,13 @@ def default_diagnosis_client(vault: LoadedVault) -> Any | None:
 
     from learnloop.ai.routing import ready_client_for_task
 
-    resolved = ready_client_for_task(vault.root, vault.config, "diagnosis")
+    config = getattr(vault.config, "diagnosis", None)
+    resolved = ready_client_for_task(
+        vault.root, vault.config, "diagnosis",
+        # Codex turns take the async diagnoser's own deadline (other provider
+        # types keep their profile timeout).
+        timeout_seconds=int(getattr(config, "timeout_seconds", 300)),
+    )
     return resolved.client if resolved.ready else None
 
 
@@ -733,7 +739,9 @@ def run_embed_job(
     records = [*hypothesis_records(repository, attempt_ids=[attempt_id]), *misconception_records(repository)]
     if payload.get("include_divergence"):
         records.extend(divergence_records(vault, repository, attempt_ids=[attempt_id]))
-    result = embed_records(client, repository, records)
+    # Embed-on-write calls belong to the attempt, like its diagnosis's.
+    with record_model_calls(repository, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=attempt_id):
+        result = embed_records(client, repository, records)
     if result.status != "complete":
         max_attempts = int(getattr(getattr(vault.config, "diagnosis", None), "max_attempts", 5))
         if int(job.get("attempt_count") or 1) < max_attempts:

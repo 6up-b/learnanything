@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import statistics
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import parse_utc
@@ -110,10 +110,30 @@ def _e7(repository: Repository) -> dict[str, Any]:
     ]
     waits = repository.diagnosis_wait_receipts()
     jobs = repository.post_attempt_job_counts()
-    calls = _rows(
+    # The diagnoser's receipts: one root row per logical call; a Codex root
+    # carries no usage itself, its physical turns (children, including any
+    # JSON-repair turn) do. Embedding calls made for a diagnosis are counted
+    # with the embeddings below, not here.
+    diagnosis_rows = _rows(
         repository,
-        "SELECT owner_id, input_tokens, output_tokens, cached_input_tokens, cost FROM model_call_receipts "
-        "WHERE owner_kind = 'attempt_diagnosis' AND parent_call_id IS NULL",
+        "SELECT id, parent_call_id, purpose, input_tokens, output_tokens FROM model_call_receipts "
+        "WHERE owner_kind = 'attempt_diagnosis' AND purpose NOT LIKE 'embedding%'",
+    )
+    calls = [row for row in diagnosis_rows if row.get("parent_call_id") is None]
+    children: dict[str, list[dict[str, Any]]] = {}
+    for row in diagnosis_rows:
+        if row.get("parent_call_id") is not None:
+            children.setdefault(str(row["parent_call_id"]), []).append(row)
+
+    def _usage(row: Mapping[str, Any]) -> int:
+        own = [row] if row.get("input_tokens") is not None or row.get("output_tokens") is not None else []
+        rows = own or children.get(str(row["id"]), [])
+        return sum(int(item.get("input_tokens") or 0) + int(item.get("output_tokens") or 0) for item in rows)
+
+    repair_turns = sum(
+        1 for row in diagnosis_rows
+        if row.get("parent_call_id") is not None
+        and ("_json_repair" in str(row["purpose"]) or "_json_regenerate" in str(row["purpose"]))
     )
     embed_calls = _rows(
         repository,
@@ -138,12 +158,9 @@ def _e7(repository: Repository) -> dict[str, Any]:
         "jobs": jobs,
         "diagnose_job_failure_rate": wilson(diagnose_jobs.get("failed", 0), total_settled),
         "diagnosis_calls": len(calls),
+        "diagnosis_repair_turns": repair_turns,
         "diagnosis_tokens_per_attempt": (
-            round(
-                sum(int(row.get("input_tokens") or 0) + int(row.get("output_tokens") or 0) for row in calls)
-                / max(1, len(diagnosed_attempts)),
-                1,
-            )
+            round(sum(_usage(row) for row in calls) / max(1, len(diagnosed_attempts)), 1)
             if calls
             else None
         ),
@@ -250,7 +267,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     lines = [
         "# Slice 1 M2 report (E5, E7, learner signals)",
         "",
-        f"Generated {datetime.now().isoformat(timespec='seconds')} - {report['report_version']}. "
+        f"Generated {datetime.now(timezone.utc).isoformat(timespec='seconds')} - {report['report_version']}. "
         "Aggregates only; no learner text. No thresholds (O10).",
         "",
         "## Manifest",
@@ -274,7 +291,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         f"- diagnosis completion delay seconds {e7['diagnosis_completion_delay_seconds']}",
         f"- served without diagnosis {_fmt(e7['served_without_diagnosis'])}; waits {e7['wait_seconds']}",
         f"- diagnoses {json.dumps(e7['diagnoses_by_status'], sort_keys=True)}; job failure rate {_fmt(e7['diagnose_job_failure_rate'])}",
-        f"- diagnosis calls {e7['diagnosis_calls']}, tokens per diagnosed attempt {e7['diagnosis_tokens_per_attempt']} ({e7['diagnosis_cost_basis']})",
+        f"- diagnosis calls {e7['diagnosis_calls']} (JSON-repair turns {e7['diagnosis_repair_turns']}), "
+        f"tokens per diagnosed attempt {e7['diagnosis_tokens_per_attempt']} ({e7['diagnosis_cost_basis']})",
         f"- embedding calls {e7['embedding_calls']}, cost ${e7['embedding_cost_usd']}",
         "",
         "## Learner signals (§12.3)",

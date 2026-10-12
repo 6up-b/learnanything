@@ -20,6 +20,7 @@ log only records nearest neighbours next to the exact-key group, in shadow.
 from __future__ import annotations
 
 import hashlib
+import logging
 import json
 from contextlib import closing
 from dataclasses import dataclass
@@ -35,6 +36,8 @@ from learnloop.ops.embedding_backfill import backfill_embeddings
 from learnloop.vault.embedding_recipes import EmbeddingRecord
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
+
+LOG = logging.getLogger(__name__)
 
 TASK_PREFIX = "retrieval-document"
 HYPOTHESIS_KIND, HYPOTHESIS_FIELD, HYPOTHESIS_VERSION = "hypothesis", "statement", 1
@@ -251,6 +254,7 @@ def embed_records(
             with budget.request(estimate):
                 vectors = client.embed([record.text for record in batch], TASK_PREFIX)
         except Exception as exc:  # noqa: BLE001 - best effort; the job records it
+            LOG.warning("embedding batch failed (%s)", type(exc).__name__, exc_info=True)
             result.status = "failed"
             result.error = type(exc).__name__
             return result

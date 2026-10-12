@@ -57,6 +57,7 @@ from learnloop.attempts.answer_check import (  # moved to the attempts layer; re
     asserted_conclusion,
     check_relations,
     final_answer_check,
+    reference_answers,
     safe_math_text,
 )
 
@@ -189,7 +190,14 @@ def verify_alternative(item: PracticeItem, draft: ValidAlternativeDraft) -> dict
             "reason": "concluding_line_does_not_assert_the_final_answer",
             "asserted_answer": asserted_conclusion(draft.derivation_md),
         }
-    equal, method = _answers_equal(asserted, _expected_text(item))
+    # A worked-solution reference ("... Therefore P(E)=6/20=3/10.") is never
+    # equal to a bare answer as a whole; its numeric conclusion is the check.
+    equal, method = None, "symbolic_equality"
+    for index, reference in enumerate(reference_answers(_expected_text(item))):
+        equal, method = _answers_equal(asserted, reference)
+        method = method if index == 0 else f"{method}+reference_conclusion"
+        if equal is True:
+            break
     if equal is not True:
         return {"status": "unverified", "method": method, "reason": "final_answer_not_shown_equal_to_reference", "asserted_answer": asserted}
     relations = check_relations(draft.derivation_md)
@@ -232,7 +240,10 @@ def verify_synthetic_error(vault: LoadedVault, item: PracticeItem, draft: Synthe
             "asserted_answer": asserted_conclusion(draft.answer_md),
             **declared,
         }
-    differ, method = _answers_differ(asserted, _expected_text(item))
+    references = reference_answers(_expected_text(item))
+    differ, method = _answers_differ(asserted, references[-1])
+    if len(references) > 1:
+        method = f"{method}+reference_conclusion"
     if differ is False:
         return {"status": "not_wrong", "method": method, "reason": "final_answer_equals_reference", "asserted_answer": asserted, **declared}
     if differ is None:
