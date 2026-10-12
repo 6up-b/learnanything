@@ -302,10 +302,13 @@ One segmented control on an LO, a subject, a source, a capture and an item. It s
 - `due_at` keeps being written at 0.90 (`learnloop/attempts/attempts.py:2706`), so replay and stored FSRS state are unchanged.
 - The queue reads an **effective due**:
 
-  `effective_due = last_attempt_at + (due_at − last_attempt_at) × ratio(target)`
+  `effective_due = anchor + (due_at − anchor) × ratio(target)`
 
   where `ratio(target) = (target^(1/−w20) − 1) / (0.9^(1/−w20) − 1)`, with `w20` the decay weight in use. The interval is proportional to stability (`learnloop/scheduling/fsrs.py:137`), so the ratio needs no stability and keeps the surprise factor already folded into `due_at`.
-- **At 0.90 the ratio is exactly 1,** so uncommitted items are served exactly as today.
+- **The anchor is the review that produced `due_at`.** It is the `created_at` of the item's latest attempt that fed FSRS, meaning one that `classify_attempt_activity` marks `eligible_for_fsrs` from the row's attempt type, `primed` and `hints_used`. That is the same decision the attempt path makes before it writes `due_at` (`learnloop/attempts/attempts.py:2694`, `:2699`).
+  - **It is not `last_attempt_at`.** An attempt that doesn't feed FSRS keeps the stored `due_at` and stability but still advances `last_attempt_at` (`learnloop/attempts/attempts.py:2717`, `:2958`). A primed retry or a diagnostic administration between two reviews therefore moves neither the anchor nor the effective due.
+  - **Null state.** With no item state or a null `due_at`, there is no effective due, as today: the item is not due-classified. With no qualifying attempt (state imported or backfilled without one) or an anchor not before `due_at`, the effective due is `due_at` unscaled, and `learnloop plan report` counts such items.
+- **At 0.90 the ratio is exactly 1,** so uncommitted items are served exactly as today, whatever the anchor.
 - `_forgetting_risk` and the maintain lane use `effective_due` in place of `due_at`.
 
 **Resolving an item's intent: the most recent choice wins.** Several commitments can cover one item. One rule decides both whether the item is served and at which depth and target. With `intent.enabled`:
@@ -738,7 +741,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `test_daily_plan_reading.py` (the words-left estimate; a partial block when the section exceeds the remaining minutes; each `block_ended` outcome advancing the plan and consuming the estimate; `reading_progress` events from `reader.mark_section_progress`; resuming an interrupted block; the next day continuing the same section; `next_plan_item` returning a typed reading step);
   - `test_today_headline.py`;
   - vitest for the plan view, block lines, done screen and keep going, and for a reading step opening the reader at its section and returning to the plan.
-- **DL2:** `tests/test_intent_resolution.py` (the §5.3 cases, ties, and consequence-line parity); `test_intent_recall_targets.py` (the ratio, identity at 0.90, kill switch); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
+- **DL2:** `tests/test_intent_resolution.py` (the §5.3 cases, ties, and consequence-line parity); `test_intent_recall_targets.py` (the ratio; identity at 0.90; the kill switch; the anchor: a primed retry and a diagnostic attempt between two reviews leave the anchor and the effective due unchanged, while an ordinary review moves both; no state, a null `due_at`, or no qualifying attempt fall back as §5.3 says); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
 - **DL3:**
   - `tests/test_capture_box.py`;
   - `test_capture_processor.py` (classify, file, unfiled, solve-verify agreement and disagreement, caps, dry-run, resume, leases, ledger);
