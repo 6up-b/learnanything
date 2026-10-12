@@ -249,3 +249,73 @@ def test_a_paid_answer_survives_a_failed_write_and_is_not_paid_again(practice, m
     assert report["usage"]["recovered"] == 1
     assert [payload["context"]["facet"]["id"] for _, payload in llm.calls].count("facet_span") == 1
     assert len(_rows(paths)) == 6
+
+
+class _ItemAware(FakePracticeLLM):
+    """Dossier text that depends on the grounding items, so revisions differ."""
+
+    def _practice_dossier(self, context):
+        draft = super()._practice_dossier(context)
+        first = context["items"][0]["prompt"] if context.get("items") else "none"
+        return draft.model_copy(update={"covers": [*draft.covers, f"grounded on {first}"]})
+
+
+def test_reverting_sources_selects_the_matching_earlier_dossier(practice):
+    """F4: selection uses the current source hash, so a revert reuses revision A."""
+    from learnloop.practice_index.retrieval import load_snapshot
+
+    paths = practice
+    llm = _ItemAware()
+    item_path = paths.practice_item_path("linear-algebra", "pi_orthogonal_1")
+    original = read_yaml(item_path)
+    generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    vault = load_vault(paths.root)
+    plan_a = {plan.facet_id: plan for plan in build_plans(vault, Repository(paths.sqlite_path))}
+    write_yaml(item_path, {**original, "prompt": "Find the angle between two orthogonal vectors."})
+    report = generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    assert report["generated"] == 1  # sources B
+    write_yaml(item_path, original)  # back to sources A: already paid for
+    vault = load_vault(paths.root)
+    assert generate_dossiers(vault, caps=CAPS, client=llm, dry_run=True)["pending"] == 0
+    repository = Repository(paths.sqlite_path)
+    status = dossier_status(vault, repository)
+    assert status["counts"] == {"current": 6, "stale": 0, "missing": 0}
+    selected = load_snapshot(vault, repository).dossiers["facet_orthogonal"]
+    assert selected.source_hash == plan_a["facet_orthogonal"].source_hash
+    assert "grounded on Are (1,2) and (2,-1) orthogonal" in selected.scope
+    # The embedding recipe offers revision A's text, so the backfill can embed it.
+    scopes = {record.text for record in embedding_records(vault, ("facet/dossier_scope",))
+              if record.record_id == "facet_orthogonal"}
+    assert selected.scope in scopes
+    # After the backfill, retrieval finds revision A's vectors for every field.
+    from learnloop.ops.embedding_backfill import backfill_embeddings
+    from tests.practice_index_fakes import HashingEmbedder
+
+    vault.config.embedding.enabled = vault.config.embedding.backfill_enabled = True
+    vault.config.embedding.dimensions = 64
+    embedder = HashingEmbedder()
+    backfilled = backfill_embeddings(vault, caps=SpendCaps(max_candidates=1000, max_calls=100,
+                                                           max_total_tokens=10_000_000),
+                                     client_factory=lambda: embedder)
+    assert backfilled["status"] == "complete", backfilled
+    snapshot = load_snapshot(vault, repository, embedder=embedder)
+    assert snapshot.dossier_vectors_complete and snapshot.dossier_available
+    assert snapshot.dossiers["facet_orthogonal"].id == selected.id
+
+
+def test_select_dossier_prefers_current_sources_then_the_intended_model():
+    from learnloop.db.stores.practice_index import DossierRow
+    from learnloop.practice_index.dossiers import DOSSIER_PROMPT_VERSION, select_dossier
+
+    def row(name, source, model, version=DOSSIER_PROMPT_VERSION):
+        return DossierRow(name, "facet", "fh", source, model, version, "s", "m", "e", "c", name)
+
+    a_m1, b_m1, a_m2 = row("1", "A", "m1"), row("2", "B", "m1"), row("3", "A", "m2")
+    rows = [a_m1, b_m1, a_m2]
+    assert select_dossier(rows, source_hash="A", model_id="m1") == (a_m1, "current")
+    assert select_dossier(rows, source_hash="A", model_id="m2") == (a_m2, "current")
+    assert select_dossier(rows, source_hash="A", model_id="other") == (a_m2, "current")
+    assert select_dossier(rows, source_hash="B", model_id="m2") == (b_m1, "current")
+    assert select_dossier(rows, source_hash="C", model_id="m1") == (a_m2, "stale")
+    old_prompt = [row("4", "A", "m1", version="facet_dossier.v0")]
+    assert select_dossier(old_prompt, source_hash="A", model_id="m1")[1] == "stale"

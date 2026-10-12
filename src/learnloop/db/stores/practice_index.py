@@ -77,25 +77,25 @@ def insert_dossier(connection: sqlite3.Connection, *, id: str, facet_id: str,
     return cursor.rowcount == 1
 
 
-def current_dossiers(connection: sqlite3.Connection,
-                     facet_hashes: Mapping[str, str]) -> dict[str, DossierRow]:
-    """The newest dossier per facet written for the facet's CURRENT content.
+def dossier_candidates(connection: sqlite3.Connection,
+                       facet_hashes: Mapping[str, str]) -> dict[str, list[DossierRow]]:
+    """Every dossier written for each facet's CURRENT content, oldest first.
 
-    A dossier of an older facet revision never serves. Among rows for the
-    current revision (other models, prompt versions or source revisions), the
-    newest wins; ties break by id so the choice is deterministic.
+    A dossier of an older facet revision is never a candidate. Choosing among
+    the candidates (by source hash, model and prompt version) is the caller's
+    policy: ``practice_index.dossiers.select_dossier``.
     """
     if not facet_hashes or not table_exists(connection, "facet_dossiers"):
         return {}
     rows = connection.execute(
         f"SELECT {','.join(_DOSSIER_COLUMNS)} FROM facet_dossiers ORDER BY created_at, id"
     ).fetchall()
-    current: dict[str, DossierRow] = {}
+    found: dict[str, list[DossierRow]] = {}
     for row in rows:
         values = DossierRow(*(row[index] for index in range(len(_DOSSIER_COLUMNS))))
         if facet_hashes.get(values.facet_id) == values.facet_content_hash:
-            current[values.facet_id] = values
-    return current
+            found.setdefault(values.facet_id, []).append(values)
+    return found
 
 
 def dossier_count(connection: sqlite3.Connection) -> int:

@@ -50,6 +50,7 @@ from learnloop.db.stores.practice_index import (
 from learnloop.ids import new_ulid
 from learnloop.practice_index.catalog import facet_label, item_facets, registered_facets
 from learnloop.practice_index.contracts import RELEVANCE_SCORE, PracticeRerank
+from learnloop.practice_index.dossiers import select_current_dossiers
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.query_vectors import embed_queries, embedding_ready, normalize_query, query_id
 from learnloop.practice_index.text import BM25, reciprocal_rank_fusion
@@ -57,7 +58,6 @@ from learnloop.practice_index.admission import PracticeAdmission
 from learnloop.vault.embedding_recipes import (
     DOSSIER_FIELDS,
     EMBEDDING_RECIPES,
-    current_facet_dossiers,
 )
 from learnloop.vault.models import LoadedVault
 
@@ -202,6 +202,14 @@ def _manifest(vault: LoadedVault, recipe_name: str) -> dict[str, str]:
             for record in EMBEDDING_RECIPES[recipe_name].records(vault)}
 
 
+def _dossier_manifest(dossiers: Mapping[str, DossierRow], recipe_name: str) -> dict[str, str]:
+    """The SELECTED revision's content hash per facet (the recipe offers every revision)."""
+    recipe = EMBEDDING_RECIPES[recipe_name]
+    field_name = recipe.field.removeprefix("dossier_")
+    return {facet_id: recipe.content_hash(row.field(field_name))
+            for facet_id, row in sorted(dossiers.items()) if row.field(field_name).strip()}
+
+
 def dossier_documents(dossiers: Mapping[str, DossierRow], facets: Mapping[str, Any]) -> dict[str, str]:
     """Keyword text of each dossier: the facet's label and every field."""
     return {
@@ -216,7 +224,8 @@ def load_snapshot(vault: LoadedVault, repository: Repository, *,
     config = vault.config.practice_index
     items = {item_id: item for item_id, item in vault.practice_items.items() if item.status != "retired"}
     facets = registered_facets(vault)
-    dossiers = {fid: row for fid, row in current_facet_dossiers(vault).items() if fid in facets}
+    dossiers = {fid: row for fid, (row, _state) in select_current_dossiers(vault, repository).items()
+                if fid in facets}
     reason = embedding_ready(vault, embedder)
     model_id = None if reason is not None else vault.config.embedding.model
     item_recipe = None
@@ -232,7 +241,7 @@ def load_snapshot(vault: LoadedVault, repository: Repository, *,
                 if manifest and _complete(connection, name, manifest, model_id):
                     item_recipe, item_manifest = name, manifest
                     break
-            dossier_manifests = {name: _manifest(vault, name) for name in DOSSIER_RECIPES}
+            dossier_manifests = {name: _dossier_manifest(dossiers, name) for name in DOSSIER_RECIPES}
             dossier_vectors = bool(dossiers) and all(
                 _complete(connection, name, manifest, model_id)
                 for name, manifest in dossier_manifests.items()

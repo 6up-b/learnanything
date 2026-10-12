@@ -31,8 +31,9 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.practice_index import (
+    DossierRow,
     checkpointed_keys,
-    current_dossiers,
+    dossier_candidates,
     dossier_exists,
     insert_dossier,
 )
@@ -356,20 +357,69 @@ def _recoverable(sqlite_path: Path, route, pending: list[DossierPlan]) -> set[st
         return {keys[key] for key in checkpointed_keys(connection, keys)}
 
 
+def select_dossier(rows: list[DossierRow], *, source_hash: str | None, model_id: str,
+                   prompt_version: str = DOSSIER_PROMPT_VERSION) -> tuple[DossierRow, str]:
+    """The revision that serves, and how well it matches the current key.
+
+    ``rows`` are the candidates for the facet's current content, oldest first.
+    ``current``: written for the facet's current sources and prompt version
+    (the intended model preferred, so switching the dossier model back reuses
+    its rows). ``stale``: no revision matches the current sources; the newest
+    serves until the owner regenerates. A revert of the sources therefore
+    reuses the matching earlier revision instead of the newest one.
+    """
+    matching = [row for row in rows
+                if row.source_hash == source_hash and row.prompt_version == prompt_version]
+    preferred = [row for row in matching if row.model_id == model_id]
+    if preferred or matching:
+        return (preferred or matching)[-1], "current"
+    return rows[-1], "stale"
+
+
+def intended_model(vault: LoadedVault) -> str:
+    """The dossier model generation would use now (ai.routing.practice_dossier)."""
+    return plan_route(vault, "practice_dossier").model or "unspecified"
+
+
+def select_current_dossiers(vault: LoadedVault, repository: Repository, *,
+                            plans: list[DossierPlan] | None = None,
+                            ) -> dict[str, tuple[DossierRow, str]]:
+    """Per registered facet with a dossier: the serving revision and its state.
+
+    Source hashes are computed only for facets with more than one candidate
+    (``plans`` may supply them), so a facet with one revision costs no grounding.
+    """
+    facets = registered_facets(vault)
+    hashes = {facet_id: facet_content_hash(facet) for facet_id, facet in facets.items()}
+    sqlite_path = Path(repository.sqlite_path)
+    if not hashes or not sqlite_path.exists():
+        return {}
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        candidates = dossier_candidates(connection, hashes)
+    by_facet = {plan.facet_id: plan for plan in plans or []}
+    ambiguous = sorted(facet_id for facet_id, rows in candidates.items()
+                       if len(rows) > 1 and facet_id not in by_facet)
+    if ambiguous:
+        by_facet.update({plan.facet_id: plan for plan in build_plans(
+            vault, repository, facet_ids=ambiguous)})
+    model_id = intended_model(vault)
+    selected: dict[str, tuple[DossierRow, str]] = {}
+    for facet_id, rows in candidates.items():
+        plan = by_facet.get(facet_id)
+        # One revision serves whatever its sources; its state is checked only
+        # when plans are supplied (dossier_status).
+        selected[facet_id] = select_dossier(
+            rows, source_hash=plan.source_hash, model_id=model_id,
+        ) if plan is not None else (rows[-1], "unchecked")
+    return selected
+
+
 def dossier_status(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
     """Per registered facet: current, stale (sources changed) or missing."""
     plans = build_plans(vault, repository)
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        newest = current_dossiers(connection, {p.facet_id: p.facet_content_hash for p in plans})
-    states: dict[str, str] = {}
-    for plan in plans:
-        row = newest.get(plan.facet_id)
-        if row is None:
-            states[plan.facet_id] = "missing"
-        elif row.source_hash != plan.source_hash or row.prompt_version != DOSSIER_PROMPT_VERSION:
-            states[plan.facet_id] = "stale"
-        else:
-            states[plan.facet_id] = "current"
+    selected = select_current_dossiers(vault, repository, plans=plans)
+    states = {plan.facet_id: selected[plan.facet_id][1] if plan.facet_id in selected else "missing"
+              for plan in plans}
     counts = {state: sum(1 for value in states.values() if value == state)
               for state in ("current", "stale", "missing")}
     return {"facets": len(plans), "counts": counts,
@@ -509,5 +559,8 @@ __all__ = [
     "build_plans",
     "dossier_status",
     "generate_dossiers",
+    "intended_model",
     "render_dossier",
+    "select_current_dossiers",
+    "select_dossier",
 ]
