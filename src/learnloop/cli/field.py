@@ -74,6 +74,7 @@ def field_eval(
     """Generate reports 1–2: prequential replay and historical fast-track simulation."""
     from learnloop.field.evaluation import evaluate, write_reports
     from learnloop.field.outcomes import data_check, load_attempt_rows, load_facet_rows
+    from learnloop.field.priors import load_frozen_priors
     from learnloop.field.signals import enrich_attempts, load_interaction_signals
 
     try:
@@ -107,6 +108,7 @@ def field_eval(
             facets = load_facet_rows(connection, loaded)
             signals = load_interaction_signals(connection, loaded, attempts)
             counts = data_check(connection, loaded)
+            general_means, lo_priors, prior_report = load_frozen_priors(connection, attempts, loaded.config)
         attempts = enrich_attempts(attempts, signals)
         facets = enrich_attempts(facets, signals)
         arms = tuple(arm) if arm else None
@@ -147,9 +149,11 @@ def field_eval(
             bootstrap_samples=bootstrap_samples,
             seed=seed,
             fast_track_q=fast_track_q,
+            general_means=general_means, lo_priors=lo_priors,
             config=loaded.config.model_dump(mode="json"),
         )
         report["data_check"] = counts
+        report["claim_priors"] = prior_report
         report["vault_validation_issues"] = len(loaded.issues)
         if spend_report is not None:
             report["offline_preparation"] = spend_report
