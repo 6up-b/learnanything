@@ -344,6 +344,67 @@ def test_kill_switch_never_reuses_a_nominated_bootstrap(tmp_path):
     assert len(load_vault(root).concepts) == 2
 
 
+def test_kill_switch_never_reuses_a_nominated_bootstrap_cached_before_the_fix(tmp_path, monkeypatch):
+    """F1 (re-review), upgrade: a nominated, unapplied run cached by the T5
+    code before nomination identity entered the manifest has the kill-switch
+    manifest hash. Its recorded provenance, not its hash, keeps it from being
+    reused or applied once ``graph_nomination.enabled`` is off; the
+    lexical-only rerun is then the cache."""
+
+    import learnloop.content.proposals.patches as patches
+    import learnloop.content.synthesis.source_set_synthesis as synthesis
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    real_build_manifest = synthesis.build_manifest
+
+    def pre_fix_manifest(*args, scope=None, **kwargs):
+        # The pre-fix manifest: the brief's scope, nominations on or off.
+        if isinstance(scope, dict) and "graph_nomination" in scope:
+            scope = scope["brief_scope"]
+        return real_build_manifest(*args, scope=scope, **kwargs)
+
+    with monkeypatch.context() as legacy_code:
+        legacy_code.setattr(synthesis, "build_manifest", pre_fix_manifest)
+        legacy = _synthesize(root, repo, RegistryStructuringClient(_merge_into_registry),
+                             embedding_client_factory=lambda: embedder)
+    legacy_run = repo.synthesis_run(legacy.synthesis_run_id)
+    assert legacy_run["actual_usage"]["registry_merges"] == 1
+    assert "graph_nomination" in legacy_run["coverage_decisions"]
+
+    applied: list[str] = []
+    real_apply = patches.apply_accepted_items
+
+    def recording_apply(root_, proposal_id, **kwargs):
+        applied.append(proposal_id)
+        return real_apply(root_, proposal_id, **kwargs)
+
+    monkeypatch.setattr(patches, "apply_accepted_items", recording_apply)
+    _set_nominations(root, False)
+    factory = ExplodingFactory()
+    client = RegistryStructuringClient(_merge_into_registry)
+    upgraded = _synthesize(root, repo, client, embedding_client_factory=factory)
+    # The kill switch keeps the pre-T5 hash, which the legacy run shares ...
+    assert upgraded.manifest_hash == legacy.manifest_hash
+    # ... but a nominated run is never reused with the switch off: the
+    # structuring pass ran again, lexical-only.
+    assert upgraded.reused is False and upgraded.proposal_id != legacy.proposal_id
+    assert client.structuring_contexts[0].registry_concept_details == []
+    assert factory.calls == 0
+
+    # The lexical-only rerun is the cache now (zero model and embedding
+    # calls), and it is what apply accepts; the legacy proposal never is.
+    repeat_client = RegistryStructuringClient()
+    repeat = _synthesize(root, repo, repeat_client, apply=True, embedding_client_factory=ExplodingFactory())
+    assert repeat.reused is True and repeat.proposal_id == upgraded.proposal_id
+    assert repeat_client.calls == []
+    assert applied == [upgraded.proposal_id]
+    assert len(load_vault(root).concepts) == 2  # no registry merge was applied
+
+
 def test_enabling_nominations_or_completing_the_index_is_a_new_bootstrap(tmp_path):
     """F1, other direction: a lexical-only result is not reused once nominations
     could act (switch turned on, then the index completed)."""

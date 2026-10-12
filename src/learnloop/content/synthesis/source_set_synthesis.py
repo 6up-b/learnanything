@@ -1443,6 +1443,44 @@ def _row(item_type: str, entity_id: str, payload: dict[str, Any], depends_on: li
     }
 
 
+# --- completed-run cache ----------------------------------------------------
+
+
+def _nominations_shaped(run: dict[str, Any] | None) -> bool:
+    """Whether Slice 2 T5 nominations reached this synthesis run.
+
+    A completed run made with a nominator records ``graph_nomination`` in its
+    coverage; one whose structuring saw registry concepts also records
+    ``registry_*`` usage, which a later revalidation keeps.
+    """
+
+    if run is None:
+        return False
+    usage = run.get("actual_usage") or {}
+    return "graph_nomination" in (run.get("coverage_decisions") or {}) or any(
+        key in usage for key in ("registry_nominated_candidates", "registry_merges")
+    )
+
+
+def _reusable_bootstrap_run(
+    repository: Repository, context_hash: str, *, nominations_on: bool,
+) -> dict[str, Any] | None:
+    """The newest completed bootstrap run this manifest may reuse.
+
+    With nominations on, the manifest carries the nominator's identity, so a
+    match was made under it. With the kill switch off, the manifest is the
+    pre-T5 one, which a nominated run cached by T5 before that identity
+    entered the manifest also has (review F1): such a run is never reused,
+    so its proposal is never applied with nominations off. Pre-T5 runs and
+    lexical-only reruns still are.
+    """
+
+    for run in repository.completed_agent_runs_by_context(SYNTHESIS_AGENT_PURPOSE, context_hash):
+        if nominations_on or not _nominations_shaped(repository.synthesis_run_for_agent_run(run["id"])):
+            return run
+    return None
+
+
 # --- lock refusal -----------------------------------------------------------
 
 
@@ -1621,8 +1659,9 @@ def _create_study_map(
     manifest_id = repository.synthesis_manifest_by_hash(manifest_hash)["id"]
     context_hash = agent_run_input_context_hash(manifest)
 
-    # cache: identical manifest reuses the completed agent run.
-    cached = repository.completed_agent_run_by_context(SYNTHESIS_AGENT_PURPOSE, context_hash)
+    # cache: identical manifest reuses the completed agent run (with the kill
+    # switch off, only one nominations never shaped).
+    cached = _reusable_bootstrap_run(repository, context_hash, nominations_on=nominator is not None)
     if cached is not None:
         batch = repository.proposal_batch_for_agent_run(cached["id"])
         result = StudyMapResult(
