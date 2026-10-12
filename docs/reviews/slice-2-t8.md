@@ -1,8 +1,10 @@
 # Slice 2 T8 — learner success head (offline research)
 
-**Checkpoint:** in progress on `slice-2/t8` (worktree `learnanything-t8`, base
+**Checkpoint:** built on `slice-2/t8` (worktree `learnanything-t8`, base
 `main` at `974c5647`). Offline research only: no live consumer, no serving
-change, no activation, no merge or push.
+change, no activation, no merge or push. The report generates with fakes on a
+fixtures-local copy. The owner runs it for real with the commands below, dry
+run first.
 
 Spec: `docs/specs/spec_embedding_consumers_v1.md` §11 (with §1 R1–R6, §4, §13),
 `docs/specs/spec_learner_field_v1.md` §7.2 (the `learnloop eval` harness) and
@@ -256,3 +258,323 @@ gate failed.
 
   T8 duplicates that loop in its own module on purpose, so as not to edit
   `offline_llm.py` while R0 is changing it.
+
+## What was built
+
+### Arms (`field/success_head.py`, pure)
+
+- **The model.** `LogisticHead` is a prequential Bayesian logistic regression
+  over the pre-registered feature blocks.
+  - After each observed positive-mass attempt, it refits the MAP by damped
+    Newton on all past attempts, weighted by mass, under fixed Gaussian
+    priors.
+  - The Laplace covariance at the MAP gives the predictive variance.
+- **Four arms:**
+  - `tag_logistic`: no embedding block;
+  - `emb_ridge`: the MAP point;
+  - `success_head`: MacKay-moderated, so it shrinks toward 0.5 off-support;
+  - `success_head+difficulty`: adds the solver-panel `b`, and abstains on
+    every other item.
+- **Inputs.** Each arm sees only:
+  - `ItemFeatures`;
+  - the rows the harness hands it after prediction;
+  - a frozen `ContentIndex` lookup for the attempt being predicted.
+
+  A test shows that adding future attempts' content changes no prediction.
+- **Ability feature.** It comes from the incumbent EKF run with `a = 1, b = 0`.
+  Test: LLM-labelled `b`/`a` leave every T8 prediction bit-identical.
+- **Never active.** Every arm has `calibrated_uncertainty = False` and is
+  never registered as active.
+
+### Pre-registered analysis (`field/success_head_analysis.py`)
+
+- **What it computes:**
+  - the kill rule, with e* chosen from E;
+  - the hierarchical gate;
+  - the descriptive comparisons, split by `item_position` and
+    `attempt_position`;
+  - flags for deviations from the registered bootstrap and seed.
+- **Where it lives.** It runs as an `analyses` hook inside the harness, so no
+  per-row data leaves `evaluate`.
+- **Output:** aggregates only, plus a verdict preamble at the top of the
+  markdown report.
+
+### Zero-data LLM arm (`field/zero_data_llm.py`)
+
+- **The request** for each attempt contains:
+  - the stem the learner saw (capped at 6000 characters);
+  - the KC names (LO and facet titles);
+  - the last 25 graded interactions as (opaque `i<sha256[:10]>` reference,
+    KC names, correct / partial / incorrect).
+
+  It never contains answers, rationales, hint text or the outcome being
+  predicted.
+- **Preparation:** explicit, spend-capped and resumable.
+  - Each returned verdict, valid or not, appends to `judgment_ledger`.
+  - Receipts are recorded under `owner_kind = t8_zero_data_probability`.
+  - The cache is checkpointed outside the vault.
+- **Replay:** cache only. It fails closed on a missing checkpoint.
+- **Two arms:** `llm_zero_data` (raw) and `llm_zero_data:recalibrated`
+  (intercept MAP on past predictions only).
+
+### Content loader (`field/item_content.py`)
+
+- **Text** follows the outcome view's revision status (exact snapshot, or
+  explicitly reconstructed current content).
+- **Vectors** come from that exact text's `item/stem` content hash, as MRL
+  first-32 dimensions, L2-normalized.
+- **Ambiguous identities:** two attempts sharing (item, `observed_at`) with
+  different content are cleared, never guessed.
+- **Skeletons:** `item/skeleton` vectors are read only if PF-b registers that
+  recipe, and only for attempts that saw the current prompt.
+- **`seen_stem_records`** builds canonical `item/stem` records for every
+  scored attempt's seen text.
+
+### Command (`learnloop eval success-head`)
+
+- **Modes:**
+  - `--dry-run` plans with no calls or writes;
+  - `--backfill-seen-stems` and `--prepare-llm` are separate explicit paid
+    invocations;
+  - `--llm-cache` replays from the cache.
+- **Defaults:** bootstrap and seed match the pre-registration.
+- **Report files:** named `t8-success-head-<digest>.{json,md}` and
+  content-addressed.
+
+### Shared-code changes (additive)
+
+- **`field/evaluation.py`:**
+  - optional `covers()` abstention;
+  - the `item_position` split, which now appears in every harness report;
+  - the `analyses` hook and the `ReplayArrays` type;
+  - a `write_reports` preamble.
+- **`ops/embedding_backfill.py`:** `records=` takes explicit canonical
+  records, validated against the recipe content hash, and the report gains
+  `records_source`.
+- **`vault/embedding_recipes.py`:** `EmbeddingRecipe.content_hash`, the same
+  hunk as on `slice-a/phase-5b`.
+- **`pyproject.toml`:** `field.success_head` joins the purity contract.
+- **`tests/cli_help_snapshot.json`:** regenerated.
+
+## Deviations from the plan and the spec
+
+1. **The analysis lives in its own module.** `field.evaluation` lazily imports
+   `scheduling.fsrs`, so the pure arm module cannot import the harness under
+   the purity contract.
+2. **New paid step `--backfill-seen-stems`** (plus `records=` on the Phase 1
+   backfill).
+   - **The problem:** the `item/stem` recipe embeds only current, non-retired
+     prompts. On the tracked `linear_algebra` copy, 38 of 70 graded attempts
+     are on retired items, so the comparison would have covered a biased 57%
+     subset.
+   - **The fix:** the step embeds the exact text each scored attempt showed.
+   - **Safety:** retrieval consumers (Slice 1 retrieval, family proposals,
+     Phase 5b's practice index) read only current content hashes, so these
+     extra vectors never enter a live index.
+3. **Paid steps load the vault with its settings, as `embeddings backfill`
+   does.** Phase 2's offline `eval` loader skips `settings.env`, so the Codex
+   route had no checkout path and the first real call failed before sending
+   anything.
+   - Replay and dry runs stay environment-free.
+   - The loaded settings only add process keys and the Codex checkout path,
+     which are not in the cache's settings hash.
+4. **Pre-registration v2:** see "Revision v2" above. It was made before any
+   run on owner data.
+5. **The §11 "GP classifier (or Bayesian logistic)" is built as the Bayesian
+   logistic.** `success_head` shares `emb_ridge`'s MAP fit and differs only in
+   its moderated predictive variance.
+   - The "tag kernel" is the one-hot tag block.
+   - The "time-decay kernel" is the forgetting and recency features.
+   - The "difficulty prior" is the solver-panel block.
+6. **Feature notes:**
+   - Historical retrievability is never present in the outcome view, so it is
+     not a feature.
+   - Facets are about 1:1 with LOs, so only LO, capability and relation tags
+     are used.
+   - Hint-only zero-mass rows are scored but, like the incumbent, don't train
+     the heads.
+7. **Built while Phase 5a and 5b are in parallel:**
+   - The skeleton view and the solver-panel difficulty are wired to the names
+     the specs give (`item/skeleton`, `difficulty_source = "solver_panel"`).
+   - Neither exists on this base, so both are reported as unavailable now.
+
+## Fakes run on a fixtures-local copy (Done criterion)
+
+**Setup.**
+- **Copy:** a backup-API copy (`copy_tree_with_databases`) of this worktree's
+  tracked `fixtures/linear_algebra`, at `fixtures-local/t8-linear_algebra`.
+  - It was migrated with `doctor --fix-state`.
+  - Doctor exits 1 only for vault-layout issues, such as the untracked empty
+    `rubrics/` directory.
+- **Fakes:**
+  - a deterministic hash-seeded embedder, through `--backfill-seen-stems`;
+  - a fake Codex client that returns a smoothed history rate, through
+    `--prepare-llm`.
+- **Configuration:** set on the copy's TOML.
+- **Script:** scratch only, not committed.
+
+**Results.**
+
+| Step | Result |
+|---|---|
+| Data check (`--legacy-fallback current_content`) | 70 graded attempts, 53 ability-scored. Under `exclude`, all 70 are excluded: the tracked log has no exact snapshots |
+| Seen-stem dry run, then run | 37 explicit records; 2 batch calls estimated at $0.00012; 37 embedded |
+| Coverage | `stem_vector` went from 0 to 53 of 53 |
+| LLM dry run | 53 predictions; subscription billing, `estimated_only`; 319,325 planned tokens |
+| LLM preparation | 53 fake calls, 53 ledger rows |
+| Cache-only replay | Zero calls; the database file is byte-identical before and after |
+| Verdict | `insufficient_data` (53 common attempts < 100), coverage 1.0 |
+| `success_head+difficulty` | `unavailable` (no `solver_panel`) |
+
+- **Report:** `fixtures-local/reports/t8-fakes/t8-success-head-5551a02119de7430.{json,md}`.
+- **Leak check:** neither file contains an item id or any prompt text.
+- **Numbers carry no meaning:** the fake vectors are noise.
+
+**Do not reuse this copy for real runs.** It now holds fake vectors under the
+real model id and fake ledger rows. It was renamed
+`fixtures-local/t8-linear_algebra-FAKES` after the run.
+
+## Real paid calls and cost
+
+| Call | Route | Purpose | Usage and cost |
+|---|---|---|---|
+| 1 | Codex (`codex` profile, `gpt-5.6-sol`; subscription) | Interface check: one zero-data prediction on the fakes copy, after a dry run | Returned `p_success = 0.78`. Codex reported 16,385 tokens against a planned 3,424; cost `estimated_only`, $0 metered. One judgment row and receipts recorded |
+| — | Codex | Attempt before the loading fix (deviation 3) | Refused locally, "Codex checkout path is not configured"; no request sent. A `failed` root receipt was recorded |
+| — | OpenRouter | — | 0 calls; $0 |
+
+Codex's reported usage per prediction is about 5× the planned estimate,
+because the Codex agent adds its own prompt. On the subscription this only
+affects the `estimated_only` figures.
+
+## Owner-run commands (on a backup-API copy; never on the working vaults)
+
+From the main checkout, after merge.
+
+**1. Copy and migrate the copy.** Doctor may exit 1 for vault-layout issues.
+
+```fish
+uv run python -c "from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases; copy_tree_with_databases(Path('fixtures/linear_algebra'), Path('fixtures-local/t8-la'))"
+uv run learnloop doctor --fix-state --vault fixtures-local/t8-la
+```
+
+**2. Edit the copy's `learnloop.toml`.** The working vaults predate Phase 1, so
+add:
+- **For embeddings:**
+  - `routing.embedding = "openrouter_embedding"` under `[ai.routing]`;
+  - an `[ai.providers.openrouter_embedding]` profile (type `openai_embedding`,
+    `base_url = "https://openrouter.ai/api/v1"`,
+    `api_key_env = "OPENROUTER_API_KEY"`);
+  - `[embedding]` with `enabled = true` and `backfill_enabled = true`.
+- **For the LLM arm:**
+  - `[field]` with `enabled = true` and `llm_probability_enabled = true`;
+  - `field_llm_probability = "codex"` under `[ai.routing]`.
+
+**3. Plan.** Decide the revision policy before running. On the tracked log,
+`exclude` leaves no rows (see open question 1).
+
+```fish
+uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --dry-run
+```
+
+**4. Embed the stems the attempts showed.** Dry run first, then raise the caps
+to the planned counts.
+
+```fish
+uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --backfill-seen-stems --dry-run
+uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --backfill-seen-stems --max-candidates <records> --max-calls <batches>
+```
+
+**5. Optional: the zero-data LLM arm.** One Codex call per scored attempt, on
+the subscription. Dry run first.
+
+```fish
+uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --llm-cache fixtures-local/t8-llm-cache --prepare-llm --dry-run --max-candidates <n> --max-calls <n>
+uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --llm-cache fixtures-local/t8-llm-cache --prepare-llm --max-candidates <n> --max-calls <n>
+```
+
+**6. The report.** Replay makes zero calls. Leave out `--llm-cache` to skip the
+LLM arms.
+
+```fish
+uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --llm-cache fixtures-local/t8-llm-cache
+```
+
+**Reading the report.** The markdown starts with the pre-registered verdict:
+- `kill` means the GP success head is not pursued;
+- `embeddings_add_value` opens the gated heads;
+- `insufficient_data` means rerun once there are at least 100 scored
+  attempts.
+
+The verdict also feeds condition 3 of the learned-router trigger
+(`spec_action_router_v1.md` §13).
+
+## Migrations
+
+None. Vectors, judgments and receipts use the existing tables, so the DB
+reference scripts were not needed.
+
+## Files touched
+
+- `docs/reviews/slice-2-t8.md`
+- `pyproject.toml`
+- `src/learnloop/cli/evaluation.py`
+- `src/learnloop/cli/success_head.py` (new)
+- `src/learnloop/field/evaluation.py`
+- `src/learnloop/field/item_content.py` (new)
+- `src/learnloop/field/success_head.py` (new)
+- `src/learnloop/field/success_head_analysis.py` (new)
+- `src/learnloop/field/zero_data_llm.py` (new)
+- `src/learnloop/ops/embedding_backfill.py`
+- `src/learnloop/vault/embedding_recipes.py`
+- `tests/cli_help_snapshot.json`
+- `tests/test_success_head.py` (new)
+- `tests/test_success_head_cli.py` (new)
+- `tests/test_zero_data_llm.py` (new)
+
+## Gate
+
+All run in this worktree at the final code commit.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` (+ `uv pip install pypdfium2`) | ok |
+| `uv run lint-imports --no-cache` | 10 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7118 passed**, 0 failed (209 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **66 passed**, 7052 deselected |
+| T8 tests (`test_success_head.py`, `test_zero_data_llm.py`, `test_success_head_cli.py`) | 18 + 14 + 10 = 42 passed |
+
+- **Frontend:** unchanged, so no `npm` checks were needed.
+- **Schema:** unchanged, so the DB reference scripts were not needed.
+- **CLI help snapshot:** regenerated for the new subcommand.
+
+## Open questions
+
+1. **Revision policy for the owner's run.**
+   - Under the default `exclude`, the tracked `linear_algebra` log has no
+     exact rows: all 70 are excluded.
+   - The recommendation is `--legacy-fallback current_content`, the labelled
+     reconstruction, decided before the run.
+   - The owner's live log may hold more exact rows. Rows written after
+     snapshots existed are exact.
+2. **Merge with R0.**
+   - `llm_zero_data` is R0's V2 on the `llm` model, minus the difficulty
+     prior. Keep one and alias the other.
+   - Fold T8's preparation loop into R0's variant machinery if R0 generalizes
+     `offline_llm.py`.
+3. **Phase 2's `eval --prepare-llm` and `field classify-questions`** still load
+   without the settings environment. A Codex route therefore fails there
+   unless the shell exports `LEARNLOOP_CODEX_CHECKOUT_PATH`. Apply T8's
+   paid-step loading to them at integration?
+4. **Codex usage estimates.** The planned per-prediction tokens understate
+   Codex's reported usage about 5×. This is harmless on the subscription. Use
+   generous `--max-tokens` if a metered route is ever used.
+5. **Verify at the PF-b / Phase 5a merge:**
+   - The `item/skeleton` recipe's `records(loaded)` yields current skeletons
+     keyed by item id.
+   - Solver-panel items carry exactly `difficulty_source = "solver_panel"`,
+     with `b` on the ability scale.
+
+   Both are wired by name here and untested against the real producers.
+6. **Minimum data.** The rule fixes 100 common attempts as the decision
+   threshold. The tracked fixture has 53. If the live vault is below 100, the
+   honest answer is `insufficient_data`.
