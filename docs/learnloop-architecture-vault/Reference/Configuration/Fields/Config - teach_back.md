@@ -3,8 +3,8 @@ title: "Config - teach_back"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
-source_commit_timestamp: "2026-10-12T00:38:18-04:00"
+source_commit: "f0612d25dbad96abafc1e14b650198c9c27aa87b"
+source_commit_timestamp: "2026-10-12T01:20:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml teach_back"
@@ -45,9 +45,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `teach_back.max_followups` | `4` | integer | modeled default or validator seed | Caps followups allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:617`; `src/learnloop/tutor/teach_back.py:323`; `src/learnloop_sidecar/handlers/teach_back.py:176` |
-| `teach_back.transfer_evidence_multiplier` | `0.5` | number | modeled default or validator seed | Scales the contribution of transfer evidence in teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:618`; `src/learnloop/attempts/attempts.py:2425` |
-| `teach_back.session_cap` | `1` | integer | modeled default or validator seed | Caps session allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:619`; `src/learnloop/scheduling/scheduler.py:501` |
+| `teach_back.max_followups` | `4` | integer | modeled default or validator seed | Caps followups allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:622`; `src/learnloop/tutor/teach_back.py:323`; `src/learnloop_sidecar/handlers/teach_back.py:176` |
+| `teach_back.transfer_evidence_multiplier` | `0.5` | number | modeled default or validator seed | Scales the contribution of transfer evidence in teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:623`; `src/learnloop/attempts/attempts.py:2425` |
+| `teach_back.session_cap` | `1` | integer | modeled default or validator seed | Caps session allowed by teach-back dialogue and evidence limits. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:624`; `src/learnloop/scheduling/scheduler.py:501` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

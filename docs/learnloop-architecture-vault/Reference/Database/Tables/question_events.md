@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
-source_commit_timestamp: "2026-10-12T00:38:18-04:00"
+source_commit: "f0612d25dbad96abafc1e14b650198c9c27aa87b"
+source_commit_timestamp: "2026-10-12T01:20:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -149,6 +149,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_coldness_receipt.py`
+- `tests/test_field_signal_production_paths.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_migrations.py`
 - `tests/test_question_promotions.py`
@@ -156,6 +157,7 @@ Indexes and uniqueness:
 - `tests/test_reader_dialogue.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_tutor_qa.py`
+- `tests/test_family_memory_projection.py`
 - `tests/test_question_context.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_question_queue.py`
