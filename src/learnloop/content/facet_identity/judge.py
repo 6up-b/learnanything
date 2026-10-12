@@ -142,6 +142,9 @@ class Member:
     existing: bool
     view: Mapping[str, Any]
     payload: Mapping[str, Any] = field(default_factory=dict, compare=False, repr=False)
+    #: Other ledger subjects that are this facet: a candidate whose content is
+    #: a registered facet's (so the owner's verdicts on that facet bind it).
+    also: tuple[tuple[str, str], ...] = field(default=(), compare=False)
 
 
 @dataclass(frozen=True)
@@ -237,6 +240,7 @@ def build_request(members: Sequence[Member], *, mode: str) -> GroupRequest:
         labelled.append(Member(
             label=f"{prefix}{counters[prefix]}", key=member.key, subject_kind=member.subject_kind,
             subject_id=member.subject_id, existing=member.existing, view=dict(member.view), payload=member.payload,
+            also=tuple(member.also),
         ))
     facets = [
         {"label": member.label, **({"status": "existing" if member.existing else "new"} if mode == "attach" else {}),
@@ -400,6 +404,61 @@ def append_partition_judgments(
         )
         out[tuple(sorted((first.key, second.key)))] = judgment_id  # type: ignore[index]
     return out
+
+
+# --- the owner's verdicts --------------------------------------------------------
+
+
+def owner_vetoes(connection: Any, request: GroupRequest) -> set[frozenset[str]]:
+    """Member-key pairs of ``request`` the owner currently says are ``different``.
+
+    The owner's verdicts are ``judge='owner'`` rows (an undo writes one per
+    pair of the undone set, review F3). The latest owner row of a question is
+    current; a pair whose current owner verdict is ``different`` is never
+    merged again, whatever a judge says.
+    """
+
+    keys_of: dict[tuple[str, str], set[str]] = {}
+    for member in request.members:
+        for subject in ((member.subject_kind, member.subject_id), *member.also):
+            keys_of.setdefault((str(subject[0]), str(subject[1])), set()).add(member.key)
+    rows = connection.execute(
+        "SELECT left_kind, left_id, right_kind, right_id, verdict FROM judgment_ledger "
+        "WHERE task = ? AND judge = 'owner' ORDER BY created_at, id",
+        (TASK,),
+    ).fetchall()
+    current: dict[frozenset[str], str] = {}
+    for row in rows:
+        for left in keys_of.get((str(row[0]), str(row[1])), ()):
+            for right in keys_of.get((str(row[2]), str(row[3])), ()):
+                if left != right:
+                    current[frozenset((left, right))] = str(row[4])
+    return {pair for pair, verdict in current.items() if verdict == "different"}
+
+
+def apply_owner_vetoes(
+    request: GroupRequest, sets: Sequence[DecidedSet], vetoes: set[frozenset[str]],
+) -> tuple[list[DecidedSet], list[str]]:
+    """Drop from each set every member the owner said differs from a kept one."""
+
+    if not vetoes:
+        return list(sets), []
+    out: list[DecidedSet] = []
+    notes: list[str] = []
+    for decided in sets:
+        kept = [decided.survivor]
+        for key in decided.retired:
+            vetoed = [other for other in kept if frozenset((key, other)) in vetoes]
+            if vetoed:
+                member = request.by_key(key)
+                notes.append(f"owner verdict: {member.label if member else key} stays apart from "
+                             + ", ".join((request.by_key(o).label if request.by_key(o) else o) for o in vetoed))
+                continue
+            kept.append(key)
+        if len(kept) > 1:
+            out.append(DecidedSet(action=decided.action, survivor=decided.survivor, retired=kept[1:],
+                                  absorb_as=decided.absorb_as, rationale=decided.rationale))
+    return out, notes
 
 
 # --- spend ------------------------------------------------------------------
@@ -641,8 +700,10 @@ class LLMGroupJudge:
                     connection, request, sets, judge=self.judge, judge_model=model,
                     prompt_version=self.prompt_version,
                 )
+            # The ledger keeps the judge's verdict; the owner's verdicts decide.
+            sets, vetoed = apply_owner_vetoes(request, sets, owner_vetoes(connection, request))
         return GroupOutcome(request, status, sets=sets, judge=self.judge, judge_model=model,
-                            prompt_version=self.prompt_version, judgment_ids=ids, notes=notes)
+                            prompt_version=self.prompt_version, judgment_ids=ids, notes=[*notes, *vetoed])
 
     def charged(self) -> dict[str, Any]:
         return asdict(self.budget.used)
@@ -825,12 +886,14 @@ class DeciderGroupJudge:
                 return float(probs.get(choice)) if choice in probs else None
 
             with self.repository.atomic():
+                connection = self.repository.connection()
                 ids = append_partition_judgments(
-                    self.repository.connection(), request, sets, judge=self.judge, judge_model=model,
+                    connection, request, sets, judge=self.judge, judge_model=model,
                     prompt_version=self.prompt_version, pair_detail=detail, pair_score=score,
                 )
+                sets, vetoed = apply_owner_vetoes(request, sets, owner_vetoes(connection, request))
             outcomes.append(GroupOutcome(request, "judged", sets=sets, judge=self.judge, judge_model=model,
-                                         prompt_version=self.prompt_version, judgment_ids=ids))
+                                         prompt_version=self.prompt_version, judgment_ids=ids, notes=vetoed))
         return outcomes
 
     def charged(self) -> dict[str, Any]:
@@ -968,11 +1031,13 @@ __all__ = [
     "ROUTE",
     "TASK",
     "append_partition_judgments",
+    "apply_owner_vetoes",
     "build_judge",
     "build_request",
     "caps_from_config",
     "choice_question",
     "partition_from_pairs",
+    "owner_vetoes",
     "plan_estimate",
     "pricing_for",
     "resolve_route",

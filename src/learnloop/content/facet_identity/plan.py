@@ -219,10 +219,18 @@ def build_plan(
     )
     plan.grouping = grouping.summary()
 
+    # A candidate whose content is a registered facet's is that facet for the
+    # owner's verdicts (an undone merge stays undone on a resynthesis).
+    registered_by_content: dict[str, list[str]] = {}
+    for facet_id, facet in vault.evidence_facets.items():
+        registered_by_content.setdefault(candidate_subject_id(facet.model_dump(mode="json")), []).append(facet_id)
+
     def member(client: str, payload: Mapping[str, Any], concept: str | None) -> Member:
+        content = candidate_subject_id(payload_by_client.get(client, payload))
         return Member(label="", key=client, subject_kind=CANDIDATE_KIND, subject_id=subject_ids[client],
                       existing=False, view=judge_view(payload, concept_title=titles.get(concept or "")),
-                      payload=payload)
+                      payload=payload,
+                      also=tuple((FACET_KIND, facet_id) for facet_id in sorted(registered_by_content.get(content, []))))
 
     concept_of = {client: concept for client, _payload, concept in candidates}
     in_run_requests = [

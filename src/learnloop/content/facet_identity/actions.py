@@ -543,9 +543,61 @@ def undo_action(root: Path, repository: Repository, action_id: str, *, clock: Cl
 
 
 def _record_undo_intent(connection: Any, record: Mapping[str, Any], *, clock: Clock | None = None) -> None:
-    """The write-ahead undo intent: the row becomes ``undoing``."""
+    """The write-ahead undo intent: the owner's verdicts, and the row becomes ``undoing``."""
 
-    store.set_status(connection, str(record["id"]), "undoing", undo_detail={"requested_at": utc_now_iso(clock)})
+    now = utc_now_iso(clock)
+    owner_ids = append_owner_verdicts(connection, record, created_at=now)
+    store.set_status(connection, str(record["id"]), "undoing",
+                     undo_detail={"requested_at": now, "owner_judgment_ids": owner_ids})
+
+
+def append_owner_verdicts(connection: Any, record: Mapping[str, Any], *, created_at: str) -> list[str]:
+    """An undo is the owner's verdict (§0 rule 6): ``different`` for every pair of the set.
+
+    Each judge row that put a pair of this action in one set is superseded by
+    an owner row on the same question (``supersedes_id``). The set's facets
+    also get owner rows keyed by facet id (the ids they carry in the vault
+    after the undo), unless a superseding row already is one, so a later
+    dedupe or attach never merges them again (``judge.owner_vetoes``).
+    """
+
+    from learnloop.ai.execution import content_key
+    from learnloop.content.facet_identity.judge import TASK
+    from learnloop.db.stores.judgments import append_judgment
+
+    survivor, retired, _before, _order, _after = _record_parts(record)
+    action_id = str(record["id"])
+    rationale = json.dumps({"origin": "undo", "action_id": action_id, "facets": [survivor, *retired]},
+                           sort_keys=True)
+    ids: list[str] = []
+    covered: set[frozenset[str]] = set()
+    judgment_ids = [str(value) for value in record.get("judgment_ids") or []]
+    rows = connection.execute(
+        f"SELECT * FROM judgment_ledger WHERE id IN ({','.join('?' for _ in judgment_ids)})", judgment_ids,
+    ).fetchall() if judgment_ids else []
+    for row in rows:
+        if str(row["verdict"]) != "same" or str(row["judge"]) == "owner":
+            continue
+        ids.append(append_judgment(
+            connection, task=TASK, left_kind=str(row["left_kind"]), left_id=str(row["left_id"]),
+            right_kind=row["right_kind"], right_id=row["right_id"], judge="owner",
+            input_hash=str(row["input_hash"]), verdict="different", rationale=rationale,
+            supersedes_id=str(row["id"]), created_at=created_at,
+        ))
+        if row["left_kind"] == "facet" and row["right_kind"] == "facet":
+            covered.add(frozenset((str(row["left_id"]), str(row["right_id"]))))
+    members = [survivor, *retired]
+    for index, first in enumerate(members):
+        for second in members[index + 1:]:
+            if frozenset((first, second)) in covered:
+                continue
+            left, right = sorted((first, second))
+            ids.append(append_judgment(
+                connection, task=TASK, left_kind="facet", left_id=left, right_kind="facet", right_id=right,
+                judge="owner", input_hash=content_key({"owner_undo": action_id, "pair": [left, right]}),
+                verdict="different", rationale=rationale, created_at=created_at,
+            ))
+    return ids
 
 
 def _finish_undo(
@@ -565,13 +617,16 @@ def _finish_undo(
     vault_after = load_vault(root)
     affected = sorted(set(affected) | set(affected_learning_objects(vault_after, (survivor, *retired))))
     refresh_derived_state(root, repository, affected, clock=clock)
-    detail = {"merge_rows_deleted": deleted, "restored_facet_ids": retired, "not_restored": UNDO_LIMITS}
+    current = action_by_id(repository, str(record["id"])) or {}
+    detail = {**dict(current.get("undo_detail") or {}), "merge_rows_deleted": deleted,
+              "restored_facet_ids": retired, "not_restored": UNDO_LIMITS}
     with repository.atomic():
         store.set_status(repository.connection(), str(record["id"]), "undone", undone_at=utc_now_iso(clock),
                          undo_detail=detail)
     return {
         "survivor_facet_id": survivor, "restored_facet_ids": retired, "merge_rows_deleted": deleted,
         "affected_learning_objects": affected, "not_restored": UNDO_LIMITS,
+        "owner_judgment_ids": list(detail.get("owner_judgment_ids") or []),
     }
 
 
@@ -642,6 +697,7 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
 
 __all__ = [
     "FacetIdentityActionError",
+    "append_owner_verdicts",
     "action_by_id",
     "affected_learning_objects",
     "describe",

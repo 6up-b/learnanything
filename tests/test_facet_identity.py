@@ -326,9 +326,13 @@ def test_the_decider_asks_one_choice_question_per_pair():
             return nullcontext()
 
         def connection(self):
+            class _Rows:
+                def fetchall(self):
+                    return []
+
             class _Connection:
                 def execute(self, *args, **kwargs):
-                    return None
+                    return _Rows()
             return _Connection()
 
     judge = DeciderGroupJudge(client=decider, model=decider.model, caps=SpendCaps(),
@@ -432,3 +436,84 @@ def test_the_plan_is_off_with_the_kill_switch(tmp_path):
     candidate = SourceSetSynthesis(facets=[SynthFacet(client_item_id="a", claim="x"), SynthFacet(client_item_id="b", claim="x")])
     assert build_plan(candidate, vault=load_vault(root), repository=repository, run_id="r", judge_client=judge) is None
     assert judge.requests == []
+
+
+# --- review F3: an undo is the owner's verdict, and it sticks ----------------------------
+
+
+def test_an_undone_merge_is_an_owner_verdict_and_dedupe_never_reapplies_it(vault_repo):
+    root, repository, data = vault_repo
+    report = run_dedupe(root, client=_study_judge(data), clock=_CLOCK)
+    assert report["status"] == "complete"
+    first = list_actions(repository)[-1]
+    survivor, retired = first["survivor_facet_id"], first["retired_facet_ids"]
+    undone = undo_action(root, repository, first["id"], clock=_CLOCK)
+    assert undone["owner_judgment_ids"]
+
+    rows = _ledger(repository.sqlite_path)
+    owner = [row for row in rows if row["judge"] == "owner"]
+    members = {survivor, *retired}
+    pairs = {frozenset((row["left_id"], row["right_id"])) for row in owner}
+    assert pairs == {frozenset((a, b)) for a in members for b in members if a < b}
+    assert {row["verdict"] for row in owner} == {"different"}
+    superseded = {row["supersedes_id"] for row in owner}
+    llm_same = {row["id"] for row in rows if row["judge"] == "llm" and row["verdict"] == "same"
+                and frozenset((row["left_id"], row["right_id"])) in pairs}
+    assert llm_same and llm_same <= superseded
+
+    # A second pass (open question 2) with the same judge: the undone set stays apart.
+    judge = _study_judge(data)
+    again = run_dedupe(root, client=judge, clock=_CLOCK)
+    assert again["status"] == "complete"
+    vault = load_vault(root)
+    for facet_id in retired:
+        assert vault.canonical_facet_id(facet_id) == facet_id, "undone merge was re-applied"
+    notes = [note for group in again["judged_groups"] for note in group["notes"]]
+    assert any(note.startswith("owner verdict:") for note in notes)
+
+
+def test_an_undone_in_run_merge_stays_apart_when_the_run_is_planned_again(tmp_path):
+    from learnloop.content.synthesis.ai_contracts import SourceSetSynthesis
+    from learnloop.content.synthesis.source_set_synthesis import create_study_map
+
+    from tests.test_facet_identity_ingest import DEF_CLAIM, DUP_CLAIM, DUP_ID, _with_duplicate
+    from tests.test_source_set_synthesis import FakeSynthesisClient, _setup
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]])
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate), repository=repo,
+                              clock=_CLOCK, apply=True, facet_identity_client=judge)
+    (action,) = result.facet_identity["actions"]
+    undo_action(root, repo, action["id"], clock=_CLOCK)
+    owner = [row for row in _ledger(repo.sqlite_path) if row["judge"] == "owner"]
+    assert {(row["left_kind"], row["verdict"]) for row in owner} == {("facet_candidate", "different"),
+                                                                    ("facet", "different")}
+    assert any(row["supersedes_id"] for row in owner if row["left_kind"] == "facet_candidate")
+    assert any({row["left_id"], row["right_id"]} == {"facet_symmetry_definition", DUP_ID}
+               for row in owner if row["left_kind"] == "facet")
+
+    # The same candidates planned again (a resynthesis, or a revalidation of
+    # its candidate): the judge still says "same", the owner's verdict decides.
+    candidate = SourceSetSynthesis.model_validate(repo.synthesis_run(result.synthesis_run_id)["candidate_output"])
+    plan = build_plan(candidate, vault=load_vault(root), repository=repo, run_id="again", judge_client=judge)
+    assert plan is not None
+    retired_where = {key: (r.scope, r.survivor_client or r.survivor_facet) for key, r in plan.retirements.items()}
+    dup_client = next(key for key in candidate_keys(candidate) if key.endswith("f_def_dup"))
+    def_client = next(key for key in candidate_keys(candidate) if key.endswith("f_def"))
+    # The restatement never rejoins the definition, as a candidate or as a vault facet...
+    assert retired_where.get(dup_client) is None, retired_where
+    # ...while the definition's own candidate is the registered definition it was minted as.
+    assert retired_where.get(def_client) == ("attach", "facet_symmetry_definition")
+    notes = [note for group in plan.groups for note in group["notes"]]
+    assert any(note.startswith("owner verdict:") for note in notes)
+
+    # Alone with the registered definition, the restatement's candidate is
+    # still bound by the owner's verdict on the vault facet it restates.
+    alone = SourceSetSynthesis.model_validate({**candidate.model_dump(mode="json"), "facets": [
+        facet.model_dump(mode="json") for facet in candidate.facets if facet.client_item_id.endswith("f_def_dup")]})
+    plan = build_plan(alone, vault=load_vault(root), repository=repo, run_id="alone", judge_client=judge)
+    assert plan is not None and plan.retirements == {}, plan.retirements
+
+
+def candidate_keys(candidate):
+    return [str(facet.client_item_id) for facet in candidate.facets]
