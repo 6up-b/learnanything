@@ -480,6 +480,8 @@ def grade_items(
     missing = [item["key"] for item in items if item["key"] not in grades]
     if missing:
         raise GenerationError(f"grader returned no grade for {', '.join(missing)}")
+    if len(grades) != len(result.grades):
+        raise GenerationError("grader returned more than one grade for an item")
     return grades
 
 
@@ -666,9 +668,22 @@ def _closed_book(
             "stage": "closed_book",
         },
     )
+    # Every question needs exactly one answer: an invented empty answer would
+    # be graded incorrect and let a generic question survive unchecked (F8).
+    returned = [answer.id for answer in result.answers]
+    missing = sorted(set(keys) - set(returned))
+    duplicated = sorted({key for key in returned if returned.count(key) > 1})
+    unknown = sorted(set(returned) - set(keys))
+    if missing or duplicated or unknown:
+        problems = [
+            f"{label} {', '.join(values)}"
+            for label, values in (("missing", missing), ("duplicated", duplicated), ("unknown", unknown))
+            if values
+        ]
+        raise GenerationError(f"closed-book answers incomplete ({'; '.join(problems)}); the stage stays pending")
     answers = {answer.id: answer.answer for answer in result.answers}
     store.record_closed_book_answers(
-        {probe["id"]: answers.get(key, "") for key, probe in keys.items()},
+        {probe["id"]: answers[key] for key, probe in keys.items()},
         model=route.model or route.provider_name,
     )
 

@@ -384,3 +384,32 @@ def test_the_reason_check_is_persisted_in_the_verifier_judgment(captured):
     uncited = verdicts[probes["Q-why-uncited"]["id"]]
     assert uncited["rationale_check"]["citations"][0]["states_reason"] is False
     assert verdicts[probes["Q-what"]["id"]]["rationale_check"] is None  # only why candidates need a reason
+
+
+@pytest.mark.parametrize("shape", ["empty", "missing_one", "duplicate", "unknown"])
+def test_incomplete_closed_book_answers_never_pass_the_filter(captured, shape):
+    from learnloop.projects.ai_contracts import ClosedBookAnswer, ClosedBookAnswers
+
+    vault, config, store, diff = captured
+
+    class Incomplete(ProjectFake):
+        def run_project_closed_book_check(self, context):
+            answers = super().run_project_closed_book_check(context).answers
+            if shape == "empty":
+                answers = []
+            elif shape == "missing_one":
+                answers = answers[1:]
+            elif shape == "duplicate":
+                answers = answers + [answers[0]]
+            else:
+                answers = answers[:-1] + [ClosedBookAnswer(id="q99", answer="x")]
+            return ClosedBookAnswers(answers=answers)
+
+    fake = Incomplete()
+    report = _generate(vault, config, store, fake)
+    assert report.status == "partial"
+    statuses = {probe["status"] for probe in store.probes_for_diff(diff["id"])}
+    assert statuses == {"invalid", "pending_closed_book"}  # nothing advanced to grading
+    assert "grading" not in fake.calls
+    assert store.diff(diff["id"])["probe_status"] == "pending"
+    assert "closed-book" in store.diff(diff["id"])["generation_error"]
