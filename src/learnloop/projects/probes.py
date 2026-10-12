@@ -30,11 +30,11 @@ import hashlib
 import json
 import random
 import re
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable, AITurnTimeout
@@ -301,15 +301,58 @@ def _comment_text(lines: list[str], *, diff: bool = False) -> str:
     return "\n".join(part for part in parts if part.strip())
 
 
-def _prose(quote: str, source: str, span_lines: list[str] = ()) -> str:
-    """The natural-language part of a cited span: a commit message, or code comments.
+# Documents written in prose (ADRs, design notes, READMEs): P4 lets their text
+# state a reason. Code inside them (a fenced block) is still code.
+_PROSE_SUFFIXES = frozenset({".md", ".markdown", ".mdx", ".rst", ".txt", ".adoc", ".asciidoc", ".org"})
+_PROSE_NAMES = frozenset({"readme", "changelog", "changes", "news", "history", "notes", "decisions"})
+_FENCE = re.compile(r"^\s{0,3}(?:```|~~~)")
 
+
+def is_prose_document(path: str) -> bool:
+    name = PurePosixPath(path or "").name
+    suffix = PurePosixPath(name).suffix.lower()
+    return suffix in _PROSE_SUFFIXES or (not suffix and name.lower() in _PROSE_NAMES)
+
+
+def _unmarked(lines: Iterable[str], *, diff: bool) -> list[str]:
+    return [line[1:] if diff and line[:1] in {"+", "-", " "} else line for line in lines]
+
+
+def _document_prose(quote: str, *, diff: bool, preceding: list[str]) -> str:
+    """A prose document's cited text, or "" when it sits in a fenced code block.
+
+    ``preceding`` holds the lines visible before the span (the stored excerpt,
+    or the hunk), so a fence opened there and not closed makes the span code.
+    """
+
+    lines = _unmarked(quote.splitlines(), diff=diff)
+    if any(_FENCE.match(line) for line in lines):
+        return ""
+    if sum(1 for line in _unmarked(preceding, diff=diff) if _FENCE.match(line)) % 2:
+        return ""
+    return "\n".join(lines)
+
+
+def _prose(
+    quote: str,
+    source: str,
+    span_lines: list[str] = (),
+    *,
+    path: str = "",
+    preceding: list[str] = (),
+) -> str:
+    """The natural-language part of a cited span.
+
+    A commit message, the text of a prose document (by its path: an ADR, a
+    design note, a README; not a fenced code block in it), or code comments.
     A quote may omit the comment marker, so the cited source lines decide: the
     quote counts as prose when each of its lines lies inside their comments.
     """
 
     if source == "commit_message":
         return quote
+    if is_prose_document(path):
+        return _document_prose(quote, diff=source == "diff", preceding=list(preceding))
     direct = _comment_text(quote.splitlines(), diff=source == "diff")
     if direct:
         return direct
@@ -333,17 +376,26 @@ def _terms(text: str) -> set[str]:
     return terms
 
 
-def stated_reason(quote: str, source: str, reference_answer: str, *, span_lines: list[str] = ()) -> dict[str, Any]:
+def stated_reason(
+    quote: str,
+    source: str,
+    reference_answer: str,
+    *,
+    span_lines: list[str] = (),
+    path: str = "",
+    preceding: list[str] = (),
+) -> dict[str, Any]:
     """Whether a cited span itself states the reason a ``why`` reference gives.
 
     Deterministic and conservative (P4: an unsupported reason is never a key):
-    the span must be prose (a commit message or a code comment, not code),
+    the span must be prose (a commit message, a prose document such as an ADR,
+    or a code comment; not code),
     carry a reason cue ("because", "so", "to", "avoid", ...), and share at
     least two content terms, and a quarter of them, with the reference
     answer. The generator's ``rationale`` flag is not trusted.
     """
 
-    prose = _prose(quote, source, span_lines)
+    prose = _prose(quote, source, span_lines, path=path, preceding=preceding)
     if not prose.strip():
         return {"states_reason": False, "why": "the cited span is code, not a stated reason"}
     cues = sorted(set(_WORD.findall(prose.lower())) & _REASON_CUES)
@@ -380,6 +432,7 @@ def validate_candidate(
         if "[REDACTED" in quote:
             return Validity("quote_mismatch", "quotes a redacted line")
         span_lines: list[str] = []
+        preceding: list[str] = []
         if citation.source == "commit_message":
             if quote not in bundle["commit_message"]:
                 return Validity("quote_mismatch", "commit message quote not found")
@@ -391,7 +444,12 @@ def validate_candidate(
             if quote not in entry["diff"]:
                 return Validity("quote_mismatch", f"diff quote not found in {citation.path}")
             first = quote.splitlines()[0]
-            span_lines = [line for line in entry["diff"].splitlines() if first in line]
+            diff_lines = entry["diff"].splitlines()
+            span_lines = [line for line in diff_lines if first in line]
+            at = next(index for index, line in enumerate(diff_lines) if first in line)
+            hunk = max((index for index in range(at) if diff_lines[index].startswith("@@")), default=-1)
+            # The new side of the hunk before the span (fences in a prose document).
+            preceding = [line for line in diff_lines[hunk + 1 : at] if line[:1] in {"+", " "}]
             source = "agent_stated"
         else:
             entry = files.get(citation.path)
@@ -415,11 +473,13 @@ def validate_candidate(
             changed = added_lines(entry["diff"])
             source = "agent_stated" if any(line in changed for line in range(start, end + 1)) else "cited"
             span_lines = cited.splitlines()
+            preceding = excerpt["lines"][: start - excerpt["start_line"]]
         if candidate.kind == "why":
             # Every citation is checked; the model's ``rationale`` flag only
             # says which one it meant, it proves nothing (P4).
             check = {"citation": len(checks), "flagged": citation.rationale,
-                     **stated_reason(quote, citation.source, candidate.reference_answer, span_lines=span_lines)}
+                     **stated_reason(quote, citation.source, candidate.reference_answer, span_lines=span_lines,
+                                     path=citation.path, preceding=preceding)}
             checks.append(check)
             if check["states_reason"]:
                 rationale_sources.append(source)

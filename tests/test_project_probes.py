@@ -33,6 +33,7 @@ from learnloop.projects.probes import (
 )
 from tests.project_support import (
     ProjectFake,
+    TempRepo,
     clock_at,
     fake_resolver,
     isolated_git,  # noqa: F401
@@ -384,6 +385,71 @@ def test_the_reason_check_is_persisted_in_the_verifier_judgment(captured):
     uncited = verdicts[probes["Q-why-uncited"]["id"]]
     assert uncited["rationale_check"]["citations"][0]["states_reason"] is False
     assert verdicts[probes["Q-what"]["id"]]["rationale_check"] is None  # only why candidates need a reason
+
+
+ADR = """# ADR 7: Cache compiled templates
+
+## Context
+
+Every page render parses its template.
+
+## Decision
+
+We cache compiled templates because parsing templates on every request increases latency.
+
+```python
+cache_templates(because="parsing templates on every request increases latency")
+```
+"""
+ADR_REASON = "We cache compiled templates because parsing templates on every request increases latency."
+
+
+@pytest.fixture
+def adr_bundle(isolated_git, tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    repo = TempRepo(tmp_path / "repo")
+    repo.write("README.md", "Templates.\n")
+    repo.commit("Initial", trailer=None)
+    repo.write("docs/adr/0007-template-cache.md", ADR)
+    repo.commit("Record the template cache decision")
+    config = LearnLoopConfig()
+    enroll_repo(vault, config, repo.path, clock=clock_at(0))
+    sweep(vault, config, clock=clock_at(0))
+    (diff,) = ProjectStore.for_vault(vault).diffs()
+    return load_bundle(vault, diff["bundle_hash"])
+
+
+def _adr_line(bundle, text):
+    entry = next(entry for entry in bundle["files"] if entry["path"].endswith(".md"))
+    excerpt = entry["excerpts"][0]
+    number = excerpt["start_line"] + excerpt["lines"].index(text)
+    return ProbeCitation(source="file", path=entry["path"], line_start=number, line_end=number, quote=text)
+
+
+def test_a_plain_markdown_adr_paragraph_states_its_reason(adr_bundle):
+    # P4 allows an ADR as a rationale span: prose in a prose document is not code.
+    cited = _adr_line(adr_bundle, ADR_REASON)
+    result = _why(adr_bundle, cited, ADR_REASON)
+    assert result.status == "valid" and result.rationale_label == "agent_stated", result.detail
+    in_diff = ProbeCitation(source="diff", path=cited.path, quote=ADR_REASON)
+    assert _why(adr_bundle, in_diff, "Parsing templates on every request increases latency.").status == "valid"
+
+
+def test_adr_prose_must_still_state_the_proposed_reason(adr_bundle):
+    context = _adr_line(adr_bundle, "Every page render parses its template.")
+    assert "states no reason" in _why(adr_bundle, context, ADR_REASON).detail
+    other = _why(adr_bundle, _adr_line(adr_bundle, ADR_REASON), "To keep memory use under the container limit.")
+    assert other.status == "why_uncited" and "does not state this reason" in other.detail
+    wrong_line = _adr_line(adr_bundle, ADR_REASON).model_copy(update={"line_start": 1, "line_end": 1})
+    assert _why(adr_bundle, wrong_line, ADR_REASON).status == "quote_mismatch"  # the citation is still verified
+
+
+def test_a_fenced_code_block_in_an_adr_is_still_code(adr_bundle):
+    code = 'cache_templates(because="parsing templates on every request increases latency")'
+    for citation in (_adr_line(adr_bundle, code), ProbeCitation(source="diff", path=_adr_line(adr_bundle, code).path, quote=code)):
+        result = _why(adr_bundle, citation, ADR_REASON)
+        assert result.status == "why_uncited" and "code" in result.detail
 
 
 @pytest.mark.parametrize("shape", ["empty", "missing_one", "duplicate", "unknown"])

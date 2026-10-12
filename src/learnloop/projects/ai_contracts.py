@@ -127,7 +127,8 @@ Hard constraints:
    - `predict`: predict an output, value, shape or effect for a concrete input,
      derivable from the cited code;
    - `why`: why something was done this way. ONLY when a citation STATES the
-     reason (commit message, a code comment, or a diff line); mark that
+     reason (commit message, a code comment, or the prose of a document such
+     as an ADR or design note; code itself never states a reason); mark that
      citation `rationale: true`. If no cited text states the reason, do not
      write a `why` candidate: a plausible guess is not an answer key.
 3. SPECIFIC TO THIS CODE. A capable engineer who has never seen this repository
