@@ -24,6 +24,7 @@ from learnloop.cli.project import project_app
 from learnloop.cli.diagnose import diagnose_app
 from learnloop.cli.field import field_app
 from learnloop.cli.families import families_app
+from learnloop.cli.contamination import contamination_app
 from learnloop.cli.evaluation import eval_app
 from learnloop.cli.practice_index import practice_index_app
 from learnloop.cli.inbox import inbox_app
@@ -53,6 +54,7 @@ app.add_typer(project_app, name="project")
 app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(field_app, name="field")
 app.add_typer(families_app, name="families")
+app.add_typer(contamination_app, name="contamination")
 app.add_typer(eval_app, name="eval")
 app.add_typer(practice_index_app, name="practice-index")
 

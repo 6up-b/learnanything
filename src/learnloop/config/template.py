@@ -813,14 +813,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Mobile M1 adds no vault config (the capture host reads its own
     # mobile.toml outside the vault), so neither snapshot moves; recomputed
     # at the merge and confirmed equal.
-    "mvp-0.9": "bf4c9f5ce520f43a500d98583bfbbcffb858aa90eecc32551752a91b6729ed81",
+    # Slice 2 T4 adds the unset ai.routing.contamination_judge route, consumed
+    # only by the owner-run `learnloop contamination report` (shadow flags).
+    "mvp-0.9": "c3e368c6fec135d6c8ea1519f301ac9839a962b0964963caa216cd5c29273be4",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed.
-    "mvp-0.10": "72058bd3349d2fc330e10388fe64ff193a86675ddd79a7cd17bd26e6955fafa4",
+    "mvp-0.10": "5ab7006a8dcb0c37762a6820b031df9b1b54994c5be695c8bf9a998cb8373db9",
 }
 
 

@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 21972,
-    "sha256": "59a925112b0664519e4c97db188a19d372c878ddb739ff26d8b7c52a0838cad7"
+    "bytes": 22312,
+    "sha256": "d600ae2f549273935f9b1c7dc8067d1c329d3321046dadeb6d56f2829d547f60"
   },
   "accept": {
     "bytes": 1593,
@@ -126,6 +126,18 @@
   "config effective": {
     "bytes": 1295,
     "sha256": "7875fb763f8cb882095cc15b4688a024e50995627203c162f7e40b228047f3ef"
+  },
+  "contamination": {
+    "bytes": 1839,
+    "sha256": "d567a9af07a871782a0e2bdd0b6fb80291a3cbdbbf078e0eacf574db173d4d61"
+  },
+  "contamination embed": {
+    "bytes": 4169,
+    "sha256": "005036ec91ca6cdff766d797eca44a52ebaeaf8fbaf0b6e72f078cbfe41c5ffc"
+  },
+  "contamination report": {
+    "bytes": 5943,
+    "sha256": "3f2d766dfe6d960e3146d56e2cea61d6dbc640512168a8b011ed6cd0cbc14231"
   },
   "contract-hit-rate": {
     "bytes": 1942,

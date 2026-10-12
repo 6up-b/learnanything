@@ -3,8 +3,8 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1a91aa1e383243b2893a756fe860d578075b210f"
-source_commit_timestamp: "2026-10-12T12:46:47-04:00"
+source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
+source_commit_timestamp: "2026-10-12T12:51:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/diagnosis/split/embeddings.py"
   - "src/learnloop/diagnosis/split/retrieval.py"
   - "src/learnloop/field/item_content.py"
+  - "src/learnloop/ops/contamination/detectors.py"
   - "src/learnloop/ops/embedding_backfill.py"
-  - "src/learnloop/ops/family_proposals.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -97,6 +97,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/embedding_vectors.py`
 - `src/learnloop/db/stores/practice_index.py`
+- `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/embedding_backfill.py`
 
 ### Direct SQL writers
@@ -113,6 +114,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_contamination_report.py`
 - `tests/test_diagnosis_embeddings.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_embedding_store.py`

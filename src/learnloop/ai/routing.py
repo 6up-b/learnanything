@@ -30,6 +30,8 @@ AITask = Literal[
     "practice_rerank",
     "practice_query_writer",
     "practice_relevance_judge",
+    # Slice 2 T4: the owner-run contamination report's leak/reveal judge.
+    "contamination_judge",
     "grading",
     # Slice 1: the history-aware diagnoser (unset -> the resolved grading
     # route, so a vault that never configures it diagnoses with its grader),
@@ -101,6 +103,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "practice_rerank": "practice_rerank",
     "practice_query_writer": "practice_query_writer",
     "practice_relevance_judge": "practice_relevance_judge",
+    # Slice 2 T4 shadow contamination flags (owner-run report only).
+    "contamination_leak_judgment": "contamination_judge",
+    "contamination_reveal_judgment": "contamination_judge",
 }
 
 

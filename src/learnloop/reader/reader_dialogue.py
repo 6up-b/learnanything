@@ -351,6 +351,35 @@ def _surface_statement_text(surface_row: Mapping[str, Any]) -> str:
     return " ".join(parts)
 
 
+def surface_statement_text(surface_row: Mapping[str, Any]) -> str:
+    """The reserved surface text the reveal floor compares an answer against."""
+
+    return _surface_statement_text(surface_row)
+
+
+def lexical_reserve_reveal(
+    answer_md: str,
+    surface_row: Mapping[str, Any],
+    *,
+    citations: Sequence[Mapping[str, Any]] = (),
+) -> tuple[bool, float]:
+    """The lexical reveal floor for one reserved surface: (hit, bigram overlap).
+
+    A hit is the answer or a citation label echoing the surface hash or
+    fingerprint, or a word-bigram overlap at or above
+    ``READER_REVEAL_OVERLAP_THRESHOLD``. This is the single definition the live
+    burn path uses; shadow detectors (Slice 2 T4) compare against it."""
+
+    haystack = " ".join([answer_md, *[str(c.get("label") or "") for c in citations]])
+    surface_hash = surface_row.get("surface_hash")
+    fingerprint = surface_row.get("fingerprint")
+    hash_hit = bool(surface_hash) and str(surface_hash) in haystack
+    fp_hit = bool(fingerprint) and str(fingerprint) in haystack
+    statement = _surface_statement_text(surface_row)
+    overlap = _verbatim_overlap(answer_md, statement) if statement else 0.0
+    return hash_hit or fp_hit or overlap >= READER_REVEAL_OVERLAP_THRESHOLD, overlap
+
+
 def _detect_revealed_reserves(
     repository: Repository,
     *,
@@ -368,22 +397,14 @@ def _detect_revealed_reserves(
     if not reserves:
         return []
     caller_set = set(caller_supplied)
-    # Hash/fingerprint tokens the answer text or a citation label may echo verbatim.
-    haystack = " ".join(
-        [answer_md, *[str(c.get("label") or "") for c in citations]]
-    )
     detected: list[str] = []
     for surface in reserves:
         sid = surface["id"]
         if sid in caller_set or sid in detected:
             continue
-        surface_hash = surface.get("surface_hash")
-        fingerprint = surface.get("fingerprint")
-        hash_hit = bool(surface_hash) and str(surface_hash) in haystack
-        fp_hit = bool(fingerprint) and str(fingerprint) in haystack
-        statement = _surface_statement_text(surface)
-        overlap_hit = bool(statement) and _verbatim_overlap(answer_md, statement) >= READER_REVEAL_OVERLAP_THRESHOLD
-        if hash_hit or fp_hit or overlap_hit:
+        # Hash/fingerprint tokens the answer text or a citation label may echo
+        # verbatim, or word-bigram overlap with the reserved statement.
+        if lexical_reserve_reveal(answer_md, surface, citations=citations)[0]:
             detected.append(sid)
     return detected
 

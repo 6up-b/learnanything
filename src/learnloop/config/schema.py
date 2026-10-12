@@ -993,6 +993,10 @@ class AIRoutingConfig(BaseModel):
     practice_rerank: str | None = None
     practice_query_writer: str | None = None
     practice_relevance_judge: str | None = None
+
+    # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
+    # (shadow flags only). Empty = ai.active_provider.
+    contamination_judge: str | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None

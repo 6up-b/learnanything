@@ -3,8 +3,8 @@ title: "activity_surface_reservations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1a91aa1e383243b2893a756fe860d578075b210f"
-source_commit_timestamp: "2026-10-12T12:46:47-04:00"
+source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
+source_commit_timestamp: "2026-10-12T12:51:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_reservations"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/goals/goal_contracts.py"
   - "src/learnloop/reader/reader_dialogue.py"
@@ -101,6 +102,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/contamination/recipes.py`
 
 ### Direct SQL writers
 
@@ -120,6 +122,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_activity_substrate.py`
+- `tests/test_contamination_report.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_administration_adapters.py`
 

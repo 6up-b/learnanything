@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1a91aa1e383243b2893a756fe860d578075b210f"
-source_commit_timestamp: "2026-10-12T12:46:47-04:00"
+source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
+source_commit_timestamp: "2026-10-12T12:51:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -108,6 +108,8 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/field/zero_data_llm.py`
+- `src/learnloop/ops/contamination/judge.py`
+- `src/learnloop/ops/contamination/report.py`
 - `src/learnloop/ops/family_proposals.py`
 - `src/learnloop/substrate/families.py`
 
@@ -125,6 +127,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_activity_families.py`
+- `tests/test_contamination_report.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_diagnosis_reports.py`
