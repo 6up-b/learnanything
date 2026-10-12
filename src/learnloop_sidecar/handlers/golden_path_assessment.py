@@ -22,7 +22,7 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import item_presentation
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_inactive_learning_object
+from learnloop_sidecar.serving import refuse_unservable_item
 
 
 class RunIdInput(ParamsModel):
@@ -43,7 +43,7 @@ def assess_open(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]:
     )
     reserved_item = vault.practice_items.get(str((reserved or {}).get("legacy_practice_item_id") or ""))
     if reserved_item is not None:
-        refuse_inactive_learning_object(vault, reserved_item.learning_object_id)
+        refuse_unservable_item(vault, reserved_item)
     try:
         admin = GA.open_assessment(
             repository, run_id=params.run_id, idempotency_key=f"assess_open:{params.run_id}"

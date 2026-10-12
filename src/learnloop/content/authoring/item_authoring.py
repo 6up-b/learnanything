@@ -100,6 +100,7 @@ def author_item(
     source_refs: Sequence[Mapping[str, Any]] | None = None,
     event_detail: Mapping[str, Any] | None = None,
     item_id: str | None = None,
+    provenance_detail: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Create a learner-authored card under an existing Learning Object.
@@ -107,7 +108,9 @@ def author_item(
     ``source_refs`` ground the card in what the learner was reading (the reader's
     "write my own question"); ``event_detail`` adds to the provenance event.
     ``item_id`` lets a caller bind the card to its own stable identity (the
-    reader derives it from the question's commitment); default: a fresh id."""
+    reader derives it from the question's commitment); default: a fresh id.
+    ``provenance_detail`` adds keys to the card's own provenance (the reader's
+    reference-question sweep marks the cards it adopts there)."""
 
     vault = load_vault(root)
     learning_object = vault.learning_objects.get(learning_object_id)
@@ -143,6 +146,8 @@ def author_item(
     }
     if source_refs:
         payload["provenance"]["source_refs"] = [dict(ref) for ref in source_refs]
+    if provenance_detail:
+        payload["provenance"].update(dict(provenance_detail))
     upsert_practice_item(root, payload, clock=clock)
     _record(
         repository,

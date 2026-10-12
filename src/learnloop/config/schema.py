@@ -551,7 +551,8 @@ class TutorQAConfig(BaseModel):
     # Kill switch for the reader's reference-question adoption sweep (daily-loop
     # follow-up, review F8): a question kept as a reference becomes practice
     # once an active LO cites its passage. false restores the previous
-    # behaviour (references stay references); adopted cards are never removed.
+    # behaviour: references stay references, and cards the sweep adopted are
+    # not served (vault.lifecycle) but never removed; true serves them again.
     adopt_reference_questions: bool = True
     apply_uncertainty_effect: bool = True
     uncertainty_evidence_mass: float = Field(default=0.15, ge=0.0, le=1.0)

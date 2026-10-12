@@ -361,7 +361,8 @@ default_learner_confidence = 3
 # feedback: per attempt, library: per note per day) and the read-side
 # uncertainty bump applied for recent unresolved questions about a facet.
 # adopt_reference_questions: a reader question kept as a reference becomes
-# practice once an active LO cites its passage (false: kill switch).
+# practice once an active LO cites its passage (false: kill switch; adopted
+# cards are kept but not served until it is true again).
 [tutor_qa]
 max_questions_practice = 3
 max_questions_feedback = 5

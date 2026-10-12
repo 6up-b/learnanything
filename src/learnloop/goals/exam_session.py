@@ -40,7 +40,7 @@ from learnloop.scheduling.selection_rewards import (
     item_demand_vector,
     predicted_correctness_from_vectors,
 )
-from learnloop.vault.lifecycle import learning_object_servable
+from learnloop.vault.lifecycle import practice_item_servable
 from learnloop.vault.models import Goal, LoadedVault
 
 # Exam availability window: the last 7 days before due_at through 7 days after.
@@ -124,17 +124,18 @@ def start_exam(
             f"Goal {goal_id} has no reserved exam pool; call reserve_exam_pool first."
         )
     # Learner-set LO lifecycle: a pooled item whose LO was put away (dormant or
-    # resolved) after the pool was reserved is not administered (vault.lifecycle).
+    # resolved) after the pool was reserved is not administered, nor is a card
+    # the reference sweep adopted while its kill switch is off (vault.lifecycle).
     item_order = [
         row["practice_item_id"]
         for row in pooled
         if (item := vault.practice_items.get(row["practice_item_id"])) is None
-        or learning_object_servable(vault, item.learning_object_id)
+        or practice_item_servable(vault, item)
     ]
     if not item_order:
         raise ExamSessionError(
             f"Every reserved exam item for goal {goal_id} belongs to a dormant or resolved "
-            "learning object; reactivate one or reserve a new pool."
+            "learning object or is otherwise not servable; reactivate one or reserve a new pool."
         )
 
     now_iso = utc_now_iso(clock)

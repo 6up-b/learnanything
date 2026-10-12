@@ -41,7 +41,7 @@ from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.repositories import Repository
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span, parse_block_span
 from learnloop.reader.reader_progression import learning_objects_for_span
-from learnloop.vault.lifecycle import learning_object_servable
+from learnloop.vault.lifecycle import REFERENCE_ADOPTION_MECHANISM, learning_object_servable
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault
 from learnloop.substrate import card_lineage as CL
@@ -196,11 +196,6 @@ def _practice_learning_object(
     return candidates[0] if candidates else None
 
 
-# Versioned provenance of cards the sweep adopts (vs. "reader_author_qa", the
-# write-time adoption), so they can be told apart and audited later.
-REFERENCE_ADOPTION_MECHANISM = "reader_reference_adoption_v1"
-
-
 def reader_practice_item_id(commitment_id: str) -> str:
     """The stable practice-item id of a reader question's card (its commitment's)."""
 
@@ -273,7 +268,14 @@ def _adopt_into_practice(
         root, repository, learning_object_id=lo_id, prompt=question, expected_answer=answer,
         source_refs=source_refs,
         event_detail={"mechanism": mechanism, "commitment_id": commitment_id},
-        item_id=item_id, clock=clock,
+        item_id=item_id,
+        # The sweep's cards carry their versioned provenance on the card itself,
+        # so serving can gate them with a pure read (vault.lifecycle).
+        provenance_detail=(
+            {"adoption": REFERENCE_ADOPTION_MECHANISM}
+            if mechanism == REFERENCE_ADOPTION_MECHANISM else None
+        ),
+        clock=clock,
     )
     # The commitment records which card it adopted; a learner-held commitment's
     # legacy_practice_item target is what the scheduler reads as "requested".
@@ -299,8 +301,10 @@ def adopt_reference_questions(
     commitment is never adopted. Returns one row per newly adopted question.
 
     Behind the kill switch ``tutor_qa.adopt_reference_questions`` (default on):
-    off, nothing is adopted and cards adopted earlier are kept. Each adopted
-    card's provenance event names ``REFERENCE_ADOPTION_MECHANISM``."""
+    off, nothing is adopted, and cards adopted earlier are kept but not served
+    (``vault.lifecycle.practice_item_serving_block``), so Today is the baseline
+    queue. Each adopted card names ``REFERENCE_ADOPTION_MECHANISM`` in its own
+    provenance (``provenance.adoption``) and in its authoring event."""
 
     if not vault.config.tutor_qa.adopt_reference_questions:
         return []

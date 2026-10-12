@@ -139,14 +139,22 @@ def _set_adoption(paths, enabled: bool) -> None:
 
 
 def test_adoption_kill_switch_restores_baseline_and_keeps_adopted_cards(tmp_path):
-    """Review F8: the automatic sweep sits behind tutor_qa.adopt_reference_questions."""
+    """Review F8: the automatic sweep sits behind tutor_qa.adopt_reference_questions.
+
+    Off restores the baseline: no new adoption, and cards adopted earlier are not
+    served by the queue or the by-id doors (re-review F8). They stay authored:
+    on disk, active, marked and linked to their question; on again serves them."""
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop_sidecar.context import SidecarContext
+    from learnloop_sidecar.errors import SidecarError
     from learnloop_sidecar.registry import METHOD_REGISTRY
 
+    def call(ctx, name, params):
+        spec = METHOD_REGISTRY[name]
+        return spec.handler(ctx, spec.params_model.model_validate(params))
+
     def served(ctx):
-        spec = METHOD_REGISTRY["get_today_queue"]
-        queue = spec.handler(ctx, spec.params_model.model_validate({}))
+        queue = call(ctx, "get_today_queue", {})
         return [item["practiceItemId"] for section in queue["sections"] for item in section["items"]]
 
     paths = _reader_vault(tmp_path, cite_span=False)
@@ -175,9 +183,47 @@ def test_adoption_kill_switch_restores_baseline_and_keeps_adopted_cards(tmp_path
     assert {e["payload"]["mechanism"] for e in events if e["subject_id"] in adopted} == {
         "reader_reference_adoption_v1"}
 
-    # Turning it off again stops new adoption but deletes nothing authored.
+    vault = load_vault(paths.root)
+    assert {vault.practice_items[item_id].provenance.model_extra["adoption"] for item_id in adopted} == {
+        "reader_reference_adoption_v1"}
+
+    # Turning it off again restores the baseline queue and deletes nothing.
     _set_adoption(paths, False)
     ctx.reload(maintenance=False)
+    assert served(ctx) == baseline
     vault = load_vault(paths.root)
     assert all(vault.practice_items[item_id].status == "active" for item_id in adopted)
+    assert {
+        target.target_ref
+        for commitment_id in (first["commitment_id"], second["commitment_id"])
+        for target in C.resolve_head(repository, commitment_id).targets
+        if target.target_kind == "legacy_practice_item"
+    } == set(adopted)
+    session_id = call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    for method, params in [
+        ("open_queue_item", {"practiceItemId": adopted[0]}),
+        ("get_practice_item", {"practiceItemId": adopted[0], "sessionId": session_id}),
+    ]:
+        with pytest.raises(SidecarError) as refused:
+            call(ctx, method, params)
+        assert refused.value.code == "reference_adoption_disabled"
+    # A read-only open (feedback, inspector) still renders the authored card.
+    assert call(ctx, "get_practice_item", {"practiceItemId": adopted[0]})["id"] == adopted[0]
+
+    # On again: the same cards are served again; nothing is authored twice.
+    _set_adoption(paths, True)
+    ctx.reload(maintenance=False)
     assert set(adopted) <= set(served(ctx))
+    assert len([item for item in load_vault(paths.root).practice_items.values()
+                if item.prompt in {QUESTION, "What does Sigma hold?"}]) == 2
+
+
+def test_write_time_adoption_is_not_gated_by_the_sweep_switch(tmp_path):
+    """A question written over a cited passage is practice at once (baseline)."""
+    paths = _reader_vault(tmp_path)
+    _set_adoption(paths, False)
+    saved = _author(paths)
+    assert saved["practice_status"] == "scheduled"
+    card = load_vault(paths.root).practice_items[saved["practice_item_id"]]
+    assert "adoption" not in (card.provenance.model_extra or {})
+    assert card.id in _queue_ids(paths)
