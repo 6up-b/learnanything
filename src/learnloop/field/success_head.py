@@ -60,14 +60,17 @@ class HeadPriors:
 
 
 PREREGISTRATION: Mapping[str, object] = MappingProxyType({
-    "version": "t8-preregistration-v3",
+    "version": "t8-preregistration-v4",
     # v2 (2026-10-12, before any run on owner data): embedding block variance
     # 1.0 -> 0.25 per dimension, after a synthetic-only check; see the review.
     # v3 (owner, 2026-10-12, before any run on owner data): no fixed minimum
     # sample; a three-way interval rule with the smallest worthwhile gain, and
-    # an item-cluster bootstrap. See docs/reviews/slice-2-t8.md. Amended in
-    # review before merge (still before any owner-data run): no item minimum,
-    # and items are resampled in every interval of the T8 report.
+    # an item-cluster bootstrap. Amended in review before merge (still before
+    # any owner-data run): no item minimum.
+    # v4 (owner, 2026-10-12, before any run on owner data): a cluster-robust t
+    # interval over items (CR1, df = items - 1) decides, and a real gain below
+    # delta is kill. The percentile item bootstrap stays for descriptive
+    # intervals only. See docs/reviews/slice-2-t8.md.
     "registered": "2026-10-12",
     "question": "Does a frozen-embedding success predictor add held-out value over explicit arms?",
     "primary_arm": PRIMARY_ARM,
@@ -77,23 +80,34 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
     "descriptive_arms": [*LLM_ARMS, "emb_ridge_vs_tag_logistic"],
     "statistic": "per-attempt loss(e*) - loss(arm) on the common attempts",
     # m (D9) and delta: the smallest gain worth building the success head for,
-    # T8's own weak-signal scale (the v2 synthetic check).
+    # T8's own weak-signal scale (the v2 synthetic check). Every report records
+    # the delta in force, so the owner can monitor whether it needs changing.
     "margin_nats_per_attempt": 0.0,
     "smallest_worthwhile_gain_nats_per_attempt": 0.005,
     "decision_rule": {
-        "embeddings_add_value": "ci95 lower bound > margin",
-        "kill": "ci95 upper bound < smallest_worthwhile_gain",
+        "kill": "ci95 upper bound < smallest_worthwhile_gain (reason real_gain_below_delta "
+                "when the lower bound is also > margin)",
+        "embeddings_add_value": "otherwise, ci95 lower bound > margin",
         "insufficient_data": "otherwise, or no interval",
     },
-    # No interval only where every resample gives the same mean (review F2: no
-    # minimum item count; the report shows the number of item clusters).
+    "decision_interval": {
+        "method": "cluster_robust_t_cr1", "unit": "item", "level": 0.95,
+        "estimate": "attempt-weighted mean of the per-attempt statistic",
+        "standard_error": "CR1 sandwich: sqrt(G / (G - 1) * sum over items of (sum of the item's "
+                          "residuals)^2) / n",
+        "degrees_of_freedom": "items - 1",
+        "scope": "the primary and gated verdicts",
+    },
+    # No interval only for degenerate inputs; there is no minimum item count
+    # (t widens on its own with few items). The report shows the item count.
     "no_interval": {"when": "no common attempts, one item cluster, or item-cluster means "
                             "within zero_spread_nats",
                     "zero_spread_nats": 1e-12},
     "coverage_caveat_below": 0.8,
     "bootstrap": {"samples": 1000, "seed": 0, "unit": "item", "paired": True,
                   "interval": "percentile_95", "statistic": "mean over the drawn attempts",
-                  "scope": "every bootstrap interval in the T8 report"},
+                  "scope": "descriptive intervals only: the splits, the descriptive comparisons, "
+                           "report 1 and report 2"},
     "embedding_view": {"dimensions": EMBEDDING_DIMENSIONS, "projection": "mrl_prefix_l2",
                        "centering": "mean_of_previously_observed_attempts", "renormalize": True},
     "priors": asdict(HeadPriors()),
