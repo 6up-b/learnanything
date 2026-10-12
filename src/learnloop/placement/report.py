@@ -19,11 +19,12 @@ from learnloop.placement.rules import RULES_VERSION
 from learnloop.placement.state import (
     INTENT_ASSUMED,
     INTENT_MAINTENANCE,
+    diagnosis_can_arrive,
     load_placement_state_from_connection,
     placement_tables_present,
 )
 
-REPORT_VERSION = "placement-report-3-v2"
+REPORT_VERSION = "placement-report-3-v3"
 #: How each learning obligation (an untouched item on a decided LO) ended up.
 OBLIGATION_OUTCOMES = (
     "items_avoided",
@@ -41,7 +42,11 @@ CONFOUNDS = (
     "learner forgot, a pass can mean they learned the topic elsewhere in the meantime.",
     "Learner-requested practice and follow-up lanes in that window can show the LO's items "
     "before its scheduled check: early clean answers are recorded as early practice and never "
-    "pass the check, but an early miss returns the LO to learning (resolved early).",
+    "pass the check, but an early miss the diagnosis attributes to a knowledge gap returns the LO "
+    "to learning (resolved early).",
+    "Diagnoser error: the first review and lapses in maintenance are decided by the diagnosis, so "
+    "a diagnoser that calls a knowledge gap a slip (or an item-contract problem) keeps an LO in "
+    "maintenance it should leave, and the reverse; kept outcomes are counted by reason.",
     "A first review is one answer on one item: the miss rate has wide intervals until many "
     "assumptions have resolved.",
     "Grader error: a grader that accepts a wrong answer can fast-track an LO or pass its check "
@@ -88,7 +93,7 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
     }
     if not placement_tables_present(connection):
         return {"manifest": manifest, "status": "no_placement_tables", "sources": {}, "counts": {}}
-    state = load_placement_state_from_connection(connection, active=False)
+    state = load_placement_state_from_connection(connection, active=False, diagnosis_live=diagnosis_can_arrive(vault))
     returns = connection.execute(
         "SELECT assumption_id FROM assumption_returns ORDER BY created_at, id"
     ).fetchall()
@@ -167,6 +172,23 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             ),
             "early_practice_answers": sum(a.early_answers for a in rows),
             "ineligible_check_answers": sum(a.ineligible_answers for a in rows),
+            # Owner decision 2026-10-12: the first review is decided by the
+            # diagnosis. ``passed`` = into maintenance, clean or kept.
+            "passed_clean": sum(a.status == "passed" and a.resolution_reason == "clean" for a in rows),
+            "kept_by_diagnosis": sum(
+                a.status == "passed" and a.resolution_reason not in (None, "clean") for a in rows
+            ),
+            "awaiting_diagnosis": sum(a.is_open and a.awaiting_diagnosis_attempt_id is not None for a in rows),
+            "outcomes_by_reason": dict(sorted(Counter(
+                f"{a.status}:{a.resolution_reason}" for a in rows if a.status != "open"
+            ).items())),
+            "fallbacks_by_reason": dict(sorted(Counter(
+                a.resolution.fallback for a in rows
+                if a.status == "failed" and a.resolution is not None and a.resolution.fallback
+            ).items())),
+            "kept_early_misses_by_reason": dict(sorted(Counter(
+                reason for a in rows for _attempt, reason in a.kept_answers
+            ).items())),
             **{outcome: counted[outcome] for outcome in OBLIGATION_OUTCOMES},
             "learning_minutes_saved_estimate": round(counted["items_avoided"] * minutes_per_item, 2),
             "learning_minutes_provisional_estimate": round(
@@ -212,6 +234,7 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             "first_review_miss_rate": round(all_failed / all_resolved, 6) if all_resolved else None,
             "first_review_miss_rate_wilson_ci95": _wilson(all_failed, all_resolved),
         },
+        "maintenance": _maintenance_outcomes(state),
         "returns_to_learning": {
             "failed_first_reviews": all_failed,
             "i_dont_know_this": len(returns),
@@ -239,8 +262,16 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
         },
         "confounds": list(CONFOUNDS),
         "definitions": {
-            "first_review": "The first recorded answer on the LO after the decision.",
-            "miss": "That answer is not a clean full-marks answer (the complement of report 2's pass).",
+            "first_review": "The first recorded answer on the LO from first_review_due on (an earlier miss "
+                            "can resolve it early).",
+            "miss": "A first review that returned the LO to learning: a miss the diagnosis attributed to a "
+                    "knowledge gap (causal_class learner_state on a valid_measurement attribution), learner-side "
+                    "help (hints, priming, \"don't know\", assistance), or, when no diagnosis can arrive, any "
+                    "answer short of clean full marks (today's rule, reason no_diagnosis).",
+            "kept_by_diagnosis": "A first review short of clean full marks that kept the LO in maintenance: a "
+                                 "slip, an item-contract or grader-interpretation problem, an unassessed (PF-c) "
+                                 "criterion, or no gap attributed.",
+            "awaiting_diagnosis": "An open assumption whose miss waits on its diagnosis (the decision waits).",
             "returned_by_learner": "\"I don't know this\" before any answer on the LO.",
             "on_schedule": "Resolved at or after the decision's first_review_due.",
             "early_practice": "A clean answer before first_review_due (explicit practice): recorded, never the check.",
@@ -253,6 +284,29 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             "items_deferred_then_learned": "Obligations practised after the decision: learned anyway.",
             "items_used_as_checks": "Items whose answer resolved an assumption's check.",
         },
+    }
+
+
+def _maintenance_outcomes(state: Any) -> dict[str, Any]:
+    """Misses on LOs in maintenance, by how the diagnosis decided them."""
+
+    kept: Counter[str] = Counter()
+    lapses: Counter[str] = Counter()
+    fallbacks: Counter[str] = Counter()
+    awaiting = 0
+    for intent in state.intent_by_lo.values():
+        kept.update(reason for _attempt, reason in intent.kept_misses)
+        if intent.reason == "missed_in_maintenance":
+            lapses[str(intent.outcome_reason)] += 1
+            if intent.resolution is not None and intent.resolution.fallback:
+                fallbacks[intent.resolution.fallback] += 1
+        if intent.intent == INTENT_MAINTENANCE and intent.awaiting_diagnosis_attempt_id is not None:
+            awaiting += 1
+    return {
+        "kept_misses_by_reason": dict(sorted(kept.items())),
+        "lapses_by_reason": dict(sorted(lapses.items())),
+        "lapse_fallbacks_by_reason": dict(sorted(fallbacks.items())),
+        "awaiting_diagnosis": awaiting,
     }
 
 
@@ -278,6 +332,18 @@ def write_placement_report(report: dict[str, Any], output_dir: Path) -> dict[str
             f"{values['first_review_miss_rate_wilson_ci95']} | {values['learning_minutes_saved_estimate']} | "
             f"{values['learning_minutes_provisional_estimate']} |"
         )
+    lines.extend(["", "## First reviews by reason (decided by the diagnosis)", ""])
+    for source, values in report.get("sources", {}).items():
+        if values.get("outcomes_by_reason") or values.get("awaiting_diagnosis"):
+            lines.append(
+                f"- {source}: {values.get('outcomes_by_reason')}, awaiting a diagnosis: "
+                f"{values.get('awaiting_diagnosis')}, fallbacks: {values.get('fallbacks_by_reason')}"
+            )
+    maintenance = report.get("maintenance") or {}
+    lines.append(
+        f"- maintenance: kept {maintenance.get('kept_misses_by_reason')}, lapses "
+        f"{maintenance.get('lapses_by_reason')}, awaiting a diagnosis: {maintenance.get('awaiting_diagnosis')}"
+    )
     minutes = report.get("learning_minutes", {})
     lines.extend([
         "",

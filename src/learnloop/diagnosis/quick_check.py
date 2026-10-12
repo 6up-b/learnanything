@@ -63,7 +63,12 @@ from learnloop.placement.decisions import (
 )
 from learnloop.placement.predictor import active_predictor
 from learnloop.placement.signals import blocking_signals_by_lo
-from learnloop.placement.state import load_answers, load_placement_state_from_connection, placement_active
+from learnloop.placement.state import (
+    diagnosis_can_arrive,
+    load_answers,
+    load_placement_state_from_connection,
+    placement_active,
+)
 from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 from learnloop.substrate.instrument_serving import unservable_reason
 from learnloop.vault.lifecycle import practice_item_servable
@@ -328,7 +333,9 @@ def quick_check_progress(
         with repository.connection() as connection:
             presentations = quick_check_presentations(connection, calibration_session_id)
             answers = quick_check_answers(connection, calibration_session_id=calibration_session_id, scope=scope)
-            state = load_placement_state_from_connection(connection, active=placement_active(vault))
+            state = load_placement_state_from_connection(
+                connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+            )
             blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))
         predictor = active_predictor(vault, repository, now_iso=utc_now_iso(clock))
         split = quick_check_split(

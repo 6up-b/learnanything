@@ -19,9 +19,13 @@ Grades are read as the Slice 1 split records them: a blind grade and a regrade
 both land on the attempt row (a regrade in place), and PF-c's unverified
 criteria are no failure evidence. An answer whose only shortfall is on
 criteria the valid-alternative gate recorded unverified is *unassessed*
-(:attr:`AnswerFacts.unassessed`): never a pass, never a miss, and skipped by
-fast-track and the quick check, as the field's outcome view leaves it
-unmeasured until it is reviewed.
+(:attr:`AnswerFacts.unassessed`): no failure evidence, skipped by fast-track
+and the quick check, as the field's outcome view leaves it unmeasured until it
+is reviewed. At the first review (and in maintenance) it keeps the topic, with
+the reason ``unassessed`` (owner decision 2026-10-12, :func:`decide_miss`).
+
+Misses on an assumed or maintained LO are decided by the diagnosis, not by
+full marks (:func:`decide_miss`, :func:`diagnosis_reason`).
 """
 from __future__ import annotations
 
@@ -32,7 +36,7 @@ from typing import Any
 
 from learnloop.field.types import RegionEstimate
 
-RULES_VERSION = "placement-rules-v2"
+RULES_VERSION = "placement-rules-v3"
 
 #: A graded answer that can count toward fast-track (or pass a first review):
 #: an ordinary independent answer, a free-text answer, a diagnostic probe
@@ -115,17 +119,26 @@ class AnswerFacts:
     @property
     def unassessed(self) -> bool:
         """A learner-clean answer whose grade is PF-c unverified: no failure
-        evidence and no pass. It neither resolves a check nor counts toward
-        (or blocks) fast-track and the quick check."""
+        evidence. It never counts toward (or blocks) fast-track and the quick
+        check; at the first review it keeps the topic (:func:`decide_miss`)."""
 
         return self.grade_unverified and self.learner_side_clean
 
     @property
     def is_miss(self) -> bool:
-        """An answer the learner did not answer cleanly: what returns an LO to
-        learning. An unassessed answer is not one."""
+        """An answer the learner did not answer cleanly. An unassessed answer is
+        not one. Whether a miss returns an assumed or maintained LO to learning
+        is decided by :func:`decide_miss` (the diagnosis), not by this flag."""
 
         return not self.learner_clean and not self.unassessed
+
+    @property
+    def graded_miss(self) -> bool:
+        """A miss whose only problem is the grade: no help on the learner's
+        side, but short of full marks (or flagged for review). The diagnosis
+        decides what it means (owner decision 2026-10-12)."""
+
+        return self.learner_side_clean and not self.learner_clean and not self.unassessed
 
     @property
     def clean_correct(self) -> bool:
@@ -243,16 +256,18 @@ CHECK_INELIGIBLE = "ineligible"
 
 
 def check_verdict(answer: AnswerFacts) -> str:
-    """The first review is a normal cold item.
+    """The first review is a normal cold item: the verdict on its grade alone.
 
     ``pass``: a clean full-marks answer that the independence rule admits (the
     complement of report 2's miss, ``outcome < 1``). ``fail``: anything the
     learner did not answer cleanly (partial marks, hints, priming, "don't
     know", assistance). ``ineligible``: a clean answer the independence rule
-    rejects, or an unassessed one (a PF-c unverified grade, no failure
-    evidence); it neither passes nor fails, and the check waits for a
-    qualifying answer. ``independence`` must already be evaluated for the
-    check's window.
+    rejects, or an unassessed one (a PF-c unverified grade). ``independence``
+    must already be evaluated for the check's window.
+
+    What a ``fail`` or an unassessed answer does to the LO is the diagnosis's
+    call (:func:`decide_miss`, owner decision 2026-10-12): only a knowledge gap
+    returns it to learning.
     """
 
     if answer.unassessed:
@@ -262,6 +277,110 @@ def check_verdict(answer: AnswerFacts) -> str:
     if answer.independent is not True:
         return CHECK_INELIGIBLE
     return CHECK_PASS
+
+
+# -- misses on an assumed or maintained LO: decided by the diagnosis ----------
+#
+# Owner decision 2026-10-12 (Slice A Phase 6 open question 3): the first-review
+# check and a lapse in maintenance are decided by the diagnosis, not by full
+# marks. Sometimes the question does not make clear what the rubric expects of
+# a perfect answer, so a miss can just mean the learner did not know it had to
+# be stated explicitly.
+
+#: What a miss does to the LO.
+MISS_TO_LEARNING = "learning"  # back to learning (new items served again)
+MISS_KEPT = "kept"  # stays assumed (early) or in maintenance, reason recorded
+MISS_PENDING = "pending"  # the diagnosis has not landed: the decision waits
+
+#: Why. A knowledge gap returns the LO to learning; the four kept reasons do not.
+REASON_KNOWLEDGE_GAP = "knowledge_gap"
+REASON_SLIP = "slip"
+REASON_ITEM_CONTRACT = "item_contract"
+REASON_UNASSESSED = "unassessed"
+REASON_NO_GAP_ATTRIBUTED = "no_gap_attributed"
+KEPT_REASONS = frozenset({REASON_SLIP, REASON_ITEM_CONTRACT, REASON_UNASSESSED, REASON_NO_GAP_ATTRIBUTED})
+#: Today's rule (any miss returns the LO to learning), said so on the receipt:
+#: no diagnosis can arrive (``fallback`` names why), or the learner asked for
+#: help (hints, priming, "don't know", assistance): not a grading question.
+REASON_NO_DIAGNOSIS = "no_diagnosis"
+REASON_LEARNER_SIDE = "learner_side"
+REASON_DIAGNOSIS_PENDING = "diagnosis_pending"
+#: Why no diagnosis can arrive for a graded miss (``MissVerdict.fallback``).
+FALLBACK_SPLIT_DISABLED = "split_disabled"
+FALLBACK_NOT_BLIND_GRADED = "not_blind_graded"
+FALLBACK_DIAGNOSIS_FAILED = "diagnosis_failed"
+FALLBACK_BUDGET_SKIPPED = "diagnosis_budget_skipped"
+FALLBACK_NOT_NEEDED = "diagnosis_not_needed"
+FALLBACK_REJECTED = "diagnosis_rejected"
+FALLBACK_NOT_DIAGNOSED = "not_diagnosed"
+#: Blind-grade validity scopes that put the miss on the item, not the learner.
+ITEM_CONTRACT_SCOPES = frozenset({"item_contract", "grader_interpretation"})
+
+
+@dataclass(frozen=True)
+class MissVerdict:
+    """How one miss on an assumed or maintained LO was decided: the receipt.
+
+    ``events`` holds what the decision read from the diagnosis in force:
+    ``(attribution index, validity_scope, causal_class)`` per blind-grade error
+    attribution (``causal_class`` is ``None`` where the diagnosis wrote no event).
+    """
+
+    attempt_id: str
+    outcome: str  # learning | kept | pending
+    reason: str
+    fallback: str | None = None
+    diagnosis_id: str | None = None
+    blind_grade_record_id: str | None = None
+    job_state: str | None = None
+    events: tuple[tuple[int, str, str | None], ...] = ()
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def diagnosis_reason(
+    attribution_scopes: Mapping[int, str],
+    event_classes: Mapping[int, str],
+) -> str:
+    """The diagnosis's reading of a graded miss (Slice 1 M2 vocabulary).
+
+    A knowledge gap is ``causal_class = learner_state`` on a
+    ``valid_measurement`` attribution: the only reading that returns the LO to
+    learning. Otherwise an item-contract or grader-interpretation attribution
+    names the item, a ``transient_execution`` class on a valid measurement a
+    slip, and anything else (the diagnoser abstained, or wrote no event) is
+    ``no_gap_attributed``.
+    """
+
+    indexes = sorted(set(attribution_scopes) | set(event_classes))
+    pairs = [(attribution_scopes.get(i, "unknown"), event_classes.get(i, "unknown")) for i in indexes]
+    if any(scope == "valid_measurement" and cls == "learner_state" for scope, cls in pairs):
+        return REASON_KNOWLEDGE_GAP
+    if any(scope in ITEM_CONTRACT_SCOPES for scope, _cls in pairs):
+        return REASON_ITEM_CONTRACT
+    if any(scope == "valid_measurement" and cls == "transient_execution" for scope, cls in pairs):
+        return REASON_SLIP
+    return REASON_NO_GAP_ATTRIBUTED
+
+
+def decide_miss(answer: AnswerFacts, graded: Mapping[str, MissVerdict]) -> MissVerdict:
+    """A miss (or an unassessed answer) on an assumed or maintained LO.
+
+    ``graded`` holds the loaded verdict of every graded miss (``placement.state``
+    reads the diagnosis in force, the job queue and the kill switch).
+    """
+
+    if answer.unassessed:
+        return MissVerdict(answer.attempt_id, MISS_KEPT, REASON_UNASSESSED)
+    if not answer.learner_side_clean:
+        return MissVerdict(answer.attempt_id, MISS_TO_LEARNING, REASON_LEARNER_SIDE)
+    verdict = graded.get(answer.attempt_id)
+    if verdict is None:
+        return MissVerdict(
+            answer.attempt_id, MISS_TO_LEARNING, REASON_NO_DIAGNOSIS, fallback=FALLBACK_NOT_DIAGNOSED,
+        )
+    return verdict
 
 
 def prerequisite_layers(

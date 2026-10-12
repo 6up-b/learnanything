@@ -8,9 +8,11 @@ a split vault is blind-graded. The merge pins three readings:
 - a regrade (which supersedes the evidence and re-queues the diagnosis) is
   read live: the check follows the regraded grade;
 - PF-c's unverified criteria are no failure evidence: an answer whose only
-  shortfall is an unverified criterion neither passes nor fails the check,
-  is not a lapse in maintenance, and neither counts toward nor blocks
-  fast-track. A located error on the same item is still a miss.
+  shortfall is an unverified criterion keeps the topic in maintenance at the
+  check (reason ``unassessed``, owner decision 2026-10-12), is not a lapse in
+  maintenance, and neither counts toward nor blocks fast-track. A located
+  error on the same item is decided by its diagnosis (a knowledge gap returns
+  the LO to learning; while the diagnosis is pending the decision waits).
 
 Fakes only; no network.
 """
@@ -36,7 +38,7 @@ from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at
-from tests.split_live_helpers import ReadyRuntime, split_vault, submit
+from tests.split_live_helpers import ReadyRuntime, drain_jobs, split_vault, submit
 from tests.test_grading_support import _ZeroWithoutAttribution
 
 LO = "lo_svd_compute"
@@ -104,8 +106,19 @@ def test_a_clean_blind_grade_passes_the_check(tmp_path):
     )
 
 
-def test_an_unverified_pfc_grade_neither_passes_nor_fails_the_check(tmp_path):
+def test_an_unverified_pfc_grade_on_the_check_keeps_the_topic_in_maintenance(tmp_path):
+    """Owner decision 2026-10-12: an unassessed (PF-c) criterion is no failure
+    evidence, so it keeps the topic: assumed before the check, in maintenance
+    at the check, with the reason on the receipt."""
+
     _paths, vault, repository = _assumed(tmp_path)
+    early = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_002",
+                   answer=VERIFYING, when=at(2))
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, assumption.kept_answers, intent) == (
+        "open", ((early.attempt_id, "unassessed"),), "assumed",
+    )
+
     unverified = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_001",
                         answer=VERIFYING, when=at(DUE_HOURS + 1))
     row = repository.fetch_practice_attempt(unverified.attempt_id)
@@ -114,34 +127,37 @@ def test_an_unverified_pfc_grade_neither_passes_nor_fails_the_check(tmp_path):
         assert unverified.attempt_id in pfc_unverified_attempt_ids(connection)
 
     assumption, intent = _state(vault, repository)
-    # No failure evidence: the LO stays assumed and the check waits.
-    assert (assumption.status, assumption.ineligible_answers, intent) == ("open", 1, "assumed")
-
-    passed = submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002",
-                    answer=CORRECT, when=at(DUE_HOURS + 2))
-    assumption, intent = _state(vault, repository)
-    assert (assumption.status, assumption.resolving_attempt_id, intent) == (
-        "passed", passed.attempt_id, "maintenance",
+    assert (assumption.status, assumption.resolving_attempt_id, assumption.resolution_reason, intent) == (
+        "passed", unverified.attempt_id, "unassessed", "maintenance",
     )
+    entry = load_placement_state(vault, repository).intent_by_lo[LO]
+    assert (entry.reason, entry.outcome_reason) == ("check_passed", "unassessed")
 
 
-def test_a_located_error_is_still_a_miss(tmp_path):
+def test_a_located_error_is_decided_by_its_diagnosis(tmp_path):
     _paths, vault, repository = _assumed(tmp_path)
     located = submit(vault, repository, _LocatedResultError(), item_id="pi_svd_compute_001",
                      answer=VERIFYING, when=at(DUE_HOURS + 1))
     with repository.connection() as connection:
         assert located.attempt_id not in pfc_unverified_attempt_ids(connection)
+    # The diagnosis is queued: the decision waits and the LO stays assumed.
     assumption, intent = _state(vault, repository)
-    assert (assumption.status, intent) == ("failed", "learning")
-
-
+    assert (assumption.status, assumption.awaiting_diagnosis_attempt_id, intent) == (
+        "open", located.attempt_id, "assumed",
+    )
+    # The fake diagnoser reads a durable learner state: a knowledge gap.
+    drain_jobs(vault, repository, ReviewFakeClient(), clock=FrozenClock(at(DUE_HOURS + 1)))
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, assumption.resolution_reason, intent) == ("failed", "knowledge_gap", "learning")
 def test_an_unverified_answer_in_maintenance_is_not_a_lapse(tmp_path):
     _paths, vault, repository = _assumed(tmp_path)
     submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_001",
            answer=CORRECT, when=at(DUE_HOURS + 1))
-    submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_002",
-           answer=VERIFYING, when=at(DUE_HOURS + 30))
+    kept = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_002",
+                  answer=VERIFYING, when=at(DUE_HOURS + 30))
     assert _state(vault, repository)[1] == "maintenance"
+    entry = load_placement_state(vault, repository).intent_by_lo[LO]
+    assert entry.kept_misses == ((kept.attempt_id, "unassessed"),)
 
 
 def test_the_check_follows_a_regrade_that_requeues_the_diagnosis(tmp_path):
@@ -155,11 +171,17 @@ def test_the_check_follows_a_regrade_that_requeues_the_diagnosis(tmp_path):
                     grading_source="ai", clock=FrozenClock(at(DUE_HOURS + 2)))
     assert repository.latest_blind_grade_record(attempt.attempt_id)["supersedes_id"] is not None
     assert repository.post_attempt_jobs(attempt_id=attempt.attempt_id, kind="diagnose", states=("queued",))
+    # The regrade re-queued the diagnosis: the check waits on it.
     assumption, intent = _state(vault, repository)
-    assert (assumption.status, intent) == ("failed", "learning")
+    assert (assumption.status, assumption.awaiting_diagnosis_attempt_id, intent) == (
+        "open", attempt.attempt_id, "assumed",
+    )
+    drain_jobs(vault, repository, ReviewFakeClient(), clock=FrozenClock(at(DUE_HOURS + 2)))
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, assumption.resolution_reason, intent) == ("failed", "knowledge_gap", "learning")
 
 
-def test_a_regrade_to_unverified_makes_the_check_wait_again(tmp_path):
+def test_a_regrade_to_unverified_keeps_the_topic_in_maintenance(tmp_path):
     _paths, vault, repository = _assumed(tmp_path)
     attempt = submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_001",
                      answer=VERIFYING, when=at(DUE_HOURS + 1))
@@ -169,7 +191,7 @@ def test_a_regrade_to_unverified_makes_the_check_wait_again(tmp_path):
     with repository.connection() as connection:
         assert attempt.attempt_id in pfc_unverified_attempt_ids(connection)
     assumption, intent = _state(vault, repository)
-    assert (assumption.status, assumption.ineligible_answers, intent) == ("open", 1, "assumed")
+    assert (assumption.status, assumption.resolution_reason, intent) == ("passed", "unassessed", "maintenance")
 
 
 def _facts(attempt_id, *, correctness=1.0, unverified=False, hints=0, manual_review=False):

@@ -138,6 +138,8 @@ def test_placement_state_carries_the_current_intent(tmp_path):
     know = _call(ctx, "placement_self_report", {"report": "know_this", "learningObjectIds": ["lo_diag"]})
     (row,) = know["placement"]["learningObjects"]
     assert (row["intent"], row["intentReason"]) == ("assumed", "assumed")
+    assert (row["outcomeReason"], row["awaitingDiagnosis"]) == (None, False)
     back = _call(ctx, "placement_self_report", {"report": "dont_know_this", "learningObjectIds": ["lo_diag"]})
     (row,) = back["placement"]["learningObjects"]
     assert (row["intent"], row["intentReason"]) == ("learning", "i_dont_know_this")
+    assert row["outcomeReason"] == "i_dont_know_this"

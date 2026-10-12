@@ -26,6 +26,20 @@ function day(iso: string | null | undefined): string {
   return iso ? iso.slice(0, 10) : "";
 }
 
+// Owner decision 2026-10-12: a review short of full marks keeps the topic in
+// maintenance unless the diagnosis finds a knowledge gap. Honest labels for why.
+const MAINTENANCE_LABEL: Record<string, string> = {
+  slip: "its first review slipped, not a knowledge gap: in maintenance, the rest of its new items are skipped",
+  item_contract:
+    "its first review missed what the question expected, not a knowledge gap: in maintenance, the rest of its new items are skipped",
+  unassessed:
+    "its first review took a route the grader could not check: in maintenance, the rest of its new items are skipped",
+  no_gap_attributed:
+    "the diagnosis found no knowledge gap in its first review: in maintenance, the rest of its new items are skipped"
+};
+const MAINTENANCE_PASSED = "its first review passed: in maintenance, the rest of its new items are skipped";
+const AWAITING_DIAGNOSIS = "waiting for the diagnosis of your last answer before deciding";
+
 /** "I know this" on a practice card: assumes the card's LO known (not tested). */
 export function KnowThisAction({
   practiceItemId,
@@ -105,20 +119,30 @@ export function PlacementSection({
           <Pill color="purple">{ASSUMED_LABEL}</Pill>
           <Faint>
             {placement.firstReviewIsDue
-              ? "its first review is due — that review is the check"
+              ? placement.awaitingDiagnosis
+                ? AWAITING_DIAGNOSIS
+                : "its first review is due — that review is the check"
               : `first review ${day(placement.firstReviewDue)} is the check`}
           </Faint>
         </div>
       ) : placement.intent === "maintenance" ? (
-        <Faint>its first review passed: in maintenance, the rest of its new items are skipped</Faint>
+        <Faint>
+          {placement.awaitingDiagnosis
+            ? `in maintenance; ${AWAITING_DIAGNOSIS}`
+            : (placement.outcomeReason && MAINTENANCE_LABEL[placement.outcomeReason]) || MAINTENANCE_PASSED}
+        </Faint>
       ) : (
         <Faint>
           {placement.intentReason === "check_missed"
-            ? "the first review missed, so this is back to learning"
+            ? placement.outcomeReason === "knowledge_gap"
+              ? "the first review showed a knowledge gap, so this is back to learning"
+              : "the first review missed, so this is back to learning"
             : placement.intentReason === "i_dont_know_this"
               ? "you said you don't know this yet, so it is being taught"
               : placement.intentReason === "missed_in_maintenance"
-                ? "a later review missed, so this is back to learning"
+                ? placement.outcomeReason === "knowledge_gap"
+                  ? "a later review showed a knowledge gap, so this is back to learning"
+                  : "a later review missed, so this is back to learning"
                 : "learning: practice is the placement"}
         </Faint>
       )}

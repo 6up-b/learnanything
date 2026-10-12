@@ -101,3 +101,32 @@ it("labels a checked LO as maintenance and still offers 'I don't know this'", as
   });
   expect(api.placementSelfReport).toHaveBeenCalledWith({ report: "dont_know_this", learningObjectIds: ["lo_diag"] });
 });
+
+it("says why a first review short of full marks kept the LO in maintenance (owner decision 2026-10-12)", () => {
+  const maintained = { ...base, intent: "maintenance" as const, intentReason: "check_passed" as const, lastOutcome: "passed" as const };
+  section({ ...maintained, outcomeReason: "slip" });
+  expect(
+    screen.getByText("its first review slipped, not a knowledge gap: in maintenance, the rest of its new items are skipped")
+  ).toBeTruthy();
+  cleanup();
+  section({ ...maintained, outcomeReason: "item_contract" });
+  expect(screen.getByText(/missed what the question expected, not a knowledge gap/)).toBeTruthy();
+  cleanup();
+  section({ ...maintained, outcomeReason: "unassessed" });
+  expect(screen.getByText(/took a route the grader could not check/)).toBeTruthy();
+  cleanup();
+  section({ ...maintained, outcomeReason: "clean" });
+  expect(screen.getByText("its first review passed: in maintenance, the rest of its new items are skipped")).toBeTruthy();
+  cleanup();
+  section({ ...maintained, outcomeReason: "slip", awaitingDiagnosis: true });
+  expect(screen.getByText("in maintenance; waiting for the diagnosis of your last answer before deciding")).toBeTruthy();
+  cleanup();
+  section({
+    ...base, assumed: true, label: ASSUMED_LABEL, source: "self_report", firstReviewDue: "2026-10-26T12:00:00Z",
+    firstReviewIsDue: true, awaitingDiagnosis: true
+  });
+  expect(screen.getByText("waiting for the diagnosis of your last answer before deciding")).toBeTruthy();
+  cleanup();
+  section({ ...base, intent: "learning", intentReason: "check_missed", outcomeReason: "knowledge_gap", lastOutcome: "failed" });
+  expect(screen.getByText("the first review showed a knowledge gap, so this is back to learning")).toBeTruthy();
+});

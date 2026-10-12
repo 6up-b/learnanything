@@ -807,7 +807,9 @@ def _placement_serving(
     state = load_placement_state(vault, repository)
     now_iso = utc_now_iso(clock)
     predictor = active_predictor(vault, repository, now_iso=now_iso)
-    due = state.due_learning_object_ids(now_iso)
+    # A check answer whose diagnosis has not landed is the check: the decision
+    # waits on it (owner decision 2026-10-12), so no second check item is served.
+    due = state.due_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
     if due:
         from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
         from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY

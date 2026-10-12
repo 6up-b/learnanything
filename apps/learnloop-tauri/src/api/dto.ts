@@ -2430,6 +2430,12 @@ export interface PlacementLearningObjectDto {
    *  acted on this LO. */
   intent: "assumed" | "maintenance" | "learning" | null;
   intentReason: "assumed" | "check_passed" | "check_missed" | "missed_in_maintenance" | "i_dont_know_this" | null;
+  /** How the diagnosis decided the intent (owner decision 2026-10-12): a
+   *  first review or a later review short of full marks keeps the topic in
+   *  maintenance unless the diagnosis finds a knowledge gap. */
+  outcomeReason?: PlacementOutcomeReason | null;
+  /** A miss whose diagnosis has not landed yet: the decision waits on it. */
+  awaitingDiagnosis?: boolean;
   assumed: boolean;
   label: string | null;
   source: AssumptionSource | null;
@@ -2438,6 +2444,22 @@ export interface PlacementLearningObjectDto {
   lastOutcome: "passed" | "failed" | "returned" | null;
   returnedByLearner: boolean;
 }
+
+/** Kept in maintenance: clean (full marks), slip, item_contract (the question
+ *  did not make clear what it expected), unassessed (a route the grader could
+ *  not check) or no_gap_attributed. Back to learning: knowledge_gap,
+ *  learner_side (hints, priming, "don't know"), no_diagnosis (today's rule) or
+ *  i_dont_know_this. */
+export type PlacementOutcomeReason =
+  | "clean"
+  | "slip"
+  | "item_contract"
+  | "unassessed"
+  | "no_gap_attributed"
+  | "knowledge_gap"
+  | "learner_side"
+  | "no_diagnosis"
+  | "i_dont_know_this";
 
 export interface PlacementStateDto {
   version?: number;

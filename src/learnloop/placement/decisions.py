@@ -51,6 +51,7 @@ from learnloop.placement.signals import blocking_signals_by_lo
 from learnloop.placement.state import (
     INTENT_MAINTENANCE,
     PlacementState,
+    diagnosis_can_arrive,
     evaluate_independence,
     load_answers,
     load_placement_state_from_connection,
@@ -126,8 +127,10 @@ def _decision_row(
     }
 
 
-def _open_assumption_id(connection: Any, learning_object_id: str) -> str | None:
-    state = load_placement_state_from_connection(connection, active=True)
+def _open_assumption_id(connection: Any, vault: LoadedVault, learning_object_id: str) -> str | None:
+    state = load_placement_state_from_connection(
+        connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+    )
     open_ = state.open_by_lo.get(learning_object_id)
     return open_.id if open_ is not None else None
 
@@ -224,7 +227,9 @@ def record_self_report(
                 if learning_object.status != "active":
                     results.append({"learning_object_id": lo_id, "status": f"not_active:{learning_object.status}"})
                     continue
-                state = load_placement_state_from_connection(connection, active=True)
+                state = load_placement_state_from_connection(
+                    connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+                )
                 open_ = state.open_by_lo.get(lo_id)
                 open_id = open_.id if open_ is not None else None
                 intent = state.intent_by_lo.get(lo_id)
@@ -333,7 +338,9 @@ def reconcile_fast_track(
     now_iso = utc_now_iso(clock)
     written: list[dict[str, Any]] = []
     with repository.connection() as connection:
-        state = load_placement_state_from_connection(connection, active=True)
+        state = load_placement_state_from_connection(
+            connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+        )
         answers_by_lo = load_answers(connection)
         excluded = (
             set(state.decided_learning_object_ids)
@@ -415,7 +422,9 @@ def reconcile_predictor_assumptions(
     written: list[dict[str, Any]] = []
     with repository.atomic():
         with repository.connection() as connection:
-            state = load_placement_state_from_connection(connection, active=True)
+            state = load_placement_state_from_connection(
+                connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+            )
             answered = set(load_answers(connection))
             excluded = set(state.decided_learning_object_ids) | set(state.returned_learning_object_ids)
             for lo_id, learning_object in sorted(vault.learning_objects.items()):
@@ -598,7 +607,9 @@ def finish_quick_check_split(
     with repository.connection() as connection:
         scope = json.loads(record["learning_object_ids_json"])
         answers = quick_check_answers(connection, calibration_session_id=calibration_session_id, scope=scope)
-        state = load_placement_state_from_connection(connection, active=placement_active(vault))
+        state = load_placement_state_from_connection(
+            connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+        )
         blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))
     predictor = active_predictor(vault, repository, now_iso=now_iso)
     split = quick_check_split(vault, predictor, scope=scope, answers_by_lo=answers, blocking=blocking, state=state)
@@ -612,7 +623,7 @@ def finish_quick_check_split(
                 return json.loads(current["outcome_json"] or "{}")
             if placement_active(vault):
                 for lo, verdict in split.items():
-                    if verdict["verdict"] != "assumed" or _open_assumption_id(connection, lo) is not None:
+                    if verdict["verdict"] != "assumed" or _open_assumption_id(connection, vault, lo) is not None:
                         continue
                     region = predictor.region_estimates([lo]).get(lo)
                     decision = _decision_row(
