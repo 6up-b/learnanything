@@ -394,3 +394,15 @@ def test_complete_link_cannot_chain_pair_judgments(tmp_path):
     with pytest.raises(ValueError, match="two agreeing"):
         apply_family(vault, repository, family, members, proposal_id="p",
                      judge="verifier", judgment_ids=ids)
+
+
+def test_ensemble_source_kind_loads_and_round_trips(tmp_path):
+    """Review F10: spec §5.1 lists ``ensemble`` (PF-b's second generation path)."""
+    paths, vault, _, _, family = setup_family(tmp_path)
+    ensemble = family.model_copy(update={"source_kind": "ensemble"})
+    ActivityFamily.model_validate(ensemble.model_dump(mode="json"))
+    path = upsert_activity_family(paths.root, ensemble)
+    assert read_yaml(path)["source_kind"] == "ensemble"
+    loaded = load_vault(paths.root)
+    assert loaded.activity_families[family.id].source_kind == "ensemble"
+    assert not [issue for issue in loaded.issues if family.id in str(issue)]

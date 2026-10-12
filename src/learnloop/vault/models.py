@@ -648,7 +648,9 @@ class ActivityFamily(VaultModel):
     learning_object_id: str
     idea_statement: str
     retrieval_target: str
-    source_kind: Literal["generator", "source_anchored", "authored"] = "authored"
+    # Spec §5.1: generator programs, the ensemble path (§5.3), source-anchored
+    # spans or owner-authored families.
+    source_kind: Literal["generator", "ensemble", "source_anchored", "authored"] = "authored"
     reference: FamilyReference = Field(default_factory=FamilyReference)
     generator: dict[str, Any] | None = None
     provenance: Provenance = Field(default_factory=Provenance)
