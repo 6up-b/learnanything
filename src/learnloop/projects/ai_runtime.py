@@ -2,7 +2,8 @@
 
 - **Routes.** Authoring and the closed-book check use ``ai.routing.project``
   (default: the grading route, then the active provider); probe grading uses
-  ``ai.routing.grading``. Clients are built with an *empty temporary working
+  ``ai.routing.grading`` at ``project.grading_reasoning_effort`` (default
+  ``high``, spec §5.2's one high-effort pass). Clients are built with an *empty temporary working
   directory* in place of the vault root, so an agentic transport (Codex runs
   in its working directory) cannot browse the vault — the project store holds
   reference answers and the closed-book check must stay closed-book.
@@ -57,6 +58,7 @@ class ProjectRoute:
     ready: bool
     message: str | None
     client: Any = None
+    reasoning_effort: str | None = None
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -65,6 +67,7 @@ class ProjectRoute:
             "provider": self.provider_name,
             "provider_type": self.provider_type,
             "model": self.model,
+            "reasoning_effort": self.reasoning_effort,
             "subscription": self.subscription,
             "ready": self.ready,
             "message": self.message,
@@ -87,6 +90,36 @@ def _config_for_workdir(config: LearnLoopConfig, vault_root: Path) -> LearnLoopC
     return copy
 
 
+def config_for_role(config: LearnLoopConfig, role: str) -> LearnLoopConfig:
+    """The configuration a role's client is built from.
+
+    Spec §5.2 asks for one *high-effort* grading pass, but the shared grading
+    route defaults to a low-effort profile. For the grading role (closed-book
+    judgments and answer grades) ``project.grading_reasoning_effort`` replaces
+    the routed profile's effort whenever that profile takes one (every Codex
+    profile; chat profiles that declare an effort). An empty value keeps the
+    route's own effort. Other roles, and every other feature, are untouched.
+    """
+
+    effort = (config.project.grading_reasoning_effort or "").strip()
+    if role != "grading" or not effort:
+        return config
+    from learnloop.ai.routing import provider_for_task
+
+    name = provider_for_task(config, ROLE_TASK[role]).provider_name  # type: ignore[arg-type]
+    profile = config.ai.providers.get(name)
+    if profile is None:
+        return config
+    takes_effort = _provider_type(config, name) in SUBSCRIPTION_PROVIDER_TYPES or bool(
+        (getattr(profile, "reasoning_effort", None) or "").strip()
+    )
+    if not takes_effort or getattr(profile, "reasoning_effort", None) == effort:
+        return config
+    copy = config.model_copy(deep=True)
+    copy.ai.providers[name].reasoning_effort = effort
+    return copy
+
+
 def describe_routes(config: LearnLoopConfig) -> dict[str, dict[str, Any]]:
     """Which provider each role would use, without building any client."""
 
@@ -94,14 +127,16 @@ def describe_routes(config: LearnLoopConfig) -> dict[str, dict[str, Any]]:
 
     routes: dict[str, dict[str, Any]] = {}
     for role, task in ROLE_TASK.items():
-        name = provider_for_task(config, task).provider_name  # type: ignore[arg-type]
-        provider_type = _provider_type(config, name)
-        profile = config.ai.providers.get(name)
+        effective = config_for_role(config, role)
+        name = provider_for_task(effective, task).provider_name  # type: ignore[arg-type]
+        provider_type = _provider_type(effective, name)
+        profile = effective.ai.providers.get(name)
         routes[role] = {
             "task": task,
             "provider": name or "manual",
             "provider_type": provider_type,
             "model": getattr(profile, "model", None),
+            "reasoning_effort": getattr(profile, "reasoning_effort", None),
             "subscription": provider_type in SUBSCRIPTION_PROVIDER_TYPES,
         }
     return routes
@@ -114,6 +149,7 @@ def resolve_route(workdir: Path, config: LearnLoopConfig, role: str) -> ProjectR
     task = ROLE_TASK[role]
     resolved = ready_client_for_task(workdir, config, task)  # type: ignore[arg-type]
     provider_type = _provider_type(config, resolved.provider_name)
+    profile = config.ai.providers.get(resolved.provider_name)
     return ProjectRoute(
         role=role,
         task=task,
@@ -124,6 +160,7 @@ def resolve_route(workdir: Path, config: LearnLoopConfig, role: str) -> ProjectR
         ready=resolved.ready,
         message=resolved.runtime.message,
         client=resolved.client,
+        reasoning_effort=getattr(profile, "reasoning_effort", None),
     )
 
 
@@ -142,7 +179,7 @@ def project_routes(vault_root: Path, config: LearnLoopConfig, roles: tuple[str, 
 
     with tempfile.TemporaryDirectory(prefix="learnloop-project-") as workdir:
         pinned = _config_for_workdir(config, vault_root)
-        yield {role: _route_resolver(Path(workdir), pinned, role) for role in roles}
+        yield {role: _route_resolver(Path(workdir), config_for_role(pinned, role), role) for role in roles}
 
 
 @dataclass(frozen=True)
@@ -266,7 +303,10 @@ class PaidCalls:
             "owner_price_estimate" if self.price_per_million is not None else "provider_reported"
         )
         state: dict[str, Any] = {"physical": 0, "root": None, "usage": {}, "root_usage": {}}
-        disclosure = {**(disclosure or {}), "route_role": route.role, "provider": route.provider_name}
+        disclosure = {
+            **(disclosure or {}), "route_role": route.role, "provider": route.provider_name,
+            "reasoning_effort": route.reasoning_effort,
+        }
 
         with ExitStack() as stack:
             count_charge = stack.enter_context(
@@ -377,6 +417,7 @@ __all__ = [
     "SUBSCRIPTION_PROVIDER_TYPES",
     "SUBSCRIPTION_REFERENCE_USD_PER_MILLION",
     "caps_from_options",
+    "config_for_role",
     "describe_routes",
     "project_routes",
     "resolve_route",

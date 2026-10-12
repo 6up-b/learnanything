@@ -1312,6 +1312,10 @@ class ProjectConfig(BaseModel):
     # Plan-build sweeps run at most this often (app start always sweeps).
     plan_sweep_min_interval_minutes: int = Field(default=15, ge=0)
     generate_before_serving: bool = True
+    # Spec §5.2: probe grading (the closed-book judgment and answer grades) is
+    # one high-effort pass. Applied to the grading route's profile when that
+    # profile takes a reasoning effort; "" keeps the route's own effort.
+    grading_reasoning_effort: Literal["", "minimal", "low", "medium", "high", "xhigh"] = "high"
 
 
 class EmbeddingConfig(BaseModel):

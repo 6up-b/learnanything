@@ -235,3 +235,74 @@ def project_fake(monkeypatch):
     fake = ProjectFake()
     monkeypatch.setattr(ai_runtime, "_route_resolver", fake_resolver(fake))
     return fake
+
+
+def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}') -> dict[str, Any]:
+    """A stand-in ``openai_codex`` SDK that records what a turn is started with.
+
+    The real SDK spawns the Codex app-server; this one only captures the
+    ``CodexConfig`` kwargs (``codex_bin``, ``launch_args_override``, ``cwd``)
+    and the ``thread_start``/``turn`` kwargs (``cwd``, ``effort``, ...).
+    """
+
+    import sys
+    from enum import Enum
+    from types import ModuleType, SimpleNamespace
+
+    captured: dict[str, Any] = {"turns": []}
+
+    class FakeCodex:
+        def __init__(self, config):
+            captured["app_config"] = config.kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def close(self):
+            return None
+
+        def thread_start(self, **kwargs):
+            captured["thread_start"] = kwargs
+            return FakeThread()
+
+    class FakeThread:
+        def turn(self, prompt: str, **kwargs):
+            captured["turns"].append({"prompt": prompt, **kwargs})
+            return FakeTurn()
+
+    class FakeTurn:
+        def run(self):
+            return SimpleNamespace(final_response=final_response)
+
+        def interrupt(self):
+            return None
+
+    class SdkAppConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class ReasoningEffort(Enum):
+        minimal = "minimal"
+        low = "low"
+        medium = "medium"
+        high = "high"
+        xhigh = "xhigh"
+
+    class ReasoningSummary:
+        @classmethod
+        def model_validate(cls, value):
+            return value
+
+    module = ModuleType("openai_codex")
+    module.Codex = FakeCodex
+    module.CodexConfig = SdkAppConfig
+    types_module = ModuleType("openai_codex.types")
+    types_module.Personality = SimpleNamespace(pragmatic="pragmatic")
+    types_module.ReasoningEffort = ReasoningEffort
+    types_module.ReasoningSummary = ReasoningSummary
+    monkeypatch.setitem(sys.modules, "openai_codex", module)
+    monkeypatch.setitem(sys.modules, "openai_codex.types", types_module)
+    return captured

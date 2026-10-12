@@ -780,7 +780,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # routes only; no scoring, scheduling, projection or serving change.
     # Project understanding M1 adds the [project] section and the
     # ai.routing.project route; both act only on the standalone project store.
-    "mvp-0.9": "32d48efbdc21573befdff21bbde5a8ce9e080f5c590e4d337161b821c3e63644",
+    "mvp-0.9": "1966d43d3b79609eca0925aaec83823bed522d2ba4f759de8004e1b05405838f",
 }
 
 

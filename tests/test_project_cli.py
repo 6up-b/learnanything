@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -330,3 +331,70 @@ def test_metered_output_limit_reaches_the_provider_request_and_its_repair(tmp_pa
     )
     requests = module.instances[0].requests
     assert [request["max_tokens"] for request in requests] == [32, 20]
+
+
+def _captured_route_configs(monkeypatch, config, roles):
+    from learnloop.projects import ai_runtime
+
+    seen = {}
+
+    class _Resolved:
+        ready = True
+        client = None
+        runtime = type("R", (), {"model": "m", "message": None})()
+
+        def __init__(self, name):
+            self.provider_name = name
+
+    def fake_ready(workdir, effective, task):
+        name = provider_for_task(effective, task).provider_name
+        seen[task] = effective.ai.providers[name].reasoning_effort
+        return _Resolved(name)
+
+    monkeypatch.setattr(ai_runtime, "ready_client_for_task", fake_ready)
+    with ai_runtime.project_routes(Path("."), config, roles) as routes:
+        return seen, routes
+
+
+def test_project_grading_runs_at_high_effort_by_default(monkeypatch, tmp_path):
+    config = LearnLoopConfig()
+    assert config.ai.routing.grading == "codex_low"
+    seen, routes = _captured_route_configs(monkeypatch, config, ("authoring", "grading"))
+    assert seen["grading"] == "high"
+    assert seen["project"] == "low"  # authoring keeps its route's own effort
+
+
+def _turn_effort(monkeypatch, tmp_path, config, role):
+    from learnloop.ai.providers.codex import CodexSDKProviderClient
+    from learnloop.projects.ai_runtime import config_for_role
+    from tests.project_support import install_fake_codex_sdk
+
+    captured = install_fake_codex_sdk(monkeypatch)
+    effective = config_for_role(config, role)
+    name = provider_for_task(effective, "grading" if role == "grading" else "project").provider_name
+    client = CodexSDKProviderClient(name, effective.ai.providers[name], tmp_path)
+    client._run_structured("p", {"type": "object"}, purpose="project_probe_grading")
+    return captured["turns"][-1]["effort"].value
+
+
+def test_the_effective_grading_request_carries_high_effort(monkeypatch, tmp_path):
+    config = LearnLoopConfig()
+    assert _turn_effort(monkeypatch, tmp_path, config, "grading") == "high"
+    assert _turn_effort(monkeypatch, tmp_path, config, "authoring") == "low"
+    config.project.grading_reasoning_effort = ""  # the owner keeps the route's own effort
+    assert _turn_effort(monkeypatch, tmp_path, config, "grading") == "low"
+    config.project.grading_reasoning_effort = "medium"
+    assert _turn_effort(monkeypatch, tmp_path, config, "grading") == "medium"
+
+
+def test_grading_effort_leaves_chat_profiles_without_an_effort_alone():
+    from learnloop.projects.ai_runtime import config_for_role, describe_routes
+
+    config = LearnLoopConfig()
+    config.ai.routing.grading = "openrouter"
+    assert config_for_role(config, "grading").ai.providers["openrouter"].reasoning_effort is None
+    config.ai.routing.grading = "deepseek_pro"
+    config.project.grading_reasoning_effort = "medium"
+    assert config_for_role(config, "grading").ai.providers["deepseek_pro"].reasoning_effort == "medium"
+    assert config.ai.providers["deepseek_pro"].reasoning_effort == "high"  # the shared profile is untouched
+    assert describe_routes(config)["grading"]["reasoning_effort"] == "medium"
