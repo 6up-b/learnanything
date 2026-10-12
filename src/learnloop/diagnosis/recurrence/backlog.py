@@ -209,9 +209,12 @@ def run_backlog(
             "reason": "embedding.enabled is false: the backlog shortlists with hypothesis embeddings. "
             "Only validated citations and exact statements can link hypotheses without them.",
         }
-    from learnloop.diagnosis.recurrence.judging import model_label
+    from learnloop.diagnosis.recurrence.guard import configured_judge_model
+    from learnloop.diagnosis.recurrence.judging import producer_label
 
-    producer = model_label(judge_client) if judge_client is not None else None
+    # Reuse is per producer (model@effort): plan with the client's, else the
+    # configured route's; None (any producer) only when config names no model.
+    producer = producer_label(judge_client) if judge_client is not None else configured_judge_model(vault)
     spend = command_spend(vault, caps, price_per_million=price_per_million, cancelled=cancelled)
     plan = plan_backlog(vault, repository, spend=spend, max_pairs=max_pairs, producer=producer)
     pairs = plan.pop("_pairs")

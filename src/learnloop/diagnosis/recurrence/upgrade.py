@@ -5,8 +5,8 @@ The playbook's explicit upgrade, owner-run (implementation_goal.md §1a):
 * refuses anything but the immediate predecessor (``mvp-0.10``);
 * refuses unless the same-answer/different-cause guard passes FOR THE
   CONFIGURED JUDGE: every required negative (the built-in suite plus every
-  registered M1 case) judged by the model the ``same_cause_judge`` route
-  resolves to, under the current prompt and input, and none of its standing
+  registered M1 case) judged by the model AND reasoning effort the
+  ``same_cause_judge`` route resolves to, under the current prompt and input, and none of its standing
   verdicts ``same`` (§3.6: any false merge blocks the switch);
 * PREPARES the groups (built from the ledgers already recorded, not yet in
   force) and the P0 projection receipt BEFORE the atomic config rename, and
@@ -80,7 +80,7 @@ def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResul
             other = [model for model in seen if model != expected_model]
             note = f" (verdicts exist from {other}, which do not count)" if other else ""
             problems.append(
-                f"{expected_model!r}, the model the same-cause judge route resolves to, has not judged "
+                f"{expected_model!r}, the judge (model@effort) the same-cause route resolves to, has not judged "
                 f"{len(guard['missing'])} of {guard['negatives']} required planted pairs under prompt "
                 f"{guard['prompt_version']}{note}; rerun `learnloop recurrence guard` for this judge "
                 "(`--dry-run` first)"

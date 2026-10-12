@@ -151,14 +151,15 @@ def test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_gu
     # The owner moves the judge to another model and reruns the guard.
     _route_judge(paths.root, "deepseek_pro")
     vault = load_vault(paths.root)
-    assert _judge_model(vault) == "deepseek-v4-pro"
+    # The producer is the model at its reasoning effort (second review F10).
+    assert _judge_model(vault) == "deepseek-v4-pro@high"
     still = upgrade_to_mvp011(paths.root, clock=CLOCK)
     assert not still.upgraded and "has not judged" in still.problems[0] and model in still.problems[0]
-    fixed = _guard_judge(model="deepseek-v4-pro")
+    fixed = _guard_judge(model="deepseek-v4-pro@high")
     # The new route is metered: the owner supplies its price (unknown fails closed).
     rerun = run_guard(vault, repository, caps=CAPS, judge_client=fixed, price_per_million=1.0)
     assert rerun["judged"] == len(BUILTIN_SUITE) and len(fixed.judged) == len(BUILTIN_SUITE)
-    assert guard_status(repository, judge_model="deepseek-v4-pro")["passed"] is True
+    assert guard_status(repository, judge_model="deepseek-v4-pro@high")["passed"] is True
     result = upgrade_to_mvp011(paths.root, clock=CLOCK)
     assert result.upgraded, result.problems
     assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.11"
@@ -247,18 +248,53 @@ def test_verdicts_split_across_two_models_do_not_pass_for_the_configured_one(tmp
     from learnloop.matching.judge import judge_pairs
 
     class _ModelB:
-        producer = "deepseek-v4-pro"
+        producer = "deepseek-v4-pro@high"
 
         def __call__(self, prompt, result_model, purpose):
             return result_model(verdict="different", rationale="b"), self.producer
 
     judge_pairs(repository, GUARD_KIND, guard_pairs(negatives[:3]), execute=_ModelB())
     status = guard_status(repository)
-    assert "deepseek-v4-pro" in status["judge_models_seen"] and status["missing"] == []
+    assert "deepseek-v4-pro@high" in status["judge_models_seen"] and status["missing"] == []
     blocked = upgrade_to_mvp011(paths.root, clock=CLOCK)
     assert not blocked.upgraded
     assert f"has not judged {len(negatives) - 3} of {len(negatives)}" in blocked.problems[0]
     assert "model-a" in blocked.problems[0], "the other model's verdicts are named as not counting"
+
+
+def _codex_judge(effort: str, decide_from: JudgeFake | None = None) -> JudgeFake:
+    """A Codex-like judge client: the model and reasoning effort live on its config."""
+
+    from types import SimpleNamespace
+
+    judge = decide_from or _guard_judge(model="gpt-5.6-sol")
+    judge.model = "gpt-5.6-sol"
+    judge.config = SimpleNamespace(model="gpt-5.6-sol", reasoning_effort=effort)
+    return judge
+
+
+def test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_guard_pass(tmp_path):
+    """Second review F10: codex_low and codex_medium share gpt-5.6-sol; a guard
+    pass from one must not count for the other, nor its verdicts be reused."""
+
+    from learnloop.diagnosis.recurrence.judging import producer_label
+
+    paths, vault, repository = _mvp010(tmp_path)
+    low, medium = _codex_judge("low"), _codex_judge("medium")
+    assert producer_label(low) != producer_label(medium)
+    assert _judge_model(vault) == producer_label(low), "the route resolves to codex_low"
+    report = run_guard(vault, repository, caps=CAPS, judge_client=low)
+    assert report["result"]["passed"] is True and report["judge_model"] == producer_label(low)
+    _route_judge(paths.root, "codex_medium")
+    vault = load_vault(paths.root)
+    assert _judge_model(vault) == producer_label(medium)
+    assert guard_status(repository, judge_model=producer_label(medium))["passed"] is False
+    blocked = upgrade_to_mvp011(paths.root, clock=CLOCK)
+    assert not blocked.upgraded and "has not judged" in blocked.problems[0]
+    # The medium tier is asked every pair (nothing reused across tiers).
+    rerun = run_guard(vault, repository, caps=CAPS, judge_client=medium)
+    assert rerun["judged"] == len(BUILTIN_SUITE)
+    assert upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
 
 
 def test_the_upgrade_is_immediate_successor_only(tmp_path):

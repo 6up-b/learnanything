@@ -9,7 +9,8 @@ verdicts go to ``judgment_ledger`` (task ``same_cause``, subject kind
 
 **Any false merge blocks the switch**: ``learnloop upgrade --to mvp-0.11``
 refuses unless every REQUIRED negative pair has a verdict from the CONFIGURED
-judge model under the current prompt version and input, and none of that
+judge (its model AND reasoning effort, ``model@effort``) under the current
+prompt version and input, and none of that
 model's standing verdicts on them is ``same``. Verdicts from another model
 never count (a route change needs a rerun, which asks the new model: reuse is
 per producer), and ``--rerun`` asks the same model again, superseding its
@@ -354,14 +355,14 @@ def run_guard(
         default_judge_client,
         estimate_tokens,
         judge_executor,
-        model_label,
+        producer_label,
         receipt_sink,
     )
     from learnloop.matching.judge import already_judged, judge_pairs, pair_prompt
 
     suite = guard_suite(from_run=from_run, repository=repository)
     pairs = guard_pairs(suite)
-    producer = model_label(judge_client) if judge_client is not None else configured_judge_model(vault)
+    producer = producer_label(judge_client) if judge_client is not None else configured_judge_model(vault)
     spend = command_spend(vault, caps, price_per_million=price_per_million, cancelled=cancelled, embedding=False)
     with repository.connection() as connection:
         todo = [
@@ -426,14 +427,23 @@ def run_guard(
 
 
 def configured_judge_model(vault: LoadedVault) -> str | None:
-    """The model the same-cause judge route resolves to, from config alone."""
+    """The PRODUCER the same-cause judge route resolves to, from config alone.
+
+    ``model@effort`` (:func:`~learnloop.diagnosis.recurrence.judging.producer_label`):
+    Codex's low and medium tiers share a model, so the reasoning effort is
+    part of who judged (second review F10). None when the profile names no
+    model.
+    """
 
     from learnloop.ai.routing import provider_for_task
+    from learnloop.diagnosis.recurrence.judging import producer_label_for
 
     selection = provider_for_task(vault.config, "same_cause_judge", allow_env=False)
     profile = vault.config.ai.providers.get(selection.provider_name)
     model = getattr(profile, "model", None) if profile is not None else None
-    return str(model) if model else None
+    if not model:
+        return None
+    return producer_label_for(model=model, effort=getattr(profile, "reasoning_effort", None))
 
 
 __all__ = [

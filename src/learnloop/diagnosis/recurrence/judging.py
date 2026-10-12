@@ -157,6 +157,30 @@ def model_label(client: Any) -> str:
     return str(getattr(client, "model", None) or getattr(client, "model_id", None) or getattr(client, "provider_name", None) or "unknown")
 
 
+def producer_label(client: Any) -> str:
+    """Who produced a verdict: the model AND its reasoning effort.
+
+    Codex's low and medium tiers serve one model (``gpt-5.6-sol``) at
+    different efforts: a guard pass or a reused verdict from one must not
+    count for the other (second review F10). The label is ``model@effort``
+    (just ``model`` without an effort); it is what ``judgment_ledger.judge_model``
+    stores for the judge's verdicts. The profile NAME is not part of it: it is
+    a config alias (Codex clients do not even carry it), and two profiles with
+    the same model and effort are the same producer.
+    """
+
+    from learnloop.ai.execution import model_settings
+
+    settings = model_settings(client)
+    return producer_label_for(model=settings.get("model") or model_label(client), effort=settings.get("reasoning_effort"))
+
+
+def producer_label_for(*, model: Any, effort: Any = None) -> str:
+    label = str(model or "unknown")
+    effort_text = str(effort or "").strip()
+    return f"{label}@{effort_text}" if effort_text else label
+
+
 def sum_estimates(*estimates: SpendEstimate) -> SpendEstimate:
     usd = [estimate.estimated_usd for estimate in estimates]
     return SpendEstimate(
@@ -181,15 +205,16 @@ def admit_beside(spend: ReviewSpend, route: str, *, input_tokens: int, reserve: 
 class JudgeExecutor:
     """One admitted, isolated structured call per pair on the judge route.
 
-    ``producer`` (the model this route's client answers as) is known before
-    any call: judgment reuse and claims are per producer.
+    ``producer`` (the model and reasoning effort this route's client answers
+    as, :func:`producer_label`) is known before any call: judgment reuse and
+    claims are per producer.
     """
 
     def __init__(self, spend: ReviewSpend, client: Any, *, reserve: Reserve | None = None) -> None:
         self.spend = spend
         self.client = client
         self.reserve = reserve
-        self.producer = model_label(client)
+        self.producer = producer_label(client)
         spend.register(SAME_CAUSE_ROUTE, client)
 
     def __call__(self, prompt: str, result_model: type[SameOrDifferent], purpose: str) -> tuple[SameOrDifferent, str]:
@@ -267,6 +292,8 @@ __all__ = [
     "learner_state",
     "model_label",
     "plan_shortlist",
+    "producer_label",
+    "producer_label_for",
     "receipt_sink",
     "settled_class_pairs",
     "sum_estimates",
