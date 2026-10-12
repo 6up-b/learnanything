@@ -3,6 +3,7 @@ import { registerVaultDraft } from "../app/vaultTransition";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type {
+  AttemptProgress,
   AttemptResultDto,
   AttemptType,
   CandidateErrorTypeDto,
@@ -149,6 +150,7 @@ export function PracticeScreen({
     practiceItemId: string;
     sessionId: string;
     openedAtMs: number;
+    attemptProgress: AttemptProgress;
     proactiveOpen?: boolean;
   }) => void;
   onError: (message: string) => void;
@@ -245,6 +247,9 @@ export function PracticeScreen({
       practiceItemId,
       sessionId: session.sessionId,
       openedAtMs: openedAtMs.current,
+      // "No work yet" is logged explicitly: nothing typed in the answer or the
+      // why-line when the learner asks (hints revealed are help, not work).
+      attemptProgress: answer.trim() || whyLine.trim() ? "draft_started" : "no_draft",
       ...options
     });
   // The editor grows with its content but is capped so the answer card never

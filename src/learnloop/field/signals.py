@@ -2,7 +2,8 @@
 
 ``interaction-signals-v1`` chooses a conservative 0.3 mass per subject/LO/UTC
 day (D12 does not specify a number). Missing timing is NOT evidence of help
-before work: only an explicitly logged zero qualifies.
+before work: only an explicitly logged zero, or the practice screen's explicit
+"no work yet" marker (``attempt_progress = "no_draft"``), qualifies.
 """
 from __future__ import annotations
 
@@ -23,6 +24,11 @@ DAILY_SIGNAL_MASS_CAP = 0.3
 QUESTION_TYPES = frozenset({
     "prerequisite", "mechanism", "clarification", "strategy", "verification", "other",
 })
+# question_events.attempt_progress as the practice screen logs it: the learner
+# had typed nothing when they asked ("no_draft") or had started a draft
+# ("draft_started"). The screen logs elapsed time in fractional seconds, so an
+# exact zero almost never holds; this marker is the explicit "no work yet".
+ATTEMPT_PROGRESS_NO_WORK = "no_draft"
 logger = logging.getLogger(__name__)
 
 
@@ -155,7 +161,8 @@ def derive_interaction_signals(
         observed = event.get("received_at") or event["created_at"]
         logged_at = observed
         qtype = event.get("question_type")
-        logged_before = event.get("context") == "practice" and event.get("seconds_into_attempt") == 0 and (
+        no_work_yet = _logged_no_work_yet(event)
+        logged_before = no_work_yet and (
             bool(event.get("hint_equivalent")) or qtype in {"prerequisite", "mechanism", "clarification", "strategy"}
         )
         facets = _list(event.get("facets_json", event.get("facets")))
@@ -181,7 +188,7 @@ def derive_interaction_signals(
         help_requested = bool(event.get("hint_equivalent")) or qtype in {
             "prerequisite", "mechanism", "clarification", "strategy",
         }
-        before = help_requested and event.get("context") == "practice" and event.get("seconds_into_attempt") == 0
+        before = help_requested and no_work_yet
         leak = bool(event.get("leak_suspected") or event.get("answer_revealed"))
         if attempt is not None and event.get("context") == "practice" and (
             leak or logged_before or event.get("hint_equivalent")
@@ -255,6 +262,17 @@ def derive_interaction_signals(
             cache_entries_considered=len(cache), daily_mass_cap=daily_mass_cap,
         )
     return tuple(result)
+
+
+def _logged_no_work_yet(event: Mapping[str, Any]) -> bool:
+    """A practice question logged as asked before any work (spec §3.1).
+
+    Only explicit logging counts: an exact zero ``seconds_into_attempt`` or the
+    practice screen's ``no_draft`` marker. Missing or late timing does not."""
+    return event.get("context") == "practice" and (
+        event.get("seconds_into_attempt") == 0
+        or event.get("attempt_progress") == ATTEMPT_PROGRESS_NO_WORK
+    )
 
 
 def _target_subject(event: Mapping[str, Any], lo: str, attempt: AttemptRow | None) -> str:

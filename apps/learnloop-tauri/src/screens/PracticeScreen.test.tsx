@@ -187,3 +187,26 @@ it("carries the queue offer into both teach-back conversation calls", async () =
     sessionId: "old-session", practiceItemId: "old-item", schedulerCandidateId: "old-offer", answerMd: "My explanation"
   })));
 });
+
+// Re-review F5: "help before any work" is logged explicitly from the draft,
+// because the elapsed seconds the overlay also sends are fractional.
+it("tells the tutor whether an answer was started when the learner asks", async () => {
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  await waitFor(() => {
+    fireEvent.keyDown(window, { key: "?" });
+    expect(callbacks.onAsk).toHaveBeenCalledOnce();
+  });
+  expect(callbacks.onAsk).toHaveBeenLastCalledWith(expect.objectContaining({
+    context: "practice", practiceItemId: "old-item", sessionId: "old-session", attemptProgress: "no_draft"
+  }));
+  fireEvent.change(answer, { target: { value: "   " } });
+  fireEvent.keyDown(window, { key: "?" });
+  expect(callbacks.onAsk).toHaveBeenLastCalledWith(expect.objectContaining({ attemptProgress: "no_draft" }));
+  fireEvent.change(answer, { target: { value: "A = U" } });
+  fireEvent.keyDown(window, { key: "?" });
+  expect(callbacks.onAsk).toHaveBeenLastCalledWith(expect.objectContaining({ attemptProgress: "draft_started" }));
+  expect(callbacks.onAsk).toHaveBeenCalledTimes(3);
+});

@@ -116,6 +116,56 @@ def test_mid_attempt_question_is_linked_but_not_early_help(tmp_path):
     assert next(s for s in inputs["signals"] if s.signal_id == "hint:a1").outcome == 0.8
 
 
+# Re-review F5: the practice screen logs fractional seconds since the item
+# opened, so an exact zero almost never holds. Its "no work yet" marker
+# (question_events.attempt_progress = "no_draft") is the explicit signal.
+# This is the payload AskOverlay.tsx sends (AskOverlay.test.tsx pins it).
+def _practice_screen_payload(session_id, *, attempt_progress):
+    payload = {
+        "context": "practice", "question": "Where do I even start?",
+        "practiceItemId": ITEM, "sessionId": session_id, "secondsIntoAttempt": 2.537,
+    }
+    if attempt_progress is not None:
+        payload["attemptProgress"] = attempt_progress
+    return payload
+
+
+@pytest.mark.parametrize("attempt_progress, early", [
+    ("no_draft", True), ("draft_started", False), (None, False),
+])
+def test_practice_screen_payload_marks_help_before_work(tmp_path, attempt_progress, early):
+    from tests.test_sidecar_tutor_qa import _TutorServer, _init, _rpc, _tutor_vault
+
+    server = _TutorServer(question_type="strategy")
+    server.start()
+    try:
+        vault_root, paths = _tutor_vault(tmp_path, server)
+
+        def call(method, params):
+            response = _rpc([_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": method, "params": params}])[1]
+            assert "result" in response, response
+            return response["result"]
+
+        session_id = call("start_session", {"energy": "medium"})["sessionId"]
+        asked = call("ask_tutor_question", _practice_screen_payload(session_id, attempt_progress=attempt_progress))
+        assert asked["hintEquivalent"] is True
+        submitted = call("submit_attempt", {
+            "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "SVD is U Sigma V transpose.",
+            "attemptType": "independent_attempt", "hintsUsed": 0,
+        })
+    finally:
+        server.stop()
+    repository = Repository(paths.sqlite_path)
+    assert repository.question_event(asked["eventId"])["attempt_progress"] == attempt_progress
+    inputs = _inputs(load_vault(paths.root))
+    attempt, = inputs["attempts"]
+    assert attempt.attempt_id == submitted["attemptId"] and attempt.hints_used == 1
+    assert attempt.help_before_work is early
+    hint = next(s for s in inputs["signals"] if s.signal_id == f"hint:{attempt.attempt_id}")
+    # Help before any work caps a correct one-hint answer at 0.3, not 0.8.
+    assert hint.outcome == (0.3 if early else 0.8)
+
+
 def _add_lo(vault, lo_id, *, concept, subjects=("linear-algebra",), facets=("recall",)):
     """In-memory LO on its own concept, with one active item measuring ``facets``."""
     lo = vault.learning_objects[LO].model_copy(update={
