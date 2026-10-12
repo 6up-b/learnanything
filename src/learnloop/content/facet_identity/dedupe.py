@@ -24,6 +24,7 @@ from learnloop.content.facet_identity.actions import (
     describe,
     lock_reasons,
     merge_registered_facets,
+    recover_interrupted_actions,
 )
 from learnloop.content.facet_identity.grouping import FacetNode, neighbourhood_groups
 from learnloop.content.facet_identity.judge import (
@@ -131,7 +132,17 @@ def run_dedupe(
         return {"status": "disabled", "reason": "facet_identity.enabled is false"}
     if vault.issues:
         return {"status": "invalid", "reason": f"vault has {len(vault.issues)} validation issues; run doctor first"}
-    repository = Repository(VaultPaths(vault.root, vault.config).sqlite_path)
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    recovered: list[dict[str, Any]] = []
+    if dry_run:
+        # No change at all: read the database as it is (no migration).
+        repository = Repository.attach(sqlite_path, read_only=True)
+    else:
+        repository = Repository(sqlite_path)
+        # Finish any merge or undo an earlier run left mid-flight first.
+        recovered = recover_interrupted_actions(vault.root, repository, clock=clock)
+        if recovered:
+            vault = load_vault(root)
     requests, grouping = plan_dedupe(vault, subject_id=subject_id)
     caps = caps_from_config(settings, **(caps_overrides or {}))
     route = resolve_route(vault.config, client=client, input_price=price_per_million_input,
@@ -164,6 +175,7 @@ def run_dedupe(
         # reused verdicts (no new call).
         "locked_proposals": [],
         "refused": [],
+        "recovered": recovered,
     }
     budget = SpendBudget(caps, cancelled=cancelled, subscription=route.subscription)
     try:

@@ -312,3 +312,109 @@ def test_authored_duplicate_targets_without_an_alias_load_unchanged(tmp_path):
     paths, _repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (SHARED, "supporting")])
     targets = load_vault(paths.root).practice_items["pi_both_001"].grading_rubric.criteria[0].targets
     assert [(target.facet, target.role) for target in targets] == [(SHARED, "primary"), (SHARED, "supporting")]
+
+
+# --- review F4: merge and undo survive an interrupted process ------------------------
+
+
+class _Killed(BaseException):
+    """A process death: no ``except Exception`` compensation runs."""
+
+
+def _kill_at(monkeypatch, name, *, after_calls=0):
+    import learnloop.content.facet_identity.actions as actions_module
+
+    real = getattr(actions_module, name)
+    calls = {"n": 0}
+
+    def killed(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] > after_calls:
+            raise _Killed(name)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(actions_module, name, killed)
+
+
+def _merge_rows(paths):
+    return sqlite3.connect(paths.sqlite_path).execute(
+        "SELECT retired_facet_id, surviving_facet_id FROM facet_merges").fetchall()
+
+
+@pytest.mark.parametrize("killed_at", ["_write_facets", "refresh_derived_state"])
+def test_an_interrupted_merge_is_finished_by_recovery(tmp_path, monkeypatch, killed_at):
+    from learnloop.content.facet_identity.actions import recover_interrupted_actions
+
+    paths, _vault, repository = _vault_with_duplicate(tmp_path)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, killed_at)
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    (record,) = list_actions(repository)
+    # The intent and its facet_merges rows committed together, before the file.
+    assert record["status"] == "applying" and _merge_rows(paths) == [(DUP, SHARED)]
+    recovered = recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
+    assert [(row["from"], row["to"]) for row in recovered] == [("applying", "applied")]
+    vault = load_vault(paths.root)
+    assert DUP not in vault.evidence_facets and DUP in vault.evidence_facets[SHARED].aliases
+    assert list_actions(repository)[0]["status"] == "applied"
+    undo_action(paths.root, repository, record["id"], clock=_CLOCK)
+    assert DUP in load_vault(paths.root).evidence_facets and _merge_rows(paths) == []
+
+
+@pytest.mark.parametrize("killed_at", ["_write_facets", "_delete_merge_rows", "refresh_derived_state"])
+def test_an_interrupted_undo_is_finished_by_a_retry(tmp_path, monkeypatch, killed_at):
+    paths, _vault, repository = _vault_with_duplicate(tmp_path)
+    before_file = {entry["id"]: normalized_entry(entry) for entry in read_yaml(paths.facets_path)["facets"]}
+    applied = _merge(paths, repository)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, killed_at)
+        with pytest.raises(_Killed):
+            undo_action(paths.root, repository, applied["action_id"], clock=_CLOCK)
+    assert list_actions(repository)[0]["status"] == "undoing"
+    # The retry the review found refused ("exist again" / "edited since") now finishes it.
+    result = undo_action(paths.root, repository, applied["action_id"], clock=_CLOCK)
+    assert result["status"] == "undone" and result.get("recovered") is True
+    assert {entry["id"]: normalized_entry(entry) for entry in read_yaml(paths.facets_path)["facets"]} == before_file
+    assert _merge_rows(paths) == [] and list_actions(repository)[0]["status"] == "undone"
+
+
+def test_doctor_reports_an_interrupted_merge_and_fix_state_finishes_it(tmp_path, monkeypatch):
+    from learnloop.ops.doctor import run_doctor
+
+    paths, _vault, repository = _vault_with_duplicate(tmp_path)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "_write_facets")
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    report = run_doctor(paths.root)
+    assert any(issue.code == "facet_identity:interrupted" for issue in report.issues)
+    assert list_actions(repository)[0]["status"] == "applying"
+    fixed = run_doctor(paths.root, fix_state=True)
+    assert any(issue.code == "facet_identity:recovered" for issue in fixed.issues)
+    assert list_actions(repository)[0]["status"] == "applied"
+    assert DUP in load_vault(paths.root).evidence_facets[SHARED].aliases
+
+
+def test_a_merge_intent_whose_file_changed_meanwhile_is_withdrawn(tmp_path, monkeypatch):
+    from learnloop.content.facet_identity.actions import recover_interrupted_actions
+
+    paths, _vault, repository = _vault_with_duplicate(tmp_path)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "_write_facets")
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    document = read_yaml(paths.facets_path)
+    document["facets"] = [entry for entry in document["facets"] if entry["id"] != DUP]  # an edit meanwhile
+    write_yaml(paths.facets_path, document)
+    recovered = recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
+    assert [(row["from"], row["to"]) for row in recovered] == [("applying", "abandoned")]
+    assert _merge_rows(paths) == [] and list_actions(repository)[0]["status"] == "abandoned"
+
+
+def test_dataset_exports_keep_the_merge_history_an_undo_removes_from_facet_merges():
+    from learnloop.db.table_roles import TABLE_ROLES, TableRole
+    from learnloop.substrate.dataset import _CAPTURED_WORKFLOW_TABLES
+
+    assert TABLE_ROLES["facet_merges"] is TableRole.RAW_LEDGER
+    assert "facet_identity_actions" in _CAPTURED_WORKFLOW_TABLES

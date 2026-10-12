@@ -1,5 +1,10 @@
 """Facet-identity action rows (migration 172) and the facet_merges rows they own.
 
+Lifecycle: ``proposed`` (an ingest action riding on its proposal),
+``applying`` (a vault merge's write-ahead intent), ``applied``, ``undoing``
+(an undo's write-ahead intent), ``undone``, and ``abandoned`` (an intent
+withdrawn before its file write).
+
 Writes only within the caller's transaction (``Repository.atomic``). The
 policy (what an action changes in the vault, when undo is legal) lives in
 ``learnloop.content.facet_identity.actions``.
@@ -105,11 +110,30 @@ def list_actions(
     return [_decode(row) for row in connection.execute(query, params).fetchall()]
 
 
-def mark_undone(connection: sqlite3.Connection, action_id: str, *, undone_at: str, detail: Mapping[str, Any]) -> None:
-    connection.execute(
-        "UPDATE facet_identity_actions SET status = 'undone', undone_at = ?, undo_detail_json = ? WHERE id = ?",
-        (undone_at, _dump(dict(detail)), action_id),
-    )
+def set_status(
+    connection: sqlite3.Connection,
+    action_id: str,
+    status: str,
+    *,
+    applied_at: str | None = None,
+    undone_at: str | None = None,
+    undo_detail: Mapping[str, Any] | None = None,
+) -> None:
+    """Move an action along its lifecycle (applying -> applied -> undoing -> undone)."""
+
+    assignments = ["status = ?"]
+    params: list[Any] = [status]
+    if applied_at is not None:
+        assignments.append("applied_at = ?")
+        params.append(applied_at)
+    if undone_at is not None:
+        assignments.append("undone_at = ?")
+        params.append(undone_at)
+    if undo_detail is not None:
+        assignments.append("undo_detail_json = ?")
+        params.append(_dump(dict(undo_detail)))
+    params.append(action_id)
+    connection.execute(f"UPDATE facet_identity_actions SET {', '.join(assignments)} WHERE id = ?", params)
 
 
 def delete_merge_rows(connection: sqlite3.Connection, rows: Iterable[Sequence[str]]) -> int:
@@ -130,5 +154,5 @@ __all__ = [
     "delete_merge_rows",
     "insert_action",
     "list_actions",
-    "mark_undone",
+    "set_status",
 ]

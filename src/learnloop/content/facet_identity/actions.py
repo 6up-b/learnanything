@@ -26,15 +26,29 @@ In-run and attach actions are recorded ``proposed`` with their proposal; they
 are undoable once the proposal is applied (the vault then shows exactly what
 they wrote). An undo refuses when the survivor's entry changed since (a later
 action or an edit), naming the later action, rather than overwrite it.
-Evidence is re-keyed by the standard content recalibration of the affected
-learning objects after both the merge and the undo, so derived state returns
-to exactly what it was; attempts made after a merge stay with the survivor.
+
+Crash safety (review F4). A vault merge writes its intent first: the action
+row (``applying``) and its ``facet_merges`` rows commit in one transaction
+before ``facets.yaml`` is replaced (a staged, fsynced temp file and an atomic
+rename); the row becomes ``applied`` only after the derived state is
+refreshed. An undo records ``undoing`` (with the owner's verdicts) before it
+restores the file. :func:`recover_interrupted_actions` finishes either from
+whichever side of the file write it stopped on; every merge, undo and
+dedupe run calls it under the vault lock, and ``doctor --fix-state`` does too.
+
+What an undo restores. Evidence resolved at projection time (every attempt's
+criterion targets, recipes and evidence facets, which keep the retired id on
+disk) returns to the restored facet when the affected learning objects are
+re-folded. Rows written at grading time while the merge stood (exercised
+facets, A5 notes, error events) carry the survivor's id and stay with the
+survivor after an undo (review F9); the undo result says so.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 import copy
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -51,7 +65,16 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.models import EvidenceFacet, LoadedVault, learning_object_facet_union
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
-from learnloop.vault.yaml_io import read_yaml, write_yaml
+from learnloop.vault.yaml_io import read_yaml, yaml_to_string
+
+#: Lifecycle of an action row (migration 172). ``applying`` and ``undoing``
+#: are write-ahead intents that :func:`recover_interrupted_actions` completes.
+IN_FLIGHT = ("applying", "undoing")
+#: What an undo cannot move back (review F9): shown with every undo.
+UNDO_LIMITS = (
+    "rows written while the merge stood (exercised facets, A5 notes, error events) keep the "
+    "survivor's id and stay with it"
+)
 
 class FacetIdentityActionError(ValueError):
     def __init__(self, code: str, message: str) -> None:
@@ -117,6 +140,84 @@ def _index(facets: Sequence[Any], facet_id: str) -> int | None:
         if isinstance(entry, Mapping) and str(entry.get("id") or "") == facet_id:
             return index
     return None
+
+
+def _write_facets(paths: VaultPaths, document: Mapping[str, Any]) -> None:
+    """Replace facets.yaml atomically (staged, fsynced temp file and rename)."""
+
+    from learnloop.content.proposals.apply_protocol import materialize_targets
+
+    text = yaml_to_string(dict(document))
+    materialize_targets(paths.root, [{
+        "rel_path": str(paths.facets_path.relative_to(paths.root)),
+        "post_content": text,
+        "post_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+    }])
+
+
+def _record_parts(record: Mapping[str, Any]) -> tuple[str, list[str], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    survivor = str(record["survivor_facet_id"])
+    retired = [str(facet_id) for facet_id in record.get("retired_facet_ids") or []]
+    before = dict((record.get("before") or {}).get("facets") or {})
+    order = dict((record.get("before") or {}).get("order") or {})
+    after = dict((record.get("after") or {}).get("facets") or {})
+    return survivor, retired, before, order, after
+
+
+def file_state(record: Mapping[str, Any], facets: Sequence[Any]) -> str:
+    """Which side of an action facets.yaml shows: ``after``, ``before`` or ``neither``."""
+
+    survivor, retired, before, _order, after = _record_parts(record)
+    index = _index(facets, survivor)
+    current = normalized_entry(facets[index]) if index is not None else None
+    present = {facet_id for facet_id in retired if _index(facets, facet_id) is not None}
+    if current is not None and current == normalized_entry(after.get(survivor)) and not present:
+        return "after"
+    survivor_before = before.get(survivor)
+    if (
+        current is not None
+        and (survivor_before is None or current == normalized_entry(survivor_before))
+        and present == set(retired)
+    ):
+        return "before"
+    return "neither"
+
+
+def _applied_document(document: dict[str, Any], record: Mapping[str, Any]) -> dict[str, Any]:
+    """``document`` with the action applied (survivor replaced, retirees removed)."""
+
+    survivor, retired, _before, _order, after = _record_parts(record)
+    facets = list(document["facets"])
+    index = _index(facets, survivor)
+    if index is not None and after.get(survivor) is not None:
+        facets[index] = stored_entry(after[survivor])
+    gone = set(retired)
+    document["facets"] = [entry for entry in facets
+                          if not (isinstance(entry, Mapping) and str(entry.get("id") or "") in gone)]
+    return document
+
+
+def _restored_document(document: dict[str, Any], record: Mapping[str, Any]) -> dict[str, Any]:
+    """``document`` with the action undone (survivor and retirees as before)."""
+
+    survivor, retired, before, order, _after = _record_parts(record)
+    facets = list(document["facets"])
+    index = _index(facets, survivor)
+    if index is not None and before.get(survivor):
+        facets[index] = stored_entry(before[survivor])
+    for facet_id in sorted(retired, key=lambda key: int(order.get(key, len(facets) + 1))):
+        entry = before.get(facet_id)
+        if not entry or _index(facets, facet_id) is not None:
+            continue
+        position = order.get(facet_id)
+        restored = stored_entry(entry)
+        if isinstance(position, int) and 0 <= position <= len(facets):
+            facets.insert(position, restored)
+        else:
+            survivor_at = _index(facets, survivor)
+            facets.insert((survivor_at + 1) if survivor_at is not None else len(facets), restored)
+    document["facets"] = facets
+    return document
 
 
 # --- locks and affected learning objects ---------------------------------------------
@@ -195,6 +296,7 @@ def merge_registered_facets(
     if not retired:
         return {"status": "refused", "reason": "nothing_to_merge"}
     with vault_mutation_lock(root, purpose="facet_identity_merge"):
+        recover_interrupted_actions(root, repository, clock=clock)
         vault = load_vault(root)
         paths = VaultPaths(vault.root, vault.config)
         unknown = [facet_id for facet_id in (survivor, *retired) if facet_id not in vault.evidence_facets]
@@ -224,45 +326,53 @@ def merge_registered_facets(
             before[survivor], [before[facet_id] for facet_id in retired],
             action=action, absorb_as=absorb_as, alias_ids=retired,
         ))
-        facets[order[survivor]] = new_survivor
-        document["facets"] = [entry for entry in facets
-                              if not (isinstance(entry, Mapping) and str(entry.get("id") or "") in set(retired))]
-        original_facets_text = paths.facets_path.read_text(encoding="utf-8")
-        write_yaml(paths.facets_path, document)
-
         now = utc_now_iso(clock)
-        inserted: list[list[str]] = []
-        try:
+        rationale = json.dumps({"origin": "facet_identity", "run_id": run_id, "action": action}, sort_keys=True)
+        record = {
+            "origin": origin, "scope": "vault", "run_id": run_id, "action": action,
+            "survivor_facet_id": survivor, "retired_facet_ids": retired,
+            "before": {"facets": before, "order": order},
+            "after": {"facets": {survivor: new_survivor, **{facet_id: None for facet_id in retired}}},
+            "merge_rows": [[facet_id, survivor] for facet_id in retired],
+            "judgment_ids": list(judgment_ids), "judge": judge,
+            "judge_model": judge_model, "prompt_version": prompt_version,
+            "detail": {**dict(detail or {}), "absorb_as": absorb_as, "lock_reasons": locks},
+            "status": "applying", "created_at": now,
+        }
+        # 1. The intent: the action row and its facet_merges rows, one transaction.
+        with repository.atomic():
             for facet_id in retired:
                 repository.insert_facet_merge(
-                    retired_facet_id=facet_id, surviving_facet_id=survivor,
-                    rationale=json.dumps({"origin": "facet_identity", "run_id": run_id, "action": action}, sort_keys=True),
-                    clock=clock,
+                    retired_facet_id=facet_id, surviving_facet_id=survivor, rationale=rationale, clock=clock,
                 )
-                inserted.append([facet_id, survivor])
-            record = {
-                "origin": origin, "scope": "vault", "run_id": run_id, "action": action,
-                "survivor_facet_id": survivor, "retired_facet_ids": retired,
-                "before": {"facets": before, "order": order},
-                "after": {"facets": {survivor: new_survivor, **{facet_id: None for facet_id in retired}}},
-                "merge_rows": inserted, "judgment_ids": list(judgment_ids), "judge": judge,
-                "judge_model": judge_model, "prompt_version": prompt_version,
-                "detail": {**dict(detail or {}), "absorb_as": absorb_as, "lock_reasons": locks},
-                "status": "applied", "applied_at": now, "created_at": now,
-            }
-            with repository.atomic():
-                action_id = insert_action(repository.connection(), record)
+            action_id = insert_action(repository.connection(), record)
+        record["id"] = action_id
+        # 2. facets.yaml, replaced atomically; 3. derived state; 4. applied.
+        # A crash anywhere after 1 leaves an ``applying`` row that recovery
+        # completes from whichever side of the file write it stopped on.
+        try:
+            _write_facets(paths, _applied_document(document, record))
         except Exception:
-            # Compensate: nothing half-applied survives a failure here.
-            _delete_merge_rows(repository, inserted)
-            paths.facets_path.write_text(original_facets_text, encoding="utf-8")
+            _abandon(repository, record, reason="facets.yaml could not be written", clock=clock)
             raise
         refresh_derived_state(vault.root, repository, affected_before, clock=clock)
+        with repository.atomic():
+            store.set_status(repository.connection(), action_id, "applied", applied_at=utc_now_iso(clock))
     return {
         "status": "applied", "action_id": action_id, "action": action, "survivor_facet_id": survivor,
         "retired_facet_ids": retired, "absorb_as": absorb_as,
         "locked": bool(locks), "lock_reasons": locks, "affected_learning_objects": affected_before,
     }
+
+
+def _abandon(repository: Repository, record: Mapping[str, Any], *, reason: str, clock: Clock | None = None) -> None:
+    """Withdraw an ``applying`` intent whose file write never happened."""
+
+    with repository.atomic():
+        connection = repository.connection()
+        store.delete_merge_rows(connection, record.get("merge_rows") or [])
+        store.set_status(connection, str(record["id"]), "abandoned", undone_at=utc_now_iso(clock),
+                         undo_detail={"abandoned": reason})
 
 
 def _delete_merge_rows(repository: Repository, rows: Iterable[Sequence[str]]) -> int:
@@ -363,7 +473,8 @@ def _later_actions(repository: Repository, record: Mapping[str, Any]) -> list[st
     facets = {record["survivor_facet_id"], *(record.get("retired_facet_ids") or [])}
     later = []
     for other in list_actions(repository, limit=None):
-        if other["id"] == record["id"] or other["status"] == "undone" or other["created_at"] < record["created_at"]:
+        if (other["id"] == record["id"] or other["status"] in {"undone", "abandoned"}
+                or other["created_at"] < record["created_at"]):
             continue
         if facets & {other["survivor_facet_id"], *(other.get("retired_facet_ids") or [])}:
             later.append(other["id"])
@@ -374,17 +485,31 @@ def undo_action(root: Path, repository: Repository, action_id: str, *, clock: Cl
     """Restore the facets.yaml entries and ``facet_merges`` rows one action replaced.
 
     Refuses (writing nothing) when the action is unknown, already undone, not
-    applied yet, or when the survivor's entry has changed since.
+    applied yet, or when the survivor's entry has changed since. Otherwise
+    the intent (``undoing``) commits before the file is restored, so an
+    interrupted undo is finished by :func:`recover_interrupted_actions`.
     """
 
     from learnloop.vault_lock import vault_mutation_lock
 
     with vault_mutation_lock(root, purpose="facet_identity_undo"):
+        recovered = recover_interrupted_actions(root, repository, clock=clock)
+        finished = next((row for row in recovered if row["id"] == action_id and row["to"] == "undone"), None)
         record = action_by_id(repository, action_id)
         if record is None:
             raise FacetIdentityActionError("unknown_action", f"No facet identity action {action_id!r}.")
+        if finished is not None:
+            # A retry of an interrupted undo: recovery just finished it.
+            undo_detail = record.get("undo_detail") or {}
+            return {"status": "undone", "action_id": action_id, "recovered": True,
+                    "survivor_facet_id": record["survivor_facet_id"],
+                    "restored_facet_ids": list(record.get("retired_facet_ids") or []),
+                    "merge_rows_deleted": undo_detail.get("merge_rows_deleted", 0),
+                    "not_restored": UNDO_LIMITS}
         if record["status"] == "undone":
             raise FacetIdentityActionError("already_undone", f"Action {action_id} was already undone.")
+        if record["status"] == "abandoned":
+            raise FacetIdentityActionError("abandoned", f"Action {action_id} never applied; nothing to undo.")
         if (record.get("detail") or {}).get("undo"):
             raise FacetIdentityActionError("no_undo", f"Action {action_id} has no undo: {record['detail']['undo']}.")
         vault = load_vault(root)
@@ -397,57 +522,122 @@ def undo_action(root: Path, repository: Repository, action_id: str, *, clock: Cl
             )
         paths = VaultPaths(vault.root, vault.config)
         document = _facets_document(paths)
-        facets = document["facets"]
-        survivor = str(record["survivor_facet_id"])
-        retired = [str(facet_id) for facet_id in record.get("retired_facet_ids") or []]
-        before = (record.get("before") or {}).get("facets") or {}
-        order = (record.get("before") or {}).get("order") or {}
-        after = (record.get("after") or {}).get("facets") or {}
-
-        index = _index(facets, survivor)
-        if index is None or normalized_entry(facets[index]) != normalized_entry(after.get(survivor)):
+        survivor, retired, _before, _order, after = _record_parts(record)
+        index = _index(document["facets"], survivor)
+        if index is None or normalized_entry(document["facets"][index]) != normalized_entry(after.get(survivor)):
             later = _later_actions(repository, record)
             raise FacetIdentityActionError(
                 "changed_since",
                 f"Facet {survivor} changed after action {action_id}"
                 + (f" (later action(s): {', '.join(later)}; undo those first)." if later else " (edited since)."),
             )
-        present = [facet_id for facet_id in retired if _index(facets, facet_id) is not None]
+        present = [facet_id for facet_id in retired if _index(document["facets"], facet_id) is not None]
         if present:
             raise FacetIdentityActionError(
                 "changed_since", f"Facet(s) {', '.join(present)} exist again; nothing to restore.",
             )
-        affected_before = affected_learning_objects(vault, (survivor, *retired))
+        with repository.atomic():
+            _record_undo_intent(repository.connection(), record, clock=clock)
+        result = _finish_undo(vault.root, repository, record, document=document, clock=clock)
+    return {"status": "undone", "action_id": action_id, **result}
 
-        facets[index] = stored_entry(before[survivor]) if before.get(survivor) else facets[index]
-        for facet_id in sorted(retired, key=lambda key: int(order.get(key, len(facets) + 1))):
-            entry = before.get(facet_id)
-            if not entry:
-                continue
-            position = order.get(facet_id)
-            restored = stored_entry(entry)
-            if isinstance(position, int) and 0 <= position <= len(facets):
-                facets.insert(position, restored)
-            else:
-                survivor_at = _index(facets, survivor)
-                facets.insert((survivor_at + 1) if survivor_at is not None else len(facets), restored)
-        original_facets_text = paths.facets_path.read_text(encoding="utf-8")
-        try:
-            write_yaml(paths.facets_path, document)
-            deleted = _delete_merge_rows(repository, record.get("merge_rows") or [])
-            now = utc_now_iso(clock)
-            with repository.atomic():
-                store.mark_undone(repository.connection(), action_id, undone_at=now,
-                                  detail={"merge_rows_deleted": deleted, "restored_facet_ids": retired})
-        except Exception:
-            paths.facets_path.write_text(original_facets_text, encoding="utf-8")
-            raise
-        refresh_derived_state(vault.root, repository, affected_before, clock=clock)
+
+def _record_undo_intent(connection: Any, record: Mapping[str, Any], *, clock: Clock | None = None) -> None:
+    """The write-ahead undo intent: the row becomes ``undoing``."""
+
+    store.set_status(connection, str(record["id"]), "undoing", undo_detail={"requested_at": utc_now_iso(clock)})
+
+
+def _finish_undo(
+    root: Path, repository: Repository, record: Mapping[str, Any], *, document: dict[str, Any] | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Restore the file, drop the merge rows, refresh, mark ``undone`` (idempotent)."""
+
+    vault = load_vault(root)
+    paths = VaultPaths(vault.root, vault.config)
+    survivor, retired, _before, _order, _after = _record_parts(record)
+    affected = affected_learning_objects(vault, (survivor, *retired))
+    document = document if document is not None else _facets_document(paths)
+    if file_state(record, document["facets"]) == "after":
+        _write_facets(paths, _restored_document(document, record))
+    deleted = _delete_merge_rows(repository, record.get("merge_rows") or [])
+    vault_after = load_vault(root)
+    affected = sorted(set(affected) | set(affected_learning_objects(vault_after, (survivor, *retired))))
+    refresh_derived_state(root, repository, affected, clock=clock)
+    detail = {"merge_rows_deleted": deleted, "restored_facet_ids": retired, "not_restored": UNDO_LIMITS}
+    with repository.atomic():
+        store.set_status(repository.connection(), str(record["id"]), "undone", undone_at=utc_now_iso(clock),
+                         undo_detail=detail)
     return {
-        "status": "undone", "action_id": action_id, "survivor_facet_id": survivor,
-        "restored_facet_ids": retired, "merge_rows_deleted": deleted,
-        "affected_learning_objects": affected_before,
+        "survivor_facet_id": survivor, "restored_facet_ids": retired, "merge_rows_deleted": deleted,
+        "affected_learning_objects": affected, "not_restored": UNDO_LIMITS,
     }
+
+
+# --- recovery -----------------------------------------------------------------------------
+
+
+def interrupted_actions(repository: Repository) -> list[dict[str, Any]]:
+    """Action rows left ``applying`` or ``undoing`` by an interrupted process (oldest first)."""
+
+    rows: list[dict[str, Any]] = []
+    for status in IN_FLIGHT:
+        rows.extend(list_actions(repository, status=status, limit=None))
+    return sorted(rows, key=lambda row: (str(row["created_at"]), str(row["id"])))
+
+
+def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Clock | None = None) -> list[dict[str, Any]]:
+    """Finish every interrupted merge or undo from the side of the file write it stopped on.
+
+    * ``applying``: facets.yaml already shows the merge -> refresh, ``applied``;
+      it still shows the facets before -> write the merge, refresh,
+      ``applied``; anything else (edited since) -> the intent is withdrawn
+      (``abandoned``, its ``facet_merges`` rows removed).
+    * ``undoing``: the owner asked for the undo, so it is finished: the file
+      restored if it still shows the merge, the rows removed, ``undone``. A
+      file that shows neither side is reported and left for the owner.
+
+    The caller holds the vault mutation lock (it is re-entrant). Returns what
+    happened to each row.
+    """
+
+    from learnloop.vault_lock import vault_mutation_lock
+
+    pending = interrupted_actions(repository)
+    if not pending:
+        return []
+    out: list[dict[str, Any]] = []
+    with vault_mutation_lock(root, purpose="facet_identity_recover"):
+        for record in interrupted_actions(repository):
+            vault = load_vault(root)
+            paths = VaultPaths(vault.root, vault.config)
+            document = _facets_document(paths)
+            state = file_state(record, document["facets"])
+            survivor, retired, _before, _order, _after = _record_parts(record)
+            if record["status"] == "applying":
+                if state == "neither":
+                    _abandon(repository, record, reason="facets.yaml changed before the merge was written",
+                             clock=clock)
+                    out.append({"id": record["id"], "from": "applying", "to": "abandoned"})
+                    continue
+                if state == "before":
+                    _write_facets(paths, _applied_document(document, record))
+                affected = affected_learning_objects(vault, (survivor, *retired))
+                refresh_derived_state(root, repository, affected, clock=clock)
+                with repository.atomic():
+                    store.set_status(repository.connection(), str(record["id"]), "applied",
+                                     applied_at=utc_now_iso(clock))
+                out.append({"id": record["id"], "from": "applying", "to": "applied", "file": state})
+                continue
+            if state == "neither":
+                out.append({"id": record["id"], "from": "undoing", "to": "undoing", "file": state,
+                            "problem": f"facets.yaml shows neither side of action {record['id']}; "
+                                       f"restore facet {survivor} by hand, then run doctor --fix-state"})
+                continue
+            _finish_undo(root, repository, record, document=document, clock=clock)
+            out.append({"id": record["id"], "from": "undoing", "to": "undone", "file": state})
+    return out
 
 
 __all__ = [
@@ -462,6 +652,9 @@ __all__ = [
     "merge_registered_facets",
     "normalized_entry",
     "record_proposed_actions",
+    "file_state",
+    "interrupted_actions",
+    "recover_interrupted_actions",
     "refresh_derived_state",
     "stored_entry",
     "undo_action",

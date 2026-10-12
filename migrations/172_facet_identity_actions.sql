@@ -1,7 +1,10 @@
 -- Facet identity (handoff §4): every merge or absorb a judge applied, with the
 -- facets.yaml entries before and after it, so a one-tap undo restores them
--- exactly. Lifecycle state (proposed -> applied -> undone), never cleared by
--- replay; the verdicts themselves live in judgment_ledger (task same_facet).
+-- exactly. Lifecycle state, never cleared by replay: proposed (an ingest action
+-- riding on its proposal), applying and undoing (write-ahead intents committed
+-- before facets.yaml is written; recovery finishes them), applied, undone, and
+-- abandoned (an intent withdrawn before its file write). The verdicts live in
+-- judgment_ledger (task same_facet), including the owner's on undo.
 CREATE TABLE facet_identity_actions (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
@@ -26,7 +29,9 @@ CREATE TABLE facet_identity_actions (
     judge_model TEXT,
     prompt_version TEXT,
     detail_json TEXT NOT NULL DEFAULT '{}',
-    status TEXT NOT NULL CHECK (status IN ('proposed', 'applied', 'undone')),
+    status TEXT NOT NULL CHECK (
+        status IN ('proposed', 'applying', 'applied', 'undoing', 'undone', 'abandoned')
+    ),
     applied_at TEXT,
     undone_at TEXT,
     undo_detail_json TEXT
