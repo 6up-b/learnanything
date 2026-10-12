@@ -210,6 +210,8 @@ def test_kill_switch_restores_the_pre_t5_request(tmp_path):
     run = repo.synthesis_run(result.synthesis_run_id)
     assert "graph_nomination" not in run["coverage_decisions"]
     assert "registry_merges" not in run["actual_usage"]
+    # The manifest scope is the brief's (here none), exactly as before T5.
+    assert repo.synthesis_manifest_by_hash(result.manifest_hash)["scope"] is None
     # Byte-identical prompt to the pre-T5 contract when there are no nominations.
     legacy = {key: value for key, value in asdict(context).items()
               if key not in {"registry_concept_details", "registry_nominations"}}
