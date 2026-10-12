@@ -17,6 +17,7 @@ from learnloop.numeric import percentiles
 from learnloop.scheduling.fsrs import MemoryState, apply_review, forgetting_curve
 from learnloop.scheduling.scheduler import UNAVAILABLE_PROPENSITY_KIND
 from learnloop.params.fitted_params import resolve_fsrs_weights
+from learnloop.substrate.canonical_projection import pfc_assessments
 from learnloop.vault.models import LoadedVault
 
 from math import log
@@ -347,7 +348,6 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     by_band: dict[str, list[tuple[float, float]]] = {label: [] for _, _, label in bands}
     unmatched = 0
     from learnloop.outcome_contract import LABEL_VERSION, PFC_REVIEW_REASON, retention_exclusions
-    from learnloop.substrate.canonical_projection import pfc_assessments
 
     label_rows = repository.retention_label_rows()
     # PF-c: the review reason is informational once the grade is over the
