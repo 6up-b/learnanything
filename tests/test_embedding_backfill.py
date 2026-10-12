@@ -96,6 +96,7 @@ def test_recipes_are_selected_by_kind_or_by_kind_and_field():
         select_recipes([])
 
 
+@pytest.mark.durability
 def test_backfill_is_batched_and_idempotent_with_receipts(vault):
     loaded, repository = vault
     client = FakeEmbeddingClient()
@@ -191,6 +192,7 @@ def test_invalid_price_override_cannot_authorize_paid_work(vault, price):
     assert not client.calls
 
 
+@pytest.mark.durability
 def test_cancel_after_paid_batch_saves_it_and_resume_skips_it(vault):
     loaded, _ = vault
     cancelled = False

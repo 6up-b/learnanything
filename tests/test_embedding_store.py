@@ -175,8 +175,19 @@ def test_client_agnostic_storage_and_prefix_isolation(connection):
     assert [match.score for match in matches] == pytest.approx([1, -1])
 
 
+def _migration_head_fixture() -> Path:
+    # Resolved, not hard-coded: CLAUDE.md's head-fixture procedure lists the
+    # paths to rename, and this test must not become an unlisted sixth one.
+    heads = sorted((Path(__file__).resolve().parents[1] / "fixtures").glob("migration_head_*"))
+    assert len(heads) == 1, heads
+    return heads[0]
+
+
+@pytest.mark.durability
 def test_replay_preserves_paid_inputs_without_models(tmp_path, monkeypatch):
     from learnloop.ai import client
+    from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
+    from tests.openai_fakes import install_fake_openai
 
     calls = []
 
@@ -186,8 +197,11 @@ def test_replay_preserves_paid_inputs_without_models(tmp_path, monkeypatch):
 
     monkeypatch.setattr(client, "make_ai_provider_client", forbidden)
     monkeypatch.setattr(client, "make_ai_provider_client_from_profile", forbidden)
+    monkeypatch.setattr(OpenAIEmbeddingProviderClient, "__init__", forbidden)
+    monkeypatch.setattr(OpenAIEmbeddingProviderClient, "embed", forbidden)
+    sdk = install_fake_openai(monkeypatch)
     root = tmp_path / "vault"
-    copy_tree_with_databases(Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_166", root)
+    copy_tree_with_databases(_migration_head_fixture(), root)
     repository = Repository(root / "state.sqlite")
     with repository.connection() as connection:
         put_vector(connection, **identity(), vector=[1, 2])
@@ -202,3 +216,4 @@ def test_replay_preserves_paid_inputs_without_models(tmp_path, monkeypatch):
                  for table in before}
     assert after == before
     assert calls == []
+    assert sdk.instances == []
