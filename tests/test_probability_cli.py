@@ -178,3 +178,19 @@ def test_judges_live_check_dry_run_estimates_without_a_key_client_or_receipt(see
             "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind='judge_readiness'").fetchone()[0] == 0
     code, report = run("eval", "judges", "--vault", str(seeded.root), "--dry-run", "--json")
     assert code == 1 and "--live-decider" in report["reason"]
+
+
+def test_judges_dry_run_never_loads_dotenv_or_machine_settings(seeded, monkeypatch):
+    """Re-review F9: the dry run's own vault load must not read credentials."""
+
+    import os
+
+    (seeded.root / ".env").write_text("LEARNLOOP_DRY_RUN_SENTINEL=loaded\n", encoding="utf-8")
+    monkeypatch.delenv("LEARNLOOP_DRY_RUN_SENTINEL", raising=False)
+    monkeypatch.setattr("learnloop.config.loader.load_dotenv", forbidden)
+    monkeypatch.setattr("learnloop.config.loader._apply_global_overrides", forbidden)
+    code, report = run("eval", "judges", "--vault", str(seeded.root), "--live-decider", "--dry-run", "--json")
+    assert code == 0, report
+    assert report["live_decider"]["status"] == "dry_run"
+    assert report["environment_loaded"] is False
+    assert "LEARNLOOP_DRY_RUN_SENTINEL" not in os.environ

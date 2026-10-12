@@ -90,8 +90,11 @@ def judges(
         if not (root / "learnloop.toml").is_file():
             raise ValueError("--vault must contain learnloop.toml")
         # Readiness reads key presence the way the app does; values never print.
-        loaded = load_vault(root)
+        # A dry run loads nothing: no vault .env, no machine settings or
+        # overlays, so its key presence is the process environment's alone.
+        loaded = load_vault(root, load_environment=not dry_run)
         report = judge_readiness(loaded, probe=probe)
+        report["environment_loaded"] = not dry_run
         if live_decider:
             report["live_decider"] = live_decider_estimate(loaded) if dry_run else live_decider_check(loaded)
         elif dry_run:
