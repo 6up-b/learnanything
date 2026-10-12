@@ -4,6 +4,12 @@
 Phase 2/3 integration and its Codex re-review). The handoff's branch instruction is
 overridden: the worktree and branch already existed.
 
+> **Codex review (2026-10-12):** fourteen findings fixed; see
+> `slice-a-phase-5a-codex-review.md`. It supersedes this file where they differ: PF calls
+> are always isolated turns, source-anchored keys need span support, filter verdicts are
+> ledgered (`pf_filter`), publication revalidates the judged parent contract, and the
+> compare harness gained `tier` and whole-plan cost admission.
+
 ## Plan (written before coding)
 
 Specs read: `CLAUDE.md`; `docs/learnloop-architecture-vault/Home.md`;
