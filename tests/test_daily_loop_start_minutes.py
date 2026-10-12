@@ -1,7 +1,9 @@
 """Daily-loop DL0: start friction (``docs/specs/spec_daily_loop_v1.md`` §12 row DL0).
 
 - §6.6 (P4): no readiness form. Start asks for minutes only, remembers the last
-  session's (25 on a fresh vault, D1), and changes them with one tap.
+  session's (25 on a fresh vault, D1), and changes them with one tap. The TUI,
+  which records no session row, also remembers the minutes of its own last
+  Begin (the newer of the two wins), across a restart.
   ``start_session`` still accepts energy and sleep for old clients and the CLI.
 - §6.5 (P2): Next on feedback opens the head of the live queue; Esc keeps the
   list. The desktop half is ``apps/learnloop-tauri/src/screens/FeedbackScreen.test.tsx``;
@@ -16,6 +18,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -34,6 +37,7 @@ from learnloop.scheduling.session_minutes import (
 )
 from learnloop.tui import screens as tui_screens
 from learnloop.tui.app import LearnLoopApp
+from learnloop.tui.minutes_memory import chosen_minutes_path, load_chosen_minutes, save_chosen_minutes
 from learnloop.tui.screens.feedback import FeedbackScreen
 from learnloop.tui.screens.practice import PracticeScreen
 from learnloop.tui.screens.start import MinutesPicker, StartScreen
@@ -322,6 +326,110 @@ def test_tui_start_uses_25_minutes_on_a_fresh_vault_and_keeps_an_old_budget(tmp_
 
     assert asyncio.run(picker_for(fresh.root)) == (25, (10, 15, 25, 40, 60))
     assert asyncio.run(picker_for(old.root)) == (30, (10, 15, 25, 30, 40, 60))
+
+
+def _run_tui_start(root: Path, *, keys: tuple[str, ...] = (), begin: bool = False) -> tuple[int, str, int]:
+    """One TUI run: the minutes Start offers, its intro line, and the minutes after ``keys``."""
+
+    async def scenario() -> tuple[int, str, int]:
+        app = LearnLoopApp(root)
+        async with app.run_test(size=(160, 50)) as pilot:
+            await pilot.pause()
+            start = app.screen
+            assert isinstance(start, StartScreen)
+            picker = start.query_one("#minutes", MinutesPicker)
+            offered = picker.minutes
+            intro = str(start.query_one("#warmup-intro").render())
+            if keys:
+                await pilot.press(*keys)
+            chosen = picker.minutes
+            if begin:
+                assert isinstance(await begin_session(app, pilot), TodayScreen)
+            return offered, intro, chosen
+
+    return asyncio.run(scenario())
+
+
+def test_tui_remembers_the_minutes_it_began_with_across_a_restart(tmp_path, monkeypatch):
+    """§6.6 (P4): a TUI Begin is remembered, though the TUI records no session row."""
+
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "config"))
+    paths = create_basic_vault(tmp_path / "vault")
+
+    offered, intro, chosen = _run_tui_start(paths.root, keys=("right", "right"), begin=True)
+    assert (offered, chosen) == (25, 60)  # 25 -> 40 -> 60
+    assert "they are remembered next time" in intro
+
+    # A restart: a new app and a new TuiState on the same vault.
+    offered, intro, _ = _run_tui_start(paths.root)
+    assert offered == 60
+    assert "the minutes you began with last time" in intro
+
+    # Like the desktop, a chip tap without Begin is not remembered.
+    _run_tui_start(paths.root, keys=("left",))
+    assert _run_tui_start(paths.root)[0] == 60
+
+    # The TUI still starts no session row: nothing served, and no streak change.
+    with Repository(paths.sqlite_path).connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM sessions").fetchone()[0] == 0
+
+
+def test_tui_minutes_are_the_newer_of_its_own_begin_and_the_last_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "config"))
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    base = datetime(2026, 10, 1, 9, tzinfo=UTC)
+
+    def remembered() -> tuple[int, str]:
+        value = remembered_session_minutes(repository, chosen=load_chosen_minutes(paths.root))
+        return value.minutes, value.source
+
+    repository.create_session(available_minutes=40, clock=FrozenClock(base))
+    assert remembered() == (40, "last_session")
+    # A later TUI Begin wins over an earlier desktop session ...
+    assert save_chosen_minutes(paths.root, 10, clock=FrozenClock(base + timedelta(hours=1)))
+    assert remembered() == (10, "last_choice")
+    assert _run_tui_start(paths.root)[0] == 10
+    # ... and a later desktop session wins over it.
+    repository.create_session(available_minutes=15, clock=FrozenClock(base + timedelta(hours=2)))
+    assert remembered() == (15, "last_session")
+    offered, intro, _ = _run_tui_start(paths.root)
+    assert offered == 15
+    assert "minutes from your last session" in intro
+    # The desktop's Start keeps DL0's rule (the last session's minutes).
+    assert _call(_context(paths.root), "get_start_summary", {})["rememberedMinutes"] == 15
+
+
+def test_the_tui_minutes_store_never_breaks_start(tmp_path, monkeypatch):
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(tmp_path / "config"))
+    paths = create_basic_vault(tmp_path / "vault")
+    other = create_basic_vault(tmp_path / "other")
+
+    assert save_chosen_minutes(paths.root, 40)
+    assert load_chosen_minutes(paths.root).minutes == 40
+    # Kept per vault.
+    assert load_chosen_minutes(other.root) is None
+    assert chosen_minutes_path(paths.root) != chosen_minutes_path(other.root)
+
+    # A damaged record, or one naming another vault, is ignored: Start falls back.
+    store = chosen_minutes_path(paths.root)
+    for damaged in (
+        "{not json",
+        json.dumps({"vault_root": str(other.root.resolve()), "minutes": 40, "chosen_at": "2026-10-01T09:00:00Z"}),
+        json.dumps({"vault_root": str(paths.root.resolve()), "minutes": 0, "chosen_at": "2026-10-01T09:00:00Z"}),
+        json.dumps({"vault_root": str(paths.root.resolve()), "minutes": 40, "chosen_at": "yesterday"}),
+    ):
+        store.write_text(damaged, encoding="utf-8")
+        assert load_chosen_minutes(paths.root) is None
+    assert _run_tui_start(paths.root)[0] == FIRST_RUN_MINUTES
+
+    # An unwritable config directory: nothing is remembered, and Begin still works.
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("", encoding="utf-8")
+    monkeypatch.setenv("LEARNLOOP_CONFIG_DIR", str(blocker / "config"))
+    assert save_chosen_minutes(paths.root, 60) is False
+    offered, _, chosen = _run_tui_start(paths.root, keys=("right",), begin=True)
+    assert (offered, chosen) == (FIRST_RUN_MINUTES, 40)
 
 
 def test_tui_start_lays_the_minute_chips_out_on_screen(tmp_path):

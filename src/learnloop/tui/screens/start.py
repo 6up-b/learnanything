@@ -13,6 +13,7 @@ from textual.widgets import Button, Static
 
 from learnloop.scheduling.scheduler import SchedulerSession
 from learnloop.scheduling.session_minutes import minute_choices, remembered_session_minutes
+from learnloop.tui.minutes_memory import load_chosen_minutes, save_chosen_minutes
 from learnloop.tui.state import TuiState
 from learnloop.tui.widgets import KeyBar, TextStatic
 
@@ -193,7 +194,12 @@ class StartScreen(Screen):
     def __init__(self, state: TuiState):
         super().__init__()
         self.state = state
-        self.remembered_minutes = remembered_session_minutes(state.repository)
+        # The TUI records no session row, so its own last Begin is read from
+        # its minutes store; the newer of that and the last session's wins.
+        self.remembered_minutes = remembered_session_minutes(
+            state.repository,
+            chosen=load_chosen_minutes(state.vault.root),
+        )
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="warmup-body"):
@@ -248,6 +254,12 @@ class StartScreen(Screen):
 
         session = self._session()
         self.state.available_minutes = session.available_minutes
+        # Remembered at Begin, as on the desktop (a chip tap alone is not).
+        if not save_chosen_minutes(self.state.vault.root, session.available_minutes):
+            self.app.notify(
+                "Couldn't save your minutes; Start will offer the last session's next time.",
+                severity="warning",
+            )
         self.state.refresh(session=session)
         today = TodayScreen(self.state)
         await self.app.push_screen(today)
@@ -279,7 +291,10 @@ class StartScreen(Screen):
         )
 
     def _intro_text(self) -> Content:
-        if self.remembered_minutes.source == "last_session":
+        source = self.remembered_minutes.source
+        if source == "last_choice":
+            note = "the minutes you began with last time; one tap changes them"
+        elif source == "last_session":
             note = "minutes from your last session; one tap changes them"
         else:
             note = "pick today's minutes; they are remembered next time"
