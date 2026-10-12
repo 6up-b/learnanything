@@ -185,3 +185,42 @@ def test_startup_maintenance_runs_the_sweep_without_creating_anything(tmp_path):
     loaded = load_vault(paths.root)
     run_startup_maintenance(loaded, Repository(paths.sqlite_path))
     assert not (paths.root / "projects").exists()
+
+
+def test_linked_worktrees_sharing_a_hook_each_log_their_own_commits(enrolled, tmp_path):
+    vault, repo, row, store = enrolled
+    linked = TempRepo.__new__(TempRepo)
+    linked.path = tmp_path / "linked"
+    repo.git("worktree", "add", "-q", str(linked.path), "-b", "feature")
+    linked_row, _ = enroll_repo(vault, LearnLoopConfig(), linked.path, clock=clock_at(0))
+    assert linked_row["id"] != row["id"]
+    install_hook(vault, store, row)
+    install_hook(vault, store, linked_row)  # same shared hooks directory
+    main_sha = (repo.write("m.py", "m = 1\n"), repo.commit("main commit", trailer=None))[1]
+    linked_sha = (linked.write("l.py", "l = 1\n"), linked.commit("linked commit", trailer=None))[1]
+    entries = [json.loads(line) for line in pending_path(vault).read_text().splitlines()]
+    assert [(entry["repo_id"], entry["sha"]) for entry in entries] == [(row["id"], main_sha), (linked_row["id"], linked_sha)]
+    # Uninstalling one registration leaves the other working.
+    assert uninstall_hook(store, linked_row)["status"] == "block_removed"
+    repo.write("m2.py", "m = 2\n")
+    again = repo.commit("main again", trailer=None)
+    linked.write("l2.py", "l = 2\n")
+    linked.commit("linked again", trailer=None)
+    entries = [json.loads(line) for line in pending_path(vault).read_text().splitlines()]
+    assert [(entry["repo_id"], entry["sha"]) for entry in entries[2:]] == [(row["id"], again)]
+    assert uninstall_hook(store, row)["status"] == "removed"
+    assert not _hook(repo).exists()
+
+
+def test_a_first_build_unguarded_block_is_replaced(enrolled):
+    vault, repo, row, store = enrolled
+    hook = _hook(repo)
+    hook.parent.mkdir(parents=True, exist_ok=True)
+    legacy = (
+        "#!/bin/sh\n# >>> learnloop project capture (append-only; never blocks a commit) >>>\n"
+        "( echo stale ) || true\n# <<< learnloop project capture <<<\nexit 0\n"
+    )
+    hook.write_text(legacy)
+    assert install_hook(vault, store, row)["status"] == "updated"
+    text = hook.read_text()
+    assert "echo stale" not in text and f"{HOOK_BEGIN} {row['id']}" in text
