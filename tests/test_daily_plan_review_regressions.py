@@ -260,3 +260,88 @@ def test_f3_plan_reads_never_call_the_live_chooser(tmp_path):
     assert all(row["why"] for row in view["plan"]["projected"])
     # Same figures on every read.
     assert plan_view(env, record, context=context, next_step=step)["plan"]["projected"] == view["plan"]["projected"]
+
+
+# -- F4: mid-plan follow-ups respect the item cap and their lane --
+
+
+def _assert_lanes_within_allotments(record):
+    allotment, spent = record.ledger()
+    for lane in allotment:
+        assert spent[lane] <= allotment[lane] + 1e-6, (lane, spent, allotment)
+    assert record.minutes_planned() <= record.budget + 1e-6
+
+
+def test_f4_followups_keep_a_reentry_plan_within_its_item_cap_and_lanes(tmp_path):
+    from learnloop.daily_plan.engine import advance
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    los = {f"lo_r{i}": [(f"pi_r{i}", 1.0)] for i in range(14)}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    _no_goals(paths)
+    state = {"followups": []}
+    base = [scheduled(f"pi_r{i}", f"lo_r{i}", forgetting_risk=0.7) for i in range(8)]
+    clock = MovableClock(NOW)
+    env = make_env(paths.root, lambda: list(state["followups"]) + base, clock=clock)
+    for i in range(14):
+        seed_due(env.repository, f"pi_r{i}", due=NOW - timedelta(days=10), last=NOW - timedelta(days=30))
+    _ended_session(env.repository, "s_old", NOW - timedelta(days=12))
+    record = get_or_create_today(env)
+    assert record.kind == "reentry" and record.split["items_cap"] == 8
+    record, step = advance(env, serve=True)
+    clock.advance(1)
+    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.instant)
+    # The answer produces six follow-ups at once.
+    state["followups"] = [
+        scheduled(f"pi_r{i}", f"lo_r{i}", followup_kind="intervention_followup") for i in (8, 9, 10, 11, 12, 13)
+    ]
+    clock.advance(1)
+    for _ in range(40):
+        record, step = advance(env, serve=False)
+        assert record.item_count() <= 8
+        _assert_lanes_within_allotments(record)
+        if step["kind"] != "item":
+            break
+        clock.advance(1)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.instant)
+        clock.advance(1)
+    assert record.item_count() <= record.split["items_cap"]
+    followups = [item for item in record.items() if item.origin == "followup"]
+    assert followups and not any(item.displaced for item in followups)  # never displaced by a later follow-up
+    # Displaced to make room: the plan's unserved tail, never a follow-up.
+    displaced = [item for item in record.items() if item.displaced]
+    assert displaced and all(item.origin == "chooser" for item in displaced)
+    # Repair had no allotment of its own: the follow-ups' minutes are released
+    # to it from maintain, and recorded.
+    assert any(item.lane_release for item in followups)
+    assert all(
+        entry["from"] in record.lanes_allowed for item in followups if item.lane_release for entry in item.lane_release["released"]
+    )
+
+
+def test_f4_a_followup_that_cannot_fit_is_declined_not_appended(tmp_path):
+    from learnloop.daily_plan.engine import advance, build_plan
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    los = {f"lo_{key}": [(f"pi_{key}", 1.5)] for key in "abcd"} | {"lo_f": [("pi_f", 9.5)]}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    _no_goals(paths)
+    state = {"followups": []}
+    base = [scheduled(f"pi_{key}", f"lo_{key}", forgetting_risk=0.7) for key in "abcd"]
+    clock = MovableClock(NOW)
+    env = make_env(paths.root, lambda: list(state["followups"]) + base, clock=clock)
+    for key in "abcdf":
+        seed_due(env.repository, f"pi_{key}", due=NOW - timedelta(days=2), last=NOW - timedelta(days=9))
+    build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip")
+    record, step = advance(env, serve=True)
+    planned_before = [item.practice_item_id for item in record.items()]
+    assert planned_before == ["pi_a", "pi_b", "pi_c"]  # 6 of 10 minutes, merged small maintain groups
+    clock.advance(1)
+    record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.instant)
+    state["followups"] = [scheduled("pi_f", "lo_f", followup_kind="intervention_followup")]
+    record, step = advance(env, serve=False)
+    # A 10-minute follow-up cannot fit even with the whole unserved tail (4
+    # minutes) displaced, so it is declined and nothing is displaced for it.
+    assert "pi_f" not in {item.practice_item_id for item in record.items()}
+    assert not any(item.displaced for item in record.items())
+    assert record.minutes_planned() <= record.budget + 1e-6

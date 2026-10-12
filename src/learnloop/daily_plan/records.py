@@ -47,6 +47,10 @@ class PlannedItem:
     skipped_at: str | None = None
     displaced_at: str | None = None
     displaced_reason: str | None = None
+    #: A mid-plan follow-up's charge to its lane (review F4): the minutes other
+    #: lanes released to it when its own lane had too few left, recorded on its
+    #: ``item_planned`` event. Applies while the follow-up is not displaced.
+    lane_release: dict[str, Any] | None = None
 
     @property
     def displaced(self) -> bool:
@@ -216,8 +220,9 @@ class PlanRecord:
 
         Allotments start from the split in force (its epoch: the build, or the
         latest minutes change) and move with each later block decision's
-        redistribution and each learner pick's deductions. Spent is what the
-        chosen blocks' lane-paid items and reading blocks are estimated at.
+        redistribution, each learner pick's deductions and each mid-plan
+        follow-up's lane release. Spent is what the chosen blocks' lane-paid
+        items (follow-ups included) and reading blocks are estimated at.
         """
 
         split = self.split
@@ -240,6 +245,21 @@ class PlanRecord:
             for lane, minutes in (block.chosen.get("deductions") or {}).items():
                 if lane in allotment:
                     allotment[lane] -= float(minutes or 0.0)
+        # Follow-ups are inserted into a block already chosen (possibly before
+        # the epoch), so their releases are dated by when they were planned.
+        epoch_at = split.get("epoch_at")
+        for block in self.blocks:
+            for item in block.items:
+                release = item.lane_release
+                if not release or item.displaced or (epoch_at and item.planned_at < str(epoch_at)):
+                    continue
+                for entry in release.get("released") or []:
+                    lane = entry.get("from")
+                    if lane in allotment:
+                        allotment[lane] -= float(entry.get("minutes") or 0.0)
+                target = release.get("to")
+                if target in allotment:
+                    allotment[target] += float(release.get("given") or 0.0)
         spent = {lane: 0.0 for lane in LANES}
         for block in self.blocks:
             if block.is_reading:
@@ -313,6 +333,7 @@ def _apply_event(block: PlannedBlock, by_item: dict[str, PlannedItem], event: Ma
             new_admitted=bool(detail.get("new_admitted")),
             check_kind=detail.get("check_kind"),
             scheduler_candidate_id=detail.get("scheduler_candidate_id"),
+            lane_release=detail.get("lane_release"),
         )
         block.items.append(item)
         by_item[str(item_id)] = item

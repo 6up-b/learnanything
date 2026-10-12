@@ -681,15 +681,25 @@ def decide(
     *,
     forced_minutes: float = 0.0,
     forced_items: int = 0,
+    forced_allotment: Mapping[str, float] | None = None,
+    forced_spent: Mapping[str, float] | None = None,
 ) -> Decision:
     """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
 
     ``forced_*`` are the items the container places in this block whatever is
     chosen (requests first, mid-plan follow-ups): they come out of the plan's
-    minutes and a re-entry plan's item allowance before the choice.
+    minutes and a re-entry plan's item allowance before the choice, and
+    follow-ups out of their lane (``forced_spent``, after the minutes other
+    lanes release to it, ``forced_allotment``; review F4).
     """
 
     allotment, spent = record.ledger()
+    for lane, delta in (forced_allotment or {}).items():
+        if lane in allotment:
+            allotment[lane] = max(allotment[lane] + float(delta), 0.0)
+    for lane, minutes in (forced_spent or {}).items():
+        if lane in spent:
+            spent[lane] += float(minutes)
     lanes = context.lanes_allowed
     lefts = {lane: max(allotment[lane] - spent[lane], 0.0) if lane in lanes else 0.0 for lane in LANES}
     minutes_left = max(record.minutes_left() - forced_minutes, 0.0)
@@ -807,6 +817,7 @@ def _persist_block(
     items: Sequence[tuple[PoolItem | PlannedItem, str]],
     decision_ref: str | None = None,
     ordinal: int | None = None,
+    releases: Mapping[str, Mapping[str, Any] | None] | None = None,
 ) -> str:
     block_id = new_ulid()
     now = env.now_iso()
@@ -860,6 +871,11 @@ def _persist_block(
                 ),
                 "check_kind": getattr(item, "check_kind", None),
                 "serving_origin": "learner_pick" if origin == ORIGIN_LEARNER_PICK else "daily_plan",
+                **(
+                    {"lane_release": dict(release)}
+                    if (release := (releases or {}).get(item.practice_item_id)) is not None
+                    else {}
+                ),
             },
             now,
         )
@@ -878,7 +894,36 @@ def _boundary(
 
     forced = list(forced)
     forced_minutes = sum(item.est_minutes for item in forced)
-    decision = decide(record, context, env.policy, forced_minutes=forced_minutes, forced_items=len(forced))
+    releases: dict[str, dict[str, Any] | None] = {}
+    forced_allotment = {lane: 0.0 for lane in LANES}
+    forced_spent = {lane: 0.0 for lane in LANES}
+    if forced_origin == ORIGIN_FOLLOWUP and forced:
+        # Follow-ups are charged to their lane, with minutes released to it by
+        # the other lanes when it has too few left (review F4).
+        lefts = record.lane_left()
+        minutes_left = record.minutes_left()
+        for item in forced:
+            lane = item.lane or "repair"
+            release = _followup_release(lefts, minutes_left, item.est_minutes, lane=lane, lanes_allowed=record.lanes_allowed)
+            releases[item.practice_item_id] = release
+            if release is not None:
+                for entry in release["released"]:
+                    forced_allotment[entry["from"]] -= entry["minutes"]
+                    lefts[entry["from"]] = max(lefts[entry["from"]] - entry["minutes"], 0.0)
+                forced_allotment[lane] += release["given"]
+                lefts[lane] += release["given"]
+            forced_spent[lane] += item.est_minutes
+            lefts[lane] = max(lefts[lane] - item.est_minutes, 0.0)
+            minutes_left = max(minutes_left - item.est_minutes, 0.0)
+    decision = decide(
+        record,
+        context,
+        env.policy,
+        forced_minutes=forced_minutes,
+        forced_items=len(forced),
+        forced_allotment=forced_allotment,
+        forced_spent=forced_spent,
+    )
     choice = decision.choice
     detail: dict[str, Any] = {
         "source": env.policy.source_name,
@@ -945,6 +990,7 @@ def _boundary(
             detail=detail,
             items=items,
             decision_ref=decision_ref,
+            releases=releases,
         )
     return block_id
 
@@ -1050,6 +1096,84 @@ def reconcile(env: PlanEnv, record: PlanRecord) -> PlanRecord:
     return record
 
 
+def _displaceable(record: PlanRecord, keep: Iterable[str] = ()) -> list[PlannedItem]:
+    """The plan's tail, latest first: unserved, unresolved planned items.
+
+    Served, answered, skipped items, learner picks and the ones in ``keep`` are
+    never displaced.
+    """
+
+    kept = set(keep)
+    return [
+        item
+        for block in sorted(record.blocks, key=lambda b: b.ordinal, reverse=True)
+        if not block.finished
+        for item in sorted(block.items, key=lambda i: i.position, reverse=True)
+        if not item.resolved and item.served_at is None and item.practice_item_id not in kept
+        and item.origin != ORIGIN_LEARNER_PICK
+    ]
+
+
+def _displacement_plan(
+    record: PlanRecord, *, need_minutes: float, need_items: int, keep: Iterable[str] = ()
+) -> list[PlannedItem] | None:
+    """The fewest tail items whose displacement frees ``need_minutes`` and
+    ``need_items`` item slots, or None when the tail cannot free both."""
+
+    victims: list[PlannedItem] = []
+    freed = 0.0
+    for item in _displaceable(record, keep):
+        if freed >= need_minutes - _EPS and len(victims) >= need_items:
+            break
+        victims.append(item)
+        freed += item.est_minutes
+    if freed >= need_minutes - _EPS and len(victims) >= need_items:
+        return victims
+    return None
+
+
+def _followup_release(
+    lefts: Mapping[str, float],
+    minutes_left: float,
+    est: float,
+    *,
+    lane: str,
+    lanes_allowed: Sequence[str],
+) -> dict[str, Any] | None:
+    """What a follow-up's lane needs from the others to pay for it (review F4).
+
+    The follow-up is charged to its lane. When that lane has fewer minutes left
+    than the follow-up's estimate, the other lanes release the shortfall from
+    their remaining minutes in a learner pick's order (push, new, maintain),
+    then from the plan's minutes no lane holds. None when the lane can pay.
+    """
+
+    short = est - float(lefts.get(lane, 0.0))
+    if short <= _EPS:
+        return None
+    released: list[dict[str, Any]] = []
+    for other in PICK_DEDUCTION_ORDER:
+        if other == lane or other not in lanes_allowed or short <= _EPS:
+            continue
+        take = min(max(float(lefts.get(other, 0.0)), 0.0), short)
+        if take > _EPS:
+            released.append({"from": other, "minutes": round(take, 6)})
+            short -= take
+    unallotted = 0.0
+    if short > _EPS:
+        slack = max(minutes_left - sum(max(float(value), 0.0) for value in lefts.values()), 0.0)
+        unallotted = min(slack, short)
+        short -= unallotted
+    given = sum(entry["minutes"] for entry in released) + unallotted
+    return {
+        "to": lane,
+        "released": released,
+        "unallotted": round(unallotted, 6),
+        "given": round(given, 6),
+        "uncovered": round(max(short, 0.0), 6),
+    }
+
+
 def _displace_tail(
     env: PlanEnv,
     connection: Any,
@@ -1067,14 +1191,7 @@ def _displace_tail(
 
     displaced: list[str] = []
     now = env.now_iso()
-    candidates = [
-        item
-        for block in sorted(record.blocks, key=lambda b: b.ordinal, reverse=True)
-        if not block.finished
-        for item in sorted(block.items, key=lambda i: i.position, reverse=True)
-        if not item.resolved and item.served_at is None and item.practice_item_id not in keep
-        and item.origin != ORIGIN_LEARNER_PICK
-    ]
+    candidates = _displaceable(record, keep)
     for item in candidates:
         if need <= _EPS:
             break
@@ -1104,30 +1221,59 @@ def _pending_followups(record: PlanRecord, built: _Pool) -> list[PoolItem]:
 def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[PlanRecord, list[PoolItem]]:
     """Plan mid-plan follow-ups next in the current block, displacing the tail.
 
+    A follow-up joins only when the plan still holds it: within the plan's
+    minutes and a re-entry plan's item cap (G2, G10), displacing unserved tail
+    items to make room. Earlier follow-ups are never displaced by later ones.
+    A follow-up that cannot fit is declined and waits in the pool (not debt).
+    Each is charged to its lane, with a recorded release from the other lanes
+    when its lane has too few minutes left (review F4).
+
     Returns the follow-ups to force into the next block when none is current.
     """
 
     followups = _pending_followups(record, built)
     if not followups or not record.is_open:
         return record, []
+    cap = record.split.get("items_cap")
     current = record.current_block()
     if current is None or current.is_reading:
         fitted: list[PoolItem] = []
         free = record.minutes_left()
+        slots = None if cap is None else max(int(cap) - record.item_count(), 0)
         for item in followups:
+            if slots is not None and len(fitted) >= slots:
+                break
             if item.est_minutes <= free + _EPS:
                 fitted.append(item)
                 free -= item.est_minutes
         return record, fitted
     now = env.now_iso()
+    protected = {item.practice_item_id for item in record.items() if item.origin == ORIGIN_FOLLOWUP}
     with env.repository.atomic(), env.repository.connection() as connection:
         position = max((item.position for item in current.items), default=0)
         for item in followups:
-            need = item.est_minutes - record.minutes_left()
-            if need > _EPS:
-                remaining, _ = _displace_tail(env, connection, record, need, by=item.practice_item_id)
-                if remaining > _EPS:
-                    continue
+            need_items = 0 if cap is None else max(record.item_count() + 1 - int(cap), 0)
+            victims = _displacement_plan(
+                record,
+                need_minutes=item.est_minutes - record.minutes_left(),
+                need_items=need_items,
+                keep=protected,
+            )
+            if victims is None:
+                continue
+            for victim in victims:
+                _event(
+                    connection,
+                    victim.block_id,
+                    "item_displaced",
+                    {"practice_item_id": victim.practice_item_id, "reason": "displaced", "by": item.practice_item_id},
+                    now,
+                )
+                victim.displaced_at = now
+            lane = item.lane or "repair"
+            release = _followup_release(
+                record.lane_left(), record.minutes_left(), item.est_minutes, lane=lane, lanes_allowed=record.lanes_allowed
+            )
             position += 1
             _event(
                 connection,
@@ -1136,23 +1282,25 @@ def _insert_followups(env: PlanEnv, record: PlanRecord, built: _Pool) -> tuple[P
                 {
                     "practice_item_id": item.practice_item_id,
                     "learning_object_id": item.learning_object_id,
-                    "lane": "repair",
+                    "lane": lane,
                     "est_minutes": round(item.est_minutes, 4),
                     "origin": ORIGIN_FOLLOWUP,
                     "position": position,
                     "new_admitted": False,
                     "check_kind": None,
                     "serving_origin": "daily_plan",
+                    **({"lane_release": release} if release is not None else {}),
                 },
                 now,
             )
             current.items.append(
                 PlannedItem(
                     block_id=current.id, position=position, practice_item_id=item.practice_item_id,
-                    learning_object_id=item.learning_object_id, lane="repair", est_minutes=item.est_minutes,
-                    origin=ORIGIN_FOLLOWUP, planned_at=now,
+                    learning_object_id=item.learning_object_id, lane=lane, est_minutes=item.est_minutes,
+                    origin=ORIGIN_FOLLOWUP, planned_at=now, lane_release=release,
                 )
             )
+            protected.add(item.practice_item_id)
     return _reload(env, record.id), []
 
 
@@ -1463,7 +1611,13 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
         )
         replans = list(split.get("replans") or [])
         replans.append({"at": now, "from_budget": record.budget, "to_budget": budget, "previous_lanes": split.get("lanes"), "epoch_ordinal": record.next_ordinal()})
-        updated = {**split, **new_split.as_dict(), "epoch_ordinal": record.next_ordinal(), "replans": replans}
+        updated = {
+            **split,
+            **new_split.as_dict(),
+            "epoch_ordinal": record.next_ordinal(),
+            "epoch_at": now,
+            "replans": replans,
+        }
         with env.repository.atomic(), env.repository.connection() as connection:
             status = record.status
             if budget < record.minutes_planned() - _EPS:
