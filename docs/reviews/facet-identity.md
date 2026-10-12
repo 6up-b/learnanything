@@ -1,5 +1,10 @@
 # Facet identity at mint time, and a dedupe command
 
+> **Codex review (2026-10-12):** 11 findings, all fixed; see
+> `docs/reviews/facet-identity-codex-review.md`. Statements below that the
+> fixes changed are marked *(review Fn)*. The lock policy default is now the
+> knowledge model's (`merge_locked_facets = false`).
+
 Branch `facets/identity`, worktree `learnanything-facet-identity`, base
 `7b44c9b0` (main, which includes Slice 2 T5). Handoff:
 `docs/specs/implementation_handoffs.md` §4, "Facet identity at mint time, and a
@@ -158,7 +163,14 @@ did. A vault with no alias references loads exactly as before.
 facets.yaml entries before and after and any `facet_merges` rows it inserted.
 Because references keep their ids, an action changes only facets.yaml (and,
 for registered facets, `facet_merges`), and undo restores exactly that, then
-re-syncs and re-folds the affected learning objects. Undo refuses (writing
+re-syncs and re-folds the affected learning objects. *(review F9)* Evidence
+resolved at projection time returns; rows graded while the merge stood
+(exercised facets, A5 notes, error events) keep the survivor's id. *(review
+F4)* A merge commits its intent (`applying`, with its `facet_merges` rows)
+before facets.yaml is replaced atomically, an undo records `undoing` with the
+owner's verdicts first, and recovery (every merge, undo, dedupe and `doctor
+--fix-state`) finishes either. *(review F3)* An undo writes `judge='owner'`
+`different` rows; no later dedupe or attach re-merges the pair. Undo refuses (writing
 nothing) when the action is already undone, its proposal is not applied yet,
 or the survivor's entry changed since; it names the later action to undo
 first. Ingest actions are recorded `proposed` and become undoable once their
@@ -185,7 +197,7 @@ Undo button; a merge riding on an unapplied proposal says "applies with the
 proposal", and a skipped check says why.
 
 **Config.** `[facet_identity]` (kill switch, `max_group_size` 40,
-`shortlist_top_k` 4, `attach_top_k` 4, `merge_locked_facets` true, per-run caps,
+`shortlist_top_k` 4, `attach_top_k` 4, `merge_locked_facets` false *(review F2)*, per-run caps,
 owner price override), `ai.routing.facet_identity_judge` (default
 `codex_luna` when the active provider is Codex, else the active provider),
 code-default `codex_luna` (`gpt-6-luna`, low effort) and `openrouter_haiku`
@@ -206,7 +218,9 @@ operational.
    recipe components and criterion targets). A writer that later round-trips a
    loaded learning object or item persists the survivor's id; undoing a merge
    after such an edit leaves that entity on the survivor.
-3. **Locked facets are merged by default** (`merge_locked_facets = true`).
+3. *(Superseded, review F2: the default is now `false`, the knowledge
+   model's single lock policy; locked sets are listed as `locked_proposals`.)*
+   **Locked facets are merged by default** (`merge_locked_facets = true`).
    On the `linear_algebra` copy 20 of 39 facets are identity-locked
    (independent surface groups, probe episodes) and 10 of the 15 cluster
    members among them, so the knowledge model's strict policy (§3.4: locked
@@ -217,8 +231,13 @@ operational.
    restores it. `merge_locked_facets = false` restores the strict policy.
    Open question 1.
 4. **No algorithm successor.** A merge is vault content resolved by existing
-   alias and `facet_merges` semantics; nothing scored, scheduled or projected
-   changes meaning. Affected learning objects are re-folded by the standard
+   alias and `facet_merges` semantics. *(Corrected, review F1: as first built,
+   a criterion or recipe naming both merged facets resolved to `[A, A]`,
+   which split and discounted a correct answer's mass, wrote no negative
+   evidence for a wrong one and squared recipe readiness. Duplicates that
+   alias resolution creates now collapse at load, so a merged item counts
+   exactly like one authored with the survivor alone; projection code is
+   unchanged.)* Affected learning objects are re-folded by the standard
    content recalibration (one derived-state marker).
 5. **Attach on a registered facet is growth-only.** A merge into a registered
    facet is the alias alone; an absorb also appends the claim to its examples
@@ -388,8 +407,14 @@ What to check after each run:
   (nominations fall back to lexical, labelled).
 - New ingests list their merges in the Ingest activity with an Undo button.
 
-Kill switch: `[facet_identity] enabled = false`. Strict lock policy:
-`[facet_identity] merge_locked_facets = false`.
+Kill switch: `[facet_identity] enabled = false` (no judge, no new merges,
+stored plans are not replayed, today's gate; merges already in a vault keep
+resolving at load). Lock policy *(review F2)*: the default refuses locked
+facets and lists those sets under `locked_proposals`; on the `linear_algebra`
+copy all 5 sets the judge found were locked (every one by the `probe` arm),
+so the default applies nothing there. The owner's override is
+`[facet_identity] merge_locked_facets = true`; rerunning dedupe then applies
+the listed sets from the reused verdict (no new call).
 
 ## 9. Merge notes
 
@@ -407,9 +432,10 @@ Kill switch: `[facet_identity] enabled = false`. Strict lock policy:
 
 ## 10. Open questions
 
-1. **Locked facets.** Merge them by default (owner option c, current default)
-   or keep the knowledge model's strict lock (`merge_locked_facets = false`)?
-   Most duplicates on `linear_algebra` are locked.
+1. **Locked facets.** The default is now the knowledge model's strict lock
+   (`merge_locked_facets = false`, review F2), which on `linear_algebra`
+   applies none of the 5 sets (all probe-locked). Override it (option c on
+   locked facets too), or keep it until restructure-with-history exists?
 2. **Recall of a cheap judge.** Live runs found 8–9 of the 12 agreed pairs,
    never a must-stay-distinct pair. The misses are "bundled extras" (a
    terminology note, the axiom subset, the routine proof). Accept, rerun
