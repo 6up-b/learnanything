@@ -328,12 +328,16 @@ be a new back-edge. The interim command can then become an alias or go.
   everywhere the classes occur; the holding pen, promotion and the K=3 count
   still look within the LO. The escalation count is vault-wide (it is a
   display).
-- **A rebuild applies every recorded verdict to all history.** Groups are
-  not as-of: a verdict recorded today (the backlog, a later judge call)
-  regroups older answers at the next rebuild. Live, a merge takes effect from
-  the next normalization; `learnloop rebuild` re-applies it to the past
-  (promotion and the deferral exits), which is what the shadow rebuild
-  previews. The upgrade itself does not rebuild.
+- **A recorded verdict regroups the group projection, not past decisions.**
+  Groups are not as-of: a verdict recorded today (the backlog, a later judge
+  call) regroups older answers in the projection, live (every verdict path
+  refreshes it) and on rebuild alike. Promotions, deferral exits and
+  escalation receipts are decisions recorded when they were made; a rebuild
+  never re-takes them (replay never re-normalizes). *Corrected after the
+  second Codex review (F5): this note used to say `learnloop rebuild`
+  re-applies merges to past promotions and exits; it does not
+  (`test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`).*
+  The upgrade itself does not rebuild.
 - **Only learner-state hypotheses are judged**; all concrete classes still
   join through citations and verdicts.
 - **Attempt-level verdicts** (M1 imports) join classes only when a citation or
@@ -575,8 +579,7 @@ uv run learnloop rebuild --shadow --set algorithms.algorithm_version=mvp-0.11 --
 
 # 6. The switch (refused while the guard fails or has not run for this judge)
 uv run learnloop upgrade --to mvp-0.11 --vault <vault>
-#    optional: re-apply groups to past promotions and escalations
-uv run learnloop rebuild --vault <vault>
+#    (a rebuild recomputes the group projection only; it re-takes no past promotion or escalation)
 
 # 7. After 2-4 weeks at mvp-0.11: the M3 signals report
 uv run learnloop recurrence report --vault <vault> --out m3-report.md
@@ -609,8 +612,10 @@ false` (UI).
    only blocks equal-or-lower links. Raise learner taps above the diagnoser
    for the learner's own answers?
 6. **Rebuild re-interpretation.** A verdict recorded today regroups older
-   answers at the next rebuild (groups are not as-of). Keep, or make groups
-   as-of the verdict time?
+   answers in the projection (groups are not as-of). Keep, or make groups
+   as-of the verdict time? *Second review:* past decisions (promotions,
+   exits, escalation receipts) are never re-taken by a rebuild, so this only
+   affects which group a FUTURE decision sees.
 7. **B3 minimum.** It recommends a cutoff only from 30 confirmed matches; the
    owner vault had 2 concrete hypotheses at the base. Is 30 right?
 8. **Migration and label.** 172 and `mvp-0.11` on this branch; expect a

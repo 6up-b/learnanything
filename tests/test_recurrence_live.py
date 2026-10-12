@@ -698,3 +698,64 @@ def test_the_generated_repair_aims_at_the_recurring_causes_target(tmp_path):
         current_repairs=[{"operator": "elicit_rule", "target_refs": [target]}],
     )
     assert fallback["target_refs"] == [target]
+
+
+# -- second review F5: a late verdict and the rebuild ---------------------------------------
+
+
+def test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live(tmp_path):
+    """Live, the judge merges two reworded answers and the holding pen
+    promotes the belief. Later an owner verdict separates the two classes.
+
+    A same-version rebuild never re-runs normalization: the promotion, the
+    holding-pen candidates, the deferral factors and the escalation receipts
+    are decisions recorded when they were made, and the rebuild leaves them
+    as they are. The only derived state that depends on the groups is the
+    recurrence projection, which the live path refreshes on every verdict,
+    so the rebuild reproduces it, and the late verdict changes no other
+    derived table than that projection."""
+
+    from datetime import UTC, datetime
+
+    from learnloop.db.connection import connect
+    from learnloop.db.table_roles import TableRole, tables_for_role
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+    from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
+
+    from tests.recurrence_fakes import record_verdict
+
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"))
+    first, second = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS[:2])
+    promoted = repository.misconceptions_for_learning_object("lo_svd_compute", statuses=("active", "resolving", "resolved"))
+    assert promoted and promoted[0].promotion_reason == "independent_surface"
+    assert repository.recurrence_group_map(), "merged live"
+
+    recurrence = {"hypothesis_recurrence_groups", "hypothesis_recurrence_review", "hypothesis_recurrence_state"}
+    derived = sorted(tables_for_role(TableRole.DERIVED))
+    decisions = ("misconceptions", "misconception_candidates", "unresolved_cause_factors", "recurrence_escalations")
+    clock = FrozenClock(datetime(2026, 9, 1, 12, tzinfo=UTC))
+
+    def snapshot(tables):
+        with connect(repository.sqlite_path, read_only=True) as connection:
+            return {table: sorted(tuple(row) for row in connection.execute(f'SELECT * FROM "{table}"')) for table in tables}
+
+    rebuild_all_derived_state(vault, repository, clock=clock)
+    before_verdict = snapshot(derived)
+    decided = snapshot(decisions)
+
+    a, b = _heads(repository, first.attempt_id)[0], _heads(repository, second.attempt_id)[0]
+    record_verdict(repository, left=b["episode_key"], right=a["episode_key"], verdict="different", judge="owner")
+    refresh_recurrence_groups(vault, repository)  # what every live verdict path does
+    live = snapshot(recurrence)
+    assert repository.recurrence_group_map() == {}, "the owner separated them"
+
+    rebuild_all_derived_state(vault, repository, clock=clock)
+    rebuilt = snapshot(derived)
+    assert {table: rebuilt[table] for table in recurrence} == live, "rebuild reproduces the live projection"
+    moved = sorted(table for table in derived if rebuilt[table] != before_verdict[table])
+    assert set(moved) <= recurrence, f"the late verdict moved other derived state: {moved}"
+    assert snapshot(decisions) == decided, "earlier decisions are never re-taken by a rebuild"
+    assert repository.misconceptions_for_learning_object(
+        "lo_svd_compute", statuses=("active", "resolving", "resolved")
+    )[0].id == promoted[0].id

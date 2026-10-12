@@ -18,10 +18,13 @@ The playbook's explicit upgrade, owner-run (implementation_goal.md §1a):
   rename leaves ``mvp-0.10`` with no group read by any consumer.
 
 Raw history is never rewritten. The switch applies groups to every grouping
-from the next normalization on; a full rebuild (``learnloop rebuild``)
-re-applies them to past promotions and escalations, which is what the shadow
-rebuild previews. Kill switch: ``recurrence.enabled = false``. Rolling the
-version back is restore-only.
+from the next normalization on. Promotions, deferral exits and escalation
+receipts are decisions recorded when they were made: a rebuild never re-takes
+them (replay never re-normalizes). It recomputes only the group projection
+from the ledgers, which the live path refreshes on every verdict, so a
+same-version rebuild reproduces the live projection; a verdict recorded later
+regroups FUTURE decisions only (second review F5). Kill switch:
+``recurrence.enabled = false``. Rolling the version back is restore-only.
 """
 
 from __future__ import annotations
