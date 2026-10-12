@@ -33,6 +33,7 @@ import { notifyQueueChanged, subscribeQueueChanged } from "../queueEvents";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
+import { todayQueueInput } from "./autoAdvance";
 import { schedulerCandidateForServe, type PracticeOffer } from "./practiceOffer";
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
@@ -877,6 +878,10 @@ export function App() {
             attemptId={attemptId}
             sessionId={session?.sessionId ?? null}
             onOpenRepair={openRepair}
+            // Daily-loop P2: Next opens the head of the live queue. A calibration
+            // round returns to its own screen, which names the next target.
+            nextQueue={session && !calibrationSessionId ? todayQueueInput(session) : null}
+            onOpenNext={openPractice}
             onNext={() => setTodayStage("queue")}
             onBack={() => setTodayStage("queue")}
             onOpenNotes={() => gotoTab("library")}

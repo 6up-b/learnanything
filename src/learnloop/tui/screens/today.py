@@ -75,6 +75,9 @@ class TodayScreen(Screen):
         # Flat, priority-ordered list of items parallel to the rendered cards.
         self._items: list[ScheduledItem] = []
         self._cards: list[PracticeCard] = []
+        # Set by feedback's Next (daily-loop P2): on return, the rebuilt queue's
+        # head opens directly instead of the list.
+        self.open_head_on_resume = False
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="today-scroll"):
@@ -100,6 +103,10 @@ class TodayScreen(Screen):
         self.selected_index = 0
         self.state.refresh()
         self._render_queue()
+        if self.open_head_on_resume:
+            self.open_head_on_resume = False
+            if self._items:
+                self.action_open_selected()
 
     # ── actions ──────────────────────────────────────────────────────────────
     def action_refresh(self) -> None:
@@ -255,8 +262,10 @@ class TodayScreen(Screen):
     def _summary_content(self) -> Content:
         due, probe, later = self._section_counts()
         total = due + probe + later
+        budget = self._budget()
+        budget_text = f"{budget} min budget" if budget is not None else "no minutes chosen"
         return Content(
-            f"{total} items, {probe} probe, {self._budget()} min budget — your queue:"
+            f"{total} items, {probe} probe, {budget_text} — your queue:"
         ).stylize("$text-muted italic")
 
     def _banner_content(self) -> Content:
@@ -349,12 +358,10 @@ class TodayScreen(Screen):
                 return scheduled, scheduled
         return None
 
-    def _budget(self) -> int:
-        for item in self.state.queue:
-            if item.readiness_factor is not None:
-                short = self.state.vault.config.scheduler.short_session_minutes
-                return max(short, round(item.readiness_factor * 30))
-        return self.state.vault.config.scheduler.short_session_minutes
+    def _budget(self) -> int | None:
+        # The minutes chosen on Start (daily-loop §6.6), not a number derived
+        # from the logged readiness factor (L1: shown minutes are the real ones).
+        return self.state.available_minutes
 
     def _subject(self, practice_item) -> str:
         subjects = self.state.vault.subjects_for_item(practice_item)

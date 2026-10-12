@@ -8875,6 +8875,28 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             ).fetchone()
         return row["latest"] if row is not None else None
 
+    def latest_session_minutes(self) -> tuple[int, str] | None:
+        """``(minutes, started_at)`` of the latest session begun with minutes, or None.
+
+        Daily-loop DL0 (spec_daily_loop_v1.md §6.6): Start remembers the last
+        session's budget. Sessions that recorded no minutes (old clients, the
+        CLI) are skipped rather than read as "no budget". The start time lets
+        a newer choice that recorded no session (the TUI's) win over it.
+        """
+
+        with self.connection() as connection:
+            row = connection.execute(
+                """
+                SELECT available_minutes, started_at FROM sessions
+                WHERE available_minutes IS NOT NULL AND available_minutes > 0
+                ORDER BY started_at DESC, id DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        if row is None:
+            return None
+        return int(row["available_minutes"]), str(row["started_at"])
+
     def session_day_streak(self, *, clock: Clock | None = None) -> dict[str, Any]:
         """Consecutive-day study streak derived from session start timestamps.
 

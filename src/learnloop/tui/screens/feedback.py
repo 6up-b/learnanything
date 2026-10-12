@@ -555,6 +555,20 @@ class FeedbackScreen(Screen):
         self.submit()
 
     def action_next(self) -> None:
+        # Daily-loop P2 (spec_daily_loop_v1.md §6.5): Next opens the head of the
+        # live queue directly; Esc and "Back to today" still open the list. An
+        # ungraded attempt has nothing to advance from, so it returns to the list.
+        if self.graded:
+            self.advance_to_next()
+        else:
+            self.return_to_today()
+
+    def advance_to_next(self) -> None:
+        from learnloop.tui.screens.today import TodayScreen
+
+        for screen in self.app.screen_stack:
+            if isinstance(screen, TodayScreen):
+                screen.open_head_on_resume = True
         self.return_to_today()
 
     def action_back(self) -> None:

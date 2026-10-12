@@ -28,6 +28,7 @@ import { QuestionQueuePanel } from "../components/QuestionQueue";
 import { notifyQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
 import { masteryTone } from "../app/algoConfig";
+import { todayQueueInput } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
 import type { AskTarget } from "../components/AskOverlay";
 import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
@@ -163,12 +164,10 @@ export function TodayScreen({
   // The scheduler queue is cached by its inputs: returning to Today repaints
   // the last queue at once and revalidates in the background; every queue
   // mutation wrapper (attempts, skips, probes, proposals) invalidates it.
+  // Built with the same helper as feedback's auto-advance, so both read one cache entry.
   const queueInput = useMemo(
-    () => ({
-      sessionId: session?.sessionId ?? null,
-      availableMinutes: session?.availableMinutes ?? null,
-      energy: session?.energy ?? null
-    }),
+    () => todayQueueInput(session),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [session?.sessionId, session?.availableMinutes, session?.energy]
   );
   const queueQuery = useCachedQuery(["get_today_queue", queueInput], () => api.getTodayQueue(queueInput), {

@@ -95,6 +95,7 @@ import type {
   SchedulerExplanationDto,
   SessionEndSummary,
   SessionSnapshot,
+  StartSummaryDto,
   SessionStartInput,
   SqliteExecResult,
   SqliteTableSnapshot,
@@ -410,6 +411,9 @@ export const api = {
   reloadVault: () => mutatingAll(call<AppSnapshot>("reload_vault")),
   getRuntimeHealth: () => call<RuntimeHealth>("get_runtime_health"),
   startSession: (input: SessionStartInput) => mutating([TAG.queue], call<SessionSnapshot>("start_session", { input })),
+  // Start reads this under TAG.queue, which start_session invalidates, so the
+  // remembered minutes and the streak's "today" state refresh once a session begins.
+  getStartSummary: () => call<StartSummaryDto>("get_start_summary"),
   getSession: (sessionId: string) => call<SessionSnapshot>("get_session", { sessionId }),
   clearSessionCheckpoint: (sessionId: string) => call<{ cleared: boolean }>("clear_session_checkpoint", { sessionId }),
   endSession: (sessionId: string) => mutating([TAG.queue], call<SessionEndSummary>("end_session", { sessionId })),
@@ -477,8 +481,10 @@ export const api = {
   triggerRegrade: (attemptId: string) => mutating(ATTEMPT_TAGS, call<FeedbackBundle>("trigger_regrade", { input: { attemptId } })),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     mutating([TAG.review, TAG.maintenance], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
+  // A forced follow-up queues a diagnostic item ahead of the rest, so Today's
+  // queue (and feedback's auto-advance, which reads the same entry) is stale.
   triggerFollowup: (attemptId: string) =>
-    call<FeedbackBundle>("trigger_followup", { input: { attemptId } }),
+    mutating([TAG.queue], call<FeedbackBundle>("trigger_followup", { input: { attemptId } })),
   rateFollowup: (attemptId: string, useful: boolean) =>
     call<FeedbackBundle>("rate_followup", { input: { attemptId, useful } }),
   reportUnresolvedCause: (input: {
