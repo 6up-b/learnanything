@@ -96,6 +96,7 @@ from learnloop.ids import new_ulid
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 RUN_FILE = "run.json"
+STAGES_FILE = "stages.json"
 SCRATCH_FILE = "scratch.sqlite"
 REVIEW_VERSION = "slice1-m1-review-v1"
 MAIN_ARMS = ("a", "b", "c", "d", "e")
@@ -655,20 +656,69 @@ class ReviewRun:
                     },
                 )
 
+    def _stage_done(self, name: str) -> bool:
+        path = self.run_dir / STAGES_FILE
+        return path.exists() and json.loads(path.read_text(encoding="utf-8")).get(name) == "done"
+
+    def _mark_stage(self, name: str) -> None:
+        path = self.run_dir / STAGES_FILE
+        stages = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+        stages[name] = "done"
+        path.write_text(json.dumps(stages, indent=2, sort_keys=True), encoding="utf-8")
+
     def stage_planted(self) -> None:
+        # Runs once per run: a resume must not re-draft rejected cases or
+        # reshuffle target positions under work that already used them.
+        if self._stage_done("planted"):
+            return
+        self._stage_planted()
+        self._mark_stage("planted")
+
+    def _insert_case(self, case: PlantedCase) -> None:
+        """Checkpoint one planted case (and its target) as soon as it exists."""
+
+        position = len(self._rows("review_targets"))
+        item = self.vault.practice_items[case.target.practice_item_id]
+        with self._write() as connection:
+            insert_review_row(
+                connection,
+                "review_planted_cases",
+                {
+                    "id": case.case_id,
+                    "run_id": self.run_id,
+                    "shape": case.shape,
+                    "target_attempt_id": case.target.attempt_id,
+                    "truth_json": case.truth(),
+                    "history_json": case.as_record(),
+                    "source": case.source,
+                },
+            )
+            insert_review_row(
+                connection,
+                "review_targets",
+                {
+                    "id": case.target.attempt_id,
+                    "run_id": self.run_id,
+                    "kind": "planted",
+                    "attempt_id": case.target.attempt_id,
+                    "practice_item_id": item.id,
+                    "learning_object_id": item.learning_object_id,
+                    "completed_at": case.target.completed_at,
+                    "stratum": f"planted:{case.shape}",
+                    "planted_case_id": case.case_id,
+                    "position": position,
+                },
+            )
+
+    def _stage_planted(self) -> None:
         existing = self._rows("review_planted_cases")
         options = self.options
-        wanted = (
-            len((options.planted_manifest.get("cases") if isinstance(options.planted_manifest, Mapping) else options.planted_manifest) or [])
-            if options.planted_manifest is not None
-            else options.planted_per_shape * len(SHAPES) if options.generate_planted else 0
-        )
-        if len(existing) >= wanted or wanted == 0:
-            return
-        cases: list[PlantedCase] = []
         if options.planted_manifest is not None:
             if not existing:
-                cases = cases_from_manifest(options.planted_manifest, vault=self.vault, start=default_start())
+                for case in cases_from_manifest(options.planted_manifest, vault=self.vault, start=default_start()):
+                    self._insert_case(case)
+        elif not options.generate_planted or options.planted_per_shape == 0:
+            return
         elif self.clients.generator is None:
             self.notes["planted"] = "skipped: no ready diagnosis_generator route and no --planted-manifest"
             return
@@ -693,7 +743,7 @@ class ReviewRun:
                             draft = request_planted_scenario(self.clients.generator, prompt)
                         case = case_from_draft(
                             shape, draft, vault=self.vault, learning_object_id=lo_id, allowed_items=allowed,
-                            start=default_start() + timedelta(days=30 * (len(existing) + len(cases))),
+                            start=default_start() + timedelta(days=30 * rotation),
                         )
                     except (AIInterrupted, SpendLimitExceeded):
                         raise
@@ -702,42 +752,8 @@ class ReviewRun:
                             {"shape": shape, "learning_object_id": lo_id, "reason": type(exc).__name__, "detail": str(exc)[:200]}
                         )
                         continue
-                    cases.append(case)
+                    self._insert_case(case)
                     counts[shape] += 1
-        position = len(self._rows("review_targets"))
-        with self._write() as connection:
-            for case in cases:
-                insert_review_row(
-                    connection,
-                    "review_planted_cases",
-                    {
-                        "id": case.case_id,
-                        "run_id": self.run_id,
-                        "shape": case.shape,
-                        "target_attempt_id": case.target.attempt_id,
-                        "truth_json": case.truth(),
-                        "history_json": case.as_record(),
-                        "source": case.source,
-                    },
-                )
-                item = self.vault.practice_items[case.target.practice_item_id]
-                insert_review_row(
-                    connection,
-                    "review_targets",
-                    {
-                        "id": case.target.attempt_id,
-                        "run_id": self.run_id,
-                        "kind": "planted",
-                        "attempt_id": case.target.attempt_id,
-                        "practice_item_id": item.id,
-                        "learning_object_id": item.learning_object_id,
-                        "completed_at": case.target.completed_at,
-                        "stratum": f"planted:{case.shape}",
-                        "planted_case_id": case.case_id,
-                        "position": position,
-                    },
-                )
-                position += 1
         # Interleave planted targets among the real ones (mixed in unlabelled).
         targets = self._rows("review_targets", order_by="position")
         order = [row["id"] for row in targets]
@@ -1474,6 +1490,19 @@ def run_review(
 ) -> dict[str, Any]:
     """Run (or resume) every stage; returns the manifest and stage status."""
 
+    missing = [route for route, client in (("grading", clients.grading), ("diagnosis", clients.diagnosis)) if client is None]
+    if missing:
+        # Without a blind grader or a diagnoser there is nothing to review:
+        # refuse before copying anything rather than "complete" an empty run.
+        return {
+            "status": "unavailable",
+            "reason": "no ready route for " + ", ".join(missing),
+            "client_notes": dict(clients.notes),
+            "run_dir": None,
+            "run_id": None,
+            "estimate": None,
+            "manifest": None,
+        }
     spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
     for route, client in (
         ("grading", clients.grading),

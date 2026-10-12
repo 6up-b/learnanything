@@ -302,3 +302,31 @@ def test_review_round_trip_under_production_durability(tmp_path):
     assert again["status"] == "complete" and resumed.calls == []
     report = offline_review_report(tmp_path / "run", vault=vault)
     assert report["run"]["targets"] == {"real": 3}
+
+
+def test_a_run_without_grader_or_diagnoser_refuses_before_copying(tmp_path):
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    result = run_review(
+        vault, source_sqlite=paths.sqlite_path, run_dir=tmp_path / "run", options=OPTIONS,
+        clients=ReviewClients(judge=ReviewFakeClient(), notes={"diagnosis": "not ready: manual"}), caps=CAPS,
+    )
+    assert result["status"] == "unavailable"
+    assert result["reason"] == "no ready route for grading, diagnosis"
+    assert not (tmp_path / "run").exists()
+
+
+def test_rejected_planted_drafts_are_recorded_and_never_redrafted(tmp_path):
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    options = ReviewOptions(sample_size=2, arms=("b",), planted_per_shape=1, probes=False, judge=False, joint_repeat=False, repeat_subset=0)
+    client = ReviewFakeClient(fail_purposes=("diagnosis_planted_scenario",))
+    client, result = _run(paths, vault, tmp_path / "run", client=client, options=options)
+    assert result["status"] == "complete"
+    rejected = result["manifest"]["notes"]["planted_rejected"]
+    assert len(rejected) == 6  # two drafts per wanted case, three shapes
+    assert {row["reason"] for row in rejected} == {"AIProviderUnavailable"}
+    assert client.calls.count("diagnosis_planted_scenario") == 6
+    resumed, again = _run(paths, vault, tmp_path / "run", client=ReviewFakeClient(), options=options)
+    assert again["status"] == "complete"
+    assert "diagnosis_planted_scenario" not in resumed.calls
