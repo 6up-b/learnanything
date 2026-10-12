@@ -366,3 +366,198 @@ individually) and 6 vitest (1 + 2 + 3).
 9. **The cold-start exemption is broader than bug 1.** It also serves tutor promotions and
    rung variants on never-practised LOs. That is the stated intent of requested items, but
    it is a behaviour change for those paths too.
+
+---
+
+## Follow-ups (branch `fix/daily-loop-followups`, from `main` at `be33cdd`)
+
+The owner approved four items from the open questions above: 8, 7, 2 and 3. Line
+numbers in "root cause" refer to `be33cdd`. Every regression test was run against the
+`be33cdd` source: 12 of the 13 new tests failed there. The 13th is a guard that passes
+both before and after (see F1). None of the four needed a migration or a successor.
+
+| # | Follow-up | Commit | Successor? |
+|---|---|---|---|
+| F1 | A stale open session hid re-entry (open question 8) | `c0eb2332` | No: workflow timestamps, read live |
+| F2 | The guided-path assessment burned a parked LO's surface (open question 7) | `5cd2eb0e` | No: refusal only |
+| F3 | Reference-only questions are adopted later (open question 2) | `7b541744` | No: content, not projections |
+| F4 | Retiring a reader question retires its card (open question 3) | `e2f2c691` | No: the existing retire path |
+
+### F1. A stale open session hid the welcome-back panel
+
+**Root cause**
+
+- `start_session` calls `repository.end_open_sessions_except`
+  (`src/learnloop_sidecar/handlers/sessions.py:47`). That stamped every session left
+  open `ended_at = now` (`src/learnloop/db/repositories.py:9056-9062`). A session is
+  left open when the app is closed mid-session.
+- The welcome-back gap is measured from `most_recent_ended_at`, the latest
+  `sessions.ended_at` (`repositories.py:8865`, read at
+  `src/learnloop/scheduling/reentry_summary.py:110`). The stamp therefore reset the
+  break to zero, and the panel never showed after a break that began with the app
+  closed mid-session.
+- The stamp also stretched the stale session over the whole break. That widened the
+  attempts window `session_attempt_counts` uses for it.
+- An attempt made outside any session never counted as activity.
+
+**Fix**
+
+- `end_open_sessions_except` now ends a stale session at its own last activity. That is
+  `MAX(started_at, last attempt in the session, checkpoint write)`, computed from
+  existing columns only.
+- `most_recent_ended_at` returns the learner's last real activity outside an open
+  session: the latest completed-session end, or the latest attempt that belongs to no
+  still-open session. The method is not renamed; its only callers are the re-entry
+  surfaces.
+- The open session's own attempts are excluded, so practising inside the re-entry
+  session never ends it.
+- No migration.
+
+**Successor: not needed.** `sessions` is a `WORKFLOW` table, and the gap is read live.
+Nothing in replay, rebuild or any projection changes.
+
+**Tests:** `tests/test_daily_loop_reentry_break.py` (3 tests).
+
+| Test | Result at `be33cdd` |
+|---|---|
+| A stale open session ends at its last attempt, and the panel shows a 20-day break | Failed: `ended_at` was now, panel hidden |
+| A session-less attempt 2 days ago means no welcome-back from a month-old session end | Failed: the panel showed |
+| Practising inside the re-entry session keeps the 30-day break (guard) | Passes before and after |
+
+### F2. The guided-path assessment burned a parked LO's reserved surface
+
+**Root cause**
+
+- `golden_path.assess_open` (`src/learnloop_sidecar/handlers/golden_path_assessment.py:32`)
+  called `GA.open_assessment` at `:35` first.
+- `open_assessment` (`src/learnloop/curriculum/golden_path_assessment.py:173`) advances
+  the run to `assessing` (`:208`) and opens the cold administration (`:215`). That is
+  the burn: the held-out surface is consumed.
+- Only afterwards did the handler read the surface's item (`:47`). Nothing checked the
+  LO's lifecycle.
+
+**Fix**
+
+- Before `open_assessment`, the handler resolves the run's `reserved_surface_id` to its
+  practice item. If the owning LO is dormant or resolved, it refuses with
+  `learning_object_inactive` (`vault.lifecycle` via `learnloop_sidecar.serving`).
+- A refused open does not advance the run and does not burn the surface.
+- After reactivation the same still-pristine reserve opens normally.
+
+**Successor: not needed.** The refusal persists nothing.
+
+**Tests:** `tests/test_daily_loop_golden_path_lifecycle.py` (2 tests, one each for
+dormant and resolved). Each asserts the error code, zero administrations on the surface
+and the run still `ready_to_assess`, then that the reserve opens after reactivation.
+Both failed at `be33cdd`: the open succeeded and burned the surface.
+
+### F3. Reference-only reader questions are adopted later
+
+**Root cause**
+
+- `_adopt_into_practice` returned `reference_only` when no active LO cited the passage
+  (`src/learnloop/reader/reader_authoring.py:224`).
+- Nothing ever looked at that question again, even after the study map gained an LO for
+  the passage.
+
+**Fix**
+
+- **New sweep.** `reader_authoring.adopt_reference_questions` finds `reader_authored_qa`
+  commitments that have no `legacy_practice_item` target and were never retired. It
+  resolves each one's span to an active LO the same way writing does, then adopts it
+  through `_adopt_into_practice`. The result is a learner-authored card in the learner's
+  exact words, linked to the commitment, and therefore requested and served first.
+- **Trigger.** The sweep runs in `SidecarContext.load`, right after `sync_vault_state`
+  (`src/learnloop_sidecar/context.py:60`).
+  - Every study-map apply that adds or links an LO ends in that reload, so this is where
+    the LO first becomes visible.
+  - When something is adopted, the vault is reloaded and resynced, and the queue
+    revision is bumped.
+  - A failure is logged and never blocks loading the vault.
+  - State sync itself cannot import the reader: that would close a substrate↔reader
+    cycle, which `lint-imports` forbids.
+  - Queue build was avoided to stay out of `scheduler.py`.
+- **Idempotent.**
+  - An adopted commitment carries its card as a target and is never swept again.
+  - `_adopt_into_practice` also reuses a card already written in the same words under
+    the same LO. That covers a crash between writing the YAML and linking it.
+- `_adopt_into_practice` now derives the source id from the extraction when the caller
+  has none.
+
+**Behaviour to know.** Reader questions saved before the first daily-loop fix, when the
+card went nowhere, are reference-only commitments too. They will be adopted once an
+active LO cites their passage. That keeps the old "It will return as personal practice"
+promise.
+
+**Successor: not needed.** The sweep writes content (a vault item and a commitment
+version) through the existing authoring path. No projection, replay or rebuild changes.
+
+**Tests:** `tests/test_daily_loop_reference_adoption.py` (5 tests, all failing at
+`be33cdd`):
+- Adopted, linked and served first once an LO cites the passage; a second sweep is a
+  no-op with no duplicate card.
+- A dormant or resolved LO citing the passage adopts nothing (2 cases).
+- A retired question is never adopted.
+- Sidecar: `reader.author_qa` stays reference-only, the LO is linked, `ctx.reload`
+  runs, and Today serves the card.
+
+### F4. Retiring a reader question retires its card
+
+**Root cause**
+
+- The reader's retire (`reader.maintain`, action `retire`) only called `C.retire`
+  (`src/learnloop/reader/reader_authoring.py:454-459`), a commitment disposition event.
+- The adopted practice item stayed active, so it kept being served as ordinary practice.
+
+**Fix**
+
+- `maintain` takes the vault `root`. Retiring a `reader_authored_qa` commitment also
+  retires each active `legacy_practice_item` target through `item_authoring.retire_item`,
+  the existing learner retire path, with the typed reason `no_longer_relevant`. That path:
+  - flips the YAML status to `retired` and keeps all history;
+  - closes the serving doors (`deactivate_practice_item_serving`);
+  - retires the substrate surfaces and makes queued surface-mint work obsolete;
+  - bumps the queue revision.
+- Other commitments' targets are left alone.
+- The sidecar handler passes the root and reloads when a card was retired.
+
+**Un-retire.** Nothing to restore: the reader has no un-retire verb, and card retirement
+is terminal by design. Also, no desktop control calls `reader.maintain` today; it is
+reachable over the API.
+
+**Successor: not needed.** This is the existing content-lifecycle path, with no
+projection or replay change.
+
+**Tests:** `tests/test_daily_loop_reader_retire.py` (3 tests, all failing at `be33cdd`):
+- The card is retired with its reason and retirement event, its state is inactive, it
+  is no longer requested, and it leaves the queue.
+- A reference-only question retires nothing else.
+- Sidecar: `reader.maintain` retire takes the card out of Today.
+
+### Files touched (follow-ups)
+
+**New:**
+- `tests/test_daily_loop_reentry_break.py`
+- `tests/test_daily_loop_golden_path_lifecycle.py`
+- `tests/test_daily_loop_reference_adoption.py`
+- `tests/test_daily_loop_reader_retire.py`
+
+**Edited** (small and local; no frontend, no `scheduler.py`, no migration):
+
+| File | Change |
+|---|---|
+| `src/learnloop/db/repositories.py` | `most_recent_ended_at` SQL and docstring; `end_open_sessions_except` SQL and docstring |
+| `src/learnloop/reader/reader_authoring.py` | `adopt_reference_questions`, `_retire_adopted_items`; source-id derivation and card reuse in `_adopt_into_practice`; `root` on `maintain` |
+| `src/learnloop_sidecar/context.py` | Adoption sweep after state sync in `load` |
+| `src/learnloop_sidecar/handlers/golden_path_assessment.py` | Lifecycle refusal before `open_assessment` |
+| `src/learnloop_sidecar/handlers/reader.py` | `reader.maintain` passes `root` and reloads after a retire |
+
+### Verification (follow-ups)
+
+| Check | Result |
+|---|---|
+| `uv run pytest -n auto` (full suite) | 6165 passed, 0 failed (3 min 10 s); 6152 before plus 13 new |
+| `uv run pytest -m durability` | 62 passed, 6103 deselected |
+| `uv run lint-imports --no-cache` | 6 contracts kept, 0 broken |
+| Frontend checks | Not needed: no frontend file changed |
+| New regression tests against the `be33cdd` source | 12 failed, 1 passed (the F1 guard) |
