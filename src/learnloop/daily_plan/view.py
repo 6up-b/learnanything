@@ -12,8 +12,6 @@ read (review F3).
 
 from __future__ import annotations
 
-import copy
-from dataclasses import replace
 from datetime import datetime
 from typing import Any
 
@@ -22,11 +20,10 @@ from learnloop.daily_plan.engine import (
     PlanEnv,
     PlanPolicy,
     PoolContext,
-    decide,
     day_records,
+    simulate_blocks,
 )
 from learnloop.daily_plan.records import (
-    ORIGIN_CHOOSER,
     PlanRecord,
     PlannedBlock,
     PlannedItem,
@@ -48,65 +45,20 @@ def project_blocks(
 
     if context is None or not record.is_open:
         return []
-    policy = policy.projection()
-    sim = PlanRecord(row=copy.deepcopy(record.row), blocks=copy.deepcopy(record.blocks))
-    projected: list[dict[str, Any]] = []
-    reading_used = any(block.is_reading for block in sim.blocks)
-    for _ in range(max_blocks):
-        taken = sim.planned_ids() | {item.practice_item_id for item in sim.items() if item.skipped}
-        view = replace(
-            context,
-            pool=tuple(item for item in context.pool if item.practice_item_id not in taken),
-            reading=None if reading_used else context.reading,
-        )
-        decision = decide(sim, view, policy)
-        candidate = decision.candidate
-        if candidate is None:
-            break
-        ordinal = sim.next_ordinal()
-        block = PlannedBlock(
-            id=f"projected-{ordinal}",
-            ordinal=ordinal,
-            lane=candidate.lane,
-            action=candidate.action,
-            subtype=candidate.subtype,
-            chosen_by=decision.choice.chosen_by,
-            budget_minutes=candidate.est_minutes,
-            created_at=str(record.row.get("updated_at") or ""),
-            reading=candidate.reading.as_dict() if candidate.reading is not None else None,
-            chosen={"redistribution": decision.redistribution},
-            simulated=True,
-        )
-        by_id = {item.practice_item_id: item for item in view.pool}
-        for position, item_id in enumerate(candidate.item_ids, start=1):
-            pool_item = by_id[item_id]
-            block.items.append(
-                PlannedItem(
-                    block_id=block.id,
-                    position=position,
-                    practice_item_id=item_id,
-                    learning_object_id=pool_item.learning_object_id,
-                    lane=pool_item.lane,
-                    est_minutes=pool_item.est_minutes,
-                    origin=ORIGIN_CHOOSER,
-                    planned_at="",
-                )
-            )
-        sim.blocks.append(block)
-        if candidate.reading is not None:
-            reading_used = True
-        projected.append(
-            {
-                "ordinal": ordinal,
-                "lane": candidate.lane,
-                "est_minutes": round(candidate.est_minutes, 4),
-                "item_count": len(candidate.item_ids),
-                "learning_object_titles": [context.titles.get(lo, lo) for lo in candidate.learning_object_ids],
-                "reading_title": candidate.reading.section_title if candidate.reading is not None else None,
-                "why": decision.choice.why,
-            }
-        )
-    return projected
+    return [
+        {
+            "ordinal": block.ordinal,
+            "lane": block.lane,
+            "est_minutes": round(block.est_minutes(), 4),
+            "item_count": len(block.items),
+            "learning_object_titles": [
+                context.titles.get(lo, lo) for lo in dict.fromkeys(item.learning_object_id for item in block.items)
+            ],
+            "reading_title": (block.reading or {}).get("section_title") if block.reading else None,
+            "why": decision.choice.why,
+        }
+        for decision, block in simulate_blocks(record, context, policy, max_blocks=max_blocks)
+    ]
 
 
 def _item_row(env: PlanEnv, item: PlannedItem) -> dict[str, Any]:

@@ -592,3 +592,167 @@ def test_f8_out_of_range_expected_minutes_reach_the_writer_bounded(tmp_path):
         path = upsert_practice_item(paths.root, payload)
         written = yaml.safe_load(path.read_text())
         assert written.get("expected_minutes") == kept, (raw, written.get("expected_minutes"))
+
+
+# -- F9: displayed numbers match what is served --
+
+
+def _load_vault_env(tmp_path, *, plan_toml=None, requested=()):
+    """Four reviews due daily (L = 14 min/day) and eight new LOs."""
+
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    los = {f"lo_rev{i}": [(f"pi_rev{i}", None)] for i in range(4)}
+    los |= {f"lo_n{i}": [(f"pi_n{i}", 3.0)] for i in range(8)}
+    los |= {"lo_req": [("pi_req", 5.0)]}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los, plan_toml=plan_toml)
+    _no_goals(paths)
+    items = [scheduled("pi_req", "lo_req")] + [scheduled(f"pi_n{i}", f"lo_n{i}", new_material=1.0) for i in range(8)]
+    clock = MovableClock(NOW)
+    env = make_env(paths.root, items, clock=clock, requested=requested)
+    for i in range(4):
+        # Interval one day, due tomorrow: 14 reviews in 14 days of 3.5 minutes.
+        seed_due(env.repository, f"pi_rev{i}", due=NOW + timedelta(days=1), last=NOW)
+    return env, clock
+
+
+def test_f9_extensions_hold_the_review_load_to_the_days_budget(tmp_path):
+    import pytest
+
+    from learnloop.daily_plan.engine import build_plan, keep_going, stop_today
+
+    env, _clock = _load_vault_env(tmp_path, plan_toml="[plan]\nmax_new_items_per_day = 30\n")
+    day_plan = build_plan(env, kind="normal", budget=40.0, remembered=40, minutes_source="chip")
+    assert day_plan.admission["review_load_per_day"] == pytest.approx(14.0)
+    assert day_plan.admission["ceiling_basis"] == "plan_minutes"
+    assert day_plan.admission["ceiling_minutes"] == pytest.approx(32.0)
+    stop_today(env)
+    extension = keep_going(env)
+    assert extension.kind == "keep_going" and extension.budget == 10.0
+    # L (14 min/day) is a daily load: it is held to 0.80 of the day's 40, not
+    # of the extension's 10 (which would admit nothing past the floor).
+    assert extension.admission["ceiling_basis"] == "remembered_minutes"
+    assert extension.admission["ceiling_minutes"] == pytest.approx(32.0)
+    assert extension.admission["stopped_by"] != "load_ceiling"
+    assert len(extension.admission["admitted"]) >= 2
+
+
+def test_f9_more_new_preview_is_what_confirming_plans(tmp_path):
+    from learnloop.daily_plan.engine import advance_with_context, get_or_create_today, more_new, stop_today
+    from learnloop.daily_plan.view import plan_view
+
+    env, _clock = _load_vault_env(tmp_path, requested=["pi_req"])
+    get_or_create_today(env)
+    stop_today(env)
+    _record, preview = more_new(env, confirm=False)
+    # The requested item (5.5 min) goes first in the extension's 10 minutes, so
+    # only one 3.5-minute new item fits; a greedy fit that ignored it said two.
+    assert preview["items"] == 1 and preview["est_minutes"] == 3.5
+    plan, confirmed = more_new(env, confirm=True)
+    assert confirmed == preview
+    record, step, context = advance_with_context(env, serve=False)
+    assert record.id == plan.id
+    projected = plan_view(env, record, context=context, next_step=step)["plan"]["projected"]
+    planned_new = [item.practice_item_id for item in record.items() if item.new_admitted]
+    assert planned_new == preview["practice_item_ids"]
+    assert sum(row["item_count"] for row in projected if row["lane"] == "new") == 0
+
+
+def test_f9_reentry_panel_names_only_what_it_counts(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import learnloop.scheduling.reentry_summary as summary_module
+    from learnloop.daily_plan.reentry import ReentryGap, reentry_panel
+    from learnloop.scheduling.reentry_summary import SlippedFacet
+    from tests.daily_plan_fakes import seed_due
+
+    los = {"lo_a": [("pi_a", 1.0)], "lo_b": [("pi_b", 1.0)], "lo_c": [("pi_c", 1.0)]}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    last = NOW - timedelta(days=20)
+    # lo_a and lo_b were solid at the last activity and have slipped since;
+    # lo_c is still solid (a long stability).
+    seed_due(repository, "pi_a", due=NOW, last=last - timedelta(days=1), stability=3.0)
+    seed_due(repository, "pi_b", due=NOW, last=last - timedelta(days=1), stability=6.0)
+    seed_due(repository, "pi_c", due=NOW + timedelta(days=300), last=last, stability=900.0)
+
+    def facet(lo_id, weight):
+        return SlippedFacet(lo_id, vault.learning_objects[lo_id].title, "recall", weight)
+
+    # The goal's facets name lo_c (not slipped at the LO level) first.
+    fake = SimpleNamespace(show=True, slipped_top=[facet("lo_c", 0.9), facet("lo_b", 0.5)])
+    monkeypatch.setattr(summary_module, "reentry_summary", lambda *args, **kwargs: fake)
+    gap = ReentryGap(True, 20, 7, iso(last))
+    panel = reentry_panel(vault, repository, now=NOW, gap=gap, goal=SimpleNamespace(id="goal"))
+    titles = {lo_id: vault.learning_objects[lo_id].title for lo_id in los}
+    assert panel.slipped_count == 2
+    # Blueprint order first among the counted LOs, then the rest by drop.
+    assert panel.slipped_names == (titles["lo_b"], titles["lo_a"])
+    assert panel.named_by == "goal_blueprint_weight"
+    # Nothing slipped: nothing named, whatever the goal's facets say.
+    seed_due(repository, "pi_a", due=NOW, last=NOW - timedelta(hours=1), stability=900.0)
+    seed_due(repository, "pi_b", due=NOW, last=NOW - timedelta(hours=1), stability=900.0)
+    panel = reentry_panel(vault, repository, now=NOW, gap=gap, goal=SimpleNamespace(id="goal"))
+    assert panel.slipped_count == 0 and panel.slipped_names == ()
+
+
+# -- F10: other gaps --
+
+
+def test_f10_more_new_on_an_open_plan_is_refused_and_keeps_the_plan(tmp_path):
+    import pytest
+
+    from learnloop.daily_plan.engine import PlanStillOpenError, more_new
+
+    env, _clock = _load_vault_env(tmp_path)
+    record = get_or_create_today(env)
+    assert record.is_open
+    planned = [item.practice_item_id for item in record.items()]
+    _record, preview = more_new(env, confirm=False)  # the preview is read-only
+    with pytest.raises(PlanStillOpenError):
+        more_new(env, confirm=True)
+    after = get_or_create_today(env)
+    assert after.id == record.id and after.is_open
+    assert [item.practice_item_id for item in after.items()] == planned
+
+
+def test_f10_keep_going_with_nothing_left_is_idempotent(tmp_path):
+    from learnloop.daily_plan.engine import day_records, keep_going, stop_today
+    from tests.daily_plan_fakes import make_env
+
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_a": [("pi_a", 1.0)]})
+    _no_goals(paths)
+    env = make_env(paths.root, [], clock=MovableClock(NOW))  # nothing eligible at all
+    get_or_create_today(env)
+    stop_today(env)
+    first = keep_going(env)
+    assert first.kind == "keep_going" and not first.is_open and not first.blocks
+    for _ in range(3):
+        again = keep_going(env)
+        assert again.id == first.id
+    assert [record.kind for record in day_records(env)] == ["normal", "keep_going"]
+
+
+def test_f10_a_crash_before_the_first_block_keeps_requests_first(tmp_path, monkeypatch):
+    import pytest
+
+    from learnloop.daily_plan import engine
+    from learnloop.daily_plan.engine import advance
+
+    env, _clock = _load_vault_env(tmp_path, requested=["pi_req"])
+    real_boundary = engine._boundary
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("the app died between the two writes")
+
+    monkeypatch.setattr(engine, "_boundary", crash)
+    with pytest.raises(RuntimeError):
+        get_or_create_today(env)
+    monkeypatch.setattr(engine, "_boundary", real_boundary)
+    record = get_or_create_today(env)
+    assert record.is_open and not record.blocks and record.split["requested"]
+    record, step = advance(env, serve=False)
+    first = record.blocks[0]
+    assert first.items[0].practice_item_id == "pi_req" and first.items[0].origin == "requested"
+    assert step["practice_item_id"] == "pi_req"

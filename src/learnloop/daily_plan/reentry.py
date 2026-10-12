@@ -133,20 +133,32 @@ def reentry_panel(
         elif previous >= target:
             slipped.append((previous - current, lo_id))
     slipped.sort(key=lambda pair: (-pair[0], pair[1]))
-    names = tuple(
-        (vault.learning_objects[lo_id].title if lo_id in vault.learning_objects else lo_id)
-        for _drop, lo_id in slipped[:top_n]
-    )
+    slipped_ids = [lo_id for _drop, lo_id in slipped]
     named_by = "retrievability"
-    if goal is not None:
-        # With an active goal, the slipped facets are named in blueprint-weight
-        # order, as the welcome-back panel always did.
+    if goal is not None and slipped_ids:
+        # With an active goal, the slipped LOs are named in the goal's
+        # blueprint-weight order, as the welcome-back panel always did. The
+        # names come from the counted population (review F9): a goal facet
+        # whose LO did not slip below target is not named, and slipped LOs
+        # outside the goal follow by largest drop.
         from learnloop.scheduling.reentry_summary import reentry_summary
 
-        summary = reentry_summary(vault, repository, goal, clock=clock)
+        # Every slipped facet, in blueprint-weight order (not just the top 3).
+        summary = reentry_summary(vault, repository, goal, clock=clock, top_n=1_000_000)
         if summary.show and summary.slipped_top:
-            names = tuple(dict.fromkeys(facet.learning_object_title for facet in summary.slipped_top))
-            named_by = "goal_blueprint_weight"
+            counted = set(slipped_ids)
+            goal_order = [
+                lo_id
+                for lo_id in dict.fromkeys(facet.learning_object_id for facet in summary.slipped_top)
+                if lo_id in counted
+            ]
+            if goal_order:
+                slipped_ids = goal_order + [lo_id for lo_id in slipped_ids if lo_id not in set(goal_order)]
+                named_by = "goal_blueprint_weight"
+    names = tuple(
+        (vault.learning_objects[lo_id].title if lo_id in vault.learning_objects else lo_id)
+        for lo_id in slipped_ids[:top_n]
+    )
     return ReentryPanel(
         gap_days=gap.gap_days,
         solid_count=solid,

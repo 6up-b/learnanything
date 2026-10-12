@@ -17,6 +17,7 @@ from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 import learnloop.clock as clock_module
 from tests.daily_plan_fakes import NOW, MovableClock, make_env, record_attempt
+from tests.split_live_helpers import enable_embeddings
 from tests.test_daily_plan_build import _seed_wide, _wide_items, _wide_vault
 
 PLAN_TABLES = ("daily_plans",)
@@ -43,16 +44,24 @@ def _plan_rows(path):
 @pytest.mark.durability
 def test_rebuild_ignores_the_plan_and_calls_no_model(tmp_path, monkeypatch):
     from learnloop.ai import client
+    from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
 
     def forbidden(*args, **kwargs):
-        raise AssertionError("the plan and replay must not construct a model client")
+        raise AssertionError("the plan and replay must not construct a model or embedding client")
 
     monkeypatch.setattr(client, "make_ai_provider_client", forbidden)
     monkeypatch.setattr(client, "make_ai_provider_client_from_profile", forbidden)
+    # No provider client of any kind, chat or embedding, is even resolved (G8).
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", forbidden)
+    monkeypatch.setattr("learnloop.diagnosis.split.jobs.default_embedding_client", forbidden)
+    monkeypatch.setattr(OpenAIEmbeddingProviderClient, "__init__", forbidden)
     # Rebuild stamps some derived rows with the wall clock: freeze it so the
     # comparison is about content.
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: NOW)
     paths = _wide_vault(tmp_path)
+    # Embeddings on, so an embedding call anywhere in the plan or replay
+    # would reach the guards above.
+    enable_embeddings(paths.root)
     clock = MovableClock()
     env = make_env(paths.root, _wide_items(), clock=clock)
     _seed_wide(env.repository)
@@ -90,5 +99,7 @@ def test_a_plan_runs_on_a_fresh_wal_vault(tmp_path):
     record, _next = advance(env, serve=False)
     assert any(item.done for item in record.items())
     with sqlite3.connect(paths.sqlite_path) as connection:
-        assert connection.execute("PRAGMA journal_mode").fetchone()[0] in ("wal", "delete")
+        # The durability marker builds this vault fresh with production
+        # pragmas: the plan ran on a WAL database (review F10).
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []

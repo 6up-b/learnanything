@@ -16,6 +16,7 @@ from typing import Any, Literal
 from learnloop.daily_plan.engine import (
     PlanEnv,
     PlanInactiveError,
+    PlanStillOpenError,
     advance_with_context,
     keep_going,
     learner_pick,
@@ -244,7 +245,10 @@ def plan_more_new(ctx: SidecarContext, params: PlanMoreNewInput) -> dict[str, An
     if required is None:
         return _off(ctx)
     _vault, _repository, env = required
-    _record, preview = more_new(env, confirm=params.confirm)
+    try:
+        _record, preview = more_new(env, confirm=params.confirm)
+    except PlanStillOpenError as exc:
+        raise SidecarError("invalid_request", str(exc), details={"field": "confirm"}) from exc
     return versioned({"enabled": True, "preview": preview, **_current_view(env)})
 
 

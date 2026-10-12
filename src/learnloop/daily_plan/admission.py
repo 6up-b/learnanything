@@ -55,6 +55,10 @@ class Admission:
     floor_applied: bool = False
     stopped_by: str | None = None
     added_load_per_day: float = 0.0
+    #: What the ceiling is 0.80 of: the plan's own minutes M, or, for a "keep
+    #: going" extension and the plan after re-entry, the day's remembered
+    #: budget (review F9; L is a daily load, so it is held to the daily budget).
+    ceiling_basis: str = "plan_minutes"
 
     @property
     def admitted_ids(self) -> tuple[str, ...]:
@@ -71,6 +75,7 @@ class Admission:
             "override": self.override,
             "review_load_per_day": round(self.review_load_per_day, 4),
             "ceiling_minutes": round(self.ceiling_minutes, 4),
+            "ceiling_basis": self.ceiling_basis,
             "horizon_days": self.horizon_days,
             "reviews_per_new_item": self.reviews_per_new_item,
             "cap_per_day": self.cap_per_day,
@@ -148,6 +153,7 @@ def admit_new_material(
     enabled: bool = True,
     reentry: bool = False,
     override: str | None = None,
+    ceiling_basis: str = "plan_minutes",
 ) -> Admission:
     """Admit new material for one plan (or one "more new material" extension).
 
@@ -209,6 +215,7 @@ def admit_new_material(
         floor_applied=floor_applied,
         stopped_by=stopped_by,
         added_load_per_day=added,
+        ceiling_basis=ceiling_basis,
     )
 
 

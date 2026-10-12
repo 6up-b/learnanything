@@ -54,7 +54,6 @@ from learnloop.daily_plan.lanes import (
     PoolItem,
     SOURCE_NAME,
     classify_pool,
-    is_followup,
     reentry_order,
     scheduled_checks,
 )
@@ -445,7 +444,25 @@ def get_or_create_today(env: PlanEnv, *, create: bool = True) -> PlanRecord | No
     return build_plan(env, kind="normal", budget=float(minutes), remembered=minutes, minutes_source="carried")
 
 
-def build_plan(
+@dataclass
+class _Prepared:
+    """A plan classified, admitted and split, not yet persisted."""
+
+    built: _Pool
+    requests: list[PoolItem]
+    admission: Any
+    row: dict[str, Any]
+    day: list[PlanRecord]
+
+    def record(self, plan_id: str = "preview") -> PlanRecord:
+        """The plan as it would be loaded, with no blocks (a dry run)."""
+
+        row = {key: value for key, value in self.row.items() if key not in ("split_json", "admission_json")}
+        row.update(id=plan_id, split=dict(self.row["split_json"]), admission=dict(self.row["admission_json"]))
+        return PlanRecord(row=row)
+
+
+def _prepare_plan(
     env: PlanEnv,
     *,
     kind: str,
@@ -454,8 +471,8 @@ def build_plan(
     minutes_source: str,
     parent_plan_id: str | None = None,
     override: str | None = None,
-) -> PlanRecord:
-    """Build one plan: classify, admit, split, then choose its first block."""
+) -> _Prepared:
+    """Classify, admit and split one plan (§6.1-§6.3) without persisting it."""
 
     config = env.plan_config
     reentry = kind == "reentry"
@@ -492,10 +509,15 @@ def build_plan(
     review_load = projected_review_load(
         _review_items(env, built.estimator), now=env.now(), horizon_days=int(config.load_horizon_days)
     )
+    # L is a daily load, so its ceiling is 0.80 of a daily budget: the plan's
+    # own M for the day's plan, the remembered budget for an extension or the
+    # plan after re-entry (whose own minutes are only what is left; F9).
+    extension = parent_plan_id is not None
     admission = admit_new_material(
         new_candidates,
         review_load_per_day=review_load,
-        m=m,
+        m=float(remembered) if extension else m,
+        ceiling_basis="remembered_minutes" if extension else "plan_minutes",
         load_ceiling=float(config.load_ceiling),
         horizon_days=int(config.load_horizon_days),
         reviews_per_new_item=int(config.new_item_reviews_14d),
@@ -547,8 +569,158 @@ def build_plan(
         "replans": [],
     }
     now = env.now_iso()
+    row = {
+        "local_date": env.today(),
+        "kind": kind,
+        "parent_plan_id": parent_plan_id,
+        "minutes_budget": float(budget),
+        "remembered_minutes": int(remembered),
+        "minutes_source": minutes_source,
+        "split_json": split_json,
+        "admission_json": admission.as_dict(),
+        "estimator_version": built.estimator.version,
+        "source": env.policy.source_name,
+        "chooser": getattr(env.policy.chooser, "name", CHOOSER_NAME),
+        "status": "open",
+        "stop_reason": None,
+        "algorithm_version": env.vault.config.algorithms.algorithm_version,
+        "config_hash": _config_hash(config),
+        "created_at": now,
+        "updated_at": now,
+        "completed_at": None,
+    }
+    return _Prepared(built=built, requests=requests, admission=admission, row=row, day=list(day))
+
+
+def simulate_blocks(
+    record: PlanRecord,
+    context: PoolContext,
+    policy: PlanPolicy,
+    *,
+    forced: Sequence[PoolItem] = (),
+    max_blocks: int = 12,
+) -> list[tuple[Decision, PlannedBlock]]:
+    """The blocks the plan would choose next if nothing changed. Pure.
+
+    Always runs ``policy.projection()``: the source with the deterministic
+    projection chooser, never the live one (review F3). ``forced`` items (a
+    fresh plan's requests) join the first simulated block, as at the build.
+    The record is copied; nothing is persisted or logged.
+    """
+
+    import copy
+
+    policy = policy.projection()
+    sim = PlanRecord(row=copy.deepcopy(record.row), blocks=copy.deepcopy(record.blocks))
+    out: list[tuple[Decision, PlannedBlock]] = []
+    reading_used = any(block.is_reading for block in sim.blocks)
+    pending = list(forced)
+    for _ in range(max_blocks):
+        taken = sim.planned_ids() | {item.practice_item_id for item in sim.items() if item.skipped}
+        view = replace(
+            context,
+            pool=tuple(item for item in context.pool if item.practice_item_id not in taken),
+            reading=None if reading_used else context.reading,
+        )
+        decision = decide(
+            sim, view, policy, forced_minutes=sum(item.est_minutes for item in pending), forced_items=len(pending)
+        )
+        candidate = decision.candidate
+        if candidate is None and not pending:
+            break
+        ordinal = sim.next_ordinal()
+        block = PlannedBlock(
+            id=f"projected-{ordinal}",
+            ordinal=ordinal,
+            lane=candidate.lane if candidate is not None else pending[0].lane,
+            action=candidate.action if candidate is not None else "maintain",
+            subtype=candidate.subtype if candidate is not None else None,
+            chosen_by=decision.choice.chosen_by,
+            budget_minutes=(candidate.est_minutes if candidate is not None else 0.0)
+            + sum(item.est_minutes for item in pending),
+            created_at=str(record.row.get("updated_at") or ""),
+            reading=candidate.reading.as_dict() if candidate is not None and candidate.reading is not None else None,
+            chosen={"redistribution": decision.redistribution},
+            simulated=True,
+        )
+        by_id = {item.practice_item_id: item for item in view.pool}
+        members = [(item, ORIGIN_REQUESTED) for item in pending]
+        if candidate is not None:
+            members += [(by_id[item_id], ORIGIN_CHOOSER) for item_id in candidate.item_ids if item_id in by_id]
+        for position, (pool_item, origin) in enumerate(members, start=1):
+            block.items.append(
+                PlannedItem(
+                    block_id=block.id,
+                    position=position,
+                    practice_item_id=pool_item.practice_item_id,
+                    learning_object_id=pool_item.learning_object_id,
+                    lane=pool_item.lane,
+                    est_minutes=pool_item.est_minutes,
+                    origin=origin,
+                    planned_at="",
+                    new_admitted=bool(
+                        origin == ORIGIN_CHOOSER
+                        and pool_item.lane == "new"
+                        and pool_item.never_attempted
+                        and not pool_item.requested
+                    ),
+                )
+            )
+        pending = []
+        sim.blocks.append(block)
+        if candidate is not None and candidate.reading is not None:
+            reading_used = True
+        out.append((decision, block))
+    return out
+
+
+def _empty_extension(env: PlanEnv, prepared: _Prepared) -> bool:
+    """Whether a prepared extension would plan nothing at all (no request, no
+    feasible block at its first boundary). Decided by the container's
+    feasibility, never by asking the live chooser."""
+
+    if prepared.requests:
+        return False
+    record = prepared.record()
+    context = _context(env, record, prepared.built, day=prepared.day)
+    return not decide(record, context, env.policy.projection()).feasible
+
+
+def build_plan(
+    env: PlanEnv,
+    *,
+    kind: str,
+    budget: float,
+    remembered: int,
+    minutes_source: str,
+    parent_plan_id: str | None = None,
+    override: str | None = None,
+) -> PlanRecord:
+    """Build one plan: classify, admit, split, then choose its first block."""
+
+    prepared = _prepare_plan(
+        env,
+        kind=kind,
+        budget=budget,
+        remembered=remembered,
+        minutes_source=minutes_source,
+        parent_plan_id=parent_plan_id,
+        override=override,
+    )
+    if kind == "keep_going" and prepared.day:
+        # "Keep going" with nothing left to plan is idempotent: one empty
+        # extension says so, and further taps return it rather than adding
+        # an empty plan row each time (review F10).
+        latest = prepared.day[-1]
+        if (
+            latest.kind == "keep_going"
+            and not latest.is_open
+            and not latest.blocks
+            and _empty_extension(env, prepared)
+        ):
+            return latest
     plan_id = new_ulid()
-    today = env.today()
+    today = prepared.row["local_date"]
     with env.repository.atomic(), env.repository.connection() as connection:
         # Another builder (a second device, a retried RPC) may have made today's
         # first plan meanwhile: keep that one.
@@ -556,33 +728,10 @@ def build_plan(
             existing = store.plans_for_date(connection, today)
             if existing:
                 return _reload(env, str(existing[-1]["id"]))
-        store.insert_plan(
-            connection,
-            {
-                "id": plan_id,
-                "local_date": today,
-                "kind": kind,
-                "parent_plan_id": parent_plan_id,
-                "minutes_budget": float(budget),
-                "remembered_minutes": int(remembered),
-                "minutes_source": minutes_source,
-                "split_json": split_json,
-                "admission_json": admission.as_dict(),
-                "estimator_version": built.estimator.version,
-                "source": env.policy.source_name,
-                "chooser": getattr(env.policy.chooser, "name", CHOOSER_NAME),
-                "status": "open",
-                "stop_reason": None,
-                "algorithm_version": env.vault.config.algorithms.algorithm_version,
-                "config_hash": _config_hash(config),
-                "created_at": now,
-                "updated_at": now,
-                "completed_at": None,
-            },
-        )
+        store.insert_plan(connection, {"id": plan_id, **prepared.row})
     record = _reload(env, plan_id)
-    context = _context_from_build(env, record, built)
-    _boundary(env, record, context, forced=requests, forced_origin=ORIGIN_REQUESTED)
+    context = _context_from_build(env, record, prepared.built)
+    _boundary(env, record, context, forced=prepared.requests, forced_origin=ORIGIN_REQUESTED)
     return _reload(env, plan_id)
 
 
@@ -1484,7 +1633,19 @@ def advance_with_context(
     context = _context(env, record, built, day=())
     block = record.current_block()
     if block is None:
-        block_id = _boundary(env, record, context, forced=forced, forced_origin=ORIGIN_FOLLOWUP)
+        forced_origin = ORIGIN_FOLLOWUP
+        if not record.blocks and not record.receipts and record.split.get("requested"):
+            # The plan row was written but its first block was not (a crash
+            # between the two writes): place its requests first now, as the
+            # build would have (L3; review F10). Follow-ups wait one step.
+            by_id = {item.practice_item_id: item for item in context.pool}
+            forced = [
+                by_id[row["practice_item_id"]]
+                for row in record.split.get("requested") or []
+                if row.get("practice_item_id") in by_id
+            ]
+            forced_origin = ORIGIN_REQUESTED
+        block_id = _boundary(env, record, context, forced=forced, forced_origin=forced_origin)
         record = _reload(env, record.id)
         context = _context(env, record, built, day=())
         if block_id is None:
@@ -1822,11 +1983,20 @@ def keep_going(env: PlanEnv) -> PlanRecord:
     return build_plan(env, kind="keep_going", budget=float(env.plan_config.keep_going_minutes), remembered=remembered, minutes_source="generated", parent_plan_id=record.id)
 
 
+class PlanStillOpenError(RuntimeError):
+    """"More new material" is offered on the done screen: today's plan is still open."""
+
+
 def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[str, Any]]:
     """§6.3: "more new material" bypasses the ceiling and the cap once.
 
     Without ``confirm`` it only shows the trade-off; with it, it builds a
-    labelled "keep going" extension that admits new material first.
+    labelled "keep going" extension that admits new material first. The
+    preview is the extension itself, dry-run: the new items its blocks would
+    plan (the deterministic pair, as the view projects), so "N new items,
+    adds about M min/day" is what confirming serves (review F9). Confirming
+    while today's plan is still open is refused: it would drop the plan's
+    remaining items (review F10).
     """
 
     config = env.plan_config
@@ -1834,33 +2004,35 @@ def more_new(env: PlanEnv, *, confirm: bool) -> tuple[PlanRecord | None, dict[st
     assert record is not None
     record = reconcile(env, record)
     budget = float(config.keep_going_minutes)
-    built = _classified_pool(env, minutes=budget, lanes_allowed=LANES, day=day_records(env), reentry=False)
-    candidates = [
-        NewCandidate(item.practice_item_id, item.est_minutes)
-        for item in built.pool
-        if item.lane == "new" and item.never_attempted and not item.requested
-    ]
-    chosen: list[NewCandidate] = []
-    total = 0.0
-    for candidate in candidates:
-        if total + candidate.est_minutes > budget + _EPS:
-            continue
-        chosen.append(candidate)
-        total += candidate.est_minutes
+    prepared = _prepare_plan(
+        env,
+        kind="keep_going",
+        budget=budget,
+        remembered=int(record.row["remembered_minutes"]),
+        minutes_source="generated",
+        parent_plan_id=record.id,
+        override="more_new",
+    )
+    draft = prepared.record()
+    context = _context(env, draft, prepared.built, day=prepared.day)
+    simulated = simulate_blocks(draft, context, env.policy, forced=prepared.requests)
+    new_items = [item for _decision, block in simulated for item in block.items if item.new_admitted]
+    chosen = [NewCandidate(item.practice_item_id, item.est_minutes) for item in new_items]
     preview = {
         "items": len(chosen),
-        "est_minutes": round(total, 4),
+        "est_minutes": round(sum(item.est_minutes for item in chosen), 4),
         "adds_minutes_per_day": round(
             more_new_tradeoff(chosen, reviews_per_new_item=int(config.new_item_reviews_14d), horizon_days=int(config.load_horizon_days)),
             4,
         ),
         "horizon_days": int(config.load_horizon_days),
         "available": bool(chosen),
+        "practice_item_ids": [item.practice_item_id for item in new_items],
     }
     if not confirm or not chosen:
         return record, preview
     if record.is_open:
-        _close(env, record, status="stopped", reason="more_new_material")
+        raise PlanStillOpenError("today's plan is still open; more new material is offered when it is done")
     plan = build_plan(
         env,
         kind="keep_going",
@@ -1950,6 +2122,7 @@ __all__ = [
     "PlanEnv",
     "PlanInactiveError",
     "PlanPolicy",
+    "PlanStillOpenError",
     "PoolContext",
     "READING_OUTCOMES",
     "advance",
@@ -1972,5 +2145,6 @@ __all__ = [
     "reconcile",
     "remembered_minutes",
     "set_minutes",
+    "simulate_blocks",
     "stop_today",
 ]
