@@ -3,13 +3,13 @@ title: "controller_ownership_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
+source_commit: "2b8bf8a8f6644f70a6746a9835b9391ec7f9656e"
+source_commit_timestamp: "2026-10-11T21:42:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_ownership_events"
   - "table controller_ownership_events"
-schema_head: 165
+schema_head: 166
 table_name: "controller_ownership_events"
 table_role: "receipt"
 functionality_status: "active"

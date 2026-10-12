@@ -3,8 +3,8 @@ title: "Config - locks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
+source_commit: "2b8bf8a8f6644f70a6746a9835b9391ec7f9656e"
+source_commit_timestamp: "2026-10-11T21:42:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml locks"
@@ -41,8 +41,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `locks.facet_lock_mass` | `2.0` | number | modeled default or validator seed | Controls facet lock mass in evidence gates that lock facets and curriculum progress, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1060`; `src/learnloop/curriculum/curriculum_locks.py:165` |
-| `locks.facet_surface_groups` | `2` | integer | modeled default or validator seed | Controls facet surface groups in evidence gates that lock facets and curriculum progress, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1061`; `src/learnloop/curriculum/curriculum_locks.py:155` |
+| `locks.facet_lock_mass` | `2.0` | number | modeled default or validator seed | Controls facet lock mass in evidence gates that lock facets and curriculum progress, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1078`; `src/learnloop/curriculum/curriculum_locks.py:165` |
+| `locks.facet_surface_groups` | `2` | integer | modeled default or validator seed | Controls facet surface groups in evidence gates that lock facets and curriculum progress, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1079`; `src/learnloop/curriculum/curriculum_locks.py:155` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

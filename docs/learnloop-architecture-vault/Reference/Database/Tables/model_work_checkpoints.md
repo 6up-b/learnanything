@@ -3,13 +3,13 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
+source_commit: "2b8bf8a8f6644f70a6746a9835b9391ec7f9656e"
+source_commit_timestamp: "2026-10-11T21:42:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
   - "table model_work_checkpoints"
-schema_head: 165
+schema_head: 166
 table_name: "model_work_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/160_model_call_receipts.sql"
+  - "src/learnloop/ai/spend.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/substrate/dataset.py"
 tags:

@@ -3,13 +3,13 @@ title: "causal_activity_classification_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "df970cd96725b112447395846bb53a0164a5853c"
-source_commit_timestamp: "2026-09-23T20:46:40-04:00"
+source_commit: "2b8bf8a8f6644f70a6746a9835b9391ec7f9656e"
+source_commit_timestamp: "2026-10-11T21:42:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_activity_classification_events"
   - "table causal_activity_classification_events"
-schema_head: 165
+schema_head: 166
 table_name: "causal_activity_classification_events"
 table_role: "raw_ledger"
 functionality_status: "active"
