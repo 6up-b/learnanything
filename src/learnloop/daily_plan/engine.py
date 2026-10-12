@@ -10,7 +10,9 @@ What the container enforces, whatever the chooser prefers:
    candidate is feasible only when its estimate fits both the plan's and its
    lane's remaining minutes. The chooser sees only feasible candidates.
 2. **Closed choice.** An unknown or infeasible choice falls back to
-   ``lane_quota_v1`` and is flagged ``fallback`` on the block event.
+   ``lane_quota_v1`` and is flagged ``fallback`` on the block event, as does a
+   malformed one: a chooser never claims ``learner_pick``, and its propensity
+   is a number in (0, 1] (review F7).
 3. **Learner picks win** (``learner_pick``, no propensity) and displace the
    plan's tail rather than growing it.
 4. **STOP_FOR_TODAY** is offered only below five minutes left or with nothing
@@ -30,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -662,6 +665,7 @@ class Decision:
     fallback: bool
     fallback_from: str | None
     stop_offered: bool
+    fallback_reason: str | None = None
 
 
 def _items_left(record: PlanRecord, *, forced_items: int = 0) -> int | None:
@@ -762,16 +766,27 @@ def decide(
         and (items_left is None or items_left > 0)
     ]
     stop_offered = minutes_left < STOP_OFFER_MINUTES or not feasible
+    reason: str | None = None
     try:
         choice = policy.chooser.choose(state, feasible)
     except Exception as exc:  # noqa: BLE001 - a broken chooser falls back (rule 2)
         choice = BlockChoice(candidate_id=f"<error: {type(exc).__name__}>", chosen_by="lane_quota", propensity=None, why="", why_kind="computed")
+        reason = "chooser_error"
     feasible_ids = {candidate.candidate_id for candidate in feasible}
     valid = choice.candidate_id in feasible_ids or (choice.candidate_id == STOP_FOR_TODAY and stop_offered)
-    fallback_from = None
+    if reason is None and not valid:
+        reason = "not_offered"
     if choice.candidate_id == CONTINUE_CURRENT:
         # Decisions happen at block boundaries, where nothing is in progress.
         valid = False
+        reason = "continue_current_at_boundary"
+    malformed = _malformed_choice(choice)
+    if valid and malformed is not None:
+        # A sampled choice recorded as the learner's, or with no usable
+        # propensity, would corrupt L3 and the router's logging (G9).
+        valid = False
+        reason = malformed
+    fallback_from = None
     if not valid:
         fallback_from = choice.candidate_id
         choice = LaneQuotaChooser().choose(state, feasible)
@@ -785,8 +800,33 @@ def decide(
         redistribution=redistribution,
         fallback=not valid,
         fallback_from=fallback_from,
+        fallback_reason=reason if not valid else None,
         stop_offered=stop_offered,
     )
+
+
+#: Who may be named on a chooser's choice (§6.8): never ``learner_pick``,
+#: which only the container records, for the learner's own choices (rule 3).
+CHOOSER_CHOSEN_BY = frozenset({"lane_quota", "staged", "mixture"})
+WHY_KINDS = frozenset({"computed", "model_written", "model_no_rationale"})
+
+
+def _malformed_choice(choice: BlockChoice) -> str | None:
+    """Why a chooser's choice cannot be recorded as given, or None (review F7)."""
+
+    if choice.chosen_by not in CHOOSER_CHOSEN_BY:
+        return "chosen_by_not_allowed"
+    propensity = choice.propensity
+    if (
+        isinstance(propensity, bool)
+        or not isinstance(propensity, (int, float))
+        or not math.isfinite(float(propensity))
+        or not 0.0 < float(propensity) <= 1.0
+    ):
+        return "propensity_out_of_range"
+    if choice.why_kind not in WHY_KINDS:
+        return "why_kind_unknown"
+    return None
 
 
 def _state_row(state: PlanState) -> dict[str, Any]:
@@ -938,6 +978,7 @@ def _boundary(
         "decision_ref": choice.decision_ref,
         "fallback": decision.fallback,
         "fallback_from": decision.fallback_from,
+        "fallback_reason": decision.fallback_reason,
         "stop_offered": decision.stop_offered,
         "candidate_set": [candidate.log_row() for candidate in decision.candidates],
         "feasible_ids": [candidate.candidate_id for candidate in decision.feasible],

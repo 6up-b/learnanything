@@ -516,3 +516,46 @@ def test_f10_a_pick_after_the_plan_closed_is_recorded(tmp_path):
             "SELECT detail_json FROM attention_block_events WHERE block_id = ? AND kind = 'item_served'", (receipt.id,)
         ).fetchone()
     assert served is not None and '"serving_origin":"learner_pick"' in served[0]
+
+
+# -- F7: a chooser's output is validated at the seam --
+
+
+def test_f7_malformed_choices_fall_back_and_are_flagged(tmp_path):
+    import pytest as _pytest  # noqa: F401
+    from dataclasses import dataclass
+
+    from learnloop.daily_plan.engine import PlanPolicy, build_plan, legacy_source
+    from learnloop.daily_plan.types import BlockChoice
+
+    @dataclass
+    class Router:
+        chosen_by: str
+        propensity: object
+        why_kind: str = "model_written"
+        name: str = "fake_router"
+
+        def choose(self, state, feasible):
+            return BlockChoice(feasible[0].candidate_id, self.chosen_by, self.propensity, "pick", self.why_kind, "rd_x")
+
+    cases = [
+        (Router("learner_pick", None), "chosen_by_not_allowed"),
+        (Router("mixture", None), "propensity_out_of_range"),
+        (Router("mixture", 0.0), "propensity_out_of_range"),
+        (Router("mixture", 1.5), "propensity_out_of_range"),
+        (Router("staged", float("nan")), "propensity_out_of_range"),
+        (Router("mixture", True), "propensity_out_of_range"),
+        (Router("mixture", 0.4, why_kind="vibes"), "why_kind_unknown"),
+    ]
+    for index, (router, reason) in enumerate(cases):
+        env, _clock = _small_plan_env(tmp_path / f"case{index}", policy=PlanPolicy("fake_source", router, legacy_source))
+        record = build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip")
+        block = record.blocks[0]
+        assert block.chosen["fallback"] is True and block.chosen["fallback_reason"] == reason, (router, block.chosen)
+        assert block.chosen_by == "lane_quota" and block.chosen["propensity"] == 1.0
+        assert block.decision_ref is None
+    # A well-formed sampled choice is kept as given.
+    env, _clock = _small_plan_env(tmp_path / "ok", policy=PlanPolicy("fake_source", Router("mixture", 0.4), legacy_source))
+    block = build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip").blocks[0]
+    assert block.chosen["fallback"] is False and block.chosen_by == "mixture"
+    assert block.chosen["propensity"] == 0.4 and block.decision_ref == "rd_x"
