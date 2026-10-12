@@ -396,3 +396,28 @@ def test_registry_definition_change_is_a_new_bootstrap_and_repeats_reuse(tmp_pat
     )
 
 
+@pytest.mark.parametrize("nominations", [False, True])
+def test_identical_append_reuses_its_completed_run(tmp_path, nominations):
+    """F2: embedding usage counters are not manifest identity, so a repeat of
+    an append that changed nothing reuses it with zero model or embedding calls."""
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    _enable(root, nominations=nominations)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("facet/definition", "concept/definition"))
+    first = append_source(root, "set_la", client=FakeAppendClient(), new_revision_ids=["rev_alt"],
+                          repository=repo, clock=_CLOCK, auto_apply=False,
+                          embedding_client_factory=lambda: embedder)
+    if nominations:
+        assert first.neighborhood["nomination"]["status"] == "active"
+        assert len(embedder.calls) > 1  # the backfill, then the new claims
+    paid = len(embedder.calls)
+    client = FakeAppendClient()
+    second = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, auto_apply=False,
+                           embedding_client_factory=lambda: embedder)
+    assert second.reused is True and second.manifest_hash == first.manifest_hash
+    assert second.proposal_id == first.proposal_id
+    assert client.calls == [] and len(embedder.calls) == paid
+
+

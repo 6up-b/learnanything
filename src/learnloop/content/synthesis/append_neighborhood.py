@@ -97,8 +97,10 @@ class Neighborhood:
     budget_tokens: int = 0
     capped: bool = False
     rounds: int = 1
-    # T5: the nominator's honest label (None when nominations are off, so the
-    # manifest record is byte-identical to the lexical-only selection).
+    # T5: the nominator's identity and honest label (None when nominations are
+    # off, so the manifest record is byte-identical to the lexical-only
+    # selection). Stable inputs only: usage counts and charges go to the run's
+    # coverage record, never into manifest identity.
     nomination: dict[str, Any] | None = None
 
     def as_context(self) -> dict[str, Any]:
@@ -299,7 +301,7 @@ def select_neighborhood(
         )
     neighborhood = _materialize(vault, repository, ordered, budget_tokens=budget_tokens, rounds=rounds)
     if nominator is not None:
-        neighborhood.nomination = nominator.summary()
+        neighborhood.nomination = nominator.identity()
     return neighborhood
 
 

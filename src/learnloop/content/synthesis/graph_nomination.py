@@ -313,6 +313,9 @@ class GraphNominator:
         self._indexes: dict[str, RegistryIndex | None] = {}
         self._index_status: dict[str, str] = {}
         self._index_records: dict[str, str] = {}
+        # (recipe, query content hash) -> whether a vector was available: what
+        # was compared, as identity (never how it was paid for).
+        self._compared: dict[tuple[str, str], bool] = {}
         self._notes: list[str] = []
         self._cache: dict[tuple[str, str, str, str], np.ndarray] = {}
         self._run_id = new_ulid()
@@ -363,18 +366,10 @@ class GraphNominator:
         """Honest label for manifests and reports: what was and was not nominated."""
 
         statuses = dict(sorted(self._index_status.items()))
-        if any(status == "complete" for status in statuses.values()):
-            status = "active"
-        elif statuses and all(status == "empty" for status in statuses.values()):
-            status = "empty_registry"  # nothing registered yet to nominate
-        elif statuses:
-            status = "lexical_only"  # an index is missing or incomplete
-        else:
-            status = "unused"
         return {
             "version": NOMINATION_VERSION,
             "mode": self.mode,
-            "status": status,
+            "status": self._status(),
             "model_id": self.model_id,
             "top_k": self.top_k,
             "indexes": statuses,
@@ -382,6 +377,16 @@ class GraphNominator:
             "charged": asdict(self._budget.used) if self.counts["calls"] else None,
             "notes": list(self._notes),
         }
+
+    def _status(self) -> str:
+        statuses = self._index_status.values()
+        if any(status == "complete" for status in statuses):
+            return "active"
+        if statuses and all(status == "empty" for status in statuses):
+            return "empty_registry"  # nothing registered yet to nominate
+        if statuses:
+            return "lexical_only"  # an index is missing or incomplete
+        return "unused"
 
     def identity(
         self, recipes: Sequence[str] = (FACET_RECIPE, CONCEPT_RECIPE), *,
@@ -393,8 +398,12 @@ class GraphNominator:
         completed run is reused only when the same switches, configuration,
         model, route, prompt and registry index (every record's definition
         hash and whether its vectors are complete) would nominate again.
-        Usage counts, charges and notes describe one execution and are never
-        identity (:meth:`summary` carries them).
+        Once queries have been compared (append builds its manifest after its
+        neighbourhood), ``queries`` digests which new texts were compared and
+        whether each had a vector; a first run that paid for a vector and a
+        repeat that found it stored compare the same thing. Usage counts,
+        charges and notes describe one execution and are never identity
+        (:meth:`summary` carries them).
         """
 
         for recipe in recipes:
@@ -403,6 +412,7 @@ class GraphNominator:
         record: dict[str, Any] = {
             "version": NOMINATION_VERSION,
             "mode": self.mode,
+            "status": self._status(),
             "model_id": self.model_id,
             "dimensions": self.dims,
             "route": config.ai.routing.embedding,
@@ -414,6 +424,8 @@ class GraphNominator:
         }
         if prompt_version is not None:
             record["prompt_version"] = prompt_version
+        if self._compared:
+            record["queries"] = _digest([[*key, found] for key, found in sorted(self._compared.items())])
         return record
 
     # -- registry indexes ----------------------------------------------------
@@ -648,6 +660,8 @@ class GraphNominator:
             return {}
         present = [query for query in queries if query is not None]
         vectors = self.vectors(present)
+        for query in present:
+            self._compared[(recipe_name, query.content_hash)] = query.content_hash in vectors
         return self.nominate_vectors(
             recipe_name,
             {query.record_id: vectors[query.content_hash]
