@@ -320,6 +320,7 @@ def process_next_job(
             session_id=session_id,
             embedding_factory=embedding_factory or (lambda: default_embedding_client(vault)),
             spend=spend,
+            scope_attempt_id=attempt_id,
             cancelled=cancelled,
             clock=clock,
         )
@@ -489,7 +490,9 @@ def _diagnosis_reserve(spend: ReviewSpend, count: int) -> SpendEstimate:
     )
 
 
-def _command_retrieval_guard(spend: ReviewSpend, repository: Repository) -> Callable[[str, int], Any]:
+def _command_retrieval_guard(
+    spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None = None
+) -> Callable[[str, int], Any]:
     """Admit each retrieval embedding request on the command's budget (review F12).
 
     Retrieval is optional (S6) and the diagnoses are the command's work: a
@@ -501,7 +504,11 @@ def _command_retrieval_guard(spend: ReviewSpend, repository: Repository) -> Call
 
     @contextmanager
     def guard(purpose: str, tokens: int) -> Iterator[Any]:
-        queued = len(repository.post_attempt_jobs(kind=DIAGNOSE_KIND, states=("queued", "leased")))
+        # The diagnoses this command can still run: every queued one, or
+        # only its attempt's when the command is scoped to one.
+        queued = len(
+            repository.post_attempt_jobs(kind=DIAGNOSE_KIND, states=("queued", "leased"), attempt_id=scope_attempt_id)
+        )
         request = spend.estimate(RETRIEVAL_ROUTE, calls=1, input_tokens=tokens, output_tokens=0)
         spend.check(_sum_estimates(request, _diagnosis_reserve(spend, max(queued, 1))))
         with spend.request(RETRIEVAL_ROUTE, purpose, input_tokens=tokens, output_tokens=0) as call:
@@ -516,6 +523,7 @@ def _hybrid_retriever(
     embedding_factory: ClientFactory | None,
     *,
     spend: ReviewSpend | None = None,
+    scope_attempt_id: str | None = None,
 ) -> Any | None:
     """The live kNN retriever (S1.4b hybrid index, S1.4a registry shortlist),
     or None (then hybrid degrades to exact and the registry block is the
@@ -539,7 +547,9 @@ def _hybrid_retriever(
     if spend is not None:
         register_retrieval_route(spend, client)
         return EmbeddingHistoryRetriever(
-            client=client, sqlite_path=repository.sqlite_path, guard=_command_retrieval_guard(spend, repository)
+            client=client,
+            sqlite_path=repository.sqlite_path,
+            guard=_command_retrieval_guard(spend, repository, scope_attempt_id=scope_attempt_id),
         )
 
     from learnloop.ai.spend import SpendBudget
@@ -569,6 +579,7 @@ def run_diagnose_job(
     embedding_factory: ClientFactory | None = None,
     session_id: str | None = None,
     spend: ReviewSpend | None = None,
+    scope_attempt_id: str | None = None,
     cancelled: Cancelled | None = None,
     clock: Clock | None = None,
 ) -> JobOutcome:
@@ -636,7 +647,7 @@ def run_diagnose_job(
             existing = _diagnose(
                 vault, repository, job, attempt, client=client, mode=mode, payload=payload,
                 embedding_factory=embedding_factory, clock=clock, outcome=outcome,
-                spend=spend, cancelled=cancelled,
+                spend=spend, scope_attempt_id=scope_attempt_id, cancelled=cancelled,
             )
             if existing is None:
                 return outcome
@@ -681,6 +692,7 @@ def _diagnose(
     clock: Clock | None,
     outcome: JobOutcome,
     spend: ReviewSpend | None = None,
+    scope_attempt_id: str | None = None,
     cancelled: Cancelled | None = None,
 ) -> dict[str, Any] | None:
     """One model call; returns the persisted diagnosis row, or None when released.
@@ -727,7 +739,7 @@ def _diagnose(
     # mode once embeddings are on). A command's retrieval is admitted and
     # charged on the command's budget (review F12).
     embedder = (
-        _hybrid_retriever(vault, repository, embedding_factory, spend=spend)
+        _hybrid_retriever(vault, repository, embedding_factory, spend=spend, scope_attempt_id=scope_attempt_id)
         if settings.history_mode == "hybrid" or vault.config.embedding.enabled
         else None
     )

@@ -284,6 +284,26 @@ def test_retrieval_never_takes_the_call_a_queued_diagnosis_needs(tmp_path, monke
     assert embedder.calls == 0
 
 
+
+def test_an_attempt_scoped_command_reserves_only_its_own_diagnosis(tmp_path, monkeypatch):
+    """Review F12: ``--attempt`` runs one diagnosis, so retrieval keeps room
+    for that one only, not for every other queued job."""
+
+    paths, vault, repository, client, embedder = _retrieval_vault(tmp_path, monkeypatch)
+    first = submit(vault, repository, ReviewFakeClient(), when=at(20))
+    submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(21))
+
+    ran = CliRunner().invoke(
+        app,
+        ["diagnose", "drain", "--vault", str(paths.root), "--kind", "diagnose", "--attempt", first.attempt_id,
+         "--max-calls", "3", "--json"],
+    )
+
+    assert ran.exit_code == 0, ran.output
+    assert [job["attempt_id"] for job in json.loads(ran.output)["jobs"]] == [first.attempt_id]
+    assert _registry_method(repository, first.attempt_id) == "knn"
+    assert json.loads(ran.output)["spend"]["charged"]["calls"] == 1 + embedder.calls == 3
+
 def test_ctrl_c_stops_the_drain_before_the_next_paid_job(tmp_path, monkeypatch):
     """Review F7: SIGINT during a drain stops it before the next job starts."""
 
