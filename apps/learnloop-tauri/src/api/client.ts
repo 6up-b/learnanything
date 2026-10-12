@@ -95,6 +95,7 @@ import type {
   SchedulerExplanationDto,
   SessionEndSummary,
   SessionSnapshot,
+  StartSummaryDto,
   SessionStartInput,
   SqliteExecResult,
   SqliteTableSnapshot,
@@ -410,6 +411,9 @@ export const api = {
   reloadVault: () => mutatingAll(call<AppSnapshot>("reload_vault")),
   getRuntimeHealth: () => call<RuntimeHealth>("get_runtime_health"),
   startSession: (input: SessionStartInput) => mutating([TAG.queue], call<SessionSnapshot>("start_session", { input })),
+  // Start reads this under TAG.queue, which start_session invalidates, so the
+  // remembered minutes and the streak's "today" state refresh once a session begins.
+  getStartSummary: () => call<StartSummaryDto>("get_start_summary"),
   getSession: (sessionId: string) => call<SessionSnapshot>("get_session", { sessionId }),
   clearSessionCheckpoint: (sessionId: string) => call<{ cleared: boolean }>("clear_session_checkpoint", { sessionId }),
   endSession: (sessionId: string) => mutating([TAG.queue], call<SessionEndSummary>("end_session", { sessionId })),

@@ -247,6 +247,7 @@ fn main() {
             get_runtime_health,
             get_config,
             start_session,
+            get_start_summary,
             get_session,
             update_session_checkpoint,
             clear_session_checkpoint,

@@ -126,6 +126,11 @@ pub async fn get_config(sidecar: State<'_, SidecarManager>) -> Result<Value, Com
 sidecar_passthrough!(start_session, "start_session");
 
 #[tauri::command]
+pub async fn get_start_summary(sidecar: State<'_, SidecarManager>) -> Result<Value, CommandError> {
+    blocking_sidecar_call(sidecar, "get_start_summary", json!({})).await
+}
+
+#[tauri::command]
 pub async fn get_session(
     session_id: String,
     sidecar: State<'_, SidecarManager>,

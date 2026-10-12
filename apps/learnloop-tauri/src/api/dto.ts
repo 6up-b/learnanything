@@ -528,10 +528,26 @@ export interface AppSnapshot {
 }
 
 export interface SessionStartInput {
+  /** Accepted for old clients; Start no longer asks for or sends it (daily-loop DL0). */
   energy?: "low" | "medium" | "high" | null;
+  /** Accepted for old clients; Start no longer asks for or sends it (daily-loop DL0). */
   sleepQuality?: number | null;
   availableMinutes?: number | null;
   notesMdPath?: string | null;
+}
+
+/** What Start shows before a session begins (daily-loop DL0, spec §6.6 and §8). */
+export interface StartSummaryDto {
+  version: number;
+  /** The last session's minutes, or 25 on a vault with none (decision D1). */
+  rememberedMinutes: number;
+  minutesSource: "last_session" | "first_run";
+  /** The one-tap chips: 10, 15, 25, 40, 60. */
+  minutesPresets: number[];
+  /** The presets plus the remembered value when it isn't one, ascending. */
+  minuteChoices: number[];
+  /** Read fresh: days with a started session, the count the badge labels. */
+  streak: StreakSummary;
 }
 
 export interface SessionSnapshot {

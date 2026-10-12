@@ -3,13 +3,20 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from learnloop.scheduling.session_minutes import (
+    MINUTE_PRESETS,
+    minute_choices,
+    remembered_session_minutes,
+)
 from learnloop_sidecar.context import SidecarContext, session_snapshot
-from learnloop_sidecar.dto import ParamsModel, versioned
+from learnloop_sidecar.dto import EmptyParams, ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
 
 
 class SessionStartInput(ParamsModel):
+    # Daily-loop DL0 (§6.6): neither client sends energy or sleep any more; both
+    # stay accepted for old clients, and the scheduler logs ``energy=None``.
     energy: str | None = None
     sleep_quality: float | None = None
     available_minutes: int | None = None
@@ -49,6 +56,29 @@ def start_session(ctx: SidecarContext, params: SessionStartInput) -> dict[str, A
     if snapshot is None:
         raise SidecarError("internal", "Session was created but could not be read.")
     return snapshot
+
+
+@method("get_start_summary", EmptyParams)
+def get_start_summary(ctx: SidecarContext, _params: EmptyParams) -> dict[str, Any]:
+    """What Start shows before a session begins (daily-loop DL0).
+
+    Minutes only (§6.6): the remembered budget (the last session's minutes, else
+    25 on a fresh vault), the one-tap chips, and the streak (§8), read fresh so
+    the badge's "today" state is never left over from before ``start_session``.
+    Read-only: nothing here is served or persisted.
+    """
+
+    _vault, repository = ctx.require_vault()
+    remembered = remembered_session_minutes(repository)
+    return versioned(
+        {
+            "remembered_minutes": remembered.minutes,
+            "minutes_source": remembered.source,
+            "minutes_presets": list(MINUTE_PRESETS),
+            "minute_choices": list(minute_choices(remembered.minutes)),
+            "streak": repository.session_day_streak(),
+        }
+    )
 
 
 @method("get_session", SessionIdInput)
