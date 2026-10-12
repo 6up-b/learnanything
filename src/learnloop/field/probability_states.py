@@ -34,6 +34,7 @@ The variants:
 """
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -150,9 +151,11 @@ class StateRenderer:
         if isinstance(latency, (int, float)) and not isinstance(latency, bool) and math.isfinite(latency) and latency >= 0:
             # Floored to whole seconds: an earlier cutoff only hides more.
             return (record["instant"] - timedelta(seconds=float(latency))).replace(microsecond=0)
-        key = (record["instant"], attempt_id)
-        previous = [instant for instant, other in self._order if (instant, other) < key and other != attempt_id]
-        return (previous[-1] + timedelta(seconds=1)).replace(microsecond=0) if previous else None
+        index = bisect_left(self._order, (record["instant"], attempt_id))
+        if index == 0:
+            return None
+        previous = self._order[index - 1][0]
+        return (previous + timedelta(seconds=1)).replace(microsecond=0)
 
     # -- item content --------------------------------------------------------
 
