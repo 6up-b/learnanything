@@ -188,6 +188,38 @@ def claim_for_citation(proposal: Mapping[str, Any], citation: Mapping[str, Any])
     return matching[0][1] if len(refs) == 1 else None
 
 
+def _primary_statement(event: Mapping[str, Any]) -> str | None:
+    """The event's highest-weight cause (first on ties), normalized."""
+
+    best: tuple[float, int] | None = None
+    chosen: str | None = None
+    for position, cause in enumerate(event.get("candidate_causes") or []):
+        if not isinstance(cause, Mapping):
+            continue
+        statement = normalize_statement(str(cause.get("statement") or ""))
+        if not statement:
+            continue
+        key = (-float(cause.get("prior_weight") or 0.0), position)
+        if best is None or key < best:
+            best, chosen = key, statement
+    return chosen
+
+
+def _continuing_class(index: "EpisodeIndex", proposal: Mapping[str, Any], attempt_id: str, episode_key: str) -> str | None:
+    classes = index.classes_on(attempt_id)
+    found: set[str] = set()
+    for event in proposal.get("event_diagnoses") or []:
+        if not isinstance(event, Mapping) or not event.get("prior_hypothesis_id"):
+            continue
+        continued = index.episode(str(event["prior_hypothesis_id"]))
+        if continued is None or continued.key != episode_key:
+            continue
+        statement = _primary_statement(event)
+        if statement is not None and statement in classes:
+            found.add(statement)
+    return next(iter(found)) if len(found) == 1 else None
+
+
 def _cause_of(proposal: Mapping[str, Any], ref: str) -> tuple[str, str | None] | None:
     """(normalized statement, target facet) of ``cause:<event>:<cause>``."""
 
@@ -278,7 +310,13 @@ class _Build:
             if episode is None:
                 return [], "hypothesis_ref_unknown"
             anchor, facet, anchor_episode = episode.statement_normalized, episode.facet, episode.key
-            own, reason = self.index.resolve_on(attempt_id, prefer=anchor, facet=facet)
+            # The event whose primary cause continues this prior hypothesis
+            # (its ``prior_hypothesis_id``) names the diagnosed attempt's own
+            # class exactly; otherwise fall back to the one-class rule.
+            own = _continuing_class(self.index, proposal, attempt_id, episode.key)
+            reason = "prior_hypothesis_id"
+            if own is None:
+                own, reason = self.index.resolve_on(attempt_id, prefer=anchor, facet=facet)
             if own is None:
                 return [], f"diagnosed_attempt:{reason}"
             pairs.append((own, anchor, self.index.representative(attempt_id, own), anchor_episode))
@@ -399,7 +437,9 @@ def _source_registry_disagreements(build: _Build, diagnoses: Sequence[Mapping[st
     for diagnosis in diagnoses:
         retrieval = (diagnosis.get("retrieval") or {}).get("registry_retrieval") or {}
         matches = [row for row in retrieval.get("matches") or [] if isinstance(row, Mapping)]
-        if not matches:
+        # A ranking over fewer than two records carries no neighbour signal
+        # (mean-centring a single vector leaves zero).
+        if not matches or int(retrieval.get("universe") or 0) < 2:
             continue
         top = min(matches, key=lambda row: (int(row.get("rank") or 10**6), str(row.get("registry_id") or "")))
         top_ref = f"{top.get('kind')}:{top.get('registry_id')}"

@@ -37,7 +37,7 @@ from tests.helpers import set_algorithm_version
 from tests.recurrence_fakes import JudgeFake, StatementFake, shares_word
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_171"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_172"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 CAPS = SpendCaps(max_candidates=100, max_pairs=100, max_retries=20, max_calls=100, max_total_tokens=500_000, max_estimated_usd=1.0)
 STATEMENTS = {
@@ -231,6 +231,13 @@ def test_the_backlog_judges_merges_and_reruns_idempotently(tmp_path):
     assert report["status"] == "complete", report
     assert report["judged"] >= 2 and report["verdicts"]["same"] >= 2
     assert report["groups"]["group_count"] == 1
+    with repository.connection() as connection:
+        receipted = {
+            row[0] for row in connection.execute(
+                "SELECT purpose FROM model_call_receipts WHERE owner_kind = 'recurrence_backlog' AND parent_call_id IS NULL"
+            )
+        }
+    assert "same_cause_judgment" in receipted, "every paid judge call is receipted under the command"
     again = run_backlog(vault, repository, caps=CAPS, judge_client=judge, embedding_client=embedder)
     assert again["judged"] == 0 and again["plan"]["pairs_to_judge"] == 0
 

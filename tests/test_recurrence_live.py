@@ -193,3 +193,53 @@ def test_holding_pen_promotion_counts_a_merged_group_across_reworded_answers(tmp
     assert bool(durable) is promoted
     if promoted:
         assert durable[0].promotion_reason == "independent_surface"
+
+
+class ContinuingFake(StatementFake):
+    """Claims an EXISTING hypothesis (by id), as the real diagnoser did live:
+    the claim's ``hypothesis_ref`` is a prior hypothesis id and the event's
+    ``prior_hypothesis_id`` names the same one. Two learner-state causes per
+    event, so only that link can pick the diagnosed attempt's class."""
+
+    def _diagnosis(self, request, context):
+        from learnloop.ai.schemas import CandidateCause
+        from learnloop.diagnosis.split.contract import Citation, PatternClaim
+
+        result = super()._diagnosis(request, context)
+        prior = [row for row in context.get("prior_hypotheses") or [] if row.get("statement") == V_SAME]
+        history = context.get("history") or context.get("failure_history") or []
+        failures = [row for row in history if row.get("outcome") == "non_pass" and row.get("first_divergence_quotes")]
+        events = []
+        for event in result.event_diagnoses:
+            causes = [*event.candidate_causes, CandidateCause(statement="Confuses rows and columns.", cause_scope="learner_state", prior_weight=1.0)]
+            events.append(event.model_copy(update={
+                "candidate_causes": causes,
+                "prior_hypothesis_id": prior[0]["id"] if prior else None,
+            }))
+        claims = [
+            PatternClaim(
+                hypothesis_ref=prior[0]["id"], relation="same_mechanism",
+                cited=[Citation(attempt_id=failures[0]["attempt_id"], quote=failures[0]["first_divergence_quotes"][0])],
+            )
+        ] if prior and failures else []
+        return result.model_copy(update={
+            "event_diagnoses": events,
+            "pattern_claims": claims,
+            "evidence_attempt_ids": [row["attempt_id"] for row in failures[:1]],
+        })
+
+
+def test_a_citation_of_an_existing_hypothesis_resolves_through_prior_hypothesis_id(tmp_path):
+    _paths, vault, repository = _vault(tmp_path, config="[recurrence]\njudge_enabled = false")
+    client = ContinuingFake(STATEMENTS)
+    first, second = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS[:2])
+    receipt = repository.diagnosis_context_receipt(repository.current_live_diagnosis(second.attempt_id)["id"])
+    assert receipt["validated_citations"], "the existing-hypothesis citation validated"
+    groups = repository.recurrence_group_map()
+    first_key = recurrence_key(next(row for row in _heads(repository, first.attempt_id) if row["statement"] == V_SAME), groups)
+    second_key = recurrence_key(next(row for row in _heads(repository, second.attempt_id) if row["statement"] == V_REWORDED), groups)
+    assert first_key == second_key
+    # The other learner-state cause of the diagnosed attempt is not dragged in.
+    other = next(row for row in _heads(repository, second.attempt_id) if row["statement"] == "Confuses rows and columns.")
+    assert recurrence_key(other, groups) != first_key
+    assert not repository.recurrence_review("unresolved_link")

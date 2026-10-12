@@ -227,3 +227,34 @@ def test_compute_groups_is_a_pure_read(seeded):
         second = compute_groups(connection)
     assert first.members == second.members and first.group_count == 1
     assert repository.recurrence_groups() == []
+
+
+def test_registry_disagreements_need_an_informative_ranking():
+    """§3.5: log the diagnoser's registry match against the top-1 neighbour,
+    only when the ranking covered at least two records."""
+
+    from learnloop.substrate.recurrence_groups import EpisodeIndex, _Build, _source_registry_disagreements
+
+    def diagnosis(universe, match):
+        return {
+            "id": f"d{universe}{match['kind']}",
+            "attempt_id": "att",
+            "created_at": "2026-01-01",
+            "proposal": {"event_diagnoses": [{"event_index": 0, "registry_match": match}]},
+            "retrieval": {"registry_retrieval": {
+                "universe": universe, "model_id": "m",
+                "matches": [{"kind": "durable", "registry_id": "r1", "rank": 1, "score": 0.4},
+                            {"kind": "durable", "registry_id": "r2", "rank": 2, "score": 0.1}],
+            }},
+        }
+
+    build = _Build(index=EpisodeIndex([]))
+    _source_registry_disagreements(build, [
+        diagnosis(1, {"kind": "new"}),
+        diagnosis(2, {"kind": "durable", "id": "r1"}),
+        diagnosis(3, {"kind": "durable", "id": "r2"}),
+        diagnosis(4, {"kind": "abstain"}),
+        diagnosis(5, {"kind": "new"}),
+    ])
+    cases = sorted((row["source_ref"], row["left_ref"]) for row in build.reviews.values())
+    assert cases == [("diagnosis:d3durable", "durable:r2"), ("diagnosis:d5new", "new")]

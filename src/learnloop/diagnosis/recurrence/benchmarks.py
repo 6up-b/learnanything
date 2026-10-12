@@ -87,6 +87,10 @@ EMBEDDING_ROUTE = "embedding"
 #: Models without one need ``--embedding-price-per-million``.
 EMBEDDING_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
 WRITER_OUTPUT_TOKENS = 300
+#: B3 reports a cutoff and top_k for every model, but RECOMMENDS a config line
+#: only once this many confirmed matches back it; below it the report says to
+#: keep top-k only (a reporting rule, not a decision threshold: R6).
+MIN_CONFIRMED_FOR_RECOMMENDATION = 30
 _TOKEN = re.compile(r"\w+")
 
 
@@ -670,7 +674,13 @@ class B3Suite:
                 "recommended_top_k": recommended_k,
                 "blocking_cutoff": cutoff,
                 "judge_load": load,
-                "config": _config_lines(model, cutoff.get("cutoff"), recommended_k),
+                "recommendation_backed": sum(labels) >= MIN_CONFIRMED_FOR_RECOMMENDATION,
+                "config": _config_lines(model, cutoff.get("cutoff"), recommended_k)
+                if sum(labels) >= MIN_CONFIRMED_FOR_RECOMMENDATION
+                else [
+                    f"# {sum(labels)} confirmed matches (< {MIN_CONFIRMED_FOR_RECOMMENDATION}): too few to set a "
+                    "cutoff; keep recurrence.blocking_cutoffs empty (top-k only) and rerun B3 later",
+                ],
             }
         results["dims"] = request.dims
         results["target_recall"] = request.target_recall
@@ -809,7 +819,12 @@ def run_bench(
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
     try:
         if sqlite_path.exists():
+            # Every admitted call is observed by the spend collector, which
+            # forwards it to the vault's model_call_receipts.
             receipts = Repository(sqlite_path)
+            spend.collector.sink = lambda action, event: receipts.record_model_event(
+                action, event, owner_kind="recurrence_benchmark", owner_id=suite.name
+            )
             with record_model_calls(receipts, owner_kind="recurrence_benchmark", owner_id=suite.name):
                 report["results"] = suite.run(data, request, ctx)
         else:

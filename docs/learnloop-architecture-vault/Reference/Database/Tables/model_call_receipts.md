@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 171
+schema_head: 172
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -147,6 +147,8 @@ None found by exact static reference scan.
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_practice_index_paid.py`
+- `tests/test_recurrence_benchmarks.py`
+- `tests/test_recurrence_commands.py`
 - `tests/test_spend_controls.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

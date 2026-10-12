@@ -229,6 +229,9 @@ def run_backlog(
         report["status"] = "over_budget"
         return report
     owner_id = repository.sqlite_path.parent.name
+    # The spend collector observes every admitted call and forwards it here
+    # (an inner observer replaces an outer one, so the sink is set up front).
+    spend.collector.sink = receipt_sink(repository, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=owner_id)
     with record_model_calls(repository, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=owner_id):
         if plan["vectors_to_embed"]:
             if embedding_client is None:
@@ -254,7 +257,6 @@ def run_backlog(
             if client is None:
                 report.update(status="provider_failed", reason="the same-cause judge route is not ready")
                 return report
-            spend.collector.sink = receipt_sink(repository, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=owner_id)
             results = judge_pairs(repository, SAME_CAUSE, pairs, execute=judge_executor(spend, client))
         else:
             results = []

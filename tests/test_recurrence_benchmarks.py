@@ -124,6 +124,11 @@ def test_b1_dry_run_then_run_with_fakes(tmp_path):
     assert results["embedding"]["qwen/qwen3-embedding-8b"]["raw"]["centred"]["n"] == 4
     assert "qwen/qwen3-embedding-8b" in results["hybrid"]
     assert writer.calls == 4
+    with _repository.connection() as connection:
+        purposes = {row[0] for row in connection.execute(
+            "SELECT purpose FROM model_call_receipts WHERE owner_kind = 'recurrence_benchmark'"
+        )}
+    assert "embedding" in purposes, "benchmark calls are receipted"
     # Hypotheses and vectors are cached in the output directory: a rerun sends nothing.
     calls = embedder.calls
     run_bench(vault, request=request, caps=CAPS, embedding_clients={"qwen/qwen3-embedding-8b": embedder}, writer_client=writer)
@@ -167,7 +172,9 @@ def test_b3_replays_the_vaults_labelled_pairs(tmp_path):
     assert report["status"] == "complete", report
     model = report["results"]["models"]["qwen/qwen3-embedding-8b"]
     assert model["positives"] >= 1 and model["recall@10"] == 1.0
-    assert model["recommended_top_k"] is not None and model["config"][0] == "[recurrence]"
+    assert model["recommended_top_k"] is not None
+    # A handful of confirmed matches reports a cutoff but recommends none.
+    assert model["recommendation_backed"] is False and model["config"][0].startswith("# ")
     assert report["results"]["merge_replay"]["label_judge"] == "llm"
     assert report["results"]["merge_replay"]["exact_only"]["merged_label_pairs"] == 0
 

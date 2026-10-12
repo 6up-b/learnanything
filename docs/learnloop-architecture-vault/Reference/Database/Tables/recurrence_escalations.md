@@ -3,22 +3,22 @@ title: "recurrence_escalations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite recurrence_escalations"
   - "table recurrence_escalations"
-schema_head: 171
+schema_head: 172
 table_name: "recurrence_escalations"
 table_role: "receipt"
 functionality_status: "active"
 domain_family: "diagnosis"
-introduced_in: "171_recurrence_groups.sql"
+introduced_in: "172_recurrence_groups.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/171_recurrence_groups.sql"
+  - "migrations/172_recurrence_groups.sql"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
 tags:
@@ -46,8 +46,8 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/171_recurrence_groups.sql`.
-- **Schema touched by:** `171_recurrence_groups.sql`.
+- **Introduced by:** `migrations/172_recurrence_groups.sql`.
+- **Schema touched by:** `172_recurrence_groups.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

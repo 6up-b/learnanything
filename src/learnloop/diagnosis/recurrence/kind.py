@@ -94,17 +94,25 @@ def hypothesis_subjects(
     records = {record.record_id: record for record in hypothesis_records(repository, attempt_ids=wanted)}
     if not records:
         return []
-    attempts: dict[str, dict[str, Any]] = {}
+    # Two bulk reads (episode heads, attempt times), not one per hypothesis:
+    # the live step builds the whole population on every diagnose job.
+    heads = {
+        str(row["episode_key"]): row
+        for row in repository.all_causal_hypotheses(latest_only=True)
+        if str(row["episode_key"]) in records and row.get("status") != "open_set"
+    }
+    with repository.connection() as connection:
+        attempt_times = {
+            str(row[0]): str(row[1] or "")
+            for row in connection.execute("SELECT id, created_at FROM practice_attempts")
+        }
     subjects: list[Subject] = []
     for episode_key, record in sorted(records.items()):
-        head = repository.latest_causal_hypothesis_for_episode(episode_key)
-        if head is None or head.get("status") == "open_set":
+        head = heads.get(episode_key)
+        if head is None:
             continue
         attempt_id = str(head.get("attempt_id") or "")
-        if attempt_id not in attempts:
-            attempts[attempt_id] = repository.fetch_practice_attempt(attempt_id) or {}
-        attempt = attempts[attempt_id]
-        created = str(attempt.get("created_at") or head.get("created_at") or "")
+        created = attempt_times.get(attempt_id) or str(head.get("created_at") or "")
         learning_object_id = str(head.get("learning_object_id") or "")
         learning_object = vault.learning_objects.get(learning_object_id)
         facet = _facet(head.get("target_ref"))

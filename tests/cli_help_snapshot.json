@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 21802,
-    "sha256": "9549fce8cca648f839ba334bfa4259a85f894086642acbae9de86553bdcc7bce"
+    "bytes": 22057,
+    "sha256": "50380a7c6e1ccafc6712095f4ff9462b302bc39789eca44a0895c82cf6c76d37"
   },
   "accept": {
     "bytes": 1593,
@@ -288,8 +288,12 @@
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
   },
   "embeddings": {
-    "bytes": 1587,
-    "sha256": "faed068841889e0a4f17944034582df848dbd8d6b23b29e0ccb1dc459e30c625"
+    "bytes": 1757,
+    "sha256": "6545568267450aaedc3e4c3012b862760551ea0c09c6195207462e128e877e0c"
+  },
+  "embeddings adjudicate": {
+    "bytes": 3984,
+    "sha256": "43b29ad929c53a3632a112e87ee766cdbfff2dc21df97917b5df17a23a500169"
   },
   "embeddings backfill": {
     "bytes": 4760,
@@ -671,6 +675,26 @@
     "bytes": 2018,
     "sha256": "c24ec9197719dec4c2a9aa1f6335663f720c83f6f1669c0db98cd58e254f0de5"
   },
+  "recurrence": {
+    "bytes": 2178,
+    "sha256": "14f56281c041a6a713512876874dba751410deaadc4e8c10f5a45e7321171a50"
+  },
+  "recurrence bench": {
+    "bytes": 5871,
+    "sha256": "35f49adce9d5d484e113318a6abcc4afaab5630ffc5175ccf5cde99848adda6f"
+  },
+  "recurrence groups": {
+    "bytes": 1295,
+    "sha256": "d26be1fb471fd258c506fd18818b0a45fd9fe0c0ae24931ad222eae8edb93356"
+  },
+  "recurrence guard": {
+    "bytes": 3317,
+    "sha256": "354016d2a93dd55fd3236044ce17269f63230f0fde23a4de5d87dec63f96d3eb"
+  },
+  "recurrence report": {
+    "bytes": 1716,
+    "sha256": "9880926fc748584c4a332b1838ecfd3d3cb0254f09db766bd33cd8b46b3e9832"
+  },
   "reentry-summary": {
     "bytes": 1671,
     "sha256": "76b51a9fe1ec7c3bc631b0ad32938be3cba8076084f673b2b51e8e092b71ce12"
@@ -848,8 +872,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 1863,
-    "sha256": "2ac868d811180cd5f437b3197cd038e34beaeb6d4c7ac9b7bcd9219eeb33fc38"
+    "bytes": 2106,
+    "sha256": "e1bd2e7160abd6e0bf817d280598e51c3a49156231e92ca40b2a82d6d80249ab"
   },
   "usage": {
     "bytes": 1546,

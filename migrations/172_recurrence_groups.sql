@@ -93,7 +93,7 @@ END;
 -- table. Its foreign keys are kept exactly as migration 170 declared them.
 PRAGMA foreign_keys = OFF;
 
-CREATE TABLE diagnosis_feedback__171 (
+CREATE TABLE diagnosis_feedback__172 (
   id TEXT PRIMARY KEY,
   diagnosis_id TEXT NOT NULL REFERENCES attempt_diagnoses(id),
   attempt_id TEXT NOT NULL REFERENCES practice_attempts(id),
@@ -109,7 +109,7 @@ CREATE TABLE diagnosis_feedback__171 (
   responded_at TEXT NOT NULL,
   CHECK ((response = 'not_same_mistake') = (cited_attempt_id IS NOT NULL))
 );
-INSERT INTO diagnosis_feedback__171(
+INSERT INTO diagnosis_feedback__172(
   id, diagnosis_id, attempt_id, response, cited_attempt_id, forwarded_factor_id, shown_at, responded_at
 )
 SELECT
@@ -117,7 +117,7 @@ SELECT
 FROM diagnosis_feedback;
 
 DROP TABLE diagnosis_feedback;
-ALTER TABLE diagnosis_feedback__171 RENAME TO diagnosis_feedback;
+ALTER TABLE diagnosis_feedback__172 RENAME TO diagnosis_feedback;
 
 CREATE INDEX diagnosis_feedback_diagnosis ON diagnosis_feedback(diagnosis_id, responded_at);
 CREATE TRIGGER diagnosis_feedback_no_update

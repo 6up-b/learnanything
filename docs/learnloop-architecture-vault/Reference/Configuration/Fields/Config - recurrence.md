@@ -3,8 +3,8 @@ title: "Config - recurrence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml recurrence"
@@ -59,7 +59,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `recurrence.top_k` | `3` | integer | modeled default or validator seed | Earlier in-scope hypotheses per new hypothesis whose pair reaches the same-cause judge. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1380`; `src/learnloop/diagnosis/recurrence/judging.py:90` |
 | `recurrence.judge_max_pairs_per_attempt` | `4` | integer | modeled default or validator seed | Live judge calls per diagnose job; shortlisted pairs past it wait for the backlog command. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1383`; `src/learnloop/diagnosis/recurrence/live.py:95` |
 | `recurrence.judge_timeout_seconds` | `180` | integer | modeled default or validator seed | Per-turn deadline for one Codex same-cause judge turn. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1385`; `src/learnloop/diagnosis/recurrence/judging.py:107` |
-| `recurrence.escalation_card_enabled` | `true` | boolean | modeled default or validator seed | Shows the escalated repair, its earlier answers and its usefulness tap on the diagnosis card. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1387`; `src/learnloop/diagnosis/split/card.py:150` |
+| `recurrence.escalation_card_enabled` | `true` | boolean | modeled default or validator seed | Shows the escalated repair, its earlier answers and its usefulness tap on the diagnosis card. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1387`; `src/learnloop/diagnosis/split/card.py:157` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.

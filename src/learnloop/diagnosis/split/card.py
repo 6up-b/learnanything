@@ -59,7 +59,14 @@ ESCALATION_LABELS = {
     "escalation:didnt_help": "Didn't help",
     "escalation:not_sure": "Not sure",
 }
-_ORDINALS = {3: "Third", 4: "Fourth", 5: "Fifth", 6: "Sixth"}
+_ORDINALS = {3: "Third", 4: "Fourth", 5: "Fifth", 6: "Sixth", 7: "Seventh", 8: "Eighth", 9: "Ninth", 10: "Tenth"}
+
+
+def _ordinal(count: int) -> str:
+    if count in _ORDINALS:
+        return _ORDINALS[count]
+    suffix = "th" if 10 <= count % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(count % 10, "th")
+    return f"{count}{suffix}"
 #: Card taps that the existing unresolved-cause channel understands.
 _FORWARDABLE = {"believed_candidate", "slipped", "diagnosis_wrong"}
 PREREQUISITE_LABEL = "possible cause - not yet checked"
@@ -153,8 +160,7 @@ def escalation_block(
     if escalation is None:
         return None
     count = int(escalation["recurrence_count"])
-    ordinal = _ORDINALS.get(count, f"{count}th")
-    headline = f"{ordinal} time with this one"
+    headline = f"{_ordinal(count)} time with this one"
     if escalation["different_approach"]:
         headline += " - trying a different approach"
     repair = next(

@@ -3,22 +3,22 @@ title: "hypothesis_recurrence_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite hypothesis_recurrence_state"
   - "table hypothesis_recurrence_state"
-schema_head: 171
+schema_head: 172
 table_name: "hypothesis_recurrence_state"
 table_role: "derived"
 functionality_status: "active"
 domain_family: "diagnosis"
-introduced_in: "171_recurrence_groups.sql"
+introduced_in: "172_recurrence_groups.sql"
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "migrations/171_recurrence_groups.sql"
+  - "migrations/172_recurrence_groups.sql"
   - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/substrate/recurrence_groups.py"
@@ -47,8 +47,8 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
-- **Introduced by:** `migrations/171_recurrence_groups.sql`.
-- **Schema touched by:** `171_recurrence_groups.sql`.
+- **Introduced by:** `migrations/172_recurrence_groups.sql`.
+- **Schema touched by:** `172_recurrence_groups.sql`.
 - **Rebuild owner:** `recurrence_groups`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

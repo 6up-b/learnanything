@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 171
+schema_head: 172
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -54,7 +54,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/118_causal_attribution_p1.sql`.
-- **Schema touched by:** `118_causal_attribution_p1.sql`, `119_causal_mechanism_taxonomy.sql`, `120_causal_projection_indexes.sql`, `121_causal_probe_coherence.sql`, `125_causal_repair_mapping_provenance.sql`, `126_diagnosis_adjudication.sql`, `133_causal_mechanism_repair_key.sql`, `171_recurrence_groups.sql`.
+- **Schema touched by:** `118_causal_attribution_p1.sql`, `119_causal_mechanism_taxonomy.sql`, `120_causal_projection_indexes.sql`, `121_causal_probe_coherence.sql`, `125_causal_repair_mapping_provenance.sql`, `126_diagnosis_adjudication.sql`, `133_causal_mechanism_repair_key.sql`, `172_recurrence_groups.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

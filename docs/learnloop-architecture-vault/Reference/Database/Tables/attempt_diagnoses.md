@@ -3,13 +3,13 @@ title: "attempt_diagnoses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "67bc38f20b64011adbc8cf81f90c0722618a49d0"
+source_commit_timestamp: "2026-10-12T13:10:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_diagnoses"
   - "table attempt_diagnoses"
-schema_head: 171
+schema_head: 172
 table_name: "attempt_diagnoses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -49,7 +49,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/170_blind_grading_diagnosis_split.sql`.
-- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`, `171_recurrence_groups.sql`.
+- **Schema touched by:** `170_blind_grading_diagnosis_split.sql`, `172_recurrence_groups.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
