@@ -1,6 +1,6 @@
 # Implementation handoffs: agent prompts (2026-10-11)
 
-These are the prompts for the agents that build the rest of Slice A and the slices after it. Each prompt is self-contained apart from the standard rules in §0, which every prompt tells the agent to read. Paste a prompt into a fresh agent session in the repo.
+These are the prompts for the agents that build the rest of Slice A and the slices after it. Each prompt is step 1 of the loop in `implementation_goal.md` §2: after it, every stage gets a Codex adversarial review and a fix before it merges. Each prompt is self-contained apart from the standard rules in §0, which every prompt tells the agent to read. Paste a prompt into a fresh agent session in the repo.
 
 **State (updated 2026-10-12):**
 - **On `main`:** Slice A Phase 1 (migration head 166) and the daily-loop bug fixes (`be33cdd`).
