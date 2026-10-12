@@ -2,12 +2,20 @@
 
 Nodes are opaque ids (T1: normalized-statement classes). Edges are verdicts
 between two nodes from a judge with an authority tier. The effective verdict
-on a pair is the highest-authority tier's latest non-``unsure`` verdict; every
-effective ``same`` is then applied in adjudication order (oldest first), and a
-union is REFUSED when it would put two nodes with an effective ``different``
-verdict at equal or higher authority into one component. The refused pair is
-reported so it can be logged for review. This is what keeps A~B, B~C from
-silently merging A with C against a judge.
+on a pair comes from its highest-authority tier; ``unsure`` never counts.
+Within that tier a ``different`` beats any ``same``, whatever their order: a
+later equal-authority ``same`` never silently overrides a recorded
+``different`` (a second judge model, or a diagnoser citation after the judge
+said different). That tie is a CONFLICT: the union is refused and reported.
+Only a higher tier, or a supersession upstream (a verdict whose
+``supersedes_id`` names the earlier one; the caller drops superseded rows),
+replaces a verdict.
+
+Every effective ``same`` is then applied in adjudication order (oldest
+first), and a union is REFUSED when it would put two nodes with an effective
+``different`` verdict at equal or higher authority into one component. Each
+refused pair is reported so it can be logged for review. This is what keeps
+A~B, B~C from silently merging A with C against a judge.
 
 Pure: no I/O, no model, no score. The caller supplies node order (the oldest
 node roots its component) so the result is a function of the inputs alone.
@@ -46,6 +54,10 @@ class UnionEdge:
 class Refusal:
     edge: UnionEdge
     blocking: UnionEdge
+    #: ``chaining``: the union would join two nodes a ``different`` separates
+    #: through other edges; ``conflict``: a ``same`` and a ``different`` at the
+    #: same authority on this very pair.
+    reason: str = "chaining"
 
 
 @dataclass
@@ -67,25 +79,54 @@ class UnionResult:
         return {root: sorted(nodes) for root, nodes in groups.items()}
 
 
-def effective_verdicts(edges: Iterable[UnionEdge]) -> tuple[dict[frozenset[str], UnionEdge], list[UnionEdge]]:
-    """Highest authority wins; latest within a tier; ``unsure`` never counts."""
+def _top_tiers(edges: Iterable[UnionEdge]) -> tuple[dict[frozenset[str], list[UnionEdge]], list[UnionEdge]]:
+    """Per node pair, its highest-authority non-``unsure`` edges (oldest first);
+    plus ``different`` edges between a node and itself."""
 
-    best: dict[frozenset[str], UnionEdge] = {}
-    conflicts: list[UnionEdge] = []
+    by_pair: dict[frozenset[str], list[UnionEdge]] = {}
+    self_conflicts: list[UnionEdge] = []
     for edge in sorted(edges, key=UnionEdge.order):
         if edge.verdict not in ("same", "different"):
             continue
         if edge.left == edge.right:
             if edge.verdict == "different":
-                conflicts.append(edge)
+                self_conflicts.append(edge)
             continue
-        key = edge.pair()
-        current = best.get(key)
-        if current is None or edge.authority > current.authority or (
-            edge.authority == current.authority and edge.order() >= current.order()
-        ):
-            best[key] = edge
-    return best, conflicts
+        by_pair.setdefault(edge.pair(), []).append(edge)
+    tiers = {}
+    for key, pair_edges in by_pair.items():
+        top = max(edge.authority for edge in pair_edges)
+        tiers[key] = [edge for edge in pair_edges if edge.authority == top]
+    return tiers, self_conflicts
+
+
+def effective_verdicts(edges: Iterable[UnionEdge]) -> tuple[dict[frozenset[str], UnionEdge], list[UnionEdge]]:
+    """Highest authority wins; within it ``different`` beats ``same``; ``unsure`` never counts.
+
+    Returns the effective edge per pair (the tier's latest ``different`` when
+    it has one, else its latest ``same``) and the ``different`` verdicts
+    between a node and itself.
+    """
+
+    tiers, self_conflicts = _top_tiers(edges)
+    best: dict[frozenset[str], UnionEdge] = {}
+    for key, tier in tiers.items():
+        differents = [edge for edge in tier if edge.verdict == "different"]
+        best[key] = differents[-1] if differents else tier[-1]
+    return best, self_conflicts
+
+
+def tier_conflicts(edges: Iterable[UnionEdge]) -> list[Refusal]:
+    """Pairs whose top tier holds both verdicts: the latest ``same`` refused by the latest ``different``."""
+
+    tiers, _self = _top_tiers(edges)
+    refused = []
+    for tier in tiers.values():
+        same = [edge for edge in tier if edge.verdict == "same"]
+        different = [edge for edge in tier if edge.verdict == "different"]
+        if same and different:
+            refused.append(Refusal(edge=same[-1], blocking=different[-1], reason="conflict"))
+    return sorted(refused, key=lambda refusal: refusal.edge.order())
 
 
 def union_with_refusals(
@@ -105,10 +146,16 @@ def union_with_refusals(
             node = parent[node]
         return node
 
+    edges = list(edges)
     effective, conflicts = effective_verdicts(edges)
     different = [edge for edge in effective.values() if edge.verdict == "different"]
     joined_by: dict[str, UnionEdge] = {}
-    refused: list[Refusal] = []
+    # A same/different tie on one pair is refused before any union (its
+    # effective verdict is ``different``, so no union is ever attempted).
+    refused: list[Refusal] = [
+        refusal for refusal in tier_conflicts(edges)
+        if refusal.edge.left in parent and refusal.edge.right in parent
+    ]
     for edge in sorted((edge for edge in effective.values() if edge.verdict == "same"), key=UnionEdge.order):
         if edge.left not in parent or edge.right not in parent:
             continue
@@ -145,4 +192,4 @@ def union_with_refusals(
     )
 
 
-__all__ = ["Refusal", "UnionEdge", "UnionResult", "effective_verdicts", "union_with_refusals"]
+__all__ = ["Refusal", "UnionEdge", "UnionResult", "effective_verdicts", "tier_conflicts", "union_with_refusals"]

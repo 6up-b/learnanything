@@ -10,12 +10,16 @@ raw ledgers, with no model and no embedding call:
 * **``same_cause`` verdicts** in ``judgment_ledger`` (the judge, the owner's
   M1 verdicts, ...) plus the diagnosis card's "not the same mistake" taps.
   The highest-authority verdict per pair wins: owner > verifier > llm =
-  diagnoser > learner_card.
+  diagnoser > learner_card. Within one tier a ``different`` beats a ``same``
+  whatever their order (a judge's ``different`` is never overridden by a
+  later diagnoser citation or a second judge model): only a higher tier or a
+  superseding verdict replaces it.
 
 Classes are joined by incremental union in adjudication order
 (:mod:`learnloop.matching.union`); a union that would put two classes with a
 recorded ``different`` verdict (at equal or higher authority) into one group
-is refused and logged for review. Only merged groups get rows, so a vault
+is refused and logged for review (``refused_union``, reason ``chaining``),
+and so is a same/different tie on one pair (reason ``conflict``). Only merged groups get rows, so a vault
 with no merges has an empty projection and every ``recurrence_key`` is the
 old exact key.
 
@@ -519,6 +523,11 @@ def compute_groups(connection: Any) -> GroupBuild:
             source=refusal.edge.ref, occurred_at=refusal.edge.occurred_at,
             blocking=(refusal.blocking.left_ref or refusal.blocking.left, refusal.blocking.right_ref or refusal.blocking.right),
             detail={
+                # chaining: two classes a different separates, joined through
+                # others; conflict: a same and a different at one authority on
+                # this very pair (only a higher tier or a supersession replaces
+                # a verdict).
+                "reason": refusal.reason,
                 "edge_judge": refusal.edge.judge, "edge_classes": [refusal.edge.left, refusal.edge.right],
                 "blocking_judge": refusal.blocking.judge, "blocking_ref": refusal.blocking.ref,
                 "blocking_classes": [refusal.blocking.left, refusal.blocking.right],

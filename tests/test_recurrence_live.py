@@ -189,12 +189,16 @@ def test_a_not_the_same_mistake_tap_records_and_refreshes_without_blocking_a_cit
     card = diagnosis_card(vault, repository, second.attempt_id)
     record_card_tap(vault, repository, attempt_id=second.attempt_id, diagnosis_id=card["diagnosis_id"],
                     response="not_same_mistake", cited_attempt_id=first.attempt_id)
-    # The learner's tap (authority 1) is logged against the diagnoser's
-    # citation (authority 2) for the pair; the higher authority stands.
+    # The learner's tap (authority 1) is below the diagnoser's citation
+    # (authority 2) for the pair, so the citation stands and no union is
+    # refused (no review row). The tap itself stays in diagnosis_feedback,
+    # where the M3 report counts it (group precision).
     groups = repository.recurrence_group_map()
     assert recurrence_key(_heads(repository, first.attempt_id)[0], groups) == recurrence_key(
         _heads(repository, second.attempt_id)[0], groups
     )
+    assert repository.recurrence_review("refused_union") == []
+    assert [row["response"] for row in repository.diagnosis_feedback_rows(card["diagnosis_id"])] == ["not_same_mistake"]
 
 
 def test_escalation_ratings_need_an_escalation(tmp_path):

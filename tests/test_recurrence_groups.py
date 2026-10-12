@@ -20,9 +20,9 @@ V_REWORDED = "Thinks the last SVD factor never needs transposing."
 OTHER = "Forgets that singular values are non-negative."
 
 
-def _edge(left, right, verdict, authority=2, judge="llm", at_="2026-01-01", ref=None):
+def _edge(left, right, verdict, authority=2, judge="llm", at_="2026-01-01", ref=None, source="judgment"):
     return UnionEdge(left=left, right=right, verdict=verdict, authority=authority, judge=judge,
-                     source="judgment", ref=ref or f"{left}-{right}-{verdict}-{at_}", occurred_at=at_)
+                     source=source, ref=ref or f"{left}-{right}-{verdict}-{at_}-{judge}", occurred_at=at_)
 
 
 # -- the pure union ------------------------------------------------------------------------
@@ -50,18 +50,52 @@ def test_a_lower_authority_different_does_not_block_a_higher_same():
     assert len(set(result.root_of.values())) == 1 and not result.refused
 
 
-def test_highest_authority_then_latest_verdict_wins_and_unsure_never_counts():
+def test_highest_authority_wins_a_tie_in_the_tier_is_different_and_unsure_never_counts():
+    """Second review F1: a later equal-authority ``same`` never overrides a
+    recorded ``different``; only a higher tier (or supersession upstream)
+    replaces a verdict."""
+
     effective, conflicts = effective_verdicts([
         _edge("a", "b", "same", authority=2, at_="1"),
         _edge("a", "b", "different", authority=4, judge="owner", at_="0"),
         _edge("b", "a", "unsure", authority=4, judge="owner", at_="5"),
         _edge("c", "d", "different", at_="1"),
         _edge("c", "d", "same", at_="2"),
+        _edge("f", "g", "same", at_="1"),
+        _edge("f", "g", "same", judge="diagnoser", at_="2"),
         _edge("e", "e", "different", at_="3"),
     ])
     assert effective[frozenset({"a", "b"})].verdict == "different"
-    assert effective[frozenset({"c", "d"})].verdict == "same"
+    assert effective[frozenset({"c", "d"})].verdict == "different"
+    assert effective[frozenset({"f", "g"})].verdict == "same"
     assert [edge.left for edge in conflicts] == ["e"]
+
+
+@pytest.mark.parametrize(
+    "edges",
+    [
+        # The judge said different; a later diagnoser citation (same tier) says same.
+        [_edge("A", "B", "different", at_="1"), _edge("A", "B", "same", judge="diagnoser", source="citation", at_="2")],
+        # A second judge model (after a route change) says same.
+        [_edge("A", "B", "different", at_="1"), _edge("B", "A", "same", at_="2")],
+        # The order does not matter.
+        [_edge("A", "B", "same", judge="diagnoser", source="citation", at_="1"), _edge("A", "B", "different", at_="2")],
+    ],
+)
+def test_an_equal_authority_conflict_on_one_pair_refuses_the_union_and_reports_it(edges):
+    result = union_with_refusals(["A", "B"], edges)
+    assert result.components() == {"A": ["A"], "B": ["B"]}
+    assert len(result.refused) == 1
+    (refusal,) = result.refused
+    assert refusal.edge.verdict == "same" and refusal.blocking.verdict == "different"
+    assert refusal.reason == "conflict"
+
+
+def test_a_higher_tier_same_still_replaces_a_lower_different():
+    result = union_with_refusals(
+        ["A", "B"], [_edge("A", "B", "different", at_="2"), _edge("A", "B", "same", authority=4, judge="owner", at_="1")]
+    )
+    assert result.components() == {"A": ["A", "B"]} and not result.refused
 
 
 def test_the_oldest_class_roots_its_group_and_each_member_records_its_join():
@@ -147,6 +181,45 @@ def test_an_owner_different_refuses_the_judge_merge_and_logs_it(seeded):
     assert recurrence_key(d, groups) != recurrence_key(a, groups)
     refused = repository.recurrence_review("refused_union")
     assert len(refused) == 1 and refused[0]["detail"]["blocking_judge"] == "owner"
+
+
+def test_a_later_same_at_the_judges_authority_is_refused_and_logged(seeded):
+    """Second review F1, on a vault: the judge recorded ``different``; a later
+    diagnoser ``same`` on the same two classes (equal authority) merges
+    nothing and leaves a ``refused_union`` review row."""
+
+    _paths, vault, repository = seeded
+    a, b = _episode(repository, "att_a"), _episode(repository, "att_b")
+    record_verdict(repository, left=b["episode_key"], right=a["episode_key"], verdict="different",
+                   created_at="2026-02-01T00:00:00Z")
+    record_verdict(repository, left=b["episode_key"], right=a["episode_key"], verdict="same", judge="diagnoser",
+                   created_at="2026-02-02T00:00:00Z")
+    refresh_recurrence_groups(vault, repository)
+    groups = repository.recurrence_group_map()
+    assert recurrence_key(a, groups) != recurrence_key(b, groups)
+    (refused,) = repository.recurrence_review("refused_union")
+    assert refused["detail"]["edge_judge"] == "diagnoser" and refused["detail"]["blocking_judge"] == "llm"
+    assert refused["detail"]["reason"] == "conflict"
+
+
+def test_supersession_is_how_a_judges_different_is_replaced(seeded):
+    from learnloop.db.stores.judgments import append_judgment
+
+    _paths, vault, repository = seeded
+    a, b = _episode(repository, "att_a"), _episode(repository, "att_b")
+    first = record_verdict(repository, left=b["episode_key"], right=a["episode_key"], verdict="different",
+                           created_at="2026-02-01T00:00:00Z")
+    with repository.atomic():
+        append_judgment(
+            repository.connection(), task="same_cause", left_kind="hypothesis", left_id=b["episode_key"],
+            right_kind="hypothesis", right_id=a["episode_key"], judge="llm", judge_model="fake-model",
+            prompt_version="test", input_hash="rerun", verdict="same", rationale="rerun", supersedes_id=first,
+            created_at="2026-02-02T00:00:00Z",
+        )
+    refresh_recurrence_groups(vault, repository)
+    groups = repository.recurrence_group_map()
+    assert recurrence_key(a, groups) == recurrence_key(b, groups)
+    assert repository.recurrence_review("refused_union") == []
 
 
 def test_a_different_verdict_inside_one_exact_class_is_a_review_case_not_a_split(seeded):
