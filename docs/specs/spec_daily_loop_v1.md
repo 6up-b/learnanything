@@ -186,7 +186,23 @@ On this base nothing captures from outside the app, and every in-app path except
 
 ### 4.3 The background processor (C2, C3)
 
-A leased job over `capture_routes` rows in state `new` whose `capture_processing` row is missing or not yet processed (`processed_at` null). It runs in the desktop sidecar (on load and every 5 minutes while the app is open) and as `learnloop capture process [--dry-run]`. Mobile M3 may also run it in the host under its secondary-attach rules. Leases (`capture_routes.lease_owner`, `lease_expires_at`) make concurrent runners safe.
+A leased job over captures that have work due. It runs in the desktop sidecar (on load and every 5 minutes while the app is open) and as `learnloop capture process [--dry-run]`. Mobile M3 may also run it in the host under its secondary-attach rules.
+
+**Three separate work states** live in `capture_processing`, so finishing one never hides another:
+- **Processing** (`processing_state` = `pending` | `done` | `failed`): steps 1–5 below.
+- **Adoption** (`adopt_requested_at`, `adopted_at`): completing a "Practice this" tapped before processing finished (§4.4).
+- **Verification** (`verification` = `pending` | `verified` | `unverified`, with `unverified_reason` = `no_checker` | `disagreement` | `uncited` | `error`, `verifier_version`, `verification_attempts`, `next_verification_at`).
+
+**Which captures it picks.** A capture is selected when it is neither purged nor dismissed, its lifetime call budget isn't spent (below), and one of these holds:
+1. **Processing is `pending`.** That is a first run, or a retry after an error with backoff, up to 3 tries; then it is `failed`. The route state is `new`.
+2. **Adoption was requested** and processing is `done`, so adoption can complete. With `capture.unverified_adoption = false`, adoption also waits for `verified`.
+3. **A verification retry is due** for a capture that is adopted (route `practice_this`) or has adoption requested, and whose verification is `unverified`:
+   - **A new verifier.** For `no_checker`, `disagreement` and `uncited`, it retries once each time the verifier version in force differs from the recorded `verifier_version`. That is how Phase 5a's arrival reaches captures adopted before it.
+   - **An error.** For `error`, it retries when `next_verification_at` has passed, with backoff of 1 hour, 1 day and 7 days.
+
+  Unadopted captures are not retried, because verification only matters for practice and a reference costs nothing (L9).
+
+**Leases.** Leases (`capture_routes.lease_owner`, `lease_expires_at`) make concurrent runners safe. A `new` capture shows `processing` while it is leased (M1's meaning). An adopted capture keeps `routed` while a verification retry holds its lease.
 
 **Steps, per capture:**
 1. **Transcribe** images (route `ai.routing.image_transcription`, the image drop-in spec's §3 contract). A low-confidence read is labelled "couldn't read this clearly"; one tap fixes the transcript later. Before DL4, image captures are stored and listed but wait, unprocessed, for this step.
@@ -202,7 +218,11 @@ A leased job over `capture_routes` rows in state `new` whose `capture_processing
    - **Before Phase 5a merges,** solving still runs but nothing can verify, so every answer is `unverified` (§4.4 says what that allows).
 5. **`idea`, `source` and `note`** need no answer. A `source` gets cheap metadata (title, arXiv abstract) through the existing source library, with no paid call.
 
-**Spend (L7).** Routes `capture_classify`, `capture_file`, `capture_solve` and `image_transcription` fall back to the active provider when unset. Per capture at most `capture.max_calls_per_capture` = 12 calls. Metered routes are capped at `capture.max_daily_cost_usd` = $1.00 a day. Codex runs uncapped in requests and is recorded `estimated_only`. Failures retry with backoff three times, then `failed`. The processor is on by default (D12); `capture.processor_enabled = false` stops it.
+**Spend (L7).** Routes `capture_classify`, `capture_file`, `capture_solve` and `image_transcription` fall back to the active provider when unset.
+- **A lifetime call cap.** `capture.max_calls_per_capture` (12) counts every call made for the capture over its whole life: processing, drafting at adoption, and every verification retry. The count comes from its receipts (`owner_kind = capture`). Once it is reached, the capture keeps its current state and isn't selected again; an adopted one shows "verification stopped".
+- **A daily cost cap.** Metered routes are capped at `capture.max_daily_cost_usd` = $1.00 a day.
+- **Codex** runs without a physical-request bound and is recorded `estimated_only`; the call cap still applies.
+- **On by default** (D12); `capture.processor_enabled = false` stops it.
 
 ### 4.4 "Practice this" (C1)
 
@@ -660,7 +680,7 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 | `attention_block_events` (existing) | RECEIPT | DL1 | New kinds: `block_chosen`, `block_started`, `block_ended` (with `outcome`; for reading `section_completed` \| `left_reader` \| `skipped`), `item_planned`, `item_served`, `item_done`, `item_skipped`, `item_displaced`, `reading_progress` (spans seen, span count). `detail_json` carries `practice_item_id`, `scheduler_candidate_id`, `est_minutes`, `wall_ms` and `serving_origin` (`daily_plan` \| `learner_pick`) |
 | `capture_inbox` (existing, from mobile M1) | RAW_LEDGER | DL3 | `ADD COLUMN source_anchor_json TEXT` (nullable; set at insert for reader captures, part of the request fingerprint, cleared by purge) |
 | `practice_attempts` (existing) | RAW_LEDGER | DL3 | `ADD COLUMN reference_status TEXT NOT NULL DEFAULT 'not_applicable'` (`not_applicable` \| `verified` \| `unverified`), set once at attempt time (§4.4) |
-| `capture_processing` | WORKFLOW (paid outputs; never re-run on rebuild) | DL3 | `capture_id` (PK), `processed_at`, `kind`, `transcript_md`, `transcript_confidence`, filing (`subject_id`, `learning_object_id`, `confidence`, `filing_status` = `filed` \| `unfiled` \| `moved`), answer (`solution_md`, `final_answer`, `verification` = `pending` \| `verified` \| `unverified`, `verification_check`), adoption (`adopt_requested_at`, `practice_item_ids_json`, `commitment_id`, `family_id`), `model_ids_json`, `prompt_versions_json`, `estimated_cost_usd`, `cost_kind` (`metered` \| `estimated_only`), `attempts`, `last_error`, `updated_at` |
+| `capture_processing` | WORKFLOW (paid outputs; never re-run on rebuild) | DL3 | `capture_id` (PK); processing (`processing_state` = `pending` \| `done` \| `failed`, `processed_at`, `processing_attempts`, `last_error`); `kind`, `transcript_md`, `transcript_confidence`; filing (`subject_id`, `learning_object_id`, `confidence`, `filing_status` = `filed` \| `unfiled` \| `moved`); answer (`solution_md`, `final_answer`); verification (`verification` = `pending` \| `verified` \| `unverified`, `unverified_reason`, `verification_check`, `verifier_version`, `verification_attempts`, `next_verification_at`); adoption (`adopt_requested_at`, `adopted_at`, `practice_item_ids_json`, `commitment_id`, `family_id`); `model_ids_json`, `prompt_versions_json`, `estimated_cost_usd`, `cost_kind` (`metered` \| `estimated_only`), `updated_at` |
 
 **Vault model additions** (optional, omitted when null, outside the scheduling hash):
 - `PracticeItem.expected_minutes` (DL1);
@@ -757,7 +777,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 - **DL2:** `tests/test_intent_resolution.py` (the §5.3 cases, ties, and consequence-line parity); `test_intent_recall_targets.py` (the ratio; identity at 0.90; the kill switch; the anchor: a primed retry and a diagnostic attempt between two reviews leave the anchor and the effective due unchanged, while an ordinary review moves both; no state, a null `due_at`, or no qualifying attempt fall back as §5.3 says; on fixture copies, for each item with an anchor and a surprise record, anchor + stability × that attempt's `attempt_surprise.fsrs_interval_factor` reproduces the stored `due_at` within one second, which catches any drift between the anchor rule and the attempt path); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
 - **DL3:**
   - `tests/test_capture_box.py`;
-  - `test_capture_processor.py` (classify, file, unfiled, solve-verify agreement and disagreement, caps, dry-run, resume, leases, ledger);
+  - `test_capture_processor.py` (classify, file, unfiled, solve-verify agreement and disagreement, caps, dry-run, resume, leases, ledger; the selection rule: an adopted, `routed` capture with `unverified_reason = no_checker` is retried once when the verifier version changes and keeps `routed` under the lease; an `error` retries on backoff; an unadopted capture is not retried; adoption requested before processing completes afterwards; the lifetime call cap counts processing, drafting and retries together and stops selection);
   - `test_capture_adopt.py` (idempotence, request front slot, family, undo);
   - `test_capture_unverified.py` (G7: an independent attempt on an unverified key earns no credit in the canonical projection or the facet timeline; it still updates FSRS; a later verification doesn't retroactively certify it; the next attempt after verification does; a rebuild reproduces the same ledger; `capture.unverified_adoption = false` defers adoption until `verified`);
   - `test_capture_replay.py` (G8).
