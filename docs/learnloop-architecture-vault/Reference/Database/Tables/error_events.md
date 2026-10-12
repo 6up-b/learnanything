@@ -3,8 +3,8 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "120dab2aea7ad48876a85eb5dcf72bd541944d90"
-source_commit_timestamp: "2026-10-12T12:15:54-04:00"
+source_commit: "0cae91163d4b835f24a730d3b2cdd0257f096b7f"
+source_commit_timestamp: "2026-10-12T13:14:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
@@ -144,6 +144,7 @@ Indexes and uniqueness:
 
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_migrations.py`
+- `tests/test_probability_prep.py`
 - `tests/test_replay.py`
 - `tests/test_simulation.py`
 - `tests/test_table_roles.py`
@@ -161,7 +162,6 @@ Indexes and uniqueness:
 - `tests/test_e2e_local.py`
 - `tests/test_guided_redo.py`
 - `tests/test_item_parameters.py`
-- `tests/test_misconception_registry.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

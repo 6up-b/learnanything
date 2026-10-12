@@ -3,8 +3,8 @@ title: "submission_intents"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "120dab2aea7ad48876a85eb5dcf72bd541944d90"
-source_commit_timestamp: "2026-10-12T12:15:54-04:00"
+source_commit: "0cae91163d4b835f24a730d3b2cdd0257f096b7f"
+source_commit_timestamp: "2026-10-12T13:14:00-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite submission_intents"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/161_collection_contract.sql"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/substrate/data_quality.py"
 tags:
   - "learnloop/database/table"
@@ -89,6 +90,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -105,6 +107,7 @@ None found by exact static reference scan.
 
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_probability_prep.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
