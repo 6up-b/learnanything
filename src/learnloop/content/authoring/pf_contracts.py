@@ -9,7 +9,7 @@ selection judge only ranks; it never establishes correctness.
 """
 from __future__ import annotations
 
-from typing import Any, Literal, Mapping
+from typing import Any, Literal, Mapping, get_args
 
 from pydantic import Field
 
@@ -99,6 +99,14 @@ class FreshnessComparison(WireModel):
 
 class FreshnessVerdict(WireModel):
     comparisons: list[FreshnessComparison] = Field(max_length=200)
+
+
+# Every verdict a freshness comparison can carry. Anything else in the ledger
+# (``missing``: the response named no verdict for the pair) is an abstention,
+# never a judgment, and never earns accuracy credit.
+FRESHNESS_VERDICTS = frozenset(get_args(FreshnessComparison.model_fields["verdict"].annotation))
+# The verdicts that call a pair a duplicate (the positive B2 prediction).
+FRESHNESS_DUPLICATE_VERDICTS = frozenset({"same_surface", "isomorph"})
 
 
 class SelectionVerdict(WireModel):
@@ -410,7 +418,8 @@ def valid_alternative_prompt(*, prompt: str, reference: str, count: int) -> str:
 
 
 __all__ = [
-    "EQUIVALENCE_PROMPT", "FRESHNESS_PROMPT", "GENERATOR_PROGRAM_PROMPT", "PAIRWISE_PROMPT",
+    "EQUIVALENCE_PROMPT", "FRESHNESS_DUPLICATE_VERDICTS", "FRESHNESS_PROMPT", "FRESHNESS_VERDICTS",
+    "GENERATOR_PROGRAM_PROMPT", "PAIRWISE_PROMPT",
     "PANEL_SOLVE_PROMPT", "PROPOSER_PROMPT", "SELECTION_PROMPT", "SINGLE_SHOT_PROMPT",
     "CLOSED_BOOK_PROMPT", "SKELETON_PROMPT", "SOURCE_ANCHORED_PROMPT", "STRUCTURE_PROMPT",
     "VALID_ALTERNATIVE_PROMPT", "SPAN_SUPPORT_PROMPT", "SourceAnchoredBatch", "SourceAnchoredCandidate",

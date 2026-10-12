@@ -67,7 +67,7 @@ from learnloop.substrate.item_fingerprints import final_answer_text, fingerprint
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
-HARNESS_VERSION = "embeddings-compare-v1"
+HARNESS_VERSION = "embeddings-compare-v2"
 DEFAULT_TARGET_RECALL = 0.95
 EMBED_BATCH = 32
 VA_OUTPUT_TOKENS = {"valid_alternative": 6000, "equivalence": 2500, "grading": 4000}
@@ -273,17 +273,34 @@ def blocking_cutoff(scores: list[float], labels: list[bool], target_recall: floa
             "positives": len(positives), "negatives": len(negatives)}
 
 
-def binary_metrics(predictions: list[bool], labels: list[bool]) -> dict[str, Any]:
-    tp = sum(1 for p, y in zip(predictions, labels) if p and y)
-    fp = sum(1 for p, y in zip(predictions, labels) if p and not y)
-    fn = sum(1 for p, y in zip(predictions, labels) if not p and y)
-    tn = sum(1 for p, y in zip(predictions, labels) if not p and not y)
+def binary_metrics(predictions: list[bool | None], labels: list[bool]) -> dict[str, Any]:
+    """Confusion counts and rates; a ``None`` prediction is an abstention.
+
+    An abstention (a judge that returned no verdict) is never credited: it is
+    neither a true nor a false negative, it counts against ``accuracy`` (over
+    every case) and ``recall`` (over every positive), and ``coverage`` states
+    the answered share.
+    """
+    tp = sum(1 for p, y in zip(predictions, labels) if p is True and y)
+    fp = sum(1 for p, y in zip(predictions, labels) if p is True and not y)
+    fn = sum(1 for p, y in zip(predictions, labels) if p is False and y)
+    tn = sum(1 for p, y in zip(predictions, labels) if p is False and not y)
+    abstained = sum(1 for p in predictions if p is None)
+    positives = sum(1 for y in labels if y)
     precision = tp / (tp + fp) if tp + fp else None
-    recall = tp / (tp + fn) if tp + fn else None
-    return {"tp": tp, "fp": fp, "fn": fn, "tn": tn,
+    recall = tp / positives if positives else None
+    return {"tp": tp, "fp": fp, "fn": fn, "tn": tn, "abstained": abstained,
+            "coverage": round((len(labels) - abstained) / len(labels), 6) if labels else None,
             "precision": round(precision, 6) if precision is not None else None,
             "recall": round(recall, 6) if recall is not None else None,
             "accuracy": round((tp + tn) / len(labels), 6) if labels else None}
+
+
+def judge_prediction(verdict: str) -> bool | None:
+    """A freshness verdict as a duplicate prediction; no verdict is an abstention (``None``)."""
+    if verdict not in C.FRESHNESS_VERDICTS:
+        return None
+    return verdict in C.FRESHNESS_DUPLICATE_VERDICTS
 
 
 def centered_cosines(pairs: list[tuple[np.ndarray, np.ndarray]], dims: int) -> list[float]:
@@ -349,6 +366,22 @@ class B2Data:
     views: tuple[str, ...]
     models: tuple[str, ...]
     dims: tuple[int, ...]
+    # The benchmark's content revision: its manifest and every byte of pairs.jsonl.
+    revision: str = ""
+
+
+B2_CASE_IDENTITY_VERSION = "b2-case-v1"
+
+
+def b2_case_identity(revision: str, case: B2Case) -> str:
+    """A tier- and model-independent identity for one labelled pair.
+
+    It covers the benchmark revision, the case id, both pair inputs and the
+    label, so judgments from two runs are compared only when they judged the
+    same pair under the same label (the scaling check's judge accuracy).
+    """
+    return content_key([B2_CASE_IDENTITY_VERSION, revision, case.id, case.left, case.right,
+                        "positive" if case.positive else "negative"])
 
 
 class B2Suite:
@@ -364,7 +397,9 @@ class B2Suite:
         path = request.benchmark_dir / "pairs.jsonl"
         if not path.is_file():
             raise ValueError(f"{request.benchmark_dir} has no pairs.jsonl")
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        raw = path.read_bytes()
+        revision = content_key({"manifest": manifest, "pairs_sha256": hashlib.sha256(raw).hexdigest()})
+        for number, line in enumerate(raw.decode("utf-8").splitlines(), start=1):
             if not line.strip():
                 continue
             row = json.loads(line)
@@ -385,7 +420,7 @@ class B2Suite:
             raise ValueError(f"Unknown b2 views: {', '.join(sorted(unknown))}")
         models = request.models or (vault.config.embedding.model,)
         dims = tuple(sorted(set(request.dims or (vault.config.embedding.dimensions,))))
-        return B2Data(manifest, cases, tuple(views), tuple(models), dims)
+        return B2Data(manifest, cases, tuple(views), tuple(models), dims, revision)
 
     def _skeleton_texts(self, data: B2Data) -> list[str]:
         return [side["stem"] for case in data.cases for side in (case.left, case.right)
@@ -417,7 +452,7 @@ class B2Suite:
     def run(self, data: B2Data, request: CompareRequest, ctx: CompareContext) -> dict[str, Any]:
         labels = [case.positive for case in data.cases]
         report: dict[str, Any] = {"cases": len(data.cases), "positives": sum(labels),
-                                  "negatives": len(labels) - sum(labels),
+                                  "negatives": len(labels) - sum(labels), "benchmark_revision": data.revision,
                                   "categories": dict(_count(case.category for case in data.cases)),
                                   "views": {}, "blocking_cutoffs": []}
         skeletons: dict[str, dict[str, Any]] = {}
@@ -480,16 +515,20 @@ class B2Suite:
                         candidate={"stem": case.left["stem"], "final_answer": case.left.get("answer") or ""},
                         comparisons=[{"ref": "item_0", "prompt": case.right["stem"]}]),
                     prompt_version=C.FRESHNESS_PROMPT, result_model=C.FreshnessVerdict, output_tokens=2500, pairs=1)
+                # No verdict for the pair is ledgered as "missing": an abstention.
                 verdict = next((c.verdict for c in call.result.comparisons if c.ref == "item_0"), "missing")
-                # Labelled verdicts on identical pairs: the scaling check's judge accuracy per tier.
+                # Labelled verdicts keyed by the pair's identity: the scaling check
+                # scores each tier's judge only on identical pairs and labels.
                 ctx.caller.ledger(task="isomorph", left_kind="b2_case", left_id=f"{case.id}:left",
                                   right_kind="b2_case", right_id=f"{case.id}:right", judge="llm",
                                   judge_model=call.model, prompt_version=C.FRESHNESS_PROMPT,
                                   input_hash=content_key([call.input_hash, ctx.tier]) if ctx.tier else call.input_hash,
                                   verdict=verdict,
                                   rationale={"benchmark": data.manifest.get("name"), "tier": ctx.tier,
+                                             "benchmark_revision": data.revision,
+                                             "case_identity": b2_case_identity(data.revision, case),
                                              "label": "positive" if label else "negative"})
-                predictions.append(verdict in {"same_surface", "isomorph"})
+                predictions.append(judge_prediction(verdict))
                 case_models.append(call.model)
             report["views"]["judge"] = {
                 "view": "judge", **binary_metrics(predictions, labels),
@@ -761,7 +800,8 @@ def _markdown(report: dict[str, Any]) -> str:
             if name in results.get("views", {}):
                 metrics = results["views"][name]
                 lines.append(f"\n{name}: precision {metrics['precision']}, recall {metrics['recall']}, "
-                             f"accuracy {metrics['accuracy']}")
+                             f"accuracy {metrics['accuracy']}, coverage {metrics['coverage']} "
+                             f"({metrics['abstained']} abstained)")
     else:
         lines += ["| Grader model / trace kind | n | mean | not full credit | below half |", "|---|---|---|---|---|"]
         for key, entry in results.get("by_grader_model", {}).items():
@@ -771,7 +811,7 @@ def _markdown(report: dict[str, Any]) -> str:
 
 
 __all__ = [
-    "B2Suite", "CompareContext", "CompareRequest", "CompareSuite", "HARNESS_VERSION", "SUITES",
-    "ValidAlternativeSuite", "VectorCache", "binary_metrics", "blocking_cutoff", "centered_cosines",
-    "roc_auc", "run_compare",
+    "B2Suite", "B2_CASE_IDENTITY_VERSION", "CompareContext", "CompareRequest", "CompareSuite", "HARNESS_VERSION",
+    "SUITES", "ValidAlternativeSuite", "VectorCache", "b2_case_identity", "binary_metrics", "blocking_cutoff",
+    "centered_cosines", "judge_prediction", "roc_auc", "run_compare",
 ]

@@ -38,6 +38,7 @@ from learnloop.content.authoring import pf_contracts as C
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
 from learnloop.ids import new_ulid
+from learnloop.ops.embedding_compare import judge_prediction
 from learnloop.ops.pf_calls import (
     PFCaller, PFUnavailable, estimate_tokens, planned_role_clients, resolve_role_clients,
 )
@@ -45,7 +46,7 @@ from learnloop.ops.pf_generation import FILTER_ORDER
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
-REPORT_VERSION = "pf-reports-v2"
+REPORT_VERSION = "pf-reports-v3"
 PILOT_PAIRS = 15
 SCALING_PAIRS = 10
 # Agreed (two-pass) blind comparisons each arm needs, on families both arms
@@ -542,31 +543,46 @@ def _labelled_judge_accuracy(repository: Repository) -> dict[str, Any]:
     """Each tier's freshness judge against B2's independent labels, on identical pairs.
 
     Reads the B2 judge view's ledgered verdicts (``learnloop embeddings compare
-    --suite b2 --view judge --tier cheap|frontier``): only cases both tiers
-    judged count, so the tiers face the same pairs and the same labels.
+    --suite b2 --view judge --tier cheap|frontier``). A verdict counts only
+    through its ``case_identity`` (benchmark revision, case id, both pair
+    inputs and the label), and only identities both tiers judged are scored,
+    so the tiers face the same pairs and the same labels; verdicts without an
+    identity are excluded. A missing verdict is an abstention: it is never a
+    correct answer, it counts against accuracy and recall, and coverage is
+    reported per tier.
     """
     with repository.connection() as connection:
         rows = connection.execute(
             "SELECT left_id, verdict, rationale FROM judgment_ledger WHERE task='isomorph' "
             "AND left_kind='b2_case' AND prompt_version=? ORDER BY rowid", (C.FRESHNESS_PROMPT,),
         ).fetchall()
-    latest: dict[str, dict[str, tuple[bool, bool]]] = {"cheap": {}, "frontier": {}}
+    latest: dict[str, dict[str, tuple[bool | None, bool]]] = {"cheap": {}, "frontier": {}}
+    without_identity = 0
     for row in rows:
         rationale = json.loads(row["rationale"] or "{}")
-        tier, label = rationale.get("tier"), rationale.get("label")
+        tier, label, identity = rationale.get("tier"), rationale.get("label"), rationale.get("case_identity")
         if tier in latest and label in {"positive", "negative"}:
-            key = f"{rationale.get('benchmark')}|{row['left_id']}"
-            latest[tier][key] = (row["verdict"] in {"same_surface", "isomorph"}, label == "positive")
-    shared = sorted(set(latest["cheap"]) & set(latest["frontier"]))
-    result: dict[str, Any] = {"source": "b2 judge view (independent labels)", "pairs_judged_at_both_tiers": len(shared)}
+            if not identity:
+                without_identity += 1
+                continue
+            latest[tier][identity] = (judge_prediction(row["verdict"]), label == "positive")
+    shared = sorted(identity for identity in set(latest["cheap"]) & set(latest["frontier"])
+                    if latest["cheap"][identity][1] == latest["frontier"][identity][1])
+    result: dict[str, Any] = {"source": "b2 judge view (independent labels)", "pairs_judged_at_both_tiers": len(shared),
+                              "matched_by": "case_identity (benchmark revision, case id, both pair inputs, label)",
+                              "excluded_without_identity": without_identity}
     for tier, judged in latest.items():
-        outcomes = [judged[key] for key in shared]
-        correct = sum(1 for predicted, label in outcomes if predicted == label)
+        outcomes = [judged[identity] for identity in shared]
+        answered = [(predicted, label) for predicted, label in outcomes if predicted is not None]
+        correct = sum(1 for predicted, label in answered if predicted == label)
         positives = [predicted for predicted, label in outcomes if label]
-        negatives = [predicted for predicted, label in outcomes if not label]
+        answered_negatives = [predicted for predicted, label in answered if not label]
         result[tier] = {"accuracy": _rate(correct, len(outcomes)),
-                        "recall_on_positives": _rate(sum(positives), len(positives)),
-                        "false_positive_rate": _rate(sum(negatives), len(negatives))}
+                        "coverage": _rate(len(answered), len(outcomes)),
+                        "abstained": len(outcomes) - len(answered),
+                        "recall_on_positives": _rate(sum(1 for predicted in positives if predicted is True),
+                                                     len(positives)),
+                        "false_positive_rate": _rate(sum(answered_negatives), len(answered_negatives))}
     return result
 
 

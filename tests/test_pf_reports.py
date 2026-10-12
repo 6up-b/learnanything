@@ -212,42 +212,113 @@ def test_suspect_acceptance_is_descriptive_and_never_ranks_a_tier(tmp_path):
     assert report["components"]["structure_judge"] == "insufficient_data"
 
 
-def test_judge_accuracy_comes_from_labelled_pairs_judged_at_both_tiers(tmp_path):
-    from learnloop.content.authoring import pf_contracts as C
+class _ReadsApples(PFFake):
+    """A B2 freshness judge: calls a pair isomorphic only when both stems are about apples
+    (the test benchmark's positives), always (``always``), or answers nothing (``silent``)."""
+
+    def __init__(self, model, *, always=False, silent=False):
+        super().__init__(model)
+        self.always = always
+        self.silent = silent
+
+    def complete(self, request):
+        from learnloop.content.authoring import pf_contracts as C
+        from tests.pf_fakes import prompt_context
+
+        if request.result_model is not C.FreshnessVerdict:
+            return super().complete(request)
+        self.calls.append(request)
+        if self.silent:
+            return C.FreshnessVerdict(comparisons=[])
+        context = prompt_context(request.prompt)
+        same = self.always or ("apples" in context["candidate"]["stem"]
+                               and "apples" in context["comparisons"][0]["prompt"])
+        return C.FreshnessVerdict(comparisons=[C.FreshnessComparison(
+            ref="item_0", verdict="isomorph" if same else "different", rationale="r")])
+
+
+def _b2_judge(paths, tmp_path, tier, judge, bench):
     from learnloop.ops.embedding_compare import CompareRequest, run_compare
-    from tests.pf_fakes import prompt_context
+
+    result = run_compare(load_vault(paths.root), request=CompareRequest(
+        suite="b2", output_dir=tmp_path / f"b2-{tier}-{judge.model}", benchmark_dir=bench, views=("judge",),
+        tier=tier), caps=CAPS, price_per_million=1.0, clients={"freshness": judge})
+    assert result["status"] == "complete" and result["tier"] == tier
+    return result
+
+
+def _b2_bench(directory, rows, *, name=None):
+    """A B2 benchmark directory; without ``name`` the manifest is unnamed and ids default to line numbers."""
+    directory.mkdir(parents=True)
+    manifest = {"sources": [{"name": "synthetic", "version": "1", "licence": "CC-BY-4.0"}]}
+    if name:
+        manifest["name"] = name
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    (directory / "pairs.jsonl").write_text("\n".join(json.dumps(row) for row in rows))
+    return directory
+
+
+def _negative_rows(count, offset=0):
+    return [{"label": "negative", "category": "math_perturb_hard",
+             "left": {"stem": f"A train travels {index + 40} km in {index + 2} hours. What is its speed?"},
+             "right": {"stem": f"Ana has {index + 2} apples and buys {index + 3} more apples. How many apples?"}}
+            for index in range(offset, offset + count)]
+
+
+def test_judge_accuracy_comes_from_labelled_pairs_judged_at_both_tiers(tmp_path):
     from tests.test_embedding_compare import benchmark
-
-    class Reads(PFFake):
-        """Calls a pair isomorphic only when both stems are about apples (the benchmark's positives)."""
-
-        def __init__(self, model, always=False):
-            super().__init__(model)
-            self.always = always
-
-        def complete(self, request):
-            if request.result_model is not C.FreshnessVerdict:
-                return super().complete(request)
-            self.calls.append(request)
-            context = prompt_context(request.prompt)
-            same = self.always or ("apples" in context["candidate"]["stem"]
-                                   and "apples" in context["comparisons"][0]["prompt"])
-            return C.FreshnessVerdict(comparisons=[C.FreshnessComparison(
-                ref="item_0", verdict="isomorph" if same else "different", rationale="r")])
 
     vault, _, paths = seed_pf_vault(tmp_path / "vault")
     append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
     bench = benchmark(tmp_path)
-    for tier, judge in (("cheap", Reads("careful")), ("frontier", Reads("eager", always=True))):
-        result = run_compare(load_vault(paths.root), request=CompareRequest(
-            suite="b2", output_dir=tmp_path / f"b2-{tier}", benchmark_dir=bench, views=("judge",), tier=tier),
-            caps=CAPS, price_per_million=1.0, clients={"freshness": judge})
-        assert result["status"] == "complete" and result["tier"] == tier
+    for tier, judge in (("cheap", _ReadsApples("careful")), ("frontier", _ReadsApples("eager", always=True))):
+        _b2_judge(paths, tmp_path, tier, judge, bench)
     report = scaling_report(load_vault(paths.root), round_id="none", output_dir=tmp_path / "reports")
     labelled = report["judge_accuracy_on_labelled_pairs"]["freshness"]
     assert labelled["pairs_judged_at_both_tiers"] == 12
     assert labelled["cheap"]["accuracy"]["rate"] == 1.0 and labelled["frontier"]["accuracy"]["rate"] == 0.5
     assert report["components"]["freshness_judge"] == "falls_with_tier"
+
+
+def test_a_judge_that_answers_nothing_earns_no_accuracy_credit(tmp_path):
+    """Codex re-review F16: a missing verdict is an abstention, never a correct negative."""
+    _, _, paths = seed_pf_vault(tmp_path / "vault")
+    append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
+    bench = _b2_bench(tmp_path / "negatives", _negative_rows(12), name="b2-negatives")
+    _b2_judge(paths, tmp_path, "cheap", _ReadsApples("eager", always=True), bench)
+    silent = _b2_judge(paths, tmp_path, "frontier", _ReadsApples("silent", silent=True), bench)
+    view = silent["results"]["views"]["judge"]
+    assert view["abstained"] == 12 and view["coverage"] == 0.0
+    assert view["tn"] == 0 and view["accuracy"] == 0.0
+    report = scaling_report(load_vault(paths.root), round_id="none", output_dir=tmp_path / "reports")
+    labelled = report["judge_accuracy_on_labelled_pairs"]["freshness"]
+    assert labelled["pairs_judged_at_both_tiers"] == 12
+    frontier = labelled["frontier"]
+    assert frontier["accuracy"]["successes"] == 0 and frontier["accuracy"]["n"] == 12
+    assert frontier["coverage"]["successes"] == 0 and frontier["abstained"] == 12
+    assert frontier["false_positive_rate"]["n"] == 0
+    assert labelled["cheap"]["coverage"]["rate"] == 1.0 and labelled["cheap"]["accuracy"]["rate"] == 0.0
+    assert report["components"]["freshness_judge"] != "rises_with_tier"
+
+
+def test_tiers_are_compared_only_on_identical_labelled_pairs(tmp_path):
+    """Codex re-review F17: unrelated benchmarks never match by name and case id."""
+    _, _, paths = seed_pf_vault(tmp_path / "vault")
+    append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
+    first = _b2_bench(tmp_path / "first", _negative_rows(12))
+    flipped = [{**row, "label": "positive", "left": {"stem": row["right"]["stem"] + " (restated)"}}
+               for row in _negative_rows(12, offset=50)]
+    second = _b2_bench(tmp_path / "second", flipped)
+    _b2_judge(paths, tmp_path, "cheap", _ReadsApples("careful"), first)
+    _b2_judge(paths, tmp_path, "frontier", _ReadsApples("eager", always=True), second)
+    report = scaling_report(load_vault(paths.root), round_id="none", output_dir=tmp_path / "reports")
+    labelled = report["judge_accuracy_on_labelled_pairs"]["freshness"]
+    assert labelled["pairs_judged_at_both_tiers"] == 0
+    assert report["components"]["freshness_judge"] == "insufficient_data"
+    # The same benchmark at both tiers matches every case.
+    _b2_judge(paths, tmp_path, "frontier", _ReadsApples("eager", always=True), first)
+    report = scaling_report(load_vault(paths.root), round_id="none", output_dir=tmp_path / "reports")
+    assert report["judge_accuracy_on_labelled_pairs"]["freshness"]["pairs_judged_at_both_tiers"] == 12
 
 
 @needs_bwrap

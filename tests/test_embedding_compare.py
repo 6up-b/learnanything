@@ -78,6 +78,11 @@ def test_metric_helpers():
     cutoff = blocking_cutoff([0.9, 0.7, 0.5, 0.6, 0.2], [True, True, True, False, False], 0.95)
     assert cutoff["cutoff"] == 0.5 and cutoff["recall"] == 1.0 and cutoff["judge_load"] == 0.5
     assert binary_metrics([True, False], [True, True])["recall"] == 0.5
+    # Codex re-review F16: an abstention is never a true negative and counts against accuracy.
+    abstaining = binary_metrics([None, False, None], [False, False, True])
+    assert (abstaining["tn"], abstaining["fn"], abstaining["abstained"]) == (1, 0, 2)
+    assert abstaining["accuracy"] == round(1 / 3, 6) and abstaining["recall"] == 0.0
+    assert abstaining["coverage"] == round(1 / 3, 6)
     assert set(SUITES) == {"b2", "valid_alternative"}
 
 
