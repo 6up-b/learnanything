@@ -272,7 +272,7 @@ This asymmetry is deliberate (2607.21306).
 
 - **A new randomization design.** `mixture` registers `model_mixture` as a fourth admissible design in `randomization_layer` (a revision of P4 §9.3). It applies to reversible candidates only, logs the seed, the component weights and π before selection, and joins proximal outcomes at the next spaced cold review, as for the other designs.
 - **Launch** (owner: see what works best; D1): `mixture` with w_s = w_d = w_l = 1/3 and `ties_only = false`. Every policy keeps support, so each one's argmax can be evaluated on every decision.
-- **Kill switch.** `router.enabled = false` returns Today to the legacy scheduler, exactly as before.
+- **Kill switch.** `router.enabled = false` returns Today to its pre-router version, exactly as before (G8). With the daily loop's `plan.enabled` on, that is the finite plan with its deterministic chooser `lane_quota_v1`. With it off, it is the legacy scheduler's queue (`spec_daily_loop_v1.md` §6.8, switch table).
 - **Fallback.** If one model times out or errors, its weight goes to the staged component for that decision. If both fail, the staged choice is used. Both cases are flagged on the receipt (`fallback = decider | llm | both`).
 - **The learner's explicit choice always wins** (P4 §4.1). It is logged as `learner_pick` with no propensity.
 
