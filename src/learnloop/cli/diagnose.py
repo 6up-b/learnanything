@@ -469,10 +469,16 @@ def _outcome_rows(outcomes) -> list[dict]:
     ]
 
 
-_MAX_CALLS_HELP = "Diagnosis calls this command may admit (one per logical call; metered retries also count as calls)."
+_MAX_CALLS_HELP = (
+    "Calls this command may admit: one per logical diagnosis call and one per retrieval embedding request "
+    "(metered retries also count as calls)."
+)
 _MAX_RETRIES_HELP = "Metered routes: physical retries and JSON repairs this command may admit."
-_MAX_TOKENS_HELP = "Metered routes: total tokens this command may admit (subscription routes are not token-capped)."
-_MAX_COST_HELP = "Metered routes: estimated USD this command may admit."
+_MAX_TOKENS_HELP = (
+    "Metered routes (retrieval embeddings, a metered diagnoser): total tokens this command may admit "
+    "(subscription routes are not token-capped)."
+)
+_MAX_COST_HELP = "Metered routes (retrieval embeddings, a metered diagnoser): estimated USD this command may admit."
 _PRICE_HELP = "USD per million tokens for a metered route whose price is unknown (an unknown price fails closed)."
 
 
@@ -496,9 +502,12 @@ def diagnose_drain(
     Uses ``ai.routing.diagnosis`` (unset: the grading route) and, for
     embeddings, ``ai.routing.embedding`` when ``embedding.enabled``. Run
     ``--dry-run`` first: it plans the jobs and estimates their spend against
-    the caps. Every diagnosis request is admitted against the caps before it
-    is sent; Ctrl-C stops before the next job (an interrupted one is released
-    unspent).
+    the caps. Every diagnosis request, and every retrieval embedding request
+    a diagnosis makes, is admitted against the caps before it is sent;
+    retrieval only while the queued diagnoses still fit (otherwise that
+    diagnosis uses the exact set). Embed jobs keep their own per-job caps
+    (the plan's ``embed`` block). Ctrl-C stops before the next job (an
+    interrupted one is released unspent).
     """
 
     from learnloop.diagnosis.split.jobs import (
@@ -563,8 +572,8 @@ def diagnose_retry(
 ) -> None:
     """Retry a failed or skipped diagnosis, or re-diagnose (appends, supersedes).
 
-    ``--dry-run`` estimates the one diagnosis call against the caps and
-    changes nothing.
+    ``--dry-run`` estimates the one diagnosis call (and its retrieval
+    embedding requests) against the caps and changes nothing.
     """
 
     from learnloop.diagnosis.split.jobs import (

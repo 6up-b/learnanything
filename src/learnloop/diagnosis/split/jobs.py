@@ -25,7 +25,7 @@ from typing import Any, Callable, Iterator, Mapping
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.runs import finish_agent_run
-from learnloop.ai.spend import SpendCaps, SpendLimitExceeded
+from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.attempts.grading import resolved_rubric
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
@@ -414,6 +414,8 @@ def _receipt_for_storage(outcome: DiagnosisOutcome) -> dict[str, Any]:
 
 #: One diagnosis's embedding retrieval (the hybrid attempt index, the
 #: registry shortlist, any embed-on-demand they need): metered and priced.
+#: The per-job budget of a diagnosis run without a command budget (the
+#: sidecar worker, the CLI/TUI inline path).
 RETRIEVAL_CAPS = SpendCaps(
     max_candidates=400,
     max_pairs=0,
@@ -422,6 +424,9 @@ RETRIEVAL_CAPS = SpendCaps(
     max_total_tokens=400_000,
     max_estimated_usd=0.05,
 )
+#: The spend route retrieval embeddings are admitted on in a command budget
+#: (``OUTPUT_ALLOWANCE["embedding"]`` is 0: an embedding generates nothing).
+RETRIEVAL_ROUTE = "embedding"
 
 
 class _NoRegistryIndex:
@@ -435,10 +440,91 @@ class _NoRegistryIndex:
         return RegistryShortlist(method="exact_fallback", error="no_embedding_client")
 
 
-def _hybrid_retriever(vault: LoadedVault, repository: Repository, embedding_factory: ClientFactory | None) -> Any | None:
+def register_retrieval_route(spend: ReviewSpend, client: Any = None, *, vault: LoadedVault | None = None) -> Any:
+    """Classify the retrieval embedding route on a command budget.
+
+    From the client a run builds, or (``vault``, a dry run) from config. A
+    published price wins over the command's ``--price-per-million``, which
+    exists for a route whose price is unknown; an unknown price still fails
+    closed (the request is refused and retrieval falls back, S6).
+    """
+
+    from learnloop.diagnosis.offline_review.spend import KNOWN_PRICES_PER_MILLION, RouteInfo
+
+    if client is not None:
+        info = spend.register(RETRIEVAL_ROUTE, client, model_id=getattr(client, "model_id", None))
+    else:
+        from learnloop.diagnosis.offline_review.runner import route_profiles
+
+        profile = route_profiles(vault)[RETRIEVAL_ROUTE]
+        info = spend.register_profile(
+            RETRIEVAL_ROUTE,
+            provider=profile["provider"],
+            model=profile["model"],
+            subscription=bool(profile["subscription"]),
+            max_tokens=profile["max_tokens"],
+        )
+    known = KNOWN_PRICES_PER_MILLION.get(str(info.model or ""))
+    if info.billing == "metered" and info.price_source == "owner_override" and known is not None:
+        info = RouteInfo(info.route, info.provider, info.model, info.billing, known, "known", info.output_limit)
+        spend.routes[RETRIEVAL_ROUTE] = info
+    return info
+
+
+def _sum_estimates(*estimates: SpendEstimate) -> SpendEstimate:
+    usd = [estimate.estimated_usd for estimate in estimates]
+    return SpendEstimate(
+        candidates=sum(estimate.candidates for estimate in estimates),
+        calls=sum(estimate.calls for estimate in estimates),
+        total_tokens=sum(estimate.total_tokens for estimate in estimates),
+        estimated_usd=None if any(value is None for value in usd) else sum(usd),
+    )
+
+
+def _diagnosis_reserve(spend: ReviewSpend, count: int) -> SpendEstimate:
+    """What ``count`` diagnosis calls need at least: a call each plus its output limit."""
+
+    return spend.estimate(
+        DIAGNOSIS_ROUTE, calls=count, input_tokens=0, output_tokens=count * spend.output_limit(DIAGNOSIS_ROUTE)
+    )
+
+
+def _command_retrieval_guard(spend: ReviewSpend, repository: Repository) -> Callable[[str, int], Any]:
+    """Admit each retrieval embedding request on the command's budget (review F12).
+
+    Retrieval is optional (S6) and the diagnoses are the command's work: a
+    request is admitted only while every queued diagnosis still fits the caps
+    after it (a call and its output limit each). A refusal raises
+    ``SpendLimitExceeded`` inside the retriever, which falls back to the
+    exact set; nothing is sent.
+    """
+
+    @contextmanager
+    def guard(purpose: str, tokens: int) -> Iterator[Any]:
+        queued = len(repository.post_attempt_jobs(kind=DIAGNOSE_KIND, states=("queued", "leased")))
+        request = spend.estimate(RETRIEVAL_ROUTE, calls=1, input_tokens=tokens, output_tokens=0)
+        spend.check(_sum_estimates(request, _diagnosis_reserve(spend, max(queued, 1))))
+        with spend.request(RETRIEVAL_ROUTE, purpose, input_tokens=tokens, output_tokens=0) as call:
+            yield call
+
+    return guard
+
+
+def _hybrid_retriever(
+    vault: LoadedVault,
+    repository: Repository,
+    embedding_factory: ClientFactory | None,
+    *,
+    spend: ReviewSpend | None = None,
+) -> Any | None:
     """The live kNN retriever (S1.4b hybrid index, S1.4a registry shortlist),
     or None (then hybrid degrades to exact and the registry block is the
-    exact set, S6)."""
+    exact set, S6).
+
+    With a command budget (``spend``) every embedding request is admitted
+    and charged there (review F12); without one, a per-job
+    :data:`RETRIEVAL_CAPS` budget admits them.
+    """
 
     if embedding_factory is None:
         return None
@@ -448,16 +534,21 @@ def _hybrid_retriever(vault: LoadedVault, repository: Repository, embedding_fact
         return None
     if client is None:
         return None
+    from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
+
+    if spend is not None:
+        register_retrieval_route(spend, client)
+        return EmbeddingHistoryRetriever(
+            client=client, sqlite_path=repository.sqlite_path, guard=_command_retrieval_guard(spend, repository)
+        )
+
     from learnloop.ai.spend import SpendBudget
     from learnloop.diagnosis.split.embeddings import PRICES_PER_MILLION
-    from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
 
     budget = SpendBudget(RETRIEVAL_CAPS)
     price = PRICES_PER_MILLION.get(getattr(client, "model_id", ""))
 
     def guard(_purpose: str, tokens: int):
-        from learnloop.ai.spend import SpendEstimate
-
         return budget.request(
             SpendEstimate(
                 calls=1,
@@ -625,11 +716,18 @@ def _diagnose(
         return repository.attempt_diagnosis(row_id)
     rubric = resolved_rubric(vault, item)
     store = live_history_store(vault, repository)
+    job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled)
+    # Billed as the client actually built (a provider override included).
+    job_spend.register(DIAGNOSIS_ROUTE, client)
+    job_spend.collector.sink = lambda action, event: repository.record_model_event(
+        action, event, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=attempt_id
+    )
     # One embedding retriever per diagnosis: the hybrid attempt index (S1.4b,
     # hybrid mode only) and the whole-vault registry shortlist (S1.4a, every
-    # mode once embeddings are on).
+    # mode once embeddings are on). A command's retrieval is admitted and
+    # charged on the command's budget (review F12).
     embedder = (
-        _hybrid_retriever(vault, repository, embedding_factory)
+        _hybrid_retriever(vault, repository, embedding_factory, spend=spend)
         if settings.history_mode == "hybrid" or vault.config.embedding.enabled
         else None
     )
@@ -643,7 +741,9 @@ def _diagnose(
         try:
             # Centre over every prior failure of this model (embed-on-demand for
             # any the embed jobs have not reached yet); failures degrade (S6).
-            retriever.prepare([a for a in store.attempts_before(current.ref(), None) if a.non_pass])
+            # Observed like the diagnosis: metered and receipted.
+            with job_spend.collector.observing():
+                retriever.prepare([a for a in store.attempts_before(current.ref(), None) if a.non_pass])
         except Exception:  # noqa: BLE001 - S6
             retriever = None
     agent_run_id = repository.insert_agent_run(
@@ -659,12 +759,6 @@ def _diagnose(
             "started_at": utc_now_iso(clock),
             "status": "running",
         }
-    )
-    job_spend = spend if spend is not None else ReviewSpend(LIVE_DIAGNOSIS_CAPS, cancelled=cancelled)
-    # Billed as the client actually built (a provider override included).
-    job_spend.register(DIAGNOSIS_ROUTE, client)
-    job_spend.collector.sink = lambda action, event: repository.record_model_event(
-        action, event, owner_kind=MODEL_CALL_OWNER_KIND, owner_id=attempt_id
     )
     admitted = {"requests": 0}
 
@@ -985,16 +1079,19 @@ def command_spend(
     price_per_million: float | None = None,
     cancelled: Cancelled | None = None,
 ) -> ReviewSpend:
-    """A command's shared budget; the diagnosis route is classified from config.
+    """A command's shared budget; its routes are classified from config.
 
-    The run re-registers the route with the client it actually builds, so a
-    provider override is billed as what it is.
+    The diagnosis route always; the retrieval embedding route when
+    ``embedding.enabled`` (review F12: retrieval is admitted and charged on
+    the same budget). A run re-registers each route with the client it
+    actually builds, so a provider override is billed as what it is.
     """
 
     from learnloop.diagnosis.offline_review.runner import route_profiles
 
     spend = ReviewSpend(caps, cancelled=cancelled, price_per_million=price_per_million)
-    profile = route_profiles(vault)[DIAGNOSIS_ROUTE]
+    profiles = route_profiles(vault)
+    profile = profiles[DIAGNOSIS_ROUTE]
     spend.register_profile(
         DIAGNOSIS_ROUTE,
         provider=profile["provider"],
@@ -1002,12 +1099,18 @@ def command_spend(
         subscription=bool(profile["subscription"]),
         max_tokens=profile["max_tokens"],
     )
+    if profiles[RETRIEVAL_ROUTE]["enabled"]:
+        register_retrieval_route(spend, vault=vault)
     return spend
 
 
-def _estimated_prompt_tokens(
-    vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any], *, store: Any
-) -> int | None:
+def _plan_current(vault: LoadedVault, repository: Repository, attempt: Mapping[str, Any]) -> Any | None:
+    record_row = repository.latest_blind_grade_record(str(attempt["id"]))
+    record = dict(record_row.get("record") or {}) if record_row is not None else joint_grade_record(vault, repository, attempt)
+    return current_attempt_for(vault, attempt, record)
+
+
+def _estimated_prompt_tokens(vault: LoadedVault, current: Any, *, store: Any) -> int:
     """The diagnosis prompt's token estimate, assembled offline (no call).
 
     ``hybrid`` is estimated without its kNN additions (a dry run makes no
@@ -1017,13 +1120,63 @@ def _estimated_prompt_tokens(
     from learnloop.diagnosis.split.context import assemble_diagnosis_context
     from learnloop.diagnosis.split.contract import diagnosis_prompt
 
-    record_row = repository.latest_blind_grade_record(str(attempt["id"]))
-    record = dict(record_row.get("record") or {}) if record_row is not None else joint_grade_record(vault, repository, attempt)
-    current = current_attempt_for(vault, attempt, record)
-    if current is None:
-        return None
     assembled = assemble_diagnosis_context(vault, store, current, settings_from_config(vault))
     return (len(diagnosis_prompt(assembled).encode("utf-8")) + 3) // 4
+
+
+def _estimated_retrieval(
+    vault: LoadedVault, repository: Repository, current: Any, *, store: Any, seen: set[tuple[str, str, str]]
+) -> tuple[int, int]:
+    """One diagnosis's retrieval embedding requests and input tokens (an upper bound)."""
+
+    if not vault.config.embedding.enabled or not vault.config.embedding.model:
+        return 0, 0
+    from learnloop.diagnosis.split.retrieval import planned_retrieval_requests
+
+    before = current.ref()
+    hybrid = settings_from_config(vault).history_mode == "hybrid"
+    return planned_retrieval_requests(
+        repository.sqlite_path,
+        str(vault.config.embedding.model),
+        current,
+        registry=list(store.registry_before(before, None)),
+        failures=list(store.attempts_before(before, None)) if hybrid else (),
+        seen=seen,
+    )
+
+
+def _retrieval_plan(
+    spend: ReviewSpend, diagnosis_estimate: SpendEstimate, *, calls: int, input_tokens: int
+) -> dict[str, Any] | None:
+    """The retrieval half of a plan: its estimate and whether it fits beside the diagnoses."""
+
+    info = spend.routes.get(RETRIEVAL_ROUTE)
+    if info is None:
+        return None
+    estimate = spend.estimate(RETRIEVAL_ROUTE, calls=calls, input_tokens=input_tokens, output_tokens=0)
+    try:
+        spend.check(_sum_estimates(diagnosis_estimate, estimate))
+        fits, reason = True, None
+    except SpendLimitExceeded as exc:
+        fits, reason = False, str(exc)
+    return {
+        "calls": calls,
+        "estimated_input_tokens": input_tokens,
+        "estimate": {
+            "calls": estimate.calls,
+            "metered_total_tokens": estimate.total_tokens,
+            "estimated_usd": estimate.estimated_usd,
+        },
+        "route": info.as_dict(),
+        "fits": fits,
+        "reason": reason,
+    }
+
+
+_RETRIEVAL_NOTE = (
+    "retrieval embeddings are admitted on these caps one request at a time, only while every queued "
+    "diagnosis still fits after them; a refused request sends nothing and that diagnosis uses the exact set (S6)"
+)
 
 
 def plan_diagnosis_jobs(
@@ -1060,6 +1213,9 @@ def plan_diagnosis_jobs(
     used_today = repository.diagnosis_calls_since(_day_start(clock))
     calls = 0
     input_tokens = 0
+    retrieval_calls = 0
+    retrieval_tokens = 0
+    embedded: set[tuple[str, str, str]] = set()
     for job in [] if blocked else open_jobs:
         if len(planned) >= max_jobs:
             break
@@ -1092,14 +1248,20 @@ def plan_diagnosis_jobs(
             entry["action"] = "skip:budget"
             entry["max_calls_per_day"] = limit
         else:
-            tokens = _estimated_prompt_tokens(vault, repository, attempt, store=store)
-            if tokens is None:
+            current = _plan_current(vault, repository, attempt)
+            if current is None:
                 entry["action"] = "fail:item_missing"
             else:
+                tokens = _estimated_prompt_tokens(vault, current, store=store)
                 entry["action"] = "diagnose"
                 entry["estimated_input_tokens"] = tokens
                 calls += 1
                 input_tokens += tokens
+                requests, embed_tokens = _estimated_retrieval(vault, repository, current, store=store, seen=embedded)
+                if requests:
+                    entry["retrieval_requests"] = requests
+                retrieval_calls += requests
+                retrieval_tokens += embed_tokens
         planned.append(entry)
     output_tokens = calls * spend.output_limit(DIAGNOSIS_ROUTE)
     estimate = spend.estimate(DIAGNOSIS_ROUTE, calls=calls, input_tokens=input_tokens, output_tokens=output_tokens)
@@ -1109,6 +1271,7 @@ def plan_diagnosis_jobs(
     except SpendLimitExceeded as exc:
         admissible, reason = False, str(exc)
     info = spend.routes[DIAGNOSIS_ROUTE]
+    retrieval = _retrieval_plan(spend, estimate, calls=retrieval_calls, input_tokens=retrieval_tokens)
     return {
         "jobs": planned,
         "blocked": blocked,
@@ -1124,12 +1287,14 @@ def plan_diagnosis_jobs(
         "daily_cap": {"max_calls_per_day": limit, "admitted_today": used_today},
         "admissible": admissible,
         "reason": reason,
+        "retrieval": retrieval,
         "notes": (
             ["subscription route: one logical call each counts against max_calls; tokens and dollars are estimated from usage, not capped"]
             if info.billing == "subscription"
             else ["metered route: every physical request (retries, JSON repairs) is admitted against the caps before it is sent"]
         )
-        + (["hybrid history mode is estimated without its kNN additions"] if settings_from_config(vault).history_mode == "hybrid" else []),
+        + (["hybrid history mode is estimated without its kNN additions"] if settings_from_config(vault).history_mode == "hybrid" else [])
+        + ([_RETRIEVAL_NOTE] if retrieval is not None else []),
     }
 
 
@@ -1139,10 +1304,11 @@ def plan_unqueued_diagnosis(
     """The one diagnosis call ``retry`` would queue for an attempt not in the queue."""
 
     attempt = repository.fetch_practice_attempt(attempt_id)
-    tokens = (
-        _estimated_prompt_tokens(vault, repository, attempt, store=live_history_store(vault, repository))
-        if attempt is not None
-        else None
+    store = live_history_store(vault, repository)
+    current = _plan_current(vault, repository, attempt) if attempt is not None else None
+    tokens = _estimated_prompt_tokens(vault, current, store=store) if current is not None else None
+    requests, embed_tokens = (
+        _estimated_retrieval(vault, repository, current, store=store, seen=set()) if current is not None else (0, 0)
     )
     output_tokens = spend.output_limit(DIAGNOSIS_ROUTE)
     estimate = spend.estimate(DIAGNOSIS_ROUTE, calls=1, input_tokens=tokens or 0, output_tokens=output_tokens)
@@ -1151,6 +1317,7 @@ def plan_unqueued_diagnosis(
         admissible, reason = True, None
     except SpendLimitExceeded as exc:
         admissible, reason = False, str(exc)
+    retrieval = _retrieval_plan(spend, estimate, calls=requests, input_tokens=embed_tokens)
     return {
         "jobs": [{"attempt_id": attempt_id, "action": "diagnose", "estimated_input_tokens": tokens}],
         "blocked": None,
@@ -1165,6 +1332,8 @@ def plan_unqueued_diagnosis(
         "route": spend.routes[DIAGNOSIS_ROUTE].as_dict(),
         "admissible": admissible,
         "reason": reason,
+        "retrieval": retrieval,
+        "notes": [_RETRIEVAL_NOTE] if retrieval is not None else [],
     }
 
 

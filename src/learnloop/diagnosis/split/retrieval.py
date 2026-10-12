@@ -296,6 +296,94 @@ class EmbeddingHistoryRetriever:
         )
 
 
+
+def planned_retrieval_requests(
+    sqlite_path: Path,
+    model_id: str,
+    current: CurrentAttempt,
+    *,
+    registry: Sequence[RegistryRecord] = (),
+    failures: Sequence[HistoryAttempt] = (),
+    seen: set[tuple[str, str, str]] | None = None,
+    batch_size: int = 32,
+) -> tuple[int, int]:
+    """Upper bound on one diagnosis's embedding requests: (requests, input tokens).
+
+    Mirrors :class:`EmbeddingHistoryRetriever` without calling it (a dry
+    run): the registry shortlist embeds every visible record still missing a
+    vector, in batches, then one query; the hybrid index embeds every prior
+    failure still missing one, then one query. ``seen`` carries what earlier
+    planned diagnoses of the same command will already have embedded.
+    """
+
+    from learnloop.diagnosis.split.embeddings import (
+        MISCONCEPTION_FIELD,
+        MISCONCEPTION_KIND,
+        TASK_PREFIX,
+        misconception_record,
+    )
+
+    seen = seen if seen is not None else set()
+    requests = 0
+    tokens = 0
+    query_tokens = estimated_embedding_tokens(current_divergence_text(current))
+
+    def batches(texts: list[str]) -> None:
+        nonlocal requests, tokens
+        requests += -(-len(texts) // batch_size)
+        tokens += sum(estimated_embedding_tokens(text) for text in texts)
+
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        expected = 0
+        pending: list[str] = []
+        for record in registry:
+            embedded = misconception_record(registry_key(record), record.statement)
+            if embedded is None:
+                continue
+            expected += 1
+            key = (MISCONCEPTION_KIND, embedded.record_id, embedded.content_hash)
+            if key in seen:
+                continue
+            if get_vector(
+                connection,
+                record_kind=MISCONCEPTION_KIND,
+                record_id=embedded.record_id,
+                field=MISCONCEPTION_FIELD,
+                content_hash=embedded.content_hash,
+                model_id=model_id,
+                task_prefix=TASK_PREFIX,
+            ) is None:
+                seen.add(key)
+                pending.append(embedded.text)
+        if expected:
+            batches(pending)
+            requests += 1
+            tokens += query_tokens
+        pending = []
+        prior = [attempt for attempt in failures if attempt.non_pass]
+        for attempt in prior:
+            text = attempt_divergence_text(attempt)
+            digest = content_hash(text)
+            key = (RECORD_KIND, attempt.attempt_id, digest)
+            if key in seen:
+                continue
+            if get_vector(
+                connection,
+                record_kind=RECORD_KIND,
+                record_id=attempt.attempt_id,
+                field=FIELD,
+                content_hash=digest,
+                model_id=model_id,
+                task_prefix=DOCUMENT_PREFIX,
+            ) is None:
+                seen.add(key)
+                pending.append(text)
+        if prior:
+            batches(pending)
+            requests += 1
+            tokens += query_tokens
+    return requests, tokens
+
 __all__ = [
     "DOCUMENT_PREFIX",
     "EmbeddingHistoryRetriever",
@@ -308,4 +396,5 @@ __all__ = [
     "current_divergence_text",
     "divergence_text",
     "estimated_embedding_tokens",
+    "planned_retrieval_requests",
 ]

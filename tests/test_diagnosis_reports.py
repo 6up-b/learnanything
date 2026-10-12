@@ -189,6 +189,101 @@ def test_cli_drain_and_retry_plan_and_estimate_before_spending(tmp_path, monkeyp
     assert json.loads(ran.output)["spend"]["charged"]["calls"] == 2
 
 
+def _retrieval_vault(tmp_path, monkeypatch):
+    """A split vault with S1.4a on, one registry belief to rank, and the fake
+    diagnoser (subscription) and embedder (metered) on the command's routes."""
+
+    import learnloop.diagnosis.split.jobs as jobs_module
+    from learnloop.vault.loader import load_vault
+
+    from tests.diagnosis_fakes import FakeEmbeddingClient
+    from tests.split_live_helpers import enable_embeddings
+
+    paths, _vault, repository = split_vault(tmp_path)
+    enable_embeddings(paths.root)
+    toml = paths.root / "learnloop.toml"
+    toml.write_text(toml.read_text(encoding="utf-8").replace("dimensions = 4096", "dimensions = 16"), encoding="utf-8")
+    vault = load_vault(paths.root)
+    repository.insert_misconception(
+        learning_object_id="lo_unrelated",
+        statement="The learner applies the rule in the wrong order.",
+        concept_id="unrelated_topic",
+        severity=0.5,
+        source_error_event_ids=[repository.raw_error_events_for_attempt("att_02_svd_fail")[0]["id"]],
+        clock=FrozenClock(at(9)),
+    )
+    client, embedder = ReviewFakeClient(), FakeEmbeddingClient()
+    _fake_route(monkeypatch, client)
+    monkeypatch.setattr(jobs_module, "default_embedding_client", lambda _vault: embedder)
+    return paths, vault, repository, client, embedder
+
+
+def _registry_method(repository, attempt_id):
+    diagnosis = repository.latest_attempt_diagnosis(attempt_id)
+    return repository.diagnosis_context_receipt(diagnosis["id"])["retrieval"]["registry_retrieval"]["method"]
+
+
+def test_retrieval_embeddings_are_admitted_and_charged_on_the_command_budget(tmp_path, monkeypatch):
+    """Review F12: a drain's registry retrieval embeds on the command's own
+    budget. With no metered allowance the subscription diagnosis still runs
+    and retrieval falls back to the exact set without a single embedding
+    request; with one, the dry run estimates retrieval and the run charges it."""
+
+    paths, vault, repository, client, embedder = _retrieval_vault(tmp_path, monkeypatch)
+    first = submit(vault, repository, ReviewFakeClient(), when=at(20))
+    runner = CliRunner()
+    root = str(paths.root)
+
+    zero = runner.invoke(
+        app,
+        ["diagnose", "drain", "--vault", root, "--kind", "diagnose", "--max-tokens", "0", "--max-cost-usd", "0", "--json"],
+    )
+
+    assert zero.exit_code == 0, zero.output
+    payload = json.loads(zero.output)
+    assert [job["status"] for job in payload["jobs"]] == ["completed"]
+    assert embedder.calls == 0
+    assert _registry_method(repository, first.attempt_id) == "exact_fallback"
+    charged = payload["spend"]["charged"]
+    assert (charged["calls"], charged["metered_total_tokens"], charged["metered_estimated_usd"]) == (1, 0, 0.0)
+
+    second = submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(22))
+    dry = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--kind", "diagnose", "--dry-run", "--json"])
+    assert dry.exit_code == 0, dry.output
+    retrieval = json.loads(dry.output)["diagnose"]["retrieval"]
+    assert retrieval["calls"] >= 1 and retrieval["estimated_input_tokens"] > 0
+    assert retrieval["route"]["billing"] == "metered" and retrieval["fits"] is True
+    assert embedder.calls == 0
+
+    ran = runner.invoke(app, ["diagnose", "drain", "--vault", root, "--kind", "diagnose", "--json"])
+
+    assert ran.exit_code == 0, ran.output
+    spend = json.loads(ran.output)["spend"]
+    assert _registry_method(repository, second.attempt_id) == "knn"
+    assert embedder.calls >= 1
+    assert spend["routes"]["embedding"]["calls"] == embedder.calls
+    assert spend["charged"]["calls"] == 1 + embedder.calls
+    assert spend["charged"]["metered_total_tokens"] > 0 and spend["charged"]["metered_estimated_usd"] > 0
+    assert embedder.calls <= retrieval["calls"]
+
+
+def test_retrieval_never_takes_the_call_a_queued_diagnosis_needs(tmp_path, monkeypatch):
+    """Review F12: an embedding request is admitted only while every queued
+    diagnosis still fits the command's caps after it."""
+
+    paths, vault, repository, client, embedder = _retrieval_vault(tmp_path, monkeypatch)
+    submit(vault, repository, ReviewFakeClient(), when=at(20))
+    submit(vault, repository, ReviewFakeClient(), item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(21))
+
+    ran = CliRunner().invoke(
+        app, ["diagnose", "drain", "--vault", str(paths.root), "--kind", "diagnose", "--max-calls", "2", "--json"]
+    )
+
+    assert ran.exit_code == 0, ran.output
+    assert [job["status"] for job in json.loads(ran.output)["jobs"]] == ["completed", "completed"]
+    assert embedder.calls == 0
+
+
 def test_ctrl_c_stops_the_drain_before_the_next_paid_job(tmp_path, monkeypatch):
     """Review F7: SIGINT during a drain stops it before the next job starts."""
 
