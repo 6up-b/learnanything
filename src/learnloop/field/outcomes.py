@@ -326,10 +326,11 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
         }.values())
         # PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
         # unverified (the final answer verifies; the grader marked it down
-        # without locating an error) is not a measurement until it is reviewed.
-        # The projection banks no negative mass for it; here it is unassessed,
-        # like a criterion the grader never scored, so its shortfall is never a
-        # failure outcome and its kept points are not credited either.
+        # without locating an error) is not a measurement. Owner decision
+        # 2026-10-12: it is unassessed everywhere - here, in the attempt's
+        # grade and in the projection - like a criterion the grader never
+        # scored, so its shortfall is never a failure outcome and its kept
+        # points are not credited either.
         unverified = {r["criterion_id"] for r in evidence if _unverified(r)}
         if unverified:
             unverified_attempts.add(attempt["id"])
@@ -613,8 +614,10 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
     compared = mismatched = 0
     unverified_attempts = load_diagnostics["unverified_criterion_attempts"]
     for row in facets:
-        # The live debug outcome scores a PF-c unverified criterion; the field
-        # leaves it unassessed (above), so the two are not comparable there.
+        # PF-c attempts stay outside this comparison, as they were in M2, so
+        # the validation counts keep their meaning. (Since the 2026-10-12
+        # decision the live debug outcome leaves an unverified criterion
+        # unassessed too, so the two now agree there.)
         if row.attempt_id in unverified_attempts:
             continue
         recorded = debug_by_attempt.get(row.attempt_id, {}).get(row.facet_id)
@@ -672,7 +675,8 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
             "legacy-unverified and unavailable_composed_offer numbers are unusable.",
             "Requested origin is unavailable: current immutable receipts have no machine-readable request marker.",
             "Current fitted item parameters and FSRS heads are not used: they would leak future outcomes.",
-            "PF-c unverified criteria are unassessed until reviewed (no failure outcome, no credit); "
-            "the memory arm's FSRS rating still reads the persisted grade, as the live scheduler does.",
+            "PF-c unverified criteria are unassessed (no failure outcome, no credit), as in the "
+            "projection and the persisted grade, which the memory arm's FSRS rating reads, as the "
+            "live scheduler does.",
         ],
     }

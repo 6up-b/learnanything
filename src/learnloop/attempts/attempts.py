@@ -391,8 +391,11 @@ class ApplyAttemptInput:
     # grade channel stamps; None keeps the joint grader's (§4.3).
     grader_identity: tuple[str, str] | None = None
     # PF-c: criteria the valid-alternative gate recorded as unverified. Their
-    # evidence rows are stamped with a negative-evidence block (never the
-    # projection's single-target fallback), with or without an attribution.
+    # evidence rows are stamped with the unverified block, with or without an
+    # attribution. Owner decision 2026-10-12: they are UNASSESSED - the grade
+    # already excludes them (``assessed_rubric_score``) and the shared step
+    # gives them no facet mass and no outcome. Replay reads them back from the
+    # stamped rows, so live, regrade and replay apply one rule.
     unverified_criterion_ids: tuple[str, ...] = ()
 
 
@@ -989,6 +992,18 @@ def complete_codex_graded_attempt(
         # (§8). Persisting the traces here as repair suggestions would offer
         # a repair the diagnoser never chose.
         validated = replace(validated, repair_suggestions=[])
+    unverified = tuple(dict.fromkeys(str(value) for value in unverified_criterion_ids))
+    if unverified:
+        # PF-c: the attempt's grade is over the assessed criteria only.
+        validated = replace(
+            validated,
+            rubric_score=assessed_rubric_score(
+                rubric,
+                {row.criterion_id: row.points_awarded for row in validated.criterion_evidence},
+                validated.fatal_errors,
+                unassessed_criterion_ids=unverified,
+            ),
+        )
     manual_review_reason = manual_review_override or validated.manual_review_reason
     result = apply_attempt(
         vault,
@@ -1006,7 +1021,7 @@ def complete_codex_graded_attempt(
             grading_agent_run_id=agent_run_id,
             grader_mode=grader_mode,
             grader_identity=grader_identity,
-            unverified_criterion_ids=tuple(str(value) for value in unverified_criterion_ids),
+            unverified_criterion_ids=unverified,
         ),
         clock=clock,
     )
@@ -1047,6 +1062,14 @@ def replay_existing_attempt(
 
     evidence = repository.fetch_grading_evidence(attempt["id"])
     criterion_points = {row.criterion_id: row.points_awarded for row in evidence}
+    # PF-c: the live grade's unverified criteria, read back from the block its
+    # evidence rows carry (never from config), so replay leaves them
+    # unassessed exactly as the live grade did. Joint rows never carry it.
+    from learnloop.substrate.canonical_projection import unassessed_evidence_row
+
+    unverified = tuple(
+        row.criterion_id for row in evidence if unassessed_evidence_row(row.attribution_json)
+    )
     draft = AttemptDraft(
         practice_item_id=attempt["practice_item_id"],
         learner_answer_md=attempt.get("learner_answer_md") or "",
@@ -1121,6 +1144,7 @@ def replay_existing_attempt(
                 if grader_identity is _REPLAY_IDENTITY_FROM_LEDGER
                 else grader_identity
             ),
+            unverified_criterion_ids=unverified,
         ),
         clock=clock,
     )
@@ -1700,6 +1724,14 @@ def _dual_write_grade_channel(
         criterion_max = (
             {c.id: c.points for c in rubric.criteria} if rubric is not None else None
         )
+        criterion_points = grade.criterion_points
+        if attempt.unverified_criterion_ids:
+            # PF-c: an unassessed criterion has no observed class (it reads
+            # ``unassessable``), as it has no outcome anywhere else.
+            unassessed = set(attempt.unverified_criterion_ids)
+            criterion_points = {
+                cid: points for cid, points in criterion_points.items() if cid not in unassessed
+            }
         from learnloop.attempts.grade_resolution import record_grade_dual_write
 
         record_grade_dual_write(
@@ -1715,7 +1747,7 @@ def _dual_write_grade_channel(
             grader_confidence=grade.grader_confidence,
             has_fatal=bool(grade.fatal_errors),
             signature_matched=_signature_matched(attempt),
-            criterion_points=grade.criterion_points,
+            criterion_points=criterion_points,
             criterion_max=criterion_max,
             agent_run_id=attempt.grading_agent_run_id,
             domain=application.result.learning_object_id,
@@ -2192,6 +2224,7 @@ def compute_attempt_application(
         agent_run_id=attempt.grading_agent_run_id or attempt.fallback_agent_run_id,
         fallback_reason=attempt.fallback_reason,
         grader_identity=attempt.grader_identity,
+        unassessed_criterion_ids=attempt.unverified_criterion_ids,
     )
 
 
@@ -2780,6 +2813,7 @@ def _compute_resolved_grade_application(
     agent_run_id: str | None = None,
     fallback_reason: str | None = None,
     grader_identity: tuple[str, str] | None = None,
+    unassessed_criterion_ids: Iterable[str] = (),
 ) -> AttemptApplication:
     item, learning_object, rubric, draft = _resolve_attempt_target(
         vault, repository, draft, replay=replay, clock=clock
@@ -2789,6 +2823,24 @@ def _compute_resolved_grade_application(
     correctness = grade.rubric_score / max(rubric.max_points, 1)
     subjects = vault.subjects_for_item(item)
     subject = subjects[0] if subjects else None
+    # PF-c (owner decision 2026-10-12): a criterion the valid-alternative gate
+    # recorded unverified is UNASSESSED - neither credit nor failure. The grade
+    # already excludes it (``assessed_rubric_score``); here it leaves the
+    # criterion vector, so it certifies no facet mass and has no facet outcome
+    # (as an ungraded teach-back criterion). With NO criterion assessed the
+    # verified answer still schedules as correct, but the attempt is no
+    # evidence at all: no facet mass and no learning-object mastery update.
+    # Empty for every joint, self and deterministic grade (bit-for-bit).
+    rubric_ids = {criterion.id for criterion in rubric.criteria}
+    unassessed = frozenset(str(value) for value in unassessed_criterion_ids) & rubric_ids
+    criterion_points = grade.criterion_points
+    if unassessed:
+        criterion_points = {
+            cid: points for cid, points in grade.criterion_points.items() if cid not in unassessed
+        }
+    # No assessed criterion left in the vector (the learner field's test too):
+    # never the legacy "no criterion information" reading of an empty vector.
+    nothing_assessed = bool(unassessed) and not criterion_points
     coverage = resolve_coverage(
         item,
         rubric,
@@ -2807,8 +2859,17 @@ def _compute_resolved_grade_application(
             coverage,
             item,
             rubric,
-            criterion_points=grade.criterion_points,
+            criterion_points=criterion_points,
             transfer_evidence_multiplier=vault.config.teach_back.transfer_evidence_multiplier,
+        )
+    if nothing_assessed:
+        # An empty criterion vector reads as "no criterion information" above
+        # (legacy full mass); here it means no criterion was assessed.
+        coverage = replace(
+            coverage,
+            effective_coverage=0.0,
+            covered_facets={},
+            trace={**coverage.trace, "covered_facets": {}, "effective_coverage": 0.0},
         )
     if prior_state is None:
         prior_state = load_attempt_prior_state(
@@ -2828,7 +2889,7 @@ def _compute_resolved_grade_application(
     ) = enforce_passed_target_firewall(
         item,
         rubric,
-        criterion_points=grade.criterion_points,
+        criterion_points=criterion_points,
         error_attributions=grade_attributions,
         repair_suggestions=grade.repair_suggestions,
         vault=vault,
@@ -2858,7 +2919,7 @@ def _compute_resolved_grade_application(
     facet_outcomes = derive_facet_outcomes(
         item,
         rubric,
-        criterion_points=grade.criterion_points,
+        criterion_points=criterion_points,
         covered_facets=coverage.covered_facets,
         correctness=correctness,
         attempt_type=draft.attempt_type,
@@ -3008,26 +3069,35 @@ def _compute_resolved_grade_application(
     )
     # IRT (a, b) resolved once from static authored/LLM fields and shared by the
     # mastery EKF and the probability-space surprise (spec §4.3 / §8).
-    posterior_mastery, mastery_trace = update_mastery_traced(
-        prior_mastery,
-        mastery_observation,
-        vault.config.mastery,
-        vault.config.algorithms.algorithm_version,
-        item_a=item_a,
-        item_b=item_b,
-        item_id=item.id,
-    )
-    posterior_mastery, mastery_variance_floor = apply_mastery_variance_floor(
-        posterior_mastery,
-        vault.config,
-        covered_fraction=breadth_fraction,
-    )
+    mastery_trace: MasteryObservationTrace | None
+    mastery_variance_floor: float | None
+    if nothing_assessed:
+        # PF-c: no criterion was assessed, so the learning object's belief
+        # takes no evidence from this attempt (the projection and the learner
+        # field record none either). Scheduling still reads the grade.
+        posterior_mastery, mastery_trace, mastery_variance_floor = prior_mastery, None, None
+    else:
+        posterior_mastery, mastery_trace = update_mastery_traced(
+            prior_mastery,
+            mastery_observation,
+            vault.config.mastery,
+            vault.config.algorithms.algorithm_version,
+            item_a=item_a,
+            item_b=item_b,
+            item_id=item.id,
+        )
+        posterior_mastery, mastery_variance_floor = apply_mastery_variance_floor(
+            posterior_mastery,
+            vault.config,
+            covered_fraction=breadth_fraction,
+        )
     # Empirical-Bayes per-item difficulty: alternating conditional update on b
     # using the learner's fresh posterior mean (dark unless eb_difficulty_enabled).
     next_item_parameters: ItemParameterState | None = None
     # Primed outcomes are conditioned on the source being fresh in working
-    # memory — they must not move the fitted *cold* difficulty.
-    if vault.config.mastery.irt.eb_difficulty_enabled and not draft.primed:
+    # memory — they must not move the fitted *cold* difficulty. An attempt
+    # with nothing assessed (PF-c) observed nothing about it either.
+    if vault.config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
         _authored_a, authored_b = item_irt_params(item, learning_object, vault.config.mastery)
         next_item_parameters = update_item_difficulty(
             prior_state.item_parameter_state,
@@ -3164,6 +3234,13 @@ def _compute_resolved_grade_application(
     facet_evidence_rows: Iterable[Any] = grade.evidence_rows
     if not grade.evidence_rows:
         facet_evidence_rows = repository.fetch_grading_evidence(attempt_id)
+    if unassessed:
+        facet_evidence_rows = [
+            row
+            for row in facet_evidence_rows
+            if (row.get("criterion_id") if isinstance(row, Mapping) else getattr(row, "criterion_id", None))
+            not in unassessed
+        ]
     facet_uncertainty_updates, facet_uncertainty_trace = build_facet_uncertainty_updates(
         vault,
         item=item,
@@ -3238,6 +3315,8 @@ def _compute_resolved_grade_application(
         "observation_weight": error_impact.observation_weight,
         "covered_facets": coverage.covered_facets,
         "facet_outcomes": facet_outcomes,
+        # PF-c: present only when the grade left criteria unassessed.
+        **({"unassessed_criteria": sorted(unassessed)} if unassessed else {}),
         "causal_attribution": {
             # A blind grade names its own grader (its calibration identity),
             # never the joint prompt it did not run.
@@ -3789,6 +3868,49 @@ def calculate_rubric_score(
 ) -> int:
     score = int(round(sum(criterion_points.values())))
     score = max(0, min(int(rubric.max_points), score))
+    fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
+    for fatal_error_id in fatal_errors:
+        score = min(score, fatal_by_id[fatal_error_id].max_grade)
+    return max(0, min(score, int(rubric.max_points)))
+
+
+def assessed_rubric_score(
+    rubric: Rubric,
+    criterion_points: Mapping[str, float],
+    fatal_errors: Iterable[str],
+    *,
+    unassessed_criterion_ids: Iterable[str],
+) -> int:
+    """The grade over the ASSESSED criteria only (PF-c, owner decision 2026-10-12).
+
+    A criterion the valid-alternative gate recorded unverified was never
+    exercised by the learner's route, so it is neither credit nor failure: it
+    leaves both the numerator and the denominator. The assessed fraction is
+    put back on the rubric's own ``0..max_points`` scale, because every reader
+    of ``rubric_score`` (correctness, the FSRS rating, the grade channel, the
+    feedback) reads it against ``rubric.max_points``; it is rounded like every
+    derived score, then the fatal-error caps apply as usual (the teach-back
+    asked-criteria score is the same construction). With NO criterion
+    assessed, the deterministic final-answer check has verified the answer, so
+    the fraction is 1: correct for scheduling (the attempt writes no facet
+    evidence; see ``_compute_resolved_grade_application``).
+
+    With nothing unassessed this is :func:`calculate_rubric_score` exactly.
+    """
+
+    unassessed = {str(value) for value in unassessed_criterion_ids}
+    assessed = [criterion for criterion in rubric.criteria if criterion.id not in unassessed]
+    if len(assessed) == len(rubric.criteria):
+        return calculate_rubric_score(rubric, dict(criterion_points), list(fatal_errors))
+    assessed_max = sum(max(float(criterion.points), 0.0) for criterion in assessed)
+    fraction = 1.0
+    if assessed_max > 0:
+        awarded = sum(
+            min(max(float(criterion_points.get(criterion.id, 0.0)), 0.0), float(criterion.points))
+            for criterion in assessed
+        )
+        fraction = min(1.0, awarded / assessed_max)
+    score = max(0, min(int(rubric.max_points), int(round(fraction * float(rubric.max_points)))))
     fatal_by_id = {fatal_error.id: fatal_error for fatal_error in rubric.fatal_errors}
     for fatal_error_id in fatal_errors:
         score = min(score, fatal_by_id[fatal_error_id].max_grade)

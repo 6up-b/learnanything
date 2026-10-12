@@ -416,8 +416,13 @@ Kill switch: `[diagnosis] split_enabled = false`.
    checkable, so on the owner's vaults 1 of 18 generated alternatives
    verified. Relax E1 to "final answer verified", or have the generator write
    arithmetic-only derivations?
-3. PF-c gate: criteria marked unverified keep their points (manual review
-   flag). Keep, or zero them until reviewed?
+3. ~~PF-c gate: criteria marked unverified keep their points (manual review
+   flag). Keep, or zero them until reviewed?~~ **Decided (owner,
+   2026-10-12): unassessed everywhere, inside `mvp-0.10`.** An unverified
+   criterion is neither credit nor failure: it leaves the score and so the
+   FSRS rating, writes no facet evidence, and the review flag is a
+   non-blocking log. Built on `fix/pfc-unverified-unassessed`
+   (`docs/reviews/pfc-unverified-unassessed.md`).
 4. The card summary is the diagnoser's `analysis_md`, written for the
    diagnosis (it says things like "withdrawn prior hypothesis"). Add a
    learner-facing summary field to `DiagnosisProposal` (prompt version bump)?

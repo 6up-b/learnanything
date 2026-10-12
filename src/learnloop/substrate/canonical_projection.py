@@ -63,9 +63,30 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 # PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
 # UNVERIFIED (the final answer verified against the reference, and no error
 # was located in the learner's words). Its ``attribution_json`` carries this
-# block reason: the failure is neither negative facet evidence nor an
-# observed unresolved failure, whatever the criterion's target count.
+# block reason. Owner decision 2026-10-12 (inside mvp-0.10): the route never
+# exercised that criterion's skill, so the criterion is UNASSESSED - like a
+# criterion nobody graded (projection v6), it produces no outcome at all:
+# neither positive nor negative facet evidence, and no unresolved failure.
 UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
+
+
+def unassessed_evidence_row(attribution: Any) -> bool:
+    """Whether a grading-evidence row is a PF-c unverified (unassessed) criterion.
+
+    ``attribution`` is the row's persisted ``attribution_json``: the JSON text
+    or its decoded mapping. Every reader that turns grading evidence into a
+    grade, a facet outcome or a display uses this one test.
+    """
+
+    if isinstance(attribution, (str, bytes)):
+        try:
+            attribution = json.loads(attribution)
+        except (TypeError, ValueError):
+            return False
+    return (
+        isinstance(attribution, Mapping)
+        and attribution.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
+    )
 
 # Assistance channels that certify nothing (§5.4/§6).
 #
@@ -699,7 +720,7 @@ def project_canonical_facet_state(
         outcomes: list[CriterionOutcome] = []
         for criterion in criteria:
             row = evidence_by_criterion.get(criterion.id)
-            if row is None:
+            if row is None or unassessed_evidence_row(row.get("attribution_json")):
                 # Projection v6: absent evidence is not an observation. A
                 # criterion nobody graded produces NO outcome — neither positive
                 # nor negative — rather than reading as fraction 0.0 and banking
@@ -709,6 +730,10 @@ def project_canonical_facet_state(
                 # from the outcome list as passed, so an ungraded parent neither
                 # manufactures its own failure nor suppresses its descendants'
                 # observed evidence.
+                # PF-c: an unverified criterion is unassessed in exactly this
+                # sense (owner decision 2026-10-12): its kept points earn no
+                # credit and its shortfall is no failure. Only mvp-0.10 blind
+                # grades write the block, so joint vaults fold as before.
                 continue
             fraction = 0.0
             if criterion.points > 0:
@@ -805,12 +830,7 @@ def project_canonical_facet_state(
             observed_fraction = (
                 adjudicated_fraction if adjudicated_fraction is not None else raw_fraction
             )
-            unverified_failure = (
-                isinstance(raw_attribution, Mapping)
-                and raw_attribution.get("negative_evidence_blocked")
-                == UNVERIFIED_CRITERION_BLOCK
-            )
-            unresolved_negative = not unverified_failure and observed_unresolved_failure(
+            unresolved_negative = observed_unresolved_failure(
                 observed_fraction, targets, attribution
             )
             if unresolved_negative:
@@ -881,7 +901,7 @@ def project_canonical_facet_state(
                     acc.raw_mass += alloc.pseudo_mass
                     acc.last_observed_at = created_at
 
-            if negative_fraction <= 0 or unresolved_negative or unverified_failure:
+            if negative_fraction <= 0 or unresolved_negative:
                 continue
             if (
                 not attribution

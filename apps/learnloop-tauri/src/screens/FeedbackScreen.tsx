@@ -25,6 +25,7 @@ import type {
   ScheduledItemDto,
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
+import { NOT_ASSESSED_LABEL, UNVERIFIED_ROUTE_REVIEW_REASON, criterionAssessed } from "../api/dto";
 import { EntityLink, KeyBar, Pill } from "../components/ui";
 import { CardControls, ProbeRemintAction } from "../components/CardControls";
 import { modePillColor } from "../components/term";
@@ -412,10 +413,13 @@ function ScoreBlock({ f }: { f: FeedbackBundle }) {
 // `showTier` lights up when the rubric actually distinguishes core/transfer
 // tiers (teach-back items) — plain rubrics stay visually unchanged.
 function CriterionRow({ row, showTier = false }: { row: CriterionEvidenceRowDto; showTier?: boolean }) {
+  // PF-c: a criterion the learner's verified route never exercised is not
+  // assessed — neutral, with no points, and outside the grade above.
+  const assessed = criterionAssessed(row);
   const ok = row.pointsAwarded === row.pointsPossible;
   const partial = row.pointsAwarded > 0 && row.pointsAwarded < row.pointsPossible;
-  const mark = ok ? "✓" : partial ? "◐" : "✗";
-  const tone = ok ? C.green : partial ? C.amber : C.red;
+  const mark = !assessed ? "–" : ok ? "✓" : partial ? "◐" : "✗";
+  const tone = !assessed ? C.textDim : ok ? C.green : partial ? C.amber : C.red;
   return (
     <div style={{
       display: "grid", gridTemplateColumns: "24px 1fr 64px",
@@ -430,6 +434,9 @@ function CriterionRow({ row, showTier = false }: { row: CriterionEvidenceRowDto;
           {showTier && row.tier ? (
             <Pill tone={row.tier === "transfer" ? "pink" : "slate"}>{row.tier}</Pill>
           ) : null}
+          {!assessed ? (
+            <Pill tone="slate">{row.notAssessedLabel ?? NOT_ASSESSED_LABEL}</Pill>
+          ) : null}
         </div>
         {row.evidence && (
           <div className="markdown" style={{ marginTop: 3, color: C.textDim, fontSize: 12, lineHeight: 1.55 }}>
@@ -443,7 +450,7 @@ function CriterionRow({ row, showTier = false }: { row: CriterionEvidenceRowDto;
         )}
       </div>
       <div style={{ textAlign: "right", color: tone, fontFamily: MONO }}>
-        {row.pointsAwarded.toFixed(1)} / {row.pointsPossible.toFixed(1)}
+        {assessed ? `${row.pointsAwarded.toFixed(1)} / ${row.pointsPossible.toFixed(1)}` : "—"}
       </div>
     </div>
   );
@@ -807,14 +814,19 @@ function MasteryDelta({ f }: { f: FeedbackBundle }) {
           <div style={{ fontSize: 11, color: C.textFaint, fontFamily: MONO, marginBottom: 6 }}>evidence this attempt</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {evidence.map((row) => {
+              const assessed = criterionAssessed(row);
               const ok = row.pointsAwarded === row.pointsPossible;
               const partial = row.pointsAwarded > 0 && row.pointsAwarded < row.pointsPossible;
-              const mark = ok ? "✓" : partial ? "◐" : "✗";
-              const tone = ok ? C.green : partial ? C.amber : C.red;
+              const mark = !assessed ? "–" : ok ? "✓" : partial ? "◐" : "✗";
+              const tone = !assessed ? C.textDim : ok ? C.green : partial ? C.amber : C.red;
               return (
                 <span
                   key={row.criterionId}
-                  title={row.criterionDescription}
+                  title={
+                    assessed
+                      ? row.criterionDescription
+                      : `${row.criterionDescription} — ${row.notAssessedLabel ?? NOT_ASSESSED_LABEL}`
+                  }
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 5,
                     border: `1px solid ${C.border}`, borderLeft: `2px solid ${tone}`,
@@ -2042,6 +2054,16 @@ export function FeedbackScreen({
         {f.manualReviewReason === PROVISIONAL_PENDING_CLARIFICATION ? (
           <div className="toast" style={{ marginBottom: 14 }}>
             provisional grade · not final until the open clarification is answered or expires
+          </div>
+        ) : f.manualReviewReason === UNVERIFIED_ROUTE_REVIEW_REASON ? (
+          /* PF-c: informational, never a review to do. The grade is final; it
+             counts only the criteria the learner's route exercised. */
+          <div
+            data-testid="unassessed-route-note"
+            style={{ marginBottom: 14, fontSize: 12, color: C.textDim, fontFamily: MONO }}
+          >
+            your answer checks out by a different route · criteria that route did not
+            exercise are not assessed (no credit, no lost points)
           </div>
         ) : f.manualReviewReason ? (
           <div className="toast" style={{ marginBottom: 14 }}>

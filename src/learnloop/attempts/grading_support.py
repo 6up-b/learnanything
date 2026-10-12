@@ -14,13 +14,18 @@ answer.
   route instead of diffing it against the reference, and a criterion may be
   marked down only where that re-derivation locates a concrete error in the
   learner's words. Otherwise the criterion is recorded ``unverified``: its
-  attributions carry ``validity_scope = grader_interpretation`` (no negative
-  facet evidence) and the attempt goes to review. The gate is server-side and
-  deterministic; the grader's own ``unverified_criterion_ids`` only add to it.
-  Each unverified criterion is also persisted as such: its grading-evidence
-  row carries a ``negative_evidence_blocked`` attribution, so a criterion the
-  grader zeroed WITHOUT naming any error never reaches the projection's
-  single-target fallback (live grades and regrades alike).
+  attributions carry ``validity_scope = grader_interpretation``. The gate is
+  server-side and deterministic; the grader's own ``unverified_criterion_ids``
+  only add to it. Each unverified criterion is also persisted as such: its
+  grading-evidence row carries the ``negative_evidence_blocked`` attribution
+  ``valid_alternative_unverified`` (live grades and regrades alike).
+  Owner decision 2026-10-12 (inside mvp-0.10): an unverified criterion is
+  UNASSESSED everywhere - no credit and no failure. It leaves the attempt's
+  grade (``attempts.assessed_rubric_score``), so the FSRS rating too; it has
+  no facet mass or outcome in the attempt step, the canonical projection, the
+  evidence timeline or the learner field; and it alone never queues a
+  diagnosis (``assessed_shortfall``). ``manual_review_recommended`` and the
+  reason stay as a non-blocking log: nothing waits on a review.
 * **Solve-first without a reference.** The grader writes its own expected
   answer before reading the learner's, and scores claims, not prose.
 * **One pass.** No voting. Where k-sampling is configured, the modal
@@ -74,7 +79,11 @@ REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION = "grading_prompt_v2_1_blind_referen
 GRADING_SUPPORT_VERSION = "pf-c-grading-support-v1"
 #: The manual-review reason, and the per-criterion block reason persisted in
 #: ``grading_evidence.attribution_json`` (one value, read by the projection).
+#: As a review reason it is a non-blocking log (owner decision 2026-10-12).
 UNVERIFIED_REVIEW_REASON = UNVERIFIED_CRITERION_BLOCK
+#: How every learner-facing surface shows an unverified criterion: not
+#: assessed, never as lost points.
+UNASSESSED_CRITERION_LABEL = "not assessed (a different route)"
 
 REFERENCE_POLICY_RULES = (
     "REFERENCE POLICY (`context.reference_policy`). `reference_status` says "
@@ -184,6 +193,10 @@ class GateOutcome:
     unverified_criterion_ids: tuple[str, ...] = ()
     applied: bool = False
     reason: str | None = None
+    #: When the gate applied: whether anything ASSESSED fell short - a
+    #: criterion below full points that is not unverified, or an attribution
+    #: the gate left in force. False means every shortfall is unassessed.
+    assessed_shortfall: bool = True
 
 
 def apply_valid_alternative_gate(
@@ -200,9 +213,10 @@ def apply_valid_alternative_gate(
     line equals the reference. Every criterion below full points that no
     attribution locates verbatim in the learner's answer (plus any the grader
     itself declared unverified) is unverified: attributions on it are rescoped
-    to ``grader_interpretation`` - which blocks negative facet evidence through
-    the existing machine-review gate - and the attempt is sent to review. The
-    awarded points are kept; nothing is credited that the grader did not award.
+    to ``grader_interpretation`` and ``manual_review_recommended`` is set (a
+    non-blocking log). The proposal's points are left as the grader awarded
+    them; the attempt step treats an unverified criterion as unassessed (no
+    credit, no failure, out of the grade).
     """
 
     check = (policy or {}).get("final_answer_check") or {}
@@ -220,11 +234,14 @@ def apply_valid_alternative_gate(
     if not unverified:
         return GateOutcome(proposal)
     attributions = []
+    attribution_in_force = False
     for attribution in proposal.error_attributions:
         criteria = _attribution_criteria(attribution)
         untargeted = not criteria
         if (criteria & unverified) or (untargeted and not _located(attribution, learner_answer_md)):
             attribution = attribution.model_copy(update={"validity_scope": "grader_interpretation"})
+        else:
+            attribution_in_force = True
         attributions.append(attribution)
     gated = proposal.model_copy(
         update={"error_attributions": attributions, "manual_review_recommended": True}
@@ -234,6 +251,7 @@ def apply_valid_alternative_gate(
         unverified_criterion_ids=tuple(sorted(unverified)),
         applied=True,
         reason=UNVERIFIED_REVIEW_REASON,
+        assessed_shortfall=bool(below - unverified) or attribution_in_force,
     )
 
 
@@ -437,6 +455,8 @@ def request_blind_grading_run(
             unverified_criterion_ids=list(gate.unverified_criterion_ids),
             valid_alternative_gate_applied=gate.applied,
         )
+        if gate.applied:
+            support["assessed_shortfall"] = gate.assessed_shortfall
     return BlindGradingRun(
         proposal=proposal,
         prompt_version=(
@@ -456,6 +476,7 @@ __all__ = [
     "REFERENCE_POLICY_RULES",
     "ReferencePolicyBlindGradingProposal",
     "RouteCheck",
+    "UNASSESSED_CRITERION_LABEL",
     "UNVERIFIED_REVIEW_REASON",
     "apply_valid_alternative_gate",
     "criterion_outcomes",

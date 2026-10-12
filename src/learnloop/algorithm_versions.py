@@ -27,6 +27,9 @@ REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 # diagnoser. Persisted meaning changes (a blind attempt's error events carry no
 # causal fields; its hypotheses are sourced from the diagnosis ledger), the
 # projection does not: it inherits the mvp-0.8 namespace like mvp-0.9.
+# Amended before any vault ran it (owner decision 2026-10-12): a PF-c
+# unverified criterion, which only this version's blind grader records, is
+# unassessed - out of the grade, and no facet evidence either way.
 DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 
 # Versions at which practice grading is split (kill switch

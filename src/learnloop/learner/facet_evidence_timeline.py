@@ -60,6 +60,7 @@ from learnloop.substrate.canonical_projection import (
     observed_unresolved_failure,
     p0_effective_evidence_mass,
     surface_group_id,
+    unassessed_evidence_row,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.goals.receipt_contributions import itemize_observation_contributions
@@ -466,10 +467,11 @@ def _epoch_certification_credit(
     outcomes: list[CriterionOutcome] = []
     for criterion in rubric.criteria:
         row = rows_by_criterion.get(criterion.id)
-        if row is None:
+        if row is None or unassessed_evidence_row(row.get("attribution")):
             # Projection v6 mirror: absent evidence is not an observation.
             # Identical skip to the canonical projection, or the two folds
-            # would disagree the moment an attempt is partially graded.
+            # would disagree the moment an attempt is partially graded. A PF-c
+            # unverified criterion is unassessed in the same sense.
             continue
         fraction = 0.0
         if criterion.points > 0:
