@@ -18,6 +18,9 @@ export interface InboxSummary {
   count: number;
   newCount: number;
   captures: CaptureDto[];
+  /** Purged captures whose original media deletion failed; never paged away. */
+  deletePending: CaptureDto[];
+  deletePendingCount: number;
   pinnedVault: string | null;
   vaultMismatch: boolean;
   enabled: boolean;

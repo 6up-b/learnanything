@@ -180,3 +180,30 @@ def test_capture_concurrent_idempotency(repo):
         results = list(pool.map(capture, range(8)))
     assert sum(result["created"] for result in results) == 1
     assert len({result["capture_id"] for result in results}) == 1
+
+
+def test_old_handled_capture_is_reachable_past_100_newer_and_tombstones(repo, monkeypatch):
+    sensitive = create_capture(repo, client_capture_id=new_ulid(), kind="image", media=image_bytes())
+    dismiss_capture(repo, sensitive["capture_id"])
+    newer = [create_capture(repo, client_capture_id=new_ulid(), kind="text", text=f"newer {index}")
+             for index in range(120)]
+    for receipt in newer[::2]:
+        purge_capture(repo, receipt["capture_id"])  # Tombstones stay in the all-state listing.
+    first = list_captures(repo, status=None, limit=100)
+    assert sensitive["capture_id"] not in {row["capture_id"] for row in first}
+    second = list_captures(repo, status=None, limit=100, offset=100)
+    assert sensitive["capture_id"] in {row["capture_id"] for row in second}
+    assert len(first) + len(second) == 121
+    # A failed unlink stays directly discoverable, however many captures follow.
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", lambda *a, **kw: (_ for _ in ()).throw(OSError("busy")))
+        assert purge_capture(repo, sensitive["capture_id"])["media_delete_pending"]
+    for index in range(30):
+        create_capture(repo, client_capture_id=new_ulid(), kind="text", text=f"later {index}")
+    summary = get_inbox_summary(repo)
+    assert [row["capture_id"] for row in summary["delete_pending"]] == [sensitive["capture_id"]]
+    assert summary["delete_pending_count"] == 1
+    assert [row["capture_id"] for row in list_captures(repo, status="delete_pending")] == [
+        sensitive["capture_id"]]
+    purge_capture(repo, sensitive["capture_id"])
+    assert get_inbox_summary(repo)["delete_pending"] == []

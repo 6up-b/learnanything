@@ -190,13 +190,16 @@ def get_capture(repo: Repository, capture_id: str) -> dict:
 def list_captures(
     repo: Repository, *, status: str | None = None, limit: int = 100, offset: int = 0,
 ) -> list[dict]:
-    if status not in (None, "new", "routed", "dismissed", "processing", "failed", "purged"):
+    if status not in (None, "new", "routed", "dismissed", "processing", "failed", "purged",
+                      "delete_pending"):
         raise CaptureError("validation_error", 422, "Unknown capture status")
     if not 1 <= limit <= 500 or offset < 0:
         raise CaptureError("validation_error", 422, "Invalid inbox page")
     where, args = "", []
     if status == "purged":
         where = " WHERE i.purged_at IS NOT NULL"
+    elif status == "delete_pending":
+        where = " WHERE r.media_delete_pending=1"
     elif status is not None:
         where, args = " WHERE r.state=? AND i.purged_at IS NULL", [status]
     with repo.connection() as conn:
@@ -206,12 +209,22 @@ def list_captures(
 
 
 def get_inbox_summary(repo: Repository) -> dict:
+    """New captures plus every capture whose media deletion is still pending.
+
+    Deletion-pending captures are surfaced here, not only in the paged handled
+    listing, so a failed unlink is never buried behind newer captures.
+    """
     with repo.connection() as conn:
         count = conn.execute(
             """SELECT count(*) FROM capture_inbox i JOIN capture_routes r ON i.id=r.capture_id
                WHERE r.state='new' AND i.purged_at IS NULL"""
         ).fetchone()[0]
-    return dict(count=count, new_count=count, captures=list_captures(repo, status="new", limit=20))
+        pending = conn.execute(
+            "SELECT count(*) FROM capture_routes WHERE media_delete_pending=1"
+        ).fetchone()[0]
+    return dict(count=count, new_count=count, captures=list_captures(repo, status="new", limit=20),
+                delete_pending=list_captures(repo, status="delete_pending", limit=100),
+                delete_pending_count=pending)
 
 
 def route_capture(repo: Repository, capture_id: str, *, route: str, result_refs) -> dict:

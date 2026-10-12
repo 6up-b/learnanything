@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { InboxStrip } from "./InboxStrip";
 import type { CaptureDto } from "../api/capture";
@@ -91,7 +91,7 @@ it("requires confirmation to purge and refreshes after a successful dismiss", as
 it("allows purging already handled captures without offering routing again", async () => {
   await show();
   await act(async () => { fireEvent.click(screen.getByText("Include handled")); });
-  expect(api.listCaptureInbox).toHaveBeenCalledWith({ status: null, limit: 100 });
+  expect(api.listCaptureInbox).toHaveBeenCalledWith({ status: null, limit: 100, offset: 0 });
   expect(screen.queryByText("Ask tutor")).toBeNull();
   expect(screen.queryByText("Make a card")).toBeNull();
   fireEvent.click(screen.getByText("Purge"));
@@ -154,4 +154,43 @@ it("reports a resume failure without hiding the capture", async () => {
   await act(async () => { fireEvent.click(screen.getByText("Finish saving tutor question")); });
   expect(screen.getByRole("alert").textContent).toContain("No second question was created.");
   expect(screen.getByText("Dismiss")).toBeTruthy();
+});
+
+it("pages past 100 newer captures and purged tombstones to purge an old dismissed one", async () => {
+  const newer = Array.from({ length: 100 }, (_, index) => ({
+    ...capture(), captureId: `newer-${index}`,
+    ...(index % 2 ? { status: "purged" as const, text: null } : { status: "routed" as const, text: `routed ${index}` }),
+  }));
+  const old = { ...capture(), captureId: "old-dismissed", status: "dismissed" as const, text: "sensitive share" };
+  api.listCaptureInbox.mockImplementation(async ({ offset = 0 }: { offset?: number }) =>
+    ({ captures: offset === 0 ? newer : offset === 100 ? [old] : [] }));
+  await show();
+  await act(async () => { fireEvent.click(screen.getByText("Include handled")); });
+  expect(screen.queryByText("sensitive share")).toBeNull();
+  // Purged text tombstones are not mislabelled as photos.
+  expect(screen.queryAllByText("Photo capture")).toHaveLength(0);
+  expect(screen.getAllByText("Purged capture")).toHaveLength(50);
+  await act(async () => { fireEvent.click(screen.getByText("Load older")); });
+  expect(api.listCaptureInbox).toHaveBeenCalledWith({ status: null, limit: 100, offset: 100 });
+  expect(screen.queryByText("Load older")).toBeNull();
+  const row = screen.getByText("sensitive share").parentElement as HTMLElement;
+  fireEvent.click(within(row).getByText("Purge"));
+  await act(async () => { fireEvent.click(within(row).getByText("Confirm purge")); });
+  expect(api.purgeCapture).toHaveBeenCalledWith("old-dismissed");
+  // Polling keeps every loaded page, not just the newest 100.
+  api.listCaptureInbox.mockClear();
+  await act(async () => { vi.advanceTimersByTime(30_000); });
+  expect(api.listCaptureInbox).toHaveBeenCalledWith({ status: null, limit: 100, offset: 100 });
+});
+
+it("keeps deletion-pending captures reachable from the summary in both views", async () => {
+  const gone = { ...capture("image"), captureId: "gone-1", status: "purged" as const, mediaDeletePending: true };
+  api.getInboxSummary.mockResolvedValue({ ...summary(), deletePending: [gone] });
+  api.listCaptureInbox.mockResolvedValue({ captures: [] });
+  await show();
+  expect(screen.getByText(/Original media deletion is pending/)).toBeTruthy();
+  await act(async () => { fireEvent.click(screen.getByText("Include handled")); });
+  expect(screen.getAllByText(/Original media deletion is pending/)).toHaveLength(1);
+  await act(async () => { fireEvent.click(screen.getByText("Retry delete")); });
+  expect(api.purgeCapture).toHaveBeenCalledWith("gone-1");
 });

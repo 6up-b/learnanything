@@ -11,6 +11,13 @@ const PENDING_LABEL: Record<NonNullable<CaptureDto["pendingRoute"]>, string> = {
   make_card: "card", quick_add: "source", ask_tutor: "tutor question",
 };
 
+const PAGE = 100;
+
+function label(capture: CaptureDto): string {
+  if (capture.status === "purged") return "Purged capture";
+  return (capture.text || capture.url || capture.note || (capture.kind === "image" ? "Photo capture" : "Capture")).slice(0, 240);
+}
+
 /** References only: no queue mutation or practice navigation on receipt or save. */
 export function InboxStrip({ subjects, onAsk }: {
   subjects: { id: string; title: string }[];
@@ -24,6 +31,8 @@ export function InboxStrip({ subjects, onAsk }: {
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? "");
   const [showAll, setShowAll] = useState(false);
   const [history, setHistory] = useState<CaptureDto[]>([]);
+  const [pages, setPages] = useState(1);
+  const [hasOlder, setHasOlder] = useState(false);
   const [purgeResult, setPurgeResult] = useState<CaptureDto | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const alive = useRef(false);
@@ -32,16 +41,31 @@ export function InboxStrip({ subjects, onAsk }: {
     const revision = ++request.current;
     try {
       const next = await api.getInboxSummary();
-      const listed = showAll ? await api.listCaptureInbox({ status: null, limit: 100 }) : null;
+      // Re-read every loaded page so polling never drops older handled entries.
+      let listed: CaptureDto[] | null = null;
+      let older = false;
+      if (showAll) {
+        listed = [];
+        for (let page = 0; page < pages; page++) {
+          const { captures } = await api.listCaptureInbox({ status: null, limit: PAGE, offset: page * PAGE });
+          listed.push(...captures);
+          older = captures.length === PAGE;
+          if (!older) break;
+        }
+      }
       if (alive.current && revision === request.current) {
         setSummary(next);
-        if (listed) setHistory(listed.captures);
+        if (listed) {
+          const seen = new Set<string>();
+          setHistory(listed.filter((row) => !seen.has(row.captureId) && seen.add(row.captureId)));
+          setHasOlder(older);
+        }
         setError(null);
       }
     } catch (err) {
       if (alive.current && revision === request.current) setError(errorMessage(err, "Could not load the inbox."));
     }
-  }, [showAll]);
+  }, [showAll, pages]);
 
   useEffect(() => {
     alive.current = true;
@@ -88,13 +112,16 @@ export function InboxStrip({ subjects, onAsk }: {
     }
   }
 
+  const pendingDeletes = summary?.deletePending ?? [];
+  const pendingIds = new Set(pendingDeletes.map((capture) => capture.captureId));
+
   return (
     <section aria-label="Capture inbox" style={{ padding: "12px 20px", borderBottom: `1px solid ${COLOR.border}`, fontFamily: FONT_MONO, fontSize: 12 }}>
       {summary?.vaultMismatch ? (
         <p role="status">Phone captures are pinned to {summary.pinnedVault}, not this vault. Open that vault to see them.</p>
       ) : null}
       <strong>Inbox · {summary?.newCount ?? "…"}</strong>
-      <button onClick={() => setShowAll((value) => !value)}>{showAll ? "Show new" : "Include handled"}</button>
+      <button onClick={() => { setShowAll((value) => !value); setPages(1); setHasOlder(false); }}>{showAll ? "Show new" : "Include handled"}</button>
       <span style={{ color: COLOR.textFaint }}> · saved references, no practice started</span>
       {subjects.length ? (
         <label> · Tutor subject <select aria-label="Tutor subject" value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
@@ -103,8 +130,17 @@ export function InboxStrip({ subjects, onAsk }: {
       ) : null}
       {error ? <p role="alert">{error} <button onClick={() => void refresh()}>Retry</button></p> : null}
       {notice ? <p role="status">{notice}</p> : null}
-      {!showAll && purgeResult?.mediaDeletePending ? (
+      {!showAll && purgeResult?.mediaDeletePending && !pendingIds.has(purgeResult.captureId) ? (
         <p role="alert">Captured content was cleared, but original media deletion is pending. <button disabled={busy !== null} onClick={() => void remove(purgeResult.captureId, true)}>Retry delete</button></p>
+      ) : null}
+      {pendingDeletes.length ? (
+        <div role="alert">
+          Original media deletion is pending for {summary?.deletePendingCount ?? pendingDeletes.length} purged
+          {(summary?.deletePendingCount ?? pendingDeletes.length) === 1 ? " capture" : " captures"}.
+          {pendingDeletes.map((capture) => (
+            <span key={capture.captureId}> {label(capture)} · received {capture.receivedAt.slice(0, 10)} <button disabled={busy !== null} onClick={() => void remove(capture.captureId, true)}>Retry delete</button></span>
+          ))}
+        </div>
       ) : null}
       {!showAll && purgeResult?.mediaRetainedShared ? (
         <p role="status">Original media is retained because another source or capture still references these bytes.</p>
@@ -112,7 +148,7 @@ export function InboxStrip({ subjects, onAsk }: {
       {(showAll ? history : summary?.captures ?? []).map((capture) => (
         <div key={capture.captureId} style={{ paddingTop: 8, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span style={{ flex: 1, minWidth: 160, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-            {(capture.text || capture.url || capture.note || "Photo capture").slice(0, 240)}
+            {label(capture)}
           </span>
           {capture.status !== "new" ? <span>{capture.status}</span> : capture.kind === "url" ? (
             <button onClick={() => setSelected({ capture, route: "source" })}>Quick Add source</button>
@@ -128,7 +164,7 @@ export function InboxStrip({ subjects, onAsk }: {
             <button disabled={!subjectId} title={!subjectId ? "Create a subject before asking the tutor" : undefined} onClick={() => onAsk({ context: "library", initialQuestion: capture.text ?? "", captureId: capture.captureId, subjectId })}>Ask tutor</button>
           ) : null}
           {capture.kind === "image" ? <span>Photo → card (manual); capture kept as provenance.</span> : null}
-          {capture.mediaDeletePending ? <span role="alert">Original media deletion is pending. <button disabled={busy !== null} onClick={() => void remove(capture.captureId, true)}>Retry delete</button></span> : null}
+          {capture.mediaDeletePending && !pendingIds.has(capture.captureId) ? <span role="alert">Original media deletion is pending. <button disabled={busy !== null} onClick={() => void remove(capture.captureId, true)}>Retry delete</button></span> : null}
           {capture.mediaRetainedShared ? <span>Original media is retained because another source or capture still references these bytes.</span> : null}
           {capture.status === "new" ? <button disabled={busy !== null} onClick={() => void remove(capture.captureId, false)}>Dismiss</button> : null}
           {purging === capture.captureId ? (
@@ -136,6 +172,7 @@ export function InboxStrip({ subjects, onAsk }: {
           ) : capture.status !== "purged" ? <button disabled={busy !== null} onClick={() => setPurging(capture.captureId)}>Purge</button> : null}
         </div>
       ))}
+      {showAll && hasOlder ? <button onClick={() => setPages((value) => value + 1)}>Load older</button> : null}
       {selected?.route === "card" ? (
         <WriteCardDialog
           captureId={selected.capture.captureId}

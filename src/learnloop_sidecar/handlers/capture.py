@@ -18,7 +18,7 @@ from learnloop_sidecar.registry import method
 
 
 class ListCaptureInput(ParamsModel):
-    status: Literal["new", "routed", "dismissed", "purged"] | None = "new"
+    status: Literal["new", "routed", "dismissed", "purged", "delete_pending"] | None = "new"
     limit: int = Field(default=100, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
 
