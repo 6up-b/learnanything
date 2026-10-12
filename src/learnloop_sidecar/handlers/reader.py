@@ -1436,6 +1436,26 @@ def reader_mark_section_progress(
             extraction_id=resolved, section_id=params.section_id
         )
 
+    # Daily-loop DL1 (§6.10): while a plan's reading block is current for this
+    # section, the progress is also a `reading_progress` block event, and a
+    # completion ends the block (`section_completed`). Workflow receipts only;
+    # a no-op while the plan is off, and a failure here never fails the reader.
+    try:
+        from learnloop.daily_plan.engine import PlanEnv, note_reading_progress
+
+        note_reading_progress(
+            PlanEnv(vault=vault, repository=repository),
+            extraction_id=resolved,
+            section_id=params.section_id,
+            spans_seen=row.get("spans_seen"),
+            span_count=row.get("span_count"),
+            completed=bool(params.completed),
+        )
+    except Exception:  # pragma: no cover - telemetry boundary
+        import logging
+
+        logging.getLogger(__name__).warning("failed to record plan reading progress", exc_info=True)
+
     return versioned(
         {
             "progress": _progress_payload(row),

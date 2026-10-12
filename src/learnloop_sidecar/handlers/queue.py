@@ -10,6 +10,7 @@ from learnloop.substrate.instrument_serving import (
     unservable_refusal,
 )
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
+from learnloop.daily_plan.engine import plan_active
 from learnloop.projects.capture import auto_sweep
 from learnloop.scheduling.reentry_summary import reentry_session_cap
 from learnloop.scheduling.scheduler import (
@@ -79,9 +80,9 @@ def get_queue_revision(ctx: SidecarContext, _params: ParamsModel) -> dict[str, A
     return versioned(repository.queue_revision())
 
 
-@method("get_today_queue", QueueInput)
-def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
-    vault, repository = ctx.require_vault()
+def prepare_queue_build(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None:
+    """What every Today queue build does first (``get_today_queue`` and the plan)."""
+
     # Project understanding M1 (spec §3.2): the plan-build capture sweep. Git
     # only, throttled, never raises, and a no-op when no repo is enrolled.
     auto_sweep(
@@ -96,11 +97,24 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     # the Today refresh.
     with repository.pinned():
         queue_accepted_diagnostic_followups(repository)
+    _wait_for_session_diagnoses(ctx, vault, repository, session_id)
+
+
+@method("get_today_queue", QueueInput)
+def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
+    vault, repository = ctx.require_vault()
+    prepare_queue_build(ctx, vault, repository, params.session_id)
     # Owner decision P6: after a break the session is the welcome-back panel's
     # "N refreshers" -- the scheduler's top N picks, never more (a smaller
     # requested limit still wins). The panel reads the cap back from this reply.
-    _wait_for_session_diagnoses(ctx, vault, repository, params.session_id)
-    reentry_cap = reentry_session_cap(vault, repository, _nearest_active_goal(vault))
+    # Daily-loop DL1 (daily_plan_v1): while the finite plan serves, re-entry is
+    # the plan's own small automatic session (§7), so this full list -- one key
+    # away from the plan -- is never capped (L3: picks from it are honoured).
+    reentry_cap = (
+        None
+        if plan_active(vault)
+        else reentry_session_cap(vault, repository, _nearest_active_goal(vault))
+    )
     limit = params.limit
     if reentry_cap is not None:
         limit = reentry_cap if limit is None else min(limit, reentry_cap)

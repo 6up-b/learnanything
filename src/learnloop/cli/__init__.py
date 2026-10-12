@@ -29,6 +29,7 @@ from learnloop.cli.evaluation import eval_app
 from learnloop.cli.practice_index import practice_index_app
 from learnloop.cli.inbox import inbox_app
 from learnloop.cli.placement import placement_app
+from learnloop.cli.plan import plan_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(inbox_app, name="inbox")
@@ -59,6 +60,7 @@ app.add_typer(contamination_app, name="contamination")
 app.add_typer(eval_app, name="eval")
 app.add_typer(practice_index_app, name="practice-index")
 app.add_typer(placement_app, name="placement")
+app.add_typer(plan_app, name="plan")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

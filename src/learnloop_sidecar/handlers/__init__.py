@@ -9,6 +9,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     capture,
     claims,
     cli,
+    daily_plan,
     diagnosis_card,
     diagnostic,
     epigraphs,
