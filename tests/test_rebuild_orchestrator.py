@@ -22,7 +22,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_166"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_168"
 )
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
 
@@ -224,6 +224,20 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "created_at": at,
             "updated_at": at,
         },
+        "facet_outcome_observations": {
+            "attempt_id": "stale_attempt",
+            "facet_id": "stale_facet",
+            "practice_item_id": "stale_item",
+            "revision_status": "excluded",
+            "observed_at": at,
+            "outcome": 0.0,
+            "facet_share": 1.0,
+            "effective_mass": 0.0,
+            "cold": 0,
+            "assisted": 0,
+            "primed": 0,
+            "serving_origin": "unknown",
+        },
         "facet_recall_state": {
             "id": "stale_recall",
             "facet_id": "stale_facet",
@@ -235,6 +249,16 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "algorithm_version": "stale",
             "created_at": at,
             "updated_at": at,
+        },
+        "family_memory_state": {
+            "family_id": "stale_family",
+            "difficulty": 1.0,
+            "stability": 1.0,
+            "retrievability": 0.5,
+            "last_review_at": at,
+            "review_count": 1,
+            "weights_hash": "stale",
+            "projection_version": "stale",
         },
         "item_parameter_state": {
             "practice_item_id": "stale_item",
@@ -352,6 +376,12 @@ def test_golden_projection_survives_one_umbrella_rebuild_exactly_and_stale_rows_
         clock=CLOCK,
         record_receipt=False,
     )
+    # The field is an independent, read-only projection, not part of the
+    # learning-state writer. Produce its golden cache through its direct API.
+    from learnloop.field.outcomes import rebuild_outcome_view
+
+    with repository.connection() as connection:
+        rebuild_outcome_view(connection, vault)
     expected = _projection_snapshot(repository, derived)
     with connect(repository.sqlite_path, read_only=True) as connection:
         receipts_before = int(

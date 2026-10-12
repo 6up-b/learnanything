@@ -191,12 +191,51 @@ forbidden_modules = ["learnloop.cli", "learnloop.tui"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "field-predictors-are-pure"
+name = "Learner predictors cannot access stores, models, graphs or evidence writers"
+type = "forbidden"
+source_modules = ["learnloop.field.predictors", "learnloop.field.memory"]
+forbidden_modules = [
+    "learnloop.db",
+    "learnloop.ai",
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.scheduling",
+    "learnloop.diagnosis",
+    "learnloop.learner.recall_coverage",
+]
+# The incumbent adapter reuses only mastery.py's pure arithmetic. A symbol-level
+# test restricts that import, whose module also contains historical DB helpers.
+# PF-a memory arms reuse only the pure FSRS fold and FSRS-6 default weights
+# (scheduling.fsrs imports nothing but learnloop.numeric).
+ignore_imports = [
+    "learnloop.field.predictors -> learnloop.learner.mastery",
+    "learnloop.field.memory -> learnloop.scheduling.family_memory_model",
+    "learnloop.field.memory -> learnloop.scheduling.fsrs",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "field-consumers-use-interface"
+name = "Placement and map consumers do not import predictor implementations"
+type = "forbidden"
+source_modules = [
+    "learnloop_sidecar.handlers.knowledge_map",
+    "learnloop.diagnosis.calibration_sessions",
+    "learnloop.substrate.state_sync",
+]
+forbidden_modules = ["learnloop.field.predictors"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "frozen-cross-package-cycles"
 name = "Existing deferred cross-package cycles are frozen"
 type = "acyclic_siblings"
 ancestors = ["learnloop"]
 depth = 0
 ignore_imports = [
+    # Composition-root registration of the field's sole DERIVED-table owner.
+    "learnloop.substrate.rebuild_orchestrator -> learnloop.field.outcomes",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",
@@ -327,6 +366,9 @@ ignore_imports = [
     "learnloop.substrate.canonical_projection -> learnloop.goals.receipt_contributions",
     "learnloop.substrate.card_lineage -> learnloop.scheduling.fsrs",
     "learnloop.substrate.compat.substrate_cutover -> learnloop.scheduling.fsrs",
+    # The shadow PF projection folds canonical outcome rows (loaded by the
+    # orchestrator's exempted field.outcomes edge) with the pure FSRS fold.
+    "learnloop.substrate.family_memory -> learnloop.scheduling.family_memory_model",
     "learnloop.substrate.replay -> learnloop.attempts.attempts",
     "learnloop.substrate.replay -> learnloop.diagnosis.misconceptions",
     "learnloop.substrate.state_sync -> learnloop.diagnosis.probe_episodes",

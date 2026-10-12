@@ -3,13 +3,13 @@ title: "practice_attempts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_attempts"
   - "table practice_attempts"
-schema_head: 166
+schema_head: 168
 table_name: "practice_attempts"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -130,6 +130,7 @@ Indexes and uniqueness:
 - `Repository.count_clean_attempts_since()`
 - `Repository.daily_attempt_counts()`
 - `Repository.daily_qualifying_attempt_counts_for_learning_objects()`
+- `Repository.end_open_sessions_except()`
 - `Repository.fetch_practice_attempt()`
 - `Repository.find_attempt_id_by_evidence_agent_run()`
 - `Repository.find_record()`
@@ -142,6 +143,7 @@ Indexes and uniqueness:
 - `Repository.list_recent_attempts_by_learning_objects()`
 - `Repository.list_recent_attempts_by_practice_item()`
 - `Repository.median_attempt_latency_seconds()`
+- `Repository.most_recent_ended_at()`
 - `Repository.ordinary_practice_attempt_count()`
 - `Repository.pending_followup_practice_items()`
 - `Repository.pending_self_grade_regrade_attempts()`
@@ -176,6 +178,8 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/scoreboard.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/signals.py`
 - `src/learnloop/goals/goal_series.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop_sidecar/handlers/goals.py`
@@ -225,6 +229,7 @@ Indexes and uniqueness:
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_exam_calibration.py`
 - `tests/test_exam_seeding.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_forecast_ledger.py`
 - `tests/test_gate_fit.py`
 - `tests/test_goal_pace.py`
@@ -232,7 +237,6 @@ Indexes and uniqueness:
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_migrate_fresh.py`
 - `tests/test_migrations.py`
-- `tests/test_mvp09_upgrade.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

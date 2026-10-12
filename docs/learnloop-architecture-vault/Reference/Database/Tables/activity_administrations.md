@@ -3,13 +3,13 @@ title: "activity_administrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_administrations"
   - "table activity_administrations"
-schema_head: 166
+schema_head: 168
 table_name: "activity_administrations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -141,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_assessment_enforcement.py`
+- `tests/test_daily_loop_golden_path_lifecycle.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_administration_adapters.py`

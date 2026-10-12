@@ -15,7 +15,7 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
 from learnloop.ai.isolation import TOOL_FREE
-from learnloop.ai.execution import model_call, report_call_usage
+from learnloop.ai.execution import model_call, report_call_usage, single_request_active
 from learnloop.ai.multimodal import (
     MediaTranscript,
     MediaTranscriptionContext,
@@ -28,6 +28,7 @@ from learnloop.ai.multimodal import (
 )
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.transport import (
+    BOUNDED_STRUCTURED_COMPLETION,
     ISOLATED_TURN,
     MEDIA_MARKDOWN,
     MEDIA_TRANSCRIPTION,
@@ -120,7 +121,13 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def supports(self, capability: str) -> bool:
         # A chat completion offers the model no tools, files or network:
         # every request is an isolated turn by construction.
-        if capability in {STRUCTURED_COMPLETION, "complete", "structured", ISOLATED_TURN}:
+        if capability in {
+            STRUCTURED_COMPLETION,
+            BOUNDED_STRUCTURED_COMPLETION,
+            "complete",
+            "structured",
+            ISOLATED_TURN,
+        }:
             return True
         if capability == TOOL_FREE:
             # A chat completion runs no tools: the request is all it sees.
@@ -179,7 +186,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
         text = self._chat_messages(messages, model_type)
         try:
             return model_type.model_validate_json(text)
-        except (ValidationError, ValueError, json.JSONDecodeError):
+        except (ValidationError, ValueError, json.JSONDecodeError) as first_exc:
+            if single_request_active():
+                raise AIInvalidOutput(f"{self.provider_name} returned invalid {model_type.__name__} JSON") from first_exc
             repaired = self._chat(_repair_prompt(text, model_type), model_type)
             try:
                 return model_type.model_validate_json(repaired)
@@ -314,7 +323,7 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
     def _retry_delay(self, error: Exception, attempt: int, *, started: float, deadline_seconds: float | None) -> float | None:
         """Seconds to wait before the next attempt, or None to give up."""
 
-        if attempt >= _MAX_ATTEMPTS or not self._is_retryable(error):
+        if single_request_active() or attempt >= _MAX_ATTEMPTS or not self._is_retryable(error):
             return None
         retry_after = _retry_after_seconds(error)
         if retry_after is not None:

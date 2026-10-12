@@ -3,13 +3,13 @@ title: "activity_families"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_families"
   - "table activity_families"
-schema_head: 166
+schema_head: 168
 table_name: "activity_families"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/families.py"
+  - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/substrate/families.py"
+  - "src/learnloop/substrate/family_memory.py"
+  - "src/learnloop/vault/loader.py"
+  - "src/learnloop/vault/models.py"
   - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
@@ -48,7 +54,7 @@ It belongs to the **activity substrate** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/065_activity_lineage_substrate.sql`.
-- **Schema touched by:** `065_activity_lineage_substrate.sql`, `070_p0_measurement_hardening.sql`, `075_card_lineage_state.sql`.
+- **Schema touched by:** `065_activity_lineage_substrate.sql`, `070_p0_measurement_hardening.sql`, `075_card_lineage_state.sql`, `168_activity_family_membership.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -82,6 +88,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/families.py`
 
 ### Direct SQL writers
 
@@ -101,7 +108,9 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_activity_backfill.py`
+- `tests/test_activity_families.py`
 - `tests/test_activity_substrate.py`
+- `tests/test_family_memory_projection.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`

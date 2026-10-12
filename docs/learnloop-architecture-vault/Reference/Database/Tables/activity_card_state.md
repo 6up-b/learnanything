@@ -3,13 +3,13 @@ title: "activity_card_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_card_state"
   - "table activity_card_state"
-schema_head: 166
+schema_head: 168
 table_name: "activity_card_state"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -116,6 +116,8 @@ Indexes and uniqueness:
 - `tests/test_commitment_arcs.py`
 - `tests/test_depth_transition.py`
 - `tests/test_event_sufficiency.py`
+- `tests/test_family_memory_projection.py`
+- `tests/test_field_cli.py`
 - `tests/test_journey6.py`
 - `tests/test_progression.py`
 - `tests/test_substrate_cutover.py`

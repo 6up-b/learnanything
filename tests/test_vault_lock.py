@@ -55,12 +55,25 @@ def test_timeout_diagnostic_names_the_current_holder(tmp_path):
     root = tmp_path / "vault"
     root.mkdir()
 
-    with vault_mutation_lock(root, purpose="holder-purpose"):
-        with pytest.raises(VaultLockTimeout) as caught:
+    import threading
+
+    caught = []
+
+    def waiter():
+        try:
             with vault_mutation_lock(root, purpose="waiter", timeout_s=0):
                 pass
+        except VaultLockTimeout as exc:
+            caught.append(exc)
 
-    message = str(caught.value)
+    # The lock is re-entrant within one thread, so the waiter is another thread.
+    with vault_mutation_lock(root, purpose="holder-purpose"):
+        thread = threading.Thread(target=waiter)
+        thread.start()
+        thread.join(5)
+
+    assert len(caught) == 1
+    message = str(caught[0])
     assert f"held by pid {os.getpid()}" in message
     assert "holder-purpose" in message
 

@@ -11,6 +11,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config, write_default_config
 from learnloop.ids import kebab_case, snake_case
 from learnloop.vault.models import (
+    ActivityFamily,
     ConceptGraph,
     ConceptsFile,
     DefaultRubric,
@@ -70,15 +71,25 @@ def _load_markdown_model(
         return None, ""
 
 
-def load_vault(root: Path | None = None, *, read_yaml_file: YamlFileReader = read_yaml_data) -> LoadedVault:
+def load_vault(
+    root: Path | None = None,
+    *,
+    read_yaml_file: YamlFileReader = read_yaml_data,
+    load_environment: bool = True,
+) -> LoadedVault:
     """Parse every vault file into a ``LoadedVault``; problems become ``issues``.
 
     ``read_yaml_file`` lets a caller that has already parsed the same files
-    (doctor) hand in its parsed copies.
+    (doctor) hand in its parsed copies. Offline evaluation passes
+    ``load_environment=False`` to avoid dotenv and global settings.
     """
 
     vault_root = root.resolve() if root else find_vault_root(Path.cwd())
-    config = load_config(vault_root / "learnloop.toml")
+    config = (
+        load_config(vault_root / "learnloop.toml")
+        if load_environment
+        else load_config(vault_root / "learnloop.toml", load_environment=False)
+    )
     paths = VaultPaths(vault_root, config)
     issues: list[DoctorIssue] = []
     loaded = LoadedVault(root=vault_root, config=config, issues=issues)
@@ -169,6 +180,13 @@ def _load_subject_dir(subject_dir: Path, loaded: LoadedVault, read_yaml_file: Ya
                     )
                 )
 
+    for family_path in sorted((subject_dir / "activity-families").glob("*.yaml")):
+        family = _load_yaml_model(family_path, ActivityFamily, loaded.issues, read_yaml_file)
+        if family:
+            if family.id in loaded.activity_families:
+                loaded.issues.append(DoctorIssue("activity_family:duplicate_id", f"Duplicate family {family.id}", family_path))
+            loaded.activity_families[family.id] = family
+
     for pi_path in sorted((subject_dir / "practice-items").glob("*.yaml")):
         practice_item = load_practice_item_file(pi_path, loaded, read_yaml_file=read_yaml_file)
         if practice_item:
@@ -202,7 +220,25 @@ def _load_note(path: Path, root: Path, folder_subject: str, issues: list[DoctorI
 
 
 def _validate_loaded_vault(loaded: LoadedVault) -> None:
+    for family in loaded.activity_families.values():
+        if family.learning_object_id not in loaded.learning_objects:
+            loaded.issues.append(DoctorIssue(
+                "activity_family:missing_learning_object",
+                f"{family.id} references missing learning object {family.learning_object_id}", None,
+            ))
     for item_id, item in loaded.practice_items.items():
+        if item.family_id is not None:
+            family = loaded.activity_families.get(item.family_id)
+            if family is None:
+                loaded.issues.append(DoctorIssue(
+                    "practice_item:missing_activity_family",
+                    f"{item_id} references missing activity family {item.family_id}", None,
+                ))
+            elif family.learning_object_id != item.learning_object_id:
+                loaded.issues.append(DoctorIssue(
+                    "practice_item:family_learning_object_mismatch",
+                    f"{item_id} and activity family {family.id} must share a learning object", None,
+                ))
         if item.learning_object_id not in loaded.learning_objects:
             loaded.issues.append(
                 DoctorIssue(

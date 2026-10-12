@@ -50,7 +50,7 @@ from learnloop_sidecar.handlers.sessions import (
     patch_checkpoint,
 )
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_inactive_learning_object
+from learnloop_sidecar.serving import refuse_unservable_item
 
 
 class RequestTeachBackInput(ParamsModel):
@@ -141,7 +141,7 @@ def start_teach_back(ctx: SidecarContext, params: StartTeachBackInput) -> dict[s
     vault, repository = ctx.require_vault()
     _require_open_session(repository, params.session_id)
     item = _require_teach_back_item(vault, params.practice_item_id)
-    refuse_inactive_learning_object(vault, item.learning_object_id)
+    refuse_unservable_item(vault, item)
     provider_name, runtime, client = ready_teach_back_provider(vault)
     if not runtime.ready or client is None:
         raise SidecarError(

@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 166
-table_count: 261
+schema_head: 168
+table_count: 266
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_166/state.sqlite"
+  - "fixtures/migration_head_168/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-166"
+  - "learnloop/database/schema-head-168"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 261 user tables at migration head 166. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 266 user tables at migration head 168. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 261 user tables at migration head 166. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 130 |
-| [[Table Roles#Derived|`derived`]] | 10 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 131 |
+| [[Table Roles#Derived|`derived`]] | 12 |
 | [[Table Roles#Receipt|`receipt`]] | 54 |
-| [[Table Roles#Workflow|`workflow`]] | 57 |
+| [[Table Roles#Workflow|`workflow`]] | 59 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 248 |
+| `active` | 253 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -56,7 +56,7 @@ This is the exhaustive map of the 261 user tables at migration head 166. Use [[T
 
 ## DERIVED tables
 
-The exact clearable set is: [[Reference/Database/Tables/ability_transition_events|ability_transition_events]], [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/capability_residual_state|capability_residual_state]], [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], [[Reference/Database/Tables/item_parameter_state|item_parameter_state]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]], [[Reference/Database/Tables/practice_item_quality_state|practice_item_quality_state]], [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]]. Ownership and dependency order live in [[Rebuild Ownership]]. ^derived-table-index
+The exact clearable set is: [[Reference/Database/Tables/ability_transition_events|ability_transition_events]], [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/capability_residual_state|capability_residual_state]], [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]], [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], [[Reference/Database/Tables/family_memory_state|family_memory_state]], [[Reference/Database/Tables/item_parameter_state|item_parameter_state]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]], [[Reference/Database/Tables/practice_item_quality_state|practice_item_quality_state]], [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]]. Ownership and dependency order live in [[Rebuild Ownership]]. ^derived-table-index
 
 ## How to use this catalog
 
@@ -138,6 +138,7 @@ Learner beliefs, mastery, recall, and capability projections. This is a navigati
 - [[Reference/Database/Tables/evidence_facet_recall_state|evidence_facet_recall_state]] — `compat` · `legacy-preserved` · Preserves the pre-canonical learning-object-scoped facet recall projection for old vaults. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `facet_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]] — `derived` · `active` · Materializes canonical evidence contributions from facets into capabilities. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `facet_id`, `algorithm_version`, `capability`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_merges|facet_merges]] — `raw_ledger` · `active` · Gives facet merge a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It supplies replay-stable input rather than a disposable cache. Rows bind `retired_facet_id`, `surviving_facet_id`, `proposal_item_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]] — `derived` · `active` · Records observations used to evaluate facet outcome so learner-facing mastery and capability decisions use a reproducible evidence projection. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `attempt_id`, `facet_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_recall_state|facet_recall_state]] — `derived` · `active` · Materializes canonical per-facet recall evidence and uncertainty for the current knowledge model. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `facet_id`, `practice_item_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/facet_uncertainty|facet_uncertainty]] — `compat` · `legacy-preserved` · Gives facet uncertainty a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `facet_id`, `opened_by_attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/hypothesis_sets|hypothesis_sets]] — `compat` · `legacy-preserved` · Gives hypothesis set a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `learning_object_id`, `probe_phase_id`, `algorithm_version`, making the operational relationship explicit.
@@ -248,6 +249,7 @@ Stable activity identity, versions, exposures, lineage, and lifecycle. This is a
 - [[Reference/Database/Tables/activity_exposure_events|activity_exposure_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of activity exposure so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `surface_id`, `administration_id`, `surface_hash`, making the operational relationship explicit.
 - [[Reference/Database/Tables/activity_families|activity_families]] — `raw_ledger` · `active` · Gives activity familie a stable database identity so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `legacy_kind`, `purpose`, `title`, making the operational relationship explicit.
 - [[Reference/Database/Tables/activity_family_authoring|activity_family_authoring]] — `raw_ledger` · `active` · Gives activity family authoring a stable database identity so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `family_version_id`, `commitment_id`, `commitment_target_version_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/activity_family_membership_events|activity_family_membership_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of activity family membership so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `family_id`, `card_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/activity_family_versions|activity_family_versions]] — `raw_ledger` · `active` · Pins immutable versions of activity family so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `family_id`, `version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/activity_observations|activity_observations]] — `raw_ledger` · `active` · Records observations used to evaluate activity so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `administration_id`, `surface_id`, `attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/activity_pattern_versions|activity_pattern_versions]] — `raw_ledger` · `active` · Pins immutable versions of activity pattern so activity identity, versions, surfaces, exposure, and lineage remain stable across authoring changes. It supplies replay-stable input rather than a disposable cache. Rows bind `pattern_id`, `calibration_status`, `generator_version`, making the operational relationship explicit.
@@ -321,6 +323,7 @@ Questions, tutoring, remediation, and practice-supply workflows. This is a navig
 - [[Reference/Database/Tables/failure_triage_routes|failure_triage_routes]] — `raw_ledger` · `active` · Gives failure triage route a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It supplies replay-stable input rather than a disposable cache. Rows bind `route_id`, `route_version`, `reason`, making the operational relationship explicit.
 - [[Reference/Database/Tables/followup_tasks|followup_tasks]] — `workflow` · `active` · Gives followup task a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `source_attempt_id`, `remediation_episode_id`, `selected_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/missing_vocabulary_notes|missing_vocabulary_notes]] — `raw_ledger` · `active` · Gives missing vocabulary note a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It supplies replay-stable input rather than a disposable cache. Rows bind `learning_object_id`, `practice_item_id`, `attempt_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/question_classifications|question_classifications]] — `workflow` · `active` · Gives question classification a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `question_event_id`, `interaction_event_id`, `question_type`, making the operational relationship explicit.
 - [[Reference/Database/Tables/question_events|question_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of question so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It supplies replay-stable input rather than a disposable cache. Rows bind `note_id`, `practice_item_id`, `attempt_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/question_promotion_requests|question_promotion_requests]] — `workflow` · `active` · Queues a durable, retryable request for question promotion so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `question_event_id`, `subject_id`, `learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/question_promotions|question_promotions]] — `workflow` · `active` · Gives question promotion a stable database identity so tutor and repair work can be resumed, reviewed, and connected to subsequent evidence. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `question_event_id`, `learner_claim_id`, `intervention_need_id`, making the operational relationship explicit.
@@ -384,6 +387,8 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/elicitation_events|elicitation_events]] — `compat` · `legacy-preserved` · Preserves an append-only chronology of elicitation so maintenance and optional operational work remains inspectable without becoming learner-state authority. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `session_id`, `selected_practice_item_id`, `hypothesis_set_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/embedding_vectors|embedding_vectors]] — `workflow` · `active` · Gives embedding vector a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `record_id`, `model_id`, `record_kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/false_remediation_adjudications|false_remediation_adjudications]] — `raw_ledger` · `active` · Records append-only human or machine false-remediation labels with retained evidence references and verifier versions; corrections append another adjudication. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `author_kind`, `verifier_version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/family_memory_state|family_memory_state]] — `derived` · `active` · Maintains the decision-facing current projection for family memory so maintenance and optional operational work remains inspectable without becoming learner-state authority. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `family_id`, `projection_version`, `weights_hash`, making the operational relationship explicit.
+- [[Reference/Database/Tables/family_proposals|family_proposals]] — `workflow` · `active` · Gives family proposal a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `family_id`, `state`, making the operational relationship explicit.
 - [[Reference/Database/Tables/hypothesis_events|hypothesis_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of hypothesis so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `presentation_id`, `session_id`, `visit_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/interaction_events|interaction_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of interaction so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `subject_id`, `administration_id`, `surface_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/item_misconception_discrimination|item_misconception_discrimination]] — `raw_ledger` · `active` · Gives item misconception discrimination a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `practice_item_id`, `misconception_id`, `sensitivity_alpha`, making the operational relationship explicit.

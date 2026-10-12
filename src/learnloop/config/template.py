@@ -360,12 +360,16 @@ default_learner_confidence = 3
 # Tutor Q&A ("ask"): question limits per context (practice: per item+session,
 # feedback: per attempt, library: per note per day) and the read-side
 # uncertainty bump applied for recent unresolved questions about a facet.
+# adopt_reference_questions: a reader question kept as a reference becomes
+# practice once an active LO cites its passage (false: kill switch; adopted
+# cards are kept but not served until it is true again).
 [tutor_qa]
 max_questions_practice = 3
 max_questions_feedback = 5
 max_questions_library = 8
 max_questions_reader = 8
 reader_enabled = true
+adopt_reference_questions = true
 apply_uncertainty_effect = true
 uncertainty_evidence_mass = 0.15
 
@@ -719,7 +723,6 @@ fallback_provider = ""
 type = "codex_sdk"
 model = "gpt-5.6-sol"
 reasoning_effort = "low"
-# checkout_path / revision / sdk_python_path may be set for a non-default checkout.
 
 [ai.providers.openrouter]
 type = "openrouter"
@@ -750,6 +753,8 @@ transcription = ""
 video_generation = ""
 embedding = "openrouter_embedding"
 # project = ""  # project understanding: probe authoring + closed-book check (empty = the grading route)
+field_question_classifier = ""
+field_llm_probability = ""
 
 # Embeddings are opt-in: both switches stay off until you enable them.
 # Remote embeddings send learner-derived text to OpenRouter and its upstream
@@ -760,6 +765,13 @@ enabled = false
 backfill_enabled = false
 model = "qwen/qwen3-embedding-8b"
 dimensions = 4096
+
+# F1 is offline analysis, not serving. Paid analysis is independently opt-in.
+[field]
+active_predictor = "mastery_ekf"
+legacy_fallback = "exclude"
+question_classification_enabled = false
+llm_probability_enabled = false
 
 [ingest]
 [ingest.pdf]
@@ -781,9 +793,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Project understanding M1 adds the [project] section and the
     # ai.routing.project route; both act only on the standalone project store.
     # Slice 1 M1 adds the unset diagnosis / diagnosis_judge /
-    # diagnosis_generator routes, consumed only by the offline review. No
-    # scoring, scheduling, projection or serving change.
-    "mvp-0.9": "7a067a20fb3a66d1ce9d0a651f417db127dadacce041f67191f6595ce22b5824",
+    # diagnosis_generator routes, consumed only by the offline review.
+    # Slice A F1 adds offline field analysis and disabled paid routes; Phase 3
+    # (PF-a) adds explicit-command family proposal blocking defaults. No live
+    # scoring, scheduling, evidence projection or serving change (no Phase 3b).
+    # The Slice A 2-3 review adds tutor_qa.adopt_reference_questions = true,
+    # the kill switch over the daily-loop reference-question adoption sweep;
+    # its default keeps the merged behaviour.
+    "mvp-0.9": "c1f6c55cd95d91515286ca27e010d05fdfb15f8718f220bf46097bd16f9696ca",
 }
 
 

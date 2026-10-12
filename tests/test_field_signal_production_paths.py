@@ -1,0 +1,374 @@
+"""Interaction signals through the production writers and loader (review F4, F5).
+
+The synthetic tests in test_interaction_signals.py inject attempt links and a
+facet-to-LO map. Here the question rows come from ``tutor_qa.ask_question``
+(as the practice screen and feedback screen call it), the attempts from the
+repository, and the rows from the same replay loader the reports use.
+"""
+from __future__ import annotations
+
+from datetime import timedelta
+
+import pytest
+
+from learnloop.clock import FrozenClock
+from learnloop.db.repositories import Repository
+from learnloop.tutor.ai_contracts import TutorAnswer
+from learnloop.tutor.tutor_qa import ask_question
+from learnloop.vault.loader import load_vault
+from tests.helpers import NOW, create_basic_vault
+from tests.structured_ai import StructuredClientFake
+
+ITEM = "pi_svd_define_001"
+LO = "lo_svd_definition"
+
+
+class FakeTutor(StructuredClientFake):
+    provider_name = "fake_tutor"
+    provider_type = "fake"
+    model = "fake-model"
+
+    def __init__(self, question_type):
+        self.question_type = question_type
+
+    def run_tutor_qa(self, context):
+        return TutorAnswer(
+            answer_md="Think about which factor is orthogonal.",
+            question_type=self.question_type,
+            facets=list(context.candidate_facets),
+        )
+
+
+def _setup(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    return load_vault(paths.root), Repository(paths.sqlite_path)
+
+
+def _attempt(repository, attempt_id, *, at, session_id="sess_1", hints_used=0, score=4,
+             subject="linear-algebra"):
+    repository.insert_practice_attempt({
+        "id": attempt_id, "practice_item_id": ITEM, "learning_object_id": LO,
+        "practice_mode": "define", "attempt_type": "independent_attempt",
+        "rubric_score": score, "hints_used": hints_used, "session_id": session_id,
+        "created_at": at.isoformat(), "learner_answer_md": "A = U S V^T", "subject": subject,
+    })
+    with repository.connection() as connection:
+        connection.execute(
+            """INSERT INTO grading_evidence
+               (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, grading_revision)
+               VALUES (?, ?, 'correctness', ?, 1, ?, 1)""",
+            (f"evidence-{attempt_id}", attempt_id, score, at.isoformat()),
+        )
+
+
+def _inputs(vault):
+    from learnloop.cli.field import _replay_inputs
+
+    return _replay_inputs(vault, legacy_fallback="current_content")
+
+
+def _ask(vault, repository, question_type, *, at, context="practice", seconds=0.0, **kwargs):
+    return ask_question(
+        vault, repository, FakeTutor(question_type), context=context,
+        question_md="Where do I even start?", practice_item_id=ITEM,
+        seconds_into_attempt=seconds, clock=FrozenClock(at), **kwargs,
+    )
+
+
+def test_ask_before_submit_gets_the_early_help_cap(tmp_path):
+    """Review F5: the practice screen asks before the attempt exists (no attempt_id)."""
+    vault, repository = _setup(tmp_path)
+    _ask(vault, repository, "strategy", at=NOW, session_id="sess_1")
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3), hints_used=1)
+    inputs = _inputs(vault)
+    attempt, = inputs["attempts"]
+    assert attempt.help_before_work
+    hint = next(s for s in inputs["signals"] if s.signal_id == "hint:a1")
+    assert hint.outcome == 0.3  # not the ordinary 0.8 one-hint cap
+    assistance = [s for s in inputs["signals"] if s.signal_type == "practice_assistance"]
+    assert [(s.attempt_id, s.help_before_work) for s in assistance] == [("a1", True)]
+
+
+def test_question_links_only_to_the_next_attempt_in_its_window(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _attempt(repository, "a0", at=NOW - timedelta(minutes=10))
+    _ask(vault, repository, "strategy", at=NOW, session_id="sess_1")
+    _attempt(repository, "other-session", at=NOW + timedelta(minutes=1), session_id="sess_2")
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3), hints_used=1)
+    _attempt(repository, "a2", at=NOW + timedelta(minutes=9), hints_used=1)
+    rows = {row.attempt_id: row for row in _inputs(vault)["attempts"]}
+    # An attempt on the item in another session closes the window, as in the
+    # submit-time hint accounting: the question belonged to that attempt's
+    # window but not its session, so it links to no attempt at all.
+    assert not rows["a0"].help_before_work
+    assert not rows["other-session"].help_before_work
+    assert not rows["a1"].help_before_work
+    assert not rows["a2"].help_before_work
+
+
+def test_mid_attempt_question_is_linked_but_not_early_help(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _ask(vault, repository, "strategy", at=NOW, session_id="sess_1", seconds=40.0)
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3), hints_used=1)
+    inputs = _inputs(vault)
+    attempt, = inputs["attempts"]
+    assert not attempt.help_before_work
+    assert next(s for s in inputs["signals"] if s.signal_id == "hint:a1").outcome == 0.8
+
+
+# Re-review F5: the practice screen logs fractional seconds since the item
+# opened, so an exact zero almost never holds. Its "no work yet" marker
+# (question_events.attempt_progress = "no_draft") is the explicit signal.
+# This is the payload AskOverlay.tsx sends (AskOverlay.test.tsx pins it).
+def _practice_screen_payload(session_id, *, attempt_progress):
+    payload = {
+        "context": "practice", "question": "Where do I even start?",
+        "practiceItemId": ITEM, "sessionId": session_id, "secondsIntoAttempt": 2.537,
+    }
+    if attempt_progress is not None:
+        payload["attemptProgress"] = attempt_progress
+    return payload
+
+
+@pytest.mark.parametrize("attempt_progress, early", [
+    ("no_draft", True), ("draft_started", False), (None, False),
+])
+def test_practice_screen_payload_marks_help_before_work(tmp_path, attempt_progress, early):
+    from tests.test_sidecar_tutor_qa import _TutorServer, _init, _rpc, _tutor_vault
+
+    server = _TutorServer(question_type="strategy")
+    server.start()
+    try:
+        vault_root, paths = _tutor_vault(tmp_path, server)
+
+        def call(method, params):
+            response = _rpc([_init(vault_root), {"jsonrpc": "2.0", "id": 2, "method": method, "params": params}])[1]
+            assert "result" in response, response
+            return response["result"]
+
+        session_id = call("start_session", {"energy": "medium"})["sessionId"]
+        asked = call("ask_tutor_question", _practice_screen_payload(session_id, attempt_progress=attempt_progress))
+        assert asked["hintEquivalent"] is True
+        submitted = call("submit_attempt", {
+            "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "SVD is U Sigma V transpose.",
+            "attemptType": "independent_attempt", "hintsUsed": 0,
+        })
+    finally:
+        server.stop()
+    repository = Repository(paths.sqlite_path)
+    assert repository.question_event(asked["eventId"])["attempt_progress"] == attempt_progress
+    inputs = _inputs(load_vault(paths.root))
+    attempt, = inputs["attempts"]
+    assert attempt.attempt_id == submitted["attemptId"] and attempt.hints_used == 1
+    assert attempt.help_before_work is early
+    hint = next(s for s in inputs["signals"] if s.signal_id == f"hint:{attempt.attempt_id}")
+    # Help before any work caps a correct one-hint answer at 0.3, not 0.8.
+    assert hint.outcome == (0.3 if early else 0.8)
+
+
+def _add_lo(vault, lo_id, *, concept, subjects=("linear-algebra",), facets=("recall",)):
+    """In-memory LO on its own concept, with one active item measuring ``facets``."""
+    lo = vault.learning_objects[LO].model_copy(update={
+        "id": lo_id, "concept": concept, "subjects": list(subjects), "prerequisites": [],
+    })
+    vault.learning_objects[lo.id] = lo
+    item = vault.practice_items[ITEM].model_copy(update={
+        "id": f"pi_{lo_id}", "learning_object_id": lo.id, "evidence_facets": list(facets),
+        "subjects": None,
+    })
+    vault.practice_items[item.id] = item
+    return lo
+
+
+def _declare_prerequisite(vault, concept):
+    """The SVD LO now lists ``concept`` among its prerequisites."""
+    svd = vault.learning_objects[LO]
+    vault.learning_objects[LO] = svd.model_copy(update={"prerequisites": [*svd.prerequisites, concept]})
+
+
+def _add_prerequisite_lo(vault, facets=("recall",)):
+    """In-memory LO on a concept the SVD LO declares as a prerequisite."""
+    _add_lo(vault, "lo_prereq", concept="orthogonal_matrices", facets=facets)
+    vault.practice_items["pi_prereq"] = vault.practice_items.pop("pi_lo_prereq").model_copy(
+        update={"id": "pi_prereq"})
+    _declare_prerequisite(vault, "orthogonal_matrices")
+
+
+def test_logged_tutor_facets_map_through_the_question_time_mapping(tmp_path):
+    """Review F4: a typed tutor question with facets but no LO ids is not lost."""
+    vault, repository = _setup(tmp_path)
+    _attempt(repository, "a1", at=NOW)
+    result = _ask(vault, repository, "mechanism", at=NOW + timedelta(minutes=1),
+                  context="feedback", attempt_id="a1", seconds=None)
+    event = repository.question_event(result["event_id"])
+    assert event["facets"] == ["recall"]
+    assert event["source_context"]["facet_learning_object_ids"] == {"recall": [LO]}
+    mechanism, = [s for s in _inputs(vault)["signals"] if s.signal_type == "mechanism"]
+    assert (mechanism.lo_id, mechanism.outcome, mechanism.effective_mass) == (LO, 0.5, 0.1)
+    assert mechanism.facet_id == "recall"
+    # Today's membership cannot retarget it: another LO now shares the facet.
+    _add_prerequisite_lo(vault)
+    again, = [s for s in _inputs(vault)["signals"] if s.signal_type == "mechanism"]
+    assert again == mechanism
+
+
+def test_prerequisite_question_never_targets_its_own_item_lo(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_prerequisite_lo(vault)
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    event = repository.question_event(result["event_id"])
+    assert event["source_context"]["facet_learning_object_ids"] == {"recall": ["lo_prereq"]}
+    prerequisite, = [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"]
+    assert (prerequisite.lo_id, prerequisite.outcome, prerequisite.effective_mass) == (
+        "lo_prereq", 0.0, 0.15)
+
+
+# Review F11: a facet two LOs both measure is not a relationship between them.
+# `recall` is required by SVD and by contract law alike; the question-time
+# mapping is drawn only from LOs this question is grounded in.
+CONTRACT = "lo_contract_formation"
+
+
+def _prerequisite_rows(vault):
+    return [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite" and s.effective_mass > 0]
+
+
+def test_shared_generic_facet_never_maps_a_prerequisite_question_across_subjects(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    event = repository.question_event(result["event_id"])
+    assert event["facets"] == ["recall"]
+    # Unresolved: SVD declares no prerequisite, and the shared facet is not one.
+    assert event["source_context"]["facet_learning_object_ids"] == {}
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3))
+    signals = _inputs(vault)["signals"]
+    assert not [s for s in signals if s.lo_id == CONTRACT]
+    assert not _prerequisite_rows(vault)
+    # It is left to the opt-in classifier with its logged type and facets.
+    report, calls = _classify(repository, {"question_type": "other", "facets": [], "lo_ids": []})
+    assert report["pending"] == 1
+    assert [(row["question_type"], row["facets"], row["lo_ids"]) for row in calls] == [
+        ("prerequisite", ["recall"], [])]
+
+
+def _prerequisite_edge(vault):
+    from learnloop.vault.models import ConceptEdge
+
+    vault.edges.append(ConceptEdge(
+        id="edge_orthogonal_svd", relation_type="prerequisite", source="orthogonal_matrices",
+        target="singular_value_decomposition", created_at=NOW.isoformat(), updated_at=NOW.isoformat(),
+    ))
+
+
+@pytest.mark.parametrize("declared_by", ["learning_object", "relation_edge"])
+def test_prerequisite_question_maps_to_a_declared_prerequisite_keeping_its_subject(tmp_path, declared_by):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    _add_lo(vault, "lo_orthogonal", concept="orthogonal_matrices", subjects=("matrix-basics",))
+    if declared_by == "learning_object":
+        _declare_prerequisite(vault, "orthogonal_matrices")
+    else:
+        _prerequisite_edge(vault)
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    context = repository.question_event(result["event_id"])["source_context"]
+    assert context["facet_learning_object_ids"] == {"recall": ["lo_orthogonal"]}
+    assert context["learning_object_subject_ids"] == {"lo_orthogonal": "matrix-basics"}
+    # The linked attempt is in linear-algebra; the target keeps its own subject.
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3))
+    row, = _prerequisite_rows(vault)
+    assert (row.lo_id, row.subject_id, row.outcome, row.effective_mass) == (
+        "lo_orthogonal", "matrix-basics", 0.0, 0.15)
+    assert not [s for s in _inputs(vault)["signals"] if s.lo_id == CONTRACT]
+
+
+def test_ambiguous_prerequisite_targets_are_left_unresolved(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, "lo_orthogonal", concept="orthogonal_matrices")
+    _add_lo(vault, "lo_eigen", concept="eigendecomposition")
+    _declare_prerequisite(vault, "orthogonal_matrices")
+    _declare_prerequisite(vault, "eigendecomposition")
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    assert repository.question_event(result["event_id"])["source_context"][
+        "facet_learning_object_ids"] == {}
+    assert not _prerequisite_rows(vault)
+    assert _classify(repository, {"question_type": "other", "facets": [], "lo_ids": []})[0]["pending"] == 1
+
+
+def test_feedback_question_targets_only_its_own_item_lo(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    _attempt(repository, "a1", at=NOW)
+    result = _ask(vault, repository, "mechanism", at=NOW + timedelta(minutes=1),
+                  context="feedback", attempt_id="a1", seconds=None)
+    context = repository.question_event(result["event_id"])["source_context"]
+    assert context["facet_learning_object_ids"] == {"recall": [LO]}
+    assert context["learning_object_subject_ids"] == {LO: "linear-algebra"}
+    mechanism, = [s for s in _inputs(vault)["signals"] if s.signal_type == "mechanism"]
+    # Not split with the contract-law LO that merely shares the facet.
+    assert (mechanism.lo_id, mechanism.subject_id, mechanism.effective_mass) == (
+        LO, "linear-algebra", 0.1)
+
+
+def test_library_question_targets_only_its_notes_learning_objects(tmp_path):
+    from learnloop.vault.models import Note
+
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    vault.notes["note_svd"] = Note(id="note_svd", title="SVD", related_los=[LO])
+    result = ask_question(
+        vault, repository, FakeTutor("clarification"), context="library",
+        question_md="Which factor is orthogonal?", note_id="note_svd", clock=FrozenClock(NOW),
+    )
+    context = repository.question_event(result["event_id"])["source_context"]
+    assert context["facet_learning_object_ids"] == {"recall": [LO]}
+    rows = [s for s in _inputs(vault)["signals"] if s.signal_type == "reader_confusion"]
+    assert [s.lo_id for s in rows] == [LO]
+
+
+def _classify(repository, verdict):
+    from learnloop.ai.spend import SpendCaps, SpendEstimate
+    from learnloop.field.classification import classify_missing_questions
+
+    calls = []
+
+    def classify(row):
+        calls.append(row)
+        return verdict
+
+    report = classify_missing_questions(
+        repository, repository.question_events(), model="fake-model", classify=classify,
+        estimate_per_question=SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.01),
+        caps=SpendCaps(), enabled=True,
+    )
+    return report, calls
+
+
+def test_unresolved_mapping_is_classified_keeping_logged_type_and_facets(tmp_path):
+    """Historical rows (and prerequisite questions only their own LO measures)."""
+    vault, repository = _setup(tmp_path)
+    _add_prerequisite_lo(vault)
+    repository.insert_question_event({
+        "id": "historical", "context": "practice", "practice_item_id": ITEM,
+        "question_md": "What is an orthogonal matrix again?", "question_type": "prerequisite",
+        "facets": ["recall"], "hint_equivalent": True, "created_at": NOW.isoformat(),
+    })
+    _ask(vault, repository, "prerequisite", at=NOW + timedelta(hours=1), session_id="sess_1")
+    vault.learning_objects.pop("lo_prereq")
+    vault.practice_items.pop("pi_prereq")
+    _ask(vault, repository, "prerequisite", at=NOW + timedelta(hours=2), session_id="sess_1")
+    assert not [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"
+                and s.signal_id.startswith("question_event:historical")]
+    # The paid classifier proposes only the missing LO; its type is ignored.
+    report, calls = _classify(repository, {"question_type": "other", "facets": [],
+                                           "lo_ids": ["lo_prereq"]})
+    assert report["status"] == "complete" and report["pending"] == 2
+    assert {row["question_type"] for row in calls} == {"prerequisite"}
+    assert all(row["facets"] == ["recall"] and row["lo_ids"] == [] for row in calls)
+    signals = [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"]
+    assert sorted(s.lo_id for s in signals) == ["lo_prereq"] * 3
+    historical = next(s for s in signals if s.signal_id.startswith("question_event:historical"))
+    assert (historical.outcome, historical.effective_mass) == (0.0, 0.15)
+    assert historical.observed_at > NOW.isoformat()  # available from classification time
+    # Resolved rows are never classified again.
+    assert _classify(repository, {})[0]["pending"] == 0

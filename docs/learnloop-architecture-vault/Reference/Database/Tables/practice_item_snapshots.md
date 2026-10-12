@@ -3,13 +3,13 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
   - "table practice_item_snapshots"
-schema_head: 166
+schema_head: 168
 table_name: "practice_item_snapshots"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/164_item_snapshots_and_adjudication_fk.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -83,7 +84,7 @@ Database triggers:
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -99,6 +100,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
 

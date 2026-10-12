@@ -58,7 +58,7 @@ from learnloop.tutor.ai_contracts import (
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
-from learnloop.learner.facet_diagnostics import required_facets
+from learnloop.learner.facet_diagnostics import required_facets, scope_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -473,6 +473,18 @@ def ask_question(
         {vault.canonical_facet_id(str(facet)) for facet in answer.facets}
         & set(candidates)
     )
+    if facets:
+        # The facet -> LO mapping as of this question, persisted so the learner
+        # field never re-derives history from today's mutable membership. It is
+        # grounded in what this question is about (its item's LO or its note's
+        # LOs; for a prerequisite question, their declared prerequisites), never
+        # in vault-wide facet membership. An unresolved or ambiguous facet is
+        # left to the opt-in classifier. Each target keeps its own subject.
+        source_context = dict(source_context or {})
+        source_context.update(_grounded_facet_targets(
+            vault, repository, facets,
+            question_type=answer.question_type, item=item, note=note,
+        ))
     citations = _validated_citations(answer, ai_context.source_spans)
     if citations:
         source_context = dict(source_context or {})
@@ -800,6 +812,90 @@ def build_tutor_qa_note(
 
 def _normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip()
+
+
+def _prerequisite_learning_objects(vault: LoadedVault, anchors: Sequence[str]) -> set[str]:
+    """LOs on the concepts the anchor LOs declare as prerequisites.
+
+    Declared by the LO's own ``prerequisites`` (concept ids) or by a
+    ``prerequisite`` relation edge into its concept. The anchors are excluded:
+    a prerequisite question points below the item, never at it."""
+
+    concepts: set[str] = set()
+    for lo_id in anchors:
+        learning_object = vault.learning_objects.get(lo_id)
+        if learning_object is None:
+            continue
+        concepts.update(learning_object.prerequisites)
+        concepts.update(
+            edge.source for edge in vault.edges
+            if edge.relation_type == "prerequisite" and edge.target == learning_object.concept
+        )
+    return {
+        learning_object.id for learning_object in vault.learning_objects.values()
+        if learning_object.concept in concepts
+    } - set(anchors)
+
+
+def _grounded_facet_targets(
+    vault: LoadedVault,
+    repository: Repository,
+    facets: Sequence[str],
+    *,
+    question_type: str,
+    item: PracticeItem | None,
+    note: Any,
+) -> dict[str, Any]:
+    """The question-time facet -> LO mapping, grounded in the question's context.
+
+    A facet two LOs both measure is not a relationship between them: a generic
+    facet such as ``recall`` is shared across unrelated subjects. Targets are
+    therefore drawn only from the LOs this question is about:
+
+    - an item question (practice or feedback) targets its item's LO, and a note
+      question (library) the note's related LOs;
+    - a ``prerequisite`` question points below those, to the LOs their declared
+      prerequisites name (``_prerequisite_learning_objects``).
+
+    A facet resolves only when exactly one grounded LO is responsible for it
+    (``scope_facets``). None or several leaves it unresolved, for the opt-in
+    classifier. Each target's subject is recorded as of now: the item's own
+    subject for its LO, else the target LO's primary subject.
+    """
+
+    if item is not None:
+        anchors = [item.learning_object_id]
+    elif note is not None:
+        anchors = sorted({lo for lo in note.related_los if lo in vault.learning_objects})
+    else:
+        anchors = []
+    if question_type == "prerequisite":
+        scope = sorted(_prerequisite_learning_objects(vault, anchors))
+    else:
+        scope = anchors
+    responsible = {
+        lo_id: {vault.canonical_facet_id(f) for f in scope_facets(vault, lo_id, repository)}
+        for lo_id in scope
+    }
+    if item is not None and item.learning_object_id in responsible:
+        # The item's own facets are the item's LO's, whatever its scope says.
+        responsible[item.learning_object_id] |= {
+            vault.canonical_facet_id(str(f)) for f in item.evidence_facets
+        }
+    mapping: dict[str, list[str]] = {}
+    for facet in sorted(facets):
+        owners = [lo_id for lo_id in scope if facet in responsible[lo_id]]
+        if len(owners) == 1:
+            mapping[facet] = owners
+    subjects: dict[str, str] = {}
+    for lo_id in sorted({lo for owners in mapping.values() for lo in owners}):
+        if item is not None and lo_id == item.learning_object_id:
+            candidates = vault.subjects_for_item(item)
+        else:
+            candidates = vault.learning_objects[lo_id].subjects
+        if candidates:
+            subjects[lo_id] = candidates[0]
+    return {"facet_learning_object_ids": mapping, "learning_object_subject_ids": subjects}
 
 
 def _candidate_facets(

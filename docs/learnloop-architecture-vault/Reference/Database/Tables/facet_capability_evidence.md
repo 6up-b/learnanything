@@ -3,13 +3,13 @@ title: "facet_capability_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
   - "table facet_capability_evidence"
-schema_head: 166
+schema_head: 168
 table_name: "facet_capability_evidence"
 table_role: "derived"
 functionality_status: "active"
@@ -127,6 +127,7 @@ Indexes and uniqueness:
 
 - `tests/test_anti_double_count.py`
 - `tests/test_coverage_rollup.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_km2_sim_gates.py`
 - `tests/test_km2_write_path.py`
 - `tests/test_migrations.py`
@@ -144,7 +145,6 @@ Indexes and uniqueness:
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_cutover_mvp08.py`
 - `tests/test_p0_projection_cutover.py`
-- `tests/test_probe_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

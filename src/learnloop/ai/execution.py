@@ -26,6 +26,28 @@ _parent: ContextVar[str | None] = ContextVar("model_call_parent", default=None)
 _output_limit: ContextVar[int | None] = ContextVar("model_output_limit", default=None)
 _metadata: ContextVar[dict[str, Any] | None] = ContextVar("model_call_metadata", default=None)
 _budgets: ContextVar[dict[str, Any] | None] = ContextVar("model_call_budgets", default=None)
+_single_request: ContextVar[bool] = ContextVar("model_single_request", default=False)
+
+
+@contextmanager
+def single_request():
+    """Disable hidden paid retries/repairs for a caller-budgeted transport call.
+
+    Wrap exactly one ``complete`` invocation per budget authorization. This is
+    a transport policy, not a spend meter or a limit on caller-authored calls.
+    Transports unable to bound their internal physical attempts must fail closed.
+    Context-local state is restored even on failure and supports nested scopes.
+    """
+
+    token = _single_request.set(True)
+    try:
+        yield
+    finally:
+        _single_request.reset(token)
+
+
+def single_request_active() -> bool:
+    return _single_request.get()
 
 
 def report_call_usage(values: dict[str, Any]) -> None:

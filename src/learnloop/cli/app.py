@@ -2982,7 +2982,6 @@ def today(
 
     launch_tui(_root(vault))
 
-@app.command("eval")
 def eval_command(
     vault: Annotated[Path | None, typer.Option("--vault", help="Vault root.")] = None,
     section: Annotated[
@@ -2991,24 +2990,11 @@ def eval_command(
     bins: Annotated[int, typer.Option("--bins", help="Calibration bin count.")] = 10,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
 ) -> None:
-    """Calibration report over logged decisions (read-only)."""
+    """Legacy callable for the `learnloop eval` group callback (cli.evaluation)."""
 
-    from learnloop.scheduling.evaluation import build_eval_report
+    from learnloop.cli.field import field_eval
 
-    valid = {"predictions", "coverage", "gates", "retention", "propensity"}
-    sections = valid if section == "all" else {part.strip() for part in section.split(",") if part.strip()}
-    unknown = sections - valid
-    if unknown:
-        typer.echo(f"Unknown section(s): {', '.join(sorted(unknown))}. Valid: {', '.join(sorted(valid))}.", err=True)
-        raise typer.Exit(code=2)
-    root = _root(vault)
-    loaded = _load_vault_or_exit(root, json_output=json_output)
-    repository = _repository(root)
-    report = build_eval_report(loaded, repository, sections=sections, bins=bins)
-    if json_output:
-        typer.echo(_dump({"version": 1, "eval": report.as_dict()}))
-        return
-    typer.echo(report.format_text())
+    field_eval(vault=_root(vault), section=section, bins=bins, json_output=json_output)
 
 @app.command("exam-calibration")
 def exam_calibration_command(

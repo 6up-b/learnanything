@@ -47,7 +47,13 @@ from learnloop.ai.transport import (
     STRUCTURED_COMPLETION,
     StructuredRequest,
 )
-from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
+from learnloop.ai.execution import (
+    generation_limit,
+    observed_sdk_turn,
+    output_limit,
+    report_call_usage,
+    single_request_active,
+)
 from learnloop.ai.isolation import (
     TOOL_ISOLATION,
     ToolIsolation,
@@ -347,7 +353,7 @@ class SdkCodexClient(TokenUsageAccounting):
             # the ordinary validation repair below never gets a chance to run.
             # Retry only the narrow family of JSON string/escape failures; a
             # genuinely unavailable provider must retain its original error.
-            if not _is_structured_json_transport_error(first_exc):
+            if single_request_active() or not _is_structured_json_transport_error(first_exc):
                 raise
             _log_codex_debug(
                 "codex.structured_output_regenerate",
@@ -365,6 +371,10 @@ class SdkCodexClient(TokenUsageAccounting):
             return model_type.model_validate_json(text)
         except (ValidationError, ValueError, json.JSONDecodeError) as first_exc:
             reason = describe_wire_validation_error(model_type, first_exc)
+            if single_request_active():
+                raise AIInvalidOutput(
+                    f"Codex returned invalid {model_type.__name__} JSON: {reason}"
+                ) from first_exc
             _log_codex_debug(
                 "codex.structured_output_repair",
                 provider="codex",
@@ -419,7 +429,14 @@ class SdkCodexClient(TokenUsageAccounting):
         directory; an isolated turn's empty directory is made inside it, and a
         workspace outside it is refused (the sandbox could not show it).
         """
-
+        if single_request_active():
+            # A Python SDK turn delegates model requests to the app-server.
+            # This adapter has no verified per-physical-request retry control;
+            # bounding our turn count cannot bound its paid model attempts.
+            raise CodexUnavailable(
+                "Codex SDK cannot guarantee a single physical model request; "
+                "use an OpenAI-compatible chat provider for caller-budgeted requests."
+            )
         budget = output_limit()
         if budget is not None:
             # The app-server protocol has no hard per-turn output-token cap.

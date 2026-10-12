@@ -3,13 +3,13 @@ title: "submission_intents"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite submission_intents"
   - "table submission_intents"
-schema_head: 166
+schema_head: 168
 table_name: "submission_intents"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/161_collection_contract.sql"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/substrate/data_quality.py"
 tags:
   - "learnloop/database/table"
@@ -87,6 +88,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -102,6 +104,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_collection_dataset.py`
+- `tests/test_facet_outcome_view.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

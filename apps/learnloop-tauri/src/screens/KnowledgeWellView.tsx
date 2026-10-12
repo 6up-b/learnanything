@@ -107,7 +107,7 @@ function decayByFacet(decay: DecayPressureDto | null | undefined): Map<string, {
   return out;
 }
 
-function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null | undefined): FacetState[] {
+export function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null | undefined): FacetState[] {
   // Deterministic angular placement: sort by id so the well never reshuffles
   // between visits.
   const points = [...field.points].sort((a, b) => a.id.localeCompare(b.id));
@@ -115,8 +115,8 @@ function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto | null 
   const decayMap = decayByFacet(decay);
   return points.map((point, i) => {
     const vis = visibility(point.evidenceMass);
-    const wellDepth = clamp01(point.ready) * vis;
-    const ghostDepth = clamp01(point.readyGhost) * vis;
+    const wellDepth = point.untested ? 0 : clamp01(point.ready) * vis;
+    const ghostDepth = point.untested ? 0 : clamp01(point.readyGhost) * vis;
     const absent = !point.hasBlueprints;
     const entry = decayMap.get(point.id);
     // "Held flat for lack of history" only when the model actually saw this
@@ -154,7 +154,7 @@ interface WellGeometry {
   labels: V3[];
 }
 
-function buildGeometry(states: FacetState[]): WellGeometry {
+export function buildGeometry(states: FacetState[]): WellGeometry {
   const N = states.length;
   const meanDepth = states.reduce((sum, s) => sum + s.effectiveDepth, 0) / N;
 
@@ -502,8 +502,9 @@ export function KnowledgeWellView({
 
       {/* Ghost rings at the pre-decay (readyGhost) depth: the well was here
           before decay pulled it toward flat. Cyan = the Ready channel. */}
-      {geometry.ghosts.map((ghost, i) =>
-        ghost ? (
+      {geometry.ghosts.map((ghost, i) => {
+        const point = states[i].point;
+        return ghost && !point.untested ? (
           <circle
             key={`ghost-${states[i].point.id}`}
             cx={proj(ghost).x}
@@ -515,10 +516,10 @@ export function KnowledgeWellView({
             strokeDasharray="4 3"
             opacity={0.5}
           >
-            <title>{`${states[i].point.title}\nrelaxing toward flat — was ${Math.round(states[i].point.readyGhost * 100)}%, now Ready ${Math.round(states[i].point.ready * 100)}%`}</title>
+            <title>{`${point.title}\nrelaxing toward flat — was ${Math.round(point.readyGhost * 100)}%, now Ready ${Math.round(point.ready * 100)}%`}</title>
           </circle>
-        ) : null
-      )}
+        ) : null;
+      })}
 
       {/* Anchor beads at the well bottoms — the DISCRETE Demonstrated channel.
           Filled green bead = demonstrated; hollow cyan ring = predicted but not
@@ -535,7 +536,7 @@ export function KnowledgeWellView({
         const hit = 11 * zoom.markerScale;
         const tooltip =
           `${s.point.title}\n` +
-          `Ready ${Math.round(s.point.ready * 100)}% · Demonstrated ${Math.round(s.point.demonstratedMass * 100)}% · evidence ${s.point.evidenceMass.toFixed(2)}` +
+          (s.point.untested ? "untested" : `Ready ${Math.round(s.point.ready * 100)}% · Demonstrated ${Math.round(s.point.demonstratedMass * 100)}% · evidence ${s.point.evidenceMass.toFixed(2)}`) +
           (s.absent ? "\nabsent: no blueprint (content debt)" : "") +
           (s.noHistory ? "\nheld flat: not enough history" : "") +
           (s.instructed
@@ -555,6 +556,15 @@ export function KnowledgeWellView({
           const lo = s.point.learningObjectIds[0];
           if (lo) onInspect(lo);
         };
+        if (s.point.untested) {
+          return (
+            <g key={`bead-${s.point.id}`} opacity={isActive ? 1 : fade} style={{ cursor: "pointer" }} onMouseEnter={onEnter} onClick={onClick}>
+              <circle cx={p.x} cy={p.y} r={size} fill="none" stroke={COLOR.textDim} strokeWidth={1.1} />
+              <circle cx={p.x} cy={p.y} r={hit} fill="transparent" />
+              <title>{tooltip}</title>
+            </g>
+          );
+        }
         // Absent — content debt, not a learner gap (§1.7): a faint ×, no well.
         if (s.absent) {
           return (
@@ -675,7 +685,7 @@ export function KnowledgeWellView({
                 </tspan>
               ))}
             </text>
-            {isActive ? (
+            {isActive || s.point.untested ? (
               <text
                 x={p.x}
                 y={p.y + blockShift + lines.length * LINE_H}
@@ -685,7 +695,7 @@ export function KnowledgeWellView({
                 fill={COLOR.cyan}
                 style={{ transition: EASE }}
               >
-                {`Ready ${Math.round(s.point.ready * 100)}%`}
+                {s.point.untested ? "untested" : `Ready ${Math.round(s.point.ready * 100)}%`}
               </text>
             ) : null}
           </g>

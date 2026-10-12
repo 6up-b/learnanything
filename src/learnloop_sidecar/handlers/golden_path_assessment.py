@@ -22,6 +22,7 @@ from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.serializers import item_presentation
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.serving import refuse_unservable_item
 
 
 class RunIdInput(ParamsModel):
@@ -31,6 +32,18 @@ class RunIdInput(ParamsModel):
 @method("golden_path.assess_open", RunIdInput)
 def assess_open(ctx: SidecarContext, params: RunIdInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    # Learner-set LO lifecycle, checked BEFORE open_assessment: that call advances
+    # the run and burns the reserved held-out surface, so a parked (dormant or
+    # resolved) LO must be refused first. A refused open burns nothing.
+    run = repository.golden_path_run(params.run_id)
+    reserved = (
+        repository.fetch_surface(run["reserved_surface_id"])
+        if run is not None and run["reserved_surface_id"]
+        else None
+    )
+    reserved_item = vault.practice_items.get(str((reserved or {}).get("legacy_practice_item_id") or ""))
+    if reserved_item is not None:
+        refuse_unservable_item(vault, reserved_item)
     try:
         admin = GA.open_assessment(
             repository, run_id=params.run_id, idempotency_key=f"assess_open:{params.run_id}"

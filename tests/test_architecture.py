@@ -51,7 +51,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/projects/experiment_store.py",
         # Slice 1 M1: review_* tables that exist only inside a scratch copy.
         "src/learnloop/db/stores/diagnosis_review.py",
+        "src/learnloop/db/stores/field.py",
+        "src/learnloop/db/stores/families.py",
         "src/learnloop/substrate/replay.py",
+        # Sole derived shadow-family FSRS writer; never a serving cache.
+        "src/learnloop/substrate/family_memory.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
         "src/learnloop/scheduling/kinship_feature.py",

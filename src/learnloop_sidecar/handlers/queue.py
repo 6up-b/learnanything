@@ -30,7 +30,7 @@ from learnloop_sidecar.handlers.serializers import (
 from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
 from learnloop_sidecar.logging import log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_inactive_learning_object
+from learnloop_sidecar.serving import refuse_unservable_item
 
 
 class QueueInput(ParamsModel):
@@ -212,7 +212,7 @@ def open_queue_item(ctx: SidecarContext, params: PracticeItemInput) -> dict[str,
             details={"practice_item_id": params.practice_item_id},
         )
     if item is not None:
-        refuse_inactive_learning_object(vault, item.learning_object_id)
+        refuse_unservable_item(vault, item)
     refusal = unservable_refusal(item) if item is not None else None
     if refusal is not None:
         raise SidecarError(

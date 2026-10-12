@@ -548,6 +548,12 @@ class TutorQAConfig(BaseModel):
     # is preserved by tests that disable it explicitly; the spine never imports
     # the reader module regardless of this flag.
     reader_enabled: bool = True
+    # Kill switch for the reader's reference-question adoption sweep (daily-loop
+    # follow-up, review F8): a question kept as a reference becomes practice
+    # once an active LO cites its passage. false restores the previous
+    # behaviour: references stay references, and cards the sweep adopted are
+    # not served (vault.lifecycle) but never removed; true serves them again.
+    adopt_reference_questions: bool = True
     apply_uncertainty_effect: bool = True
     uncertainty_evidence_mass: float = Field(default=0.15, ge=0.0, le=1.0)
     # Write-path question evidence (decision-time, read-side): substantive
@@ -972,6 +978,8 @@ AIProviderProfile = Annotated[
 class AIRoutingConfig(BaseModel):
     # Explicit opt-in only: never inherit active_provider or its fallback.
     embedding: str | None = None
+    field_question_classifier: str | None = None
+    field_llm_probability: str | None = None
     pf_generator: str | None = None
     pf_family_judge: str | None = None
     pf_isomorph_judge: str | None = None
@@ -1332,6 +1340,13 @@ class ProjectConfig(BaseModel):
     require_tool_isolation: bool = True
 
 
+class FamiliesConfig(BaseModel):
+    """Offline family authoring only; live scheduling remains per card."""
+
+    max_exhaustive_items: int = Field(default=40, ge=2)
+    blocking_top_k: int = Field(default=20, ge=1)
+
+
 class EmbeddingConfig(BaseModel):
     enabled: bool = False
     backfill_enabled: bool = False
@@ -1349,6 +1364,16 @@ class EmbeddingConfig(BaseModel):
             "plaintext: protect them like practice attempts in backups, exports and sync; "
             "never share them across vaults."
         )
+
+
+class FieldConfig(BaseModel):
+    """Offline F1 analysis only; activation requires a later algorithm successor."""
+
+    enabled: bool = False
+    active_predictor: Literal["mastery_ekf"] = "mastery_ekf"
+    legacy_fallback: Literal["exclude", "current_content"] = "exclude"
+    question_classification_enabled: bool = False
+    llm_probability_enabled: bool = False
 
 
 class LearnLoopConfig(BaseModel):
@@ -1377,6 +1402,8 @@ class LearnLoopConfig(BaseModel):
     ai: AIConfig = Field(default_factory=AIConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
+    field: FieldConfig = Field(default_factory=FieldConfig)
+    families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

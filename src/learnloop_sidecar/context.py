@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from learnloop.substrate.canonical_projection_rollout import (
 from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.learner.mastery import display_mastery
 from learnloop.ops.startup import run_startup_maintenance
+from learnloop.reader.reader_authoring import adopt_reference_questions
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_practice_item_file, load_vault
@@ -25,6 +27,8 @@ from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.exam_grading import ExamGradingManager
 from learnloop.content.pipeline.jobs import IngestJobManager
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -58,6 +62,15 @@ class SidecarContext:
             poll_interval_seconds=runner_config.poll_interval_seconds,
         )
         sync_vault_state(self.vault, self.repository)
+        # A reader question kept as a reference (no active LO cited its passage
+        # when it was written) becomes practice once one does. Every study-map
+        # apply ends in this (re)load, right after state sync, so this is where a
+        # newly added or linked LO first becomes visible (daily-loop follow-up).
+        # Kill switch: tutor_qa.adopt_reference_questions (checked by the sweep).
+        if _adopt_reference_questions(self.vault, self.repository):
+            self.vault = load_vault(self.vault_root)
+            sync_vault_state(self.vault, self.repository)
+            self.repository.bump_queue_revision()
         # Canonical facet state is a deterministic cache over the immutable
         # attempt ledger. Re-project on app load so vaults activated by the old
         # mvp-0.7 upgrader (which only flipped the config field) self-heal and
@@ -283,6 +296,16 @@ class SidecarContext:
                 "streak": repository.session_day_streak(),
             }
         )
+
+
+def _adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool:
+    """Run the reader's reference-question adoption sweep; never block a load."""
+
+    try:
+        return bool(adopt_reference_questions(vault, repository))
+    except Exception:  # noqa: BLE001 - adoption is best-effort; the vault must load
+        _LOGGER.warning("reader reference-question adoption failed", exc_info=True)
+        return False
 
 
 def vault_summary(vault: LoadedVault) -> dict[str, Any]:

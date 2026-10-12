@@ -838,6 +838,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "Project-understanding M1 knob (probe delay/count, context window, sweep "
                 "throttle); it acts only on the standalone projects/project_store.sqlite, "
                 "whose answers are practice only, so it has no vault measurement authority."),
+    _ConfigRule(_prefix("families."), "structural", "operational",
+                "Explicit-command authoring candidate bounds; judges decide identity, "
+                "with no live measurement or scheduling authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

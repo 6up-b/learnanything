@@ -3,13 +3,13 @@ title: "coldness_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite coldness_receipts"
   - "table coldness_receipts"
-schema_head: 166
+schema_head: 168
 table_name: "coldness_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/149_coldness_receipts.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/attempts/coldness_receipt.py"
@@ -105,6 +106,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -122,6 +124,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_coldness_receipt.py`
+- `tests/test_family_memory_projection.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_collection_dataset.py`

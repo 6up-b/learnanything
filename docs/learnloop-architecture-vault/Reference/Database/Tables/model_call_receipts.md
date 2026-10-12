@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 166
+schema_head: 168
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -128,9 +128,12 @@ None found by exact static reference scan.
 
 - `tests/test_diagnose_review.py`
 - `tests/test_embedding_backfill.py`
+- `tests/test_family_proposals.py`
+- `tests/test_field_llm_cli.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
+- `tests/test_interaction_signals.py`
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`

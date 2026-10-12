@@ -3,13 +3,13 @@ title: "commitment_target_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_target_versions"
   - "table commitment_target_versions"
-schema_head: 166
+schema_head: 168
 table_name: "commitment_target_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/072_commitments.sql"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
@@ -87,6 +88,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_authoring.py`
 
 ### Direct SQL writers
 
@@ -105,6 +107,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_commitments.py`
+- `tests/test_daily_loop_reader_retire.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`
 

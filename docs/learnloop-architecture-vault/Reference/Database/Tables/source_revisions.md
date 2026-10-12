@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 166
+schema_head: 168
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -114,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_outline.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
 - `src/learnloop/reader/reader_quick_check.py`

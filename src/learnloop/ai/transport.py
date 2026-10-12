@@ -17,6 +17,9 @@ from learnloop.ai.execution import model_call, output_limit
 WireResult = TypeVar("WireResult", bound=WireModel)
 
 STRUCTURED_COMPLETION = "structured_completion"
+# With execution.single_request(), one complete() sends at most one physical
+# model request; no opaque app-server turn, transport retry or JSON repair.
+BOUNDED_STRUCTURED_COMPLETION = "bounded_structured_completion"
 MEDIA_TRANSCRIPTION = "media_transcription"
 MEDIA_MARKDOWN = "media_markdown"
 INTERRUPT = "interrupt"

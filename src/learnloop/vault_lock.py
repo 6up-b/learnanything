@@ -12,6 +12,11 @@ purpose are written into the file for diagnostics. Acquire is bounded by a
 timeout; on contention it raises ``VaultLockTimeout`` rather than blocking
 forever.
 
+The lock is re-entrant within one thread: a holder that publishes through a
+writer which itself takes the lock (a proposal accept writing a practice item
+through ``upsert_practice_item``) nests instead of deadlocking. Other threads
+and processes are still excluded until the outermost holder releases.
+
 Nothing of this kind existed before ING M5.
 """
 
@@ -19,6 +24,7 @@ from __future__ import annotations
 
 import errno
 import os
+import threading
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -56,6 +62,19 @@ except ImportError:  # pragma: no cover - Windows fallback path
 
 DEFAULT_TIMEOUT_S = 10.0
 _POLL_INTERVAL_S = 0.05
+
+# Lock files this thread holds, with their nesting depth (re-entrancy only;
+# flock itself excludes every other open file description, thread or process).
+# Keyed by pid too: a forked child inherits this thread's state but not its
+# critical section.
+_held = threading.local()
+
+
+def _held_depths() -> dict[tuple[int, str], int]:
+    depths = getattr(_held, "depths", None)
+    if depths is None:
+        depths = _held.depths = {}
+    return depths
 
 
 class VaultLockError(RuntimeError):
@@ -125,16 +144,30 @@ def vault_mutation_lock(
     path = vault_lock_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     holder = LockHolder(pid=os.getpid(), purpose=purpose)
+    key = (os.getpid(), str(path.resolve()))
+    depths = _held_depths()
+    if depths.get(key):
+        # Nested in this thread's own critical section: the outer holder keeps
+        # the lock. An owner check installed since then still applies.
+        depths[key] += 1
+        try:
+            _check_mutation_owner(root)
+            yield holder
+        finally:
+            depths[key] -= 1
+        return
 
     if not _HAVE_FCNTL:  # pragma: no cover - non-POSIX degradation
         # Without OS advisory locks the shared critical section cannot be
         # guaranteed; single-process use still works, and the holder file records
         # intent for diagnostics.
         _write_holder(path, holder)
+        depths[key] = 1
         try:
             _check_mutation_owner(root)
             yield holder
         finally:
+            depths.pop(key, None)
             _clear_holder(path)
         return
 
@@ -142,10 +175,12 @@ def vault_mutation_lock(
     try:
         _acquire_with_timeout(fd, path, timeout_s)
         _write_holder_fd(fd, holder)
+        depths[key] = 1
         try:
             _check_mutation_owner(root)
             yield holder
         finally:
+            depths.pop(key, None)
             # Blank the holder metadata before releasing so a later diagnostic
             # read does not attribute the lock to a process no longer holding it.
             try:

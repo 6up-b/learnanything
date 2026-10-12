@@ -405,15 +405,16 @@ export interface KnowledgeMapSnapshot {
 
 export type CapabilityArcStatus = "demonstrated" | "required" | "absent";
 
-export interface KnowledgeFacetPoint {
+export type KnowledgeFacetPoint = KnowledgeFacetPointBase & (
+  | { untested: true; ready?: never; readyGhost?: never; readyVariance?: never }
+  | { untested?: false; ready: number; readyGhost: number; readyVariance: number }
+);
+
+interface KnowledgeFacetPointBase {
   id: string;
   title: string;
   x: number;
   y: number;
-  ready: number;
-  /** Undecayed prediction used as the retrievability well's ghost outline. */
-  readyGhost: number;
-  readyVariance: number;
   evidenceMass: number;
   demonstratedMass: number;
   requiredCapabilities: string[];
@@ -1738,6 +1739,11 @@ export interface GuidedRedoDto {
 
 export type TutorQuestionContext = "library" | "practice" | "feedback" | "reader";
 
+/** Practice context: had the learner started an answer when they asked?
+ *  Persisted as question_events.attempt_progress; "no_draft" is the explicit
+ *  "help before any work" signal the learner field reads (spec §3.1). */
+export type AttemptProgress = "no_draft" | "draft_started";
+
 export interface AskTutorQuestionInput {
   context: TutorQuestionContext;
   question: string;
@@ -1746,6 +1752,7 @@ export interface AskTutorQuestionInput {
   noteId?: string;
   sessionId?: string;
   secondsIntoAttempt?: number;
+  attemptProgress?: AttemptProgress;
 }
 
 /** ING M8 (§9.2): one source-span citation on a tutor answer; the chip opens

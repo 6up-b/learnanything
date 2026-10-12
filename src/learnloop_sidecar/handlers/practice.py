@@ -52,7 +52,7 @@ from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_ch
 from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.serving import refuse_inactive_learning_object
+from learnloop_sidecar.serving import refuse_inactive_learning_object, refuse_unservable_item
 
 
 class PracticeDraftCheckpoint(ParamsModel):
@@ -183,7 +183,7 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         item = _require_active_item(vault, params.practice_item_id)
         # A session serve of a dormant/resolved LO's item is refused; read-only
         # opens (feedback, inspector) still render it.
-        refuse_inactive_learning_object(vault, item.learning_object_id)
+        refuse_unservable_item(vault, item)
     detail = practice_item_detail(vault, repository, params.practice_item_id)
     detail["elicitation"] = (
         None

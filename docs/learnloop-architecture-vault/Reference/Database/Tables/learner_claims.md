@@ -3,13 +3,13 @@ title: "learner_claims"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_claims"
   - "table learner_claims"
-schema_head: 166
+schema_head: 168
 table_name: "learner_claims"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/priors.py"
   - "src/learnloop/learner/learner_profile.py"
   - "src/learnloop/learner/mastery.py"
   - "src/learnloop/ops/debug_time.py"
@@ -91,6 +92,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/priors.py`
 
 ### Direct SQL writers
 
@@ -114,6 +116,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_field_priors.py`
 - `tests/test_init.py`
 - `tests/test_question_promotions.py`
 - `tests/test_tutor_promotion_service.py`

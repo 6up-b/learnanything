@@ -3,13 +3,13 @@ title: "scheduler_slate_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slate_candidates"
   - "table scheduler_slate_candidates"
-schema_head: 166
+schema_head: 168
 table_name: "scheduler_slate_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/010_scheduler_training_logs.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/collection.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop_sidecar/handlers/practice.py"
@@ -118,6 +119,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/collection.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -146,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_collection_dataset.py`
 - `tests/test_diagnostic_probe_freshness.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_scheduler.py`

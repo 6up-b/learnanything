@@ -203,3 +203,37 @@ def test_declared_caps_persist_on_real_receipt_for_success_and_failure(tmp_path)
     ]
     assert [json.loads(row[2]) for row in rows[:2]] == [caps.as_dict(), caps.as_dict()]
     assert rows[2][2] is None
+
+
+def test_subscription_budget_estimates_only_and_keeps_count_caps():
+    """Slice A §5 rule 6: Codex runs on the subscription without token/USD caps."""
+    from learnloop.ai.spend import is_subscription_transport
+
+    caps = SpendCaps(max_candidates=1, max_pairs=1, max_calls=2, max_retries=0,
+                     max_total_tokens=1, max_estimated_usd=0)
+    budget = SpendBudget(caps, subscription=True)
+    unknown = SpendEstimate(candidates=1, pairs=1, calls=1, total_tokens=10_000)
+    assert budget.check(unknown) is unknown  # unknown price is not refused
+    with budget.request(unknown) as charge:
+        charge.reconcile(total_tokens=12_000)
+    assert budget.used.total_tokens == 12_000 and budget.used.estimated_usd is None
+    declared = budget.declared()
+    assert declared["cost_basis"] == "estimated_only" and declared["billing"] == "subscription"
+    assert declared["physical_request_bound"] is False
+    with pytest.raises(SpendLimitExceeded, match="candidates"):
+        budget.check(SpendEstimate(candidates=1, calls=1))
+    with pytest.raises(SpendLimitExceeded, match="retries"):
+        budget.check(SpendEstimate(calls=1, retries=1))
+    with budget.request(SpendEstimate(calls=1)):
+        pass
+    with pytest.raises(SpendLimitExceeded, match="calls"):
+        budget.check(SpendEstimate(calls=1))
+    assert is_subscription_transport(client=SimpleNamespace(provider_type="codex_sdk"))
+    assert not is_subscription_transport(client=SimpleNamespace(provider_type="openrouter"))
+    assert is_subscription_transport(profile=SimpleNamespace(type="codex_sdk"))
+    for metered in ("openai_chat", "openrouter", "openai_embedding"):
+        assert not is_subscription_transport(profile=SimpleNamespace(type=metered))
+    # A metered budget is unchanged: same declared caps, unknown price refused.
+    assert SpendBudget(caps).declared() == caps.as_dict()
+    with pytest.raises(SpendLimitExceeded, match="Unknown price"):
+        SpendBudget(caps).check(SpendEstimate(calls=1))

@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 166
+schema_head: 168
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -93,6 +93,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
@@ -124,18 +125,18 @@ Indexes and uniqueness:
 - `tests/test_controller_snapshot.py`
 - `tests/test_cross_seam_exposure.py`
 - `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_depth_transition.py`
 - `tests/test_dispersion.py`
 - `tests/test_dual_authority_administration.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_journey6.py`
+- `tests/test_reader_adoption_ownership.py`
 - `tests/test_reader_authoring.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reentry_short_session.py`
 - `tests/test_source_deletion.py`
-- `tests/test_staged_policy.py`
-- `tests/test_state_signals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

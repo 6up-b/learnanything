@@ -3,13 +3,13 @@ title: "sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite sessions"
   - "table sessions"
-schema_head: 166
+schema_head: 168
 table_name: "sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -19,13 +19,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/ai/isolation.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
-  - "src/learnloop/diagnosis/contrast_pairs.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
@@ -128,8 +128,10 @@ Indexes and uniqueness:
 - `tests/test_ai_tool_isolation.py`
 - `tests/test_calibration_sessions.py`
 - `tests/test_contrast_pairs.py`
+- `tests/test_daily_loop_reentry_break.py`
 - `tests/test_daily_loop_reentry_cap.py`
 - `tests/test_daily_loop_start_minutes.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_init.py`
 - `tests/test_probe_orchestration_remainder.py`
 - `tests/test_session_attempt_attribution.py`
@@ -143,8 +145,6 @@ Indexes and uniqueness:
 - `tests/test_evaluation.py`
 - `tests/test_item_authoring.py`
 - `tests/test_learner_review_system_entries.py`
-- `tests/test_migrations.py`
-- `tests/test_repositories.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

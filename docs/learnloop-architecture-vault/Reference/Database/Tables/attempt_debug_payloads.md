@@ -3,13 +3,13 @@ title: "attempt_debug_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_debug_payloads"
   - "table attempt_debug_payloads"
-schema_head: 166
+schema_head: 168
 table_name: "attempt_debug_payloads"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -90,6 +90,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -125,6 +126,7 @@ Indexes and uniqueness:
 
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_common_repair_delivery.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_table_roles.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`

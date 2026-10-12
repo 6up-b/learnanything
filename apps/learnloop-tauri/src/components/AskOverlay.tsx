@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type {
   AskTutorQuestionInput,
+  AttemptProgress,
   CommandError,
   PromotionIntent,
   QuestionPromotionDto,
@@ -26,6 +27,9 @@ export interface AskTarget {
   spanId?: string;
   /** Date.now() when the practice item was opened (practice context only). */
   openedAtMs?: number;
+  /** Practice context only: whether the learner had started an answer when
+   *  the overlay opened (it is modal, so the draft cannot change while open). */
+  attemptProgress?: AttemptProgress;
   /** §12.1: open with the tutor's persisted typed move before the learner
    *  types anything (diagnostic block just routed to tutoring). */
   proactiveOpen?: boolean;
@@ -336,6 +340,11 @@ export function AskOverlay({
         };
         if (target.context === "practice" && target.openedAtMs) {
           input.secondsIntoAttempt = Math.max(0, (Date.now() - target.openedAtMs) / 1000);
+        }
+        // Elapsed time is fractional, so it never says "before any work" by
+        // itself; the explicit draft state does.
+        if (target.context === "practice" && target.attemptProgress) {
+          input.attemptProgress = target.attemptProgress;
         }
         const tutorAnswer = await api.askTutorQuestion(input);
         answer = {

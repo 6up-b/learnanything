@@ -26,7 +26,7 @@ npm run typecheck && npm test && npm run frontend:build   # npm test = vitest
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-Debug env vars: `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`, `LEARNLOOP_SIDECAR_DEBUG_LOG=<file>` (tees sidecar logs; Tauri can swallow stderr), `LEARNLOOP_SIDECAR_TIMEOUT_SECS` (desktop per-request timeout, default 960s), `LEARNLOOP_PYTHON` (pins the sidecar interpreter), `LEARNLOOP_AI_PROVIDER` (overrides every AI route except `ai.routing.embedding`, which never falls back to a chat provider).
+Debug env vars: `LEARNLOOP_SIDECAR_LOG_LEVEL=DEBUG`, `LEARNLOOP_SIDECAR_DEBUG_LOG=<file>` (tees sidecar logs; Tauri can swallow stderr), `LEARNLOOP_SIDECAR_TIMEOUT_SECS` (desktop per-request timeout, default 960s), `LEARNLOOP_PYTHON` (pins the sidecar interpreter), `LEARNLOOP_AI_PROVIDER` (overrides serving AI routes, but not the explicit opt-in `embedding`, `field_question_classifier`, or `field_llm_probability` routes).
 
 ## Architecture
 

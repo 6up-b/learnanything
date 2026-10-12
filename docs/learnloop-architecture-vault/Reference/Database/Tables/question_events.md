@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 166
+schema_head: 168
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/019_question_events.sql"
   - "src/learnloop/attempts/coldness_receipt.py"
+  - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/field/signals.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/reader/reader_dialogue.py"
-  - "src/learnloop/substrate/dataset.py"
-  - "src/learnloop/tutor/promotions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/coldness_receipt.py`
+- `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/reader/reader_dialogue.py`
@@ -148,12 +149,15 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_coldness_receipt.py`
+- `tests/test_field_signal_production_paths.py`
+- `tests/test_interaction_signals.py`
 - `tests/test_migrations.py`
 - `tests/test_question_promotions.py`
 - `tests/test_question_signal.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_tutor_qa.py`
+- `tests/test_family_memory_projection.py`
 - `tests/test_question_context.py`
 - `tests/test_question_promotion_jobs.py`
 - `tests/test_question_queue.py`

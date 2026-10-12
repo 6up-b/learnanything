@@ -48,7 +48,7 @@ def refresh_canonical_projection_on_startup(
     # watcher-driven reload, reconnect).  Serialize the check/project/stamp
     # sequence across processes so two simultaneous initializations cannot
     # narrate the same rollout twice.
-    from learnloop.ops.vault_lock import vault_mutation_lock
+    from learnloop.vault_lock import vault_mutation_lock
 
     with vault_mutation_lock(vault.root, purpose="canonical_projection_startup"):
         baseline = repository.latest_canonical_projection_rebuild()

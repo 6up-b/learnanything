@@ -3,13 +3,13 @@ title: "interaction_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
+source_commit_timestamp: "2026-10-12T03:54:53-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite interaction_events"
   - "table interaction_events"
-schema_head: 166
+schema_head: 168
 table_name: "interaction_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,8 +20,10 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/attempts/salience_firewall.py"
+  - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/signals.py"
   - "src/learnloop/reader/reader_dialogue.py"
   - "src/learnloop/scheduling/action_loss.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
@@ -125,6 +127,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/scheduling/action_loss.py`
 
@@ -153,9 +156,12 @@ Indexes and uniqueness:
 
 - `tests/test_activity_substrate.py`
 - `tests/test_grading_cli.py`
+- `tests/test_interaction_signals.py`
 - `tests/test_reader_capture.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_activity_backfill.py`
+- `tests/test_daily_loop_reader_retire.py`
+- `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_p3_journeys.py`
 - `tests/test_reader_authoring.py`
 - `tests/test_reader_restoration.py`
