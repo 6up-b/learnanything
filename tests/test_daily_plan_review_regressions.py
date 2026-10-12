@@ -158,3 +158,55 @@ def test_f1_repair_needs_a_recent_error_not_any_active_one():
     assert lane(0.9) == "repair"
     assert lane(0.9, state=None) == "new"  # never attempted: new material
     assert lane(0.0, state=None, intervention_followup=1.0) == "repair"  # follow-ups stay repair
+
+
+# -- F2: a session left open yesterday is activity, not a break --
+
+
+def _single_due(tmp_path):
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_a": [("pi_a", 1.0)]})
+    _no_goals(paths)
+    env = make_env(paths.root, [scheduled("pi_a", "lo_a", forgetting_risk=0.5)], clock=MovableClock(NOW))
+    seed_due(env.repository, "pi_a", due=NOW - timedelta(days=1), last=NOW - timedelta(days=1))
+    _ended_session(env.repository, "s_old", NOW - timedelta(days=12))  # the last ENDED session
+    return env
+
+
+def _open_session(repository: Repository, session_id: str, started) -> None:
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO sessions(id, started_at, ended_at, available_minutes) VALUES (?, ?, NULL, 25)",
+            (session_id, iso(started)),
+        )
+        connection.commit()
+
+
+def test_f2_practice_in_a_session_left_open_yesterday_is_not_a_break(tmp_path):
+    env = _single_due(tmp_path)
+    # Yesterday the learner began (a re-entry) and practised; Done and closing
+    # the app ended no session.
+    _open_session(env.repository, "s_yday", NOW - timedelta(days=1, hours=1))
+    record_attempt(env.repository, "pi_a", "lo_a", NOW - timedelta(days=1), session_id="s_yday")
+    record = get_or_create_today(env)  # Start reads the plan before Begin ends stale sessions
+    assert record.kind == "normal"
+    assert record.split["reentry_gap"]["gap_days"] == 1
+    assert record.split["reentry_gap"]["last_activity_at"] == iso(NOW - timedelta(days=1))
+
+
+def test_f2_a_stale_session_without_attempts_counts_from_its_start(tmp_path):
+    env = _single_due(tmp_path)
+    _open_session(env.repository, "s_yday", NOW - timedelta(days=2))
+    record = get_or_create_today(env)
+    assert record.kind == "normal" and record.split["reentry_gap"]["gap_days"] == 2
+
+
+def test_f2_the_break_still_shows_when_the_only_open_session_began_today(tmp_path):
+    env = _single_due(tmp_path)
+    # Today's own session (begun before the plan was first read) is not
+    # activity that ends the break: the re-entry stands.
+    _open_session(env.repository, "s_today", NOW - timedelta(minutes=5))
+    record_attempt(env.repository, "pi_a", "lo_a", NOW - timedelta(minutes=2), session_id="s_today")
+    record = get_or_create_today(env)
+    assert record.kind == "reentry" and record.split["reentry_gap"]["gap_days"] == 12

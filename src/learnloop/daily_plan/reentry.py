@@ -1,8 +1,8 @@
 """Goal-optional re-entry (``spec_daily_loop_v1.md`` §7, P6, Q13).
 
 - **Trigger.** Days since the learner's last real activity (F1:
-  ``Repository.most_recent_ended_at``) exceed ``hypothesis.reentry_gap_days``.
-  No goal is needed.
+  ``Repository.most_recent_ended_at``, counting sessions left open from an
+  earlier day) exceed ``hypothesis.reentry_gap_days``. No goal is needed.
 - **The plan** is kind ``reentry``: min(remembered minutes,
   ``plan.reentry_minutes``) minutes, at most ``plan.reentry_max_items`` items,
   repair and maintain lanes only, ordered assumed-known checks first, then goals
@@ -37,8 +37,23 @@ class ReentryGap:
     last_activity_at: str | None
 
 
-def reentry_gap(repository: Any, *, now: datetime, threshold_days: int) -> ReentryGap:
-    last = repository.most_recent_ended_at()
+def reentry_gap(
+    repository: Any, *, now: datetime, threshold_days: int, stale_open_before: str | None = None
+) -> ReentryGap:
+    """The break since the last real activity (F1).
+
+    ``stale_open_before`` is the start of the plan's day: a session left open
+    from an earlier day is stale, and its activity is real activity (review
+    F2). Without it, the day after a break whose session was never ended (Done
+    and closing the app end none) would be measured from the last session that
+    was ended, and would be a re-entry again.
+    """
+
+    last = (
+        repository.most_recent_ended_at(stale_open_before=stale_open_before)
+        if stale_open_before is not None
+        else repository.most_recent_ended_at()
+    )
     last_at = parse_utc(last) if last else None
     if last_at is None:
         return ReentryGap(False, 0, int(threshold_days), None)

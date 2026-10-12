@@ -110,6 +110,14 @@ def local_date(clock: Clock | None = None) -> str:
     return (clock or SystemClock()).now().astimezone().date().isoformat()
 
 
+def local_day_start_iso(clock: Clock | None = None) -> str:
+    """The start of the plan's day (local midnight), as a UTC timestamp."""
+
+    local_now = (clock or SystemClock()).now().astimezone()
+    midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 # -- the source/chooser seam ---------------------------------------------------
 
 
@@ -175,6 +183,17 @@ class PlanEnv:
 
     def today(self) -> str:
         return local_date(self.clock)
+
+    def gap(self) -> ReentryGap:
+        """The break since the last real activity (§7, F1), sessions left open
+        from an earlier day counting as activity (review F2)."""
+
+        return reentry_gap(
+            self.repository,
+            now=self.now(),
+            threshold_days=int(self.vault.config.hypothesis.reentry_gap_days),
+            stale_open_before=local_day_start_iso(self.clock),
+        )
 
     @property
     def plan_config(self) -> Any:
@@ -394,7 +413,7 @@ def get_or_create_today(env: PlanEnv, *, create: bool = True) -> PlanRecord | No
     if record is not None or not create:
         return record
     minutes, _source = remembered_minutes(env)
-    gap = reentry_gap(env.repository, now=env.now(), threshold_days=int(env.vault.config.hypothesis.reentry_gap_days))
+    gap = env.gap()
     if gap.due:
         budget = float(min(minutes, int(env.plan_config.reentry_minutes)))
         return build_plan(env, kind="reentry", budget=budget, remembered=minutes, minutes_source="carried")
@@ -481,7 +500,7 @@ def build_plan(
         lanes_allowed=lanes_allowed,
         new_first=override == "more_new",
     )
-    gap = reentry_gap(env.repository, now=env.now(), threshold_days=int(env.vault.config.hypothesis.reentry_gap_days))
+    gap = env.gap()
     split_json = {
         **split.as_dict(),
         "epoch_ordinal": 1,
@@ -1388,7 +1407,7 @@ def set_minutes(env: PlanEnv, minutes: int) -> PlanRecord:
         raise ValueError("minutes must be positive")
     record = get_or_create_today(env, create=False)
     if record is None:
-        gap = reentry_gap(env.repository, now=env.now(), threshold_days=int(env.vault.config.hypothesis.reentry_gap_days))
+        gap = env.gap()
         if gap.due:
             return build_plan(env, kind="reentry", budget=float(min(minutes, int(env.plan_config.reentry_minutes))), remembered=minutes, minutes_source="chip")
         return build_plan(env, kind="normal", budget=float(minutes), remembered=minutes, minutes_source="chip")

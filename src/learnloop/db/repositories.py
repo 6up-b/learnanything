@@ -8921,7 +8921,7 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def most_recent_ended_at(self) -> str | None:
+    def most_recent_ended_at(self, *, stale_open_before: str | None = None) -> str | None:
         """When the learner was last really active outside an open session, or None.
 
         Powers the F7 welcome-back diff (§4.4): the break the re-entry panel is
@@ -8931,6 +8931,13 @@ class Repository(
         practising inside the re-entry session never ends it. Stale sessions
         are ended at their last activity (``end_open_sessions_except``), so the
         app noticing them late does not reset the break. Read-only, outside replay.
+
+        ``stale_open_before`` (daily-loop DL1, review F2): a session still open
+        that started before this instant is stale, not the current one, so its
+        last activity counts too -- what ``end_open_sessions_except`` would end
+        it at (its last attempt or checkpoint write, else its start). The daily
+        plan measures its gap before Begin ends stale sessions, and "Done" or
+        closing the app leaves yesterday's session open.
         """
 
         with self.connection() as connection:
@@ -8943,8 +8950,17 @@ class Repository(
                   FROM practice_attempts attempt
                   LEFT JOIN sessions session ON session.id = attempt.session_id
                   WHERE session.id IS NULL OR session.ended_at IS NOT NULL
+                     OR (:stale_before IS NOT NULL AND session.started_at < :stale_before)
+                  UNION ALL
+                  SELECT MAX(session.started_at, COALESCE(checkpoint.updated_at, session.started_at)) AS at
+                  FROM sessions session
+                  LEFT JOIN session_checkpoints checkpoint ON checkpoint.session_id = session.id
+                  WHERE :stale_before IS NOT NULL
+                    AND session.ended_at IS NULL
+                    AND session.started_at < :stale_before
                 )
-                """
+                """,
+                {"stale_before": stale_open_before},
             ).fetchone()
         return row["latest"] if row is not None else None
 
