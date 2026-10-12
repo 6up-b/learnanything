@@ -13,10 +13,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-import pytest
-
-from learnloop.clock import utc_now_iso
-from learnloop.db.repositories import Repository
 from learnloop.scheduling import reentry_summary as re_mod
 
 from tests.helpers import add_followup_item, create_basic_vault, seed_due_item
