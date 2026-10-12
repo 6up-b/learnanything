@@ -122,10 +122,27 @@ class CompareContext:
     def price_for(self, model: str) -> float | None:
         return self.embedding_price if self.embedding_price is not None else EMBEDDING_PRICES_PER_MILLION.get(model)
 
+    def embedding_config(self, model: str) -> dict[str, Any]:
+        """What besides model, width and prefix identifies the vectors (cache key)."""
+        if model in self.embedding_injected:
+            client = self.embedding_injected[model]
+            return {"injected": type(client).__name__, "model_id": getattr(client, "model_id", model)}
+        route = self.vault.config.ai.routing.embedding
+        profile = self.vault.config.ai.providers.get(route or "")
+        settings = profile.model_dump(mode="json", exclude={"model", "dimensions"}) if profile is not None else None
+        return {"route": route, "profile": settings}
+
     def vectors(self, model: str, texts: list[str], *, dims: int,
                 task_prefix: str = "similarity") -> dict[str, np.ndarray]:
-        """Unit vectors by text, embedding only uncached texts; cached on disk."""
-        cache = VectorCache(self.output_dir / "cache", model, task_prefix)
+        """Unit vectors of width ``dims`` by text, embedding only uncached texts.
+
+        The cache is keyed by model, task prefix, requested width and embedding
+        configuration, so a later sweep at another width never reads vectors
+        embedded at this one; a provider returning narrower vectors than
+        requested is refused before anything is cached.
+        """
+        cache = VectorCache(self.output_dir / "cache", model, task_prefix, dims=dims,
+                            config=self.embedding_config(model))
         missing = [text for text in dict.fromkeys(texts) if cache.get(text) is None]
         if missing:
             price = self.price_for(model)
@@ -136,6 +153,9 @@ class CompareContext:
             for start in range(0, len(missing), EMBED_BATCH):
                 batch = missing[start:start + EMBED_BATCH]
                 vectors = self.caller.embed(client, batch, task_prefix=task_prefix, price_per_million=price)
+                widths = {len(vector) for vector in vectors}
+                if any(width < dims for width in widths):
+                    raise PFUnavailable(f"{model} returned {min(widths)}-wide vectors for a {dims}-dimension request")
                 cache.put_many(batch, vectors)
         return {text: cache.get(text) for text in texts}
 
@@ -153,19 +173,30 @@ def _embedding_client(vault: LoadedVault, model: str, dims: int) -> Any:
 
 
 class VectorCache:
-    """Content-addressed float32 unit vectors in the output directory, not the vault."""
+    """Content-addressed float32 unit vectors in the output directory, not the vault.
 
-    def __init__(self, root: Path, model: str, task_prefix: str) -> None:
-        slug = hashlib.sha256(f"{model}|{task_prefix}".encode()).hexdigest()[:16]
+    One cache per (model, task prefix, requested width, embedding config): the
+    width and config are part of the directory key and are validated on load.
+    """
+
+    def __init__(self, root: Path, model: str, task_prefix: str, *, dims: int,
+                 config: Mapping[str, Any] | None = None) -> None:
+        self.identity = {"model": model, "task_prefix": task_prefix, "dims": int(dims),
+                         "config": dict(config or {})}
+        slug = content_key(self.identity)[:16]
         self.directory = root / slug
         self.index_path = self.directory / "index.json"
         self.vectors_path = self.directory / "vectors.npy"
         self.model = model
+        self.dims = int(dims)
         self._index: dict[str, int] = {}
         self._vectors: np.ndarray | None = None
         if self.index_path.exists() and self.vectors_path.exists():
-            self._index = json.loads(self.index_path.read_text(encoding="utf-8"))["index"]
-            self._vectors = np.load(self.vectors_path)
+            stored = json.loads(self.index_path.read_text(encoding="utf-8"))
+            vectors = np.load(self.vectors_path)
+            if stored.get("identity") == self.identity and vectors.ndim == 2 and vectors.shape[1] >= self.dims:
+                self._index = stored["index"]
+                self._vectors = vectors
 
     @staticmethod
     def key(text: str) -> str:
@@ -190,7 +221,8 @@ class VectorCache:
         np.save(temporary, self._vectors)
         os.replace(temporary, self.vectors_path)
         index_tmp = self.index_path.with_suffix(".tmp")
-        index_tmp.write_text(json.dumps({"model": self.model, "index": self._index}), encoding="utf-8")
+        index_tmp.write_text(json.dumps({"model": self.model, "identity": self.identity, "index": self._index}),
+                             encoding="utf-8")
         os.replace(index_tmp, self.index_path)
 
 
@@ -237,6 +269,8 @@ def centered_cosines(pairs: list[tuple[np.ndarray, np.ndarray]], dims: int) -> l
     """Mean-centered cosine on MRL-truncated vectors, as retrieval scores them."""
     if not pairs:
         return []
+    if any(len(vector) < dims for pair in pairs for vector in pair):
+        raise ValueError(f"vectors narrower than the requested {dims} dimensions cannot be truncated to it")
     stacked = np.vstack([vector[:dims] for pair in pairs for vector in pair]).astype(np.float64)
     stacked /= np.where(np.linalg.norm(stacked, axis=1, keepdims=True) == 0, 1,
                         np.linalg.norm(stacked, axis=1, keepdims=True))

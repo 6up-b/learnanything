@@ -232,3 +232,42 @@ def test_valid_alternative_suite_rejects_a_degenerate_equivalence_check(tmp_path
         verdicts = {row[0] for row in connection.execute(
             "SELECT verdict FROM judgment_ledger WHERE task='answer_equivalence' AND left_kind='va_trace'")}
     assert verdicts == {"degenerate_check"}
+
+
+class WidthEmbedder(FakeEmbedder):
+    """Returns vectors of a fixed width (a provider honouring one MRL dimension)."""
+
+    def __init__(self, width):
+        super().__init__()
+        self.dims = width
+
+
+def test_a_larger_dimension_sweep_never_reuses_narrower_cached_vectors(tmp_path):
+    """Codex review F8: the cache is keyed by the requested width and embedding config."""
+    from learnloop.ops.embedding_compare import centered_cosines
+
+    vault, _, paths = seed_pf_vault(tmp_path / "vault")
+    bench = benchmark(tmp_path)
+    narrow, wide = WidthEmbedder(16), WidthEmbedder(64)
+
+    def request(dims):
+        return CompareRequest(suite="b2", output_dir=tmp_path / "out", benchmark_dir=bench,
+                              models=("fake/embed",), dims=dims, views=("stem",))
+
+    first = run_compare(vault, request=request((16,)), caps=CAPS, embedding_price_per_million=0.02,
+                        clients=fakes(), embedding_clients={"fake/embed": narrow})
+    assert first["status"] == "complete" and narrow.calls
+    second = run_compare(load_vault(paths.root), request=request((64,)), caps=CAPS,
+                         embedding_price_per_million=0.02, clients=fakes(), embedding_clients={"fake/embed": wide})
+    assert second["status"] == "complete", second
+    assert wide.calls  # the 64-dimension run embedded at 64, not from the 16-wide cache
+    assert second["results"]["views"]["stem|fake/embed|64"]["auc"] is not None
+    # A provider returning narrower vectors than requested is refused, never sliced silently.
+    short = WidthEmbedder(16)
+    third = run_compare(load_vault(paths.root), request=request((32,)), caps=CAPS,
+                        embedding_price_per_million=0.02, clients=fakes(), embedding_clients={"fake/embed": short})
+    assert third["status"] == "provider_failed" and "16" in third["reason"]
+    import numpy as np
+
+    with pytest.raises(ValueError, match="narrower"):
+        centered_cosines([(np.ones(16, dtype=np.float32), np.ones(16, dtype=np.float32))], 64)
