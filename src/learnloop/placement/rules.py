@@ -300,8 +300,9 @@ REASON_UNASSESSED = "unassessed"
 REASON_NO_GAP_ATTRIBUTED = "no_gap_attributed"
 KEPT_REASONS = frozenset({REASON_SLIP, REASON_ITEM_CONTRACT, REASON_UNASSESSED, REASON_NO_GAP_ATTRIBUTED})
 #: Today's rule (any miss returns the LO to learning), said so on the receipt:
-#: no diagnosis can arrive (``fallback`` names why), or the learner asked for
-#: help (hints, priming, "don't know", assistance): not a grading question.
+#: no diagnosis can arrive (``fallback`` names why), or the answer was not an
+#: unaided cold answer (hints, priming, "don't know", assistance, a walkthrough
+#: reconstruction or a teach-back): the learner's side, not a grading question.
 REASON_NO_DIAGNOSIS = "no_diagnosis"
 REASON_LEARNER_SIDE = "learner_side"
 REASON_DIAGNOSIS_PENDING = "diagnosis_pending"
