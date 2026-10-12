@@ -68,3 +68,35 @@ it("G4 renders an unselected no-evidence facet as an outline with a small untest
   expect(marker?.querySelector("circle")?.getAttribute("fill")).toBe("none");
   expect(buildGeometry(buildStates(field([untested]), null)).beads[0].z).toBe(0.012);
 });
+
+// Learner field F2: "assumed (not tested)" is a label channel, never depth.
+const assumedUntested: KnowledgeFacetPoint = { ...untested, assumed: true, assumedLearningObjectIds: ["lo"] };
+
+it("G4 draws an assumed, untested facet as a dashed outline labelled 'assumed (not tested)'", () => {
+  const { container, getByText } = render(view([assumedUntested]));
+  expect(getByText("assumed (not tested)").getAttribute("font-size")).toBe("9.5");
+  expect(container.textContent).not.toMatch(/Ready \d|untested\b(?! \))/);
+  const marker = Array.from(container.querySelectorAll("g")).find(
+    node => node.querySelector(":scope > title")?.textContent?.startsWith("Frontier\nassumed (not tested)")
+  );
+  const outline = marker?.querySelector("circle");
+  expect(outline?.getAttribute("fill")).toBe("none");
+  expect(outline?.getAttribute("stroke-dasharray")).toBeTruthy();
+  expect(marker?.querySelector(":scope > title")?.textContent).toContain("its first review is the check");
+});
+
+it("G6 an assumed label never changes well depth, beads, ghosts or the demonstrated bead", () => {
+  const assumedDemonstrated: KnowledgeFacetPoint = { ...demonstrated, assumed: true, assumedLearningObjectIds: ["lo"] };
+  const plain = buildStates(field([untested, demonstrated]), null);
+  const labelled = buildStates(field([assumedUntested, assumedDemonstrated]), null);
+  expect(buildGeometry(labelled)).toEqual(buildGeometry(plain));
+  expect(labelled.map(s => [s.wellDepth, s.ghostDepth, s.effectiveDepth, s.demonstrated]))
+    .toEqual(plain.map(s => [s.wellDepth, s.ghostDepth, s.effectiveDepth, s.demonstrated]));
+  const { container } = render(view([assumedUntested, assumedDemonstrated]));
+  const bead = Array.from(container.querySelectorAll("g")).find(
+    node => node.querySelector(":scope > title")?.textContent?.startsWith("Demonstrated\n")
+  );
+  // Still the filled green demonstrated bead; the assumed ring sits outside it.
+  const fills = Array.from(bead?.querySelectorAll("circle") ?? []).map(c => c.getAttribute("fill"));
+  expect(fills).toContain("var(--green)");
+});

@@ -400,8 +400,17 @@ def practice_item_detail(vault: LoadedVault, repository: Repository, practice_it
                     else None
                 )
             ),
+            # Learner field F2: the practice screen offers "I know this" (a
+            # routing preference, labelled as such) only while placement is on.
+            "placement_active": _placement_active(vault),
         }
     )
+
+
+def _placement_active(vault: LoadedVault) -> bool:
+    from learnloop.placement.state import placement_active
+
+    return placement_active(vault)
 
 
 def practice_item_attempts(
@@ -457,8 +466,19 @@ def learning_object_detail(vault: LoadedVault, repository: Repository, learning_
             # seed and round-trip the exact all_of/any_of/integration/modality
             # structure; to_camel camelCases the keys (all_of -> allOf).
             "blueprints": list(learning_object.blueprints),
+            # Learner field F2: "assumed known (not tested)" and the self-report
+            # and quick-check controls the inspector offers while placement is on.
+            "placement": _learning_object_placement(vault, repository, learning_object.id),
         }
     )
+
+
+def _learning_object_placement(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any]:
+    from learnloop_sidecar.handlers.placement import placement_payload
+
+    payload = placement_payload(vault, repository, [learning_object_id])
+    rows = payload.pop("learning_objects")
+    return {**payload, **(rows[0] if rows else {"learning_object_id": learning_object_id, "assumed": False})}
 
 
 def _learning_object_confusable_concepts(

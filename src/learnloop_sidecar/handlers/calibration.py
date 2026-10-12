@@ -6,7 +6,6 @@ from typing import Any
 
 from learnloop.diagnosis.calibration_sessions import (
     CalibrationSessionError,
-    calibration_session_progress,
     start_calibration_session,
     stop_calibration_session,
 )
@@ -65,11 +64,20 @@ def start_calibration(ctx: SidecarContext, params: StartCalibrationInput) -> dic
     return versioned(progress)
 
 
+def _progress(vault, repository, calibration_session_id: str) -> dict[str, Any]:
+    """Calibration progress; a quick check (learner field F2) adds its own
+    target, answer count and, once it ends, its results."""
+
+    from learnloop.diagnosis.quick_check import quick_check_progress
+
+    return quick_check_progress(vault, repository, calibration_session_id)
+
+
 @method("get_calibration_session", CalibrationSessionInput)
 def get_calibration(ctx: SidecarContext, params: CalibrationSessionInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     try:
-        progress = calibration_session_progress(vault, repository, params.calibration_session_id)
+        progress = _progress(vault, repository, params.calibration_session_id)
     except CalibrationSessionError as error:
         raise SidecarError("not_found", str(error)) from error
     return versioned(progress)
@@ -80,7 +88,7 @@ def stop_calibration(ctx: SidecarContext, params: CalibrationSessionInput) -> di
     vault, repository = ctx.require_vault()
     stop_calibration_session(repository, params.calibration_session_id)
     try:
-        progress = calibration_session_progress(vault, repository, params.calibration_session_id)
+        progress = _progress(vault, repository, params.calibration_session_id)
     except CalibrationSessionError as error:
         raise SidecarError("not_found", str(error)) from error
     return versioned(progress)

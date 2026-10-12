@@ -11,7 +11,9 @@ same predicates and reads, without writing anything:
 * the diagnostic freshness reserve: dialogue-turn instances and
   ``diagnostic_probe`` surfaces never become ordinary practice;
 * servability of the stimulus (``instrument_serving``);
-* the learner-set LO lifecycle (dormant or resolved LOs are put away).
+* the learner-set LO lifecycle (dormant or resolved LOs are put away), and a
+  card the reader's reference-question sweep adopted while its kill switch
+  ``tutor_qa.adopt_reference_questions`` is off (``vault.lifecycle``).
 
 Two rules are specific to a proposal, because a proposal is a learner choosing
 an item outside the scheduler's timing:
@@ -30,20 +32,19 @@ gains a new eligibility rule, add it here too; the parity test pins them.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from contextlib import closing
 from dataclasses import dataclass
-from datetime import UTC
 
 from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
-from learnloop.clock import Clock, SystemClock
-from learnloop.db.connection import connect
+from learnloop.clock import Clock
 from learnloop.db.repositories import PracticeItemState, Repository
-from learnloop.db.stores.practice_index import items_revealed_between
 from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
-from learnloop.goals.exam_pool import reserved_item_ids as reserved_exam_pool_item_ids
-from learnloop.scheduling.controller_ownership import staged_owned_practice_item_ids
+from learnloop.scheduling.serving_exclusions import out_of_timing_serving_exclusions
 from learnloop.substrate.instrument_serving import unservable_reason
-from learnloop.vault.lifecycle import learning_object_servable
+from learnloop.vault.lifecycle import (
+    REFERENCE_ADOPTION_DISABLED,
+    learning_object_servable,
+    practice_item_serving_block,
+)
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 
@@ -58,13 +59,10 @@ EXCLUSION_REASONS = (
     "unservable",
     "no_learning_object",
     "lo_not_servable",
+    "reference_adoption_disabled",
     "cold_check_reserved",
     "revealed_recently",
 )
-
-
-def _iso(value) -> str:
-    return value.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @dataclass(frozen=True)
@@ -81,24 +79,19 @@ class PracticeAdmission:
     @classmethod
     def load(cls, vault: LoadedVault, repository: Repository, *,
              clock: Clock | None = None) -> PracticeAdmission:
-        now = (clock or SystemClock()).now()
-        cold_reserved = {
-            str(task["selected_item_id"])
-            for kind in sorted(COLD_FOLLOWUP_TASK_KINDS)
-            for task in repository.open_followup_tasks_of_kind(kind)
-            if task.get("selected_item_id")
-        }
-        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            revealed = items_revealed_between(
-                connection, since=_iso(now - COLD_RETRIEVAL_DELAY), until=_iso(now),
-            )
+        # The one place serving reads these sets (``scheduling.serving_exclusions``),
+        # shared with Today's queue and learner-field F2's quick check.
+        exclusions = out_of_timing_serving_exclusions(
+            vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
+            reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
+        )
         return cls(
             item_states=repository.practice_item_states(),
-            exam_reserved=frozenset(reserved_exam_pool_item_ids(repository)),
-            variant_pending=frozenset(repository.rung_variant_pending_source_ids()),
-            staged_owned=frozenset(staged_owned_practice_item_ids(vault, repository)),
-            cold_reserved=frozenset(cold_reserved),
-            revealed_recently=frozenset(revealed),
+            exam_reserved=exclusions.reserved_exam_item_ids,
+            variant_pending=exclusions.rung_variant_hold_ids,
+            staged_owned=exclusions.staged_owned_item_ids,
+            cold_reserved=exclusions.cold_check_reserved_item_ids,
+            revealed_recently=exclusions.revealed_recently_item_ids,
         )
 
     def exclusion_reason(self, vault: LoadedVault, item: PracticeItem) -> str | None:
@@ -125,6 +118,11 @@ class PracticeAdmission:
             return "no_learning_object"
         if not learning_object_servable(vault, learning_object.id):
             return "lo_not_servable"
+        if practice_item_serving_block(vault, item) == REFERENCE_ADOPTION_DISABLED:
+            # A card the reader's reference-question sweep adopted, while
+            # ``tutor_qa.adopt_reference_questions`` is off: Today does not
+            # serve it, so it is not proposed either.
+            return "reference_adoption_disabled"
         if item.id in self.cold_reserved:
             return "cold_check_reserved"
         if item.id in self.revealed_recently:

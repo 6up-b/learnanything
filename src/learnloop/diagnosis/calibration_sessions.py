@@ -162,6 +162,7 @@ def start_calibration_session(
     learning_object_ids: list[str] | None = None,
     time_budget_minutes: int | None = None,
     generate_missing: bool = True,
+    open_episodes: bool = True,
     clock: Clock | None = None,
     ai_client: object | None = None,
 ) -> dict[str, Any]:
@@ -170,6 +171,12 @@ def start_calibration_session(
     Ensures an episode per in-scope LO, optionally resolves `pending_items`
     episodes through parameterized generation (§10), orders episodes by the
     best available cross-LO predictive information rate, and persists the plan.
+
+    ``open_episodes=False`` (learner field F2's quick check, "Check what I
+    already know") persists the session, its budget and its stop control
+    without opening any diagnostic episode: the quick check serves ordinary
+    cold items itself (``diagnosis.quick_check``), so no opening probe survives
+    it (D11).
     """
 
     if repository.active_probe_calibration_session(session_id) is not None:
@@ -195,7 +202,7 @@ def start_calibration_session(
 
     working_vault = vault
     episode_ids: dict[str, str] = {}
-    for lo_id in scope_los:
+    for lo_id in scope_los if open_episodes else ():
         episode = repository.open_probe_episode(lo_id)
         if episode is None:
             trigger = "goal_diagnostic" if goal_id is not None else "manual"

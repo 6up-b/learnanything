@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
+source_commit_timestamp: "2026-10-12T15:09:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 171
+schema_head: 173
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -132,8 +132,8 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
-- `src/learnloop/practice_index/admission.py`
 - `src/learnloop/scheduling/scheduler.py`
+- `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
@@ -146,6 +146,7 @@ Indexes and uniqueness:
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_remediation_cold_retry.py`
+- `tests/test_assumed_known.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
@@ -155,6 +156,7 @@ Indexes and uniqueness:
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_item_authoring.py`
 - `tests/test_practice_index_admission.py`
+- `tests/test_quick_check.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_scheduler.py`
 

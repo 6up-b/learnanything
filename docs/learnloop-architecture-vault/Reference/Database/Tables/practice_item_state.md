@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
+source_commit_timestamp: "2026-10-12T15:09:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 171
+schema_head: 173
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -124,13 +124,14 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/diagnosis/probe_lifecycle.py`
 - `src/learnloop/diagnosis/probe_remint.py`
-- `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/diagnosis/quick_check.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_assumed_known.py`
 - `tests/test_attempts.py`
 - `tests/test_card_lineage.py`
 - `tests/test_causal_factor_deferral.py`
@@ -150,7 +151,6 @@ Indexes and uniqueness:
 - `tests/test_hot_path_eligibility_cutover.py`
 - `tests/test_item_authoring.py`
 - `tests/test_measurement_corrections.py`
-- `tests/test_patch_applier.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

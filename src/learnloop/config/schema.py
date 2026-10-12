@@ -1316,7 +1316,7 @@ class DiagnosisConfig(BaseModel):
 
     Dormant below ``mvp-0.10``: the algorithm version, not this section, decides
     whether a vault grades split (spec §6.2). ``split_enabled`` is the kill
-    switch: off, an ``mvp-0.10`` vault grades NEW attempts jointly exactly as
+    switch: off, an ``mvp-0.10`` (or later) vault grades NEW attempts jointly as
     ``mvp-0.9`` did; already-blind attempts keep their records and replay from
     them (an attempt's grader mode is persisted, never read from this switch).
     ``history_mode`` defaults to ``full`` (O16) and is changed by config once the
@@ -1499,6 +1499,30 @@ class PracticeIndexConfig(BaseModel):
     evaluation_enabled: bool = False
 
 
+class PlacementConfig(BaseModel):
+    """Learner field F2: starting new material without ceremony (spec §5.2).
+
+    Acts only on a vault at a placement algorithm version (``mvp-0.11``).
+    ``enabled`` is the kill switch: off restores the predecessor's opening
+    probes, serving and ordering exactly, and ignores recorded assumptions.
+    """
+
+    enabled: bool = True
+    # D11: no opening diagnostic episode per new LO. True restores them while
+    # keeping assumed-known (a narrower switch than ``enabled``).
+    initial_probes: bool = False
+    # D6: the assumed LO's first review is the check.
+    assumed_first_interval_days: int = Field(default=14, ge=1)
+    # D6: at least this many cold, unhinted, unhelped, full-marks first answers.
+    fast_track_min_correct: int = Field(default=2, ge=2)
+    # D6: P(theta_L > theta_known) >= q, theta_known = logit(known_probability).
+    fast_track_q: float = Field(default=0.8, gt=0.5, lt=1.0)
+    known_probability: float = Field(default=0.75, gt=0.5, lt=1.0)
+    # D4: the optional quick check ("Check what I already know").
+    quick_check_k: int = Field(default=4, ge=1, le=4)
+    quick_check_budget_minutes: int = Field(default=8, ge=1, le=8)
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1529,6 +1553,7 @@ class LearnLoopConfig(BaseModel):
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
+    placement: PlacementConfig = Field(default_factory=PlacementConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

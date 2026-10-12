@@ -3,13 +3,13 @@ title: "certification_cold_probe_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
+source_commit_timestamp: "2026-10-12T15:09:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite certification_cold_probe_outcomes"
   - "table certification_cold_probe_outcomes"
-schema_head: 171
+schema_head: 173
 table_name: "certification_cold_probe_outcomes"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -134,6 +134,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_assumed_known.py`
 - `tests/test_certification_cold_probe.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -820,7 +820,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # structuring / append models and cosine review columns. It acts only when
     # embedding.enabled (default false) is also on, changes no scoring,
     # scheduling, projection or serving, and enabled = false is its kill switch.
-    "mvp-0.9": "5c401c77583c1c260d2026505f3b49bf31cf123d4200a9e2221c700ab724d482",
+    "mvp-0.9": "a9a1916d48890a88b359d751f6c5006559ae26677a1fa23422d75f101c4a8a6f",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -828,7 +828,18 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
-    "mvp-0.10": "af30da2a0f63ad4e40d5327428efd4505d5d0cf9496fae34f70ece1d1f52211b",
+    "mvp-0.10": "ab768a5d5345cd5524f492845ecad427fbc95c0eecdc7ce0d68d90f0f2f17af9",
+    # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
+    # placement (the [placement] section, modelled defaults only, left out of
+    # the decision-only template): no opening probes, assumed-known checked in
+    # the first review, the optional quick check. Kill switch
+    # placement.enabled. Reached by `learnloop upgrade` (default target) from
+    # mvp-0.10, or from mvp-0.9 through mvp-0.10; the template stays at
+    # mvp-0.9 (Slice 1 M2 open question 1). Computed from DEFAULT_CONFIG_TEXT
+    # with only algorithm_version changed. [placement] is dormant below
+    # mvp-0.11, so the mvp-0.9 and mvp-0.10 snapshots were recomputed at the
+    # merge (they move only because the effective config gains the section).
+    "mvp-0.11": "36b5b6c3cb3d6d5c5b332ca14679cdcb30dc5a20b00c6aabc7542e87cc22c4c9",
 }
 
 

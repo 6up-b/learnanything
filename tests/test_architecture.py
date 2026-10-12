@@ -61,6 +61,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/capture/inbox.py",
         "src/learnloop/capture/maintenance.py",
         "src/learnloop/capture/routing.py",
+        # Learner field F2 placement receipts and quick-check queue state.
+        "src/learnloop/db/stores/placement.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

@@ -923,6 +923,21 @@ export function PracticeScreen({
                 onBack();
               }}
               onTeachBack={isTeachBack ? undefined : onContinueDiagnostic}
+              sessionId={session.sessionId}
+              onKnowThis={
+                item.placementActive
+                  ? () => {
+                      // The LO is now assumed known (not tested): its new items
+                      // leave the queue, and its first review checks it. The
+                      // report already cleared this card's durable draft in its
+                      // own transaction; suppress the unmount flush so this
+                      // screen cannot recreate it.
+                      suppressDraftFlush.current = true;
+                      onCheckpointCleared();
+                      onBack();
+                    }
+                  : undefined
+              }
             />
           ) : null}
           {item.sourceRefs.length > 0 ? (

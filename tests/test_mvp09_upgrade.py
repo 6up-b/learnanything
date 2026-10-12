@@ -53,11 +53,13 @@ def test_upgrade_to_mvp09_is_immediate_successor_only(tmp_path):
     assert already.problems == ["vault is already mvp-0.9"]
 
 
-def test_upgrade_command_defaults_to_current_mvp09_target(tmp_path):
+def test_upgrade_command_reaches_mvp09_target(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, "mvp-0.8")
 
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    # The default target moved on to mvp-0.11 (Slice A Phase 6); mvp-0.9 is
+    # still reached explicitly, one immediate successor at a time.
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.9"])
 
     assert result.exit_code == 0, result.output
     assert "mvp-0.8 -> mvp-0.9" in result.output

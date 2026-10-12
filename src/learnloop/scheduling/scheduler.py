@@ -35,12 +35,15 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
 from learnloop.goals.goal_projection import build_goal_frontier
-from learnloop.goals.exam_pool import reserved_item_ids as reserved_exam_pool_item_ids
 from learnloop.learner.facet_state_reader import facet_states_by_lo as read_facet_states_by_lo
 from learnloop.learner.recall_coverage import (
     familiarity_discount,
     familiarity_discount_from_attempts,
     resolve_coverage,
+)
+from learnloop.scheduling.serving_exclusions import (
+    out_of_timing_serving_exclusions,
+    routine_serving_exclusions,
 )
 from learnloop.scheduling.selection_rewards import (
     SchedulerIntent,
@@ -131,10 +134,13 @@ def build_due_queue(
     )
     item_states = repository.practice_item_states()
     quality_states = repository.practice_item_quality_states()
-    # Items reserved for a goal's held-out exam are quarantined from practice so
-    # the exam stays an honest, uncontaminated test (fetched once per build).
-    reserved_item_ids = reserved_exam_pool_item_ids(repository)
-    rung_variant_hold_ids = repository.rung_variant_pending_source_ids()
+    # The routine-serving exclusions, shared with the quick check
+    # (``serving_exclusions``): items reserved for a goal's held-out exam are
+    # quarantined from practice so the exam stays an honest, uncontaminated
+    # test; pending-variant holds and staged-owned commitments are below.
+    exclusions = routine_serving_exclusions(vault, repository)
+    reserved_item_ids = set(exclusions.reserved_exam_item_ids)
+    rung_variant_hold_ids = set(exclusions.rung_variant_hold_ids)
     # Learner-requested items (tutor promotions + applied rung variants, never
     # attempted). Fetched once: the in-loop eligibility floor and the §4a
     # requested-items reorder floor must see the same set — a fresh sibling has
@@ -146,9 +152,20 @@ def build_due_queue(
     # staged policy owns P2 golden-path commitments. Their practice items are EXCLUDED
     # from the legacy queue so no commitment is scheduled by both controllers. Empty
     # (a no-op, byte-identical legacy queue) when no commitment is staged-owned.
-    from learnloop.scheduling import controller_ownership as _ownership
-
-    staged_owned_item_ids = _ownership.staged_owned_practice_item_ids(vault, repository)
+    staged_owned_item_ids = set(exclusions.staged_owned_item_ids)
+    # Learner field F2 (mvp-0.11, kill switch placement.enabled): starting new
+    # material without ceremony. Fast-track runs first on the persisting path
+    # (the one that always follows an attempt), so an LO it assumes known stops
+    # being served as new material in this very build. None when placement is
+    # off: every branch below then behaves exactly as the predecessor.
+    placement_serving = _placement_serving(
+        vault,
+        repository,
+        clock=clock,
+        persist=persist_explanations,
+        item_states=item_states,
+        excluded_item_ids=reserved_item_ids | rung_variant_hold_ids | staged_owned_item_ids,
+    )
     mastery_states = repository.mastery_states()
     # Probe redesign: open diagnostic episodes replace lo_probe_state (frozen
     # legacy). `pending_items` episodes keep their LO schedulable for ordinary
@@ -289,11 +306,44 @@ def build_due_queue(
         # (promotion, rung variant, a question written while reading) is also
         # exempt: the learner explicitly adopted it, so a never-practised LO must
         # not swallow it.
+        # F2 placement (None when off). New material: a never-attempted item
+        # on an LO with no direct evidence (or back to learning after a missed
+        # check, a miss in maintenance or "I don't know this") enters as
+        # learning, where the predecessor opened an initial diagnostic episode
+        # for it. An assumed LO is on its long first interval: nothing of it is
+        # served routinely until its first review falls due, and then only the
+        # check. After a passed check the LO is in maintenance: its practised
+        # items keep their normal reviews, its remaining learning items stay
+        # withheld. Learner-requested cards are the explicit exception.
+        new_material = False
+        assumed_check = False
+        if placement_serving is not None and item.id not in requested_id_set:
+            never_attempted = state is None or state.last_attempt_at is None
+            if learning_object.id in placement_serving.open_learning_object_ids:
+                if placement_serving.check_items.get(learning_object.id) != item.id:
+                    continue
+                assumed_check = True
+            elif learning_object.id in placement_serving.maintained_learning_object_ids:
+                if never_attempted:
+                    continue
+            elif (
+                never_attempted
+                and episode is None
+                and frontier_entry is None
+                and (
+                    mastery is None
+                    or mastery.last_evidence_at is None
+                    or learning_object.id in placement_serving.back_to_learning_learning_object_ids
+                )
+            ):
+                new_material = True
         if (
             (mastery is None or mastery.last_evidence_at is None)
             and episode is None
             and frontier_entry is None
             and item.id not in requested_id_set
+            and not new_material
+            and not assumed_check
         ):
             continue
 
@@ -454,6 +504,11 @@ def build_due_queue(
             # items weakly schedulable, so a teach_back item must survive the
             # zero-priority filter and rank by its selection reward.
             priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
+        if new_material or assumed_check:
+            # F2: the same small floor the predecessor's opening episode gave a
+            # never-attempted LO; the selection reward decides the rest.
+            components["new_material" if new_material else "assumed_check"] = 1.0
+            priority = max(priority, _TEACH_BACK_PRIORITY_FLOOR)
         if episode is not None and (mastery is None or mastery.last_evidence_at is None):
             # Cold-start floor (probe redesign §10): an open episode — including
             # a pending_items one — keeps its never-attempted LO practicable for
@@ -494,6 +549,8 @@ def build_due_queue(
             scheduled.practice_item_id,
         )
     )
+    if placement_serving is not None:
+        queue = _order_new_material(vault, repository, queue, placement_serving)
     # Propensity is computed on the greedy-sorted order, before exploration reorders
     # it: it is P(this candidate is served | slate) under the seeded exploration
     # policy, which is what off-policy estimation reweights by.
@@ -685,6 +742,135 @@ def build_due_queue(
             repository, queue, probe_item_ids, session, entropy_before=probe_entropy_before, clock=clock
         )
     return queue
+
+
+@dataclass(frozen=True)
+class _PlacementServing:
+    """What learner-field F2 placement changes about one queue build."""
+
+    open_learning_object_ids: frozenset[str]
+    #: Passed their check: remaining learning items withheld (maintenance).
+    maintained_learning_object_ids: frozenset[str]
+    back_to_learning_learning_object_ids: frozenset[str]
+    #: One first-review check item per assumed LO whose review is due.
+    check_items: dict[str, str]
+    predictor: Any
+
+
+#: Practice modes never used as an assumed-known first review: the check is a
+#: normal cold item, not a single-use diagnostic surface or an AI conversation.
+_CHECK_EXCLUDED_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "teach_back"})
+
+
+def _placement_serving(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None,
+    persist: bool,
+    item_states: Mapping[str, PracticeItemState],
+    excluded_item_ids: set[str],
+) -> _PlacementServing | None:
+    """F2 placement state for one build, or None when placement is off.
+
+    ``excluded_item_ids`` are the build's own exclusions (exam reservations,
+    pending rung variants, staged-owned commitments), so a first-review check
+    is chosen only among items the queue may actually serve. The check is a
+    normal cold item picked for its LO rather than by the routine timing, so
+    it also skips an open cold follow-up's reserved item and an item whose
+    answer was revealed within the cold retrieval delay
+    (``serving_exclusions.out_of_timing_serving_exclusions``), as the quick
+    check and ``find_practice`` do.
+    """
+
+    from learnloop.placement.decisions import reconcile_fast_track
+    from learnloop.placement.predictor import active_predictor
+    from learnloop.placement.state import (
+        choose_check_items,
+        load_placement_state,
+        placement_active,
+    )
+
+    if not placement_active(vault):
+        return None
+    if persist:
+        reconcile_fast_track(vault, repository, clock=clock)
+    state = load_placement_state(vault, repository)
+    now_iso = utc_now_iso(clock)
+    predictor = active_predictor(vault, repository, now_iso=now_iso)
+    due = state.due_learning_object_ids(now_iso)
+    if due:
+        from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
+        from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY
+
+        excluded_item_ids = set(excluded_item_ids) | out_of_timing_serving_exclusions(
+            vault, repository, cold_followup_kinds=COLD_FOLLOWUP_TASK_KINDS,
+            reveal_window=COLD_RETRIEVAL_DELAY, clock=clock,
+        ).out_of_timing_item_ids
+    candidates: dict[str, list[str]] = {}
+    for item in vault.practice_items.values():
+        if item.learning_object_id not in due or item.status != "active":
+            continue
+        item_state = item_states.get(item.id)
+        if item_state is not None and not item_state.active:
+            continue
+        if (
+            item.id in excluded_item_ids
+            or item.practice_mode in _CHECK_EXCLUDED_MODES
+            or unservable_reason(item) is not None
+            or vault.learning_object_for_item(item) is None
+            or not practice_item_servable(vault, item)
+        ):
+            continue
+        candidates.setdefault(str(item.learning_object_id), []).append(item.id)
+    attempted = {item_id for item_id, item_state in item_states.items() if item_state.last_attempt_at is not None}
+    return _PlacementServing(
+        open_learning_object_ids=frozenset(state.open_by_lo),
+        maintained_learning_object_ids=state.maintained_learning_object_ids,
+        back_to_learning_learning_object_ids=state.back_to_learning_learning_object_ids,
+        check_items=choose_check_items(predictor, candidates, attempted_item_ids=attempted),
+        predictor=predictor,
+    )
+
+
+def _order_new_material(
+    vault: LoadedVault,
+    repository: Repository,
+    queue: list[ScheduledItem],
+    placement: _PlacementServing,
+) -> list[ScheduledItem]:
+    """Reorder new-material items among the slots they already hold.
+
+    Field §5.2: new material is ordered by prerequisites, then LOs the learner
+    asked about or needed help on (taught first), then the active predictor's
+    predicted success, easiest first. Every other item keeps its position, so
+    the rest of the queue's composition is unchanged.
+    """
+
+    slots = [index for index, scheduled in enumerate(queue) if scheduled.components.get("new_material", 0.0) > 0]
+    if not slots:
+        return queue
+    from learnloop.placement.signals import taught_first_learning_objects
+    from learnloop.placement.state import order_new_material
+
+    by_id = {queue[index].practice_item_id: queue[index] for index in slots}
+    taught_first = taught_first_learning_objects(
+        vault, repository, {queue[index].learning_object_id for index in slots}
+    )
+    ordered = order_new_material(
+        vault,
+        placement.predictor,
+        [(queue[index].practice_item_id, queue[index].learning_object_id) for index in slots],
+        taught_first=taught_first,
+    )
+    result = list(queue)
+    for index, (item_id, components) in zip(slots, ordered, strict=True):
+        scheduled = by_id[item_id]
+        scheduled.components.update(components)
+        if components["taught_first"] > 0:
+            scheduled.plain_english.insert(0, "taught first: you asked about this topic or needed help on it")
+        result[index] = scheduled
+    return result
 
 
 #: Policy name recorded on every persisted slate built by ``build_due_queue``.
@@ -1841,6 +2027,10 @@ def _errors_by_learning_object(errors: list[ActiveErrorEvent]) -> dict[str, list
 
 def _plain_english(item: PracticeItem, components: dict[str, float]) -> list[str]:
     reasons: list[str] = []
+    if components.get("assumed_check", 0.0) > 0:
+        reasons.append("first review of a topic assumed known (not tested): this is the check")
+    if components.get("new_material", 0.0) > 0:
+        reasons.append("new material: starts as learning, no opening probe")
     if components["forgetting_risk"] > 0:
         reasons.append(f"forgetting risk {components['forgetting_risk']:.2f}")
     if components.get("goal_frontier", 0.0) > 0:

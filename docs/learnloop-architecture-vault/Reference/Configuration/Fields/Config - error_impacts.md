@@ -3,8 +3,8 @@ title: "Config - error_impacts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
-source_commit_timestamp: "2026-10-12T13:48:47-04:00"
+source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
+source_commit_timestamp: "2026-10-12T15:09:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml error_impacts"
@@ -28,9 +28,9 @@ source_paths:
   - "tests/test_anti_double_count.py"
   - "tests/test_assessment_contracts.py"
   - "tests/test_assessment_enforcement.py"
+  - "tests/test_assumed_known.py"
   - "tests/test_authoring_context.py"
   - "tests/test_blind_grading_contract.py"
-  - "tests/test_blueprint_projection.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/error-impacts"
@@ -51,13 +51,13 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `error_impacts.recall_failure.families.recall` | `-0.25` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a recall failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1076`; `src/learnloop/params/parameter_registry.py:1176` |
+| `error_impacts.recall_failure.families.recall` | `-0.25` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a recall failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1076`; `src/learnloop/params/parameter_registry.py:1187` |
 | `error_impacts.recall_failure.lo_mastery_delta` | `-0.05` | number | modeled default or validator seed | Sets learning-object mastery delta applied when an attempt is classified as recall failure. | **COMPAT** — Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain. | `src/learnloop/config/schema.py:1077` |
 | `error_impacts.recall_failure.local_severity_gain` | `0.8` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as recall failure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1078` |
-| `error_impacts.scaffold_failure.families.recall` | `-0.35` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a scaffold failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1076`; `src/learnloop/params/parameter_registry.py:1176` |
+| `error_impacts.scaffold_failure.families.recall` | `-0.35` | number | modeled default or validator seed | Sets the legacy recall-family impact recorded for a scaffold failure classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1076`; `src/learnloop/params/parameter_registry.py:1187` |
 | `error_impacts.scaffold_failure.lo_mastery_delta` | `-0.05` | number | modeled default or validator seed | Sets learning-object mastery delta applied when an attempt is classified as scaffold failure. | **COMPAT** — Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain. | `src/learnloop/config/schema.py:1077` |
 | `error_impacts.scaffold_failure.local_severity_gain` | `1.5` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as scaffold failure. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1078` |
-| `error_impacts.arithmetic_slip.families.numeric` | `-0.05` | number | modeled default or validator seed | Sets the legacy numeric-family impact recorded for a arithmetic slip classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1076`; `src/learnloop/params/parameter_registry.py:1176` |
+| `error_impacts.arithmetic_slip.families.numeric` | `-0.05` | number | modeled default or validator seed | Sets the legacy numeric-family impact recorded for a arithmetic slip classification. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1076`; `src/learnloop/params/parameter_registry.py:1187` |
 | `error_impacts.arithmetic_slip.lo_mastery_delta` | `0.0` | number | modeled default or validator seed | Sets learning-object mastery delta applied when an attempt is classified as arithmetic slip. | **COMPAT** — Retained for legacy mastery-impact compatibility; current coverage uses local_severity_gain. | `src/learnloop/config/schema.py:1077` |
 | `error_impacts.arithmetic_slip.local_severity_gain` | `0.35` | number | modeled default or validator seed | Sets local severity gain applied when an attempt is classified as arithmetic slip. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1078` |
 
@@ -86,9 +86,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_anti_double_count.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_assessment_enforcement.py`
+- `tests/test_assumed_known.py`
 - `tests/test_authoring_context.py`
 - `tests/test_blind_grading_contract.py`
-- `tests/test_blueprint_projection.py`
 
 ## Extension and modification guidance
 

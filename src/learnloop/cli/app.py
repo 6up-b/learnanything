@@ -75,24 +75,28 @@ def upgrade(
         str,
         typer.Option(
             "--to",
-            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10).",
+            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, or mvp-0.11).",
         ),
-    ] = "mvp-0.9",
+    ] = "mvp-0.11",
 ) -> None:
     """Atomically activate a knowledge-model version for this vault.
 
     ``--to mvp-0.7`` activates the KM2 canonical model over legacy mvp-0.6 content
     (KM §15); ``--to mvp-0.8`` activates the P0 authority-propagation
-    projection over an mvp-0.7 vault; ``--to mvp-0.9`` (default) activates
+    projection over an mvp-0.7 vault; ``--to mvp-0.9`` activates
     cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
     activates the Slice 1 split (learner-blind grader + asynchronous diagnoser)
-    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``)."""
+    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
+    ``--to mvp-0.11`` (default, the latest successor) adds placement, starting
+    new material without ceremony, over an mvp-0.10 vault, or over an mvp-0.9
+    vault by activating mvp-0.10 first (kill switch ``placement.enabled``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
         upgrade_to_mvp08,
         upgrade_to_mvp09,
         upgrade_to_mvp010,
+        upgrade_to_mvp011,
     )
 
     if to == "mvp-0.7":
@@ -103,9 +107,11 @@ def upgrade(
         result = upgrade_to_mvp09(_root(vault))
     elif to == "mvp-0.10":
         result = upgrade_to_mvp010(_root(vault))
+    elif to == "mvp-0.11":
+        result = upgrade_to_mvp011(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, or mvp-0.11."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
@@ -2975,7 +2981,7 @@ def attempt(
         bool,
         typer.Option(
             "--no-diagnose",
-            help="Blind-graded vaults (mvp-0.10): only queue the diagnosis (run it later with `learnloop diagnose drain`).",
+            help="Blind-graded vaults (mvp-0.10 and later): only queue the diagnosis (run it later with `learnloop diagnose drain`).",
         ),
     ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,

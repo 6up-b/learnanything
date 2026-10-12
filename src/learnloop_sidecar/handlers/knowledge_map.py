@@ -131,6 +131,8 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
             neighbor_lists.append(blended)
 
     facet_count = len({facet for item in items for facet in item.evidence_facets})
+    placement = _placement_map(vault, repository)
+    assumed_los = {row["learning_object_id"] for row in placement["assumed"]}
     points: list[dict[str, Any]] = []
     with repository.pinned():
         for index, item in enumerate(items):
@@ -166,6 +168,9 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
                     "predicted_correct": predicted,
                     "is_probe": item.id in probe_ids,
                     "queued": item.id in queued_ids,
+                    # F2: the item's LO is assumed known (not tested). A label
+                    # only; nothing about mastery or prediction changes.
+                    "assumed": item.learning_object_id in assumed_los,
                     "difficulty": item.difficulty,
                     "facets": top_facets,
                     "neighbors": neighbor_lists[index],
@@ -183,10 +188,35 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
                 "facets": facet_count,
             },
             "stress": stress,
-            "facet_field": _facet_field(vault, repository),
+            "facet_field": _facet_field(vault, repository, assumed_los=assumed_los),
             "item_text_neighbors": text_neighbors.summary(),
+            "placement": placement,
         }
     )
+
+
+def _placement_map(vault, repository) -> dict[str, Any]:
+    """Learner field F2: LOs assumed known (not tested), for honest labels (G4).
+
+    Empty while placement is off: recorded assumptions then neither route nor
+    label anything."""
+
+    from learnloop.placement.state import load_placement_state, placement_active
+
+    if not placement_active(vault):
+        return {"active": False, "assumed": []}
+    state = load_placement_state(vault, repository)
+    return {
+        "active": True,
+        "assumed": [
+            {
+                "learning_object_id": lo_id,
+                "source": assumption.source,
+                "first_review_due": assumption.first_review_due,
+            }
+            for lo_id, assumption in sorted(state.open_by_lo.items())
+        ],
+    }
 
 
 @method("get_knowledge_map_history")
@@ -250,7 +280,7 @@ def get_knowledge_map_history(ctx: SidecarContext, _params) -> dict[str, Any]:
     )
 
 
-def _facet_field(vault, repository) -> dict[str, Any]:
+def _facet_field(vault, repository, *, assumed_los: set[str] | None = None) -> dict[str, Any]:
     """Facet topology + dual evidence/prediction axes for the gravity field.
 
     Layout topology comes only from authored BlueprintRecipes. Every pair that
@@ -433,6 +463,11 @@ def _facet_field(vault, repository) -> dict[str, Any]:
                 "has_blueprints": bool(requirement),
                 "capability_arcs": capabilities,
                 "learning_object_ids": sorted(lo_ids.get(facet_id, set())),
+                # F2: an LO on this facet is assumed known (not tested). A
+                # separate label: well depth and demonstrated beads never read
+                # it (F8, never blend).
+                "assumed": bool(lo_ids.get(facet_id, set()) & (assumed_los or set())),
+                "assumed_learning_object_ids": sorted(lo_ids.get(facet_id, set()) & (assumed_los or set())),
                 # Instructed, not yet verified: a repair on this facet's
                 # material was done with assistance and the single unassisted
                 # check it scheduled is still outstanding. Deliberately a

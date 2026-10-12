@@ -2558,11 +2558,13 @@ def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
             "predictedCorrect",
             "isProbe",
             "queued",
+            "assumed",
             "difficulty",
             "facets",
             "neighbors",
             "neighborBasis",
         }
+        assert point["assumed"] is False  # F2 label; placement is off on this fixture
         assert -1.0 <= point["x"] <= 1.0
         assert -1.0 <= point["y"] <= 1.0
         assert point["mastery"] is None or 0.0 <= point["mastery"] <= 1.0

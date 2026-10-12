@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 22312,
-    "sha256": "d600ae2f549273935f9b1c7dc8067d1c329d3321046dadeb6d56f2829d547f60"
+    "bytes": 22482,
+    "sha256": "8685899a8c237182b94f56bd66feb965fea3c0ababafa46d0658ff5b8216354c"
   },
   "accept": {
     "bytes": 1593,
@@ -20,8 +20,8 @@
     "sha256": "c97cd1cde73816b804436cde72e340fa6b72b06c42ba35a757aba07e0ef2a576"
   },
   "attempt": {
-    "bytes": 3803,
-    "sha256": "6b2349c5f333fbad545db4a3e534ee07c548a245682df871aee1a24adaa914b1"
+    "bytes": 3888,
+    "sha256": "8f09dfed8dce2c8860475beab8c21b33387579bdaf991abe05a3162e9b6d8a88"
   },
   "backfill-originals": {
     "bytes": 1364,
@@ -312,12 +312,16 @@
     "sha256": "cc6a828826ccbc828ba92aecfc6a4b2e4a81eaa72f021973445a78596faaddc4"
   },
   "eval": {
-    "bytes": 7875,
-    "sha256": "b729432018f4bab22c969bf8db3110d1899ca222abc6cf8260fe0d3bc0fceaa4"
+    "bytes": 8045,
+    "sha256": "8df1d2916e58f6c9bd4a2672fba9e4c2ca6b8eb26e56d00fdc10c695f4703941"
   },
   "eval families": {
     "bytes": 3491,
     "sha256": "5f262a093a607c08e55fdf64b56d9e19856049638acf8fce37424e74f297d569"
+  },
+  "eval placement": {
+    "bytes": 1789,
+    "sha256": "59c3b8c8e83489ec02172ef52c63fdffcd146e8b90ad64f79bdf23a317b0a05e"
   },
   "eval practice-index": {
     "bytes": 5703,
@@ -542,6 +546,14 @@
   "persona-realism": {
     "bytes": 2145,
     "sha256": "4d9fde4345e6aa483fd682920f2efa59203cd9c6a54e921070ff1ae27fade4b3"
+  },
+  "placement": {
+    "bytes": 1587,
+    "sha256": "f78a458e718c395059813b8936db31ec422e5252b8299d99ba5d33176e820f28"
+  },
+  "placement status": {
+    "bytes": 1125,
+    "sha256": "1f1a205da00169166fcaf8a7e59dddf252b94cba56b13ecc6ba8d79fa1b0fc25"
   },
   "populate-goal": {
     "bytes": 3856,
@@ -876,8 +888,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 1863,
-    "sha256": "2ac868d811180cd5f437b3197cd038e34beaeb6d4c7ac9b7bcd9219eeb33fc38"
+    "bytes": 2106,
+    "sha256": "d1afa8d26209b8aefe42d354ef42464494c7b6ec1de614e5eacc764736834921"
   },
   "usage": {
     "bytes": 1546,

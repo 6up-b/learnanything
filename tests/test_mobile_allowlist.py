@@ -29,7 +29,8 @@ def test_all_registered_methods_are_denied():
 
 # Desktop-only capture RPCs (mobile M1) and the sidecar RPCs main gained before
 # the mobile merge: daily loop (Today start summary), Slice 1 M2 diagnosis card,
-# Phase 5b practice index. Pinned by name so a registry rename cannot make the
+# Phase 5b practice index, and Slice A Phase 6 placement (learner field F2,
+# merged after mobile). Pinned by name so a registry rename cannot make the
 # blanket test above vacuous for them.
 DESKTOP_ONLY_CAPTURE_RPCS = ("resume_capture_route", "get_capture_media")
 MAIN_SIDECAR_RPCS = (
@@ -39,6 +40,9 @@ MAIN_SIDECAR_RPCS = (
     "find_practice",
     "record_practice_usage",
     "get_practice_coverage",
+    "placement_self_report",
+    "get_placement_state",
+    "start_quick_check",
 )
 
 

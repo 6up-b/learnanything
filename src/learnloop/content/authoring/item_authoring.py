@@ -274,8 +274,44 @@ def retire_item(
     )
     _mirror_surface_retirement(repository, item, reason=reason, clock=clock)
     _apply_difficulty_report(vault, repository, item, reason=reason, clock=clock)
+    placement = _apply_placement_self_report(vault, repository, item, reason=reason, clock=clock)
     repository.bump_queue_revision(clock=clock)
-    return {"id": practice_item_id, "status": "retired", "item": retired_item}
+    result: dict[str, Any] = {"id": practice_item_id, "status": "retired", "item": retired_item}
+    if placement is not None:
+        result["placement"] = placement
+    return result
+
+
+def _apply_placement_self_report(
+    vault,
+    repository: Repository,
+    item,
+    *,
+    reason: str,
+    clock: Clock | None = None,
+) -> dict[str, Any] | None:
+    """Learner field F2 (mvp-0.11): "too easy" also marks the item's LO
+    assumed known (not tested), checked in its first review (spec §5.2, D5).
+
+    A routing preference, not evidence: it appends only an
+    ``assumption_decisions`` receipt. No-op while placement is off.
+    """
+
+    if reason != "too_easy" or not item.learning_object_id:
+        return None
+    from learnloop.placement.decisions import record_self_report
+    from learnloop.placement.state import placement_active
+
+    if not placement_active(vault):
+        return None
+    return record_self_report(
+        vault,
+        repository,
+        learning_object_ids=[item.learning_object_id],
+        report="too_easy",
+        trigger_ref=item.id,
+        clock=clock,
+    )
 
 
 def _apply_difficulty_report(
