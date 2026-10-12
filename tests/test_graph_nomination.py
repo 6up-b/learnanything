@@ -560,3 +560,39 @@ def test_backfill_reuses_a_vector_paid_at_ingest_under_another_id(vault):
                             model_id=embedder.model_id, task_prefix="retrieval-document")
     assert stored is not None
     assert np.array_equal(stored, nominator.vectors([query])[query.content_hash])
+
+
+def test_dry_run_counts_the_calls_each_query_group_sends(vault):
+    """F7 (re-review): an append embeds its claim queries and its concept
+    queries in separate requests, so the plan counts calls per group, and a
+    call cap the run would hit is reported."""
+
+    from learnloop.content.synthesis.graph_nomination import plan_ingest_embedding
+
+    loaded, repo, paths = vault
+    embedder = BagOfWordsEmbedder()
+    _backfill(loaded, embedder, (FACET_RECIPE, CONCEPT_RECIPE))
+    inventory = [_ring_inventory(_RING_ALGEBRA)]
+    claims, concepts = inventory_queries(inventory)
+    assert len(claims) == len(concepts) == 1
+
+    loaded.config.graph_nomination.max_query_calls = 2
+    within = plan_ingest_embedding(loaded, paths.sqlite_path, entry="append", new_inventories=inventory)
+    assert within["status"] == "may_embed"
+    assert (within["known_queries"]["pending"], within["known_queries"]["estimated_calls"]) == (2, 2)
+    assert within["known_queries"]["exceeds_caps"] is False
+
+    loaded.config.graph_nomination.max_query_calls = 1
+    capped = plan_ingest_embedding(loaded, paths.sqlite_path, entry="append", new_inventories=inventory)
+    assert capped["known_queries"]["estimated_calls"] == 2
+    assert capped["known_queries"]["exceeds_caps"] is True
+
+    # The run agrees: the claim embeds, the concept hits the call cap and
+    # keeps today's lexical matching.
+    paid = len(embedder.calls)
+    nominator = GraphNominator.for_ingest(loaded, repo, client_factory=lambda: embedder)
+    select_neighborhood(loaded, repo, inventory, budget_tokens=10_000, nominator=nominator)
+    assert len(embedder.calls) == paid + 1
+    summary = nominator.summary()
+    assert (summary["counts"]["embedded"], summary["counts"]["not_embedded"]) == (1, 1)
+    assert "query_caps_reached" in summary["notes"]

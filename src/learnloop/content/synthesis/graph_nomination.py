@@ -798,6 +798,25 @@ def _text_tokens(queries: Iterable[QueryText]) -> int:
     return sum(len(query.text.encode("utf-8")) + 128 for query in queries)
 
 
+def _embed_calls(groups: Iterable[Sequence[QueryText]]) -> int:
+    """Requests the run sends for these query groups, batched as it batches them.
+
+    Each group is one :meth:`GraphNominator.vectors` call (an append's claims,
+    then its concept mentions); ``_embed`` splits a call's distinct queries by
+    task prefix, ``_BATCH`` at a time, so groups never share a request.
+    """
+
+    calls = 0
+    for group in groups:
+        per_prefix: dict[str, set[tuple[str, str, str, str]]] = {}
+        for query in group:
+            per_prefix.setdefault(query.task_prefix, set()).add(
+                (query.record_kind, query.field, query.content_hash, query.task_prefix)
+            )
+        calls += sum(-(-len(keys) // _BATCH) for keys in per_prefix.values())
+    return calls
+
+
 def plan_ingest_embedding(
     vault: LoadedVault, sqlite_path: Path, *, entry: str,
     new_inventories: Sequence[Mapping[str, Any]] = (),
@@ -834,7 +853,10 @@ def plan_ingest_embedding(
             "max_query_tokens": caps.max_query_tokens, "max_query_cost_usd": caps.max_query_cost_usd,
         },
         "indexes": {},
-        "known_queries": {"texts": 0, "stored": 0, "pending": 0, "estimated_tokens": 0, "estimated_usd": 0.0},
+        "known_queries": {
+            "texts": 0, "stored": 0, "pending": 0, "estimated_calls": 0,
+            "estimated_tokens": 0, "estimated_usd": 0.0,
+        },
         "generated_text": {"paid_when": [], "bound_usd": 0.0},
         "max_estimated_usd": 0.0,
     }
@@ -849,13 +871,18 @@ def plan_ingest_embedding(
     concept_ready = concept_index is not None and len(concept_index) > 0
 
     claims, concepts = inventory_queries(new_inventories)
-    known = [*(claims if facet_ready else []), *(concepts if concept_ready else [])]
+    # The run embeds each group in its own call (claims vs facets, then
+    # mentions vs concepts), so calls are counted per group.
+    groups = [claims if facet_ready else [], concepts if concept_ready else []]
+    known = [query for group in groups for query in group]
     stored = nominator.vectors(known) if known else {}
-    pending = [query for query in known if query.content_hash not in stored]
+    pending_groups = [[query for query in group if query.content_hash not in stored] for group in groups]
+    pending = [query for group in pending_groups for query in group]
     tokens = _text_tokens(pending)
+    calls = _embed_calls(pending_groups)
     report["known_queries"] = {
         "texts": len(known), "stored": len(known) - len(pending), "pending": len(pending),
-        "estimated_tokens": tokens,
+        "estimated_calls": calls, "estimated_tokens": tokens,
         "estimated_usd": tokens * price / 1_000_000 if price is not None else None,
         "lexical_only_concept_mentions": undefined_concept_mentions(new_inventories),
     }
@@ -884,7 +911,7 @@ def plan_ingest_embedding(
     report["known_queries"]["exceeds_caps"] = (
         len(pending) > caps.max_query_texts
         or tokens > caps.max_query_tokens
-        or -(-len(pending) // _BATCH) > caps.max_query_calls
+        or calls > caps.max_query_calls
         or report["known_queries"]["estimated_usd"] > cap_usd
     )
     known_usd = min(report["known_queries"]["estimated_usd"], cap_usd)

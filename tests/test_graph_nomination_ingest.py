@@ -675,6 +675,9 @@ def test_synthesize_dry_run_cli_prints_the_plan_and_resolves_no_provider(tmp_pat
     assert result.exit_code == 0, result.output
     plan = json.loads(result.output)["dryRun"]
     assert plan["entry"] == "append" and plan["dry_run"] is True
+    append_text = CliRunner().invoke(app, ["synthesize", "set_la", "--dry-run", "--vault", str(root)])
+    assert append_text.exit_code == 0, append_text.output
+    assert f"to embed in {plan['known_queries']['estimated_calls']} calls" in append_text.output
     text = CliRunner().invoke(app, ["synthesize", "set_la", "--dry-run", "--mode", "bootstrap",
                                     "--vault", str(root)])
     assert text.exit_code == 0, text.output

@@ -550,7 +550,7 @@ def _echo_ingest_embedding_plan(plan: dict) -> None:
         usd = known["estimated_usd"]
         typer.echo(
             f"  new inventory queries: {known['texts']} texts, {known['stored']} already stored, "
-            f"{known['pending']} to embed (~{known['estimated_tokens']} tokens, "
+            f"{known['pending']} to embed in {known['estimated_calls']} calls (~{known['estimated_tokens']} tokens, "
             + (f"${usd:.6f})" if usd is not None else "unknown price)")
         )
         if known.get("exceeds_caps"):
