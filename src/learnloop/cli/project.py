@@ -42,13 +42,13 @@ from learnloop.projects.git import GitError, repo_toplevel
 from learnloop.projects.hooks import HookError, install_hook, uninstall_hook
 from learnloop.projects.probes import (
     GRADING_ITEM_TOKENS_ESTIMATE,
-    GRADING_OUTPUT_TOKENS_PER_ITEM,
     PROMPT_OVERHEAD_TOKENS,
     ProbeStateError,
     SealedProbeError,
     contest_grade,
     diffs_awaiting_generation,
     due_probes,
+    grading_output_tokens,
     generate_probes,
     grade_responses,
     open_probe,
@@ -146,7 +146,7 @@ def _grading_plan(store: ProjectStore, responses: list[dict[str, Any]]) -> list[
         probe = store.probe(response["probe_id"]) or {}
         text = (probe.get("question") or "") + (probe.get("reference_answer") or "") + (probe.get("citations_json") or "") + (response.get("answer") or "")
         planned.append(
-            PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + max(GRADING_ITEM_TOKENS_ESTIMATE, estimate_tokens(text)), GRADING_OUTPUT_TOKENS_PER_ITEM)
+            PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + max(GRADING_ITEM_TOKENS_ESTIMATE, estimate_tokens(text)), grading_output_tokens(1))
         )
     return planned
 
@@ -621,7 +621,7 @@ def project_probes(
     due = due_probes(store, clock=clock, repo_id=repo_id)
     if dry_run:
         grading = PaidCalls(store, caps=caps, run_id="dry-run", price_per_million=price_per_million)
-        planned = [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, GRADING_OUTPUT_TOKENS_PER_ITEM)] * min(limit, len(due))
+        planned = [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, grading_output_tokens(1))] * min(limit, len(due))
         try:
             grading_estimate = grading.plan(planned, describe_routes(config))
         except SpendLimitExceeded as exc:
@@ -709,7 +709,7 @@ def project_answer(
             open_probe(store, probe_id, clock=clock)  # refuses sealed probes without rendering them
             paid = PaidCalls(store, caps=caps, run_id="dry-run", price_per_million=price_per_million)
             estimate = paid.plan(
-                [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, GRADING_OUTPUT_TOKENS_PER_ITEM)]
+                [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, grading_output_tokens(1))]
                 if chosen[0] == "answer" else [],
                 describe_routes(config),
             )

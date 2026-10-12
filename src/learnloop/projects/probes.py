@@ -66,6 +66,10 @@ from learnloop.projects.experiment_store import ProjectStore, store_path
 AUTHORING_OUTPUT_TOKENS = 6_000
 CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION = 250
 GRADING_OUTPUT_TOKENS_PER_ITEM = 250
+# Every call's output budget also covers reasoning: on metered routes the budget
+# is the request's enforced generation limit, and a reasoning model spends its
+# thinking from the same limit.
+REASONING_HEADROOM_TOKENS = 4_000
 GRADING_ITEM_TOKENS_ESTIMATE = 500
 CLOSED_BOOK_QUESTION_TOKENS_ESTIMATE = 120
 PROMPT_OVERHEAD_TOKENS = 900
@@ -75,6 +79,18 @@ GENERIC_VERDICTS = frozenset({"correct"})
 RESPONSE_KINDS = ("answer", "dont_know", "unfair", "skip")
 _HUNK_HEADER = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 DECLARATIONS = ("unassisted", "looked", "used_ai")
+
+
+def authoring_output_tokens() -> int:
+    return AUTHORING_OUTPUT_TOKENS + REASONING_HEADROOM_TOKENS
+
+
+def closed_book_output_tokens(questions: int) -> int:
+    return CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION * questions + REASONING_HEADROOM_TOKENS
+
+
+def grading_output_tokens(items: int) -> int:
+    return GRADING_OUTPUT_TOKENS_PER_ITEM * items + REASONING_HEADROOM_TOKENS
 
 
 class SealedProbeError(ValueError):
@@ -340,7 +356,7 @@ def grade_items(
         purpose=PROBE_GRADING_PURPOSE,
         prompt=prompt,
         result_model=ProbeGrades,
-        output_tokens=GRADING_OUTPUT_TOKENS_PER_ITEM * len(items),
+        output_tokens=grading_output_tokens(len(items)),
         diff_id=diff_id,
         disclosure={
             "files_sent": sorted({c.get("path") for item in items for c in item["citations"] if c.get("path")}),
@@ -416,7 +432,7 @@ def plan_generation(
                 input_tokens = estimate_tokens(prompt)
             except BundleIntegrityError:
                 input_tokens = int(diff["token_estimate"]) + PROMPT_OVERHEAD_TOKENS
-            planned.append(PlannedCall("authoring", input_tokens, AUTHORING_OUTPUT_TOKENS, candidates=count))
+            planned.append(PlannedCall("authoring", input_tokens, authoring_output_tokens(), candidates=count))
             closed_book, grading = count, count
         else:
             closed_book = sum(probe["status"] == "pending_closed_book" for probe in existing)
@@ -426,7 +442,7 @@ def plan_generation(
                 PlannedCall(
                     "closed_book",
                     PROMPT_OVERHEAD_TOKENS + CLOSED_BOOK_QUESTION_TOKENS_ESTIMATE * closed_book,
-                    CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION * closed_book,
+                    closed_book_output_tokens(closed_book),
                 )
             )
         if grading:
@@ -434,7 +450,7 @@ def plan_generation(
                 PlannedCall(
                     "grading",
                     PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE * grading,
-                    GRADING_OUTPUT_TOKENS_PER_ITEM * grading,
+                    grading_output_tokens(grading),
                 )
             )
     return planned
@@ -458,7 +474,7 @@ def _author(
         purpose=PROBE_AUTHORING_PURPOSE,
         prompt=prompt,
         result_model=ProbeCandidates,
-        output_tokens=AUTHORING_OUTPUT_TOKENS,
+        output_tokens=authoring_output_tokens(),
         candidates=config.project.candidates_per_diff,
         diff_id=diff["id"],
         disclosure=_disclosure_for_bundle(bundle, diff, repo, prompt),
@@ -518,7 +534,7 @@ def _closed_book(
         purpose=CLOSED_BOOK_PURPOSE,
         prompt=prompt,
         result_model=ClosedBookAnswers,
-        output_tokens=CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION * len(keys),
+        output_tokens=closed_book_output_tokens(len(keys)),
         diff_id=diff["id"],
         disclosure={
             "files_sent": [],
@@ -891,6 +907,9 @@ __all__ = [
     "Validity",
     "added_lines",
     "authoring_context",
+    "authoring_output_tokens",
+    "closed_book_output_tokens",
+    "grading_output_tokens",
     "contest_grade",
     "diffs_awaiting_generation",
     "due_probes",

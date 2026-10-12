@@ -271,3 +271,62 @@ def test_declaration_tokens_are_whole_words(monkeypatch):
     assert project_cli._read_answer() == (None, "dont_know", "looked")
     monkeypatch.setattr("sys.stdin", io.StringIO(""))
     assert project_cli._read_answer()[1] == "quit"
+
+
+class _BudgetRecorder:
+    provider_name = "recorder"
+    provider_type = "openrouter"
+    model = "m"
+
+    def __init__(self):
+        self.budgets = []
+
+    def supports(self, capability):
+        return capability == "structured_completion"
+
+    def complete(self, request):
+        self.budgets.append(request.output_budget_tokens)
+        return ProbeGrades(grades=[ProbeGrade(id="a1", verdict="correct", score=1.0, feedback="")])
+
+
+def _grading_route(client, *, subscription):
+    return ProjectRoute(role="grading", task="grading", provider_name="r", provider_type="openrouter",
+                        model="m", subscription=subscription, ready=True, message=None, client=client)
+
+
+def test_metered_calls_carry_their_admitted_output_limit(tmp_path):
+    store = ProjectStore.for_vault(tmp_path)
+    caps = SpendCaps(max_candidates=10, max_pairs=0, max_retries=1, max_calls=10, max_total_tokens=10_000, max_estimated_usd=1.0)
+    recorder = _BudgetRecorder()
+    metered = PaidCalls(store, caps=caps, run_id="m", price_per_million=1.0)
+    metered.call(_grading_route(recorder, subscription=False), purpose="project_probe_grading", prompt="x",
+                 result_model=ProbeGrades, output_tokens=32)
+    # The subscription keeps no output restraint (Slice A plan §5 rule 6).
+    PaidCalls(store, caps=caps, run_id="s").call(_grading_route(recorder, subscription=True), purpose="project_probe_grading",
+                                                  prompt="x", result_model=ProbeGrades, output_tokens=32)
+    assert recorder.budgets == [32, None]
+
+
+def test_metered_output_limit_reaches_the_provider_request_and_its_repair(tmp_path, monkeypatch):
+    from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
+    from learnloop.config import AIProviderConfig
+    from tests.openai_fakes import install_fake_openai
+
+    monkeypatch.setenv("FAKE_ROUTER_KEY", "test-key")
+    valid = json.dumps({"grades": [{"id": "a1", "verdict": "correct", "score": 1.0, "feedback": ""}]})
+    module = install_fake_openai(
+        monkeypatch, "not json", valid,
+        usages=[{"prompt_tokens": 10, "completion_tokens": 12}, {"prompt_tokens": 10, "completion_tokens": 5}],
+    )
+    client = OpenAIChatProviderClient("router", AIProviderConfig(
+        type="openai_chat", base_url="https://router.invalid/v1", api_key_env="FAKE_ROUTER_KEY",
+        model="m", response_format="json_object", max_tokens=8192,
+    ))
+    store = ProjectStore.for_vault(tmp_path)
+    caps = SpendCaps(max_candidates=10, max_pairs=0, max_retries=1, max_calls=10, max_total_tokens=10_000, max_estimated_usd=1.0)
+    PaidCalls(store, caps=caps, run_id="m", price_per_million=1.0).call(
+        _grading_route(client, subscription=False), purpose="project_probe_grading", prompt="x",
+        result_model=ProbeGrades, output_tokens=32,
+    )
+    requests = module.instances[0].requests
+    assert [request["max_tokens"] for request in requests] == [32, 20]

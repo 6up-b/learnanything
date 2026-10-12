@@ -10,7 +10,8 @@
   the command's call and candidate caps. Metered routes (OpenRouter, OpenAI
   keys) are also admitted against token and dollar caps; an unknown price
   fails closed unless the owner passes ``--price-per-million``; a hidden
-  provider retry is admitted only as a retry against ``max_retries``. The
+  provider retry is admitted only as a retry against ``max_retries``, and the
+  request carries the admitted output budget as its generation limit. The
   Codex subscription (``codex_sdk``) has no physical-request bound and no
   token/dollar cap: its cost is estimated from reported token usage at a
   reference rate and labelled ``estimated_only``.
@@ -27,7 +28,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.execution import declared_budgets, observe_model_calls
+from learnloop.ai.execution import declared_budgets, generation_limit, observe_model_calls
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
 from learnloop.ai.transport import execute_structured_operation
@@ -279,6 +280,11 @@ class PaidCalls:
             stack.enter_context(
                 declared_budgets({**self.caps.as_dict(), "subscription": route.subscription, "cost_label": cost_label})
             )
+            if not route.subscription:
+                # The admitted spend counts ``output_tokens``; the provider
+                # request (and its JSON repair, which spends from the same
+                # budget) must not be allowed to produce more.
+                stack.enter_context(generation_limit(max(1, int(output_tokens))))
 
             def observe(action: str, event: dict[str, Any]) -> None:
                 if action == "start":
