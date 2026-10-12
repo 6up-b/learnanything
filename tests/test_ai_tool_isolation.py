@@ -579,7 +579,7 @@ def test_command_line_overrides_of_the_state_databases_are_parsed_like_codex(lay
         sandbox_arguments(isolation, home=home, arguments=harmless)
 
 
-def test_a_config_file_tomllib_cannot_parse_is_refused_only_when_it_names_the_setting(layout):
+def test_a_config_file_tomllib_cannot_parse_is_refused_only_when_it_could_name_the_setting(layout):
     from learnloop.ai.isolation import sandbox_arguments
 
     home, isolation = layout["home"], ToolIsolation(workdir=layout["workdir"])
@@ -602,6 +602,114 @@ def test_the_sandbox_pins_the_agent_home_and_state_locations(monkeypatch, layout
     assert ("--tmpfs", home) in pairs
     assert ("--setenv", "CODEX_HOME", home) in triples and ("--setenv", "CODEX_SQLITE_HOME", home) in triples
     assert ("--unsetenv", "CODEX_ROLLOUT_TRACE_ROOT") in pairs
+
+
+# --- the state checks follow the effective mounts and Codex's parsers (Codex re-review F2) ------
+
+
+@requires_bwrap
+@pytest.mark.parametrize("launch", ["sdk_codex_bin", "sdk_launch_command"])
+@pytest.mark.parametrize(
+    "workdir_at, setting",
+    [
+        ("work", 'sqlite_home = "{workdir}"\n'),  # the state location is a host bind inside the home
+        ("work", 'sqlite_home = "work"\n'),  # the same, relative to the user's config file
+        ("sessions", 'model = "m"\n'),  # no setting: a directory Codex always writes is the host bind
+    ],
+)
+def test_a_working_directory_inside_the_agent_home_is_refused(monkeypatch, tmp_path, launch, workdir_at, setting):
+    # The working directory is bound from the host on top of the in-memory
+    # home: whatever the agent keeps beneath it (databases, sessions, skills)
+    # would reach the host. Real Codex 0.161 left its 15 SQLite/WAL/SHM files
+    # there, and with the directory at <home>/skills its 71 system-skill files.
+    home = _agent_home_with_history(tmp_path / "agent-home")
+    workdir = home / workdir_at
+    workdir.mkdir()
+    (home / "config.toml").write_text(setting.format(workdir=workdir), encoding="utf-8")
+    captured, error = _launch_codex_like(monkeypatch, tmp_path, home=home, workdir=workdir, launch=launch)
+    assert set(_tree(workdir)) <= {"answer.txt"}, "the agent's run state reached the host"
+    assert error is not None and "inside the agent home" in str(error)
+    assert "spawned" not in captured  # refused before launch
+
+
+@pytest.mark.parametrize("location", ["{home}/package/state", "{home}/package", "{home}/auth.json"])
+def test_a_state_location_under_any_host_bind_in_the_home_is_refused(layout, location):
+    # Only the in-memory home itself is private. A Node package or a bound
+    # credential file inside it is the host's: a state location there is either
+    # written to the host or stops the agent on a read-only mount.
+    from learnloop.ai.isolation import sandbox_arguments
+
+    home = layout["home"]
+    launcher = home / "package" / "bin" / "agent.js"
+    launcher.parent.mkdir(parents=True)
+    launcher.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    (home / "package" / "package.json").write_text("{}", encoding="utf-8")
+    isolation = ToolIsolation(workdir=layout["workdir"])
+    (home / "config.toml").write_text(f'sqlite_home = "{location.format(home=home)}"\n', encoding="utf-8")
+    with pytest.raises(ToolIsolationUnavailable, match="sqlite_home .* host"):
+        sandbox_arguments(isolation, executables=[launcher], home=home)
+    # The same package, with the state elsewhere in the private home, runs.
+    (home / "config.toml").write_text(f'sqlite_home = "{home}/state"\n', encoding="utf-8")
+    sandbox_arguments(isolation, executables=[launcher], home=home)
+
+
+@pytest.mark.parametrize(
+    "first_line",
+    [
+        '"sqlite_\\u0068ome" = "{workdir}"',  # the reviewer's spelling
+        '"sqlite_\\U00000068ome" = "{workdir}"',
+        '"sqlite_\\x68ome" = "{workdir}"',  # TOML 1.1's \xHH
+        'notify = ["say", "done\\n"]',  # an escape elsewhere: tomllib cannot say where it is
+    ],
+)
+def test_an_unparseable_config_that_could_spell_the_setting_with_an_escape_is_refused(layout, first_line):
+    # Codex reads TOML 1.1 and tomllib only 1.0. Without the parse, the setting's
+    # name is the one spelling left to look for, and a quoted key can spell it
+    # with escapes: an unparseable file with any backslash is refused.
+    from learnloop.ai.isolation import sandbox_arguments
+
+    home = layout["home"]
+    toml_1_1 = 'history = {\n  persistence = "none" }\n'
+    (home / "config.toml").write_text(first_line.format(workdir=layout["workdir"]) + "\n" + toml_1_1, encoding="utf-8")
+    with pytest.raises(ToolIsolationUnavailable, match="cannot parse .* sqlite_home"):
+        sandbox_arguments(ToolIsolation(workdir=layout["workdir"]), home=home)
+
+
+def test_an_escaped_setting_name_in_toml_1_0_is_read(layout):
+    from learnloop.ai.isolation import sandbox_arguments
+
+    (layout["home"] / "config.toml").write_text(f'"sqlite_\\u0068ome" = "{layout["workdir"]}"\n', encoding="utf-8")
+    with pytest.raises(ToolIsolationUnavailable, match="sqlite_home in"):
+        sandbox_arguments(ToolIsolation(workdir=layout["workdir"]), home=layout["home"])
+
+
+def test_short_option_overrides_with_an_equals_sign_are_read_like_clap(layout):
+    # clap takes ``-c=VALUE`` as ``-c VALUE``; Codex 0.161 accepted
+    # ``-c=sqlite_home="<workdir>"`` and left its databases there.
+    from learnloop.ai.isolation import sandbox_arguments
+
+    workdir, home = layout["workdir"], layout["home"]
+    isolation = ToolIsolation(workdir=workdir)
+    for override in ([f'-c=sqlite_home="{workdir}"'], ["-c=sqlite_home=/opt/review-state"],
+                     [f"-c= sqlite_home = '{workdir}'"], ["-c=sqlite_home=."]):
+        with pytest.raises(ToolIsolationUnavailable, match="sqlite_home override"):
+            sandbox_arguments(isolation, home=home, arguments=[*override, "app-server"])
+    sandbox_arguments(isolation, home=home, arguments=[f'-c=sqlite_home="{home}/state"', "-c=model=m", "app-server"])
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [["-Xc", "sqlite_home={workdir}"], ["-c", "sqlite_home.path={workdir}"], ["--sqlite_home={workdir}"]],
+)
+def test_an_argument_that_names_the_setting_in_an_unread_form_is_refused(layout, arguments):
+    # Any other spelling (a flag cluster, a dotted path, an option this check
+    # does not know) is refused rather than guessed at.
+    from learnloop.ai.isolation import sandbox_arguments
+
+    arguments = [part.format(workdir=layout["workdir"]) for part in arguments]
+    with pytest.raises(ToolIsolationUnavailable, match="cannot tell"):
+        sandbox_arguments(ToolIsolation(workdir=layout["workdir"]), home=layout["home"],
+                          arguments=[*arguments, "app-server"])
 
 
 # --- every mount honours the exclusions (F2 re-review) -------------------------------------
