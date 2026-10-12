@@ -455,3 +455,21 @@ uv run learnloop plan report --vault "$VAULT" --json
    allow push once repair and maintain run dry?
 8. **Esc from feedback** returns to the plan view (list one more key). Or straight to the
    full list, as DL0's wording?
+
+## Gate
+
+Run on `e5f7afc3` (only this file changed after it).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **13 kept, 0 broken** (two new contracts) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,877 passed**, 0 failed, 46 existing warnings (Python 3.12 fork and SQLite datetime-adapter); 225 s. An earlier run of the same tree had one failure, `test_sidecar_reader_p3_slice2.py::test_reading_usable_with_synthesis_worker_down`, which does not touch DL1 code, passed 5 of 5 times alone and passed in this rerun: a load flake |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **86 passed**, 7,791 deselected; 66 s |
+| `npm install`, `npm run typecheck` (apps/learnloop-tauri) | OK; 0 errors (npm install reports the existing audit notices and esbuild's blocked postinstall) |
+| `npm test` (vitest) | **120 passed** in 26 files |
+| `npm run frontend:build` | Passed; existing >500 kB chunk warning |
+| `cargo check` | Not runnable on this machine (broken `rustc`, as in earlier stages) |
+| `db_generate_reference.py` / `db_validate_reference.py` | Schema **174**, 289 table notes, 619 config leaves in 36 sections, **0 errors** |
+| Head fixture | `migration_head_174`: delete journal, integrity ok, FK-clean, `max(version)=174`, no WAL companions |
+| Tracked working vaults | Untouched (`git status` clean for `fixtures/linear_algebra`, `probability`, `arxiv_v2`) |
