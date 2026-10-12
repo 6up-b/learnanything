@@ -486,8 +486,10 @@ First: Conditional independence · 4 items · about 8 min
 
 It counts active LOs in non-excluded intents, each in exactly one class, in this order:
 - **assumed:** an open Phase 6 assumption whose first review hasn't resolved;
-- **demonstrated:** at least one facet with demonstrated certification credit (the map's `demonstrated_mass > 0`, `learnloop_sidecar/handlers/knowledge_map.py:359`);
-- **learning:** direct evidence but not demonstrated;
+- **demonstrated:** the whole LO is certified, never just part of it.
+  - An LO with authored blueprints uses the existing predicate: `lo_certification(...).demonstrated` (`learnloop/goals/goal_certification.py:275`), which also checks component and integration gaps.
+  - Any other LO needs every required capability of every one of its facets demonstrated: each facet's `facet_demonstration` (`:104`) covers all its required capabilities. That is a `demonstrated_mass` of 1 for every facet in the map's computation (`learnloop_sidecar/handlers/knowledge_map.py:359`), not just above 0.
+- **learning:** direct evidence but not demonstrated as a whole, including LOs that are partly demonstrated;
 - **untested:** no direct evidence.
 
 **Expected recall today** is the mean FSRS retrievability now over items with memory state in non-excluded intents. Its tooltip says "a model estimate, not a test" (L1). Before Phase 6, "assumed" is omitted rather than shown as 0.
@@ -739,7 +741,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `test_block_chooser_interface.py` (G13);
   - `test_daily_plan_rpc.py` (including remembered minutes: 40, then a 10-minute keep going, defaults to 40 the next day; a 15-minute re-entry plan and the post-re-entry remainder leave 40 in place; a chip tap on a re-entry plan changes the remembered value but not the re-entry cap);
   - `test_daily_plan_reading.py` (the words-left estimate; a partial block when the section exceeds the remaining minutes; each `block_ended` outcome advancing the plan and consuming the estimate; `reading_progress` events from `reader.mark_section_progress`; resuming an interrupted block; the next day continuing the same section; `next_plan_item` returning a typed reading step);
-  - `test_today_headline.py`;
+  - `test_today_headline.py` (one of two required capabilities demonstrated on a facet → learning; one of two facets fully demonstrated → learning; every facet fully demonstrated → demonstrated; a blueprint LO with all components but an integration gap → learning; each LO in exactly one class);
   - vitest for the plan view, block lines, done screen and keep going, and for a reading step opening the reader at its section and returning to the plan.
 - **DL2:** `tests/test_intent_resolution.py` (the §5.3 cases, ties, and consequence-line parity); `test_intent_recall_targets.py` (the ratio; identity at 0.90; the kill switch; the anchor: a primed retry and a diagnostic attempt between two reviews leave the anchor and the effective due unchanged, while an ordinary review moves both; no state, a null `due_at`, or no qualifying attempt fall back as §5.3 says; on fixture copies, for each item with an anchor and a surprise record, anchor + stability × that attempt's `attempt_surprise.fsrs_interval_factor` reproduces the stored `due_at` within one second, which catches any drift between the anchor rule and the attempt path); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
 - **DL3:**
