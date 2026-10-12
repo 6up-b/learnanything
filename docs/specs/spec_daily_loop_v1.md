@@ -348,7 +348,7 @@ A **daily plan** belongs to one local calendar date (D9) and one vault, and is s
 - **minutes:** the remembered budget (§6.6);
 - **kind:** `normal`, `reentry` (§7) or `keep_going` (an extension, linked to its parent);
 - **a split:** minutes per lane (§6.2), with a one-line reason for each;
-- **blocks:** coherent 5–15 minute groups of items (the staged policy's bounds, §3.2). Each has a lane, a canonical action, its LOs, its planned items with estimates, and who chose it (§6.8).
+- **blocks:** coherent groups of items that aim for 5–15 minutes (the staged policy's bounds, §3.2). A block may be shorter: a single item, or the last work that fits the minutes left, is a complete block. Estimates are never padded to reach 5 minutes (P4 §4.1: "one activity may be a complete three-minute block"). Each block has a lane, a canonical action, its LOs, its planned items with estimates, and who chose it (§6.8).
 
 **The lanes:**
 
@@ -498,7 +498,7 @@ class BlockCandidate:
     reason: str                       # plain-language reason from the source
 
 CONTINUE_CURRENT = "continue_current" # offered while a block is in progress
-STOP_FOR_TODAY = "stop_for_today"     # offered when minutes_left < 5 or nothing feasible
+STOP_FOR_TODAY = "stop_for_today"     # offered when minutes_left < 5 or nothing feasible (rule 4)
 
 class BlockSource(Protocol):
     name: str
@@ -525,12 +525,15 @@ class BlockChooser(Protocol):
    - The chooser sees only feasible candidates. Whatever the chooser prefers, no block can overspend its lane or the plan, so P3's split stays the plan's.
 2. **Closed choice.** A choice naming an unknown or infeasible id falls back to `lane_quota_v1`, flagged `fallback` on the block event (router G1, G7).
 3. **Learner picks win** and are logged as `learner_pick` with no propensity (router G9).
-4. **`STOP_FOR_TODAY`** is offered only when fewer than 5 minutes are left or nothing feasible remains. It ends the plan with that reason ("today's minutes are used" or "nothing more worth doing today") and offers "keep going".
+4. **`STOP_FOR_TODAY`** is offered only when fewer than 5 minutes are left or nothing feasible remains. Being offered doesn't make it chosen: while a feasible candidate exists, `lane_quota_v1` chooses it, so a 3-minute item still fits into the last 4 minutes. Stopping ends the plan with its reason ("today's minutes are used" or "nothing more worth doing today") and offers "keep going".
 5. **Decisions happen at block boundaries only:** the first block when the plan is built, the next one while the last item's feedback shows (router §8).
 6. **Every decision is logged** as an `attention_block_events` row of kind `block_chosen`: the candidate set (ids, lanes, estimates, planner values), the chooser, the propensity and the fallback flag. R1 extends this logging; R2 adds `router_decisions`.
 
 **DL1's implementations:**
-- **`legacy_lanes_v1` (the source).** It classifies the scheduler's ranked eligible list into lanes (§6.1), groups each lane's items by LO in the scheduler's order, and packs them into blocks of 5–15 estimated minutes. A block is never larger than its lane's remaining minutes or the plan's.
+- **`legacy_lanes_v1` (the source).** It classifies the scheduler's ranked eligible list into lanes (§6.1) and groups each lane's items by LO, in the scheduler's order. It then packs the groups into blocks of up to 15 estimated minutes:
+  - **Never larger** than its lane's remaining minutes or the plan's.
+  - **Small groups.** In `maintain` and `repair`, an LO group under 5 minutes merges, in rank order, with the lane's next groups up to the bound, because interleaved review is coherent there. In `new` and `push`, a block stays on one LO and may be short.
+  - **No minimum.** A block under 5 minutes is still offered when that is all the lane has, or all that fits: one due item, the lane's last items, or the plan's last minutes.
 - **`lane_quota_v1` (the chooser).** It picks the feasible candidate from the lane with the largest unspent share of its split; ties go in the order repair, maintain, new, push, then to the higher planner value. Its "why" is `computed`: "maintain: 3 reviews past their 85% target".
 
 **What R2 maps onto this:** `LearnerStateCardV1`'s session fields come from `PlanState`, and its intent field from §5. `choose_block`'s candidates are the feasible set. `continue_current` and `stop_for_today` are the constants above.
@@ -680,7 +683,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 - **DL0:** `StartScreen.test.tsx` (no sliders; remembered minutes; chips); `FeedbackScreen` (Next opens the next item; Esc and `b` still open the list); `tests/test_daily_loop_start_minutes.py` (`start_session` without energy; TUI has no sliders; streak label).
 - **DL1:**
   - `tests/test_daily_plan_split.py` (shares, flow-on, re-entry lanes);
-  - `test_daily_plan_build.py` (lane classification, block packing, finiteness, request deduction before the split, displacement, learner picks);
+  - `test_daily_plan_build.py` (lane classification; block packing, including a single due item of 3.5 minutes as a complete block, several small maintain groups merged into one block, and a 3.5-minute item served with 4 minutes left; finiteness; request deduction before the split; displacement; learner picks);
   - `test_daily_plan_admission.py` (ceiling, cap, floor, exemptions, "more new");
   - `test_duration_estimates.py` (shrinkage, winsorizing, fallbacks, reading estimate);
   - `test_daily_plan_reentry.py`;
