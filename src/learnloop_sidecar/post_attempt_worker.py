@@ -57,6 +57,17 @@ class PostAttemptWorker:
         self.client_factory: Callable[[Any], Any] | None = None
         self.embedding_factory: Callable[[Any], Any] | None = None
         self.last_errors: list[str] = []
+        #: session id -> seconds the last next-item wait took, until the
+        #: serve that follows it records it (E7).
+        self._waits: dict[str, float] = {}
+
+    def note_wait(self, session_id: str, seconds: float) -> None:
+        with self._lock:
+            self._waits[session_id] = float(seconds)
+
+    def take_wait(self, session_id: str) -> float:
+        with self._lock:
+            return self._waits.pop(session_id, 0.0)
 
     def bind(self, supplier: VaultSupplier) -> None:
         """``supplier`` returns the CURRENT (vault, sqlite path) or None."""

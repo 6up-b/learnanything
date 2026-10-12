@@ -46,6 +46,10 @@ def _submit(sidecar, session_id, key="K1"):
     )
 
 
+def _serve(sidecar, session_id, item_id="pi_svd_compute_002"):
+    return sidecar.result("get_practice_item", {"practiceItemId": item_id, "sessionId": session_id})
+
+
 def test_next_item_waits_for_the_running_diagnosis(tmp_path, monkeypatch):
     paths, _vault, _repository = split_vault(tmp_path)
     sidecar = _Sidecar(paths.root, ReviewFakeClient(), monkeypatch, autostart=True)
@@ -54,6 +58,7 @@ def test_next_item_waits_for_the_running_diagnosis(tmp_path, monkeypatch):
         session_id = sidecar.result("start_session", {})["sessionId"]
         attempt_id = _submit(sidecar, session_id)["attemptId"]
         sidecar.result("get_today_queue", {"sessionId": session_id})
+        _serve(sidecar, session_id)
     finally:
         sidecar.ctx.post_attempt_worker.shutdown()
     repository = Repository(paths.sqlite_path)
@@ -71,8 +76,11 @@ def test_a_pick_served_while_the_diagnosis_is_pending_is_receipted(tmp_path, mon
     attempt_id = _submit(sidecar, session_id)["attemptId"]
 
     queue = sidecar.result("get_today_queue", {"sessionId": session_id})
+    assert "sections" in queue  # the queue is built regardless
+    # Review F10: a queue refresh is not a serve; only the served item counts.
+    assert Repository(paths.sqlite_path).diagnosis_wait_receipts() == []
+    _serve(sidecar, session_id)
 
-    assert "sections" in queue  # the pick is served regardless
     receipts = Repository(paths.sqlite_path).diagnosis_wait_receipts()
     assert [(row["served_without_diagnosis"], row["pending_attempt_ids"]) for row in receipts] == [
         (True, [attempt_id])
@@ -86,7 +94,38 @@ def test_no_wait_and_no_receipt_without_a_pending_diagnosis(tmp_path, monkeypatc
     session_id = sidecar.result("start_session", {})["sessionId"]
     _submit(sidecar, session_id)
     sidecar.result("get_today_queue", {"sessionId": session_id})
+    _serve(sidecar, session_id)
     assert Repository(paths.sqlite_path).diagnosis_wait_receipts() == []
+
+
+def test_the_lag_rate_is_over_every_serve_that_followed_a_diagnosed_answer(tmp_path, monkeypatch):
+    """Review F10: E7's denominator is every serve after a diagnosis-bearing
+    answer in the session, including serves that needed no wait; a serve
+    whose diagnosis already landed is served WITH it."""
+
+    from learnloop.diagnosis.split.reports import m2_report
+    from learnloop.vault.loader import load_vault
+
+    paths, _vault, _repository = split_vault(tmp_path)
+    client = ReviewFakeClient()
+    sidecar = _Sidecar(paths.root, client, monkeypatch, autostart=False)
+    sidecar.result("initialize", {"vaultPath": str(paths.root)})
+    session_id = sidecar.result("start_session", {})["sessionId"]
+    _submit(sidecar, session_id, key="K1")
+    # The first diagnosis lands before the next serve: no wait, served with it.
+    assert [o.state for o in sidecar.ctx.post_attempt_worker.run_pending("diagnose")] == ["done"]
+    _serve(sidecar, session_id)
+    _serve(sidecar, session_id, item_id="pi_transpose_001")
+    # The second answer's diagnosis is still pending at the next serve.
+    second = _submit(sidecar, session_id, key="K2")["attemptId"]
+    _serve(sidecar, session_id)
+
+    repository = Repository(paths.sqlite_path)
+    receipts = repository.diagnosis_wait_receipts()
+    assert [row["served_without_diagnosis"] for row in receipts] == [False, False, True]
+    assert receipts[-1]["pending_attempt_ids"] == [second]
+    e7 = m2_report(load_vault(paths.root), repository)["e7_operational"]["served_without_diagnosis"]
+    assert (e7["k"], e7["n"]) == (1, 3)
 
 
 def test_the_open_factor_takes_the_diagnosis_causes_when_it_lands(tmp_path):

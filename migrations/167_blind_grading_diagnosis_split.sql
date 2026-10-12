@@ -97,7 +97,8 @@ CREATE TABLE diagnosis_would_merge_log (
   UNIQUE (hypothesis_id, model_id)
 );
 
--- E7: picks served while a diagnosis for this session's attempt was pending.
+-- E7: one row per item served after a diagnosis-bearing answer in its
+-- session; served_without_diagnosis marks a serve while one was pending.
 CREATE TABLE diagnosis_wait_receipts (
   id TEXT PRIMARY KEY,
   session_id TEXT,

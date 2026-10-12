@@ -150,9 +150,13 @@ def _e7(repository: Repository) -> dict[str, Any]:
         "diagnosis_model_latency_seconds": _quantiles(
             [float(row["latency_seconds"]) for row in diagnoses if row.get("latency_seconds") is not None]
         ),
+        # Population: every item SERVED after a diagnosis-bearing answer in
+        # its session (one receipt per serve, written at the serve), so a
+        # serve whose diagnosis had already landed counts as served with it.
         "served_without_diagnosis": wilson(
             sum(1 for row in waits if row["served_without_diagnosis"]), len(waits)
         ),
+        "served_without_diagnosis_population": "serves after a diagnosis-bearing answer in the session",
         "wait_seconds": _quantiles([float(row["waited_seconds"]) for row in waits]),
         "diagnoses_by_status": dict(Counter(f"{row['mode']}:{row['status']}" for row in diagnoses)),
         "jobs": jobs,

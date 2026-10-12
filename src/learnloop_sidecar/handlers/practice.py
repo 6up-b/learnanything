@@ -185,6 +185,11 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # opens (feedback, inspector) still render it.
         refuse_inactive_learning_object(vault, item.learning_object_id)
     detail = practice_item_detail(vault, repository, params.practice_item_id)
+    if params.session_id is not None:
+        # Slice 1 E7: a session serve is the decision the lag rate counts.
+        from learnloop_sidecar.handlers.queue import record_diagnosis_serve
+
+        record_diagnosis_serve(ctx, repository, params.session_id)
     detail["elicitation"] = (
         None
         if params.session_id is None

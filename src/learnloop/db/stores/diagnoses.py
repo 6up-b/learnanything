@@ -829,6 +829,22 @@ class DiagnosisStoreMixin:
             ).fetchall()
         return [str(row[0]) for row in rows]
 
+    def live_diagnosis_jobs_for_session(self, session_id: str) -> list[dict[str, Any]]:
+        """Every LIVE diagnose job of this session's attempts, any state (E7 population)."""
+
+        with self.connection() as connection:
+            if not _has_table(connection, "post_attempt_jobs"):
+                return []
+            rows = connection.execute(
+                """SELECT j.attempt_id, j.state FROM post_attempt_jobs j
+                   JOIN practice_attempts a ON a.id = j.attempt_id
+                   WHERE j.kind = 'diagnose' AND a.session_id = ?
+                     AND COALESCE(json_extract(j.payload_json, '$.mode'), 'live') = 'live'
+                   ORDER BY j.attempt_completed_at, j.attempt_id, j.created_at, j.id""",
+                (session_id,),
+            ).fetchall()
+        return [{"attempt_id": str(row[0]), "state": str(row[1])} for row in rows]
+
     def post_attempt_job_counts(self) -> dict[str, dict[str, int]]:
         with self.connection() as connection:
             if not _has_table(connection, "post_attempt_jobs"):
