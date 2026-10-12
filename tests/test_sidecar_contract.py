@@ -2535,6 +2535,15 @@ def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
     assert result["counts"]["learningObjects"] == len({p["learningObjectId"] for p in points})
     assert result["counts"]["concepts"] == len({p["conceptId"] for p in points if p["conceptId"] is not None})
     assert result["counts"]["facets"] >= 1
+    assert result["itemTextNeighbors"] == {
+        "enabled": True,
+        "modelId": loaded.config.embedding.model,
+        "stems": len(
+            [item for item in loaded.practice_items.values() if item.status != "retired" and item.prompt.strip()]
+        ),
+        "embedded": 0,
+        "pendingModel": None,
+    }
 
     for point in points:
         assert set(point) == {
@@ -2552,6 +2561,7 @@ def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
             "difficulty",
             "facets",
             "neighbors",
+            "neighborBasis",
         }
         assert -1.0 <= point["x"] <= 1.0
         assert -1.0 <= point["y"] <= 1.0
@@ -2564,7 +2574,10 @@ def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
         assert point["learningObjectId"] == item.learning_object_id
         assert 1 <= len(point["facets"]) <= 3 or not item.evidence_facets
         assert set(point["facets"]) <= set(item.evidence_facets)
-        # Neighbors: true blended distances, ranked ascending, never self.
+        # Neighbors: true blended distances, ranked ascending, never self. The
+        # fixture stores no item-text vectors, so every point keeps this basis
+        # (Slice 2 T7 cases live in test_knowledge_map_text_neighbors.py).
+        assert point["neighborBasis"] == "facet_graph"
         neighbors = point["neighbors"]
         assert len(neighbors) == min(4, len(points) - 1)
         assert all(set(n) == {"id", "distance"} for n in neighbors)

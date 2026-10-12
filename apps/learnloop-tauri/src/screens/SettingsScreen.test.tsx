@@ -25,6 +25,7 @@ function settings(enabled: boolean): SettingsDto {
     openrouter: { ...key, settingsEnvPath: "/test/settings.env" },
     embedding: {
       enabled, backfillEnabled: !enabled, model: "qwen/qwen3-embedding-8b", dimensions: 4096,
+      mapNeighborsEnabled: !enabled,
       privacyDisclosure: "When enabled, remote embeddings send learner-derived text to OpenRouter "
         + "and its upstream provider with data_collection=deny. Vectors approximate "
         + "plaintext: protect them like practice attempts in backups, exports and sync; "
@@ -77,6 +78,9 @@ it.each([false, true])("discloses embedding privacy and configuration read-only 
   expect(content.getByText("backfill").parentElement?.textContent).toBe(`backfill${enabled ? "disabled" : "enabled"}`);
   expect(content.getByText(value.embedding.model)).toBeTruthy();
   expect(content.getByText("4096")).toBeTruthy();
+  expect(content.getByText("map neighbours").parentElement?.textContent).toBe(
+    `map neighbours${enabled ? "facets + concept graph" : "item text where embedded"}`
+  );
   expect(content.getByText(value.embedding.privacyDisclosure)).toBeTruthy();
   expect(section.querySelector("input, select, button, [role=checkbox], [role=combobox]")).toBeNull();
   expect(api.getSettings).toHaveBeenCalledOnce();

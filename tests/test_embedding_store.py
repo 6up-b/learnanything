@@ -10,7 +10,8 @@ from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import (
-    EmbeddingVectorStore, IncompleteEmbeddingIndex, get_vector, put_vector, retrieve,
+    EmbeddingVectorStore, IncompleteEmbeddingIndex, current_records_by_model, get_vector,
+    nearest_among_current, put_vector, retrieve,
 )
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -173,6 +174,76 @@ def test_client_agnostic_storage_and_prefix_isolation(connection):
                        expected_records={"a": "h", "b": "h"})
     assert [match.record_id for match in matches] == ["a", "b"]
     assert [match.score for match in matches] == pytest.approx([1, -1])
+
+
+def test_nearest_among_current_ranks_like_retrieve_over_the_covered_records(connection):
+    # Slice 2 T7: all-pairs neighbours for display, tolerating partial coverage.
+    for name, vector in {"a": [10, 1, 0], "b": [10, -1, 0], "c": [12, 0, 1], "d": [9, 0, -1]}.items():
+        put_vector(connection, **identity(record_id=name), vector=vector)
+    put_vector(connection, **identity(record_id="e", content_hash="old"), vector=[0, 0, 9])
+    put_vector(connection, **identity(record_id="a", model_id="other"), vector=[1, 2])
+    put_vector(connection, **identity(record_id="b", task_prefix="retrieval-query"), vector=[5, 5, 5])
+    args = dict(record_kind="item", field="stem", model_id="fake", task_prefix="similarity")
+    # "e" is stale (edited since it was embedded) and "f" was never embedded.
+    expected = dict.fromkeys("abcdef", "h")
+    neighbours = nearest_among_current(connection, **args, expected_records=expected, limit=2)
+    assert set(neighbours) == set("abcd")
+    covered = dict.fromkeys("abcd", "h")
+    for name, ranked in neighbours.items():
+        reference = retrieve(
+            connection, **args, query=get_vector(connection, **identity(record_id=name)),
+            expected_records=covered, candidate_ids=set(covered) - {name}, limit=2,
+        )
+        assert [m.record_id for m in ranked] == [m.record_id for m in reference]
+        assert [m.score for m in ranked] == pytest.approx([m.score for m in reference])
+        assert name not in {m.record_id for m in ranked}
+    # A limit above the covered count returns everyone else, never itself.
+    wide = nearest_among_current(connection, **args, expected_records=covered, limit=9)
+    assert {name: {m.record_id for m in ranked} for name, ranked in wide.items()} == {
+        name: set(covered) - {name} for name in covered
+    }
+
+
+def test_nearest_among_current_edges(connection):
+    args = dict(record_kind="item", field="stem", model_id="fake", task_prefix="similarity")
+    with pytest.raises(ValueError, match="limit"):
+        nearest_among_current(connection, **args, expected_records={}, limit=-1)
+    assert nearest_among_current(connection, **args, expected_records={}, limit=4) == {}
+    put_vector(connection, **identity(record_id="b"), vector=[1, 0])
+    # One covered record has nobody to rank.
+    assert nearest_among_current(connection, **args, expected_records={"b": "h"}, limit=4) == {"b": []}
+    put_vector(connection, **identity(record_id="a"), vector=[1, 0])
+    put_vector(connection, **identity(record_id="c"), vector=[1, 0])
+    # Identical vectors centre to zero: every score is 0 and ties go to the smaller ID.
+    covered = dict.fromkeys("abc", "h")
+    neighbours = nearest_among_current(connection, **args, expected_records=covered, limit=4)
+    assert {name: [(m.record_id, m.score) for m in ranked] for name, ranked in neighbours.items()} == {
+        "a": [("b", 0.0), ("c", 0.0)], "b": [("a", 0.0), ("c", 0.0)], "c": [("a", 0.0), ("b", 0.0)],
+    }
+    assert nearest_among_current(connection, **args, expected_records=covered, limit=0) == {
+        "a": [], "b": [], "c": [],
+    }
+
+
+def test_current_records_by_model_counts_current_identities_per_model(connection):
+    # Slice 2 T7: coverage per model, so a consumer can count a singleton and
+    # tell an active model from a replacement still being backfilled.
+    put_vector(connection, **identity(record_id="a"), vector=[1, 0])
+    put_vector(connection, **identity(record_id="b"), vector=[0, 1])
+    put_vector(connection, **identity(record_id="c", content_hash="old"), vector=[1, 1])
+    put_vector(connection, **identity(record_id="a", model_id="next"), vector=[1, 0, 0])
+    put_vector(connection, **identity(record_id="b", model_id="stale", content_hash="old"), vector=[1])
+    put_vector(connection, **identity(record_id="b", task_prefix="retrieval-query"), vector=[1, 0])
+    put_vector(connection, **identity(record_id="z"), vector=[1, 0])
+    args = dict(record_kind="item", field="stem", task_prefix="similarity")
+    expected = dict.fromkeys("abc", "h")
+    assert current_records_by_model(connection, **args, expected_records=expected) == {
+        "fake": frozenset("ab"), "next": frozenset("a"),
+    }
+    assert current_records_by_model(connection, **args, expected_records={"a": "h"}) == {
+        "fake": frozenset("a"), "next": frozenset("a"),
+    }
+    assert current_records_by_model(connection, **args, expected_records={}) == {}
 
 
 def _migration_head_fixture() -> Path:

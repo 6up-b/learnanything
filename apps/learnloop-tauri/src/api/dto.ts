@@ -165,6 +165,8 @@ export interface SettingsDto {
     backfillEnabled: boolean;
     model: string;
     dimensions: number;
+    /** Knowledge-map neighbours from stored item-text vectors (display only). */
+    mapNeighborsEnabled: boolean;
     privacyDisclosure: string;
   };
   ingest: SettingsIngestDto;
@@ -389,8 +391,33 @@ export interface KnowledgeMapPoint {
   queued: boolean;
   difficulty: number | null;
   facets: string[];
-  /** Top-4 nearest items by the true blended distance (not the lossy 2D embedding). */
-  neighbors: Array<{ id: string; distance: number }>;
+  /**
+   * Top-4 nearest items (never the lossy 2D embedding). `distance` is always the
+   * blended facet/concept-graph distance; `similarity` is present only when
+   * `neighborBasis` is "item_text" (mean-centred cosine of stored item-stem vectors).
+   */
+  neighbors: Array<{ id: string; distance: number; similarity?: number }>;
+  /** Which ranking chose `neighbors` (Slice 2 T7, display only). */
+  neighborBasis: KnowledgeNeighborBasis;
+}
+
+export type KnowledgeNeighborBasis = "item_text" | "facet_graph";
+
+/** Coverage of the item-text neighbour ranking: stored vectors only, no calls. */
+export interface KnowledgeItemTextNeighbors {
+  /** `embedding.map_neighbors_enabled`; false keeps every item on facet/graph neighbours. */
+  enabled: boolean;
+  /** The model whose stored vectors rank the spokes (`embedding.model` when none is stored). */
+  modelId: string;
+  /** Items with a current stem that could be embedded (retired items excluded). */
+  stems: number;
+  /** Items whose current stem has a stored vector for `modelId`. */
+  embedded: number;
+  /**
+   * `embedding.model` while its re-embed has not caught up with `modelId`: the
+   * spokes move to it once it covers every stem `modelId` covers (Slice 2 §4).
+   */
+  pendingModel: { modelId: string; embedded: number } | null;
 }
 
 export interface KnowledgeMapSnapshot {
@@ -401,6 +428,7 @@ export interface KnowledgeMapSnapshot {
   stress: number;
   /** Facet-native diagnostic field; item points above remain for strata/history. */
   facetField: KnowledgeFacetField;
+  itemTextNeighbors: KnowledgeItemTextNeighbors;
 }
 
 export type CapabilityArcStatus = "demonstrated" | "required" | "absent";

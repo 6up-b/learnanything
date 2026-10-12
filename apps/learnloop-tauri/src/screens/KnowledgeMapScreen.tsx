@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
 import { TAG } from "../api/queryTags";
-import type { DecayPressureDto, KnowledgeFacetPoint, KnowledgeMapHistory, KnowledgeMapPoint, KnowledgeMapSnapshot } from "../api/dto";
+import type { DecayPressureDto, KnowledgeFacetPoint, KnowledgeItemTextNeighbors, KnowledgeMapHistory, KnowledgeMapPoint, KnowledgeMapSnapshot } from "../api/dto";
 import { EntityLink } from "../components/ui";
 import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader } from "../components/term";
 import { FacetInspector } from "../components/FacetInspector";
@@ -10,6 +10,7 @@ import { masteryTone } from "../app/algoConfig";
 import { KnowledgeTerrainView } from "./KnowledgeTerrainView";
 import { KnowledgeWellView } from "./KnowledgeWellView";
 import { KnowledgeStrataView } from "./KnowledgeStrataView";
+import { neighborCaption } from "./knowledgeNeighbors";
 import { useElementSize } from "./wire3d";
 
 // Knowledge map with two complementary read levels:
@@ -248,7 +249,14 @@ export function KnowledgeMapView({ onInspect, onError }: { onInspect: (id: strin
             onEnter={() => setPinned(false)}
           />
         ) : (
-          <PointDetail point={active} onInspect={onInspect} facetLockById={facetLockById} onInspectFacet={setInspectFacetId} />
+          <PointDetail
+            point={active}
+            onInspect={onInspect}
+            facetLockById={facetLockById}
+            onInspectFacet={setInspectFacetId}
+            pointById={pointById}
+            itemText={snapshot.itemTextNeighbors}
+          />
         )}
       </div>
 
@@ -444,12 +452,16 @@ function PointDetail({
   point,
   onInspect,
   facetLockById,
-  onInspectFacet
+  onInspectFacet,
+  pointById,
+  itemText
 }: {
   point: KnowledgeMapPoint | null;
   onInspect: (id: string) => void;
   facetLockById: Map<string, KnowledgeFacetPoint>;
   onInspectFacet: (facetId: string) => void;
+  pointById: Map<string, KnowledgeMapPoint>;
+  itemText: KnowledgeItemTextNeighbors | undefined;
 }) {
   if (!point) {
     return (
@@ -541,6 +553,32 @@ function PointDetail({
           </div>
         );
       })}
+
+      <SectionHeader>Nearest items</SectionHeader>
+      <Faint style={{ fontSize: 11 }}>{neighborCaption(point, itemText)}</Faint>
+      {point.neighbors.length === 0 ? <div><Faint>no other items</Faint></div> : null}
+      {point.neighbors.map((neighbor) => (
+        <div key={neighbor.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12, padding: "2px 0" }}>
+          <EntityLink id={neighbor.id} onInspect={onInspect} style={{ overflowWrap: "anywhere" }}>
+            <span title={neighbor.id}>{pointById.get(neighbor.id)?.title ?? neighbor.id}</span>
+          </EntityLink>
+          {neighbor.similarity != null ? (
+            <span
+              style={{ color: COLOR.textFaint, fontFamily: FONT_MONO, flexShrink: 0 }}
+              title="mean-centred cosine of the stored item-stem vectors, relative to this vault"
+            >
+              sim {neighbor.similarity.toFixed(2)}
+            </span>
+          ) : (
+            <span
+              style={{ color: COLOR.textFaint, fontFamily: FONT_MONO, flexShrink: 0 }}
+              title="blended facet / concept-graph distance (0 = same)"
+            >
+              d {neighbor.distance.toFixed(2)}
+            </span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

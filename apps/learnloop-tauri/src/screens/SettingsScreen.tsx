@@ -445,6 +445,11 @@ export function SettingsScreen({
           <span style={labelStyle}>dimensions</span>
           <span>{settings.embedding.dimensions}</span>
         </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>map neighbours</span>
+          {/* Display-only; reads stored vectors, so it works with embeddings off. */}
+          <span>{settings.embedding.mapNeighborsEnabled ? "item text where embedded" : "facets + concept graph"}</span>
+        </div>
         <div style={{ ...rowStyle, borderBottom: "none" }}>
           <span style={hintStyle}>{settings.embedding.privacyDisclosure}</span>
         </div>

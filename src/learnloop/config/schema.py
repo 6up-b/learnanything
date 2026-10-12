@@ -1352,6 +1352,11 @@ class EmbeddingConfig(BaseModel):
     backfill_enabled: bool = False
     model: str = Field(default="qwen/qwen3-embedding-8b", min_length=1)
     dimensions: int = Field(default=4096, gt=0)
+    # Slice 2 T7 kill switch (display only). The knowledge map ranks an item's
+    # neighbours by its stored stem vector when one is current; false keeps
+    # the facet/concept-graph neighbours. Reads stored vectors only, so it
+    # makes no calls and is independent of `enabled`.
+    map_neighbors_enabled: bool = True
 
     @computed_field
     @property

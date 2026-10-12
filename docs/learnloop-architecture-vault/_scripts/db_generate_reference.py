@@ -1013,6 +1013,14 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per "
         "model once vectors exist; consumers may request a narrower renormalized view at query time."
     ),
+    "embedding.map_neighbors_enabled": (
+        "Display-only kill switch for the knowledge map: while true, an item whose current stem has a "
+        "stored vector for the ranking model takes its four shown neighbours from item-text similarity; "
+        "false keeps the facet/concept-graph neighbours. The ranking model is embedding.model once its "
+        "stored vectors cover every current stem another stored model covers; until a replacement's "
+        "backfill catches up, the previous model keeps ranking (Slice 2 §4). Reads stored vectors only "
+        "(no calls) and never moves map coordinates or learner state."
+    ),
     "embedding.privacy_disclosure": (
         "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
         "setting it in learnloop.toml has no effect."
