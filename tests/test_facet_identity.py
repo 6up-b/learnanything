@@ -300,13 +300,42 @@ def _ledger_accepts_decider(sqlite_path: Path) -> bool:
     return "'decider'" in schema
 
 
+def _accept_decider(sqlite_path: Path) -> None:
+    """Router R0's judgment_ledger rebuild, simulated: the CHECK accepts 'decider'.
+
+    R0 (migration 174 on its branch) merges before this stage; until then the
+    Decider's ledger rows need this rebuild in the test database.
+    """
+
+    if _ledger_accepts_decider(sqlite_path):
+        return
+    connection = sqlite3.connect(sqlite_path)
+    try:
+        objects = connection.execute(
+            "SELECT type, sql FROM sqlite_master WHERE tbl_name = 'judgment_ledger' AND sql IS NOT NULL"
+        ).fetchall()
+        table = next(sql for kind, sql in objects if kind == "table")
+        rebuilt = table.replace("'exact_key')", "'exact_key', 'decider')")
+        assert rebuilt != table
+        connection.executescript(
+            "PRAGMA foreign_keys = OFF; BEGIN;"
+            "ALTER TABLE judgment_ledger RENAME TO judgment_ledger_before_r0;"
+            f"{rebuilt};"
+            "INSERT INTO judgment_ledger SELECT * FROM judgment_ledger_before_r0;"
+            "DROP TABLE judgment_ledger_before_r0;"
+            + "".join(f"{sql};" for kind, sql in objects if kind in ("index", "trigger"))
+            + "COMMIT;"
+        )
+    finally:
+        connection.close()
+
+
 def test_the_decider_answers_per_pair_choices_and_partitions(vault_repo):
     root, repository, data = vault_repo
+    _accept_decider(repository.sqlite_path)
     facets = [facet for facet in data["facets"] if "zero_vector" in facet["id"] or "symbol_0" in facet["id"]]
     request = build_request(_members(*facets), mode="consolidate")
     decider = FakeDecider(choose=lambda first, second: "same_skill")
-    if not _ledger_accepts_decider(repository.sqlite_path):
-        pytest.skip("judge='decider' needs router R0's judgment_ledger CHECK (not merged on this branch)")
     judge = DeciderGroupJudge(client=decider, model=decider.model, caps=_caps(), pricing=pricing_for(decider.model),
                               repository=repository, owner_id="run1")
     outcome = judge.run([request])[0]
@@ -314,33 +343,69 @@ def test_the_decider_answers_per_pair_choices_and_partitions(vault_repo):
     assert {row["judge"] for row in _ledger(repository.sqlite_path)} == {"decider"}
 
 
-def test_the_decider_asks_one_choice_question_per_pair():
-    data = regression_data()
+def test_the_decider_asks_one_choice_question_per_pair(vault_repo):
+    _root, repository, data = vault_repo
+    _accept_decider(repository.sqlite_path)
     facets = [facet for facet in data["facets"] if "zero_vector" in facet["id"] or "symbol_0" in facet["id"]]
     request = build_request(_members(*facets), mode="consolidate")
     decider = FakeDecider(choose=lambda first, second: "distinct")
-
-    class _NoLedger:
-        def atomic(self):
-            from contextlib import nullcontext
-            return nullcontext()
-
-        def connection(self):
-            class _Rows:
-                def fetchall(self):
-                    return []
-
-            class _Connection:
-                def execute(self, *args, **kwargs):
-                    return _Rows()
-            return _Connection()
-
     judge = DeciderGroupJudge(client=decider, model=decider.model, caps=SpendCaps(),
-                              pricing=pricing_for(decider.model), repository=_NoLedger(), owner_id="run1")
+                              pricing=pricing_for(decider.model), repository=repository, owner_id="run1")
     outcome = judge.run([request])[0]
     assert outcome.status == "judged" and outcome.sets == []
     assert len(decider.calls) == 1
     assert len(decider.calls[0]["questions"]) == len(request.pairs()) == 3
+
+
+# --- review F8: the ledger says what the judge said ------------------------------------
+
+
+def test_a_rerun_of_the_decider_reuses_its_answers_and_ledger_rows(vault_repo):
+    _root, repository, data = vault_repo
+    _accept_decider(repository.sqlite_path)
+    facets = [facet for facet in data["facets"] if "zero_vector" in facet["id"] or "symbol_0" in facet["id"]]
+    request = build_request(_members(*facets), mode="consolidate")
+    decider = FakeDecider(choose=lambda first, second: "same_skill")
+
+    def judge(owner):
+        return DeciderGroupJudge(client=decider, model=decider.model, caps=_caps(),
+                                 pricing=pricing_for(decider.model), repository=repository, owner_id=owner)
+
+    first = judge("run1").run([request])[0]
+    rows = len(_ledger(repository.sqlite_path))
+    again = judge("run2").run([request])[0]
+    assert again.status == "reused" and len(decider.calls) == 1  # paid once
+    assert len(_ledger(repository.sqlite_path)) == rows  # no duplicate rows
+    assert again.judgment_ids == first.judgment_ids
+    assert [(s.survivor, s.retired) for s in again.sets] == [(s.survivor, s.retired) for s in first.sets]
+
+
+def test_the_ledger_keeps_the_judges_verdict_and_marks_repaired_and_omitted_pairs(vault_repo):
+    import json
+
+    _root, repository, _data = vault_repo
+    registered = [{"id": "facet_x", "claim": "x"}, {"id": "facet_y", "claim": "y"}]
+    candidates = [{"id": "cand", "claim": "x again"}, {"id": "cand_z", "claim": "z"}]
+    request = build_request(
+        _members(*registered) + _members(*candidates, existing=False, kind="facet_candidate"), mode="attach",
+    )
+    # The judge joins one candidate with BOTH registered facets; validation keeps
+    # one registered facet, and "z" is never listed (kept distinct by the rule).
+    client = FakeFacetJudge(clusters=[["x", "x again", "y"]])
+    judge = LLMGroupJudge(client=client, provider="codex_luna", model="fake-judge-1", caps=_caps(),
+                          pricing=pricing_for(None), repository=repository, owner_id="run1")
+    outcome = judge.run([request])[0]
+    assert [(s.survivor, s.retired) for s in outcome.sets] == [("facet_x", ["cand"])]
+    rows = {frozenset((row["left_id"], row["right_id"])): (row["verdict"], json.loads(row["rationale"]))
+            for row in _ledger(repository.sqlite_path)}
+    verdict, detail = rows[frozenset(("facet_x", "cand"))]
+    assert verdict == "same" and detail["applied"] is True and "repaired" not in detail
+    verdict, detail = rows[frozenset(("facet_y", "cand"))]
+    assert verdict == "same" and detail["applied"] is False  # the judge's verdict, not the repair
+    assert "not merged at ingest" in detail["repaired"]
+    assert set(detail["raw_set"]["members"]) == {"E1", "E2", "N1"}
+    verdict, detail = rows[frozenset(("facet_x", "cand_z"))]
+    assert verdict == "different" and detail["basis"] == "omitted" and detail["applied"] is False
 
 
 # --- dedupe ------------------------------------------------------------------------------

@@ -24,10 +24,15 @@ Haiku) and :class:`DeciderGroupJudge` (the Decider, one typed ``choice``
 question per pair, partitioned with a no-chaining union).
 
 Every verdict goes to ``judgment_ledger`` (task ``same_facet``): one row per
-facet pair in the group, ``same`` when the judge put the pair in one
-merge/absorb set and ``different`` otherwise. A judged group is checkpointed
-(``model_work_checkpoints``) and its ledger rows are found again by input
-hash, so a retried run never pays twice for the same question.
+facet pair in the group with the judge's own verdict, ``same`` when the judge
+put the pair in one merge/absorb set (the Decider: answered anything but
+``distinct``) and ``different`` otherwise. The rationale records the raw set
+membership, whether the pair was listed or omitted (an omitted label is kept
+distinct by the prompt's rule), and whether the pair was applied; a pair the
+judge joined that validation or the no-chaining union kept apart is marked
+``repaired`` (review F8). Both judges checkpoint a judged group
+(``model_work_checkpoints``) and find its ledger rows again by input hash, so
+a retried run never pays twice for the same question.
 """
 
 from __future__ import annotations
@@ -365,6 +370,37 @@ def existing_judgments(
     return out
 
 
+def raw_pair_verdicts(
+    request: GroupRequest, verdict: FacetPartitionVerdict,
+) -> Callable[[Member, Member], tuple[bool, dict[str, Any]]]:
+    """The judge's own verdict on a pair, from its raw partition (before repair).
+
+    ``same`` when the judge listed both labels in one merge/absorb set. The
+    detail names every raw set each label was listed in, and whether the pair
+    was ``listed`` or ``omitted`` (the prompt keeps an unlisted label distinct).
+    """
+
+    sets_of: dict[str, list[int]] = {}
+    for index, raw in enumerate(verdict.sets):
+        for label in dict.fromkeys(raw.members):
+            sets_of.setdefault(label, []).append(index)
+
+    def judged(first: Member, second: Member) -> tuple[bool, dict[str, Any]]:
+        mine, theirs = sets_of.get(first.label, []), sets_of.get(second.label, [])
+        shared = [index for index in mine if index in theirs and verdict.sets[index].action != "keep_distinct"]
+        detail: dict[str, Any] = {
+            "raw_sets": {first.label: mine, second.label: theirs},
+            "basis": "listed" if mine and theirs else "omitted",
+        }
+        if shared:
+            raw = verdict.sets[shared[0]]
+            detail["raw_set"] = {"index": shared[0], "action": raw.action, "members": list(raw.members),
+                                 "canonical": raw.canonical}
+        return bool(shared), detail
+
+    return judged
+
+
 def append_partition_judgments(
     connection: Any,
     request: GroupRequest,
@@ -373,20 +409,35 @@ def append_partition_judgments(
     judge: str,
     judge_model: str,
     prompt_version: str,
+    judged: Callable[[Member, Member], tuple[bool, Mapping[str, Any]]] | None = None,
+    repair_reason: str = "kept apart when the partition was validated",
     pair_detail: Callable[[Member, Member], Mapping[str, Any]] | None = None,
     pair_score: Callable[[Member, Member], float | None] | None = None,
 ) -> dict[tuple[str, str], str]:
-    """One ``same``/``different`` row per decided pair; returns pair keys -> id."""
+    """One row per decided pair with the judge's verdict; returns pair keys -> id.
+
+    ``judged`` gives the judge's own verdict on a pair (the raw partition or
+    the Decider's answer); ``sets`` are what was applied. A pair the judge
+    joined but the applied sets keep apart is recorded ``same`` with
+    ``applied: false`` and ``repaired``, never as a ``different`` the judge
+    did not say. Without ``judged`` the applied sets are the verdict.
+    """
 
     placed = same_set(sets)
     out: dict[tuple[str, str], str] = {}
     for left, right in request.pairs():
         first, second = _ordered_pair(left, right)
         set_index = placed.get(first.key)
-        same = set_index is not None and set_index == placed.get(second.key)
+        applied = set_index is not None and set_index == placed.get(second.key)
         detail: dict[str, Any] = {"group_id": request.group_id, "mode": request.mode,
-                                  "labels": [first.label, second.label]}
-        if same:
+                                  "labels": [first.label, second.label], "applied": applied}
+        same = applied
+        if judged is not None:
+            same, raw_detail = judged(first, second)
+            detail.update(raw_detail)
+            if same != applied:
+                detail["repaired"] = repair_reason
+        if applied:
             decided = sets[set_index]  # type: ignore[index]
             detail.update(action=decided.action, survivor=decided.survivor,
                           absorb_as=decided.absorb_as, rationale=decided.rationale)
@@ -698,7 +749,9 @@ class LLMGroupJudge:
             if not ids:
                 ids = append_partition_judgments(
                     connection, request, sets, judge=self.judge, judge_model=model,
-                    prompt_version=self.prompt_version,
+                    prompt_version=self.prompt_version, judged=raw_pair_verdicts(request, verdict),
+                    repair_reason="dropped when the partition was validated: " + "; ".join(notes)
+                    if notes else "dropped when the partition was validated",
                 )
             # The ledger keeps the judge's verdict; the owner's verdicts decide.
             sets, vetoed = apply_owner_vetoes(request, sets, owner_vetoes(connection, request))
@@ -829,6 +882,32 @@ class DeciderGroupJudge:
         return {"judge": self.judge, "model": self.model, "prompt_version": self.prompt_version,
                 "billing": "metered", "price": asdict(self.pricing), "caps_in_force": self.budget.declared()}
 
+    def checkpoint_key(self, request: GroupRequest) -> str:
+        return content_key({
+            "purpose": PURPOSE, "judge": self.judge, "question_set": self.prompt_version,
+            "input_hash": request.input_hash, "instructions": DECIDER_INSTRUCTIONS,
+            "options": DECIDER_OPTIONS, "model": self.model,
+        })
+
+    def _stored_choices(self, request: GroupRequest) -> tuple[dict[tuple[str, str], tuple[str, Mapping[str, float]]], str] | None:
+        key = self.checkpoint_key(request)
+        checkpoint = self.repository.model_checkpoint(key)
+        if checkpoint is None:
+            return None
+        try:
+            stored = checkpoint["result"]
+            choices = {(str(first), str(second)): (str(choice), dict(probs))
+                       for first, second, choice, probs in stored["choices"]}
+            model = str(stored.get("judge_model") or self.model or "")
+        except (KeyError, TypeError, ValueError):
+            self.repository.discard_model_checkpoint(key)
+            return None
+        wanted = {(left.key, right.key) for left, right in request.pairs()}
+        if set(choices) != wanted:
+            self.repository.discard_model_checkpoint(key)
+            return None
+        return choices, model
+
     def run(self, requests: Sequence[GroupRequest]) -> list[GroupOutcome]:
         outcomes: list[GroupOutcome] = []
         stopped: str | None = None
@@ -837,9 +916,15 @@ class DeciderGroupJudge:
                 outcomes.append(GroupOutcome(request, "not_run", judge=self.judge, judge_model=self.model,
                                              prompt_version=self.prompt_version, error=stopped))
                 continue
+            # A rerun reuses the answers and their ledger rows (review F8).
+            stored = self._stored_choices(request)
+            if stored is not None:
+                choices, model = stored
+                outcomes.append(self._finish(request, choices, model, status="reused"))
+                continue
             state = {"facets": [{"label": member.label, **dict(member.view)} for member in request.members]}
             pairs = request.pairs()
-            choices: dict[tuple[str, str], tuple[str, Mapping[str, float]]] = {}
+            choices = {}
             model = self.model or ""
             try:
                 for offset in range(0, len(pairs), DECIDER_MAX_QUESTIONS):
@@ -875,26 +960,45 @@ class DeciderGroupJudge:
                 outcomes.append(GroupOutcome(request, "failed", judge=self.judge, judge_model=model or None,
                                              prompt_version=self.prompt_version, error=type(exc).__name__))
                 continue
-            sets = partition_from_pairs(request, choices)
+            self.repository.save_model_checkpoint(
+                self.checkpoint_key(request), purpose=PURPOSE,
+                result={"choices": [[first, second, choice, dict(probs)]
+                                    for (first, second), (choice, probs) in sorted(choices.items())],
+                        "judge_model": model},
+            )
+            outcomes.append(self._finish(request, choices, model, status="judged"))
+        return outcomes
 
-            def detail(first: Member, second: Member) -> dict[str, Any]:
-                choice, probs = choices.get((first.key, second.key)) or choices.get((second.key, first.key)) or ("", {})
-                return {"choice": choice, "probabilities": dict(probs)}
+    def _finish(
+        self, request: GroupRequest, choices: Mapping[tuple[str, str], tuple[str, Mapping[str, float]]], model: str,
+        *, status: str,
+    ) -> GroupOutcome:
+        sets = partition_from_pairs(request, choices)
 
-            def score(first: Member, second: Member) -> float | None:
-                choice, probs = choices.get((first.key, second.key)) or choices.get((second.key, first.key)) or ("", {})
-                return float(probs.get(choice)) if choice in probs else None
+        def answer(first: Member, second: Member) -> tuple[str, Mapping[str, float]]:
+            return choices.get((first.key, second.key)) or choices.get((second.key, first.key)) or ("", {})
 
-            with self.repository.atomic():
-                connection = self.repository.connection()
+        def judged(first: Member, second: Member) -> tuple[bool, dict[str, Any]]:
+            choice, probs = answer(first, second)
+            return choice not in ("", "distinct"), {"choice": choice, "probabilities": dict(probs)}
+
+        def score(first: Member, second: Member) -> float | None:
+            choice, probs = answer(first, second)
+            return float(probs.get(choice)) if choice in probs else None
+
+        with self.repository.atomic():
+            connection = self.repository.connection()
+            ids = existing_judgments(connection, request, judge=self.judge, judge_model=model,
+                                     prompt_version=self.prompt_version)
+            if not ids:
                 ids = append_partition_judgments(
                     connection, request, sets, judge=self.judge, judge_model=model,
-                    prompt_version=self.prompt_version, pair_detail=detail, pair_score=score,
+                    prompt_version=self.prompt_version, judged=judged, pair_score=score,
+                    repair_reason="not unioned: a pair across the two sets was answered distinct",
                 )
-                sets, vetoed = apply_owner_vetoes(request, sets, owner_vetoes(connection, request))
-            outcomes.append(GroupOutcome(request, "judged", sets=sets, judge=self.judge, judge_model=model,
-                                         prompt_version=self.prompt_version, judgment_ids=ids, notes=vetoed))
-        return outcomes
+            sets, vetoed = apply_owner_vetoes(request, sets, owner_vetoes(connection, request))
+        return GroupOutcome(request, status, sets=sets, judge=self.judge, judge_model=model,
+                            prompt_version=self.prompt_version, judgment_ids=ids, notes=vetoed)
 
     def charged(self) -> dict[str, Any]:
         return asdict(self.budget.used)
