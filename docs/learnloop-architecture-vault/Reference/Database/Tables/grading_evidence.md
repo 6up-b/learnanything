@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
-  - "src/learnloop/ops/debug_time.py"
+  - "src/learnloop/diagnosis/offline_review/report.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -119,6 +119,8 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/diagnosis/offline_review/report.py`
+- `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
 
@@ -155,6 +157,7 @@ Indexes and uniqueness:
 - `tests/test_characterization_certification_ledger.py`
 - `tests/test_cli_attempt.py`
 - `tests/test_cli_json.py`
+- `tests/test_diagnosis_context.py`
 - `tests/test_e2e_local.py`
 - `tests/test_migrations.py`
 - `tests/test_p0_projection_cutover.py`
@@ -171,7 +174,6 @@ Indexes and uniqueness:
 - `tests/test_deferred_regrade.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_e2e_tui.py`
-- `tests/test_error_hunt_items.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

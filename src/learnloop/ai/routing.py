@@ -25,6 +25,12 @@ AITask = Literal[
     "pf_reference_verifier",
     "pf_solver_panel",
     "grading",
+    # Slice 1: the history-aware diagnoser (unset -> the resolved grading
+    # route, so a vault that never configures it diagnoses with its grader),
+    # the offline review's judge, and its planted-case/probe generator.
+    "diagnosis",
+    "diagnosis_judge",
+    "diagnosis_generator",
     "canonical_ingest",
     "canonical_ingest_retry",
     "authoring",
@@ -44,6 +50,15 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "authoring_proposal": "authoring",
     "canonical_ingest": "canonical_ingest",
     "grading_proposal": "grading",
+    "blind_grading_proposal": "grading",
+    "diagnosis_proposal": "diagnosis",
+    "diagnosis_review_judgment": "diagnosis_judge",
+    "diagnosis_link_judgment": "diagnosis_judge",
+    "diagnosis_planted_cause_judgment": "diagnosis_judge",
+    "diagnosis_planted_scenario": "diagnosis_generator",
+    "diagnosis_valid_alternative": "diagnosis_generator",
+    "diagnosis_synthetic_error": "diagnosis_generator",
+    "diagnosis_paraphrase": "diagnosis_generator",
     "tutor_qa": "tutor_qa",
     "teach_back_question": "teach_back",
     "teach_back_authoring": "teach_back",
@@ -136,6 +151,11 @@ def provider_for_task(
         # spec_project_understanding_v1 §7: the project route defaults to the
         # grading provider before the active provider.
         routed = config.ai.routing.grading
+    if task == "diagnosis" and not routed:
+        # Slice 1 §9.1: an unset diagnosis route follows the RESOLVED grading
+        # route, not the active provider, so the diagnoser can be moved to a
+        # stronger model by config alone and otherwise matches the grader.
+        return provider_for_task(config, "grading", allow_env=allow_env)
     return AIProviderSelection(provider_name=routed or config.ai.active_provider)
 
 

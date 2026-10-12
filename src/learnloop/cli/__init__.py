@@ -21,6 +21,7 @@ from learnloop.cli.sim import *  # noqa: F401,F403
 from learnloop.cli.data import *  # noqa: F401,F403
 from learnloop.cli.embeddings import embeddings_app
 from learnloop.cli.project import project_app
+from learnloop.cli.diagnose import diagnose_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(claims_app, name="claims")
@@ -43,6 +44,7 @@ app.add_typer(fit_app, name="fit")
 app.add_typer(sim_app, name="sim")
 app.add_typer(embeddings_app, name="embeddings")
 app.add_typer(project_app, name="project")
+app.add_typer(diagnose_app, name="diagnose")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

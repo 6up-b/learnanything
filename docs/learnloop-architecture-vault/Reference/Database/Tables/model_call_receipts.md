@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/db/stores/model_calls.py"
+  - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/model_usage.py"
 tags:
@@ -108,6 +109,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
 
@@ -124,6 +126,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_diagnose_review.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`

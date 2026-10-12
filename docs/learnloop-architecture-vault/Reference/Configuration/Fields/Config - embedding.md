@@ -3,8 +3,8 @@ title: "Config - embedding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml embedding"
@@ -19,9 +19,11 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/ai/routing.py"
+  - "src/learnloop/diagnosis/offline_review/runner.py"
   - "src/learnloop/ops/embedding_backfill.py"
   - "src/learnloop/ai/client.py"
   - "src/learnloop/ai/runtime.py"
+  - "tests/diagnosis_fakes.py"
   - "tests/helpers.py"
   - "tests/project_support.py"
   - "tests/structured_ai.py"
@@ -33,7 +35,6 @@ source_paths:
   - "tests/test_anchor_resolution.py"
   - "tests/test_answer_calibration_duel.py"
   - "tests/test_anti_double_count.py"
-  - "tests/test_attempt_ai_flow.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/embedding"
@@ -54,11 +55,11 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1330`; `src/learnloop/ai/routing.py:280`; `src/learnloop/ops/embedding_backfill.py:153` |
-| `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1331`; `src/learnloop/ops/embedding_backfill.py:154` |
-| `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1332`; `src/learnloop/ai/client.py:30`; `src/learnloop/ai/runtime.py:107` |
-| `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1333`; `src/learnloop/ai/client.py:31`; `src/learnloop/ops/embedding_backfill.py:138` |
-| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1372` |
+| `embedding.enabled` | `false` | boolean | explicit template decision | Master switch for remote embeddings. While false, the embedding route resolves to no client, so no consumer can send text, and the disabled route does not affect settings health. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1336`; `src/learnloop/ai/routing.py:300`; `src/learnloop/diagnosis/offline_review/runner.py:207` |
+| `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1337`; `src/learnloop/ops/embedding_backfill.py:154` |
+| `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1338`; `src/learnloop/ai/client.py:30`; `src/learnloop/ai/runtime.py:107` |
+| `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1339`; `src/learnloop/ai/client.py:31`; `src/learnloop/ops/embedding_backfill.py:138` |
+| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1378` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
@@ -67,6 +68,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/diagnosis_fakes.py`
 - `tests/helpers.py`
 - `tests/project_support.py`
 - `tests/structured_ai.py`
@@ -78,7 +80,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_anchor_resolution.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_anti_double_count.py`
-- `tests/test_attempt_ai_flow.py`
 
 ## Extension and modification guidance
 

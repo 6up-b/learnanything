@@ -3,8 +3,8 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
+  - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_health.py"
@@ -99,6 +100,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
 

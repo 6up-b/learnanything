@@ -780,7 +780,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # routes only; no scoring, scheduling, projection or serving change.
     # Project understanding M1 adds the [project] section and the
     # ai.routing.project route; both act only on the standalone project store.
-    "mvp-0.9": "c80efa31d58d5180780b453456d565e62d819b52d186a198e0ca915eac46253c",
+    # Slice 1 M1 adds the unset diagnosis / diagnosis_judge /
+    # diagnosis_generator routes, consumed only by the offline review. No
+    # scoring, scheduling, projection or serving change.
+    "mvp-0.9": "7a067a20fb3a66d1ce9d0a651f417db127dadacce041f67191f6595ce22b5824",
 }
 
 

@@ -3,8 +3,8 @@ title: "diagnostic_augmentation_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_augmentation_receipts"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/144_diagnostic_augmentation.sql"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/diagnosis/diagnostic_augmentation.py"
 tags:
   - "learnloop/database/table"
@@ -97,6 +98,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/legacy_view.py`
 
 ### Direct SQL writers
 

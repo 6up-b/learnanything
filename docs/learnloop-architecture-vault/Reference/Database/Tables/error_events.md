@@ -3,8 +3,8 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
@@ -104,6 +104,9 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/offline_review/report.py`
+- `src/learnloop/diagnosis/offline_review/runner.py`
+- `src/learnloop/diagnosis/split/history.py`
 - `src/learnloop/sim/metrics.py`
 - `src/learnloop/sim/runner.py`
 
@@ -128,11 +131,11 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/diagnosis/taxonomy_regrade.py`
 - `src/learnloop/goals/exam_session.py`
 - `src/learnloop/learner/recall_calibration.py`
 - `src/learnloop/ops/doctor.py`
-- `src/learnloop/reader/reader_guidance.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

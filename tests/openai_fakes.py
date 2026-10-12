@@ -112,3 +112,24 @@ def grading_json() -> str:
             "repair_suggestions": [],
         }
     )
+
+
+def blind_grading_json() -> str:
+    """The learner-blind variant (Slice 1 §4.2): no causal or repair-plan fields."""
+
+    return json.dumps(
+        {
+            "local_analysis_md": "Correct.",
+            "repaired_traces": [],
+            "attempt_id": "attempt_1",
+            "practice_item_id": "pi_1",
+            "criterion_evidence": [{"criterion_id": "correctness", "points_awarded": 4, "evidence": "Correct."}],
+            "rubric_score": 4,
+            "fatal_errors": [],
+            "error_attributions": [],
+            "grader_confidence": 0.95,
+            "manual_review_recommended": False,
+            "feedback_md": None,
+            "exercised_facets": [],
+        }
+    )

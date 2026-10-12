@@ -3,8 +3,8 @@ title: "Config - exam_seeding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml exam_seeding"
@@ -19,18 +19,18 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/goals/exam_seeding.py"
+  - "tests/diagnosis_fakes.py"
+  - "tests/diagnosis_split_helpers.py"
   - "tests/openai_fakes.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_anchor_resolution.py"
   - "tests/test_attempt_ai_flow.py"
   - "tests/test_attempts.py"
+  - "tests/test_blind_grading_contract.py"
   - "tests/test_causal_attribution_exhibit.py"
   - "tests/test_causal_attribution_p0.py"
   - "tests/test_causal_attribution_p1.py"
   - "tests/test_causal_attribution_p2.py"
-  - "tests/test_causal_factor_deferral.py"
-  - "tests/test_causal_p2_acceptance.py"
-  - "tests/test_causal_repair_mapping_p2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/exam-seeding"
@@ -61,18 +61,18 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/diagnosis_fakes.py`
+- `tests/diagnosis_split_helpers.py`
 - `tests/openai_fakes.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_anchor_resolution.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_attempts.py`
+- `tests/test_blind_grading_contract.py`
 - `tests/test_causal_attribution_exhibit.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_attribution_p1.py`
 - `tests/test_causal_attribution_p2.py`
-- `tests/test_causal_factor_deferral.py`
-- `tests/test_causal_p2_acceptance.py`
-- `tests/test_causal_repair_mapping_p2.py`
 
 ## Extension and modification guidance
 

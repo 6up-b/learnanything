@@ -979,6 +979,12 @@ class AIRoutingConfig(BaseModel):
     pf_reference_verifier: str | None = None
     pf_solver_panel: str | None = None
     grading: str | None = None
+    # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
+    diagnosis: str | None = None
+    # Offline diagnosis review (Slice 1 M1): the blind pairwise judge and the
+    # planted-case / grader-probe generator. Empty = ai.active_provider.
+    diagnosis_judge: str | None = None
+    diagnosis_generator: str | None = None
     canonical_ingest: str | None = None
     canonical_ingest_retry: str | None = None
     authoring: str | None = None

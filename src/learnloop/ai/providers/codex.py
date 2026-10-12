@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+import inspect
 import json
 import logging
 import os
@@ -38,10 +40,17 @@ from learnloop.ai.schemas import (
     describe_wire_validation_error,
 )
 from learnloop.ai.strict_schema import strict_output_schema
-from learnloop.ai.transport import INTERRUPT, STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import (
+    INTERRUPT,
+    ISOLATED_TURN,
+    READ_ONLY_WORKSPACE,
+    STRUCTURED_COMPLETION,
+    StructuredRequest,
+)
 from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
 from learnloop.ai.isolation import (
     TOOL_ISOLATION,
+    ToolIsolation,
     ToolIsolationUnavailable,
     current_tool_isolation,
     sandboxed_command,
@@ -53,6 +62,71 @@ from learnloop.config import AIProviderConfig, CodexConfig
 # Keep the established logger name while legacy imports are shims.
 LOG = logging.getLogger("learnloop.ai.providers.codex")
 EVENT_FIELDS_ATTR = "event_fields"
+
+#: The Codex permission profile every isolated turn runs under (Slice 1 §4,
+#: §5.6). Codex's built-in ``read-only`` sandbox grants full-disk READ access,
+#: so it is never used for isolation: this profile reads only the turn's own
+#: directory plus the platform minimum, and writes nowhere.
+ISOLATED_PROFILE = "learnloop_isolated_turn"
+#: Tools and integrations that run outside the command sandbox (connectors,
+#: MCP, browser/computer use, plugins, sub-agents) or bring in outside context
+#: (memories, hooks, skills, web search): all off in an isolated turn. Unknown
+#: feature keys are ignored by Codex, so older/newer CLIs accept the list.
+_ISOLATION_DISABLED_FEATURES = (
+    "apps",
+    "browser_use",
+    "browser_use_external",
+    "computer_use",
+    "in_app_browser",
+    "image_generation",
+    "plugins",
+    "remote_plugin",
+    "multi_agent",
+    "hooks",
+    "memories",
+    "view_image",
+    "tool_suggest",
+    "skill_search",
+    "skill_mcp_dependency_install",
+    "goals",
+)
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def isolated_turn_overrides(
+    readable_root: Path,
+    *,
+    shell: bool,
+    mcp_server_ids: tuple[str, ...] | list[str] = (),
+) -> list[str]:
+    """``codex -c key=value`` overrides that confine one turn.
+
+    The turn runs under :data:`ISOLATED_PROFILE`: read access to
+    ``readable_root`` and the platform minimum only, no writes, no network;
+    approvals never prompt; web search, connectors, MCP servers (each named
+    one disabled), memories, hooks and project docs are off. With
+    ``shell=False`` (no workspace to read) the command tools are off too, so
+    the model has nothing but its prompt.
+    """
+
+    root = str(Path(readable_root).resolve())
+    overrides = [
+        f"default_permissions={_toml_string(ISOLATED_PROFILE)}",
+        f'permissions.{ISOLATED_PROFILE}.filesystem={{":minimal"="read", {_toml_string(root)}="read"}}',
+        f"permissions.{ISOLATED_PROFILE}.network.enabled=false",
+        'approval_policy="never"',
+        'web_search="disabled"',
+        "project_doc_max_bytes=0",
+        "tools.view_image=false",
+    ]
+    overrides += [f"features.{feature}=false" for feature in _ISOLATION_DISABLED_FEATURES]
+    if not shell:
+        overrides += ["features.shell_tool=false", "features.unified_exec=false"]
+    overrides += [f"mcp_servers.{server}.enabled=false" for server in sorted(set(mcp_server_ids))]
+    return overrides
 
 class SdkCodexClient(TokenUsageAccounting):
     """Codex Python SDK-backed client.
@@ -78,6 +152,60 @@ class SdkCodexClient(TokenUsageAccounting):
         self._active_stop_scheduled = False
         self._interrupt_requested = threading.Event()
         self._deadline_expired = threading.Event()
+        self._last_workspace_activity: list[str] | None = None
+
+    def _codex_command(self) -> list[str]:
+        """The argv prefix that runs this client's Codex CLI (before a subcommand)."""
+
+        launch = _sdk_launch_args(self.config.sdk_launch_command)
+        if launch:
+            if "app-server" not in launch:
+                raise CodexUnavailable(
+                    "sdk_launch_command does not name `app-server`; an isolated turn cannot pass its sandbox overrides."
+                )
+            return list(launch[: launch.index("app-server")])
+        configured = _resolved_sdk_codex_bin(self.config.sdk_codex_bin)
+        if configured:
+            return [configured]
+        try:
+            from codex_cli_bin import bundled_codex_path
+
+            return [str(bundled_codex_path())]
+        except (ImportError, FileNotFoundError):
+            found = shutil.which("codex.cmd" if os.name == "nt" else "codex")
+            if found:
+                return [found]
+        raise CodexUnavailable("No Codex CLI found to configure an isolated turn.")
+
+    def _configured_mcp_server_ids(self, cwd: Path) -> tuple[str, ...]:
+        """MCP servers the app server would load in ``cwd``, to disable each.
+
+        An MCP tool runs outside the command sandbox, so an isolated turn must
+        disable every configured server by name. Listing fails closed.
+        """
+
+        command = [*self._codex_command(), "mcp", "list", "--json"]
+        try:
+            result = subprocess.run(command, cwd=str(cwd), capture_output=True, text=True, timeout=60, check=False)
+            servers = json.loads(result.stdout) if result.returncode == 0 else None
+        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            raise CodexUnavailable(f"Cannot list Codex MCP servers to disable them: {exc}") from exc
+        if not isinstance(servers, list):
+            raise CodexUnavailable(
+                "Cannot list Codex MCP servers to disable them for an isolated turn "
+                f"(exit {result.returncode})."
+            )
+        return tuple(str(server["name"]) for server in servers if isinstance(server, dict) and server.get("name"))
+
+    def workspace_activity(self) -> list[str] | None:
+        """What the last read-only-workspace turn reported reading, if anything.
+
+        Best effort: populated only when the SDK's turn result exposes the
+        agent's tool items. ``None`` means the transport reported nothing, which
+        receipts must record as unknown rather than as "opened no files".
+        """
+
+        return list(self._last_workspace_activity) if self._last_workspace_activity is not None else None
 
     def interrupt(self) -> bool:
         """Interrupt this client's active SDK turn without killing the sidecar.
@@ -144,6 +272,8 @@ class SdkCodexClient(TokenUsageAccounting):
                     request.prompt,
                     request.result_model,
                     purpose=request.purpose,
+                    workspace=request.workspace,
+                    isolated=request.isolated or request.workspace is not None,
                 )
         finally:
             if previous_timeout is marker:
@@ -160,6 +290,12 @@ class SdkCodexClient(TokenUsageAccounting):
             # Under learnloop.ai.isolation.tool_isolation the app-server runs
             # in a bubblewrap sandbox (see _isolated_launch).
             TOOL_ISOLATION,
+            # Both enforced per turn by the ISOLATED_PROFILE permission profile
+            # (and fail closed when the installed SDK cannot pass it). They
+            # compose with TOOL_ISOLATION: the profile then confines the turn
+            # inside the bubblewrap sandbox.
+            ISOLATED_TURN,
+            READ_ONLY_WORKSPACE,
         }
 
     def _complete_validated(
@@ -168,6 +304,8 @@ class SdkCodexClient(TokenUsageAccounting):
         model_type: type[BaseModel],
         *,
         purpose: str,
+        workspace: Path | None = None,
+        isolated: bool = False,
     ) -> Any:
         """Run one structured turn and repair malformed/schema-invalid JSON once.
 
@@ -188,7 +326,13 @@ class SdkCodexClient(TokenUsageAccounting):
             result = None
             try:
                 with generation_limit(remaining):
-                    result = self._run_structured(turn_prompt, output_schema, purpose=turn_purpose)
+                    if workspace is None and not isolated:
+                        result = self._run_structured(turn_prompt, output_schema, purpose=turn_purpose)
+                    else:
+                        # JSON repairs and regenerations stay isolated too.
+                        result = self._run_structured(
+                            turn_prompt, output_schema, purpose=turn_purpose, workspace=workspace, isolated=True,
+                        )
                 return result
             finally:
                 if remaining is not None:
@@ -254,13 +398,83 @@ class SdkCodexClient(TokenUsageAccounting):
         *,
         purpose: str,
         timeout_seconds: float | None = None,
+        workspace: Path | None = None,
+        isolated: bool = False,
     ) -> str:
+        """Run one SDK turn.
+
+        An isolated turn (``isolated``, implied by ``workspace``) never starts
+        in ``vault_root``: the app server, thread and turn start in the
+        workspace, or in a fresh empty directory removed afterwards, under
+        :data:`ISOLATED_PROFILE` (:func:`isolated_turn_overrides`), which can
+        read only that directory and the platform minimum. A workspace turn
+        keeps the shell tool to read its files; any other isolated turn has no
+        tools. The thread is never given a sandbox mode, which would replace
+        the profile with Codex's full-disk-read ``read-only`` mode, and the turn
+        fails closed when the installed SDK cannot pass the overrides.
+
+        Under :func:`learnloop.ai.isolation.tool_isolation` (project routes)
+        the app server also runs in that bubblewrap sandbox, which mounts only
+        its working directory from the host. A turn there starts in that
+        directory; an isolated turn's empty directory is made inside it, and a
+        workspace outside it is refused (the sandbox could not show it).
+        """
+
         budget = output_limit()
         if budget is not None:
             # The app-server protocol has no hard per-turn output-token cap.
             # Keep the target explicit; domain gates enforce the returned
             # artifact limit and receipts retain the actual billed usage.
             prompt += f"\n\nKeep the complete JSON response within {budget} output tokens."
+        if self._interrupt_requested.is_set():
+            raise CodexInterrupted("Codex turn interrupted by the learner.")
+        sandbox = current_tool_isolation()
+        sandbox_root = Path(sandbox.workdir).resolve() if sandbox is not None else None
+        isolated = isolated or workspace is not None
+        scratch_root: Path | None = None
+        if workspace is not None:
+            workspace = Path(workspace).resolve()
+            if not workspace.is_dir():
+                raise CodexUnavailable(f"Read-only workspace {workspace} is not a directory.")
+            if sandbox_root is not None and workspace != sandbox_root and sandbox_root not in workspace.parents:
+                raise CodexUnavailable(
+                    f"Read-only workspace {workspace} is outside the sandboxed working directory "
+                    f"{sandbox_root}, so the sandboxed turn could not read it."
+                )
+            self._last_workspace_activity = None
+            root = workspace
+        elif isolated:
+            # Nothing to read: an empty directory of its own, never the vault.
+            # Sandboxed, it must sit in the one host directory bubblewrap mounts.
+            scratch_root = Path(tempfile.mkdtemp(prefix="learnloop-isolated-turn-", dir=sandbox_root)).resolve()
+            root = scratch_root
+        elif sandbox is not None:
+            root = Path(sandbox.workdir)
+        else:
+            root = self.vault_root
+        cwd = str(root)
+        try:
+            return self._run_sdk_turn(
+                prompt, output_schema, purpose=purpose, timeout_seconds=timeout_seconds,
+                cwd=cwd, root=root, isolated=isolated, workspace=workspace, sandbox=sandbox,
+            )
+        finally:
+            if scratch_root is not None:
+                shutil.rmtree(scratch_root, ignore_errors=True)
+
+    def _run_sdk_turn(
+        self,
+        prompt: str,
+        output_schema: dict[str, Any],
+        *,
+        purpose: str,
+        timeout_seconds: float | None,
+        cwd: str,
+        root: Path,
+        isolated: bool,
+        workspace: Path | None,
+        sandbox: ToolIsolation | None = None,
+    ) -> str:
         requested_timeout = (
             timeout_seconds
             if timeout_seconds is not None
@@ -271,8 +485,6 @@ class SdkCodexClient(TokenUsageAccounting):
             if requested_timeout is None
             else max(0.001, float(requested_timeout))
         )
-        if self._interrupt_requested.is_set():
-            raise CodexInterrupted("Codex turn interrupted by the learner.")
         _ensure_sdk_importable(self.sdk_python_path)
         try:
             from openai_codex import Codex
@@ -283,23 +495,48 @@ class SdkCodexClient(TokenUsageAccounting):
                 f"Codex Python SDK is not importable from {self.sdk_python_path}."
             ) from exc
 
-        isolation = current_tool_isolation()
-        launcher_dir = tempfile.mkdtemp(prefix="learnloop-codex-launch-") if isolation is not None else None
+        # Slice 1's permission profile first: its ``--config`` overrides go
+        # into the Codex command (or the SDK's config_overrides, which the SDK
+        # appends to the program it launches). The project bubblewrap sandbox
+        # (below) then wraps that whole command, so a sandboxed isolated turn
+        # runs under both: bubblewrap bounds the app-server process, and the
+        # profile bounds the turn's tools within it.
+        launch_args = _sdk_launch_args(self.config.sdk_launch_command)
+        config_kwargs: dict[str, Any] = {}
+        if isolated:
+            overrides = isolated_turn_overrides(
+                root, shell=workspace is not None, mcp_server_ids=self._configured_mcp_server_ids(root),
+            )
+            if launch_args:
+                position = launch_args.index("app-server") if "app-server" in launch_args else -1
+                if position < 0:
+                    raise CodexUnavailable(
+                        "sdk_launch_command does not name `app-server`; an isolated turn cannot pass its sandbox overrides."
+                    )
+                flags = tuple(part for override in overrides for part in ("--config", override))
+                launch_args = (*launch_args[:position], *flags, *launch_args[position:])
+            elif _sdk_accepts(SdkAppConfig, "config_overrides"):
+                config_kwargs["config_overrides"] = tuple(overrides)
+            else:
+                raise CodexUnavailable(
+                    "The installed Codex SDK cannot pass config overrides; "
+                    "an isolated turn (read boundary, tools off) is unavailable."
+                )
+
+        launcher_dir = tempfile.mkdtemp(prefix="learnloop-codex-launch-") if sandbox is not None else None
         try:
             effort = _sdk_reasoning_effort(ReasoningEffort, self.config.reasoning_effort)
             summary = _sdk_reasoning_summary(ReasoningSummary, self.config.reasoning_summary)
-            launch_args = _sdk_launch_args(self.config.sdk_launch_command)
             codex_bin = _resolved_sdk_codex_bin(self.config.sdk_codex_bin)
-            cwd = self.vault_root
-            if isolation is not None and launcher_dir is not None:
-                codex_bin, launch_args = _isolated_launch(isolation, codex_bin, launch_args, Path(launcher_dir))
-                cwd = Path(isolation.workdir)
+            if sandbox is not None and launcher_dir is not None:
+                codex_bin, launch_args = _isolated_launch(sandbox, codex_bin, launch_args, Path(launcher_dir))
             app_config = SdkAppConfig(
                 codex_bin=codex_bin,
                 launch_args_override=launch_args,
-                cwd=str(cwd),
+                cwd=cwd,
                 client_name="learnloop",
                 client_title="LearnLoop",
+                **config_kwargs,
             )
             _log_codex_debug(
                 "codex.prompt",
@@ -307,8 +544,10 @@ class SdkCodexClient(TokenUsageAccounting):
                 provider_type=self.provider_type,
                 purpose=purpose,
                 model=self.config.model,
-                cwd=str(cwd),
-                isolated=isolation is not None,
+                cwd=cwd,
+                read_only_workspace=workspace is not None,
+                isolated=isolated,
+                sandboxed=sandbox is not None,
                 service_name=f"learnloop:{purpose}",
                 reasoning_effort=self.config.reasoning_effort,
                 reasoning_summary=self.config.reasoning_summary,
@@ -317,14 +556,17 @@ class SdkCodexClient(TokenUsageAccounting):
                 output_schema=output_schema,
             )
             with Codex(config=app_config) as codex:
+                # Never a ``sandbox`` here: a sandbox mode on thread start
+                # replaces the isolated permission profile with Codex's
+                # full-disk-read built-in mode.
                 thread = codex.thread_start(
-                    cwd=str(cwd),
+                    cwd=cwd,
                     model=self.config.model or None,
                     service_name=f"learnloop:{purpose}",
                 )
                 turn = thread.turn(
                     prompt,
-                    cwd=str(cwd),
+                    cwd=cwd,
                     model=self.config.model or None,
                     effort=effort,
                     output_schema=output_schema,
@@ -380,7 +622,7 @@ class SdkCodexClient(TokenUsageAccounting):
                 provider_type=self.provider_type,
                 purpose=purpose,
                 model=self.config.model,
-                cwd=str(self.vault_root),
+                cwd=cwd,
                 error=str(exc),
             )
             raise CodexUnavailable(str(exc)) from exc
@@ -394,6 +636,8 @@ class SdkCodexClient(TokenUsageAccounting):
         # that only counts clean completions understates every ratio built on it.
         report_call_usage(receipt_fields_from_codex_turn(result))
         self.record_token_usage(*usage_from_codex_turn(result))
+        if workspace is not None:
+            self._last_workspace_activity = _workspace_activity(result)
 
         if self._deadline_expired.is_set():
             raise CodexTurnTimeout(
@@ -409,13 +653,44 @@ class SdkCodexClient(TokenUsageAccounting):
             provider_type=self.provider_type,
             purpose=purpose,
             model=self.config.model,
-            cwd=str(self.vault_root),
+            cwd=cwd,
             response=final_response,
             response_length=len(final_response) if final_response is not None else None,
         )
         if final_response is None:
             raise CodexUnavailable("Codex SDK turn completed without a final response.")
         return final_response.strip()
+
+def _sdk_accepts(config_type: Any, field_name: str) -> bool:
+    """Whether the SDK's app-server config type takes ``field_name``."""
+
+    if dataclasses.is_dataclass(config_type):
+        return any(field.name == field_name for field in dataclasses.fields(config_type))
+    try:
+        parameters = inspect.signature(config_type).parameters
+    except (TypeError, ValueError):
+        return False
+    return field_name in parameters or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()
+    )
+
+
+def _workspace_activity(result: Any) -> list[str] | None:
+    """Commands or paths the agent's tool items reported, when exposed."""
+
+    items = getattr(result, "items", None)
+    if not isinstance(items, (list, tuple)):
+        return None
+    activity: list[str] = []
+    for item in items:
+        for key in ("command", "path", "file_path"):
+            value = item.get(key) if isinstance(item, dict) else getattr(item, key, None)
+            if isinstance(value, (list, tuple)):
+                value = " ".join(str(part) for part in value)
+            if isinstance(value, str) and value.strip():
+                activity.append(value.strip())
+    return activity
+
 
 def _is_structured_json_transport_error(exc: BaseException) -> bool:
     """Whether app-server failed before returning malformed structured output."""

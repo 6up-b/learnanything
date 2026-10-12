@@ -28,6 +28,7 @@ from learnloop.ai.multimodal import (
 )
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.transport import (
+    ISOLATED_TURN,
     MEDIA_MARKDOWN,
     MEDIA_TRANSCRIPTION,
     STRUCTURED_COMPLETION,
@@ -117,7 +118,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
             _request_options.reset(token)
 
     def supports(self, capability: str) -> bool:
-        if capability in {STRUCTURED_COMPLETION, "complete", "structured"}:
+        # A chat completion offers the model no tools, files or network:
+        # every request is an isolated turn by construction.
+        if capability in {STRUCTURED_COMPLETION, "complete", "structured", ISOLATED_TURN}:
             return True
         if capability == TOOL_FREE:
             # A chat completion runs no tools: the request is all it sees.

@@ -3,8 +3,8 @@ title: "misconceptions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconceptions"
@@ -20,16 +20,17 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/025_misconception_registry.sql"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/blind_grading.py"
   - "src/learnloop/attempts/completion_lock.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/sim.py"
   - "src/learnloop/config/schema.py"
   - "src/learnloop/config/template.py"
   - "src/learnloop/content/proposals/proposals.py"
-  - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/content/authoring/persona_gate.py"
   - "src/learnloop/content/synthesis/facet_candidates.py"
+  - "src/learnloop/curriculum/curriculum_locks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -115,6 +116,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
 

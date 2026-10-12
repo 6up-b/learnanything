@@ -11,9 +11,10 @@ import json
 from typing import Any
 
 from learnloop.ai.isolation import TOOL_FREE
-from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
 from learnloop.attempts.ai_contracts import GradingContext
+from learnloop.attempts.blind_grading import BlindGradingContext
 from learnloop.content.authoring.ai_contracts import (
     ConceptAnimationContext,
     ExerciseAuthoringContext,
@@ -56,6 +57,10 @@ _HANDLER_FOR_PURPOSE = {
     "authoring": "run_authoring_proposal",
     "canonical_ingest": "run_canonical_ingest",
     "grading": "run_grading_proposal",
+    # Slice 1: the learner-blind grader and the history-aware diagnoser. The
+    # diagnosis context is not a dataclass; handlers read it as a mapping.
+    "blind_grading": "run_blind_grading_proposal",
+    "diagnosis": "run_diagnosis_proposal",
     "tutor_qa": "run_tutor_qa",
     "teach_back": "run_teach_back_question",
     "teach_back_authoring": "run_teach_back_authoring",
@@ -87,6 +92,7 @@ _CONTEXT_FOR_PURPOSE = {
     "authoring": AuthoringContext,
     "canonical_ingest": CanonicalIngestContext,
     "grading": GradingContext,
+    "blind_grading": BlindGradingContext,
     "tutor_qa": TutorQAContext,
     "teach_back": TeachBackQuestionContext,
     "teach_back_authoring": TeachBackAuthoringContext,
@@ -168,9 +174,11 @@ class StructuredClientFake:
     model = "fake-model"
 
     def supports(self, capability: str) -> bool:
-        # A payload fake runs no tools (it cannot demonstrate isolation; see
-        # tests/test_ai_tool_isolation.py for the enforced boundary).
-        return capability in {STRUCTURED_COMPLETION, TOOL_FREE}
+        # A payload fake runs no tools, files or network: every request is
+        # isolated by construction (it cannot demonstrate the enforced
+        # boundary; see tests/test_ai_tool_isolation.py and
+        # tests/test_diagnosis_isolation.py).
+        return capability in {STRUCTURED_COMPLETION, TOOL_FREE, ISOLATED_TURN}
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         context = _request_context(request.prompt, request.purpose)

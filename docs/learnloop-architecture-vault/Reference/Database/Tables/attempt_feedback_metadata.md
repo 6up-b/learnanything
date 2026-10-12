@@ -3,8 +3,8 @@ title: "attempt_feedback_metadata"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_feedback_metadata"
@@ -22,8 +22,10 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/goals/exam_seeding.py"
-  - "src/learnloop/ops/debug_time.py"
+  - "src/learnloop/diagnosis/offline_review/report.py"
+  - "src/learnloop/diagnosis/offline_review/runner.py"
+  - "src/learnloop/diagnosis/split/history.py"
+  - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/runtime.py"
@@ -96,6 +98,9 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/offline_review/report.py`
+- `src/learnloop/diagnosis/offline_review/runner.py`
+- `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
 
@@ -116,13 +121,13 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/missing_vocabulary.py`
 - `src/learnloop/diagnosis/probe_blocks.py`
 - `src/learnloop/diagnosis/scoreboard.py`
+- `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/goals/certification_cold_probe.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/adjudication.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
-- `src/learnloop_sidecar/handlers/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

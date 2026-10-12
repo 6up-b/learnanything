@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -31,6 +31,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/ingest.py"
   - "src/learnloop/cli/data.py"
   - "tests/conftest.py"
+  - "tests/diagnosis_fakes.py"
   - "tests/helpers.py"
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_apply_write_ahead.py"
   - "tests/test_attempt_ai_flow.py"
-  - "tests/test_authoring_contract.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -119,6 +119,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/conftest.py`
+- `tests/diagnosis_fakes.py`
 - `tests/helpers.py`
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
@@ -129,7 +130,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_authoring_contract.py`
 
 ## Extension and modification guidance
 

@@ -3,8 +3,8 @@ title: "diagnosis_adjudications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_adjudications"
@@ -19,7 +19,10 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/126_diagnosis_adjudication.sql"
+  - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/diagnosis/offline_review/report.py"
+  - "src/learnloop/diagnosis/offline_review/spot_check.py"
   - "src/learnloop/tutor/durable_promotion.py"
   - "src/learnloop/diagnosis/diagnosis_adjudication.py"
 tags:
@@ -113,6 +116,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/offline_review/report.py`
 
 ### Direct SQL writers
 
@@ -129,6 +133,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_certification_cold_probe.py`
+- `tests/test_diagnose_review.py`
 - `tests/test_diagnosis_adjudication.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

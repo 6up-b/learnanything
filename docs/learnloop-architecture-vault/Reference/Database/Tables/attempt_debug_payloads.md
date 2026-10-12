@@ -3,8 +3,8 @@ title: "attempt_debug_payloads"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_debug_payloads"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 - `tests/test_causal_repair_mapping_p2.py`
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_deferred_regrade.py`
+- `tests/test_diagnose_review.py`
 - `tests/test_error_hunt_items.py`
 - `tests/test_facet_diagnostics_v03.py`
 - `tests/test_item_parameters.py`

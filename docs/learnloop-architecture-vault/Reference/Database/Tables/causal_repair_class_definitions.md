@@ -3,8 +3,8 @@ title: "causal_repair_class_definitions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f5f0b4e3e614ad1f55d19f16a6225845a29a613"
-source_commit_timestamp: "2026-10-12T02:39:58-04:00"
+source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
+source_commit_timestamp: "2026-10-12T02:44:25-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_repair_class_definitions"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/diagnosis/causal_diagnostic_selector.py"
   - "src/learnloop/diagnosis/causal_selection_audit.py"
   - "src/learnloop/diagnosis/remediation.py"
+  - "src/learnloop/diagnosis/split/history.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -103,6 +104,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/causal_diagnostic_selector.py`
 - `src/learnloop/diagnosis/causal_selection_audit.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/diagnosis/split/history.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
