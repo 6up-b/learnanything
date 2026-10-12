@@ -688,7 +688,14 @@ Predictive variance widens off-support. **The LLM never outputs the probability*
 
 **First arm, `emb_ridge`** (added 2026-10-12). This is the cheapest test, and it needs no new data.
 - **Model:** ridge or logistic regression over the already-stored `qwen3-embedding-8b` vectors (stem, plus the skeleton once PF-b lands) concatenated with the learner-state features the explicit arms use. It is fit prequentially, as an arm in `learnloop eval` (field §7.2), against `mastery_ekf` and `lo_general`.
-- **Kill rule:** if the bootstrap interval for its log-loss gain over the best explicit arm includes 0 at the margin fixed before the run, embeddings add no held-out predictive value. Then the GP model above isn't built.
+- **Decision rule.** *Revised 2026-10-12 (owner; T8 pre-registration v4, recorded in `docs/reviews/slice-2-t8.md`).* The earlier wording made an interval that includes 0 a kill; that no longer holds.
+  - **Statistic:** the attempt-weighted mean per-attempt log-loss gain over the best explicit arm e*, Δ = loss(e*) − loss(`emb_ridge`).
+  - **Interval:** a 95% cluster-robust t interval over items: CR1 standard error, t with (items − 1) degrees of freedom. There is no minimum number of attempts or items; with few items, t widens on its own.
+  - **Constants:** the margin m = 0 (D9) and the smallest worthwhile gain δ = 0.005 nats per attempt, both fixed before the run.
+  - **`kill`** if the interval's upper bound is below δ. That includes a real gain below δ (the whole interval inside (0, δ), reason `real_gain_below_delta`). Embeddings then add no held-out predictive value worth building on, and the GP model above isn't built. An interval that includes 0 is a kill only if it also lies below δ.
+  - **`embeddings_add_value`** otherwise, if the lower bound is above m.
+  - **`insufficient_data`** otherwise: the interval reaches both m and δ, or no interval exists (one item, or no variation across items). It is no decision; rerun with more data.
+  - **Every report records** the δ in force, with m, n, the item count, the interval and its method, so δ itself can be revisited.
 - **Why it matters beyond T8:** its result is condition 3 of the learned-router trigger (`spec_action_router_v1.md` §13).
 
 ---
