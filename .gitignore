@@ -257,3 +257,8 @@ fixtures/**/state.sqlite-*
 learnloop-handoff2/
 learnloop-handoff/
 new_textbooks/
+
+# Local secrets and agent scratch (never commit)
+settings.env
+*.env
+.codex-relay-tmp/
