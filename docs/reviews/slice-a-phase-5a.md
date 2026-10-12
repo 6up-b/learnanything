@@ -413,7 +413,10 @@ $0.0283**.
 The copies stay in the gitignored `fixtures-local/` (`pf5a-e2e`, `pf5a-baseline`,
 `pf5a-real`) for inspection.
 
-The runs validated the OpenRouter structured transport against every PF contract, the
+The runs validated the OpenRouter structured transport against the skeleton, program,
+proposer, panel, equivalence, structure, freshness and selection contracts (the
+source-anchored, closed-book, single-shot, pairwise and valid-alternative contracts ran
+against fakes only), the
 sandbox on model-written code, checkpoint reuse across runs and the fail-closed paths.
 They also produced the fixes listed in deviation 11.
 
