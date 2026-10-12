@@ -64,3 +64,44 @@ policy), and frictionless defaults.
 | `cargo check` (extra) | not runnable: the machine's `rustc` still fails with the same `librustc_driver` symbol-lookup error recorded in `mobile-m1.md`. The Rust edits are two `sidecar_passthrough!` lines plus handler registrations. `tests/test_desktop_rpc_contract.py` checks them statically across all four layers |
 
 The warnings are Starlette's TestClient deprecation and the existing Python 3.12 datetime-adapter and fork warnings. No live or paid AI call, Tailscale command, owner vault or `~/.config/learnloop/` was used. The tracked fixtures were not touched.
+
+## Re-review (2026-10-12)
+
+Codex re-review job: `~/.cache/codex-agent/jobs/20261012-112443-9qInKH`, verdict **REOPENED**. It confirmed F1 to F6 fixed and reported one new finding, F7. F7 was first reproduced with a failing test and then fixed. No finding was rejected. Base before the fix: `8fe274cd`.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Doctor approves an additional public forward to the backend | fixed (Codex confirmed) | `19715479` | Codex ran the 11 alternate-route cases in isolation; all passed |
+| F2 | Medium | Crash recovery requires form values that were never persisted | fixed (Codex confirmed) | `983939c0` | Codex's in-memory probes recovered cards both before and after the destination commit |
+| F3 | Medium | Older handled captures cannot be purged from the desktop | fixed (Codex confirmed) | `4275516d` | Codex confirmed **Load older** reaches handled captures past the first 100 |
+| F4 | Medium | The photo-to-card fallback never shows the photo | fixed (Codex confirmed) | `51d81ec8` | Codex confirmed the preview appears in the inbox and the card editor, resolved through a validated stored hash |
+| F5 | Medium | Per-device throttling interrupts ordinary outbox flushing | fixed (Codex confirmed) | `3832e82f` | Codex confirmed bounded admission and pairing protection remain |
+| F6 | Low | Doctor presents the rejected phone-only policy as required work | fixed (Codex confirmed) | `19715479` | Codex confirmed the example is labelled optional |
+| F7 | Medium | Replacing an unfinished tutor request silently ignores the new subject | fixed | `1a507477` | `tests/test_capture_route_recovery.py::test_replacement_tutor_request_moves_the_partial_note_to_its_subject[False]` and `[True]`. Both failed before the fix: the note stayed under `linear-algebra` |
+
+### F7 in detail
+
+- **Cause.** The tutor route's library note ID comes from the capture (`note_capture_<sha256(capture_id)>`), but the question event ID comes from the intent. If a send crashed after `add_note` but before the question event, the question event was absent, so the F2 supersede check allowed a replacement request. The replacement then reused the capture note under the old subject.
+- **Fix.** Before asking, `ask_tutor_question` checks the existing capture note's subjects. If they are not exactly the request's subject, it moves the note there with the new `learnloop.vault.loader.move_note`.
+  - At this point the question event is known to be absent (otherwise the handler would have returned or stopped earlier), so no question is attached to the note yet.
+  - Only a replaced request can name a different subject, because an identical retry carries the same subject.
+- **Crash safety.** `move_note` does an atomic rename into the target subject's folder first and rewrites the frontmatter second. A crash between the two leaves one file, in the new folder but still naming the old subject, and the next send finishes the move. There is never a second copy with the same note ID. The note body is preserved byte for byte.
+- **Test.** The `[True]` case crashes inside that window. The test then asserts that the retry converges, that only one capture note exists (under `subjects/probability/notes/`), and that nothing is left under the old subject. It also asserts that the persisted intent's request names `probability` and that its destination is the answered question event. The test makes one tutor request in total.
+- **Residual, deliberately unchanged.** If the crashed tutor send is replaced by a *different* route (card or Quick Add), the capture note stays in the library under the original subject. It holds only the capture text and its provenance. Deleting a library note the learner may already have opened is riskier than leaving it, and the finding does not cover this case.
+
+### Relay caveat
+
+The relayed task text that Codex reviewed had F2's severity mistyped as "[High?]" (the original was Medium). It also omitted the original review's "Claims that don't hold" and spec-conformance sections. The F1 to F6 verdicts rest on the full finding details. If F2's severity or those sections matter, the re-review should be re-run with the verbatim text.
+
+### Gate (2026-10-12, worktree `learnanything-mobile-m1`, HEAD `1a507477`)
+
+| Step | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **8 kept, 0 broken** |
+| `uv run pytest -n auto` | **6298 passed**, 46 warnings, 0 failed (196 s); 6296 before plus the 2 new F7 cases |
+| `uv run pytest -m durability` | **66 passed**, 6232 deselected, 1 warning |
+| Frontend (`npm install`, `npm run typecheck`, `npm test`) | not needed: no frontend change |
+| DB reference generate/validate | not needed: no migration or schema change |
+
+The warnings are the same ones recorded in the first gate. No live or paid AI call, Tailscale command, owner vault or `~/.config/learnloop/` was used. The tracked fixtures were not touched.
