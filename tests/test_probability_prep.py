@@ -480,3 +480,23 @@ def test_scripted_decider_sees_identical_states_for_both_judges(seeded, tmp_path
     for state, request in zip(decider.states, llm.requests):
         assert json.dumps(state, sort_keys=True, ensure_ascii=False) in request.prompt or json.dumps(
             state, sort_keys=True, ensure_ascii=False)[1:-1] in request.prompt
+
+
+def test_harness_routes_follow_the_vault_config_not_the_env_override(seeded, monkeypatch):
+    from learnloop.cli.probability_arms import resolve_route
+
+    loaded, _paths = seeded
+    monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "deepseek_pro")
+    llm = resolve_route(loaded, "llm", price_per_million=None, output_tokens=64)
+    assert (llm.provider, llm.subscription) == ("codex", True)
+    decider = resolve_route(loaded, "decider", price_per_million=None, output_tokens=64)
+    assert decider.provider == "openrouter_decider" and decider.price_per_million == 0.02
+    loaded.config.ai.routing.llm_probability_llm = "openrouter_decider"
+    with pytest.raises(ValueError, match="decision-model profile"):
+        resolve_route(loaded, "llm", price_per_million=None, output_tokens=64)
+    loaded.config.ai.routing.llm_probability_llm = "deepseek_flash"
+    metered = resolve_route(loaded, "llm", price_per_million=1.0, output_tokens=64)
+    assert metered.subscription is False and metered.settings["provider_type"] == "openai_chat"
+    loaded.config.ai.routing.llm_probability_decider = "codex"
+    with pytest.raises(ValueError, match="requires a decider profile"):
+        resolve_route(loaded, "decider", price_per_million=None, output_tokens=64)

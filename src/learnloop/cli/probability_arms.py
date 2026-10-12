@@ -60,7 +60,11 @@ def resolve_route(loaded, judge: str, *, price_per_million: float | None, output
 
     config = loaded.config
     task = task or ROUTE_TASKS[judge]
-    selection = provider_for_task(config, task)
+    # The offline harness follows the vault's configuration only: an unset
+    # LLM route is the active provider, never a shell or settings.env
+    # LEARNLOOP_AI_PROVIDER that the dry run and the paid run could see
+    # differently (Phase 2's offline rule).
+    selection = provider_for_task(config, task, allow_env=False)
     name = selection.provider_name
     profile = config.ai.providers.get(name) if name else None
     if profile is None:
@@ -250,7 +254,7 @@ def judge_readiness(loaded, *, probe: bool = False, http=None) -> dict[str, Any]
     disclosures = {entry["route"]: entry for entry in judge_route_disclosures(config)}
     routes = []
     for task, judge, consumer in JUDGE_ROUTES:
-        selection = provider_for_task(config, task)  # type: ignore[arg-type]
+        selection = provider_for_task(config, task, allow_env=consumer != "llm_probability")  # type: ignore[arg-type]
         name = selection.provider_name
         profile = config.ai.providers.get(name) if name else None
         runtime = runtime_for_provider(loaded.root, config, name, task=task)  # type: ignore[arg-type]

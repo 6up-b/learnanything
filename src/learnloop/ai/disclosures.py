@@ -69,7 +69,8 @@ def judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]:
 
     entries = []
     for task, judge, consumer in JUDGE_ROUTES:
-        name = provider_for_task(config, task).provider_name  # type: ignore[arg-type]
+        # The offline harness ignores LEARNLOOP_AI_PROVIDER; live routes do not.
+        name = provider_for_task(config, task, allow_env=consumer != "llm_probability").provider_name  # type: ignore[arg-type]
         profile = config.ai.providers.get(name) if name else None
         who = recipient(config, name) if name else "no provider (the route is unset)"
         entries.append({
