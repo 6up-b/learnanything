@@ -629,3 +629,76 @@ def test_the_fallback_door_also_skips_the_letter_shortcut_for_a_stuck_answer(tmp
         runtime=not_ready, ai_client=None,
     )
     assert (letter.grading_source, letter.rubric_score) == ("deterministic", 4)
+
+
+# -- review F6: the grader's reading is a verdict in judgment_ledger ------------------
+
+
+def _stuck_judgments(repository, attempt_id):
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        connection.row_factory = __import__("sqlite3").Row
+        return [
+            dict(row)
+            for row in connection.execute(
+                "SELECT * FROM judgment_ledger WHERE task = 'stuck_reading' AND left_id = ? "
+                "ORDER BY created_at, id",
+                (attempt_id,),
+            )
+        ]
+
+
+CONFUSED = {
+    "attempts_answer": False,
+    "describes_confusion": True,
+    "confusion_quote": "why the last factor is transposed",
+}
+
+
+def test_the_stuck_reading_appends_a_judgment_with_the_blind_record(tmp_path):
+    _paths, vault, repository = _stuck_vault(tmp_path)
+    answer = "I don't get why the last factor is transposed"
+    result = _grade(vault, repository, StuckFake(reading=CONFUSED), _draft(answer))
+
+    blind = repository.latest_blind_grade_record(result.attempt_id)
+    judgments = _stuck_judgments(repository, result.attempt_id)
+    assert len(judgments) == 1
+    judgment = judgments[0]
+    assert (judgment["left_kind"], judgment["right_kind"], judgment["right_id"]) == ("attempt", None, None)
+    assert (judgment["judge"], judgment["judge_model"]) == ("llm", "fake-model")
+    assert judgment["prompt_version"] == blind["record"]["prompt_version"]
+    assert judgment["prompt_version"].endswith("+stuck-v1")
+    assert judgment["input_hash"] == blind["context_hash"]
+    assert judgment["supersedes_id"] is None
+    verdict = json.loads(judgment["verdict"])
+    assert verdict == blind["record"][STUCK_READING_KEY]
+    assert verdict["describes_confusion"] is True and verdict["quote_verified"] is True
+    # The read-back view names the verdict it read.
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        row = stuck_answers(connection)[0]
+    assert row["judgment_id"] == judgment["id"] and row["describes_confusion"] is True
+    # An ordinary answer is not classified.
+    other = _grade(vault, repository, StuckFake(), _draft("A = U Sigma V wrong", stuck=False), when=22)
+    assert _stuck_judgments(repository, other.attempt_id) == []
+
+
+def test_a_regrade_appends_a_superseding_stuck_judgment(tmp_path):
+    from learnloop.attempts.regrade import regrade_attempt
+
+    _paths, vault, repository = _stuck_vault(tmp_path)
+    result = _grade(vault, repository, StuckFake(reading=CONFUSED), _draft("I don't get why the last factor is transposed"))
+    first = _stuck_judgments(repository, result.attempt_id)[0]
+
+    calm = StuckFake(reading={"attempts_answer": True, "describes_confusion": False, "confusion_quote": ""})
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=calm, grading_source="ai", clock=None)
+
+    judgments = _stuck_judgments(repository, result.attempt_id)
+    assert len(judgments) == 2
+    latest = [row for row in judgments if row["id"] != first["id"]][0]
+    assert latest["supersedes_id"] == first["id"]
+    assert json.loads(latest["verdict"])["describes_confusion"] is False
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        row = stuck_answers(connection)[0]
+        signals = load_interaction_signals(connection, vault, ())
+    assert row["judgment_id"] == latest["id"] and row["describes_confusion"] is False
+    assert not [signal for signal in signals if signal.signal_type == STUCK_CONFUSION_SIGNAL]

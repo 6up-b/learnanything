@@ -85,6 +85,7 @@ from learnloop.attempts.stuck import (
     EMPTY_STUCK_LOCAL_GRADER_ID,
     STUCK_READING_KEY,
     is_empty_stuck,
+    record_stuck_reading_judgment,
     stuck_answer_prompt,
     stuck_prompt_active,
     verified_stuck_reading,
@@ -1518,6 +1519,18 @@ def _complete_blind_graded_attempt(
             record=record,
             clock=clock,
         )
+        if STUCK_READING_KEY in record:
+            # Review F6: the reading is the grader's classification verdict,
+            # appended in the same transaction as the grade and its record.
+            record_stuck_reading_judgment(
+                repository.connection(),
+                attempt_id=attempt_id,
+                marker=record[STUCK_READING_KEY],
+                judge_model=_client_model(ai_client),
+                prompt_version=run.prompt_version,
+                input_hash=blind.context_hash,
+                created_at=utc_now_iso(clock),
+            )
     _record_blind_grading_receipt(
         repository,
         attempt_id=attempt_id,
@@ -1527,6 +1540,12 @@ def _complete_blind_graded_attempt(
         clock=clock,
     )
     return result
+
+
+def _client_model(client: Any) -> str | None:
+    """The resolved model a client graded with (receipts record the same)."""
+
+    return getattr(client, "model", None) or getattr(client, "model_id", None)
 
 
 def _record_blind_grading_receipt(

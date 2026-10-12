@@ -226,6 +226,9 @@ def regrade_attempt(
         }
     )
     blind_record: dict | None = None
+    # mvp-0.11 (review F6): a regrade of a stuck answer re-reads it; that
+    # reading is a new judgment superseding the attempt's current one.
+    stuck_judgment: dict | None = None
     unverified: set[str] = set()
     try:
         if blind_plan is not None:
@@ -261,6 +264,11 @@ def regrade_attempt(
                 blind_record[STUCK_READING_KEY] = verified_stuck_reading(
                     run.stuck_reading, attempt.get("learner_answer_md") or ""
                 )
+                stuck_judgment = {
+                    "marker": blind_record[STUCK_READING_KEY],
+                    "prompt_version": run.prompt_version,
+                    "input_hash": blind_plan.context_hash,
+                }
             # PF-c: a criterion the gate recorded unverified keeps its points
             # but writes no negative evidence, exactly as on the live grade.
             unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
@@ -382,6 +390,16 @@ def regrade_attempt(
                 ),
                 clock=clock,
             )
+            if stuck_judgment is not None:
+                from learnloop.attempts.stuck import record_stuck_reading_judgment
+
+                record_stuck_reading_judgment(
+                    repository.connection(),
+                    attempt_id=attempt["id"],
+                    judge_model=getattr(client, "model", None) or getattr(client, "model_id", None),
+                    created_at=now,
+                    **stuck_judgment,
+                )
     except Exception as exc:
         finish_agent_run(
             repository, agent_run_id, client,

@@ -17,8 +17,10 @@ version gates the control and ``stuck_prompt.enabled`` is its kill switch;
 replay never reads either (the persisted ``practice_attempts.declared_stuck``
 column and the blind record's ``stuck_reading`` are what an attempt was).
 
-This module is a leaf: wire model, prompt text, the activity gate and a
-read-only view of stuck answers for the later learner-text-gaps stage.
+This module is a leaf: wire model, prompt text, the activity gate, the
+reading's ``judgment_ledger`` verdict (task ``stuck_reading``, written in the
+grading transaction) and a read-only view of stuck answers for the later
+learner-text-gaps stage.
 """
 
 from __future__ import annotations
@@ -40,10 +42,15 @@ STUCK_PROMPT_TEXT = "Write what you can, or what's confusing you"
 STUCK_ANSWER_PROMPT_KIND = "stuck"
 #: Appended to the blind prompt version when the stuck rules are in the task.
 STUCK_PROMPT_VERSION_SUFFIX = "+stuck-v1"
-#: The blind record key holding the validated reading (read back by
-#: :func:`stuck_answers` and the field signal derivation).
+#: The blind record key holding the validated reading (the diagnoser's
+#: context shows it with the attempt's blind grade).
 STUCK_READING_KEY = "stuck_reading"
 STUCK_READING_VERSION = "stuck-reading-v1"
+#: ``judgment_ledger.task`` of the grader's classification of a stuck answer
+#: (review F6): one single-record verdict per grading, ``left`` = the
+#: attempt, the verdict the verified reading as JSON. A regrade appends a
+#: superseding one. :func:`stuck_answers` reads the current one back.
+STUCK_READING_JUDGMENT_TASK = "stuck_reading"
 #: The deterministic grade of an empty stuck answer: ``grading_evidence`` tier
 #: 2 ("heuristic auto-grade"), so the deferred self-grade regrade (tier 1)
 #: never sends it to a model, and this local grader id names it.
@@ -176,6 +183,70 @@ def verified_stuck_reading(reading: StuckReading, learner_answer_md: str) -> dic
     }
 
 
+def _current_stuck_judgment(connection: Any, attempt_id: str) -> Any:
+    """The attempt's current stuck-reading judgment row (None when there is none).
+
+    Current = not superseded by another; ties (none are written) fall back to
+    the latest.
+    """
+
+    return connection.execute(
+        """
+        SELECT j.id, j.created_at, j.verdict FROM judgment_ledger j
+        WHERE j.task = ? AND j.left_kind = 'attempt' AND j.left_id = ?
+          AND j.right_kind IS NULL
+          AND NOT EXISTS (SELECT 1 FROM judgment_ledger s WHERE s.supersedes_id = j.id)
+        ORDER BY j.created_at DESC, j.id DESC LIMIT 1
+        """,
+        (STUCK_READING_JUDGMENT_TASK, attempt_id),
+    ).fetchone()
+
+
+def record_stuck_reading_judgment(
+    connection: Any,
+    *,
+    attempt_id: str,
+    marker: Mapping[str, Any],
+    judge_model: str | None,
+    prompt_version: str,
+    input_hash: str,
+    created_at: str,
+) -> str:
+    """Append the grader's reading of a stuck answer to ``judgment_ledger``.
+
+    Called inside the transaction that records the grade (and, blind, its
+    blind record), so the verdict and the measurement commit together. A
+    reading of an attempt that already has one (a regrade) supersedes it.
+    ``input_hash`` is the grading context hash; ``prompt_version`` the
+    grader's (with the ``+stuck-v1`` suffix).
+    """
+
+    from learnloop.db.stores.judgments import append_judgment
+
+    current = _current_stuck_judgment(connection, attempt_id)
+    confused = bool(marker.get("describes_confusion"))
+    quote = str(marker.get("confusion_quote") or "")
+    rationale = (
+        f"stuck answer describes confusion: {quote!r}" if confused and quote
+        else "stuck answer describes confusion" if confused
+        else "stuck answer describes no confusion"
+    )
+    return append_judgment(
+        connection,
+        task=STUCK_READING_JUDGMENT_TASK,
+        left_kind="attempt",
+        left_id=attempt_id,
+        judge="llm",
+        judge_model=str(judge_model or "unknown"),
+        prompt_version=prompt_version,
+        input_hash=input_hash,
+        verdict=json.dumps(dict(marker), sort_keys=True),
+        rationale=rationale,
+        supersedes_id=str(current[0]) if current is not None else None,
+        created_at=created_at,
+    )
+
+
 def _has_table(connection: Any, name: str) -> bool:
     return (
         connection.execute(
@@ -198,15 +269,34 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
     """Every stuck answer, its text and its CURRENT grader reading (read-only).
 
     One row per ``declared_stuck`` attempt in completion order. ``reading`` is
-    the ``stuck_reading`` of the attempt's latest blind record (a regrade
-    supersedes), or None: an empty answer (deterministic), a joint or
-    self-graded fallback, or a grade from before the reading existed. A vault
-    without the column (before migration 172) has none. Never migrates.
+    the verdict of the attempt's current ``stuck_reading`` judgment (blind or
+    joint grading; a regrade supersedes), or, for a blind grade recorded
+    before the judgment existed, its latest blind record's reading; None for
+    an empty answer (deterministic), a self-graded fallback, or a grade from
+    before the reading existed. ``judgment_id`` names the verdict read. A
+    vault without the column (before migration 172) has none. Never migrates.
     """
 
     if not _has_stuck_column(connection):
         return []
     readings: dict[str, tuple[str, str, Mapping[str, Any] | None]] = {}
+    judgments: dict[str, tuple[str, str, Mapping[str, Any] | None]] = {}
+    if _has_table(connection, "judgment_ledger"):
+        for (attempt_id,) in connection.execute(
+            "SELECT id FROM practice_attempts WHERE declared_stuck = 1"
+        ).fetchall():
+            row = _current_stuck_judgment(connection, str(attempt_id))
+            if row is None:
+                continue
+            try:
+                verdict = json.loads(row[2] or "{}")
+            except ValueError:
+                verdict = None
+            judgments[str(attempt_id)] = (
+                str(row[0]),
+                str(row[1]),
+                verdict if isinstance(verdict, Mapping) else None,
+            )
     if _has_table(connection, "blind_grade_records"):
         for attempt_id, record_id, created_at, record_json in connection.execute(
             """
@@ -248,6 +338,9 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
         """
     ):
         record_id, graded_at, reading = readings.get(str(attempt_id), (None, None, None))
+        judgment_id = None
+        if str(attempt_id) in judgments:
+            judgment_id, graded_at, reading = judgments[str(attempt_id)]
         text = str(learner_answer_md or "")
         rows.append(
             {
@@ -262,6 +355,7 @@ def stuck_answers(connection: Any) -> list[dict[str, Any]]:
                 "learner_answer_md": text,
                 "rubric_score": rubric_score,
                 "blind_grade_record_id": record_id,
+                "judgment_id": judgment_id,
                 "graded_at": graded_at,
                 "reading": dict(reading) if reading is not None else None,
                 "describes_confusion": bool(reading and reading.get("describes_confusion")),
@@ -343,10 +437,12 @@ __all__ = [
     "STUCK_PROMPT_RULES",
     "STUCK_PROMPT_TEXT",
     "STUCK_PROMPT_VERSION_SUFFIX",
+    "STUCK_READING_JUDGMENT_TASK",
     "STUCK_READING_KEY",
     "STUCK_READING_VERSION",
     "StuckReading",
     "is_empty_stuck",
+    "record_stuck_reading_judgment",
     "stuck_answer_prompt",
     "stuck_answer_summary",
     "stuck_answers",
