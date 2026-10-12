@@ -484,6 +484,7 @@ def test_feedback_shows_an_unverified_criterion_as_not_assessed(tmp_path):
 
 def test_the_stamped_block_is_read_from_text_or_mapping():
     from learnloop.attempts.attempts import unverified_attribution_json
+    from learnloop.outcome_contract import PFC_REVIEW_REASON
     from learnloop.substrate.canonical_projection import unverified_evidence_row
 
     block = unverified_attribution_json()
@@ -497,3 +498,5 @@ def test_the_stamped_block_is_read_from_text_or_mapping():
     assert not unassessed_evidence_row(before)
     for other in (None, "not json", json.dumps({"targets": [], "negative_evidence_blocked": "machine_review_scope"})):
         assert not unassessed_evidence_row(other) and not unverified_evidence_row(other)
+    # The dependency-free label contract names the same review reason.
+    assert PFC_REVIEW_REASON == UNVERIFIED_REVIEW_REASON

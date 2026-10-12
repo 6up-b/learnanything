@@ -13,11 +13,25 @@ COLLECTION_VERSION = "learnloop-events-v1"
 LABEL_VERSION = "learnloop-outcomes-v1"
 RETENTION_MIN_DELAY_SECONDS = 86400
 
+# PF-c (owner decision 2026-10-12). The valid-alternative gate's review reason
+# (``attempts.grading_support.UNVERIFIED_REVIEW_REASON``; this module stays
+# dependency free, a test pins the two equal). On an outcome attempt graded
+# under the unassessed rule it is an informational log, not an unresolved
+# grade: callers read the attempt's evidence and pass ``outcome_pfc_assessment``
+# (``canonical_projection.pfc_assessment``). A PF-c attempt written before the
+# rule carries no such state and stays ``unresolved_grade``, as it always was.
+PFC_REVIEW_REASON = "valid_alternative_unverified"
+#: Some criteria were assessed: the grade over them is an ordinary outcome.
+PFC_PARTIALLY_ASSESSED = "partially_assessed"
+#: No criterion was assessed: correct for scheduling, but no measurement.
+PFC_NOTHING_ASSESSED = "nothing_assessed"
+
 
 def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
     metadata = row.get("metadata") or {}
     outcome = metadata.get("outcome") or {}
     source = metadata.get("source") or {}
+    pfc_assessment = row.get("outcome_pfc_assessment")
     reasons = []
     hints = row.get("outcome_hints_used", outcome.get("hints_used"))
     primed = row.get("outcome_primed", outcome.get("primed"))
@@ -37,7 +51,13 @@ def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
     outcome_session = row.get("outcome_session_id", outcome.get("session_id"))
     if source_session is not None and source_session == outcome_session:
         reasons.append("same_session")
-    if row.get("outcome_manual_review", outcome.get("manual_review")):
+    if pfc_assessment == PFC_NOTHING_ASSESSED:
+        reasons.append("outcome_unassessed")
+    elif row.get("outcome_manual_review", outcome.get("manual_review")) and not (
+        pfc_assessment == PFC_PARTIALLY_ASSESSED
+        and row.get("outcome_manual_review_reason", outcome.get("manual_review_reason"))
+        == PFC_REVIEW_REASON
+    ):
         reasons.append("unresolved_grade")
     if row.get("label_value") is None:
         reasons.append("outcome_unscorable")

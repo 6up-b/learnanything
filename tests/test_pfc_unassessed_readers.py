@@ -554,3 +554,71 @@ def test_a_record_written_before_the_rule_keeps_its_interpretation_until_regrade
     assert unassessed_evidence_row(rows["result"].attribution_json)
     assert repository.attempt_debug_payload(base.attempt_id)["unassessed_criteria"] == ["result"]
     assert _mass(repository, "recall") == pytest.approx(recall_before)
+
+
+# -- F6: the informational flag is not an unresolved grade ---------------------------------
+
+
+def _retention_world(tmp_path):
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
+    first = submit(vault, repository, ReviewFakeClient(), answer=VERIFYING_ANSWER, when=at(0), session_id="s1")
+    partial = submit(
+        vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER, when=at(48), session_id="s2"
+    )
+    nothing = submit(
+        vault, repository, _ZeroEverythingWithoutAttribution(), answer=VERIFYING_ANSWER, when=at(96), session_id="s3"
+    )
+    for result in (partial, nothing):
+        assert repository.fetch_practice_attempt(result.attempt_id)["manual_review_reason"] == UNVERIFIED_REVIEW_REASON
+    return vault, repository, first, partial, nothing
+
+
+def test_retention_reads_the_pfc_flag_as_informational(tmp_path):
+    """Scheduling evaluation, the dataset export and the data-quality report:
+    a partly assessed PF-c outcome is an ordinary label; one with nothing
+    assessed is excluded for that reason, never as an unresolved grade."""
+
+    from learnloop.scheduling.evaluation import _retention_section
+    from learnloop.substrate.data_quality import inspect_collection
+    from learnloop.substrate.dataset import outcome_records
+
+    vault, repository, first, partial, nothing = _retention_world(tmp_path)
+
+    section = _retention_section(vault, repository, bins=5)
+    # first->partial is eligible; partial->nothing has nothing assessed;
+    # first->nothing has nothing assessed and practice in between.
+    assert section["excluded_labels_by_reason"] == {"intervening_practice": 1, "outcome_unassessed": 2}
+    assert section["count"] == 1
+
+    with repository.connection() as connection:
+        records = {row["source_attempt_id"]: row for row in outcome_records(connection)}
+        report = inspect_collection(connection)
+    assert records[first.attempt_id]["R_next"]["outcome_attempt_id"] == partial.attempt_id
+    assert "unresolved_grade" not in records[first.attempt_id]["R_next"]["retention_exclusions"]
+    assert "outcome_unassessed" in records[partial.attempt_id]["R_next"]["retention_exclusions"]
+    assert "unresolved_grade" not in records[partial.attempt_id]["R_next"]["retention_exclusions"]
+    rejections = json.dumps(report, sort_keys=True, default=str)
+    assert "unresolved_grade" not in rejections
+    assert "outcome_unassessed" in rejections
+
+
+def test_retention_exclusions_distinguish_the_review_reasons():
+    from learnloop.outcome_contract import (
+        PFC_NOTHING_ASSESSED,
+        PFC_PARTIALLY_ASSESSED,
+        retention_exclusions,
+    )
+
+    clean = {
+        "outcome_hints_used": 0, "outcome_primed": False, "elapsed_seconds": 2 * 86400,
+        "source_session_id": "a", "outcome_session_id": "b", "label_value": 1.0,
+    }
+    assert retention_exclusions(clean) == []
+    flagged = {**clean, "outcome_manual_review": True}
+    # Any other review (or a PF-c record written before the rule): unresolved.
+    assert retention_exclusions(flagged) == ["unresolved_grade"]
+    assert retention_exclusions({**flagged, "outcome_manual_review_reason": "low_self_confidence"}) == ["unresolved_grade"]
+    pfc = {**flagged, "outcome_manual_review_reason": UNVERIFIED_REVIEW_REASON}
+    assert retention_exclusions(pfc) == ["unresolved_grade"]
+    assert retention_exclusions({**pfc, "outcome_pfc_assessment": PFC_PARTIALLY_ASSESSED}) == []
+    assert retention_exclusions({**pfc, "outcome_pfc_assessment": PFC_NOTHING_ASSESSED}) == ["outcome_unassessed"]

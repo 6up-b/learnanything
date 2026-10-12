@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Collection, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Collection, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -119,6 +119,40 @@ def unassessed_evidence_row(attribution: Any) -> bool:
         and mapping.get(UNVERIFIED_INTERPRETATION_KEY) == UNASSESSED_INTERPRETATION
     )
 
+
+def pfc_assessment(attributions: Iterable[Any]) -> str | None:
+    """One attempt's PF-c assessment state from its current evidence rows'
+    ``attribution_json`` values: ``None`` unless a row was written under the
+    unassessed rule, else partially or nothing assessed (``outcome_contract``)."""
+
+    from learnloop.outcome_contract import PFC_NOTHING_ASSESSED, PFC_PARTIALLY_ASSESSED
+
+    flags = [unassessed_evidence_row(value) for value in attributions]
+    if not any(flags):
+        return None
+    return PFC_NOTHING_ASSESSED if all(flags) else PFC_PARTIALLY_ASSESSED
+
+
+def pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, str]:
+    """``pfc_assessment`` for each of ``attempt_ids`` that has one, read from
+    the current (non-superseded) grading evidence on ``connection``."""
+
+    ids = sorted({str(value) for value in attempt_ids if value})
+    values: dict[str, list[Any]] = defaultdict(list)
+    for start in range(0, len(ids), 500):
+        chunk = ids[start : start + 500]
+        placeholders = ",".join("?" for _ in chunk)
+        for attempt_id, attribution in connection.execute(
+            "SELECT attempt_id, attribution_json FROM grading_evidence "
+            f"WHERE superseded_at IS NULL AND attempt_id IN ({placeholders})",
+            chunk,
+        ):
+            values[str(attempt_id)].append(attribution)
+    return {
+        attempt_id: state
+        for attempt_id, rows in values.items()
+        if (state := pfc_assessment(rows)) is not None
+    }
 
 # Assistance channels that certify nothing (§5.4/§6).
 #

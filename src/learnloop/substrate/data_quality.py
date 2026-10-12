@@ -10,12 +10,13 @@ from typing import Any
 
 from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
-from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
+from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, PFC_REVIEW_REASON, retention_exclusions
 
 
 _ATTEMPT_COLUMNS = (
     "id", "practice_item_id", "session_id", "scheduler_slate_id", "scheduler_candidate_id", "submission_id",
-    "correctness", "latency_seconds", "primed", "manual_review", "collection_version", "entry_surface", "evidence_origin",
+    "correctness", "latency_seconds", "primed", "manual_review", "manual_review_reason", "collection_version",
+    "entry_surface", "evidence_origin",
 )
 _CANDIDATE_COLUMNS = ("id", "slate_id", "practice_item_id", "was_returned", "chosen_attempt_id", "selection_propensity")
 
@@ -122,6 +123,18 @@ def inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any]
             cohort[f"{field}_observed"] += call[field] is not None
         cohort["duration_observed"] += call["finished_at"] is not None
     attempt_by_id = {row["id"]: row for row in attempts}
+    # PF-c: the review reason is informational once the grade is over the
+    # assessed criteria; whether any were assessed is read from the evidence.
+    from learnloop.substrate.canonical_projection import pfc_assessments
+
+    pfc_states = (
+        pfc_assessments(
+            connection,
+            (row["id"] for row in attempts if row.get("manual_review_reason") == PFC_REVIEW_REASON),
+        )
+        if "grading_evidence" in tables
+        else {}
+    )
     label_rejections: Counter = Counter()
     eligible_labels = total_labels = 0
     for label in read("learning_outcome_labels"):
@@ -130,7 +143,7 @@ def inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any]
         total_labels += 1
         outcome = attempt_by_id.get(label["outcome_attempt_id"], {})
         source = attempt_by_id.get(label["source_attempt_id"], {})
-        label.update(metadata=json.loads(label["metadata_json"]), outcome_primed=outcome.get("primed"), outcome_manual_review=outcome.get("manual_review"), source_session_id=source.get("session_id"), outcome_session_id=outcome.get("session_id"))
+        label.update(metadata=json.loads(label["metadata_json"]), outcome_primed=outcome.get("primed"), outcome_manual_review=outcome.get("manual_review"), outcome_manual_review_reason=outcome.get("manual_review_reason"), outcome_pfc_assessment=pfc_states.get(label["outcome_attempt_id"]), source_session_id=source.get("session_id"), outcome_session_id=outcome.get("session_id"))
         exclusions = retention_exclusions(label)
         eligible_labels += not exclusions
         label_rejections.update(exclusions)
