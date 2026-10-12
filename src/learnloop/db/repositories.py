@@ -13547,6 +13547,17 @@ class Repository(
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def latest_raw_grade_identity(self, attempt_id: str) -> tuple[str | None, str | None] | None:
+        """(prompt, output schema) calibration identity of the attempt's newest primary raw grade."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT grading_prompt_version, grader_output_schema_version FROM raw_grade_events "
+                "WHERE attempt_id = ? AND role = 'primary' ORDER BY rowid DESC LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+        return (row[0], row[1]) if row is not None else None
+
     def raw_grade_event(self, event_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(

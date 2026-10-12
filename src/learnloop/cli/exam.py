@@ -114,6 +114,7 @@ def exam_answer_command(
         build_grading_context,
         request_vault_grading_proposal,
         validate_codex_grading_proposal,
+        vault_grading_calibration_identity,
     )
 
     grading_attempt_id = new_ulid()
@@ -148,6 +149,7 @@ def exam_answer_command(
             resolved_grade=resolved_codex_grade(
                 validated, agent_run_id=None, clock=None
             ),
+            grader_identity=vault_grading_calibration_identity(loaded),
         )
     except (ExamSessionError, ValueError) as exc:
         if json_output:

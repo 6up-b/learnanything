@@ -29,6 +29,7 @@ from learnloop.attempts.grading import (
     build_grading_context,
     request_vault_grading_proposal,
     validate_codex_grading_proposal,
+    vault_grading_calibration_identity,
 )
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -198,6 +199,7 @@ def _grade_and_record_exam_answer(
         practice_item_id,
         answer_md=answer_md,
         resolved_grade=resolved,
+        grader_identity=vault_grading_calibration_identity(vault),
     )
 
 

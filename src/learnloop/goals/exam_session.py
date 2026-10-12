@@ -258,9 +258,15 @@ def record_exam_answer(
     *,
     answer_md: str,
     resolved_grade: ResolvedGrade,
+    grader_identity: tuple[str, str] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Store one graded answer on the session (no mastery writes yet)."""
+    """Store one graded answer on the session (no mastery writes yet).
+
+    ``grader_identity`` is the grade's calibration identity (Slice 1 §4.3):
+    the blind pair when a split vault graded it blind, None for the joint
+    grader. It travels with the stored grade to ``finish_exam``'s raw grade.
+    """
 
     session = repository.exam_session(session_id)
     if session is None:
@@ -290,7 +296,12 @@ def record_exam_answer(
             "answer_md": answer_md,
             "rubric_score": resolved_grade.rubric_score,
             "correctness": correctness,
-            "grade": _grade_to_dict(resolved_grade),
+            "grade": {
+                **_grade_to_dict(resolved_grade),
+                # Review F11: only a non-joint grade stores one, so a joint
+                # vault's stored grades are unchanged.
+                **({"calibration_identity": list(grader_identity)} if grader_identity is not None else {}),
+            },
         },
         clock=clock,
     )
@@ -318,6 +329,7 @@ def _dual_write_exam_grade(
     answer_md: str,
     resolved_grade: ResolvedGrade,
     attempt_id: str,
+    grader_identity: tuple[str, str] | None = None,
     clock: Clock | None = None,
 ) -> None:
     """P0.2 dual-write for exam answers (§4.1, §7.2). Fail-safe (§7.3): appends a
@@ -348,6 +360,8 @@ def _dual_write_exam_grade(
             criterion_points=resolved_grade.criterion_points,
             criterion_max=criterion_max,
             domain=getattr(item, "learning_object_id", None),
+            grading_prompt_version=grader_identity[0] if grader_identity else None,
+            grader_output_schema_version=grader_identity[1] if grader_identity else None,
             clock=clock,
         )
     except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
@@ -435,6 +449,7 @@ def finish_exam(
                 answer_md=answer_md,
                 resolved_grade=grade,
                 attempt_id=attempt_id,
+                grader_identity=_stored_grader_identity(answer["grade"]),
                 clock=attempt_clock,
             )
         applied = apply_attempt(
@@ -693,6 +708,15 @@ def _attribution_from_dict(payload: dict[str, Any]) -> GradeAttribution:
     kwargs["postdictive_claims"] = list(payload.get("postdictive_claims") or [])
     kwargs["soft_postdictive_claims"] = list(payload.get("soft_postdictive_claims") or [])
     return GradeAttribution(**kwargs)
+
+
+def _stored_grader_identity(payload: dict[str, Any]) -> tuple[str, str] | None:
+    """The calibration identity stored with an exam grade (None: the joint grader's)."""
+
+    identity = payload.get("calibration_identity")
+    if isinstance(identity, (list, tuple)) and len(identity) == 2 and all(identity):
+        return (str(identity[0]), str(identity[1]))
+    return None
 
 
 def _grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade:

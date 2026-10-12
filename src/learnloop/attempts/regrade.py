@@ -20,6 +20,7 @@ from learnloop.attempts.grading import (
     request_vault_grading_proposal,
     resolved_rubric,
     validate_codex_grading_proposal,
+    vault_grading_calibration_identity,
     vault_grading_run_identity,
 )
 from learnloop.attempts.blind_grading import split_grading_active
@@ -360,6 +361,14 @@ def regrade_attempt(
                 blind_record=blind_record,
                 prior_blind=prior_blind,
                 blind_context_hash=blind_plan.context_hash if blind_plan is not None else None,
+                # Review F11: a regrade outside the practice door (teach-back)
+                # writes no blind record; its replay takes the identity of the
+                # grade it just produced, and stamps it for later rebuilds.
+                grader_identity_overrides=(
+                    None
+                    if blind_plan is not None
+                    else {attempt["id"]: vault_grading_calibration_identity(vault)}
+                ),
                 clock=clock,
             )
     except Exception as exc:
@@ -391,6 +400,7 @@ def _publish_regrade(
     blind_record: dict | None,
     prior_blind: dict | None,
     blind_context_hash: str | None,
+    grader_identity_overrides: dict[str, tuple[str, str] | None] | None,
     clock: Clock | None,
 ) -> None:
     """Every write of one regrade, in order, inside the caller's transaction."""
@@ -455,6 +465,7 @@ def _publish_regrade(
                 for attribution in validated.error_attributions
             ]
         },
+        grader_identity_overrides=grader_identity_overrides,
     )
     persist_unknown_error_type_proposals(
         vault,

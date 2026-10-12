@@ -1023,6 +1023,10 @@ def complete_codex_graded_attempt(
     return result
 
 
+#: ``replay_existing_attempt``: read the calibration identity from the ledgers.
+_REPLAY_IDENTITY_FROM_LEDGER: Any = object()
+
+
 def replay_existing_attempt(
     vault: LoadedVault,
     repository: Repository,
@@ -1032,8 +1036,14 @@ def replay_existing_attempt(
     error_event_ids: list[str] | None = None,
     error_events: list[dict[str, Any]] | None = None,
     error_attributions: list[GradeAttribution] | None = None,
+    grader_identity: Any = _REPLAY_IDENTITY_FROM_LEDGER,
 ) -> AttemptResult:
-    """Recompute derived state for a persisted attempt without re-grading it."""
+    """Recompute derived state for a persisted attempt without re-grading it.
+
+    ``grader_identity`` overrides the calibration identity replay otherwise
+    reads from the ledgers (:func:`replay_grader_identity`); a regrade passes
+    the identity its new grade was produced under.
+    """
 
     evidence = repository.fetch_grading_evidence(attempt["id"])
     criterion_points = {row.criterion_id: row.points_awarded for row in evidence}
@@ -1106,10 +1116,35 @@ def replay_existing_attempt(
             # grade-channel identity, no in-transaction materialization unless
             # its stored diagnosis exists), whatever the config says today.
             grader_mode="blind" if blind_record is not None else None,
-            grader_identity=_blind_record_identity(blind_record),
+            grader_identity=(
+                replay_grader_identity(repository, attempt["id"], blind_record)
+                if grader_identity is _REPLAY_IDENTITY_FROM_LEDGER
+                else grader_identity
+            ),
         ),
         clock=clock,
     )
+
+
+def replay_grader_identity(
+    repository: Repository, attempt_id: str, blind_record: Mapping[str, Any] | None
+) -> tuple[str, str] | None:
+    """The calibration identity a persisted grade replays under, from the ledgers.
+
+    A practice attempt graded blind carries it in its blind record. Graders
+    outside the practice door (teach-back, exams) write no blind record, but
+    in a split vault they grade blind too: their raw grade event carries the
+    blind identity they were calibrated under, so replay reads it there
+    (review F11). Anything else is the joint grader's (None), so joint vaults
+    replay exactly as before.
+    """
+
+    if blind_record is not None:
+        return _blind_record_identity(blind_record)
+    stamped = repository.latest_raw_grade_identity(attempt_id)
+    if stamped is not None and stamped[1] == BLIND_GRADER_OUTPUT_SCHEMA_VERSION and stamped[0]:
+        return (str(stamped[0]), str(stamped[1]))
+    return None
 
 
 def _blind_record_identity(blind_record: Mapping[str, Any] | None) -> tuple[str, str] | None:

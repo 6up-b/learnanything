@@ -128,6 +128,26 @@ def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> d
     }
 
 
+def vault_grading_calibration_identity(vault: LoadedVault) -> tuple[str, str] | None:
+    """The §4.3 calibration identity of :func:`request_vault_grading_proposal`'s grade.
+
+    In a split vault that call grades with the mvp-2.0 blind prompt (no PF-c
+    reference policy), so its raw grade and its calibration lookups use the
+    blind pair and never pool with the joint grader's (review F11). None is
+    the joint grader's identity, unchanged for joint vaults.
+    """
+
+    from learnloop.attempts.blind_grading import (
+        BLIND_CALIBRATION_PROMPT_VERSION,
+        BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+        split_grading_active,
+    )
+
+    if not split_grading_active(vault):
+        return None
+    return (BLIND_CALIBRATION_PROMPT_VERSION, BLIND_GRADER_OUTPUT_SCHEMA_VERSION)
+
+
 @dataclass(frozen=True)
 class QuoteAnchorResolution:
     char_start: int | None

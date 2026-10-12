@@ -71,6 +71,7 @@ from learnloop.attempts.grading import (
     resolved_rubric,
     request_vault_grading_proposal,
     validate_codex_grading_proposal,
+    vault_grading_calibration_identity,
     vault_grading_run_identity,
 )
 from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
@@ -707,6 +708,10 @@ def _grade_and_apply_transcript(
             grade=grade,
             grading_source=grading_source,
             grading_agent_run_id=grading_run_id,
+            # Review F11: a split vault graded this transcript blind, so its
+            # raw grade and calibration lookups take the blind identity
+            # (replay reads it back from the raw grade; no blind record).
+            grader_identity=vault_grading_calibration_identity(vault),
         ),
         clock=clock,
     )
