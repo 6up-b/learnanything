@@ -3,8 +3,8 @@ title: "causal_attribution_reports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
-source_commit_timestamp: "2026-10-12T04:42:11-04:00"
+source_commit: "77991b9301f8653a1b3ab653827666f19c92ff9a"
+source_commit_timestamp: "2026-10-12T06:35:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_attribution_reports"
@@ -126,6 +126,7 @@ Indexes and uniqueness:
 - `tests/test_diagnosis_card.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_durable_promotion_arms.py`
+- `tests/test_grading_support.py`
 - `tests/test_probe_block_end.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

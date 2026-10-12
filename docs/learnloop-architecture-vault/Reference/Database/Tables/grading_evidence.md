@@ -3,8 +3,8 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
-source_commit_timestamp: "2026-10-12T04:42:11-04:00"
+source_commit: "77991b9301f8653a1b3ab653827666f19c92ff9a"
+source_commit_timestamp: "2026-10-12T06:35:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/attempts/grade_resolution.py"
+  - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
-  - "src/learnloop/diagnosis/offline_review/report.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -173,8 +173,8 @@ Indexes and uniqueness:
 - `tests/test_characterization_probe_regrade.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_deferred_regrade.py`
+- `tests/test_diagnosis_pipeline.py`
 - `tests/test_e2e_codex_mock.py`
-- `tests/test_e2e_tui.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

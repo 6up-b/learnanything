@@ -3,8 +3,8 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
-source_commit_timestamp: "2026-10-12T04:42:11-04:00"
+source_commit: "77991b9301f8653a1b3ab653827666f19c92ff9a"
+source_commit_timestamp: "2026-10-12T06:35:42-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/content/synthesis/synthesis_manifests.py"
   - "src/learnloop/db/repositories.py"
-  - "src/learnloop/diagnosis/scoreboard.py"
+  - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/regrade.py"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/diagnoses.py`
 - `src/learnloop/diagnosis/split/reports.py`
 
 ### Direct SQL writers
