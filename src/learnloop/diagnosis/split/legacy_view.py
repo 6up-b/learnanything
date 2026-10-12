@@ -17,6 +17,8 @@ from learnloop.attempts.ai_contracts import GradingProposal
 from learnloop.db.repositories import Repository
 
 LEGACY_VIEW_MODE = "legacy_view"
+#: ``model_call_receipts.owner_kind`` of the calls an offline review makes.
+REVIEW_RECEIPT_OWNER_KIND = "diagnosis_review"
 _CAUSAL_CLASSES = {"learner_state", "transient_execution"}
 _INSTRUCTIONAL_FIELDS = (
     "practice_mode",
@@ -154,15 +156,20 @@ def legacy_view_from_grading_proposal(
 
 
 def _stored_joint_analysis(repository: Repository, attempt_id: str) -> str | None:
-    """The joint call's ``diagnosis_md`` from its model receipt, when kept."""
+    """The joint call's ``diagnosis_md`` from its model receipt, when kept.
+
+    Receipts an offline review wrote into its scratch copy (the joint
+    grader's REPEAT) are not the stored diagnosis and are never read here.
+    """
 
     needle = f'%"attempt_id":"{attempt_id}"%'
     with repository.connection() as connection:
         rows = connection.execute(
             "SELECT output_text FROM model_call_receipts "
             "WHERE purpose = 'grading' AND status = 'completed' AND output_text LIKE ? "
+            "AND owner_kind != ? "
             "ORDER BY started_at DESC, id DESC",
-            (needle,),
+            (needle, REVIEW_RECEIPT_OWNER_KIND),
         ).fetchall()
     for row in rows:
         payload = _decode(row[0], None)
@@ -200,6 +207,7 @@ def stored_legacy_view(repository: Repository, attempt_id: str) -> dict[str, Any
 
 __all__ = [
     "LEGACY_VIEW_MODE",
+    "REVIEW_RECEIPT_OWNER_KIND",
     "legacy_view_from_grading_proposal",
     "legacy_view_from_parts",
     "stored_legacy_view",

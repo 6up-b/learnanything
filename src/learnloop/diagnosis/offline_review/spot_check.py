@@ -17,11 +17,16 @@ on (b)-(e), on links and on grades stay in the scratch copy's
 receipt - are genuine owner adjudications and are ALSO appended to the vault's
 ``diagnosis_adjudications`` (``adjudicator_source='human_owner'``,
 ``queue_reason='sampled'``), exactly as ``learnloop diagnosis adjudicate``
-would record them.
+would record them. Each such option carries the identity of the receipt the
+owner is shown (receipt id, snapshot hash, view hash, from the scratch copy);
+the verdict is written only when the live vault's receipt still has that
+identity, checked inside the same vault transaction, and is otherwise refused
+with ``receipt_changed_since_review``.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from contextlib import closing
@@ -42,6 +47,7 @@ from learnloop.diagnosis.diagnosis_adjudication import (
 from learnloop.diagnosis.offline_review.judge import judge_view
 from learnloop.diagnosis.offline_review.runner import MAIN_ARMS, RUN_FILE, SCRATCH_FILE
 from learnloop.diagnosis.split.history import VaultHistoryStore
+from learnloop.diagnosis.split.legacy_view import stored_legacy_view
 from learnloop.vault.models import LoadedVault
 
 SPOT_CHECK_VERSION = "spot-check-v1"
@@ -118,6 +124,7 @@ def build_spot_check_plan(
             seen_lo.add(target["learning_object_id"])
             planted_count += 1 if target["kind"] == "planted" else 0
     store = None
+    scratch_repository: Repository | None = None
     screens: list[dict[str, Any]] = []
     for target in chosen:
         item = vault.practice_items.get(target["practice_item_id"])
@@ -125,6 +132,17 @@ def build_spot_check_plan(
         prompt = item.prompt if item is not None else ""
         options = list(diagnoses.get(target["id"], []))[:5]
         rng.shuffle(options)
+        rendered = []
+        for index, row in enumerate(options):
+            option = {"label": f"Explanation {chr(ord('A') + index)}", "diagnosis_id": row["id"], "view": judge_view(row["proposal"])}
+            if row["arm"] == "a" and target["kind"] == "real":
+                # Bind a verdict on the stored joint diagnosis to the exact
+                # receipt the owner is shown (the scratch copy's), so a later
+                # regrade in the live vault can never receive it.
+                if scratch_repository is None:
+                    scratch_repository = Repository.attach(_scratch(run_dir), read_only=True)
+                option["source_receipt"] = receipt_identity(scratch_repository, target["attempt_id"], view=option["view"])
+            rendered.append(option)
         screens.append(
             {
                 "kind": "diagnoses",
@@ -132,10 +150,7 @@ def build_spot_check_plan(
                 "attempt_id": target["attempt_id"],
                 "item_prompt": prompt,
                 "learner_answer_md": answer,
-                "options": [
-                    {"label": f"Explanation {chr(ord('A') + index)}", "diagnosis_id": row["id"], "view": judge_view(row["proposal"])}
-                    for index, row in enumerate(options)
-                ],
+                "options": rendered,
             }
         )
         links: dict[str, set[str]] = {}
@@ -285,37 +300,79 @@ def _arm_of(run_dir: Path, diagnosis_id: str) -> tuple[str | None, str | None]:
     return rows[0]["arm"], (targets[0]["kind"] if targets else None)
 
 
-def _adjudicate_arm_a(vault_repository: Repository | None, attempt_id: str, rating: str, repair_md: str | None) -> dict[str, Any]:
-    """Map a tap on arm (a) to a full-authority adjudication, when one exists."""
+def _hash(value: Any) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+
+
+def receipt_identity(repository: Repository, attempt_id: str, *, view: Mapping[str, Any] | None = None) -> dict[str, Any] | None:
+    """The identity of an attempt's stored joint diagnosis as one database shows it.
+
+    The receipt id, a hash of the frozen adjudication snapshot and a hash of
+    the explanation view rendered from it. Two databases agree on all three
+    only when the diagnosis the owner saw is the one a verdict would attach to.
+    """
+
+    snapshot = diagnosis_snapshot(repository, attempt_id)
+    if snapshot is None:
+        return None
+    if view is None:
+        stored = stored_legacy_view(repository, attempt_id)
+        view = judge_view(stored) if stored is not None else {}
+    return {
+        "receipt_id": snapshot.receipt_id,
+        "snapshot_hash": _hash(snapshot.as_dict()),
+        "view_hash": _hash(dict(view)),
+    }
+
+
+def _adjudicate_arm_a(
+    vault_repository: Repository | None,
+    attempt_id: str,
+    rating: str,
+    repair_md: str | None,
+    displayed: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Map a tap on arm (a) to a full-authority adjudication, when one exists.
+
+    The verdict is bound to ``displayed`` (the identity of the receipt the
+    owner reviewed). Inside one vault transaction the live receipt's identity
+    is checked first; a regrade since the review is refused, never silently
+    substituted.
+    """
 
     if vault_repository is None:
         return {"vault_adjudication": None, "reason": "no_vault_repository"}
-    snapshot = diagnosis_snapshot(vault_repository, attempt_id)
-    if snapshot is None:
-        return {"vault_adjudication": None, "reason": "no_diagnosis_receipt"}
-    if snapshot.system_abstained:
-        verdict = {"right": "correctly_abstained", "wrong": "should_not_have_abstained"}.get(rating)
-    elif rating == "right":
-        verdict = "correct"
-    elif rating == "wrong" and repair_md:
-        verdict = "wrong_repair"
-    else:
-        verdict = None
-    if verdict is None:
-        return {"vault_adjudication": None, "reason": f"{rating}_is_not_a_full_authority_verdict"}
+    if not displayed:
+        return {"vault_adjudication": None, "reason": "no_displayed_receipt"}
     try:
-        record = append_diagnosis_adjudication(
-            vault_repository,
-            attempt_id=attempt_id,
-            verdict=verdict,
-            adjudicated_repair_md=repair_md if verdict == "wrong_repair" else None,
-            queue_reason="sampled",
-            adjudicator_source="human_owner",
-            rationale="Slice 1 M1 spot-check (arm a: stored joint diagnosis)",
-        )
+        with vault_repository.atomic():
+            snapshot = diagnosis_snapshot(vault_repository, attempt_id)
+            if snapshot is None:
+                return {"vault_adjudication": None, "reason": "no_diagnosis_receipt"}
+            if receipt_identity(vault_repository, attempt_id) != dict(displayed):
+                return {"vault_adjudication": None, "reason": "receipt_changed_since_review"}
+            if snapshot.system_abstained:
+                verdict = {"right": "correctly_abstained", "wrong": "should_not_have_abstained"}.get(rating)
+            elif rating == "right":
+                verdict = "correct"
+            elif rating == "wrong" and repair_md:
+                verdict = "wrong_repair"
+            else:
+                verdict = None
+            if verdict is None:
+                return {"vault_adjudication": None, "reason": f"{rating}_is_not_a_full_authority_verdict"}
+            record = append_diagnosis_adjudication(
+                vault_repository,
+                attempt_id=attempt_id,
+                verdict=verdict,
+                adjudicated_repair_md=repair_md if verdict == "wrong_repair" else None,
+                queue_reason="sampled",
+                adjudicator_source="human_owner",
+                rationale="Slice 1 M1 spot-check (arm a: stored joint diagnosis)",
+            )
     except ValueError as exc:
         return {"vault_adjudication": None, "reason": str(exc)[:200]}
-    return {"vault_adjudication": record["id"], "verdict": verdict}
+    return {"vault_adjudication": record["id"], "verdict": verdict, "receipt_id": displayed.get("receipt_id")}
 
 
 def record_diagnosis_screen(
@@ -339,7 +396,12 @@ def record_diagnosis_screen(
         arm, kind = _arm_of(run_dir, diagnosis_id)
         detail: dict[str, Any] = {"label": label, "arm": arm, "spot_check_version": SPOT_CHECK_VERSION}
         if arm == "a" and kind == "real":
-            detail.update(_adjudicate_arm_a(vault_repository, screen["attempt_id"], rating, (wrong_repairs or {}).get(label)))
+            detail.update(
+                _adjudicate_arm_a(
+                    vault_repository, screen["attempt_id"], rating, (wrong_repairs or {}).get(label),
+                    by_label[label].get("source_receipt"),
+                )
+            )
         ids.append(
             _record(run_dir, session_id=session_id, screen="diagnoses", task="diagnosis_rating", subject_kind="review_diagnosis", subject_id=diagnosis_id, verdict=rating, detail=detail)
         )
@@ -402,6 +464,7 @@ __all__ = [
     "SPOT_CHECK_VERSION",
     "advance_session",
     "build_spot_check_plan",
+    "receipt_identity",
     "export_judgments",
     "record_diagnosis_screen",
     "record_grade_screen",

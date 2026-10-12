@@ -89,7 +89,11 @@ from learnloop.diagnosis.split.history import (
     VaultHistoryStore,
     learning_object_neighborhood,
 )
-from learnloop.diagnosis.split.legacy_view import legacy_view_from_grading_proposal, stored_legacy_view
+from learnloop.diagnosis.split.legacy_view import (
+    REVIEW_RECEIPT_OWNER_KIND,
+    legacy_view_from_grading_proposal,
+    stored_legacy_view,
+)
 from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION, DiagnosisSettings
 from learnloop.ids import new_ulid
@@ -1550,7 +1554,7 @@ def run_review(
     run.open(source_sqlite)
     assert run.repository is not None
     spend.collector.sink = lambda action, event: run.repository.record_model_event(
-        action, event, owner_kind="diagnosis_review", owner_id=run.run_id
+        action, event, owner_kind=REVIEW_RECEIPT_OWNER_KIND, owner_id=run.run_id
     )
     status = "complete"
     try:

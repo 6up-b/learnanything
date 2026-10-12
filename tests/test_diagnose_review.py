@@ -122,6 +122,18 @@ def test_every_arm_and_control_ran(reviewed):
     assert receipts > 0
 
 
+def test_arm_a_is_the_stored_diagnosis_not_the_joint_repeat(reviewed):
+    """The joint repeat's receipts live in the scratch copy; arm (a) never reads them."""
+
+    rows = _scratch_rows(
+        reviewed["run"],
+        "SELECT d.proposal_json FROM review_diagnoses d JOIN review_targets t ON t.id = d.target_id "
+        "WHERE d.arm = 'a' AND t.kind = 'real' AND d.status = 'completed'",
+    )
+    assert rows
+    assert not any("Stored explanation prose." in str(json.loads(row[0]).get("analysis_md") or "") for row in rows)
+
+
 def test_resume_pays_for_nothing_twice(reviewed, tmp_path):
     client = ReviewFakeClient()
     _client, result = _run(reviewed["paths"], reviewed["vault"], reviewed["run"], client=client)
@@ -546,3 +558,33 @@ def test_failed_probes_are_retried_on_resume_without_regenerating_paid_inputs(tm
     assert after.get("synthetic_error:pi_unrelated_001") == "graded"
     report = offline_review_report(run, vault=vault)
     assert report["grader"]["probes"]["real_vs_synthetic"]["synthetic_n"] == 1
+
+
+def test_an_owner_verdict_never_lands_on_a_receipt_the_owner_did_not_see(tmp_path):
+    """F13: the displayed receipt identity is bound to the adjudication and checked atomically."""
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    run = tmp_path / "run"
+    options = ReviewOptions(sample_size=6, arms=("a", "b"), planted_per_shape=0, generate_planted=False, probes=False,
+                            judge=False, sweep=False, joint_repeat=False, repeat_subset=0)
+    _client, result = _run(paths, vault, run, options=options)
+    assert result["status"] == "complete"
+    session, plan, _position = start_or_resume_session(run, vault, seed=5, new=True)
+    arm_of = dict(_scratch_rows(run, "SELECT id, arm FROM review_diagnoses"))
+    screen = next(
+        screen for screen in plan
+        if screen["kind"] == "diagnoses" and any(arm_of[option["diagnosis_id"]] == "a" for option in screen["options"])
+    )
+    option_a = next(option for option in screen["options"] if arm_of[option["diagnosis_id"]] == "a")
+    assert option_a["source_receipt"]["receipt_id"]
+    # The live vault regrades the attempt after the scratch copy was taken.
+    live = Repository.attach(paths.sqlite_path)
+    current = live.attempt_debug_payload(screen["attempt_id"])["causal_attribution"]["diagnosis_receipt"]
+    live.append_attempt_diagnosis_receipt(screen["attempt_id"], {**current, "id": "rcpt_regraded_after_review"})
+    record_diagnosis_screen(run, session_id=session, screen=screen, ratings={option_a["label"]: "right"}, best=None, vault_repository=live)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM diagnosis_adjudications").fetchone()[0] == 0
+    detail = json.loads(_scratch_rows(run, "SELECT detail_json FROM review_judgments WHERE session_id = ?", (session,))[0][0])
+    assert detail["vault_adjudication"] is None
+    assert detail["reason"] == "receipt_changed_since_review"
