@@ -364,3 +364,68 @@ def test_purge_erases_the_persisted_request(destination, monkeypatch):
     assert get_capture(repo, capture_id)["pending_route"] is None
     with pytest.raises(SidecarError, match="no unfinished save"):
         capture_rpc.resume_capture_route(ctx, capture_rpc.CaptureInput(capture_id=capture_id))
+
+
+def _capture_notes(root):
+    return {note_id: note for note_id, note in load_vault(root).notes.items()
+            if note_id.startswith("note_capture_")}
+
+
+@pytest.mark.parametrize("move_crash", [False, True])
+def test_replacement_tutor_request_moves_the_partial_note_to_its_subject(tmp_path, monkeypatch, move_crash):
+    """F7: the crashed send wrote its capture note under subject A, then the
+    learner re-sent under B; the question must not stay attached to A."""
+    import json
+
+    import learnloop.vault.loader as loader
+    from learnloop.vault.loader import add_subject
+
+    server = _TutorServer()
+    server.start()
+    try:
+        root, _ = _tutor_vault(tmp_path, server)
+        add_subject(root, "probability", "Probability")
+        repo, capture_id = _capture(root)
+        ctx = _context(root)
+        first = tutor_qa.AskTutorQuestionInput(
+            capture_id=capture_id, subject_id="linear-algebra",
+            context="library", question="Why eigenvectors?",
+        )
+        with monkeypatch.context() as patch:
+            _crash_before_destination(patch, "tutor")
+            with pytest.raises(_Crash):
+                tutor_qa.ask_tutor_question(ctx, first)
+        [(note_id, note)] = _capture_notes(root).items()
+        assert note.subjects == ["linear-algebra"]
+        ctx.reload(maintenance=False)
+        replacement = first.model_copy(update={"subject_id": "probability"})
+        if move_crash:
+            # Dies between the rename and the frontmatter rewrite: one file,
+            # in B's folder, still naming A. The next send must finish it.
+            with monkeypatch.context() as patch:
+                patch.setattr(loader, "write_markdown_with_frontmatter",
+                              lambda *a, **k: (_ for _ in ()).throw(_Crash()))
+                with pytest.raises(_Crash):
+                    tutor_qa.ask_tutor_question(ctx, replacement)
+            [half] = _capture_notes(root).values()
+            assert half.path == f"subjects/probability/notes/{note_id}.md"
+            assert half.subjects == ["linear-algebra"]
+            assert not server.requests
+            ctx.reload(maintenance=False)
+        result = tutor_qa.ask_tutor_question(ctx, replacement)
+        assert result["noteId"] == note_id
+        [moved] = _capture_notes(root).values()
+        assert moved.subjects == ["probability"]
+        assert moved.path == f"subjects/probability/notes/{note_id}.md"
+        assert moved.body == note.body
+        assert not (root / "subjects" / "linear-algebra" / "notes" / f"{note_id}.md").exists()
+        assert get_capture(repo, capture_id)["status"] == "routed"
+        with repo.connection() as conn:
+            intent = json.loads(conn.execute("SELECT intent_json FROM capture_routes WHERE capture_id=?",
+                                             (capture_id,)).fetchone()[0])
+        assert intent["request"]["subject_id"] == "probability"
+        assert intent["destination_id"] == result["eventId"]
+        assert tutor_qa.ask_tutor_question(ctx, replacement) == result
+        _assert_single("tutor", root, repo, result, server)
+    finally:
+        server.stop()

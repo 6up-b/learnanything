@@ -176,7 +176,7 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
         import hashlib
 
         from learnloop.capture import get_capture
-        from learnloop.vault.loader import add_note
+        from learnloop.vault.loader import add_note, move_note
         from learnloop_sidecar.handlers.capture import capture_call
 
         capture = capture_call(get_capture, repository, params.capture_id)
@@ -197,6 +197,13 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 vault.root, params.subject_id, note_id, "Captured question",
                 f"{capture['text']}\n\nCapture provenance: {params.capture_id}",
             )
+            ctx.reload(maintenance=False)
+            vault, repository = ctx.require_vault()
+        elif vault.notes[note_id].subjects != [params.subject_id]:
+            # A send that crashed after writing the note was replaced by this
+            # request (its question was never created): file the note under
+            # the subject this request and its persisted intent name.
+            move_note(vault.root, note_id, params.subject_id)
             ctx.reload(maintenance=False)
             vault, repository = ctx.require_vault()
     try:
