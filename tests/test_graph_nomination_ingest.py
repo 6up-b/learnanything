@@ -421,3 +421,46 @@ def test_identical_append_reuses_its_completed_run(tmp_path, nominations):
     assert client.calls == [] and len(embedder.calls) == paid
 
 
+@pytest.mark.parametrize("fail_on", [1, 2])
+def test_registry_merge_is_declined_when_its_verdict_cannot_be_ledgered(tmp_path, monkeypatch, fail_on):
+    """F3: a registry merge whose judgment did not reach judgment_ledger never
+    reaches the proposal; the verdicts are one transaction (a failure on the
+    second rolls back the first) and the declined decisions stay on the run."""
+
+    import sqlite3
+
+    from learnloop.db.stores import judgments
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    real_append = judgments.append_judgment
+    attempts: list[int] = []
+
+    def locked_on_nth(*args, **kwargs):
+        attempts.append(1)
+        if len(attempts) == fail_on:
+            raise sqlite3.OperationalError("database is locked")
+        return real_append(*args, **kwargs)
+
+    def decide(context, ids):
+        # A merge and a second (guard-refused) decision about the same candidate.
+        return _merge_into_registry(context, ids) * 2
+
+    monkeypatch.setattr(judgments, "append_judgment", locked_on_nth)
+    result = _synthesize(root, repo, RegistryStructuringClient(decide), apply=True,
+                         embedding_client_factory=lambda: embedder)
+    assert len(attempts) == fail_on
+    assert _ledger(repo) == []
+    usage = repo.synthesis_run(result.synthesis_run_id)["actual_usage"]
+    assert usage["registry_merges"] == 0
+    assert usage["registry_merges_declined"] == "ledger_write_failed:OperationalError"
+    assert [(d["registry_concept_id"], d["refused"]) for d in usage["registry_merge_decisions_unrecorded"]] == [
+        (REGISTRY_ID, None), (REGISTRY_ID, "duplicate_decision"),
+    ]
+    assert result.item_counts["concept"] == 1
+    vault = load_vault(root)
+    assert len(vault.concepts) == 2 and REGISTRY_ID in vault.concepts
+    assert REGISTRY_ID not in {lo.concept for lo in vault.learning_objects.values()}

@@ -2623,11 +2623,23 @@ def _model_graph_structuring(
     if mapping:
         merged = _apply_concept_merges(merged, mapping)
     registry_mapping: dict[str, str] = {}
+    ledger_failure: str | None = None
+    unrecorded: list[dict[str, Any]] = []
     if registry_details:
         decisions = _validated_registry_merges(outcome, merged, mapping, nominations, vault)
-        _record_registry_merge_verdicts(
+        ledger_failure = _record_registry_merge_verdicts(
             repository, client, decisions, candidate_queries, vault, source_set_id=source_set.id,
         )
+        if ledger_failure is not None:
+            # An identity decision is used only once its verdict is durable in
+            # judgment_ledger: without it, every merge is declined (the
+            # candidate stays its own concept) and the decisions are kept on
+            # the run's usage record for the owner, never applied.
+            unrecorded = [
+                {key: decision[key] for key in ("client_item_id", "registry_concept_id", "rationale", "refused")}
+                for decision in decisions
+            ]
+            decisions = []
         registry_mapping = {
             decision["client_item_id"]: decision["registry_concept_id"]
             for decision in decisions if decision["applied"]
@@ -2662,6 +2674,9 @@ def _model_graph_structuring(
     if registry_details:
         usage["registry_nominated_candidates"] = len(registry_nominations)
         usage["registry_merges"] = len(registry_mapping)
+        if ledger_failure is not None:
+            usage["registry_merges_declined"] = ledger_failure
+            usage["registry_merge_decisions_unrecorded"] = unrecorded
     return merged, usage
 
 
@@ -2771,11 +2786,14 @@ def _validated_registry_merges(
 def _record_registry_merge_verdicts(
     repository: Repository, client: Any, decisions: list[dict[str, Any]],
     candidate_queries: dict[str, Any], vault: LoadedVault, *, source_set_id: str,
-) -> None:
+) -> str | None:
     """Append each registry-merge decision to ``judgment_ledger`` (task ``same_concept``).
 
-    Evaluation data only: rebuild never reads it to merge anything, and a
-    ledger failure never fails the paid synthesis.
+    One transaction: every verdict is recorded or none is. Returns ``None`` on
+    success, else the failure (``ledger_write_failed:<type>``), which the
+    caller treats as "decline every merge": a ledger failure never fails the
+    paid synthesis, and a merge never proceeds without its verdict. Rebuild
+    never reads these rows to merge anything.
     """
 
     import sqlite3
@@ -2785,7 +2803,7 @@ def _record_registry_merge_verdicts(
     from learnloop.vault.embedding_recipes import concept_definition_text
 
     if not decisions:
-        return
+        return None
     model = (
         getattr(client, "model", None) or getattr(client, "provider_name", None)
         or getattr(client, "provider_type", None) or "unknown"
@@ -2810,8 +2828,9 @@ def _record_registry_merge_verdicts(
                     verdict="same",
                     rationale=json.dumps({**decision, "source_set_id": source_set_id}, sort_keys=True),
                 )
-    except sqlite3.Error:
-        pass
+    except (sqlite3.Error, ValueError) as exc:
+        return f"ledger_write_failed:{type(exc).__name__}"
+    return None
 
 
 def _fold_into_registry_concepts(result: Any, mapping: dict[str, str]) -> Any:
