@@ -297,6 +297,11 @@ be a new back-edge. The interim command can then become an alias or go.
 
 ## Deviations
 
+- **Module placement.** The plan put B1/B3 in `ops/recurrence_benchmarks.py`
+  and the upgrade in `ops/vault_upgrade.py`; both live under
+  `diagnosis/recurrence/` instead (B3 reads diagnosis subjects, and
+  `ops -> diagnosis` would be a new import back-edge). The migration is 172,
+  not 171 (see the renumber note above).
 - **The display's K is three answers, the deferral's K is three further
   recurrences.** The escalation card fires on the third distinct attempt in a
   group ("Third time with this one"); the existing deferral exit
@@ -399,16 +404,17 @@ What the runs showed:
 
 ## Test results (gate)
 
-Run on `db59f8ac` (the code as delivered; this review's last commit changes
-only this file).
+Run on `8404a695` (the code as delivered; the review's last commit changes
+only this file). The same counts held on `db59f8ac` before the package marker
+was added.
 
 - `uv sync --extra dev`, `uv pip install pypdfium2`: done (no mobile extra:
   this stage does not touch `learnloop_mobile`).
 - `uv run lint-imports --no-cache`: **10 kept, 0 broken**.
 - `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **7331 passed**,
-  0 failed, 235 s.
+  0 failed, 164 s.
 - `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
-  **78 passed**, 7253 deselected, 64 s.
+  **78 passed**, 7253 deselected, 67 s.
 - Frontend (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck`
   clean; `npm test` **76 passed in 18 files**.
 - DB reference: `db_generate_reference.py` then `db_validate_reference.py`:
