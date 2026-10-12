@@ -350,7 +350,8 @@ def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResul
         )
 
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
-    # Construction applies the additive migration the stuck answer needs (172).
+    # Construction applies the migrations the stuck answer needs (172; 173 for
+    # the worked-answer reveal kind).
     repository = Repository(sqlite_path)
     registry_service.freeze_manifest(
         vault,

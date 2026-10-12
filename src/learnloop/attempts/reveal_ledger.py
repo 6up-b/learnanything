@@ -34,7 +34,15 @@ from learnloop.db.repositories import Repository
 
 logger = logging.getLogger(__name__)
 
-REVEAL_SOURCE_KINDS = ("tutor_answer", "repair_display", "guided_redo", "source_review")
+REVEAL_SOURCE_KINDS = ("tutor_answer", "repair_display", "guided_redo", "source_review", "answer_display")
+
+#: Kinds written only AFTER the attempt they link (``attempt_id``): the display
+#: of that attempt's feedback. Such a row counts against the NEXT attempt even
+#: when it is stamped in the linked attempt's own second (timestamps have
+#: one-second resolution, and the submit window's lower bound is exclusive).
+#: ``answer_display`` (migration 173, mvp-0.11) is the expected answer itself,
+#: shown on a feedback screen.
+POST_ATTEMPT_REVEAL_KINDS = ("answer_display",)
 
 
 def reveal_episode_id(repository: Repository, practice_item_id: str | None) -> str | None:
@@ -232,3 +240,39 @@ def record_repair_display_reveals(
         if row_id is not None:
             written += 1
     return written
+
+
+def record_answer_display_reveal(
+    repository: Repository,
+    *,
+    attempt_id: str,
+    practice_item_id: str,
+    learning_object_id: str | None = None,
+    basis: str,
+    clock: Clock | None = None,
+) -> str | None:
+    """Debit the ledger for the full expected answer shown on a feedback screen.
+
+    Amount 1.0: the expected answer itself was shown. Linked to the committed
+    attempt whose feedback showed it, and charged once per attempt (reopening
+    the same feedback reveals nothing new). Best effort, like every writer
+    here: a failure is logged and the screen still shows the answer.
+    """
+
+    try:
+        if repository.reveal_events(attempt_id=attempt_id, source_kind="answer_display"):
+            return None
+    except Exception:  # pragma: no cover - defensive
+        logger.warning("answer-display reveal lookup failed for %s", attempt_id, exc_info=True)
+        return None
+    return record_reveal(
+        repository,
+        practice_item_id=practice_item_id,
+        learning_object_id=learning_object_id,
+        remediation_episode_id=reveal_episode_id(repository, practice_item_id),
+        source_kind="answer_display",
+        amount=1.0,
+        basis=basis,
+        attempt_id=attempt_id,
+        clock=clock,
+    )

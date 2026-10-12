@@ -4264,17 +4264,31 @@ class Repository(
         *,
         since: str | None = None,
         until: str | None = None,
+        linked_attempt_id: str | None = None,
+        linked_kinds: Sequence[str] = (),
     ) -> float:
         """Summed reveal amount for one item in a window.
 
         Same window convention as
         ``count_hint_equivalent_question_events``: ``since`` is exclusive (the
         previous attempt's timestamp, whose evidence already absorbed anything
-        before it) and ``until`` is inclusive."""
+        before it) and ``until`` is inclusive.
+
+        ``linked_attempt_id``/``linked_kinds``: rows of those kinds linked to
+        that attempt (the one at ``since``) were written after it by
+        construction, so they count even when stamped in its own second."""
 
         query = "SELECT COALESCE(SUM(amount), 0.0) AS total FROM reveal_events WHERE practice_item_id = ?"
         parameters: list[Any] = [practice_item_id]
-        if since is not None:
+        if since is not None and linked_attempt_id is not None and linked_kinds:
+            marks = ", ".join("?" for _ in linked_kinds)
+            query += (
+                " AND (created_at > ? OR (attempt_id = ? AND source_kind IN ("
+                + marks
+                + ") AND created_at >= ?))"
+            )
+            parameters.extend([since, linked_attempt_id, *linked_kinds, since])
+        elif since is not None:
             query += " AND created_at > ?"
             parameters.append(since)
         if until is not None:

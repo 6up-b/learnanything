@@ -145,6 +145,7 @@ class FeedbackScreen(Screen):
     def on_mount(self) -> None:
         if self.committed is not None:
             self.set_class(True, "-reveal-answer")
+            self._record_worked_answer_reveal(self.committed)
             self._complete_result(self.committed, model=False)
             return
         if self._ai_ready():
@@ -417,6 +418,25 @@ class FeedbackScreen(Screen):
         self.query_one("#belief-update", TextStatic).update(self._belief_content(result))
         self.query_one("#next-followup", TextStatic).update(self._followup_content())
         self.query_one("#next-schedule", TextStatic).update(self._schedule_content(result))
+
+    def _record_worked_answer_reveal(self, result: AttemptResult) -> None:
+        """The worked answer is now visible: debit the reveal ledger (re-review F8).
+
+        The full expected answer (amount 1.0), linked to this item and the
+        committed attempt, so a retry taken with it in view is recorded as
+        primed. Once per attempt; best effort (the ledger never costs the
+        learner the screen).
+        """
+
+        from learnloop.attempts.reveal_ledger import record_answer_display_reveal
+
+        record_answer_display_reveal(
+            self.state.repository,
+            attempt_id=result.attempt_id,
+            practice_item_id=self.practice_item.id,
+            learning_object_id=self.learning_object.id,
+            basis="worked_answer:stuck_empty:tui",
+        )
 
     def _worked_answer_content(self) -> Content:
         """The item's worked answer, shown after an empty stuck answer."""

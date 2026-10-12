@@ -80,6 +80,7 @@ from learnloop.attempts.blind_grading import (
     split_grading_active,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
+from learnloop.attempts.reveal_ledger import POST_ATTEMPT_REVEAL_KINDS
 from learnloop.attempts.stuck import (
     EMPTY_STUCK_EVIDENCE,
     EMPTY_STUCK_FEEDBACK,
@@ -1838,11 +1839,20 @@ def reveal_total_for_submission(
 
     Same window as ``tutor_qa.hint_equivalents_for_submission``: everything
     after the most recent prior attempt on the item, because anything earlier
-    was already absorbed into that attempt's evidence."""
+    was already absorbed into that attempt's evidence. A post-attempt display
+    linked to that attempt (``POST_ATTEMPT_REVEAL_KINDS``: the worked answer
+    after an empty stuck answer, re-review F8) came after it, so it counts
+    even when stamped in the attempt's own second."""
 
     attempts = repository.list_recent_attempts_by_practice_item(practice_item_id, limit=1)
     since = attempts[0]["created_at"] if attempts else None
-    return repository.total_reveal_amount(practice_item_id, since=since, until=until)
+    return repository.total_reveal_amount(
+        practice_item_id,
+        since=since,
+        until=until,
+        linked_attempt_id=str(attempts[0]["id"]) if attempts else None,
+        linked_kinds=POST_ATTEMPT_REVEAL_KINDS,
+    )
 
 
 def auto_primed_draft(

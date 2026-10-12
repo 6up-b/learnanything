@@ -1119,3 +1119,176 @@ def test_cli_a_later_sample_refused_by_the_caps_is_over_budget_not_a_self_grade(
     payload = _assert_over_budget_and_nothing_recorded(result, repository, before)
     assert client.calls == ["blind_grading"]  # the refused sample was never sent
     assert payload["spend"]["charged"]["metered_total_tokens"] >= 400_000
+
+
+# -- re-review F8: the TUI's worked answer is a reveal; the retry is primed -----------
+
+
+def _tui_empty_stuck_feedback(paths):
+    """Empty stuck submit in the TUI; returns (result, item id) once the
+    feedback screen shows the worked answer."""
+
+    import asyncio
+
+    from learnloop.tui.app import LearnLoopApp
+    from learnloop.tui.screens.feedback import FeedbackScreen
+
+    from tests.helpers import begin_session
+
+    async def scenario():
+        app = LearnLoopApp(paths.root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            await today.open_practice()
+            await pilot.pause()
+            practice = app.screen
+            await pilot.press("ctrl+d")
+            await pilot.pause()
+            await practice.action_submit()
+            await pilot.pause()
+            feedback = app.screen
+            assert isinstance(feedback, FeedbackScreen)
+            assert feedback.query_one("#worked-answer").display
+            return feedback.result, practice.practice_item.id
+
+    return asyncio.run(scenario())
+
+
+def test_the_tui_worked_answer_is_recorded_as_a_reveal_and_primes_the_retry(tmp_path):
+    paths, vault, repository = _stuck_vault(tmp_path)
+    result, item_id = _tui_empty_stuck_feedback(paths)
+
+    reveals = repository.reveal_events(practice_item_id=item_id)
+    assert [(row["source_kind"], row["amount"], row["attempt_id"]) for row in reveals] == [
+        ("answer_display", 1.0, result.attempt_id)
+    ]
+    assert reveals[0]["learning_object_id"] == vault.practice_items[item_id].learning_object_id
+    assert reveals[0]["basis"] == "worked_answer:stuck_empty:tui"
+
+    # The learner retries the item at once (the same second, typically): the
+    # answer they just read makes it primed evidence, not an unassisted recall.
+    retry = complete_self_graded_attempt(
+        load_vault(paths.root),
+        repository,
+        _draft(vault.practice_items[item_id].expected_answer, stuck=False, item_id=item_id),
+        SelfGradeInput(criterion_points={}, confidence=4),
+    )
+    attempt = repository.fetch_practice_attempt(retry.attempt_id)
+    assert attempt["primed"] == 1
+    assert (repository.attempt_debug_payload(retry.attempt_id) or {})["auto_primed_reveal_total"] == pytest.approx(1.0)
+
+
+def test_a_worked_answer_shown_in_the_attempts_own_second_still_primes_the_retry(tmp_path):
+    """Timestamps have one-second resolution and the submit window starts
+    AFTER the last attempt; the display is linked to that attempt, so it
+    counts even when stamped in the same second. Charged once per attempt."""
+
+    from learnloop.attempts.reveal_ledger import record_answer_display_reveal
+    from learnloop.clock import FrozenClock
+
+    paths, vault, repository = _stuck_vault(tmp_path)
+    clock = FrozenClock(at(21))
+    item = vault.practice_items[ITEM]
+    empty = complete_attempt_with_ai_required(
+        vault, repository, _draft(""), runtime=ReadyRuntime(), ai_client=RefusingClient(), clock=clock
+    )
+    for _reopen in range(2):
+        record_answer_display_reveal(
+            repository, attempt_id=empty.attempt_id, practice_item_id=ITEM,
+            learning_object_id=item.learning_object_id, basis="worked_answer:stuck_empty:tui", clock=clock,
+        )
+    assert len(repository.reveal_events(attempt_id=empty.attempt_id)) == 1
+
+    retry = complete_self_graded_attempt(
+        vault, repository, _draft(item.expected_answer, stuck=False),
+        SelfGradeInput(criterion_points={}, confidence=4), clock=clock,
+    )
+    assert repository.fetch_practice_attempt(retry.attempt_id)["primed"] == 1
+    # The window then moves past the retry: the one after it is unprimed again.
+    later = complete_self_graded_attempt(
+        vault, repository, _draft(item.expected_answer, stuck=False),
+        SelfGradeInput(criterion_points={}, confidence=4), clock=FrozenClock(at(22)),
+    )
+    assert repository.fetch_practice_attempt(later.attempt_id)["primed"] == 0
+
+
+def test_only_post_attempt_displays_cross_the_same_second_boundary(tmp_path):
+    """The other kinds keep their window exactly (no behaviour change outside
+    the mvp-0.11 display): a tutor answer linked to the last attempt and
+    stamped in its second is still outside the next attempt's window."""
+
+    from learnloop.clock import FrozenClock
+
+    paths, vault, repository = _stuck_vault(tmp_path)
+    clock = FrozenClock(at(21))
+    item = vault.practice_items[ITEM]
+    first = complete_self_graded_attempt(
+        vault, repository, _draft("A = U Sigma V wrong", stuck=False),
+        SelfGradeInput(criterion_points={}, confidence=4), clock=clock,
+    )
+    repository.insert_reveal_event(
+        {
+            "practice_item_id": ITEM, "learning_object_id": item.learning_object_id,
+            "source_kind": "tutor_answer", "amount": 1.0, "attempt_id": first.attempt_id,
+        },
+        clock=clock,
+    )
+    retry = complete_self_graded_attempt(
+        vault, repository, _draft(item.expected_answer, stuck=False),
+        SelfGradeInput(criterion_points={}, confidence=4), clock=clock,
+    )
+    assert repository.fetch_practice_attempt(retry.attempt_id)["primed"] == 0
+
+
+def test_migration_173_widens_the_reveal_kinds_and_keeps_the_ledger(tmp_path):
+    import sqlite3
+
+    from learnloop.db.migrate import apply_migrations, default_migrations_dir
+
+    before_173 = tmp_path / "before_173"
+    before_173.mkdir()
+    for path in sorted(default_migrations_dir().glob("*.sql")):
+        if int(path.name.split("_", 1)[0]) < 173:
+            (before_173 / path.name).write_bytes(path.read_bytes())
+    sqlite_path = tmp_path / "state.sqlite"
+    apply_migrations(sqlite_path, migrations_dir=before_173)
+    with connect(sqlite_path) as connection:
+        connection.execute(
+            "INSERT INTO reveal_events(id, practice_item_id, source_kind, amount, attempt_id, created_at) "
+            "VALUES ('rev_1', 'pi_1', 'repair_display', 0.4, 'att_1', '2026-10-12T00:00:00Z')"
+        )
+        connection.commit()
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO reveal_events(id, practice_item_id, source_kind, amount, created_at) "
+                "VALUES ('rev_x', 'pi_1', 'answer_display', 1.0, '2026-10-12T00:00:00Z')"
+            )
+
+    assert [migration.version for migration in apply_migrations(sqlite_path)] == [173]
+    with connect(sqlite_path) as connection:
+        rows = [tuple(row) for row in connection.execute(
+            "SELECT id, practice_item_id, source_kind, amount, attempt_id FROM reveal_events"
+        )]
+        assert rows == [("rev_1", "pi_1", "repair_display", 0.4, "att_1")]
+        connection.execute(
+            "INSERT INTO reveal_events(id, practice_item_id, source_kind, amount, attempt_id, created_at) "
+            "VALUES ('rev_2', 'pi_1', 'answer_display', 1.0, 'att_2', '2026-10-12T00:00:01Z')"
+        )
+        connection.commit()
+        with pytest.raises(sqlite3.IntegrityError):
+            connection.execute(
+                "INSERT INTO reveal_events(id, practice_item_id, source_kind, amount, created_at) "
+                "VALUES ('rev_3', 'pi_1', 'bogus', 1.0, '2026-10-12T00:00:02Z')"
+            )
+        # Still append-only, and still indexed as migration 154 built it.
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            connection.execute("UPDATE reveal_events SET amount = 0.1 WHERE id = 'rev_1'")
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            connection.execute("DELETE FROM reveal_events WHERE id = 'rev_1'")
+        names = {row[0] for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE tbl_name = 'reveal_events' AND type IN ('index', 'trigger')"
+        )}
+        assert {"idx_reveal_events_item_created", "idx_reveal_events_episode",
+                "reveal_events_no_update", "reveal_events_no_delete"} <= names
+        assert connection.execute("SELECT name FROM sqlite_master WHERE name = 'reveal_events_new'").fetchone() is None
