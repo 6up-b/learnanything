@@ -295,7 +295,23 @@ the metered Haiku route.
 
 ## 5. Gate
 
-GATE_PLACEHOLDER
+Run on `bc56efba` (clean tree; the commit after it adds only this section).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **12 contracts kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,672 passed, 1 skipped**, 46 warnings (existing: 32 from the mobile host tests, fork and sqlite datetime deprecations), 244 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **83 passed**, 7,590 deselected, 1 warning, 85 s |
+| Frontend (`npm install`, `npm run typecheck`, `npm test`) | typecheck clean; **22 files, 97 tests passed** |
+| DB/config references (`db_generate_reference.py`, `db_validate_reference.py`) | schema head 172, 285 table notes, 640 config leaves in 35 sections, **0 errors**; docs-vault validator passed (1,053 notes) |
+
+The one skip is `test_the_decider_answers_per_pair_choices_and_partitions`:
+`judge='decider'` needs router R0's ledger CHECK (decision 8). New tests:
+`test_facet_identity.py` (17), `test_facet_identity_actions.py` (6),
+`test_facet_identity_ingest.py` (8), `FacetIdentityPanel.test.tsx` (6).
+`cargo check` was not run: the Rust change is two `sidecar_passthrough!`
+lines, which `test_desktop_rpc_contract.py` checks across all four layers.
 
 ## 6. Files touched
 
