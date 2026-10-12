@@ -304,9 +304,10 @@ def build_due_queue(
         # not swallow it.
         # F2 placement (None when off). New material: a never-attempted item
         # on an LO with no direct evidence (or back to learning after a missed
-        # check or "I don't know this") enters as learning, where the predecessor opened an initial
-        # diagnostic episode for it. An assumed LO's never-attempted items are
-        # withheld, except its due first-review check.
+        # check or "I don't know this") enters as learning, where the
+        # predecessor opened an initial diagnostic episode for it. An assumed
+        # LO's never-attempted items are withheld, except its due first-review
+        # check.
         new_material = False
         assumed_check = False
         if placement_serving is not None and item.id not in requested_id_set:

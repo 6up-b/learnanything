@@ -3,8 +3,8 @@ title: "probe_calibration_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "1f2bed45dec6dca4bc6c882b02b980f179aa998b"
+source_commit_timestamp: "2026-10-12T12:25:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_calibration_sessions"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/quick_check.py"
+  - "src/learnloop/placement/decisions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -99,6 +100,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/diagnosis/calibration_sessions.py`
 - `src/learnloop/diagnosis/quick_check.py`
+- `src/learnloop/placement/decisions.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
