@@ -62,7 +62,10 @@ with no kill switch.
 - **Desktop.** Start reads it under `TAG.queue`, which `start_session` invalidates. A summary
   cached before the last session began is not used: Start waits for the re-read, so it never
   previews the queue twice.
-- **TUI.** The TUI reads the same rule straight from the repository.
+- **TUI.** The TUI reads the same rule straight from the repository. It records no session
+  row, so it also keeps the minutes of its own last Begin in a per-vault file in the
+  LearnLoop config dir, and offers the newer of the two (Codex review F3,
+  `daily-loop-dl0-codex-review.md`).
 
 ### 3. One-tap minute chips
 
@@ -85,7 +88,8 @@ with no kill switch.
     builds for both. Going back to the list repaints from it.
   - A head from a queue that predates an invalidation (a regrade or a forced follow-up on
     the feedback screen) is never opened. Next waits for the rebuilt queue, which is
-    Today's own rule for actionable rows.
+    Today's own rule for actionable rows. As first built, this did not hold for a forced
+    follow-up or for an invalidation that landed mid-read; Codex review F1 and F2 fixed both.
   - These fall back to the list, as before:
     - an empty queue;
     - a failed read;
@@ -168,8 +172,8 @@ No line of the queue handler, scheduler or serializers changed. The evidence:
    remembered, because DL0 has nowhere to store it. DL1's `daily_plans.remembered_minutes`
    replaces this.
 4. **The TUI creates no session row (pre-existing, unchanged).**
-   - The TUI reads the remembered minutes, but a TUI Begin is not remembered, and TUI
-     practice doesn't count toward the streak.
+   - TUI practice doesn't count toward the streak. A TUI Begin is remembered by the TUI's
+     own minutes store (Codex review F3), not by a session row; the desktop doesn't see it.
    - TUI queue refreshes after the first build use the default session, also pre-existing.
      Making them keep the chosen minutes would change what the TUI serves at ≤ 20 minutes, so
      it is left alone. The TUI's Today "min budget" now shows the chosen minutes, display only.
@@ -271,8 +275,8 @@ apps/learnloop-tauri/src-tauri/Cargo.toml` on a machine with a working rustc.
 1. **Logging.** Auto-advanced serves look the same as list picks in the slate logs: both
    carry the head's candidate id. DL1's `serving_origin` (`daily_plan` | `learner_pick`)
    tells them apart. Should DL0 tag them sooner, for router R1's decision logging?
-2. **TUI sessions.** Should the TUI create real session rows, so its Begin is remembered
-   and counts toward the streak? That changes the streak for TUI users, so it is left to the
-   owner.
+2. **TUI sessions.** Should the TUI create real session rows, so its Begin counts toward
+   the streak? That changes the streak for TUI users, so it is left to the owner. (Its Begin
+   is remembered without one since Codex review F3.)
 3. **Wording.** DL1 should change the streak label to §8's "begin today's plan…" and tie
    "today ✓" to plan completion.
