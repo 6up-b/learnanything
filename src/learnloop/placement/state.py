@@ -22,6 +22,11 @@ answers in time order (:class:`LearningObjectIntent`): ``assumed`` while an
 assumption is open, ``maintenance`` after a passed check until a later miss or
 "I don't know this", ``learning`` after a miss, a lapse or "I don't know this"
 (with or without an assumption) until a later explicit "I know this".
+
+"Time order" is the durable ``(created_at, id)`` order across all three
+ledgers (:func:`_order`). ``created_at`` has second precision, and every id is
+a ULID from the one monotonic generator (``learnloop.ids.new_ulid``), so two
+rows written in the same second still sort in the order they were written.
 """
 from __future__ import annotations
 
@@ -250,24 +255,29 @@ class _BorrowedRepository(Repository):
 _COLD_DIMENSIONS = ("unassisted", "answer_leakage")
 
 
-def _final_receipt_ok(connection: Any, attempt_id: str) -> bool | None:
-    """A final coldness receipt's own independence findings, if there is one.
+def _final_receipt_veto(connection: Any, attempt_id: str) -> str | None:
+    """Why a final coldness receipt makes the attempt non-independent, if it does.
 
-    The cold lane records explicit unassisted and answer-leakage dimensions; any
-    receipt for the attempt that does not pass both makes it non-independent
-    (the field's strict rule). None when no receipt exists."""
+    The cold lane records explicit unassisted and answer-leakage dimensions and
+    derives its own ``qualifies_as_cold_retrieval`` claim (delay + unassisted +
+    no hard exposure). Any final receipt for the attempt that fails either
+    dimension, or that does not qualify the attempt as cold retrieval (False,
+    or unknown when the receipt could not be constructed), vetoes it (the
+    field's strict rule). None when no receipt exists or every receipt passes."""
 
     rows = connection.execute(
-        "SELECT dimensions_json FROM coldness_receipts WHERE cold_attempt_id = ? AND stage = 'final' ORDER BY id",
+        "SELECT dimensions_json, derived_json FROM coldness_receipts "
+        "WHERE cold_attempt_id = ? AND stage = 'final' ORDER BY id",
         (attempt_id,),
     ).fetchall()
-    if not rows:
-        return None
-    for (raw,) in rows:
-        dimensions = json.loads(raw or "{}")
+    veto: str | None = None
+    for raw_dimensions, raw_derived in rows:
+        dimensions = json.loads(raw_dimensions or "{}")
         if any((dimensions.get(name) or {}).get("status") != "pass" for name in _COLD_DIMENSIONS):
-            return False
-    return True
+            return "coldness_receipt_not_independent"
+        if json.loads(raw_derived or "{}").get("qualifies_as_cold_retrieval") is not True:
+            veto = "coldness_receipt_not_cold_retrieval"
+    return veto
 
 
 def evaluate_independence(
@@ -284,7 +294,7 @@ def evaluate_independence(
     neither, any earlier reveal on the item or its LO counts (fail-closed).
     ``production_admissibility`` scans ``reveal_events`` over that window, and a
     final coldness receipt for the attempt must pass its unassisted and
-    answer-leakage dimensions.
+    answer-leakage dimensions and qualify the attempt as cold retrieval.
     """
 
     repository = _BorrowedRepository(connection)
@@ -304,13 +314,11 @@ def evaluate_independence(
             produced_at=answer.created_at,
             since=since,
         )
-        receipt_ok = _final_receipt_ok(connection, answer.attempt_id)
-        reason = admissibility.reason
-        if reason is None and receipt_ok is False:
-            reason = "coldness_receipt_not_independent"
+        receipt_veto = _final_receipt_veto(connection, answer.attempt_id)
+        reason = admissibility.reason or receipt_veto
         evaluated.append(replace(
             answer,
-            independent=admissibility.admissible and receipt_ok is not False,
+            independent=admissibility.admissible and receipt_veto is None,
             independence_reason=reason,
             reveal_event_id=admissibility.reveal_event_id,
             independence_since=since,
@@ -319,6 +327,12 @@ def evaluate_independence(
 
 
 IndependenceCheck = Callable[[AnswerFacts, str], AnswerFacts]
+
+
+def _order(created_at: Any, row_id: Any) -> tuple[str, str]:
+    """The durable order of a decision, return or answer (module docstring)."""
+
+    return (str(created_at), str(row_id))
 
 
 def _resolve(
@@ -344,15 +358,18 @@ def _resolve(
     )
     returned = min(
         (r for r in returns if r.get("assumption_id") == base.id),
-        key=lambda r: (str(r["created_at"]), str(r["id"])),
+        key=lambda r: _order(r["created_at"], r["id"]),
         default=None,
     )
     returned_at = str(returned["created_at"]) if returned is not None else None
+    returned_order = _order(returned["created_at"], returned["id"]) if returned is not None else None
+    decided_order = _order(base.created_at, base.id)
     early = ineligible = 0
     for answer in answers:
-        if answer.created_at <= base.created_at:
+        answer_order = _order(answer.created_at, answer.attempt_id)
+        if answer_order <= decided_order:
             continue
-        if returned_at is not None and returned_at <= answer.created_at:
+        if returned_order is not None and returned_order <= answer_order:
             break
         if not answer.learner_clean:
             # A miss, early or on schedule, quietly returns the LO to learning.
@@ -384,9 +401,15 @@ def _intent(
     latest_return: Mapping[str, Any] | None,
     answers: Sequence[AnswerFacts],
 ) -> LearningObjectIntent | None:
-    """The LO's current routing from its latest decision and latest return."""
+    """The LO's current routing from its latest decision and latest return.
 
-    if latest_return is not None and (decision is None or str(latest_return["created_at"]) >= decision.created_at):
+    Whichever of the two comes later in the durable order wins, so an "I know
+    this" in the same second as an earlier "I don't know this" supersedes it."""
+
+    if latest_return is not None and (
+        decision is None
+        or _order(latest_return["created_at"], latest_return["id"]) > _order(decision.created_at, decision.id)
+    ):
         linked = latest_return.get("assumption_id")
         return LearningObjectIntent(
             learning_object_id, INTENT_LEARNING, str(latest_return["created_at"]), "i_dont_know_this",

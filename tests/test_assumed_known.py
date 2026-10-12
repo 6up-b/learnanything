@@ -684,3 +684,102 @@ def test_a_failed_ledger_append_rolls_back_the_receipt(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError):
         record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
     assert _decisions(paths) == [] and _ledger(paths) == []
+
+
+# ── Codex re-review: F3 (receipt qualification) and F11 (same-second order) ──
+
+
+def _final_coldness_receipt(repository, attempt_id, *, delay="pass", qualifies=True, receipt_id="crf-test"):
+    passing = {"status": "pass", "evidence": {}}
+    repository.insert_coldness_receipt(
+        receipt_id=receipt_id, lane="repair_cold_retry", stage="final", followup_task_id=None,
+        remediation_episode_id=None, source_attempt_id=None, cold_attempt_id=attempt_id,
+        cold_verification_id=None,
+        dimensions={
+            "retrieval_delay": {"status": delay, "evidence": {}},
+            "unassisted": passing,
+            "answer_leakage": passing,
+        },
+        derived={"qualifies_as_cold_retrieval": qualifies},
+        telemetry_coverage={}, receipt_version="test-v1",
+    )
+
+
+@pytest.mark.parametrize(
+    ("delay", "qualifies"),
+    [("fail", False), ("pass", None)],
+    ids=["delay-failed-unqualified", "qualification-unknown"],
+)
+def test_a_final_receipt_that_does_not_qualify_as_cold_retrieval_cannot_pass_the_check(tmp_path, delay, qualifies):
+    """F3 (re-review): the final coldness receipt's own cold-retrieval
+    qualification binds, not just its unassisted and answer-leakage dimensions."""
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    result = _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK + 1)
+    _final_coldness_receipt(repository, result.attempt_id, delay=delay, qualifies=qualifies)
+
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "open" and assumption.ineligible_answers == 1
+    (facts,) = [a for a in _answers(paths, "lo_diag") if a.attempt_id == result.attempt_id]
+    assert facts.independent is False
+    assert facts.independence_reason == "coldness_receipt_not_cold_retrieval"
+
+
+def test_a_qualified_final_receipt_still_lets_the_check_pass(tmp_path):
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    result = _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK + 1)
+    _final_coldness_receipt(repository, result.attempt_id)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "passed"
+
+
+def test_i_know_this_in_the_same_second_as_a_return_supersedes_it(tmp_path):
+    """F11: created_at has second precision; within one second the durable
+    (created_at, id) order decides, so the later "I know this" wins."""
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="dont_know_this", clock=_at(1))
+    assert _intent(vault, repository) == "learning"
+    again = record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    assert again["results"][0]["status"] == "assumed"
+    assert _intent(vault, repository) == "assumed"
+    assert _lo_items(_queue(vault, repository, 2, persist=False)) == set()
+
+    # The new assumption passes its check: maintenance, untouched items withheld.
+    _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK + 1)
+    (latest,) = [a for a in load_placement_state(vault, repository).assumptions if a.id == again["results"][0]["assumption_id"]]
+    assert latest.status == "passed"
+    assert _intent(vault, repository) == "maintenance"
+    served = _lo_items(_queue(vault, repository, CHECK + 2, persist=False))
+    assert served.isdisjoint({"pi_diag_easy", "pi_diag_hard"})
+
+
+def test_a_return_in_the_same_second_as_i_know_this_still_returns_the_lo(tmp_path):
+    paths, vault, repository = _setup(tmp_path)
+    know = record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    back = record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="dont_know_this", clock=_at(1))
+    assert back["results"][0]["assumption_id"] == know["results"][0]["assumption_id"]
+    state = load_placement_state(vault, repository)
+    assert state.assumptions[0].status == "returned"
+    assert _intent(vault, repository) == "learning"
+
+
+def test_answers_in_the_same_second_as_a_decision_or_return_keep_their_order(tmp_path):
+    """The same durable order places answers: a miss right after "I know this"
+    fails the assumption; a miss right before "I don't know this" is the miss."""
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    _answer(vault, repository, "pi_diag_easy", 1.0, minutes=1)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "failed"
+
+    other_paths, other_vault, other_repo = _setup(tmp_path, name="miss-then-return")
+    record_self_report(other_vault, other_repo, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    _answer(other_vault, other_repo, "pi_diag_easy", 1.0, minutes=2)
+    record_self_report(other_vault, other_repo, learning_object_ids=["lo_diag"], report="dont_know_this", clock=_at(2))
+    (assumption,) = load_placement_state(other_vault, other_repo).assumptions
+    assert assumption.status == "failed"
+    assert _intent(other_vault, other_repo) == "learning"

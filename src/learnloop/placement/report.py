@@ -98,22 +98,23 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
     for item in vault.practice_items.values():
         if item.status == "active" and item.learning_object_id:
             active_items[str(item.learning_object_id)].append(item.id)
-    attempted_items = {
-        (str(row[0]), str(row[1])): str(row[2])
-        for row in connection.execute(
-            "SELECT learning_object_id, practice_item_id, MIN(created_at) FROM practice_attempts "
-            "WHERE attempt_type NOT IN ('skip','guided_walkthrough') GROUP BY learning_object_id, practice_item_id"
-        ).fetchall()
-    }
+    # Each item's first answer in the durable (created_at, id) order that the
+    # placement state uses, so a same-second tie sorts as it was written.
+    attempted_items: dict[tuple[str, str], tuple[str, str]] = {}
+    for row in connection.execute(
+        "SELECT learning_object_id, practice_item_id, created_at, id FROM practice_attempts "
+        "WHERE attempt_type NOT IN ('skip','guided_walkthrough') ORDER BY created_at, id"
+    ).fetchall():
+        attempted_items.setdefault((str(row[0]), str(row[1])), (str(row[2]), str(row[3])))
 
     # Learning obligations, each counted once (unique items, never per
     # decision): an active item on a decided LO that was not practised before
     # the LO's first decision. Its outcome is read from the LO's CURRENT intent
     # and the item's attempts, and attributed to the LO's latest decision.
-    first_decision: dict[str, str] = {}
+    first_decision: dict[str, tuple[str, str]] = {}
     latest_source: dict[str, str] = {}
     for assumption in state.assumptions:  # ordered by (created_at, id)
-        first_decision.setdefault(assumption.learning_object_id, assumption.created_at)
+        first_decision.setdefault(assumption.learning_object_id, (assumption.created_at, assumption.id))
         latest_source[assumption.learning_object_id] = assumption.source
     check_attempts = {a.resolving_attempt_id for a in state.assumptions if a.resolving_attempt_id}
     check_items = {
@@ -185,7 +186,7 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
     if rebuild is not None and rebuild[0] is not None:
         placement_started = min(filter(None, (placement_started, str(rebuild[0]))))
     first_answer_by_lo: dict[str, str] = {}
-    for (lo, _item), first in attempted_items.items():
+    for (lo, _item), (first, _attempt_id) in attempted_items.items():
         if lo not in first_answer_by_lo or first < first_answer_by_lo[lo]:
             first_answer_by_lo[lo] = first
     new_los = [

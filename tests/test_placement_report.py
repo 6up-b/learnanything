@@ -130,3 +130,19 @@ def test_report3_counts_each_learning_obligation_once(tmp_path):
     assert report["sources"]["self_report"]["items_deferred_then_learned"] == 1
     total = report["learning_minutes"]
     assert total["saved_estimate"] + total["provisional_estimate"] <= total["learning_obligations_estimate"]
+
+
+def test_report3_orders_same_second_practice_after_the_decision(tmp_path):
+    """F11: report 3 reads the same durable (created_at, id) order as the
+    placement state, so an item first practised in the same second as, but
+    after, the LO's first decision is still a learning obligation."""
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    _answer(vault, repository, "pi_diag_easy", 1.0, minutes=1)  # a miss right after "I know this"
+    report = _report(paths, vault)
+    self_report = report["sources"]["self_report"]
+    assert self_report["failed"] == 1 and self_report["resolved_early"] == 1
+    # The miss resolved the assumption, so its item is the one used as the check.
+    assert self_report["items_used_as_checks"] == 1
+    assert self_report["items_deferred_then_returned"] == 2
