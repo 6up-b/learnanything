@@ -309,9 +309,7 @@ def _canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem)
         target.facet != canonical(target.facet) for criterion in rubric.criteria for target in criterion.targets
     ):
         update["grading_rubric"] = rubric.model_copy(update={"criteria": [
-            criterion.model_copy(update={"targets": [
-                target.model_copy(update={"facet": canonical(target.facet)}) for target in criterion.targets
-            ]})
+            criterion.model_copy(update={"targets": _collapsed_alias_targets(criterion.targets, canonical)})
             for criterion in rubric.criteria
         ]})
     if any(profile.facet_id and profile.facet_id != canonical(profile.facet_id) for profile in item.discrimination_profiles):
@@ -332,6 +330,71 @@ def _canonicalized_practice_item_facets(loaded: LoadedVault, item: PracticeItem)
     return item.model_copy(update=update)
 
 
+#: Strongest first: a collapsed recipe requirement keeps the strongest modality.
+_MODALITY_RANK = {"hard": 0, "path_specific": 1, "facilitating": 2, "instructional_order": 3}
+
+
+def _collapsed_alias_targets(targets: list[Any], canonical: Any) -> list[Any]:
+    """Criterion targets with aliases resolved, one per canonical (facet, capability).
+
+    Two targets that alias resolution makes identical (a criterion that named
+    both facets of a merge) are one observation of one cell: kept once, at the
+    first position, with the stronger role (``primary`` over ``supporting``).
+    Otherwise the projection would split the criterion's mass over two copies,
+    discount the second as a repeat, and read one cause of a failure as two
+    (review F1). Duplicates authored without an alias are left as written.
+    """
+
+    out: list[Any] = []
+    index_of: dict[tuple[str, str], int] = {}
+    aliased: set[tuple[str, str]] = set()
+    for target in targets:
+        resolved = canonical(target.facet)
+        key = (resolved, target.capability)
+        via_alias = resolved != target.facet
+        if key in index_of and (via_alias or key in aliased):
+            kept = out[index_of[key]]
+            if target.role == "primary" and kept.role != "primary":
+                out[index_of[key]] = kept.model_copy(update={"role": "primary"})
+            aliased.add(key)
+            continue
+        if key not in index_of:
+            index_of[key] = len(out)
+        if via_alias:
+            aliased.add(key)
+        out.append(target if not via_alias else target.model_copy(update={"facet": resolved}))
+    return out
+
+
+def _collapsed_alias_components(values: list[Any], canonical: Any) -> list[Any]:
+    """Recipe components with aliases resolved, one per canonical (facet, capability).
+
+    The recipe analogue of :func:`_collapsed_alias_targets`: a recipe that
+    required both merged facets requires the survivor once (with the stronger
+    modality), so its readiness is not the survivor's squared.
+    """
+
+    out: list[Any] = []
+    index_of: dict[tuple[str, str], int] = {}
+    aliased: set[tuple[str, str]] = set()
+    for value in values:
+        resolved = canonical(value.facet)
+        key = (resolved, value.capability)
+        via_alias = resolved != value.facet
+        if key in index_of and (via_alias or key in aliased):
+            kept = out[index_of[key]]
+            if _MODALITY_RANK.get(value.modality, 9) < _MODALITY_RANK.get(kept.modality, 9):
+                out[index_of[key]] = kept.model_copy(update={"modality": value.modality})
+            aliased.add(key)
+            continue
+        if key not in index_of:
+            index_of[key] = len(out)
+        if via_alias:
+            aliased.add(key)
+        out.append(value if not via_alias else value.model_copy(update={"facet": resolved}))
+    return out
+
+
 def _canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: LearningObject) -> LearningObject:
     """Recipe components name canonical facets: an alias resolves at load.
 
@@ -350,6 +413,9 @@ def _canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: 
             update={"facet": canonical(value.facet)}
         )
 
+    def components(values: list[Any]) -> list[Any]:
+        return _collapsed_alias_components(values, canonical)
+
     if not any(
         item.facet != canonical(item.facet)
         for blueprint in learning_object.blueprints
@@ -360,8 +426,8 @@ def _canonicalized_learning_object_facets(loaded: LoadedVault, learning_object: 
     return learning_object.model_copy(update={"blueprints": [
         blueprint.model_copy(update={"recipes": [
             recipe.model_copy(update={
-                "all_of": [component(item) for item in recipe.all_of],
-                "any_of": [component(item) for item in recipe.any_of],
+                "all_of": components(recipe.all_of),
+                "any_of": components(recipe.any_of),
                 "integration": component(recipe.integration),
             })
             for recipe in blueprint.recipes

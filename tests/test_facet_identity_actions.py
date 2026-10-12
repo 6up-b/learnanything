@@ -185,3 +185,83 @@ def test_a_merge_without_an_undo_says_so_and_refuses(tmp_path):
     with pytest.raises(FacetIdentityActionError) as exc:
         undo_action(paths.root, repository, action_id)
     assert exc.value.code == "no_undo"
+
+
+# --- review F1: a criterion or recipe that names both merged facets ------------------
+
+
+def _vault_targeting(root, targets, *, recipe_facets=()):
+    paths = build_mvp07_vault(root)
+    write_facets(paths, [
+        {"id": SHARED, "kind": "definition", "claim": "SVD factorizes into U, Sigma, V^T."},
+        {"id": SELECT, "kind": "applicability_condition", "claim": "When SVD applies."},
+        {"id": "recall", "kind": "definition", "claim": "SVD recall."},
+        {"id": DUP, "kind": "definition", "claim": "Every matrix A can be written A = U Sigma V^T."},
+    ])
+    write_yaml(paths.practice_item_path("linear-algebra", "pi_both_001"), _item(
+        "pi_both_001", "lo_svd_application", evidence_facets=sorted({facet for facet, _role in targets}),
+        rubric=_rubric("states", [{"facet": facet, "capability": "retrieval", "role": role} for facet, role in targets],
+                       correlation_group="both"),
+        fingerprint={"source_family": "both"},
+    ))
+    if recipe_facets:
+        lo_path = paths.learning_object_path("linear-algebra", "lo_svd_application")
+        lo = read_yaml(lo_path)
+        lo["blueprints"] = [{"id": "bp_apply", "weight": 1.0, "recipes": [{
+            "id": "recipe_apply", "composition": "conjunctive",
+            "all_of": [{"facet": facet, "capability": "retrieval", "modality": modality}
+                       for facet, modality in recipe_facets],
+            "any_of": [{"facet": facet, "capability": "retrieval", "modality": "hard"} for facet, _m in recipe_facets],
+            "integration": None,
+        }]}]
+        write_yaml(lo_path, lo)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(load_vault(paths.root), repository, clock=FrozenClock(NOW))
+    return paths, repository
+
+
+def _shared_row(repository):
+    return [
+        (state.capability_key, round(state.recall_alpha, 9), round(state.recall_beta, 9),
+         round(state.independent_evidence_mass, 9))
+        for state in repository.canonical_facet_recall_states()
+        if state.facet_id == SHARED and not state.practice_item_id
+    ]
+
+
+@pytest.mark.parametrize("score", [4, 0])
+def test_a_merge_of_two_facets_one_criterion_targets_counts_like_one_target(tmp_path, score):
+    """Review F1: after the merge the criterion's targets resolve to one facet, once.
+
+    Before the fix the loader kept ``[SHARED, SHARED]``: a correct answer split
+    and discounted its mass, and a wrong one wrote no recall row at all.
+    """
+
+    merged_paths, merged = _vault_targeting(tmp_path / "merged", [(SHARED, "supporting"), (DUP, "primary")])
+    assert _merge(merged_paths, merged)["status"] == "applied"
+    _attempt(load_vault(merged_paths.root), merged, "pi_both_001", {"states": score}, FrozenClock(NOW))
+    single_paths, single = _vault_targeting(tmp_path / "single", [(SHARED, "primary")])
+    _attempt(load_vault(single_paths.root), single, "pi_both_001", {"states": score}, FrozenClock(NOW))
+
+    targets = load_vault(merged_paths.root).practice_items["pi_both_001"].grading_rubric.criteria[0].targets
+    assert [(target.facet, target.role) for target in targets] == [(SHARED, "primary")]  # strongest role kept
+    assert _shared_row(single)
+    assert _shared_row(merged) == _shared_row(single)
+
+
+def test_a_recipe_naming_both_merged_facets_keeps_one_component(tmp_path):
+    paths, repository = _vault_targeting(
+        tmp_path / "vault", [(SHARED, "primary")], recipe_facets=[(SHARED, "facilitating"), (DUP, "hard")],
+    )
+    assert _merge(paths, repository)["status"] == "applied"
+    recipe = load_vault(paths.root).learning_objects["lo_svd_application"].blueprints[0].recipes[0]
+    assert [(c.facet, c.capability, c.modality) for c in recipe.all_of] == [(SHARED, "retrieval", "hard")]
+    assert [(c.facet, c.capability) for c in recipe.any_of] == [(SHARED, "retrieval")]
+
+
+def test_authored_duplicate_targets_without_an_alias_load_unchanged(tmp_path):
+    """Only duplicates that alias resolution creates collapse (no-alias vaults load as before)."""
+
+    paths, _repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (SHARED, "supporting")])
+    targets = load_vault(paths.root).practice_items["pi_both_001"].grading_rubric.criteria[0].targets
+    assert [(target.facet, target.role) for target in targets] == [(SHARED, "primary"), (SHARED, "supporting")]
