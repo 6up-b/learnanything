@@ -40,6 +40,42 @@ The prompts for each stage are in `implementation_handoffs.md`. This file says w
 - **Built.** Code merged and verified. Most of the goal can reach this.
 - **Proven.** A live switch decided on evidence: activating a challenger, Phase 3b, router weights, T1's successor. These wait on the owner's real study data (§5, blocker B2), so they finish later and on their own schedule.
 
+## 1a. Deployment end condition (owner, 2026-10-12)
+
+**When the workflow deployment finishes, all of Slice 2 is finished.** Every Slice 2 track is built, Codex-reviewed, fixed, merged into `main` and pushed:
+- **PF-a** (Phase 3);
+- **PF-b** (Phases 5a and 5b);
+- **PF-c**;
+- **T6**, **T1**, **T4**, **T5**, **T7** and **T8**.
+
+Slice 2's prerequisites come along with it:
+- the Phase 2/3 integration;
+- **Slice 1 M1 and M2**, which T1 and PF-c build on.
+
+**What changes to make that possible:**
+- **Report gates become post-hoc.** The rule "each track starts only after the owner reviews the previous track's report" (Slice 2 §2) no longer blocks building.
+  - Tracks that don't depend on each other's code are built in parallel: T4, T5, T6 and T7 alongside PF-b and Slice 1. T1 still waits for Slice 1 M2's code, which it extends.
+  - Each track's report becomes a command the owner runs once there is data.
+- **Slice 1 M2 is built without waiting for the M1 *run*.** The M1 run needs ≥ ~40 graded wrong answers. M2's history mode defaults to `full` (O16), so the M1 report can later change the mode by config, without code.
+- **Algorithm successors are built and shipped, but the owner's vault is upgraded by command.** This covers Slice 1's split cutover, T1's recurrence successor, and Phase 3b if its replay favours it. The playbook's upgrade path is the owner's switch, and kill switches stay.
+
+**What "finished" leaves for the owner** (listed in each stage's review file):
+- **Paid runs:**
+  - the embedding backfill;
+  - `families propose`;
+  - B1–B4;
+  - the pilot;
+  - the harness arms.
+- **Running Slice 1 M1** once there's data.
+- **Vault upgrades** for the successors.
+- **The reports** before any switch.
+
+Other tracks continue alongside Slice 2 where they don't compete for the critical path: daily-loop implementation, router R0–R2, mobile M2, and project understanding M2 and later.
+
+**Critical path:** Slice 1 M1 (build), then Slice 1 M2 (with PF-c), then T1. Everything else in Slice 2 fits around it.
+
+**Machine limits.** Full test suites run under a shared lock (`flock /tmp/learnloop-fullsuite.lock`), so parallel stages don't exhaust memory. The machine has 32 threads and 30 GB of RAM, and one earlier suite was OOM-killed.
+
 ---
 
 ## 2. The loop every stage goes through

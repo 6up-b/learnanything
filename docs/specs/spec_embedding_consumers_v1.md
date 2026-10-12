@@ -124,7 +124,7 @@ The reasoning:
 - **T4 protects cold measurement cheaply.**
 - **T7 can run in parallel with anything.**
 
-Each track starts only after the owner reviews the previous track's report.
+*Revised 2026-10-12 (owner):* tracks are **built** without waiting for the previous track's report. Independent tracks (T4, T5, T6, T7) are built in parallel; T1 waits only for Slice 1 M2's code. Reports run once there is data, and they gate live switches, not building (`implementation_goal.md` §1a).
 
 ---
 
