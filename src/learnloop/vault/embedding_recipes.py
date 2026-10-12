@@ -9,12 +9,17 @@ independently versioned fields.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import closing
 from dataclasses import dataclass
 import hashlib
 import json
 from types import MappingProxyType
 
+from learnloop.db.connection import connect
+from learnloop.db.stores.pf import skeletons_for_hashes
+from learnloop.vault.hashes import skeleton_content_hash
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.paths import VaultPaths
 
 
 @dataclass(frozen=True)
@@ -83,6 +88,36 @@ def _item_stems(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
             yield item_id, item.prompt
 
 
+def _item_skeletons(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+    """PF-b's persisted LLM skeletons for each item's CURRENT text (Slice 2 §5.4).
+
+    Reads ``item_skeletons`` (paid output, never regenerated here) keyed by the
+    item text's content hash; one skeleton per item, newest prompt version
+    first, then model id. Yields nothing until skeletons exist.
+    """
+    items = {item_id: item for item_id, item in sorted(loaded.practice_items.items())
+             if item.status != "retired"}
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    if not items or not sqlite_path.exists():
+        return
+    hashes = {item_id: skeleton_content_hash(item.prompt, item.expected_answer)
+              for item_id, item in items.items()}
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        if not connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='item_skeletons'"
+        ).fetchone():
+            return
+        skeletons = skeletons_for_hashes(connection, hashes.values())
+    for item_id, content_hash in hashes.items():
+        rows = sorted(skeletons.get(content_hash, ()),
+                      key=lambda row: (row["prompt_version"], row["model_id"]), reverse=False)
+        if rows:
+            newest = max(row["prompt_version"] for row in rows)
+            chosen = min((row for row in rows if row["prompt_version"] == newest),
+                         key=lambda row: row["model_id"])
+            yield item_id, chosen["skeleton_text"]
+
+
 def _registry(*recipes: EmbeddingRecipe) -> Mapping[str, EmbeddingRecipe]:
     registry = {recipe.name: recipe for recipe in recipes}
     if len(registry) != len(recipes):
@@ -102,6 +137,13 @@ EMBEDDING_RECIPES: Mapping[str, EmbeddingRecipe] = _registry(
         "Canonical practice item prompt only; excludes retired items, expected "
         "answers, hints, grading material and learner responses.",
         _item_stems,
+    ),
+    EmbeddingRecipe(
+        "item", "skeleton", 1,
+        "The persisted LLM solution skeleton (technique sequence, checkpoints, "
+        "summary) for the item's current text, from item_skeletons; excludes "
+        "retired items and learner responses.",
+        _item_skeletons,
     ),
 )
 

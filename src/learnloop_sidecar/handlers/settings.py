@@ -81,6 +81,14 @@ _ROUTING_TASKS = (
 )
 
 
+def _route_display(value: Any) -> str | None:
+    """A route as the Settings tab shows it; a panel list reads as one string."""
+
+    if value is None or isinstance(value, str):
+        return value
+    return ", ".join(str(entry) for entry in value) or None
+
+
 def _key_state(env_name: str) -> dict[str, Any]:
     value = os.environ.get(env_name) or ""
     return {
@@ -110,7 +118,7 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
         "ai": {
             "active_provider": config.ai.active_provider,
             "fallback_provider": config.ai.fallback_provider,
-            "routing": {task: getattr(config.ai.routing, task) for task in _ROUTING_TASKS},
+            "routing": {task: _route_display(getattr(config.ai.routing, task)) for task in _ROUTING_TASKS},
             "use_cases": sorted(USE_CASE_ROUTES),
             "providers": providers,
             "env_provider_override": os.environ.get("LEARNLOOP_AI_PROVIDER") or None,

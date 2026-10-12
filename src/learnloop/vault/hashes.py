@@ -60,6 +60,17 @@ def practice_item_hash(practice_item: PracticeItem) -> str:
     )
 
 
+def skeleton_content_hash(prompt: str, expected_answer: str | dict[str, Any]) -> str:
+    """The item text a PF solution skeleton describes (``item_skeletons.content_hash``).
+
+    A generated candidate and the item published from it share it, so a skeleton
+    written at mint time serves the published item.
+    """
+    payload = json.dumps({"prompt": prompt, "expected_answer": expected_answer},
+                         sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def concept_hash(concept_id: str, concept: Concept) -> str:
     return content_hash(
         {

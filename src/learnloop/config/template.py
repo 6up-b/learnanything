@@ -766,6 +766,10 @@ backfill_enabled = false
 model = "qwen/qwen3-embedding-8b"
 dimensions = 4096
 
+# PF-b generation publishes only verified items (pf.max_published_per_day); off until enabled.
+[pf]
+generation_enabled = false
+
 # F1 is offline analysis, not serving. Paid analysis is independently opt-in.
 [field]
 active_predictor = "mastery_ekf"
@@ -800,7 +804,11 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The Slice A 2-3 review adds tutor_qa.adopt_reference_questions = true,
     # the kill switch over the daily-loop reference-question adoption sweep;
     # its default keeps the merged behaviour.
-    "mvp-0.9": "c1f6c55cd95d91515286ca27e010d05fdfb15f8718f220bf46097bd16f9696ca",
+    # Slice A Phase 5a (PF-b) adds the [pf] section (generation_enabled off,
+    # the daily publish cap and generation bounds) and the pf_proposers /
+    # pf_selection_judge routes: publishing verified items is a content change,
+    # gated by its own kill switch, not an algorithm successor.
+    "mvp-0.9": "0f7e6c2eb55f3b7422eec860afe480ebba288c6a267538b74cddc2e06b09ca94",
 }
 
 

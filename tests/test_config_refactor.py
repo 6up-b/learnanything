@@ -86,7 +86,9 @@ def test_loader_orchestrates_compatibility_before_validation(
 
 
 def test_generated_template_is_decision_only_schema_v2() -> None:
-    assert len(DEFAULT_CONFIG_TEXT.splitlines()) <= 80
+    # 80 decision lines, plus the PF-b kill switch the Slice A spec requires
+    # explicitly off in the template (`[pf] generation_enabled = false`).
+    assert len(DEFAULT_CONFIG_TEXT.splitlines()) <= 84
     assert tomllib.loads(DEFAULT_CONFIG_TEXT)["schema_version"] == 2
     assert "[codex]" not in DEFAULT_CONFIG_TEXT
     assert "default_horizon_days" not in DEFAULT_CONFIG_TEXT

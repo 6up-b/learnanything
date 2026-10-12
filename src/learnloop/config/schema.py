@@ -981,11 +981,16 @@ class AIRoutingConfig(BaseModel):
     field_question_classifier: str | None = None
     field_llm_probability: str | None = None
     pf_generator: str | None = None
+    # Ensemble proposers: profile names whose models must be at least two
+    # distinct slugs, else generation is refused (Slice 2 §5.3, §13).
+    pf_proposers: list[str] = Field(default_factory=list)
+    pf_selection_judge: str | None = None
     pf_family_judge: str | None = None
     pf_isomorph_judge: str | None = None
     pf_closed_book: str | None = None
     pf_reference_verifier: str | None = None
-    pf_solver_panel: str | None = None
+    # One profile, or a list for a panel at different tiers (P10).
+    pf_solver_panel: str | list[str] | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None
@@ -1347,6 +1352,44 @@ class FamiliesConfig(BaseModel):
     blocking_top_k: int = Field(default=20, ge=1)
 
 
+class PFScalingConfig(BaseModel):
+    """The scaling check's two configured tiers (Slice 2 §5.6), as route lists.
+
+    A tier's first profile serves the single-route roles (program writer,
+    single-shot, isomorph and selection judges); all of its profiles propose on
+    the ensemble path, so an ensemble tier needs two distinct models.
+    """
+
+    cheap: list[str] = Field(default_factory=list)
+    frontier: list[str] = Field(default_factory=list)
+
+
+class PFConfig(BaseModel):
+    """PF-b: generate, verify, select and publish (Slice 2 §5.3-§5.4).
+
+    ``generation_enabled`` is the kill switch for every paid PF command and for
+    publication; it is off in the template. Publishing verified items is a
+    content change, capped per UTC day, not an algorithm change.
+    """
+
+    generation_enabled: bool = False
+    max_published_per_day: int = Field(default=10, ge=0)
+    default_path: Literal["ensemble", "generator"] = "ensemble"
+    candidates_per_family: int = Field(default=6, ge=1, le=60)
+    select_per_family: int = Field(default=2, ge=1)
+    # P10 defaults: about three solves per panel model, at least two agreeing.
+    panel_solves_per_model: int = Field(default=3, ge=1, le=10)
+    min_agreeing_solves: int = Field(default=2, ge=2)
+    # Generator-program unit tests: draws checked for CAS and invariance.
+    generator_test_draws: int = Field(default=8, ge=2, le=100)
+    sandbox_cpu_seconds: int = Field(default=20, ge=1)
+    sandbox_memory_mb: int = Field(default=2048, ge=256)
+    sandbox_wall_seconds: int = Field(default=60, ge=1)
+    # Freshness comparison set for large LOs: stem-embedding top-k (blocking only).
+    freshness_top_k: int = Field(default=10, ge=1)
+    scaling: PFScalingConfig = Field(default_factory=PFScalingConfig)
+
+
 class EmbeddingConfig(BaseModel):
     enabled: bool = False
     backfill_enabled: bool = False
@@ -1404,6 +1447,7 @@ class LearnLoopConfig(BaseModel):
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
+    pf: PFConfig = Field(default_factory=PFConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

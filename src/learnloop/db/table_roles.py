@@ -188,8 +188,13 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("intervention_needs", TableRole.WORKFLOW),
     # A measured calibration artifact which may include provider trials and
     # observed evidence.  The deterministic backfill is not its full source.
+    # Slice A Phase 5a (PF-b): deterministic symbolic fingerprints of family
+    # items, rebuilt from vault content and persisted skeletons only.
+    ("item_fingerprints", TableRole.DERIVED),
     ("item_misconception_discrimination", TableRole.RAW_LEDGER),
     ("item_parameter_state", TableRole.DERIVED),
+    # Paid LLM-written solution skeletons; never regenerated on rebuild.
+    ("item_skeletons", TableRole.WORKFLOW),
     ("judgment_ledger", TableRole.RAW_LEDGER),
     ("activity_family_membership_events", TableRole.RAW_LEDGER),
     ("family_proposals", TableRole.WORKFLOW),
@@ -226,6 +231,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("parameter_registry_manifests", TableRole.RECEIPT),
     ("parameter_sensitivity_certificates", TableRole.RECEIPT),
     ("persona_realism_runs", TableRole.RECEIPT),
+    # PF-b generated candidates: pipeline state only; verdicts are ledgered.
+    ("pf_candidates", TableRole.WORKFLOW),
     ("policy_experiment_assignments", TableRole.RECEIPT),
     ("practice_attempts", TableRole.RAW_LEDGER),
     ("practice_item_quality_state", TableRole.DERIVED),

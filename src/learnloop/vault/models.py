@@ -675,7 +675,11 @@ class PracticeItem(VaultModel):
     expected_answer: str | dict[str, Any]
     difficulty: float | None = Field(default=None, ge=0.0, le=1.0)
     # Provenance of difficulty; non-hashed metadata (spec §6.1), not item content.
-    difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
+    # ``solver_panel``: a PF-b per-variant offset from the solve rate of a panel
+    # of models (Slice 2 §5.4); LLM self-labels never set it.
+    difficulty_source: Literal[
+        "author", "llm_estimate", "empirical", "calibrated", "solver_panel"
+    ] | None = None
     tags: list[str] = Field(default_factory=list)
     hints: list[str] = Field(default_factory=list)
     hint_policy: HintPolicy = Field(default_factory=HintPolicy)

@@ -21391,12 +21391,16 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         connection.isolation_level = None
         try:
             connection.execute("BEGIN IMMEDIATE")
+            # PF-b generation jobs (generator_version 'pf_*') share this table and
+            # its lifecycle but are drained only by `learnloop pf generate`
+            # (claim_surface_mint_request); a rotation worker never claims them.
             live = connection.execute(
                 """
                 SELECT 1 FROM surface_mint_requests
                  WHERE status = 'running'
                    AND lease_expires_at IS NOT NULL
                    AND lease_expires_at >= ?
+                   AND generator_version NOT LIKE 'pf\\_%' ESCAPE '\\'
                  LIMIT 1
                 """,
                 (lease_cutoff_iso,),
@@ -21407,9 +21411,10 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             candidate = connection.execute(
                 """
                 SELECT * FROM surface_mint_requests
-                 WHERE status = 'pending'
-                    OR (status = 'running' AND (lease_expires_at IS NULL
-                                                OR lease_expires_at < ?))
+                 WHERE (status = 'pending'
+                        OR (status = 'running' AND (lease_expires_at IS NULL
+                                                    OR lease_expires_at < ?)))
+                   AND generator_version NOT LIKE 'pf\\_%' ESCAPE '\\'
                  ORDER BY created_at, id
                  LIMIT 1
                 """,
@@ -21436,6 +21441,57 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             return dict(claimed) if claimed is not None else None
         finally:
             connection.close()
+
+    def claim_surface_mint_request(
+        self, request_id: str, *, worker_id: str, now_iso: str, lease_expires_at: str,
+        reclaim_statuses: Sequence[str] = ("pending", "failed"),
+    ) -> dict[str, Any] | None:
+        """Claim ONE named request under a fenced lease (PF-b, 078 pattern).
+
+        Claimable when its status is in ``reclaim_statuses`` or it is ``running``
+        under an expired lease. Returns the claimed row (with its new
+        ``lease_epoch``) or None when another worker holds a live lease or the
+        request is terminal.
+        """
+
+        statuses = tuple(reclaim_statuses)
+        placeholders = ",".join("?" for _ in statuses)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                f"""
+                UPDATE surface_mint_requests
+                   SET status = 'running', lease_owner = ?, lease_expires_at = ?,
+                       lease_epoch = lease_epoch + 1, failure_reason = NULL, updated_at = ?
+                 WHERE id = ?
+                   AND (status IN ({placeholders})
+                        OR (status = 'running' AND (lease_expires_at IS NULL
+                                                    OR lease_expires_at < ?)))
+                """,
+                (worker_id, lease_expires_at, now_iso, request_id, *statuses, now_iso),
+            )
+            claimed = connection.execute(
+                "SELECT * FROM surface_mint_requests WHERE id = ?", (request_id,)
+            ).fetchone() if cursor.rowcount else None
+            connection.commit()
+        return dict(claimed) if claimed is not None else None
+
+    def release_surface_mint_request(
+        self, request_id: str, *, expected_lease_epoch: int, clock: Clock | None = None,
+    ) -> bool:
+        """Return a cancelled, still-leased request to ``pending`` (resumable)."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE surface_mint_requests
+                   SET status = 'pending', lease_owner = NULL, lease_expires_at = NULL,
+                       updated_at = ?
+                 WHERE id = ? AND status = 'running' AND lease_epoch = ?
+                """,
+                (utc_now_iso(clock), request_id, expected_lease_epoch),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
 
     def set_surface_mint_candidate(
         self,

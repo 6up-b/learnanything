@@ -841,6 +841,11 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_prefix("families."), "structural", "operational",
                 "Explicit-command authoring candidate bounds; judges decide identity, "
                 "with no live measurement or scheduling authority."),
+    _ConfigRule(_prefix("pf."), "structural", "operational",
+                "PF-b generation bounds (candidates, panel solves, sandbox limits, daily "
+                "publish cap). Publishing verified items is a content change; difficulty "
+                "comes from the solver panel and judges/verifiers decide, so these knobs "
+                "carry no measurement authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",
