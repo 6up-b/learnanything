@@ -663,3 +663,47 @@ def test_an_isomorph_verdict_without_preserved_checkpoints_is_never_a_final_isom
     declared_isomorph = run(paths, fakes=clients(structure=inconsistent), round="r2")
     assert declared_isomorph["status"] == "complete"
     assert all(row["final_relation"] != "isomorph" for row in rows(repository, "round='r2'"))
+
+
+# -- Codex review F6: publication recovery preserves existing practice state --------------
+
+
+@needs_bwrap
+def test_publication_recovery_never_erases_scheduling_state(pf, monkeypatch):
+    from learnloop.ops import pf_publish
+
+    _, repository, paths = pf
+    run(paths, publish=False, select=2)
+    first, second = [row["id"] for row in rows(repository, "status='selected'")]
+
+    # 1. Crash after the item file is written, before membership and the published mark.
+    real_append = pf_publish.append_membership
+    monkeypatch.setattr(pf_publish, "append_membership",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("crash after the file")))
+    with pytest.raises(RuntimeError):
+        pf_publish.publish_candidate(load_vault(paths.root), repository, first, clock=DAY)
+    item_id = pf_publish.published_item_id(first)
+    assert item_id in load_vault(paths.root).practice_items
+    # The sidecar discovers the item and the learner practises it.
+    repository.upsert_practice_item_state(item_id, difficulty=0.3, stability=4.5, retrievability=0.8,
+                                          due_at="2026-10-20T00:00:00Z", last_attempt_at="2026-10-12T13:00:00Z",
+                                          content_hash="h", clock=DAY)
+    monkeypatch.setattr(pf_publish, "append_membership", real_append)
+    pf_publish.publish_candidate(load_vault(paths.root), repository, first, clock=DAY)
+    state = repository.practice_item_state(item_id)
+    assert (state.stability, state.due_at, state.last_attempt_at, state.difficulty) == (
+        4.5, "2026-10-20T00:00:00Z", "2026-10-12T13:00:00Z", 0.3)
+    assert rows(repository, "id=?", (first,))[0]["status"] == "published"
+
+    # 2. Crash after the published mark, before scheduling initialization: the retry initializes it.
+    real_init = repository.initialize_practice_item_state
+    monkeypatch.setattr(repository, "initialize_practice_item_state",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("crash before state")))
+    with pytest.raises(RuntimeError):
+        pf_publish.publish_candidate(load_vault(paths.root), repository, second, clock=DAY)
+    second_item = pf_publish.published_item_id(second)
+    assert repository.practice_item_state(second_item) is None
+    monkeypatch.setattr(repository, "initialize_practice_item_state", real_init)
+    pf_publish.publish_candidate(load_vault(paths.root), repository, second, clock=DAY)
+    state = repository.practice_item_state(second_item)
+    assert state is not None and state.active and state.stability is None

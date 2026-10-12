@@ -132,6 +132,11 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
     if row is None:
         raise PublishRefused(f"Unknown candidate {candidate_id}")
     if row["status"] == "published":
+        # Recovery after a crash between the published mark and scheduling
+        # initialization: initialize only when absent, never overwrite.
+        item = vault.practice_items.get(row["published_item_id"])
+        if item is not None:
+            _initialize_scheduling(repository, item, clock)
         return vault, row["published_item_id"]
     if row["verification"] != "verified":
         raise PublishRefused("An unverified reference is never published")
@@ -177,14 +182,21 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
         )
         update_candidate(connection, candidate_id, status="published", published_item_id=item_id,
                          published_at=now_iso, updated_at=now_iso)
-    # Fresh scheduling state, as the next state sync would derive it.
-    repository.upsert_practice_item_state(item_id, active=True,
-                                          content_hash=practice_item_hash(item), clock=clock)
+    _initialize_scheduling(repository, item, clock)
     try:
         repository.bump_queue_revision(clock=clock)
     except Exception:  # noqa: BLE001 - queue nudging never blocks publication
         _LOGGER.warning("failed to bump queue revision after PF publication", exc_info=True)
     return vault, item_id
+
+
+def _initialize_scheduling(repository: Repository, item: PracticeItem, clock: Clock | None) -> None:
+    """Fresh scheduling state, as the next state sync would derive it, only when absent.
+
+    A retried publication may find practice the sidecar already recorded for
+    the item (it discovered the file before the crash); that row is kept.
+    """
+    repository.initialize_practice_item_state(item.id, content_hash=practice_item_hash(item), clock=clock)
 
 
 def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: list[str], *,

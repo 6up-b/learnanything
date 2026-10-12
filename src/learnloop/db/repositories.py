@@ -895,6 +895,35 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             rows = connection.execute("SELECT * FROM practice_item_state").fetchall()
         return {row["practice_item_id"]: _practice_item_state(row) for row in rows}
 
+    def initialize_practice_item_state(
+        self,
+        practice_item_id: str,
+        *,
+        content_hash: str | None = None,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Insert a fresh, active scheduling row only when none exists.
+
+        Never touches an existing row (practice already recorded for the item),
+        so a retried publication cannot erase scheduling state. Returns whether
+        a row was inserted.
+        """
+        now = utc_now_iso(clock)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO practice_item_state(
+                  practice_item_id, difficulty, stability, retrievability, due_at,
+                  active, content_hash, last_attempt_at, updated_at
+                )
+                VALUES (?, NULL, NULL, NULL, NULL, 1, ?, NULL, ?)
+                ON CONFLICT(practice_item_id) DO NOTHING
+                """,
+                (practice_item_id, content_hash, now),
+            )
+            connection.commit()
+        return cursor.rowcount > 0
+
     def upsert_practice_item_state(
         self,
         practice_item_id: str,
