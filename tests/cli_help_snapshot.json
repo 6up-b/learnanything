@@ -469,7 +469,7 @@
   },
   "project": {
     "bytes": 3287,
-    "sha256": "76f8c028157132e0fbe3dc9c6b10f09c644cf519b0c71f06c502b45ffb9f29bc"
+    "sha256": "6055ef286737892aaa722605b8c3bb2ffb99b2805d8511440f80e2a083919c65"
   },
   "project accept": {
     "bytes": 1805,
@@ -488,8 +488,8 @@
     "sha256": "12c2cde5cd34dabb843f21ef752ffc26b797b52857ae22db96baab90f7b98909"
   },
   "project grade": {
-    "bytes": 3250,
-    "sha256": "6730baf6739f6edb65ba05f1ef27a0ad1ae5d3548ec223e0fb57252abfb492ac"
+    "bytes": 3671,
+    "sha256": "2139432ff0563ff44851f6477a1420729a33aa25d5f4c6a1cce0ef18cb376ce4"
   },
   "project install-hook": {
     "bytes": 1670,
@@ -512,8 +512,8 @@
     "sha256": "938ac945fbe87dc0e3d78a70badc4e410c991a392a433378a06a7d90ead46453"
   },
   "project sweep": {
-    "bytes": 4347,
-    "sha256": "8e2811c96367cbd6e64190e2a333ebd7ecba339ff54298ace6cce0f48ca82caa"
+    "bytes": 4687,
+    "sha256": "8f54c0dad14ed0104b1c0c4234b4ea621cdca0b12dfb0d4b4046c463008c3473"
   },
   "project unenroll": {
     "bytes": 1670,

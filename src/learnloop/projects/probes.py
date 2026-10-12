@@ -514,10 +514,21 @@ class GenerationReport:
         }
 
 
-def diffs_awaiting_generation(store: ProjectStore, *, due_by: str | None = None, config: LearnLoopConfig | None = None) -> list[dict[str, Any]]:
-    """Diffs whose probes are not generated yet, optionally only those due by ``due_by``."""
+def diffs_awaiting_generation(
+    store: ProjectStore,
+    *,
+    due_by: str | None = None,
+    config: LearnLoopConfig | None = None,
+    include_failed: bool = False,
+) -> list[dict[str, Any]]:
+    """Diffs whose probes are not generated yet, optionally only those due by ``due_by``.
+
+    ``include_failed`` adds diffs whose generation failed, for an explicit retry.
+    """
 
     pending = store.diffs(probe_status="pending")
+    if include_failed:
+        pending = sorted(pending + store.diffs(probe_status="failed"), key=lambda diff: (diff["captured_at"], diff["id"]))
     if due_by is None or config is None:
         return pending
     return [diff for diff in pending if _sealed_until(diff, config) <= due_by]

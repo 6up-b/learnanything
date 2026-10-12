@@ -546,13 +546,16 @@ class ProjectStore:
                 (status, generated_at, diff_id),
             )
 
-    def retry_failed_generation(self, diff_id: str) -> None:
+    def retry_failed_generation(self, diff_id: str) -> bool:
+        """Back to ``pending`` with fresh attempts; probes from finished stages are kept."""
+
         with self.connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 "UPDATE diffs SET probe_status = 'pending', generation_attempts = 0 "
                 "WHERE id = ? AND probe_status = 'failed'",
                 (diff_id,),
             )
+            return cursor.rowcount == 1
 
     # --- provenance -------------------------------------------------------------
 
@@ -730,6 +733,17 @@ class ProjectStore:
                 return False
             _insert_judgment(connection, judgment)
             return True
+
+    def retry_failed_grade(self, response_id: str) -> bool:
+        """Back to ``pending`` with fresh attempts; the answer and receipts are kept."""
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE probe_responses SET grade_status = 'pending', grade_attempts = 0 "
+                "WHERE id = ? AND grade_status = 'failed'",
+                (response_id,),
+            )
+            return cursor.rowcount == 1
 
     def record_grade_failure(self, response_id: str, *, max_attempts: int) -> None:
         with self.connection() as connection:

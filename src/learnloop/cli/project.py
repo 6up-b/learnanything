@@ -159,6 +159,13 @@ def _generate(
     if dry_run:
         return {"status": "dry_run", "diffs": len(diffs), "estimate": estimate, "routes": routes}
     with _routes(root, config, store, ("authoring", "closed_book", "grading")) as resolved:
+        if all(route.ready for route in resolved.values()):
+            # An explicit retry: failed diffs go back to pending only now that
+            # the run is admitted and its routes are ready.
+            for diff in diffs:
+                if diff["probe_status"] == "failed":
+                    store.retry_failed_generation(diff["id"])
+        diffs = [store.diff(diff["id"]) or diff for diff in diffs]
         report = generate_probes(store, root, config, paid, resolved, diffs, clock=clock)
     return {**report.as_dict(), "estimate": estimate}
 
@@ -190,9 +197,11 @@ def _grade(
     price_per_million: float | None,
     clock: Clock,
     dry_run: bool = False,
+    retry_failed: bool = False,
 ) -> dict[str, Any]:
+    statuses = ("pending", "failed") if retry_failed else ("pending",)
     pending = [
-        response for response in store.responses(grade_status="pending")
+        response for status in statuses for response in store.responses(grade_status=status)
         if response_ids is None or response["id"] in response_ids
     ]
     if not pending:
@@ -210,6 +219,11 @@ def _grade(
             route = resolved["grading"]
             if not route.ready:
                 return {"status": "provider_unavailable", "reason": route.message, "pending": len(pending)}
+            for response in pending:
+                if response["grade_status"] == "failed":
+                    # An explicit retry, admitted and ready: the answer and
+                    # earlier receipts stay; attempts start again.
+                    store.retry_failed_grade(response["id"])
             try:
                 results = grade_responses(store, paid, route, response_ids=[r["id"] for r in pending], clock=clock)
             except SpendLimitExceeded as exc:
@@ -343,6 +357,7 @@ def project_sweep(
     capture_only: Annotated[bool, typer.Option("--capture-only", help="Capture without generating questions (no model calls).")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate generation for captured diffs; no capture, model calls or writes.")] = False,
     max_diffs: Annotated[int, typer.Option("--max-diffs", min=0, help="Generate for at most this many diffs, oldest first.")] = 30,
+    retry_failed: Annotated[bool, typer.Option("--retry-failed", help="Also retry diffs whose question generation failed (finished stages are kept, not re-paid).")] = False,
     max_candidates: MaxCandidates = 300,
     max_calls: MaxCalls = 200,
     max_retries: MaxRetries = 4,
@@ -376,7 +391,7 @@ def project_sweep(
         )
         swept = None if dry_run else sweep(root, config, clock=clock, trigger="manual", repo_ids=repo_ids)
         awaiting = [
-            diff for diff in diffs_awaiting_generation(store)
+            diff for diff in diffs_awaiting_generation(store, include_failed=retry_failed)
             if repo_ids is None or diff["repo_id"] in repo_ids
         ][:max_diffs]
         generation = None
@@ -796,6 +811,7 @@ def project_answer(
 def project_grade(
     vault: VaultOption = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate; make no calls.")] = False,
+    retry_failed: Annotated[bool, typer.Option("--retry-failed", help="Also retry answers whose grading failed (attempts start again; answers and receipts are kept).")] = False,
     max_calls: MaxCalls = 50,
     max_retries: MaxRetries = 4,
     max_tokens: MaxTokens = 500_000,
@@ -803,7 +819,7 @@ def project_grade(
     price_per_million: PriceOption = None,
     json_output: JsonOption = False,
 ) -> None:
-    """Grade saved answers whose grading is still pending (blind grader)."""
+    """Grade saved answers whose grading is still pending (blind grader); `--retry-failed` retries failed ones."""
 
     clock = _clock()
     try:
@@ -811,7 +827,8 @@ def project_grade(
         config = _config(root)
         store = _store(root)
         caps = caps_from_options(max_candidates=0, max_calls=max_calls, max_retries=max_retries, max_tokens=max_tokens, max_cost_usd=max_cost_usd)
-        result = _grade(root, config, store, None, caps=caps, price_per_million=price_per_million, clock=clock, dry_run=dry_run)
+        result = _grade(root, config, store, None, caps=caps, price_per_million=price_per_million, clock=clock,
+                        dry_run=dry_run, retry_failed=retry_failed)
     except ValueError as exc:
         _fail(str(exc), json_output)
         return

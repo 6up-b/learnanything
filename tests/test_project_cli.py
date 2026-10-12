@@ -424,3 +424,49 @@ def test_probes_dry_run_estimates_generation_and_the_grading_it_enables(isolated
     assert project_fake.requests == []
     capped = json.loads(cli(["probes", "--dry-run", "--json", "--max-calls", "4"], day=8))
     assert capped["estimate"]["status"] == "over_budget"
+
+
+def test_failed_grades_can_be_retried_with_spend_controls(isolated_git, project_fake, cli, tmp_path):
+    repo = make_model_repo(tmp_path / "repo")
+    cli(["enroll", str(repo.path)])
+    cli(["sweep"])
+    store = ProjectStore.existing(cli.vault)
+    probe_id = next(probe["id"] for probe in store.all_probes() if probe["selected"])
+    project_fake.fail_grading = True
+    cli(["answer", probe_id, "--text", "It applies relu after scaling."], day=8)
+    for _ in range(2):
+        cli(["grade"], day=8)
+    (response,) = store.responses()
+    assert response["grade_status"] == "failed"
+    project_fake.fail_grading = False
+    assert json.loads(cli(["grade", "--json"], day=9))["status"] == "nothing_to_grade"
+    receipts = len(store.receipts())
+    dry = json.loads(cli(["grade", "--retry-failed", "--dry-run", "--json"], day=9))
+    assert dry["status"] == "dry_run" and dry["estimate"]["calls"] == 1
+    assert store.response(response["id"])["grade_status"] == "failed" and len(store.receipts()) == receipts
+    assert json.loads(cli(["grade", "--retry-failed", "--max-calls", "0", "--json"], day=9))["status"] == "over_budget"
+    assert store.response(response["id"])["grade_status"] == "failed"  # nothing reset when nothing can run
+    retried = json.loads(cli(["grade", "--retry-failed", "--json"], day=9))
+    assert retried["status"] == "complete"
+    graded = store.response(response["id"])
+    assert graded["grade_status"] == "graded" and graded["answer"] == "It applies relu after scaling."
+    assert len(store.receipts()) > receipts  # the failed attempts' receipts are kept
+
+
+def test_failed_generation_can_be_retried_without_re_authoring(isolated_git, project_fake, cli, tmp_path):
+    repo = make_model_repo(tmp_path / "repo")
+    cli(["enroll", str(repo.path)])
+    project_fake.fail_closed_book = True
+    for _ in range(3):
+        cli(["sweep"])
+    store = ProjectStore.existing(cli.vault)
+    (diff,) = store.diffs()
+    assert diff["probe_status"] == "failed" and project_fake.calls["authoring"] == 1
+    project_fake.fail_closed_book = False
+    assert json.loads(cli(["sweep", "--json"]))["generation"]["status"] == "nothing_to_generate"
+    dry = json.loads(cli(["sweep", "--retry-failed", "--dry-run", "--json"]))
+    assert dry["generation"]["estimate"]["calls"] == 2  # closed-book and its grading; authoring is kept
+    assert store.diff(diff["id"])["probe_status"] == "failed"
+    cli(["sweep", "--retry-failed"])
+    assert store.diff(diff["id"])["probe_status"] == "generated"
+    assert project_fake.calls["authoring"] == 1
