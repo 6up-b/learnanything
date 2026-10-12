@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 22482,
-    "sha256": "8685899a8c237182b94f56bd66feb965fea3c0ababafa46d0658ff5b8216354c"
+    "bytes": 22567,
+    "sha256": "e5752308fb9c6fa6b7eace4df9981a009f881021ab1f4f7e64719babf524b451"
   },
   "accept": {
     "bytes": 1593,
@@ -555,6 +555,18 @@
     "bytes": 1125,
     "sha256": "1f1a205da00169166fcaf8a7e59dddf252b94cba56b13ecc6ba8d79fa1b0fc25"
   },
+  "plan": {
+    "bytes": 1587,
+    "sha256": "12381ddfba97cd0fda607b67f7e3aa68591773633fb669bbbbeb73027aecb37f"
+  },
+  "plan report": {
+    "bytes": 1125,
+    "sha256": "ba65d9a843e83f9adc110b8e691b1354cb9d48327830e0f424eb659e64377f02"
+  },
+  "plan show": {
+    "bytes": 1210,
+    "sha256": "e4bf743c373c735f70a7ba4283df3abfc23ec626e4a7f25027d8052c8ea427ab"
+  },
   "populate-goal": {
     "bytes": 3856,
     "sha256": "0e49f9bf747895897fe48bb80db5748a8a1ced2ae622d5cc3e3e865a0f3e6681"
@@ -888,8 +900,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 2106,
-    "sha256": "d1afa8d26209b8aefe42d354ef42464494c7b6ec1de614e5eacc764736834921"
+    "bytes": 2349,
+    "sha256": "cd1f3d2a6491712e7f415e45e56ab69d24f66e7acf5d0df90d614ac3dd17e18a"
   },
   "usage": {
     "bytes": 1546,

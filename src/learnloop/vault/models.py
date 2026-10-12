@@ -676,6 +676,14 @@ class PracticeItem(VaultModel):
     difficulty: float | None = Field(default=None, ge=0.0, le=1.0)
     # Provenance of difficulty; non-hashed metadata (spec §6.1), not item content.
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
+    # Daily-loop DL1 (spec_daily_loop_v1 §6.4): the author's (usually an LLM's)
+    # estimate of the minutes needed to answer, the starting guess the
+    # learner's own durations shrink away from. A planning label only: never
+    # evidence, outside ``practice_item_hash``, and omitted when null so items
+    # written before it (and their snapshot hashes) are unchanged.
+    expected_minutes: float | None = Field(
+        default=None, gt=0.0, le=240.0, exclude_if=lambda value: value is None
+    )
     tags: list[str] = Field(default_factory=list)
     hints: list[str] = Field(default_factory=list)
     hint_policy: HintPolicy = Field(default_factory=HintPolicy)

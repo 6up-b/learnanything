@@ -127,6 +127,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("controller_prequential_reports", TableRole.RECEIPT),
     ("controller_shadow_predictions", TableRole.RECEIPT),
     ("controller_snapshots", TableRole.RECEIPT),
+    # Daily-loop DL1: the finite daily plan (workflow state; its block
+    # decisions are attention_block_events receipts). Replay never reads it.
+    ("daily_plans", TableRole.WORKFLOW),
     ("decision_features", TableRole.RECEIPT),
     ("depth_edge_instances", TableRole.RAW_LEDGER),
     ("depth_edge_template_versions", TableRole.RAW_LEDGER),

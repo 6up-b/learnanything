@@ -820,7 +820,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # structuring / append models and cosine review columns. It acts only when
     # embedding.enabled (default false) is also on, changes no scoring,
     # scheduling, projection or serving, and enabled = false is its kill switch.
-    "mvp-0.9": "a9a1916d48890a88b359d751f6c5006559ae26677a1fa23422d75f101c4a8a6f",
+    # Daily-loop DL1 adds [plan] (modelled defaults only, left out of the
+    # decision-only template). It is dormant below mvp-0.12 (the algorithm
+    # version gates the plan), so mvp-0.9, mvp-0.10 and mvp-0.11 serving is
+    # unchanged; their snapshots move only because the effective config gains
+    # the section.
+    "mvp-0.9": "27d41535b2fb49fd1ba5dcc3037c3042d8bd0a0a61ed140c21614e40ef73d6e9",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -828,7 +833,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
-    "mvp-0.10": "ab768a5d5345cd5524f492845ecad427fbc95c0eecdc7ce0d68d90f0f2f17af9",
+    "mvp-0.10": "7148a0a4ef87e5ad14247897bb35fb387c6833c4755e7833ecffff2704efc172",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -839,7 +844,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # with only algorithm_version changed. [placement] is dormant below
     # mvp-0.11, so the mvp-0.9 and mvp-0.10 snapshots were recomputed at the
     # merge (they move only because the effective config gains the section).
-    "mvp-0.11": "36b5b6c3cb3d6d5c5b332ca14679cdcb30dc5a20b00c6aabc7542e87cc22c4c9",
+    "mvp-0.11": "3e5cc7d41c6fc7f10743a7ed3396bac01b7de593a721fc520aafe78c602cb504",
+    # mvp-0.12 (daily-loop DL1, daily_plan_v1): mvp-0.11 plus the finite daily
+    # plan ([plan], modelled defaults only): the system-set split, load-based
+    # new-material admission, block-by-block choice through the §6.8
+    # source/chooser seam, goal-optional re-entry and reading blocks. Kill
+    # switch plan.enabled. Reached by `learnloop upgrade` (default target) from
+    # mvp-0.11, or from mvp-0.10 / mvp-0.9 through the earlier links; the
+    # template stays at mvp-0.9. Computed from DEFAULT_CONFIG_TEXT with only
+    # algorithm_version changed.
+    "mvp-0.12": "c7a0f02e38aed7e20e80818a11d1cfbdc09350b3c97c934eb140e23dc485a766",
 }
 
 

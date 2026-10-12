@@ -57,7 +57,7 @@ def test_upgrade_command_reaches_mvp09_target(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     set_algorithm_version(paths, "mvp-0.8")
 
-    # The default target moved on to mvp-0.11 (Slice A Phase 6); mvp-0.9 is
+    # The default target moved on (mvp-0.12, daily-loop DL1); mvp-0.9 is
     # still reached explicitly, one immediate successor at a time.
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.9"])
 

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.algorithm_versions import (
+    DAILY_PLAN_ALGORITHM_VERSION,
     DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
     PLACEMENT_ALGORITHM_VERSION,
 )
@@ -400,6 +401,101 @@ def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResul
         upgraded=True,
         from_version=original,
         to_version=PLACEMENT_ALGORITHM_VERSION,
+    )
+
+
+def upgrade_to_mvp012(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """Activate daily-loop DL1 (``daily_plan_v1``): the finite daily plan.
+
+    ``mvp-0.12`` is the next link of the linear chain: it means ``mvp-0.11``
+    (the split plus placement) PLUS the plan. It changes what Today serves (a
+    finite plan of remembered minutes, split across repair, maintain, new and
+    push and chosen block by block; goal-optional re-entry; reading blocks),
+    not the authority-propagation projection, so it is an immediate-successor
+    tag plus an idempotent rebuild of the same projection namespace, prepared
+    before the atomic config rename. The kill switch ``plan.enabled`` (default
+    on) restores DL0's Today exactly.
+
+    The immediate predecessor is ``mvp-0.11``. An ``mvp-0.10`` or ``mvp-0.9``
+    vault is accepted by running :func:`upgrade_to_mvp011` first (which itself
+    chains through ``mvp-0.10``); a refusal there refuses this upgrade too, and
+    if this step then fails the vault is left at the valid ``mvp-0.11``.
+    Anything older is refused.
+
+    Nothing is rewritten: the plan tables start empty and replay never reads
+    them.
+    """
+
+    from learnloop.params import parameter_registry as registry_service
+    from learnloop.substrate.p0_projection import activate_p0_projection
+
+    vault = load_vault(root)
+    original = vault.config.algorithms.algorithm_version
+    if original == DAILY_PLAN_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=original,
+            to_version=DAILY_PLAN_ALGORITHM_VERSION,
+            problems=[f"vault is already {DAILY_PLAN_ALGORITHM_VERSION}"],
+        )
+    chainable = {
+        REVEAL_LEDGER_ALGORITHM_VERSION,
+        DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+        PLACEMENT_ALGORITHM_VERSION,
+    }
+    if original not in chainable:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=original,
+            to_version=DAILY_PLAN_ALGORITHM_VERSION,
+            problems=[
+                f"cannot upgrade from {original!r}; only {PLACEMENT_ALGORITHM_VERSION!r} "
+                f"(or {DIAGNOSIS_SPLIT_ALGORITHM_VERSION!r} / {REVEAL_LEDGER_ALGORITHM_VERSION!r}, "
+                f"through it) may activate {DAILY_PLAN_ALGORITHM_VERSION}"
+            ],
+        )
+    if original != PLACEMENT_ALGORITHM_VERSION:
+        chained = upgrade_to_mvp011(root, clock=clock)
+        if not chained.upgraded:
+            return UpgradeResult(
+                upgraded=False,
+                from_version=original,
+                to_version=DAILY_PLAN_ALGORITHM_VERSION,
+                problems=[
+                    f"{PLACEMENT_ALGORITHM_VERSION} step refused: {problem}"
+                    for problem in chained.problems
+                ],
+            )
+        vault = load_vault(root)
+    current = vault.config.algorithms.algorithm_version
+
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    # Repository construction applies the additive migration (174's
+    # daily_plans and attention_blocks columns) before anything reads them.
+    repository = Repository(sqlite_path)
+    registry_service.freeze_manifest(
+        vault,
+        repository,
+        algorithm_version=PLACEMENT_ALGORITHM_VERSION,
+        clock=clock,
+    )
+    vault.config.algorithms.algorithm_version = DAILY_PLAN_ALGORITHM_VERSION
+    activate_p0_projection(
+        vault,
+        repository,
+        from_version=current,
+        clock=clock,
+    )
+    registry_service.refresh(vault, repository, clock=clock)
+    _rewrite_algorithm_version(
+        root / "learnloop.toml",
+        current,
+        DAILY_PLAN_ALGORITHM_VERSION,
+    )
+    return UpgradeResult(
+        upgraded=True,
+        from_version=original,
+        to_version=DAILY_PLAN_ALGORITHM_VERSION,
     )
 
 

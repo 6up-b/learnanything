@@ -75,9 +75,9 @@ def upgrade(
         str,
         typer.Option(
             "--to",
-            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, or mvp-0.11).",
+            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, or mvp-0.12).",
         ),
-    ] = "mvp-0.11",
+    ] = "mvp-0.12",
 ) -> None:
     """Atomically activate a knowledge-model version for this vault.
 
@@ -87,9 +87,12 @@ def upgrade(
     cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
     activates the Slice 1 split (learner-blind grader + asynchronous diagnoser)
     over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
-    ``--to mvp-0.11`` (default, the latest successor) adds placement, starting
-    new material without ceremony, over an mvp-0.10 vault, or over an mvp-0.9
-    vault by activating mvp-0.10 first (kill switch ``placement.enabled``)."""
+    ``--to mvp-0.11`` adds placement, starting new material without ceremony,
+    over an mvp-0.10 vault, or over an mvp-0.9 vault by activating mvp-0.10
+    first (kill switch ``placement.enabled``); ``--to mvp-0.12`` (default, the
+    latest successor) adds the finite daily plan over an mvp-0.11 vault, or
+    over an mvp-0.10 / mvp-0.9 vault through the earlier links (kill switch
+    ``plan.enabled``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -97,6 +100,7 @@ def upgrade(
         upgrade_to_mvp09,
         upgrade_to_mvp010,
         upgrade_to_mvp011,
+        upgrade_to_mvp012,
     )
 
     if to == "mvp-0.7":
@@ -109,9 +113,11 @@ def upgrade(
         result = upgrade_to_mvp010(_root(vault))
     elif to == "mvp-0.11":
         result = upgrade_to_mvp011(_root(vault))
+    elif to == "mvp-0.12":
+        result = upgrade_to_mvp012(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, or mvp-0.11."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10, mvp-0.11, or mvp-0.12."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

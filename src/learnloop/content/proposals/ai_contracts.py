@@ -504,6 +504,13 @@ class PracticeItemPatchPayload(WireModel):
     variant_contract: VariantAuthoringContractPayload | None = None
     difficulty: float | None = None
     difficulty_source: Literal["author", "llm_estimate", "empirical", "calibrated"] | None = None
+    expected_minutes: float | None = Field(
+        default=None,
+        description=(
+            "Estimated minutes to read the prompt and write the answer, not counting "
+            "feedback (daily-plan sizing only; never evidence)."
+        ),
+    )
     capability: Literal[
         "retrieval", "schema_interpretation", "procedure_execution", "method_selection", "coordination"
     ] | None = Field(
@@ -739,7 +746,7 @@ class AuthoringProposal(WireModel):
 
 AUTHORING_PROMPT_VERSION = "mvp-0.9-criterion-total-scoring"
 DIAGNOSTIC_AUTHORING_PROMPT_VERSION = "mvp-0.5-diagnostic-authoring"
-PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.2-criterion-total-scoring"
+PRACTICE_GENERATION_PROMPT_VERSION = "mvp-1.3-expected-minutes"
 
 DIAGNOSTIC_AUTHORING_PROMPT = """\
 Author ONE diagnostic Practice Item that discriminates the target misconception \

@@ -38,13 +38,27 @@ DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 # the mvp-0.8 namespace. Kill switch: ``placement.enabled``.
 PLACEMENT_ALGORITHM_VERSION = "mvp-0.11"
 
+# mvp-0.12 (daily-loop DL1, ``daily_plan_v1`` in spec_daily_loop_v1.md §11): the
+# finite daily plan on top of mvp-0.11 (the chain stays linear: mvp-0.12 means
+# the mvp-0.10 split PLUS placement PLUS the plan). Today serves N remembered
+# minutes split across repair, maintain, new and push, chosen block by block,
+# with goal-optional re-entry and reading blocks. It changes what is SERVED,
+# not the projection, so it is another successor tag on the mvp-0.8 namespace.
+# Kill switch: ``plan.enabled`` (sub-switches ``plan.new_admission_enabled``
+# and ``plan.reading_blocks``).
+DAILY_PLAN_ALGORITHM_VERSION = "mvp-0.12"
+
 # Versions at which practice grading is split (kill switch
 # ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
 # attempt's grader mode is recorded per attempt and replay never reads the
 # switch). Every later successor keeps the split, so gates must use this set,
 # never equality against DIAGNOSIS_SPLIT_ALGORITHM_VERSION.
 DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = frozenset(
-    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION, PLACEMENT_ALGORITHM_VERSION}
+    {
+        DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+        PLACEMENT_ALGORITHM_VERSION,
+        DAILY_PLAN_ALGORITHM_VERSION,
+    }
 )
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
@@ -55,6 +69,7 @@ P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(
         REVEAL_LEDGER_ALGORITHM_VERSION,
         DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
         PLACEMENT_ALGORITHM_VERSION,
+        DAILY_PLAN_ALGORITHM_VERSION,
     }
 )
 P0_PROJECTION_VERSIONS: frozenset[str] = (
@@ -71,8 +86,16 @@ CANONICAL_STATE_VERSIONS: frozenset[str] = (
 # Versions whose serving includes F2 placement (behind ``placement.enabled``).
 # A later successor that keeps placement adds itself here; gates must use this
 # set, never equality against PLACEMENT_ALGORITHM_VERSION.
-PLACEMENT_VERSIONS: frozenset[str] = frozenset({PLACEMENT_ALGORITHM_VERSION})
+PLACEMENT_VERSIONS: frozenset[str] = frozenset(
+    {PLACEMENT_ALGORITHM_VERSION, DAILY_PLAN_ALGORITHM_VERSION}
+)
 
-# The newest successor in the linear chain mvp-0.9 -> mvp-0.10 -> mvp-0.11.
+# Versions whose Today serves the finite daily plan (behind ``plan.enabled``).
+# A later successor that keeps the plan adds itself here; gates must use this
+# set, never equality against DAILY_PLAN_ALGORITHM_VERSION.
+DAILY_PLAN_VERSIONS: frozenset[str] = frozenset({DAILY_PLAN_ALGORITHM_VERSION})
+
+# The newest successor in the linear chain
+# mvp-0.9 -> mvp-0.10 -> mvp-0.11 -> mvp-0.12.
 # ``learnloop upgrade`` with no ``--to`` targets it.
-LATEST_ALGORITHM_VERSION: str = PLACEMENT_ALGORITHM_VERSION
+LATEST_ALGORITHM_VERSION: str = DAILY_PLAN_ALGORITHM_VERSION
