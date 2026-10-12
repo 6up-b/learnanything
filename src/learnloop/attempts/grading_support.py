@@ -19,8 +19,11 @@ answer.
   only add to it. Each unverified criterion is also persisted as such: its
   grading-evidence row carries the ``negative_evidence_blocked`` attribution
   ``valid_alternative_unverified`` (live grades and regrades alike).
-  Owner decision 2026-10-12 (inside mvp-0.10): an unverified criterion is
-  UNASSESSED everywhere - no credit and no failure. It leaves the attempt's
+  Owner decision 2026-10-12: an unverified criterion is UNASSESSED
+  everywhere - no credit and no failure. Each record names the rule it was
+  written under (the row block's and the support's
+  ``unverified_interpretation``), so a record from before the rule replays as
+  written; a regrade rewrites it under the rule. It leaves the attempt's
   grade (``attempts.assessed_rubric_score``), so the FSRS rating too; it has
   no facet mass or outcome in the attempt step, the canonical projection, the
   evidence timeline or the learner field; and it alone never queues a
@@ -67,7 +70,9 @@ from learnloop.attempts.blind_grading import (
 )
 from learnloop.attempts.answer_check import final_answer_check
 from learnloop.substrate.canonical_projection import (
+    UNASSESSED_INTERPRETATION,
     UNVERIFIED_CRITERION_BLOCK,
+    UNVERIFIED_INTERPRETATION_KEY,
     surface_group_id,
 )
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
@@ -457,6 +462,9 @@ def request_blind_grading_run(
         )
         if gate.applied:
             support["assessed_shortfall"] = gate.assessed_shortfall
+            # The interpretation its unverified criteria are recorded under
+            # (review F5): a record without it predates the unassessed rule.
+            support[UNVERIFIED_INTERPRETATION_KEY] = UNASSESSED_INTERPRETATION
     return BlindGradingRun(
         proposal=proposal,
         prompt_version=(

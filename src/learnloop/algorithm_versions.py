@@ -27,9 +27,14 @@ REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 # diagnoser. Persisted meaning changes (a blind attempt's error events carry no
 # causal fields; its hypotheses are sourced from the diagnosis ledger), the
 # projection does not: it inherits the mvp-0.8 namespace like mvp-0.9.
-# Amended before any vault ran it (owner decision 2026-10-12): a PF-c
-# unverified criterion, which only this version's blind grader records, is
-# unassessed - out of the grade, and no facet evidence either way.
+# Owner decision 2026-10-12: a PF-c unverified criterion, which only this
+# version's blind grader records, is unassessed - out of the grade, and no
+# facet evidence either way. mvp-0.10 history from before the rule exists
+# (Slice 1 M2 live runs), so the boundary is per record, not per tag: each new
+# unverified row and blind record names the interpretation it was written
+# under, replay reads every record as it was written (a pre-rule record keeps
+# its grader-sum grade and its M2 evidence), and a regrade rewrites a pre-rule
+# record under the rule (canonical_projection.unassessed_evidence_row).
 DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 
 # Versions at which practice grading is split (kill switch

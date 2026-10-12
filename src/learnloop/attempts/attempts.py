@@ -2410,12 +2410,26 @@ def _stamp_observation_lineage(
 
 
 def unverified_attribution_json() -> str:
-    """The persisted block of an unverified criterion (PF-c gate)."""
+    """The persisted block of an unverified criterion (PF-c gate).
 
-    from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
+    It names the interpretation it is written under (the unassessed rule,
+    owner decision 2026-10-12), so replay reads every row as it was written: a
+    row from before the rule carries no mark and keeps its M2 reading
+    (``canonical_projection.unassessed_evidence_row``).
+    """
+
+    from learnloop.substrate.canonical_projection import (
+        UNASSESSED_INTERPRETATION,
+        UNVERIFIED_CRITERION_BLOCK,
+        UNVERIFIED_INTERPRETATION_KEY,
+    )
 
     return json.dumps(
-        {"targets": [], "negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK},
+        {
+            "targets": [],
+            "negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK,
+            UNVERIFIED_INTERPRETATION_KEY: UNASSESSED_INTERPRETATION,
+        },
         sort_keys=True,
         separators=(",", ":"),
     )

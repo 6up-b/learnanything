@@ -479,8 +479,17 @@ def test_feedback_shows_an_unverified_criterion_as_not_assessed(tmp_path):
 
 
 def test_the_stamped_block_is_read_from_text_or_mapping():
-    block = json.dumps({"targets": [], "negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK})
+    from learnloop.attempts.attempts import unverified_attribution_json
+    from learnloop.substrate.canonical_projection import unverified_evidence_row
+
+    block = unverified_attribution_json()
+    assert json.loads(block)["unverified_interpretation"] == "unassessed"
     assert unassessed_evidence_row(block) and unassessed_evidence_row(json.loads(block))
-    assert not unassessed_evidence_row(None)
-    assert not unassessed_evidence_row("not json")
-    assert not unassessed_evidence_row(json.dumps({"targets": [], "negative_evidence_blocked": "machine_review_scope"}))
+    assert unverified_evidence_row(block)
+    # A block written before the unassessed rule (no interpretation mark) is
+    # still an unverified row, read the M2 way: not an unassessed one.
+    before = json.dumps({"targets": [], "negative_evidence_blocked": UNVERIFIED_CRITERION_BLOCK})
+    assert unverified_evidence_row(before) and unverified_evidence_row(json.loads(before))
+    assert not unassessed_evidence_row(before)
+    for other in (None, "not json", json.dumps({"targets": [], "negative_evidence_blocked": "machine_review_scope"})):
+        assert not unassessed_evidence_row(other) and not unverified_evidence_row(other)
