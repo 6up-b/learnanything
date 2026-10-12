@@ -13,7 +13,9 @@ agent's process runs under bubblewrap with a deny-by-default filesystem view.
 
 - **Visible, read-only:** the system trees programs need (``/usr``, ``/etc``,
   the ``/lib*`` and ``/bin`` links, ``/opt``, ``/nix``, ``/sys``, the DNS
-  resolver directory) and the agent's own executable.
+  resolver directory) and the agent's executable: the file itself, or, for a
+  Node launcher, its package (it loads a vendored binary from there), never
+  the directory it happens to sit in.
 - **Visible, writable:** an empty working directory, and the agent's
   credential file so a token refresh persists.
 - **Everything else is absent:** home directories (so vaults, repositories and
@@ -21,9 +23,14 @@ agent's process runs under bubblewrap with a deny-by-default filesystem view.
   (``~/.codex``) is replaced by an empty in-memory directory into which only
   its credentials and configuration are bound back: session transcripts,
   history and memory databases may hold the very code a closed-book check must
-  not see. Paths named in ``hidden`` are masked even if they sit inside a
-  visible system tree. The process gets its own PID namespace, so ``/proc``
-  shows no host process (and no host working directory).
+  not see. The process gets its own PID namespace, so ``/proc`` shows no host
+  process (and no host working directory).
+
+Paths named in ``hidden`` are masked inside *every* mounted tree: the system
+trees, the executable's package and the working directory. A layout the mask
+cannot honour is refused (:class:`ToolIsolationUnavailable`), never run: an
+executable, the working directory or the agent's home inside a hidden path
+would put part of that path in front of the agent.
 
 The network is not unshared: the agent needs its model API.
 """
@@ -120,20 +127,32 @@ def _inside(path: Path, roots: Iterable[str]) -> bool:
     return any(path == Path(root) or Path(root) in path.parents for root in roots)
 
 
-def _executable_root(executable: Path) -> Path:
-    """The directory an executable needs: its package for a Node launcher."""
-
-    real = executable.resolve()
+def _is_node_launcher(path: Path) -> bool:
     try:
-        with real.open("rb") as handle:
+        with path.open("rb") as handle:
             head = handle.read(128)
     except OSError:
-        head = b""
-    if head.startswith(b"#!") and b"node" in head.split(b"\n", 1)[0]:
-        # npm launchers (bin/codex.js) load their vendored binary from the
-        # package next to bin/.
+        return False
+    return head.startswith(b"#!") and b"node" in head.split(b"\n", 1)[0]
+
+
+def executable_assets(executable: Path) -> Path:
+    """What an executable needs mounted: the file itself, or its Node package.
+
+    An npm launcher (``bin/codex.js``) loads its vendored binary from the
+    package beside ``bin/``, so a launcher under a ``package.json`` needs that
+    package. Anything else gets only its own (resolved) file: its directory may
+    hold anything, a repository included.
+    """
+
+    real = Path(executable).resolve()
+    if _is_node_launcher(real) and (real.parent.parent / "package.json").is_file():
         return real.parent.parent
-    return real.parent
+    return real
+
+
+def _contains(outer: Path, inner: Path) -> bool:
+    return inner == outer or outer in inner.parents
 
 
 def sandbox_arguments(
@@ -142,38 +161,62 @@ def sandbox_arguments(
     executables: Iterable[Path] = (),
     home: Path | None = None,
 ) -> list[str]:
-    """bubblewrap options (without the program) for one isolated process."""
+    """bubblewrap options (without the program) for one isolated process.
+
+    Raises :class:`ToolIsolationUnavailable` when a hidden path holds
+    something the sandbox must mount (see the module docstring).
+    """
 
     workdir = Path(isolation.workdir).resolve()
     home = (home or agent_home()).expanduser()
+    hidden = [Path(path).expanduser().resolve() for path in isolation.hidden]
     args = [
         "--die-with-parent", "--new-session",
         "--unshare-pid", "--unshare-ipc", "--unshare-uts",
         "--proc", "/proc", "--dev", "/dev",
     ]
+    # Every host tree mounted into the sandbox; hidden paths are masked in all of them.
+    mounted: list[Path] = []
     for link in _SYSTEM_LINKS:
         path = Path(link)
         if path.is_symlink():
             args += ["--symlink", os.readlink(path), link]
         elif path.is_dir():
             args += ["--ro-bind", link, link]
+            mounted.append(path)
     for root in _SYSTEM_READ_ONLY:
         args += ["--ro-bind-try", root, root]
+        if Path(root).exists():
+            mounted.append(Path(root))
     visible = (*_SYSTEM_READ_ONLY, *_SYSTEM_LINKS)
+    # What the agent needs from the host: a hidden path may not hold any of it.
+    needed: list[tuple[str, Path]] = [("the working directory", workdir)]
     # In-memory directories first: the binds below must sit on top of them.
     args += ["--tmpfs", "/tmp", "--tmpfs", str(home)]
-    for name in AGENT_HOME_WRITABLE:
-        args += ["--bind-try", str(home / name), str(home / name)]
-    for name in AGENT_HOME_READ_ONLY:
-        args += ["--ro-bind-try", str(home / name), str(home / name)]
+    needed.append(("the agent home", home.resolve()))
+    for name in (*AGENT_HOME_WRITABLE, *AGENT_HOME_READ_ONLY):
+        option = "--bind-try" if name in AGENT_HOME_WRITABLE else "--ro-bind-try"
+        args += [option, str(home / name), str(home / name)]
+        needed.append((f"the agent home's {name}", (home / name).resolve()))
     for executable in executables:
-        root = _executable_root(Path(executable))
-        if not _inside(root, visible):
-            args += ["--ro-bind", str(root), str(root)]
+        assets = executable_assets(Path(executable))
+        needed.append((f"the agent executable {executable}", assets))
+        if not _inside(assets, visible):
+            args += ["--ro-bind", str(assets), str(assets)]
+            mounted.append(assets)
     args += ["--bind", str(workdir), str(workdir)]
-    for hidden in isolation.hidden:
-        path = Path(hidden).expanduser().resolve()
-        if not path.exists() or not _inside(path, visible):
+    mounted.append(workdir)
+    for root in mounted:
+        needed.append((f"the mounted tree {root}", root.resolve()))
+    for path in hidden:
+        for what, target in needed:
+            if _contains(path, target):
+                raise ToolIsolationUnavailable(
+                    f"{what} is inside a path hidden from the agent ({path}), so the sandbox would show part of it; "
+                    "move it outside the vault and the enrolled repositories"
+                )
+    for path in hidden:
+        if not path.exists() or not any(_contains(root.resolve(), path) for root in mounted):
             continue  # not mounted into the sandbox in the first place
         if path.is_dir():
             args += ["--tmpfs", str(path)]
@@ -197,12 +240,16 @@ def sandboxed_command(
         raise ToolIsolationUnavailable(reason or "bubblewrap is unavailable")
     executable = shutil.which(command[0]) or command[0]
     needed = [Path(executable)]
-    if _executable_root(Path(executable)) != Path(executable).resolve().parent:
+    if executable_assets(Path(executable)).is_dir():
         # A Node launcher also needs its interpreter.
         node = shutil.which("node")
         if node:
             needed.append(Path(node))
-    return [bwrap, *sandbox_arguments(isolation, executables=needed, home=home), "--", executable, *command[1:]]
+    arguments = sandbox_arguments(isolation, executables=needed, home=home)
+    if not _inside(Path(executable), (*_SYSTEM_READ_ONLY, *_SYSTEM_LINKS)):
+        # Only the resolved file (or its package) is mounted, not a link to it.
+        executable = str(Path(executable).resolve())
+    return [bwrap, *arguments, "--", executable, *command[1:]]
 
 
 def write_launcher(directory: Path, isolation: ToolIsolation, executable: str, *, home: Path | None = None) -> Path:
@@ -226,6 +273,7 @@ __all__ = [
     "agent_home",
     "bubblewrap_path",
     "current_tool_isolation",
+    "executable_assets",
     "isolation_mode",
     "isolation_unavailable_reason",
     "sandbox_arguments",

@@ -271,3 +271,96 @@ def test_codex_refuses_an_isolated_request_without_bubblewrap(monkeypatch, tmp_p
     with tool_isolation(ToolIsolation(workdir=tmp_path)), pytest.raises(CodexUnavailable, match="bubblewrap"):
         client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
     assert "app_config" not in captured  # nothing was launched
+
+
+# --- every mount honours the exclusions (F2 re-review) -------------------------------------
+
+
+def _script(path: Path, body: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n" + body, encoding="utf-8")
+    path.chmod(0o755)
+    return path
+
+
+@requires_bwrap
+@pytest.mark.parametrize("launcher", ["codex", "tools/codex"])
+def test_a_launcher_inside_a_hidden_repo_is_refused_not_exposed(layout, launcher):
+    # A configured launcher inside an enrolled repo: mounting its directory
+    # would show the repo the closed-book check must not see.
+    agent = _script(layout["repo"] / launcher, f"cat '{layout['repo'] / 'model.py'}' 2>/dev/null || echo repo-blocked\n")
+    isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
+    with pytest.raises(ToolIsolationUnavailable, match="inside a path hidden from the agent"):
+        sandboxed_command(isolation, [str(agent)], home=layout["home"])
+    with pytest.raises(ToolIsolationUnavailable, match="inside a path hidden from the agent"):
+        write_launcher(layout["workdir"].parent, isolation, str(agent), home=layout["home"])
+
+
+@requires_bwrap
+def test_only_the_executable_itself_is_mounted_not_its_directory(layout, tmp_path):
+    tools = tmp_path / "tools"
+    (tools / "notes.txt").parent.mkdir()
+    (tools / "notes.txt").write_text("PRIVATE NOTES", encoding="utf-8")
+    agent = _script(tools / "agent", f"echo ran; cat '{tools / 'notes.txt'}' 2>/dev/null || echo notes-blocked\n")
+    isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
+    result = subprocess.run(sandboxed_command(isolation, [str(agent)], home=layout["home"]),
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert "ran" in result.stdout and "notes-blocked" in result.stdout and "PRIVATE NOTES" not in result.stdout
+
+
+@requires_bwrap
+@pytest.mark.skipif(__import__("shutil").which("node") is None, reason="needs node for a Node launcher")
+def test_a_hidden_path_inside_a_mounted_package_is_masked(layout, tmp_path):
+    # A Node launcher needs its whole package (it loads a vendored binary);
+    # a hidden repo inside that package is still masked.
+    package = tmp_path / "work"
+    (package / "package.json").parent.mkdir()
+    (package / "package.json").write_text("{}", encoding="utf-8")
+    (package / "vendor.txt").write_text("VENDORED", encoding="utf-8")
+    nested = package / "checkout"
+    nested.mkdir()
+    (nested / "model.py").write_text("NESTED SOURCE", encoding="utf-8")
+    launcher = package / "bin" / "agent.js"
+    launcher.parent.mkdir()
+    launcher.write_text(
+        "#!/usr/bin/env node\n"
+        "const fs = require('fs');\n"
+        "for (const p of process.argv.slice(2)) {\n"
+        "  try { console.log(fs.readFileSync(p, 'utf8')); } catch (e) { console.log('blocked:' + p); }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+    isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], nested))
+    command = sandboxed_command(isolation, [str(launcher), str(package / "vendor.txt"), str(nested / "model.py")],
+                                home=layout["home"])
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    assert "VENDORED" in result.stdout
+    assert f"blocked:{nested / 'model.py'}" in result.stdout and "NESTED SOURCE" not in result.stdout
+
+
+@requires_bwrap
+def test_a_hidden_path_inside_the_working_directory_is_masked(tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "state.sqlite").write_text("LEARNER RECORDS", encoding="utf-8")
+    isolation = ToolIsolation(workdir=tmp_path, hidden=(vault,))
+    command = sandboxed_command(isolation, ["sh", "-c", f"cat '{vault / 'state.sqlite'}' || echo vault-blocked"],
+                                home=tmp_path / "no-home")
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+    assert "vault-blocked" in result.stdout and "LEARNER RECORDS" not in result.stdout
+
+
+@requires_bwrap
+def test_a_hidden_path_holding_the_working_directory_or_agent_home_is_refused(layout):
+    with pytest.raises(ToolIsolationUnavailable, match="working directory"):
+        sandboxed_command(ToolIsolation(workdir=layout["workdir"], hidden=(layout["workdir"].parent,)), ["true"],
+                          home=layout["home"])
+    inside_vault = layout["vault"] / ".codex"
+    inside_vault.mkdir()
+    (inside_vault / "auth.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ToolIsolationUnavailable, match="agent home"):
+        sandboxed_command(ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"],)), ["true"],
+                          home=inside_vault)
