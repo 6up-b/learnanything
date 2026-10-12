@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "780bec290698fa8774f18eb1bfc48d5d2dc5c9bf"
-source_commit_timestamp: "2026-10-12T14:04:22-04:00"
+source_commit: "57c8c899e74dde2adc94030384fd3b6256f16085"
+source_commit_timestamp: "2026-10-12T14:45:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 172
+schema_head: 173
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/154_reveal_ledger.sql`.
-- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`.
+- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`, `173_answer_display_reveal.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -120,6 +120,7 @@ Database triggers:
 - `tests/test_coldness_receipt.py`
 - `tests/test_diagnosis_card.py`
 - `tests/test_reveal_ledger.py`
+- `tests/test_stuck_prompt.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_practice_index_admission.py`
@@ -142,7 +143,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE reveal_events (
+CREATE TABLE "reveal_events" (
   id TEXT PRIMARY KEY,
   practice_item_id TEXT NOT NULL,
   learning_object_id TEXT,
@@ -152,7 +153,8 @@ CREATE TABLE reveal_events (
       'tutor_answer',
       'repair_display',
       'guided_redo',
-      'source_review'
+      'source_review',
+      'answer_display'
     )
   ),
   amount REAL NOT NULL CHECK (amount >= 0.0 AND amount <= 1.0),

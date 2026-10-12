@@ -3,13 +3,13 @@ title: "causal_machine_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "780bec290698fa8774f18eb1bfc48d5d2dc5c9bf"
-source_commit_timestamp: "2026-10-12T14:04:22-04:00"
+source_commit: "57c8c899e74dde2adc94030384fd3b6256f16085"
+source_commit_timestamp: "2026-10-12T14:45:58-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_machine_checks"
   - "table causal_machine_checks"
-schema_head: 172
+schema_head: 173
 table_name: "causal_machine_checks"
 table_role: "receipt"
 functionality_status: "active"
