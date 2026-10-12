@@ -35,6 +35,7 @@ from pydantic import ValidationError
 from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
+    CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     ConceptGraphContext,
     ConceptGraphStructuring,
@@ -1561,6 +1562,22 @@ def _create_study_map(
         }
     )
 
+    # Slice 2 T5: embedding nominations for the structuring pass and the mint
+    # shadow (None when switched off, which is today's behaviour exactly).
+    nominator = GraphNominator.for_ingest(
+        vault, repository, client_factory=embedding_client_factory,
+    )
+    scope: Any = brief.get("scope") if isinstance(brief, dict) else None
+    if nominator is not None:
+        # What the nominator can show the structuring model is run identity:
+        # the switch, its configuration, the registry prompt and the
+        # registry's definitions and index state. Off, the scope (and so the
+        # manifest hash) is the pre-T5 one.
+        scope = {
+            "brief_scope": scope,
+            "graph_nomination": nominator.identity(prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION),
+        }
+
     # 2. immutable manifest BEFORE the agent run.
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
     model = getattr(client, "model", None)
@@ -1571,7 +1588,7 @@ def _create_study_map(
         revision_ids=inputs.selected_revision_ids,
         extraction_ids=inputs.extraction_ids,
         unit_inventory_versions=inputs.unit_inventory_versions,
-        scope=brief.get("scope") if isinstance(brief, dict) else None,
+        scope=scope,
         brief=brief,
         prompt_version=SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
         provider=provider,
@@ -1635,11 +1652,6 @@ def _create_study_map(
     # client, and a gate failure there completes it again out here — a second
     # drain would return zeros and erase the cost already recorded.
     token_usage = TokenUsage()
-    # Slice 2 T5: embedding nominations for the structuring pass and the mint
-    # shadow (None when switched off, which is today's behaviour exactly).
-    nominator = GraphNominator.for_ingest(
-        vault, repository, client_factory=embedding_client_factory,
-    )
     try:
         with declared_budgets(token_budget):
             merged, span_request_count, resolved_hashes, usage = _run_synthesis(

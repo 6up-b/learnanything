@@ -295,3 +295,104 @@ def test_append_neighbourhood_records_embedding_nominations(tmp_path):
         assert connection.execute(
             "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind='graph_nomination'"
         ).fetchone()[0] >= 1
+
+
+# --- Codex review regressions (cache identity, ledger durability) -----------
+
+
+def _set_nominations(root: Path, enabled: bool) -> None:
+    path = root / "learnloop.toml"
+    text = path.read_text(encoding="utf-8")
+    old, new = (("enabled = false\ntop_k", "enabled = true\ntop_k") if enabled
+                else ("enabled = true\ntop_k", "enabled = false\ntop_k"))
+    assert old in text
+    path.write_text(text.replace(old, new), encoding="utf-8")
+
+
+def _merge_into_registry(context, ids):
+    return [RegistryConceptMerge(
+        client_item_id=ids[0], registry_concept_id=REGISTRY_ID,
+        rationale="the same idea: a matrix equal to its transpose",
+    )]
+
+
+def test_kill_switch_never_reuses_a_nominated_bootstrap(tmp_path):
+    """F1: an unapplied run that merged into the registry is not reused (or
+    applied) once ``graph_nomination.enabled`` is turned off."""
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    first = _synthesize(root, repo, RegistryStructuringClient(_merge_into_registry),
+                        embedding_client_factory=lambda: embedder)
+    assert repo.synthesis_run(first.synthesis_run_id)["actual_usage"]["registry_merges"] == 1
+
+    _set_nominations(root, False)
+    factory = ExplodingFactory()
+    client = RegistryStructuringClient(_merge_into_registry)
+    second = _synthesize(root, repo, client, apply=True, embedding_client_factory=factory)
+    assert second.reused is False and second.manifest_hash != first.manifest_hash
+    # Shards are checkpointed (nominations never reach them); the structuring
+    # pass ran again, lexical-only.
+    assert client.structuring_contexts[0].registry_concept_details == []
+    assert factory.calls == 0
+    # The lexical-only run kept its own concept: no registry merge was applied.
+    assert len(load_vault(root).concepts) == 2
+
+
+def test_enabling_nominations_or_completing_the_index_is_a_new_bootstrap(tmp_path):
+    """F1, other direction: a lexical-only result is not reused once nominations
+    could act (switch turned on, then the index completed)."""
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root, nominations=False)
+    first = _synthesize(root, repo, RegistryStructuringClient(), embedding_client_factory=ExplodingFactory())
+
+    _set_nominations(root, True)
+    incomplete_client = RegistryStructuringClient()
+    incomplete = _synthesize(root, repo, incomplete_client, embedding_client_factory=ExplodingFactory())
+    assert incomplete.reused is False and incomplete.manifest_hash != first.manifest_hash
+    assert incomplete_client.structuring_contexts[0].registry_concept_details == []  # index incomplete
+
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    client = RegistryStructuringClient()
+    third = _synthesize(root, repo, client, embedding_client_factory=lambda: embedder)
+    assert third.reused is False
+    assert client.structuring_contexts[0].registry_concept_details  # nominated now
+
+
+def test_registry_definition_change_is_a_new_bootstrap_and_repeats_reuse(tmp_path):
+    """F1: identity covers the nominated registry's definitions; an identical
+    repeat still reuses with zero model and embedding calls."""
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    first = _synthesize(root, repo, RegistryStructuringClient(), embedding_client_factory=lambda: embedder)
+    paid = len(embedder.calls)
+
+    again_client = RegistryStructuringClient()
+    again = _synthesize(root, repo, again_client, embedding_client_factory=lambda: embedder)
+    assert again.reused is True and again.manifest_hash == first.manifest_hash
+    assert again_client.calls == [] and len(embedder.calls) == paid
+
+    upsert_concept(root, REGISTRY_ID, {
+        "title": "Symmetric matrix", "type": "concept",
+        "description": "A square matrix whose entries mirror across the main diagonal.",
+        "aliases": [], "tags": [],
+    }, clock=_CLOCK)
+    _backfill(root, embedder, ("concept/definition",))
+    changed_client = RegistryStructuringClient()
+    changed = _synthesize(root, repo, changed_client, embedding_client_factory=lambda: embedder)
+    assert changed.reused is False
+    assert changed_client.structuring_contexts[0].registry_concept_details[0]["description"].startswith(
+        "A square matrix whose entries mirror"
+    )
+
+

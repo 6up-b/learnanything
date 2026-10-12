@@ -77,6 +77,11 @@ OWNER_KIND = "graph_nomination"
 _BATCH = 32
 
 
+def _digest(payload: Any) -> str:
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
 def is_active(config: Any) -> bool:
     """The kill switch and the embedding master switch must both be on."""
 
@@ -307,6 +312,7 @@ class GraphNominator:
         self._client_unusable = False
         self._indexes: dict[str, RegistryIndex | None] = {}
         self._index_status: dict[str, str] = {}
+        self._index_records: dict[str, str] = {}
         self._notes: list[str] = []
         self._cache: dict[tuple[str, str, str, str], np.ndarray] = {}
         self._run_id = new_ulid()
@@ -377,6 +383,39 @@ class GraphNominator:
             "notes": list(self._notes),
         }
 
+    def identity(
+        self, recipes: Sequence[str] = (FACET_RECIPE, CONCEPT_RECIPE), *,
+        prompt_version: str | None = None,
+    ) -> dict[str, Any]:
+        """The stable inputs that decide what this nominator can show a model.
+
+        Synthesis and append put this in their manifest identity, so a
+        completed run is reused only when the same switches, configuration,
+        model, route, prompt and registry index (every record's definition
+        hash and whether its vectors are complete) would nominate again.
+        Usage counts, charges and notes describe one execution and are never
+        identity (:meth:`summary` carries them).
+        """
+
+        for recipe in recipes:
+            self.index(recipe)
+        config = self.vault.config
+        record: dict[str, Any] = {
+            "version": NOMINATION_VERSION,
+            "mode": self.mode,
+            "model_id": self.model_id,
+            "dimensions": self.dims,
+            "route": config.ai.routing.embedding,
+            "config": config.graph_nomination.model_dump(mode="json"),
+            "indexes": {
+                recipe: {"status": self._index_status[recipe], "records": self._index_records.get(recipe)}
+                for recipe in sorted(recipes)
+            },
+        }
+        if prompt_version is not None:
+            record["prompt_version"] = prompt_version
+        return record
+
     # -- registry indexes ----------------------------------------------------
 
     def index(self, recipe_name: str) -> RegistryIndex | None:
@@ -386,6 +425,7 @@ class GraphNominator:
             return self._indexes[recipe_name]
         recipe = EMBEDDING_RECIPES[recipe_name]
         manifest = {record.record_id: record.content_hash for record in recipe.records(self.vault)}
+        self._index_records[recipe_name] = _digest(sorted(manifest.items()))
         index: RegistryIndex | None = None
         if not self.sqlite_path.exists():
             status = "no_database"
