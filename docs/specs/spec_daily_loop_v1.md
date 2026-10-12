@@ -267,11 +267,13 @@ Under `capture.reader_presets_adopt` (default true; false restores the proposal 
 **Commitments carry intent; goals are optional deadlines on top.** The vocabulary already exists (§3.7), and it is the intentions doc's own (§3, §5).
 - **No commitment means today's behaviour:** every lane is eligible at the 0.90 recall target. Nobody has to set intent for anything to work (L2).
 - **What the control writes.** It creates or versions commitments through `learnloop.curriculum.commitments`: `create_commitment` (`learnloop/curriculum/commitments.py:300`), `append_commitment_version` (`:414`), `change_depth_policy`, `change_disposition`, `pause`, `retire`. It uses the existing commit-class actions: `help_me_remember` with the chosen depth preset for Master, Learn, Keep and Light touch, and `test_me_later` for "check once". It adds no new action and no table.
+  - **Its own commitments.** The control creates its commitments with `provenance = {"via": "intent_control"}` (`create_commitment` already takes `provenance`). Later choices on the same LO, item, subject or source version or re-dispose that commitment.
+  - **Other commitments are left alone.** It never versions commitments that other paths created: capture adoption (§4.4), the reader presets (§4.5), written questions. Those are *request commitments*: they make items learner requests.
 - **Targets.** A commitment targets LOs (`learning_object`), single items (`legacy_practice_item`) or a source (`source_locator`). A control on a subject or a source fans out to one commitment whose targets are its active LOs.
 
 ### 5.2 The single control
 
-One segmented control on an LO, a subject, a source, a capture and an item. It shows the plain-language consequence and the projected cost (intentions §5, §10):
+One segmented control on an LO, a subject, a source, a capture and an item. It shows the plain-language consequence and the projected cost (intentions §5, §10). The consequence is computed by the same resolution the queue uses (§5.3). It names what the choice replaces, for example "Pause 12 topics · replaces your earlier setting on 2 topics and 1 item":
 
 | Choice | Commitment | What it does | Recall target (§5.3) |
 |---|---|---|---|
@@ -289,7 +291,7 @@ One segmented control on an LO, a subject, a source, a capture and an item. It s
 - **How "Check once" is served.** The covered items are held back until `capture.test_me_later_days` (7) after the commitment. Then one item becomes a dated learner request: the commitment's item target if it has one, otherwise the scheduler's top-ranked item of the LO. It is served once, in the lane its state implies (§6.1), and its attempt satisfies the commitment.
   - The request uses one new branch in `requested_practice_item_ids` (`learnloop/db/repositories.py:4574`), dated `created_at + test_me_later_days`. That is the same queue-time derivation `fix/daily-loop-bugs` used for written questions, so nothing new is persisted. The existing branch counts only `help_me_remember` commitments.
   - `followup_tasks` is not used, because its `kind` CHECK admits only `cold_retry` and `certification_cold_probe` (`migrations/139_certification_cold_probes.sql:52`).
-- **Lane eligibility never blocks a learner request (L3).** An item the learner adopted or asked for is served under Keep or Light touch too; "no new material" means the system adds none on its own.
+- **Lane eligibility never blocks a learner request (L3).** An item the learner adopted or asked for is served under Keep or Light touch too; "no new material" means the system adds none on its own. **Disposition does block it:** a Pause, Reference or Let go chosen after the request excludes the item, request or not (§5.3).
 - **Intent is never asked at capture** (Q6, C2). A capture is a reference until "Practice this" (§4.4).
 
 ### 5.3 Per-intent recall targets (Q8; default, owner may override)
@@ -306,10 +308,23 @@ One segmented control on an LO, a subject, a source, a capture and an item. It s
 - **At 0.90 the ratio is exactly 1,** so uncommitted items are served exactly as today.
 - `_forgetting_risk` and the maintain lane use `effective_due` in place of `due_at`.
 
-**Which target applies.** Several commitments can cover one item:
-- an item-level commitment wins over an LO-level one;
-- among active commitments at the same level, the highest target wins (the most protective);
-- paused, stopped, reference-only and satisfied commitments exclude an item only when no active commitment covers it. A `one_check_pending` commitment holds its items back until its check is due (§5.2). Reaching a target permits closure (intentions §5).
+**Resolving an item's intent: the most recent choice wins.** Several commitments can cover one item. One rule decides both whether the item is served and at which depth and target. With `intent.enabled`:
+
+1. **Covering commitments.** These are the commitments whose current targets include the item (`legacy_practice_item`) or its LO (`learning_object`), including the LO-level commitments a subject or source control fans out to. Retired and `satisfied` commitments drop out. A commitment whose only targets are `source_locator`s covers no item, as today.
+2. **Disposition.** Each covering commitment's *choice time* is its latest version or disposition change (`commitment_events`). The most recent choice decides. Ties go to the item-level commitment, then to the higher recall target.
+   - `paused`, `reference_only` or `stopped`: the item is not served, and it is not a learner request either.
+   - `one_check_pending`: the item is held back until its check date, then served once as a dated request (§5.2).
+   - `active`: the item is served.
+3. **Depth and recall target**, when served. They come from the most recent `active` intent-control commitment covering the item. If there is none, they come from the commitment that decided step 2. A request commitment therefore never lowers a depth the learner chose with the control.
+4. **No covering commitment:** uncommitted. Today's behaviour, target 0.90.
+
+**What this means for broad and narrow choices:**
+- **A broad choice is the newest choice.** A choice on a subject, source or LO is the most recent choice for everything it covers, so it replaces earlier narrower settings. A subject Pause therefore pauses an LO set to Master and items adopted earlier.
+- **A narrow choice made afterwards overrides it** for its own scope. Pause on one item under an LO set to Master excludes that item, and the rest of the LO stays at Master.
+- **Replaced settings don't come back.** Resuming, or choosing again, is a new choice.
+- **Requests follow the same rule.** `requested_practice_item_ids` (`learnloop/db/repositories.py:4574`) skips intent-control commitments, because an intent choice is not a request. It also skips items whose resolved disposition isn't `active`. With `intent.enabled = false` that query is unchanged.
+
+Reaching a target permits closure (intentions §5).
 
 **Integrative questions** (one complex question refreshing several concepts) stay deferred (§15).
 
@@ -667,7 +682,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | G1 | **Plan kill switch.** With `plan.enabled = false`, `get_today_queue`, Start and Today behave exactly as DL0 on fixture copies, including the re-entry cap |
 | G2 | **Finite.** A plan's planned estimate never exceeds its budget, and no lane's blocks exceed its allotment after redistribution. Requested items are deducted before the split. Follow-ups and learner picks displace and never append. Captures adopted mid-plan don't join it. Keep going is the only extension |
 | G3 | **Honest numbers.** Every count and minute figure on Start, Today, the done screen and the re-entry panel is derived from the plan DTO, and a test asserts each displayed number equals what is served |
-| G4 | **Intent kill switch and identity.** With `intent.enabled = false`, serving matches DL1. With it on, uncommitted items' effective due equals `due_at` exactly (ratio 1 at 0.90). Exclusion by paused, stopped, reference-only and satisfied commitments follows the union rule (§5.3). "Check once" serves exactly one item, after the delay, then nothing. Persisted `due_at` never changes |
+| G4 | **Intent kill switch and identity.** With `intent.enabled = false`, serving matches DL1. With it on, uncommitted items' effective due equals `due_at` exactly (ratio 1 at 0.90). Exclusion and depth follow §5.3's most-recent-choice resolution: an item Pause under an LO Master excludes the item; a subject Pause after adoption excludes the adopted items, requests included; an LO choice after an item Pause re-includes the item; a request commitment never lowers a control-chosen depth; the control's consequence line equals the resolved result. "Check once" serves exactly one item, after the delay, then nothing. Persisted `due_at` never changes |
 | G5 | **Saving is a reference.** `capture.create` creates no practice item and no commitment. "Practice this" creates exactly one adoption per capture, idempotent under retries and concurrent runners; undo retires the item and the commitment |
 | G6 | **No decisions at capture.** The capture API has no subject, LO or intent parameter. Filing never blocks saving, and unfiled captures are found by search |
 | G7 | **Verification.** `verified` requires the §4.3 checks (PF's tests reused). An item with an unverified key is excluded from certification cold probes, exam pools and assumed-known checks, and is labelled everywhere it shows. An ordinary independent, unassisted attempt on it schedules FSRS but earns zero certification credit in both projections. That still holds after the key later verifies; attempts made after verification certify; a rebuild reproduces both |
@@ -692,7 +707,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `test_daily_plan_rpc.py`;
   - `test_today_headline.py`;
   - vitest for the plan view, block lines, done screen and keep going.
-- **DL2:** `tests/test_intent_resolution.py`; `test_intent_recall_targets.py` (the ratio, identity at 0.90, kill switch); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
+- **DL2:** `tests/test_intent_resolution.py` (the §5.3 cases, ties, and consequence-line parity); `test_intent_recall_targets.py` (the ratio, identity at 0.90, kill switch); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
 - **DL3:**
   - `tests/test_capture_box.py`;
   - `test_capture_processor.py` (classify, file, unfiled, solve-verify agreement and disagreement, caps, dry-run, resume, leases, ledger);
