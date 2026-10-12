@@ -3,13 +3,13 @@ title: "ingest_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite ingest_jobs"
   - "table ingest_jobs"
-schema_head: 170
+schema_head: 172
 table_name: "ingest_jobs"
 table_role: "workflow"
 functionality_status: "active"
