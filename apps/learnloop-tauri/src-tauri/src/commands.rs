@@ -590,6 +590,11 @@ pub async fn get_entity_provenance(
 
 sidecar_passthrough!(plan_quick_add, "plan_quick_add");
 
+sidecar_passthrough!(get_inbox_summary, "get_inbox_summary");
+sidecar_passthrough!(list_capture_inbox, "list_capture_inbox");
+sidecar_passthrough!(dismiss_capture, "dismiss_capture");
+sidecar_passthrough!(purge_capture, "purge_capture");
+
 sidecar_passthrough!(confirm_quick_add, "confirm_quick_add");
 
 sidecar_passthrough!(get_span_view, "get_span_view");

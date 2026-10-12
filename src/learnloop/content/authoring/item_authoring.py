@@ -86,6 +86,16 @@ def _record(
         _LOGGER.warning("failed to record %s for %s", kind, practice_item_id, exc_info=True)
 
 
+def validate_author_item(vault, *, learning_object_id: str, prompt: str, expected_answer: str) -> None:
+    """Pure validation shared by preflight and the authoritative file write."""
+    if learning_object_id not in vault.learning_objects:
+        raise ItemAuthoringError(f"unknown learning object {learning_object_id!r}")
+    if not prompt.strip():
+        raise ItemAuthoringError("prompt must not be empty")
+    if not expected_answer.strip():
+        raise ItemAuthoringError("expected answer must not be empty")
+
+
 def author_item(
     root: Path,
     repository: Repository,
@@ -96,20 +106,20 @@ def author_item(
     practice_mode: str = "short_answer",
     hints: Sequence[str] | None = None,
     evidence_facets: Sequence[str] | None = None,
+    item_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Create a learner-authored card under an existing Learning Object."""
 
     vault = load_vault(root)
-    learning_object = vault.learning_objects.get(learning_object_id)
-    if learning_object is None:
-        raise ItemAuthoringError(f"unknown learning object {learning_object_id!r}")
-    if not prompt.strip():
-        raise ItemAuthoringError("prompt must not be empty")
-    if not expected_answer.strip():
-        raise ItemAuthoringError("expected answer must not be empty")
+    # A caller with a durable intent owns this identity. Never overwrite a card
+    # that has already been committed (or subsequently edited by its learner).
+    if item_id is not None and item_id in vault.practice_items:
+        return {"id": item_id}
+    validate_author_item(vault, learning_object_id=learning_object_id,
+                         prompt=prompt, expected_answer=expected_answer)
     now = utc_now_iso(clock)
-    item_id = f"pi_learner_{new_ulid().lower()}"
+    item_id = item_id or f"pi_learner_{new_ulid().lower()}"
     payload: dict[str, Any] = {
         "id": item_id,
         "learning_object_id": learning_object_id,

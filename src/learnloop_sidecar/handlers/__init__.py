@@ -6,6 +6,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     animation,
     app,
     calibration,
+    capture,
     claims,
     cli,
     diagnostic,

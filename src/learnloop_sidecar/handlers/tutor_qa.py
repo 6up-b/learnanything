@@ -19,11 +19,14 @@ from learnloop.tutor.tutor_qa import (
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.capture import finish_route, route_intent
 from learnloop_sidecar.handlers.ai_providers import ready_tutor_qa_provider, provider_label
 from learnloop_sidecar.registry import method
 
 
 class AskTutorQuestionInput(ParamsModel):
+    capture_id: str | None = None
+    subject_id: str | None = None
     context: str
     question: str
     practice_item_id: str | None = None
@@ -122,6 +125,34 @@ def resolve_question_event(ctx: SidecarContext, params: ResolveQuestionEventInpu
 @method("ask_tutor_question", AskTutorQuestionInput)
 def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    if params.capture_id is not None and params.context != "library":
+        raise SidecarError("validation_error", "Captured questions must use the library context.")
+    intent = route_intent(repository, params, "ask_tutor", create=False)
+    event_id = intent["destination_id"] if intent else None
+    if intent:
+        response = intent.get("response")
+        event = repository.question_event(event_id)
+        if response is None and event is not None:
+            if event["answer_status"] != "answered":
+                raise SidecarError(
+                    "capture_question_incomplete",
+                    "This capture's question was already started but has no committed answer. "
+                    "No second question was created. Keep the capture for recovery or dismiss it.",
+                    details={"event_id": event_id}, retryable=False,
+                )
+            used, limit = question_usage(
+                vault, repository, context=event["context"],
+                practice_item_id=event.get("practice_item_id"), attempt_id=event.get("attempt_id"),
+                note_id=event.get("note_id"), session_id=event.get("session_id"),
+            )
+            response = {key: event.get(key) for key in (
+                "note_id", "answer_md", "question_type", "facets", "hint_equivalent", "leak_suspected",
+            )}
+            response.update(event_id=event_id, remaining=max(0, limit - used),
+                            citations=(event.get("source_context") or {}).get("citations", []))
+        if response is not None:
+            return finish_route(ctx, repository, params.capture_id, "ask_tutor",
+                                {"question_event_id": event_id, "note_id": response["note_id"]}, response)
     # Server-side backstop for the frontend guard: during a teach-back
     # conversation the AI plays the naive student, so the learner must not be
     # able to ask the tutor about the very item they are teaching.
@@ -140,6 +171,34 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
             retryable=True,
         )
+    note_id = params.note_id
+    if params.capture_id is not None and params.context == "library":
+        import hashlib
+
+        from learnloop.capture import get_capture
+        from learnloop.vault.loader import add_note
+        from learnloop_sidecar.handlers.capture import capture_call
+
+        capture = capture_call(get_capture, repository, params.capture_id)
+        if capture["kind"] != "text":
+            raise SidecarError("validation_error", "Only text captures can be sent to the tutor.")
+        if not params.question.strip():
+            raise SidecarError("validation_error", "Question must not be empty.")
+        if params.subject_id not in vault.subjects:
+            raise SidecarError("unknown_subject", "Choose an existing subject for this tutor reference.")
+        if intent is None:
+            intent = route_intent(repository, params, "ask_tutor")
+            event_id = intent["destination_id"]
+        # Library requires a note. Only actual send creates this reference,
+        # never opening/cancelling the dialog; no practice is started.
+        note_id = "note_capture_" + hashlib.sha256(params.capture_id.encode()).hexdigest()[:24]
+        if note_id not in vault.notes:
+            add_note(
+                vault.root, params.subject_id, note_id, "Captured question",
+                f"{capture['text']}\n\nCapture provenance: {params.capture_id}",
+            )
+            ctx.reload(maintenance=False)
+            vault, repository = ctx.require_vault()
     try:
         result = ask_question(
             vault,
@@ -149,9 +208,10 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             question_md=params.question,
             practice_item_id=params.practice_item_id,
             attempt_id=params.attempt_id,
-            note_id=params.note_id,
+            note_id=note_id,
             session_id=params.session_id,
             seconds_into_attempt=params.seconds_into_attempt,
+            **({"question_event_id": event_id} if intent else {}),
             question_context={
                 "preceding_tutor_move": params.preceding_tutor_move,
                 "scaffold_level": params.scaffold_level,
@@ -177,8 +237,11 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
             f"{provider_label(provider_name)} is unavailable for tutor Q&A.",
             retryable=True,
         ) from exc
-    return versioned(
+    return finish_route(
+        ctx, repository, params.capture_id, "ask_tutor",
+        {"question_event_id": result["event_id"], "note_id": note_id},
         {
+            "note_id": note_id,
             "event_id": result["event_id"],
             "answer_md": result["answer_md"],
             "question_type": result["question_type"],

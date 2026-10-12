@@ -18,17 +18,21 @@ const PRACTICE_MODES = [
 export function WriteCardDialog({
   defaultLearningObjectId,
   defaultLearningObjectTitle,
+  initialPrompt,
+  captureId,
   onClose,
   onCreated
 }: {
   defaultLearningObjectId?: string | null;
   defaultLearningObjectTitle?: string | null;
+  initialPrompt?: string;
+  captureId?: string;
   onClose: () => void;
   onCreated: (practiceItemId: string) => void;
 }) {
   const [loOptions, setLoOptions] = useState<{ value: string; label: string }[] | null>(null);
   const [learningObjectId, setLearningObjectId] = useState(defaultLearningObjectId ?? "");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [expectedAnswer, setExpectedAnswer] = useState("");
   const [hintsText, setHintsText] = useState("");
   const [practiceMode, setPracticeMode] = useState("short_answer");
@@ -89,6 +93,7 @@ export function WriteCardDialog({
         .map((h) => h.trim())
         .filter(Boolean);
       const res = await api.authorPracticeItem({
+        captureId,
         learningObjectId,
         prompt: prompt.trim(),
         expectedAnswer: expectedAnswer.trim(),
@@ -117,6 +122,7 @@ export function WriteCardDialog({
         </div>
 
         <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+          {captureId ? <p>Capture provenance: {captureId}. Saving this card does not start practice.</p> : null}
           <Label>learning object</Label>
           <TermSelect
             value={learningObjectId}

@@ -73,6 +73,29 @@ def test_queue_survives_restart(tmp_path):
     assert all(job["status"] == "completed" for job in reopened.repo.ingest_jobs_for_batch(batch_id))
 
 
+def test_keyed_enqueue_is_atomic_and_recovers_after_restart(tmp_path, monkeypatch):
+    runner = _runner(tmp_path)
+    specs = [JobSpec("fake"), JobSpec("fake", depends_on=(0,))]
+    insert = runner.repo.insert_ingest_job
+    calls = 0
+    def interrupted(**kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("interrupted mid graph")
+        return insert(**kwargs)
+    with monkeypatch.context() as patch:
+        patch.setattr(runner.repo, "insert_ingest_job", interrupted)
+        with pytest.raises(RuntimeError, match="interrupted mid graph"):
+            runner.enqueue_batch("import", specs, batch_id="batch_capture_test")
+    assert runner.repo.get_ingest_batch("batch_capture_test") is None
+    assert runner.repo.ingest_jobs_for_batch("batch_capture_test") == []
+    assert runner.enqueue_batch("import", specs, batch_id="batch_capture_test") == "batch_capture_test"
+    reopened = _runner(tmp_path)
+    assert reopened.enqueue_batch("import", specs, batch_id="batch_capture_test") == "batch_capture_test"
+    assert len(reopened.repo.ingest_jobs_for_batch("batch_capture_test")) == 2
+
+
 def test_delete_finished_ingest_batches_removes_queue_history_only(tmp_path):
     runner = _runner(tmp_path, handlers={"fake": _ok_handler({})})
     finished_batch = runner.enqueue_batch(

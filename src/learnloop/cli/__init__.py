@@ -20,8 +20,10 @@ from learnloop.cli.fit import *  # noqa: F401,F403
 from learnloop.cli.sim import *  # noqa: F401,F403
 from learnloop.cli.data import *  # noqa: F401,F403
 from learnloop.cli.embeddings import embeddings_app
+from learnloop.cli.inbox import inbox_app
 
 app.add_typer(config_app, name="config")
+app.add_typer(inbox_app, name="inbox")
 app.add_typer(claims_app, name="claims")
 app.add_typer(contracts_app, name="contracts")
 app.add_typer(goldenpath_app, name="goldenpath")

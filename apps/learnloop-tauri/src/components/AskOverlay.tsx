@@ -16,6 +16,9 @@ import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
 
 export interface AskTarget {
+  initialQuestion?: string;
+  captureId?: string;
+  subjectId?: string;
   context: TutorQuestionContext;
   practiceItemId?: string;
   attemptId?: string;
@@ -119,6 +122,8 @@ export function AskOverlay({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const saveNoticeTimerRef = useRef<number | null>(null);
   const promoteNoticeTimerRef = useRef<number | null>(null);
+  const routedCaptureRef = useRef<string | null>(null);
+  const captureNoteRef = useRef<string | null>(null);
 
   const open = target !== null;
 
@@ -176,7 +181,12 @@ export function AskOverlay({
     setPromoteNotice(null);
     clearPromoteNoticeTimer();
     setPromoteChoiceEventId(null);
-    setQuestion("");
+    setQuestion(target.initialQuestion ?? "");
+    routedCaptureRef.current = null;
+    captureNoteRef.current = null;
+    // A new capture has no library note yet. Do not request an unscoped
+    // library transcript; the server anchors it on the first successful send.
+    if (target.captureId && !target.noteId) return;
     api
       .getTutorTranscript({
         context: target.context,
@@ -241,6 +251,8 @@ export function AskOverlay({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    target?.captureId,
+    target?.initialQuestion,
     target?.context,
     target?.practiceItemId,
     target?.attemptId,
@@ -327,17 +339,21 @@ export function AskOverlay({
         };
       } else {
         const input: AskTutorQuestionInput = {
+          captureId: routedCaptureRef.current === target.captureId ? undefined : target.captureId,
+          subjectId: target.subjectId,
           context: target.context,
           question: text,
           practiceItemId: target.practiceItemId,
           attemptId: target.attemptId,
-          noteId: target.noteId,
+          noteId: captureNoteRef.current ?? target.noteId,
           sessionId: target.sessionId
         };
         if (target.context === "practice" && target.openedAtMs) {
           input.secondsIntoAttempt = Math.max(0, (Date.now() - target.openedAtMs) / 1000);
         }
         const tutorAnswer = await api.askTutorQuestion(input);
+        routedCaptureRef.current = target.captureId ?? null;
+        captureNoteRef.current = tutorAnswer.noteId ?? null;
         answer = {
           eventId: tutorAnswer.eventId,
           answerMd: tutorAnswer.answerMd,
