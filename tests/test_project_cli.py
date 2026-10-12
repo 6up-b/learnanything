@@ -249,3 +249,16 @@ def test_accept_and_provenance_commands(isolated_git, project_fake, cli, tmp_pat
     store = ProjectStore.existing(cli.vault)
     assert store.latest_provenance()[diff_id] == {"accept_style": "per_hunk", "usage_tap": "we_iterated"}
     assert store.diff(diff_id)["capture_timing"] == "pre_commit"
+
+
+def test_declaration_tokens_are_whole_words(monkeypatch):
+    import io
+
+    monkeypatch.setattr("sys.stdin", io.StringIO("I aimed /aim at relu\n\n"))
+    assert project_cli._read_answer() == ("I aimed /aim at relu", "answer", "unassisted")
+    monkeypatch.setattr("sys.stdin", io.StringIO("it is relu /ai\n\n"))
+    assert project_cli._read_answer() == ("it is relu", "answer", "used_ai")
+    monkeypatch.setattr("sys.stdin", io.StringIO("/dk /looked\n\n"))
+    assert project_cli._read_answer() == (None, "dont_know", "looked")
+    monkeypatch.setattr("sys.stdin", io.StringIO(""))
+    assert project_cli._read_answer()[1] == "quit"

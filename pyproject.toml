@@ -120,6 +120,21 @@ forbidden_modules = [
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "replay-never-reaches-projects"
+name = "Replay, rebuild and evidence code never reach project capture (G7)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+]
+forbidden_modules = ["learnloop.projects"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "primitives-have-no-internal-dependencies"
 name = "Primitive modules stay dependency free"
 type = "forbidden"

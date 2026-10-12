@@ -85,3 +85,48 @@ def test_responses_are_practice_only(tmp_path):
         sql = connection.execute("SELECT sql FROM sqlite_master WHERE name='probe_responses'").fetchone()[0]
     assert "CHECK(evidence_class = 'practice')" in sql
     assert "CHECK(exposure_isolation = 'unknown')" in sql
+
+
+def test_replay_and_rebuild_make_no_git_model_or_subprocess_calls(isolated_git, project_fake, tmp_path, monkeypatch):
+    """Gate G7: rebuild reads persisted state only, even with a populated project store."""
+
+    import subprocess
+
+    from learnloop.projects import ai_runtime, capture
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = make_model_repo(tmp_path / "repo")
+    runner = CliRunner()
+    monkeypatch.setattr(project_cli, "_clock", lambda: clock_at(0))
+    assert runner.invoke(app, ["project", "enroll", str(repo.path), "--vault", str(paths.root)]).exit_code == 0
+    assert runner.invoke(app, ["project", "sweep", "--vault", str(paths.root)]).exit_code == 0
+    store_bytes = store_path(paths.root).read_bytes()
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("replay must not call git, a model or a subprocess")
+
+    monkeypatch.setattr(subprocess, "run", forbidden)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(capture, "sweep", forbidden)
+    monkeypatch.setattr(ai_runtime.PaidCalls, "call", forbidden)
+    for args in (["rebuild", "--shadow", "--json"], ["rebuild-derived-state", "--json"]):
+        result = runner.invoke(app, [*args, "--vault", str(paths.root)])
+        assert result.exit_code == 0, result.output
+    assert project_fake.calls == {"authoring": 1, "closed_book": 1, "grading": 1}  # only the sweep's
+    assert store_path(paths.root).read_bytes() == store_bytes
+
+
+@pytest.mark.durability
+def test_store_runs_in_wal_with_full_sync_in_production(tmp_path):
+    from learnloop.db.connection import wal_unavailable_reason
+
+    store = ProjectStore.for_vault(tmp_path)
+    with store.connection() as connection:
+        mode = connection.execute("PRAGMA journal_mode").fetchone()[0]
+        synchronous = connection.execute("PRAGMA synchronous").fetchone()[0]
+    assert mode == ("wal" if wal_unavailable_reason() is None else mode)
+    assert synchronous == 2  # FULL
+    # Reopening is idempotent and keeps the mode.
+    ProjectStore.for_vault(tmp_path)
+    with store.connection() as connection:
+        assert connection.execute("PRAGMA journal_mode").fetchone()[0] == mode

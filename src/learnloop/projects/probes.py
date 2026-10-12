@@ -28,12 +28,14 @@ import hashlib
 import json
 import random
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.errors import AIInterrupted
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable, AITurnTimeout
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
@@ -59,7 +61,7 @@ from learnloop.projects.ai_contracts import (
 )
 from learnloop.projects.ai_runtime import PaidCalls, PlannedCall, ProjectRoute
 from learnloop.projects.capture import BundleIntegrityError, estimate_tokens, load_bundle, parse_hunks
-from learnloop.projects.experiment_store import ProjectStore
+from learnloop.projects.experiment_store import ProjectStore, store_path
 
 AUTHORING_OUTPUT_TOKENS = 6_000
 CLOSED_BOOK_OUTPUT_TOKENS_PER_QUESTION = 250
@@ -81,6 +83,49 @@ class SealedProbeError(ValueError):
 
 class ProbeStateError(ValueError):
     """The requested action does not apply to this probe or response."""
+
+
+class GenerationError(ValueError):
+    """A generation stage failed for a reason whose message is safe to show."""
+
+
+def safe_error(exc: BaseException) -> str:
+    """An error string that can never quote model output.
+
+    Invalid-output and validation messages can echo a candidate question,
+    which must not render before it is due (G5); the full output stays in the
+    store's call receipts.
+    """
+
+    name = type(exc).__name__
+    if isinstance(exc, (GenerationError, BundleIntegrityError, SpendLimitExceeded, AITurnTimeout)):
+        return f"{name}: {exc}"[:300]
+    if isinstance(exc, AIProviderUnavailable) and not isinstance(exc, AIInvalidOutput):
+        return f"{name}: {exc}"[:300]
+    return f"{name} (details are in the call receipts)"
+
+
+@contextmanager
+def _exclusive(vault_root: Path, name: str) -> Iterator[bool]:
+    """A non-blocking cross-process lock, so two commands never pay twice."""
+
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - POSIX hosts only
+        yield True
+        return
+    path = store_path(vault_root).parent / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+") as handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def _input_hash(payload: Any) -> str:
@@ -309,7 +354,7 @@ def grade_items(
     grades = {grade.id: grade for grade in result.grades}
     missing = [item["key"] for item in items if item["key"] not in grades]
     if missing:
-        raise ValueError(f"grader returned no grade for {', '.join(missing)}")
+        raise GenerationError(f"grader returned no grade for {', '.join(missing)}")
     return grades
 
 
@@ -585,11 +630,34 @@ def generate_probes(
         report.reason = "; ".join(f"{route.role}: {route.message or 'not ready'}" for route in unready)
         report.spend = paid.summary()
         return report
+    with _exclusive(vault_root, "generate.lock") as acquired:
+        if not acquired:
+            report.status, report.reason = "busy", "another command is generating questions; rerun when it finishes"
+            report.spend = paid.summary()
+            return report
+        _generate_all(store, vault_root, config, paid, routes, diffs, report, clock)
+    report.spend = paid.summary()
+    return report
+
+
+def _generate_all(
+    store: ProjectStore,
+    vault_root: Path,
+    config: LearnLoopConfig,
+    paid: PaidCalls,
+    routes: dict[str, ProjectRoute],
+    diffs: list[dict[str, Any]],
+    report: GenerationReport,
+    clock: Clock | None,
+) -> None:
     for diff in diffs:
+        current = store.diff(diff["id"])
+        if current is None or current["probe_status"] != "pending":
+            continue  # finished by another run in the meantime
         entry = {"diff_id": diff["id"], "status": None, "error": None}
         report.diffs.append(entry)
         try:
-            entry["status"] = generate_for_diff(store, vault_root, config, paid, routes, diff, clock=clock)
+            entry["status"] = generate_for_diff(store, vault_root, config, paid, routes, current, clock=clock)
         except SpendLimitExceeded as exc:
             entry["status"], entry["error"] = "pending", str(exc)
             report.status, report.reason = "over_budget", str(exc)
@@ -599,16 +667,13 @@ def generate_probes(
             report.status, report.reason = "cancelled", "interrupted; rerun to resume"
             break
         except BundleIntegrityError as exc:
-            store.record_generation_failure(diff["id"], error=str(exc), max_attempts=1)
-            entry["status"], entry["error"] = "failed", str(exc)
+            store.record_generation_failure(diff["id"], error=safe_error(exc), max_attempts=1)
+            entry["status"], entry["error"] = "failed", safe_error(exc)
         except Exception as exc:  # noqa: BLE001 - provider and output failures are per-diff
-            store.record_generation_failure(
-                diff["id"], error=f"{type(exc).__name__}: {exc}", max_attempts=MAX_GENERATION_ATTEMPTS
-            )
-            entry["status"], entry["error"] = (store.diff(diff["id"]) or {}).get("probe_status"), f"{type(exc).__name__}: {exc}"
+            message = safe_error(exc)
+            store.record_generation_failure(diff["id"], error=message, max_attempts=MAX_GENERATION_ATTEMPTS)
+            entry["status"], entry["error"] = (store.diff(diff["id"]) or {}).get("probe_status"), message
             report.status = "partial"
-    report.spend = paid.summary()
-    return report
 
 
 # --- serving and answering ---------------------------------------------------------------
@@ -737,7 +802,7 @@ def grade_responses(
             raise
         except Exception as exc:  # noqa: BLE001 - one failed grade must not lose the answer
             store.record_grade_failure(response["id"], max_attempts=MAX_GRADE_ATTEMPTS)
-            results.append({"response_id": response["id"], "status": "grade_failed", "error": f"{type(exc).__name__}: {exc}"})
+            results.append({"response_id": response["id"], "status": "grade_failed", "error": safe_error(exc)})
             continue
         now = _now(clock)
         score = _clamp(grade.score)

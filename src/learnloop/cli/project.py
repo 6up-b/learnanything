@@ -9,6 +9,7 @@ No command renders a question before it is due.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Annotated, Any
@@ -476,6 +477,8 @@ def project_status(
     if status["unattributed_commits"]:
         lines.append("Commits without an agent trailer (mark AI-written ones with `learnloop project accept --commit <sha>`):")
         lines += [f"  {row['sha'][:12]} {row['subject']}" for row in status["unattributed_commits"][:20]]
+    if status.get("diffs"):
+        lines.append("Captured diffs (id, repo, commit, agent, question status, files):")
     for diff in status.get("diffs", []):
         lines.append(
             f"  {diff['diff_id']} {diff['repo']} {(diff['head_sha'] or '')[:10]} {diff['agent']} "
@@ -512,6 +515,8 @@ def project_report(
 # --- answering ---------------------------------------------------------------------------
 
 
+_LOOKED = re.compile(r"(?<!\S)/looked(?!\S)")
+_USED_AI = re.compile(r"(?<!\S)/ai(?!\S)")
 _HELP_LINE = (
     "Answer from memory; finish with an empty line. Commands: /dk (don't know), /unfair "
     "(question is unfair or ambiguous), /skip, /quit. Add /looked or /ai if you looked at the "
@@ -537,12 +542,12 @@ def _read_answer() -> tuple[str | None, str, str]:
         lines.append(line)
     text = "\n".join(lines)
     declaration = "unassisted"
-    if "/looked" in text:
+    if _LOOKED.search(text):
         declaration = "looked"
-        text = text.replace("/looked", "")
-    if "/ai" in text:
+        text = _LOOKED.sub("", text)
+    if _USED_AI.search(text):
         declaration = "used_ai"
-        text = text.replace("/ai", "")
+        text = _USED_AI.sub("", text)
     command = text.strip().lower()
     for token, kind in (("/dk", "dont_know"), ("/unfair", "unfair"), ("/skip", "skip"), ("/quit", "quit")):
         if command == token:

@@ -308,3 +308,32 @@ def test_model_returning_extra_candidates_is_capped(captured):
 
     _generate(vault, config, store, Many())
     assert len(store.probes_for_diff(diff["id"])) == config.project.candidates_per_diff
+
+
+def test_a_concurrent_generation_run_is_refused_not_double_paid(captured):
+    from learnloop.projects.probes import _exclusive
+
+    vault, config, store, diff = captured
+    fake = ProjectFake()
+    with _exclusive(vault, "generate.lock") as held:
+        assert held
+        report = _generate(vault, config, store, fake)
+    assert report.status == "busy" and fake.calls == {}
+    assert _generate(vault, config, store, fake).status == "complete"
+
+
+def test_errors_never_quote_model_output():
+    from pydantic import ValidationError
+
+    from learnloop.ai.errors import AIInvalidOutput, AIProviderUnavailable
+    from learnloop.projects.probes import GenerationError, safe_error
+
+    secret_question = "Q: why does forward clamp negatives?"
+    try:
+        ProbeCandidate.model_validate({"kind": "nope", "reference_answer": "r", "question": secret_question})
+    except ValidationError as exc:
+        assert secret_question not in safe_error(exc)
+    assert secret_question not in safe_error(AIInvalidOutput(f"bad JSON: {secret_question}"))
+    assert secret_question not in safe_error(RuntimeError(secret_question))
+    assert "auth required" in safe_error(AIProviderUnavailable("auth required"))
+    assert "no grade for q1" in safe_error(GenerationError("grader returned no grade for q1"))

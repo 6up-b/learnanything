@@ -1019,7 +1019,10 @@ def sweep(
             report.errors.append(f"{repo_row['name']}: {exc}")
             store.record_repo_sweep(repo_row["id"], swept_at=report.swept_at, error=str(exc)[:500])
         report.repos.append(summary)
-    store.set_meta("pending_offset", str(new_offset))
+    if repo_ids is None:
+        # A single-repo sweep leaves other repos' pending entries for the next
+        # full sweep; re-reading an entry is harmless (captures are deduplicated).
+        store.set_meta("pending_offset", str(new_offset))
     if report.errors:
         report.status = "partial"
     return report

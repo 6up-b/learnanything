@@ -22,9 +22,13 @@ from contextlib import closing, contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
+import logging
+
 from learnloop.db.connection import connect
-from learnloop.db.migrate import switch_to_wal
+from learnloop.db.migrate import JournalModeSwitchError, switch_to_wal
 from learnloop.ids import new_ulid
+
+_LOG = logging.getLogger(__name__)
 
 STORE_SCHEMA_VERSION = 1
 STORE_RELATIVE_PATH = Path("projects") / "project_store.sqlite"
@@ -332,8 +336,12 @@ class ProjectStore:
                 connection.execute(f"PRAGMA user_version = {STORE_SCHEMA_VERSION}")
                 connection.commit()
             # ADR-015: WAL + synchronous=FULL, as for the vault database. The
-            # switch is idempotent and a no-op where the linked SQLite forbids it.
-            switch_to_wal(connection, self.path)
+            # switch is idempotent and a no-op where the linked SQLite forbids it;
+            # a busy store keeps its mode and is switched on a later open.
+            try:
+                switch_to_wal(connection, self.path)
+            except JournalModeSwitchError as exc:
+                _LOG.warning("Project store stays in rollback mode for now: %s", exc)
 
     # --- meta -----------------------------------------------------------------
 
