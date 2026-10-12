@@ -64,6 +64,8 @@ from learnloop.daily_plan.records import (
     PlanRecord,
     PlannedBlock,
     PlannedItem,
+    RECEIPT_OPEN_LIST_PICK,
+    RECEIPT_STOP,
     assemble,
 )
 from learnloop.daily_plan.reentry import ReentryGap, reentry_gap
@@ -995,18 +997,72 @@ def _boundary(
     return block_id
 
 
-def _close(env: PlanEnv, record: PlanRecord, *, status: str, reason: str, stop_detail: Mapping[str, Any] | None = None) -> None:
+def _persist_receipt(
+    env: PlanEnv,
+    connection: Any,
+    record: PlanRecord,
+    *,
+    action: str,
+    chosen_by: str,
+    detail: Mapping[str, Any],
+    decision_ref: str | None = None,
+    est_minutes: float = 0.0,
+    learning_object_ids: Sequence[str] = (),
+) -> str:
+    """A plan-level receipt row: a decision that is not one of the plan's
+    numbered blocks (a stop, a pick after the plan closed). Append-only: an
+    ``attention_blocks`` row of the plan with no ordinal, and its
+    ``block_chosen`` event (§6.8 rule 6; review F6, F10)."""
+
+    receipt_id = new_ulid()
     now = env.now_iso()
-    split = record.split
-    if stop_detail is not None:
-        split["stop"] = dict(stop_detail)
+    material = json.dumps({"plan": record.id, "receipt": receipt_id, "action": action}, sort_keys=True)
+    store.insert_plan_block(
+        connection,
+        {
+            "id": receipt_id,
+            "session_id": env.session_id,
+            "action": action,
+            "subtype": None,
+            "budget_minutes": float(est_minutes),
+            "neighborhood": {"learning_object_ids": list(learning_object_ids)},
+            "short_circuit_reason": action,
+            "content_hash": hashlib.sha256(material.encode("utf-8")).hexdigest(),
+            "created_at": now,
+            "daily_plan_id": record.id,
+            "plan_ordinal": None,
+            "lane": None,
+            "chosen_by": chosen_by,
+            "decision_ref": decision_ref,
+            "reading": None,
+        },
+    )
+    _event(connection, receipt_id, "block_chosen", detail, now)
+    return receipt_id
+
+
+def _close(env: PlanEnv, record: PlanRecord, *, status: str, reason: str, stop_detail: Mapping[str, Any] | None = None) -> None:
+    """Close the plan. A chooser's stop (``stop_detail``: the candidate set,
+    chooser, propensity and fallback) is appended as a stop receipt, so a plan
+    reopened by a minutes tap and stopped again keeps both decisions (F6)."""
+
+    now = env.now_iso()
     with env.repository.atomic(), env.repository.connection() as connection:
+        if stop_detail is not None:
+            _persist_receipt(
+                env,
+                connection,
+                record,
+                action=RECEIPT_STOP,
+                chosen_by=str(stop_detail.get("chosen_by") or "lane_quota"),
+                decision_ref=stop_detail.get("decision_ref"),
+                detail={**dict(stop_detail), "stop_reason": reason, "status": status},
+            )
         store.update_plan(
             connection,
             record.id,
             status=status,
             stop_reason=reason,
-            split_json=split,
             updated_at=now,
             completed_at=now,
         )
@@ -1502,8 +1558,49 @@ def learner_pick(
         block = next(b for b in record.blocks if b.id == planned.block_id)
         return record, _item_step(env, record, block, planned, boundary=False, candidate_id=candidate_id)
     if not record.is_open:
+        # The plan does not grow ("keep going" is the only extension), but the
+        # pick is still the learner's choice: an open-list pick receipt keeps
+        # its learner_pick / serving_origin record (review F10).
         practice_item = vault.practice_items[practice_item_id]
-        return record, {
+        est = built.estimator.item_minutes(vault, practice_item_id)
+        with env.repository.atomic(), env.repository.connection() as connection:
+            receipt_id = _persist_receipt(
+                env,
+                connection,
+                record,
+                action=RECEIPT_OPEN_LIST_PICK,
+                chosen_by="learner_pick",
+                est_minutes=est,
+                learning_object_ids=[practice_item.learning_object_id],
+                detail={
+                    "source": "learner",
+                    "chooser": "learner",
+                    "chosen_by": "learner_pick",
+                    "candidate_id": f"pick:{practice_item_id}",
+                    "practice_item_id": practice_item_id,
+                    "propensity": None,
+                    "why": "you picked this from the full list after today's plan closed",
+                    "why_kind": "computed",
+                    "fallback": False,
+                    "plan_status": record.status,
+                    "candidate_set": [],
+                },
+            )
+            _event(
+                connection,
+                receipt_id,
+                "item_served",
+                {
+                    "practice_item_id": practice_item_id,
+                    "learning_object_id": practice_item.learning_object_id,
+                    "scheduler_candidate_id": candidate_id,
+                    "session_id": env.session_id,
+                    "est_minutes": round(est, 4),
+                    "serving_origin": "learner_pick",
+                },
+                env.now_iso(),
+            )
+        return _reload(env, record.id), {
             "kind": "item",
             "plan_id": None,
             "block_id": None,

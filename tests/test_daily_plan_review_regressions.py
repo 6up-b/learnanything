@@ -412,3 +412,107 @@ def test_f5_plan_rpcs_finalize_no_offer_and_picks_keep_the_list_offer(tmp_path, 
     assert picked["step"]["schedulerCandidateId"] == listed[pick_id]
     assert listed[pick_id] in json.loads(receipts[-1][1])
     assert _offer_receipts(paths.sqlite_path) == receipts
+
+
+# -- F6: every stop decision is an append-only receipt --
+
+
+def _small_plan_env(tmp_path, *, policy=None, count=3, minutes=3.0):
+    from learnloop.daily_plan.engine import DEFAULT_POLICY
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    los = {f"lo_s{i}": [(f"pi_s{i}", minutes)] for i in range(count)}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    _no_goals(paths)
+    clock = MovableClock(NOW)
+    env = make_env(
+        paths.root, [scheduled(f"pi_s{i}", f"lo_s{i}", forgetting_risk=0.7) for i in range(count)],
+        clock=clock, policy=policy or DEFAULT_POLICY,
+    )
+    for i in range(count):
+        seed_due(env.repository, f"pi_s{i}", due=NOW - timedelta(days=2), last=NOW - timedelta(days=9))
+    return env, clock
+
+
+def _drain(env, clock):
+    from learnloop.daily_plan.engine import advance
+
+    for _ in range(30):
+        record, step = advance(env, serve=False)
+        if step["kind"] != "item":
+            return record
+        clock.advance(1)
+        advance(env, serve=False, skip_practice_item_id=step["practice_item_id"])
+    raise AssertionError("the plan never finished")
+
+
+def test_f6_a_reopened_plan_that_stops_again_keeps_both_stop_receipts(tmp_path):
+    from learnloop.daily_plan.engine import build_plan, set_minutes
+    from learnloop.daily_plan.types import STOP_FOR_TODAY
+
+    env, clock = _small_plan_env(tmp_path)
+    build_plan(env, kind="normal", budget=5.0, remembered=5, minutes_source="chip")
+    record = _drain(env, clock)
+    assert record.status == "complete" and len(record.stops()) == 1
+    clock.advance(5)
+    set_minutes(env, 15)  # a larger chip reopens the completed plan
+    record = _drain(env, clock)
+    assert record.status == "complete"
+    stops = record.stops()
+    assert len(stops) == 2 and stops[0].created_at < stops[1].created_at
+    for stop in stops:
+        assert stop.chosen["candidate_id"] == STOP_FOR_TODAY
+        assert stop.chosen["chooser"] == "lane_quota_v1" and stop.chosen["propensity"] == 1.0
+        assert "candidate_set" in stop.chosen and "state" in stop.chosen
+    # Stops are receipts, not blocks: no minutes, no items, no block numbers.
+    assert all(block.action != STOP_FOR_TODAY for block in record.blocks)
+    assert [block.ordinal for block in record.blocks] == list(range(1, len(record.blocks) + 1))
+
+
+def test_f6_a_router_stop_keeps_its_propensity_and_candidates(tmp_path):
+    from dataclasses import dataclass
+
+    from learnloop.daily_plan.engine import PlanPolicy, build_plan, legacy_source
+    from learnloop.daily_plan.types import STOP_FOR_TODAY, BlockChoice
+
+    @dataclass
+    class StoppingRouter:
+        name: str = "fake_router"
+
+        def choose(self, state, feasible):
+            return BlockChoice(STOP_FOR_TODAY, "mixture", 0.3, "stop here", "model_written", "rd_1")
+
+    env, _clock = _small_plan_env(tmp_path, policy=PlanPolicy("fake_source", StoppingRouter(), legacy_source))
+    # Four minutes: STOP is offered while a 3.5-minute item is still feasible.
+    record = build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
+    assert record.status == "complete" and not record.blocks
+    (stop,) = record.stops()
+    assert stop.chosen_by == "mixture" and stop.decision_ref == "rd_1"
+    assert stop.chosen["propensity"] == 0.3 and stop.chosen["fallback"] is False
+    assert stop.chosen["feasible_ids"] and stop.chosen["candidate_set"]
+
+
+# -- F10: a pick after the plan closed keeps its learner_pick record --
+
+
+def test_f10_a_pick_after_the_plan_closed_is_recorded(tmp_path):
+    from learnloop.daily_plan.engine import learner_pick, stop_today
+    from learnloop.daily_plan.records import RECEIPT_OPEN_LIST_PICK
+
+    env, _clock = _small_plan_env(tmp_path)
+    get_or_create_today(env)
+    record = stop_today(env)
+    assert record.status == "stopped"
+    record, step = learner_pick(env, "pi_s2")
+    assert step["origin"] == "open_list" and step["plan_id"] is None
+    assert record.minutes_planned() == 0 or "pi_s2" not in {item.practice_item_id for item in record.items()}
+    (receipt,) = [r for r in record.receipts if r.action == RECEIPT_OPEN_LIST_PICK]
+    assert receipt.chosen_by == "learner_pick" and receipt.chosen["propensity"] is None
+    assert receipt.chosen["practice_item_id"] == "pi_s2"
+    import sqlite3
+
+    with sqlite3.connect(env.repository.sqlite_path) as connection:
+        served = connection.execute(
+            "SELECT detail_json FROM attention_block_events WHERE block_id = ? AND kind = 'item_served'", (receipt.id,)
+        ).fetchone()
+    assert served is not None and '"serving_origin":"learner_pick"' in served[0]

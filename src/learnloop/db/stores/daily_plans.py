@@ -4,7 +4,9 @@
 A plan's blocks are ``attention_blocks`` rows carrying the DL1 columns
 (``daily_plan_id``, ``plan_ordinal``, ``lane``, ``chosen_by``, ``decision_ref``,
 ``reading_json``); every decision about them is an append-only
-``attention_block_events`` receipt. Nothing here is evidence, and replay never
+``attention_block_events`` receipt. A decision that is not a block (a stop,
+a pick served after the plan closed) is a receipt row: an ``attention_blocks``
+row of the plan with a NULL ``plan_ordinal`` and its own events. Nothing here is evidence, and replay never
 reads these rows. Callers own the transaction (``with repository.atomic(),
 repository.connection() as connection``).
 """
@@ -90,7 +92,11 @@ def insert_plan_block(connection: sqlite3.Connection, row: Mapping[str, Any]) ->
             row["id"], row.get("session_id"), row["action"], row.get("subtype"),
             float(row["budget_minutes"]), _json(dict(row.get("neighborhood") or {})),
             row.get("short_circuit_reason"), row["content_hash"], row["created_at"],
-            row["daily_plan_id"], int(row["plan_ordinal"]), row.get("lane"), row["chosen_by"],
+            row["daily_plan_id"],
+            # NULL for a plan-level receipt row (a stop decision, a pick after
+            # the plan closed): it is not one of the plan's numbered blocks.
+            int(row["plan_ordinal"]) if row.get("plan_ordinal") is not None else None,
+            row.get("lane"), row["chosen_by"],
             row.get("decision_ref"),
             _json(row["reading"]) if row.get("reading") is not None else None,
         ),

@@ -77,10 +77,17 @@ def plan_report(records: list[PlanRecord]) -> dict[str, Any]:
             stop_reasons[str(record.row["stop_reason"])] += 1
     chosen_by = defaultdict(int)
     fallbacks = 0
+    stop_decisions = 0
+    open_list_picks = 0
     for record in records:
         for block in record.blocks:
             chosen_by[block.chosen_by] += 1
             fallbacks += 1 if block.chosen.get("fallback") else 0
+        for receipt in record.receipts:
+            # Stop decisions are decisions too (§6.8 rule 6).
+            fallbacks += 1 if receipt.chosen.get("fallback") else 0
+        stop_decisions += len(record.stops())
+        open_list_picks += len(record.receipts) - len(record.stops())
     return {
         "plans": len(records),
         "days_with_plans": len(days_with_plans),
@@ -104,6 +111,8 @@ def plan_report(records: list[PlanRecord]) -> dict[str, Any]:
         "open_to_first_item_seconds_p90": round(_quantile(open_to_first, 0.9) or 0.0, 1) if open_to_first else None,
         "stop_reasons": dict(stop_reasons),
         "blocks_by_chooser": dict(chosen_by),
+        "stop_decisions": stop_decisions,
+        "open_list_picks_after_plan": open_list_picks,
         "chooser_fallbacks": fallbacks,
     }
 
@@ -153,6 +162,19 @@ def plan_show(record: PlanRecord, vault: Any) -> dict[str, Any]:
                 ],
             }
             for block in record.blocks
+        ],
+        # Decisions that are not blocks, append-only (stops, picks after close).
+        "receipts": [
+            {
+                "kind": receipt.action,
+                "at": receipt.created_at,
+                "chosen_by": receipt.chosen_by,
+                "propensity": receipt.chosen.get("propensity"),
+                "why": receipt.chosen.get("why"),
+                "fallback": bool(receipt.chosen.get("fallback")),
+                "practice_item_id": receipt.chosen.get("practice_item_id"),
+            }
+            for receipt in record.receipts
         ],
     }
 

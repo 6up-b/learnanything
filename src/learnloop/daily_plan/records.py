@@ -26,6 +26,11 @@ ORIGIN_LEARNER_PICK = "learner_pick"
 #: split; learner picks are deducted from the lanes when picked).
 LANE_ORIGINS = frozenset({ORIGIN_CHOOSER, ORIGIN_FOLLOWUP})
 
+#: Plan-level receipt rows (``attention_blocks`` rows with a NULL
+#: ``plan_ordinal``): decisions that are not blocks (review F6, F10).
+RECEIPT_STOP = "stop_for_today"
+RECEIPT_OPEN_LIST_PICK = "open_list_pick"
+
 
 @dataclass
 class PlannedItem:
@@ -152,6 +157,14 @@ class PlannedBlock:
 class PlanRecord:
     row: dict[str, Any]
     blocks: list[PlannedBlock] = field(default_factory=list)
+    #: Append-only receipts that are not blocks, oldest first: each stop
+    #: decision (a ``block_chosen`` event naming STOP_FOR_TODAY with its
+    #: candidate set, chooser and propensity) and each pick served after the
+    #: plan closed. They never count toward the plan's minutes or items.
+    receipts: list[PlannedBlock] = field(default_factory=list)
+
+    def stops(self) -> list[PlannedBlock]:
+        return [receipt for receipt in self.receipts if receipt.action == RECEIPT_STOP]
 
     @property
     def id(self) -> str:
@@ -288,7 +301,9 @@ def assemble(
     for event in event_rows:
         events_by_block.setdefault(str(event["block_id"]), []).append(event)
     blocks_by_plan: dict[str, list[PlannedBlock]] = {}
+    receipts_by_plan: dict[str, list[PlannedBlock]] = {}
     for row in block_rows:
+        receipt = row.get("plan_ordinal") is None
         block = PlannedBlock(
             id=str(row["id"]),
             ordinal=int(row["plan_ordinal"] or 0),
@@ -305,11 +320,13 @@ def assemble(
         by_item: dict[str, PlannedItem] = {}
         for event in sorted(events_by_block.get(block.id, []), key=lambda e: int(e["event_ordinal"])):
             _apply_event(block, by_item, event)
-        blocks_by_plan.setdefault(str(row["daily_plan_id"]), []).append(block)
+        target = receipts_by_plan if receipt else blocks_by_plan
+        target.setdefault(str(row["daily_plan_id"]), []).append(block)
     records = []
     for row in plan_rows:
         blocks = sorted(blocks_by_plan.get(str(row["id"]), []), key=lambda b: b.ordinal)
-        records.append(PlanRecord(row=dict(row), blocks=blocks))
+        receipts = sorted(receipts_by_plan.get(str(row["id"]), []), key=lambda b: (b.created_at, b.id))
+        records.append(PlanRecord(row=dict(row), blocks=blocks, receipts=receipts))
     return records
 
 
@@ -372,6 +389,8 @@ __all__ = [
     "ORIGIN_LEARNER_PICK",
     "ORIGIN_REQUESTED",
     "PlanRecord",
+    "RECEIPT_OPEN_LIST_PICK",
+    "RECEIPT_STOP",
     "PlannedBlock",
     "PlannedItem",
     "assemble",
