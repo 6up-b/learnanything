@@ -191,17 +191,23 @@ but not used; switching is one profile (`api = "perplexity"`, `PERPLEXITY_API_KE
     excerpt, timing). Budget: `router.card_token_budget`'s default, 16K tokens
     (bytes/4); older successes drop first, then older excerpts, then older
     attempts and questions; typed fields never drop, and the card says what was
-    omitted. *(Revised by the Codex review fixes, F2, F3 and F5; see
-    `router-r0-codex-review.md`.)*
-- **No leakage.** The cutoff is the attempt's start as recorded before grading:
-  the submission intent's time minus `latency_seconds` minus a 2 s rounding
-  margin. `created_at` includes grading time and never sets it. Without an
-  intent and a latency the start is unknown and V2/V3 show no history at all
-  and say so. Every record must be strictly before the cutoff. Questions linked
-  to the predicted attempt are excluded even if timestamped earlier. Hypotheses
-  must be written, and their source attempt submitted, before the cutoff.
-  *(Revised by the Codex review fixes, F1; the earlier rule used `created_at −
-  latency` and a previous-submission fallback, both of which could leak.)*
+    omitted. Hypothesis evidence comes only from attempts that measured its
+    target facets (its LO when it names none); other later work on its LO is
+    listed as context. *(Revised by the Codex review fixes, F2, F3 and F5, and
+    the re-review, F7 and F8; see `router-r0-codex-review.md`.)*
+- **No leakage.** The cutoff is the time of a record the sidecar wrote before
+  the item could be shown: the scheduler offer the submission is bound to (the
+  intent's candidate row) or the diagnostic presentation the attempt consumed.
+  `created_at` includes grading time, and an intent can be stamped after the
+  click when the serial sidecar queues the request, so neither sets it. Without
+  an offer or a presentation the start is unknown and V2/V3 show no history at
+  all and say so. Every record must be strictly before the cutoff. Questions
+  linked to the predicted attempt are excluded even if timestamped earlier.
+  Hypotheses must be written, and their source attempt submitted, before the
+  cutoff. *(Revised twice by the Codex reviews: F1 replaced `created_at −
+  latency` and a previous-submission fallback with intent − latency − 2 s;
+  re-review F1 replaced that with the offer or presentation; see
+  `router-r0-codex-review.md`.)*
 - **Questions.** Decider: one `noul` question `will_pass` ("Will the learner answer
   this item correctly on this attempt? …", with true/false criteria), question set
   `llm_probability_qs_v1`. LLM: the same question as structured output
@@ -337,8 +343,10 @@ example uses `linear_algebra`; repeat for `probability` and `arxiv_v2`.
    dry run. If it says `over_budget`, raise the cap it names. *(After the review
    fixes the same dry run gives 111 requests per judge, Decider $0.0014, and
    `history.start_established = 0` of 53: these July attempts predate submission
-   intents, so V2 and V3 carry no history on this copy. Check that count on your
-   live vault's dry run before paying; see `router-r0-codex-review.md`.)*
+   intents, so V2 and V3 carry no history on this copy. After the re-review the
+   count is still 0 of 53, at 111 requests per judge (Decider 71,983 tokens,
+   $0.0014). Check that count on your live vault's dry run before paying; see
+   `router-r0-codex-review.md`.)*
 
 5. **The real run** (same flags, `--prepare-llm` instead of `--dry-run`, plus a
    report directory):
