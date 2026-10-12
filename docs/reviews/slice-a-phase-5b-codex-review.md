@@ -189,3 +189,91 @@ bytes directly (`30780a3d`), and the rerun above is clean.
    the newest revision still serves and status labels it stale, as before.
    Strict matching would send the whole dossier path to direct search after
    any source edit until regeneration.
+
+## Re-review (Codex job `20261012-021115-ca1I2q`)
+
+Codex re-reviewed `9ca5df87..7e33b5e3`. It confirmed F1 to F6 fixed and
+reopened F7 and F8, with one new finding (F9) behind F7. Each was reproduced
+before it was fixed. No live or paid AI call was made, and every test uses
+fakes.
+
+| ID | Severity | Title | Verdict | Commit | Test |
+|---|---|---|---|---|---|
+| F1 | High | Metered calls bypass request and retry caps | confirmed fixed (no change) | `a34f292b` | as above |
+| F2 to F6 | Medium | (see above) | confirmed fixed (no change) | as above | as above |
+| F7 | Medium | The paid `find` command has no dry run (reopened through F9) | fixed | `c00357e4` | as F9 |
+| F8 | Medium | A paid answer whose checkpoint write failed is paid again (reopened) | fixed | `d0a79a67` | `test_practice_index_dossiers.py::test_a_paid_answer_whose_checkpoint_failed_is_recovered_from_its_receipt`, `::test_a_receipt_for_another_request_or_an_invalid_answer_is_not_recovered`; `test_practice_index_find.py::test_a_rerank_whose_checkpoint_failed_is_recovered_from_its_receipt`; `test_practice_index_evaluation.py::test_paid_labels_and_queries_whose_checkpoint_failed_are_recovered_from_receipts` |
+| F9 | Medium | Find dry run omits the rerank when keyword search finds no candidates | fixed | `c00357e4` | `test_practice_index_find.py::test_find_dry_run_bounds_the_rerank_pool_the_query_vector_will_fill` (zero and partial overlap), `::test_find_dry_run_keeps_the_keyword_pool_when_no_query_embedding_will_run` |
+
+No finding was rejected.
+
+**F8 (reopened).** *Reproduced* with the real receipt store and a failing
+`save_model_checkpoint`:
+- The rerank's completed receipt kept `output_text`, but no checkpoint
+  existed, and the rerun sent a **second** rerank request (2 requests at
+  `7e33b5e3`).
+- For dossiers, the dry run reported **0 recoverable**.
+- For evaluation query-writer batches, the dry run reported **0 recovered**
+  (that batch would have been paid again).
+
+*Fix:* the root receipt now names the request before the request is sent.
+Its `practice_index` block (written at the receipt's start) carries the
+request key and the caller's context.
+
+On a rerun, a call with no checkpoint first looks for a completed root
+receipt with the same request identity before it pays:
+- the same request key, prompt hash, schema hash and output budget;
+- an answer that still parses and passes the call's validator.
+
+It checkpoints that answer and returns it, and the caller writes its rows
+idempotently. The run reports this as `usage.recovered_from_receipts`.
+
+Receipts that are skipped:
+- receipts of another request (another key, or none);
+- failed receipts;
+- answers that no longer validate, such as an attempt that was retried.
+
+The dossier, rerank and label dry runs count these answers as recoverable.
+Query-writer batches cannot be rebuilt on a rerun, because a rerun batches
+the remaining seeds differently. They are materialized from their receipts'
+declared seed context, as checkpointed batches already were. There is no
+schema change.
+
+**F9.** *Reproduced* in `plan_find_practice`, with a vector index, an
+uncached query vector and the rerank enabled:
+- A query with no keyword overlap planned `rerank.status = "empty_pool"`:
+  zero rerank cost and one call in total.
+- A partial-overlap query planned a pool of **2**, against a bound of 19.
+- The live run then reranked a vector-filled pool.
+
+*Fix:* while the query embedding is still to be sent, the plan bounds the
+pool by `min(candidate_pool, admissible corpus)`. It sizes the caps and
+budget charge to that bound. It prices the prompt of the corpus's longest
+candidates at that size, numbered `c1..cN`. That prompt is at least as long,
+in UTF-8 bytes, as any live prompt, so the estimate is a true upper bound:
+the test checks it against the live prompt.
+
+The plan no longer uses the keyword-only pool. When no embedding will run
+(cached vector, unknown price, or over budget), the keyword pool is the live
+pool and is reported as exact. `admission.pool` reports the same bound,
+together with `pool_exact`.
+
+The earlier upper bound filled every slot with a maximum-length candidate.
+Applied to the full pool, it would have made a priced metered rerank look
+over its default $0.05 cap, although the live call fits. The corpus-based
+bound avoids that.
+
+### Gate (final, on `d0a79a67` plus this document)
+
+| Command / check | Result |
+|---|---|
+| `uv sync --extra dev`; `uv pip install pypdfium2` | OK (no `learnloop_mobile` change, so no `--extra mobile`) |
+| `uv run lint-imports --no-cache` | **6 contracts kept, 0 broken** |
+| `uv run pytest -n auto` | **6,228 passed**, 14 existing warnings, 192.1 s |
+| `uv run pytest -m durability` | **64 passed**, 6,164 deselected, 30.8 s |
+| Practice-index and single-request modules | **76 passed** (69 plus 7 new) |
+| DB reference generate / validate | not applicable: no schema or config change |
+| Frontend (`npm`) | not applicable: no frontend change |
+
+`fixtures/migration_head_167` is unchanged, and no tracked vault fixture
+changed.

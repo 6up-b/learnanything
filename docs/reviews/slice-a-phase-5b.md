@@ -240,15 +240,18 @@ idempotent sweep that joins proposals to attempts within 72 h (judge
   and run each admitted attempt under `single_request()`: one physical
   request, no hidden retry or JSON repair; a retry is a new admitted attempt
   (review F1). Reported usage reconciles upward. Paid answers are
-  checkpointed before their rows are written, so a crash never pays twice
-  (review F8). Root receipts carry the caps plus a
-  `practice_index` block (task, billing, cost basis, prompt version, input
-  hash).
+  checkpointed before their rows are written, and a completed receipt whose
+  checkpoint never committed is recovered by its full request identity, so
+  a crash never pays twice (review F8, re-review). Root receipts carry the
+  caps plus a `practice_index` block (task, billing, cost basis, prompt
+  version, input hash, request key, and the caller's context).
 - Paid batch work has its own switches, off in the template:
   `practice_index.dossiers_enabled`, `practice_index.evaluation_enabled`.
   Dry runs need neither and make no client, migration or data change (they
   attach read-only; review F2). `practice-index find --dry-run` plans the
-  live query embedding and rerank (review F7). The
+  live query embedding and rerank (review F7); before the query is
+  embedded, the rerank is bounded by the admissible corpus and
+  `candidate_pool`, never by the keyword-only pool (re-review F9). The
   evaluation checks its whole plan (query writing, labels, query embeddings)
   against the caps before the first request; its dry run counts exact pending
   label work for queries it can rank now, and a full-pool upper bound only for
