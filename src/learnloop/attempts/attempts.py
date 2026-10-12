@@ -852,7 +852,8 @@ def plan_grading_calls(
                 blind_grading_prompt(blind.context)
             ),
         )
-    from learnloop.attempts.ai_contracts import grading_prompt, grading_prompt_version
+    from learnloop.attempts.ai_contracts import grading_prompt_version
+    from learnloop.attempts.grading import joint_grading_prompt_tokens
 
     if draft.declared_stuck:
         context = replace(context, answer_prompt=stuck_answer_prompt())
@@ -861,7 +862,7 @@ def plan_grading_calls(
         kind="joint",
         calls=_joint_sample_count(vault),
         prompt_version=grading_prompt_version(context),
-        estimated_input_tokens_per_call=estimated_prompt_tokens(grading_prompt(context)),
+        estimated_input_tokens_per_call=joint_grading_prompt_tokens(context),
     )
 
 

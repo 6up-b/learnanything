@@ -87,6 +87,18 @@ def request_grading_proposal(
         )
 
 
+def joint_grading_prompt_tokens(context: GradingContext) -> int:
+    """The joint prompt's input-token estimate for a dry run (no call).
+
+    Built here, beside the only joint grading door, so nothing else renders
+    the joint prompt (review F5's ``plan_grading_calls`` reads this).
+    """
+
+    from learnloop.attempts.grading_admission import estimated_prompt_tokens
+
+    return estimated_prompt_tokens(grading_prompt(context))
+
+
 def request_vault_grading_proposal(
     vault: LoadedVault,
     client: OperationClient,
