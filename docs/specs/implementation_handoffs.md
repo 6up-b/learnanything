@@ -124,6 +124,7 @@ These are the prompts for the agents that build the rest of Slice A and the slic
 | | Learner-field deferred items | Triggers in `spec_learner_field_v1.md` §11 |
 | **After router R0 and Slice 2 T1 merge** (owner-directed, 2026-10-12) | Learner-text gaps: prerequisites and misconceptions (§4) | R0 (the Decider client); T1 (the shared matcher) |
 | **After Slice 1 M2 merges** (owner-directed, 2026-10-12) | "Write what you can" replaces "I don't know" (§4) | Slice 1 M2 (the blind grader and the diagnoser) |
+| **After Slice 2 T5 merges** (owner-directed, 2026-10-12) | Facet identity at mint time, and a dedupe command (§4) | T5 (nominations, ingest-time embedding); T1's shared matcher if merged |
 
 **Keeping merges manageable.** Keep at most three or four branches open at once. Merge one at a time, newest last; the later branch renumbers its migration.
 
@@ -1036,6 +1037,109 @@ Done also means:
 - a shadow rebuild of a fixtures-local copy shows only the documented differences;
 - the review file says what the owner should watch: the share of stuck answers that
   contain text, and the grading wait on a stuck answer.
+```
+
+### Facet identity at mint time, and a dedupe command
+
+```text
+Stop LearnLoop's ingest pipeline from minting duplicate facets, and add a one-off
+dedupe command for existing vaults. Follow the standard rules in
+docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/facet-identity.md.
+
+Evidence: docs/reviews/facet-duplicate-judging-2026-10-12.md, with data in
+docs/reviews/data/facet-duplicate-judging-2026-10-12.json.
+- In the owner's linear_algebra vault, 15 of 39 facets fall into 5 duplicate
+  clusters.
+- All were minted by one source-set synthesis run, from overlapping spans of the same
+  extraction.
+- Facets get only a lexical Jaccard ≥ 0.85 gate within a run. T5's nominations and
+  the D2 mint gate only compare candidates with facets already in the vault, which on
+  a first ingest is empty.
+- Embeddings shortlist well (AUC 0.91; every duplicate within rank 4) but have no
+  usable cutoff (merge-worthy 0.29–0.83 against a distinct pair at 0.70).
+- Two LLM judges (Sonnet, Haiku) agreed on merge-worthiness for 97 of 98 pairs:
+  a cheap judge is enough.
+
+Owner decisions (2026-10-12):
+- Prevention at ingest is the goal; cleanup of existing vaults uses an LLM judge alone.
+- The judge's decisions apply live, `merge` and `absorb` alike, each with one-tap
+  undo (option c).
+- A cheap judge model: GPT-6 Luna on Codex (the owner's subscription; confirm the
+  exact model slug the account exposes), Claude Haiku through OpenRouter, or the
+  Decider.
+
+Specs:
+- docs/specs/spec_knowledge_model.md (facet identity: embeddings never decide it);
+- docs/specs/spec_embedding_consumers_v1.md: §1 (R1–R6; R4: embeddings shortlist,
+  judges decide, no cutoffs), §8 (T5: nominations, the D2 mint gate shadow, the
+  near-duplicate gate's cosine column), §5.8 (judgment_ledger);
+- docs/reviews/slice-2-t5.md (its open questions on D2 and bootstrap nominations);
+- docs/specs/spec_slice_a_practice_and_field_v1.md §5 rule 6 (Codex on the
+  subscription).
+
+Prerequisite: Slice 2 T5 has merged. If Slice 2 T1's shared shortlist + judge +
+ledger component has merged by the time you start, reuse it with kind "facet".
+Otherwise build in the same pattern and note the reuse point. Branch facets/identity
+from origin/main.
+
+Must hold:
+1. Within-run consolidation. After the shards of source-set synthesis return, and
+   before the gates:
+   - Group candidate facets by concept neighbourhood: the same or consolidated
+     concept, plus an embedding shortlist among the run's own candidates (T5's
+     capped embedding of new text), plus T5's registry nominations, plus the lexical
+     near-duplicate gate's pairs.
+   - The judge sees each group whole and partitions it into same-skill sets, with an
+     action per set:
+     - `merge`: one canonical facet, with source refs, examples and preconditions
+       unioned;
+     - `absorb`: a special case or worked instance becomes an example or
+       precondition of the general facet;
+     - `keep_distinct`.
+   - Group judging, not pairwise-then-transitive linking, so chains of distinct
+     facets can't fuse.
+2. Append and the D2 mint gate. Candidates against existing vault facets go to the
+   same judge on T5's shortlist (top-4), replacing T5's shadow-only comparison with a
+   decision. A match becomes alias or absorb into the existing facet instead of a
+   mint.
+3. Judge route `facet_identity_judge`:
+   - defaults to the cheapest configured Codex model;
+   - an OpenRouter Haiku profile and the Decider are alternatives, the Decider
+     answering per-pair typed `choice` questions;
+   - every verdict goes to judgment_ledger (task `same_facet`, judge = llm or
+     decider), within the Slice A spend controls; Codex cost is estimated_only.
+4. Applying (option c): merge and absorb apply live, through the existing facet-merge
+   machinery (`facet_merges`), with evidence re-keyed as it already does.
+   - Each one is shown in the ingest/apply result with one-tap undo, and undo
+     restores the facets and their evidence exactly.
+   - Kill switch `facet_identity.enabled`: off restores today's behaviour (lexical
+     gate only).
+   - If merging facets changes evidence projections, follow the algorithm-change
+     playbook, but a vault-content merge the owner can undo is the expected shape.
+5. Prompt nudge: tell synthesis "one facet per testable skill; don't restate a
+   definition as separate facets". Bump the prompt version.
+6. Cleanup command: `learnloop facets dedupe [--dry-run] [--subject S]`.
+   - It gives the judge each concept neighbourhood's facets at once and asks for the
+     same partition. Embeddings are not needed, since vaults are small; use them only
+     to bound a group if one is large.
+   - Same actions, undo, ledger and spend caps as above. Dry run first, with the
+     planned calls and estimated cost.
+7. Regression set (from the study):
+   - re-synthesizing the linear_algebra source on a fixtures-local copy, and running
+     the dedupe command on a fresh copy of the current vault, both merge or absorb
+     the 12 agreed pairs;
+   - both keep apart the "must stay distinct" pairs in the study (for example
+     complex addition against complex multiplication, cosine 0.70).
+   - Run it with a fake judge in tests. Live, on a copy, run it once with the default
+     cheap judge (paid calls allowed on copies, dry-run first) and report its
+     agreement with the study's labels.
+
+Done also means:
+- tests for consolidation, append/D2 decisions, undo, the kill switch, the ledger
+  rows and the fake-judge regression set;
+- the review file gives the owner the dedupe commands (dry run first) for
+  linear_algebra, probability and arxiv_v2, plus what to check after;
+- the live regression result.
 ```
 
 ---
