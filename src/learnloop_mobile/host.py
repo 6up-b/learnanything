@@ -28,6 +28,7 @@ from learnloop_mobile.config import MobileConfig, sqlite_path
 HEADER_LIMIT = 16 * 1024
 JSON_LIMIT = 256 * 1024
 BODY_DEADLINE = 60
+PAIR_ATTEMPTS_PER_MINUTE = 30
 ENDPOINT_SCOPES = {
     ("GET", "/api/v1/status"): "capture",
     ("POST", "/api/v1/capture"): "capture",
@@ -132,7 +133,10 @@ class MobileHost:
         self.executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mobile-auth")
         self.capture_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mobile-capture")
         self.active = {"short": 0, "capture": 0, "media": 0}
-        self.rates: dict[str, tuple[deque, deque]] = {}
+        # Spec §4.6: no per-device/token rate limits (bounded admission covers
+        # work). Only pairing attempts share an in-memory budget, on top of the
+        # durable per-record and global exchange locks.
+        self.pair_attempts: deque[float] = deque()
         self.last_prune = float("-inf")
         self.assets = {}
         for name in ("pair.html", "pair.js"):
@@ -158,21 +162,13 @@ class MobileHost:
             await asyncio.shield(future)
             raise
 
-    def rate_limit(self, device: str, is_capture: bool):
+    def pair_rate_limit(self):
         now = time.monotonic()
-        # Bounded lifetime, keyed by durable device ids, never raw tokens.
-        for key, (overall, captures) in list(self.rates.items()):
-            for queue in (overall, captures):
-                while queue and queue[0] <= now - 60:
-                    queue.popleft()
-            if not overall:
-                del self.rates[key]
-        overall, captures = self.rates.setdefault(device, (deque(), deque()))
-        if len(overall) >= 120 or (is_capture and len(captures) >= 30):
+        while self.pair_attempts and self.pair_attempts[0] <= now - 60:
+            self.pair_attempts.popleft()
+        if len(self.pair_attempts) >= PAIR_ATTEMPTS_PER_MINUTE:
             raise HostError(429, "rate_limited")
-        overall.append(now)
-        if is_capture:
-            captures.append(now)
+        self.pair_attempts.append(now)
 
     async def body(self, scope, receive, headers, *, multipart: bool) -> bytearray:
         limit = self.config.max_upload_mb * 1024 * 1024 + JSON_LIMIT if multipart else JSON_LIMIT
@@ -313,10 +309,9 @@ class MobileHost:
                 if required is None:
                     raise HostError(404, "not_found")
                 device = await self.work(capture.authenticate_device, self.read_repo, auth[7:], scope=required)
-                self.rate_limit(device["device_id"], lane == "capture")
             if endpoint == ("POST", "/pair"):
                 # All pairing attempts share one bounded budget, including malformed bodies.
-                self.rate_limit("pair", True)
+                self.pair_rate_limit()
             log_admitted = scope["method"] == "POST" and path in {"/pair", "/rpc", "/api/v1/capture"}
             if log_admitted and device:
                 await self.work(capture.touch_device, self.repo, device["device_id"])

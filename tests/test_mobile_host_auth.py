@@ -131,20 +131,29 @@ def test_deadline(mobile, monkeypatch):
     assert messages[0]["status"] == 408
 
 
-def test_rate_limit_and_log_redaction(mobile):
+def test_offline_backlog_flushes_without_per_device_throttle(mobile):
+    """Spec §4.6 (revision 3+): no per-token rate limits; admission bounds work."""
+    from learnloop.ids import new_ulid
+
     client, _, repo, device, headers = mobile
-    for _ in range(30):
-        assert client.post("/api/v1/capture", json={}, headers=headers).status_code == 422
-    response = client.post("/api/v1/capture", json={}, headers=headers)
-    assert response.status_code == 429
-    assert response.headers["retry-after"]
+    backlog = [{"client_capture_id": new_ulid(), "kind": "text", "text": f"capture {index}"}
+               for index in range(45)]
+    receipts = []
+    for payload in backlog:
+        response = client.post("/api/v1/capture", json=payload, headers=headers)
+        assert response.status_code == 201, response.text
+        receipts.append(response.json())
+    # A flush that lost its responses retries every receipt: same captures, 200.
+    for payload, receipt in zip(backlog, receipts):
+        response = client.post("/api/v1/capture", json=payload, headers=headers)
+        assert response.status_code == 200
+        assert response.json() == receipt
+    for receipt in receipts:
+        assert client.get(f"/api/v1/capture/{receipt['capture_id']}", headers=headers).status_code == 200
     with repo.connection() as connection:
-        before = connection.execute("SELECT COUNT(*) FROM mobile_request_log").fetchone()[0]
-    assert before == 30  # The rejected 31st mutation must not produce a durable write.
-    client.get("/api/v1/status", headers=headers)
-    with repo.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM capture_inbox").fetchone()[0] == 45
         rows = [tuple(row) for row in connection.execute("SELECT * FROM mobile_request_log")]
-    assert len(rows) == before
+    assert len(rows) == 90  # Admitted mutations only; status polling is not logged.
     assert device["token"] not in json.dumps(rows)
 
 
@@ -157,9 +166,11 @@ def test_rejected_requests_never_touch_devices_or_log(mobile, monkeypatch):
     assert client.post("/api/v1/capture", json={}, headers={
         **headers, "Authorization": "Bearer invalid",
     }).status_code == 401
-    for _ in range(30):
-        host.rate_limit(device["device_id"], True)
-    assert client.post("/api/v1/capture", json={}, headers=headers).status_code == 429
+    host.active["capture"] = 2
+    try:
+        assert client.post("/api/v1/capture", json={}, headers=headers).status_code == 503
+    finally:
+        host.active["capture"] = 0
     # Polling uses the same read-only authentication path, without a last-seen write.
     assert client.get("/api/v1/status", headers=headers).status_code == 200
 
@@ -282,7 +293,6 @@ def test_every_registry_method_is_http_denied(mobile):
     client, host, _, _, headers = mobile
     assert METHOD_REGISTRY
     for method in METHOD_REGISTRY:
-        host.rates.clear()  # Exercise authorization independently from rate limiting.
         response = client.post("/rpc", json={"method": method, "params": {}}, headers=headers)
         assert response.status_code == 403, method
         assert response.json()["error"]["code"] == "method_not_allowed"

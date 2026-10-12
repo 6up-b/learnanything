@@ -67,8 +67,11 @@ Consequently this implementation does **not** claim automatic 409 quarantine or
 - Check the token after 401; inspect a conflicting manifest after 409 and move
   it and its JPEG manually to `outbox/conflict/`. Do not silently change an
   existing payload or generate a new ID on retry.
-- Other errors (413/415/422/429/5xx) retain the outbox. Inspect the host error,
-  fix the cause, then run `Flush LearnLoop outbox`.
+- Other errors (413/415/422/5xx) retain the outbox. Inspect the host error,
+  fix the cause, then run `Flush LearnLoop outbox`. A `503 host_busy` only
+  means the host's bounded admission was full; run the flush again. Captures
+  and receipt retries are not rate limited, so a large offline backlog flushes
+  in one run.
 
 There is no background retry or cross-process lock. Run one capture/flush at a
 time. A crash between the JPEG and manifest writes can leave an orphan JPEG;
