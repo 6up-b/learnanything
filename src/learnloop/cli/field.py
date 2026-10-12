@@ -74,23 +74,24 @@ def _replay_inputs(loaded, *, legacy_fallback):
 
     Every report reads the same canonical outcome view; arms never see a store.
     """
-    from learnloop.field.outcomes import borrowed_repository, data_check, load_replay_rows
+    from learnloop.field.outcomes import borrowed_repository, data_check, load_effective_replay_rows
     from learnloop.field.priors import load_frozen_priors
-    from learnloop.field.signals import enrich_attempts, load_interaction_signals
     from learnloop.params.fitted_params import fitted_fsrs_provenance, resolve_fsrs_weights
 
     with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
         connection.execute("BEGIN")
-        attempts, facets = load_replay_rows(connection, loaded, legacy_fallback=legacy_fallback)
-        signals = load_interaction_signals(connection, loaded, attempts)
+        # The same leak-aware rows the family-memory projection folds.
+        attempts, facets, signals = load_effective_replay_rows(
+            connection, loaded, legacy_fallback=legacy_fallback,
+        )
         counts = data_check(connection, loaded, legacy_fallback=legacy_fallback)
         general_means, lo_priors, prior_report = load_frozen_priors(connection, attempts, loaded.config)
         repository = borrowed_repository(connection)
         fsrs_fit_id = fitted_fsrs_provenance(repository)
         fsrs_weights = resolve_fsrs_weights(repository) if fsrs_fit_id is not None else None
     return {
-        "attempts": enrich_attempts(attempts, signals),
-        "facets": enrich_attempts(facets, signals),
+        "attempts": attempts,
+        "facets": facets,
         "signals": signals, "data_check": counts,
         "general_means": general_means, "lo_priors": lo_priors, "claim_priors": prior_report,
         "fsrs_weights": fsrs_weights, "fsrs_fit_id": fsrs_fit_id,

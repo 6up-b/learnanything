@@ -276,3 +276,34 @@ def test_family_grouping_is_current_authored_and_retrospective(tmp_path):
     item = vault.practice_items["pi_svd_define_001"]
     vault.practice_items[item.id] = item.model_copy(update={"family_id": "missing"})
     assert _rows(vault, repo)[0].features.family_id is None
+
+
+def test_rebuild_and_evaluation_fold_the_same_leak_aware_rows(tmp_path):
+    """Review F7: question-only leak telemetry voids coldness in both folds.
+
+    A linked ``leak_suspected`` tutor question with no reveal-ledger row (a
+    historical vault, or a failed best-effort reveal write) makes the attempt
+    non-cold in evaluation; the stored projection must fold the same history.
+    """
+    from learnloop.cli.field import _replay_inputs
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    vault, repo = _vault(tmp_path)
+    _family(vault)
+    for n in range(3):
+        _attempt(repo, n)
+    repo.insert_question_event({
+        "id": "leaky-question", "context": "practice", "practice_item_id": "pi_svd_define_001",
+        "attempt_id": "attempt-1", "question_md": "Is it U Sigma V transpose?",
+        "question_type": "verification", "leak_suspected": True,
+        "created_at": (NOW+timedelta(days=1)-timedelta(minutes=5)).isoformat(),
+    })
+    inputs = _replay_inputs(vault, legacy_fallback=PROJECTION_LEGACY_FALLBACK)
+    evaluated = [r.attempt_id for r in inputs["attempts"] if r.memory_eligible]
+    assert evaluated == ["attempt-0", "attempt-2"]
+    rebuild_all_derived_state(vault, repo)
+    with repo.connection() as connection:
+        reviews = connection.execute(
+            "SELECT review_count FROM family_memory_state WHERE family_id='family-test'"
+        ).fetchone()[0]
+    assert reviews == len(evaluated)

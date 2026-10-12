@@ -400,19 +400,19 @@ def _run_field_outcomes(spec, context):
 def _run_family_memory(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    from learnloop.field.outcomes import load_attempt_rows
+    from learnloop.field.outcomes import load_effective_replay_rows
     from learnloop.substrate.family_memory import (
         PROJECTION_LEGACY_FALLBACK,
         rebuild_family_memory,
     )
 
     def load_rows():
-        # The canonical outcome view: one row source for replay and evaluation.
+        # The canonical outcome view with the complete coldness derivation
+        # (interaction signals included): the rows evaluation replays.
         with context.repository.connection() as connection:
-            return load_attempt_rows(
-                connection, context.vault,
-                legacy_fallback=PROJECTION_LEGACY_FALLBACK, retrieval=True,
-            )
+            return load_effective_replay_rows(
+                connection, context.vault, legacy_fallback=PROJECTION_LEGACY_FALLBACK,
+            )[0]
 
     # Group membership can cross the requested LO subset; rebuild the small
     # whole-family projection so removals and undo cannot leave stale state.

@@ -1,7 +1,8 @@
 """Sole owner of the shadow family FSRS projection. Never a scheduling reader.
 
-Rows come from the learner-field canonical outcome view (the same rows every
-offline arm replays), supplied by the rebuild orchestrator through
+Rows come from the learner-field canonical outcome view with interaction
+signals folded in (``field.outcomes.load_effective_replay_rows``, the same rows
+every offline arm replays), supplied by the rebuild orchestrator through
 ``load_rows`` so this module never imports the field package. The projection
 uses the explicit ``current_content`` revision fallback: it is retrospective
 state, not a prequential evaluation.
@@ -16,7 +17,9 @@ from learnloop.scheduling.family_memory_model import FamilyMemory, weights_diges
 from learnloop.substrate.activities import canonical_json
 from learnloop.params.fitted_params import resolve_fsrs_weights
 
-PROJECTION_VERSION = "family-memory-cold-v3"
+# v4: rows include interaction-signal coldness (a linked leak-suspected
+# question voids coldness even without a reveal-ledger row), as in evaluation.
+PROJECTION_VERSION = "family-memory-cold-v4"
 PROJECTION_LEGACY_FALLBACK = "current_content"
 
 

@@ -31,7 +31,7 @@ from learnloop.db.stores.field import replace_facet_outcomes
 from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
 from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
 from learnloop.field.types import AttemptRow, FacetRow, ItemFeatures
-from learnloop.field.signals import load_interaction_signals
+from learnloop.field.signals import enrich_attempts, load_interaction_signals
 from learnloop.learner.assessment_contracts import compile_assessment_contract, rubric_from_contract
 from learnloop.learner.mastery import resolve_item_irt_params
 from learnloop.learner.recall_coverage import (
@@ -523,6 +523,18 @@ def load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):
     return _load(connection, vault, legacy_fallback=legacy_fallback, retrieval=True)
 
 
+def load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):
+    """``(attempts, facets, signals)`` with the complete coldness derivation.
+
+    The one place interaction signals (linked leak telemetry, help before work)
+    are folded into replay rows. Evaluation and the family-memory projection
+    both read it, so they fold the same effective history (review F7).
+    """
+    attempts, facets = load_replay_rows(connection, vault, legacy_fallback=legacy_fallback)
+    signals = load_interaction_signals(connection, vault, attempts)
+    return enrich_attempts(attempts, signals), enrich_attempts(facets, signals), signals
+
+
 def load_facet_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[FacetRow, ...]:
     return _load(connection, vault, legacy_fallback=legacy_fallback, as_of=as_of)[1]
 
@@ -547,7 +559,9 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
         connection, vault, legacy_fallback=legacy_fallback, retrieval=True, diagnostics=load_diagnostics,
     )
     interaction_diagnostics: dict[str, Any] = {}
-    load_interaction_signals(connection, vault, attempts, diagnostics=interaction_diagnostics)
+    signals = load_interaction_signals(connection, vault, attempts, diagnostics=interaction_diagnostics)
+    # Count with the same leak-aware coldness the reports and projection use.
+    attempts = enrich_attempts(attempts, signals)
     direct = [r for r in facets if r.effective_mass > 0]
     by_lo = defaultdict(set)
     for row in direct:
