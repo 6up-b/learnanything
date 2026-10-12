@@ -423,6 +423,7 @@ def run_retrieval_evaluation(
     seed: int = 0,
     bootstrap_samples: int = 1000,
     price_per_million: float | None = None,
+    embedding_price_per_million: float | None = None,
     output_dir: Path | None = None,
     query_client: Any | None = None,
     judge_client: Any | None = None,
@@ -468,6 +469,7 @@ def run_retrieval_evaluation(
                             **{_query_row_id(e["kind"], e["seed_id"]): e["text"] for e in recovered},
                             **{qid: text for qid, text in logged},
                             **{f"new{i}": "x" * 160 for i in range(len(seeds))}},
+        price_per_million=embedding_price_per_million,
     ) if snapshot.uses_vectors else {"pending": 0, "calls": 0, "estimated_usd": 0.0}
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run, "run_id": run_id,
@@ -517,12 +519,17 @@ def run_retrieval_evaluation(
     except SpendLimitExceeded as exc:
         unknown = [name for name, route in (("query writer", writer), ("relevance judge", judge))
                    if not route.subscription and price_per_million is None]
-        if embed_plan["estimated_usd"] is None:
-            unknown.append("query embedding")
         reason = str(exc)
-        if unknown and "Unknown price" in reason:
-            reason = (f"Unknown price for the metered {', '.join(unknown)} route(s): pass "
-                      "--price-per-million (LLM routes), or use a Codex route.")
+        if "Unknown price" in reason:
+            parts = []
+            if unknown:
+                parts.append(f"the metered {', '.join(unknown)} route(s): pass --price-per-million "
+                             "or use a Codex route")
+            if embed_plan["estimated_usd"] is None:
+                parts.append(f"query embeddings with {embed_plan.get('model_id')}: pass "
+                             "--embedding-price-per-million")
+            if parts:
+                reason = "Unknown price for " + "; for ".join(parts) + "."
         report.update(status="over_budget", reason=reason)
         return report
     if dry_run:
@@ -533,7 +540,8 @@ def run_retrieval_evaluation(
     with _evaluation_lock(vault.root):
         _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer, writer_route,
              judge, judge_route, judge_model, budget, report, query_client=query_client,
-             judge_client=judge_client, embedder=embedder, cancelled=cancelled, seed=seed,
+             judge_client=judge_client, embedder=embedder,
+             embedding_price_per_million=embedding_price_per_million, cancelled=cancelled, seed=seed,
              bootstrap_samples=bootstrap_samples, run_id=run_id, clock=clock)
     if output_dir is not None:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -563,7 +571,7 @@ def _evaluation_lock(root: Path) -> Iterator[None]:
 
 def _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer, writer_route,
          judge, judge_route, judge_model, budget, report, *, query_client, judge_client, embedder,
-         cancelled, seed, bootstrap_samples, run_id, clock) -> None:
+         embedding_price_per_million, cancelled, seed, bootstrap_samples, run_id, clock) -> None:
     sqlite_path = repository.sqlite_path
     try:
         _generate_queries(vault, repository, batches, recovered, logged, writer, writer_route,
@@ -574,6 +582,7 @@ def _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer
         vectors: dict[str, Any] = {}
         if snapshot.uses_vectors:
             embedded = embed_queries(vault, repository, texts, budget=budget, embedder=embedder,
+                                     price_per_million=embedding_price_per_million,
                                      owner_kind="practice_eval", owner_id=run_id, cancelled=cancelled)
             report["query_embedding"] = embedded.as_dict()
             vectors = embedded.vectors

@@ -29,6 +29,12 @@ _PRICE_HELP = (
 )
 
 
+_EMBEDDING_PRICE_HELP = (
+    "USD per million input tokens for query embeddings when embedding.model has no published "
+    "estimate (as with `embeddings backfill --price-per-million`); unknown prices fail closed."
+)
+
+
 def _emit(report: dict[str, Any], json_output: bool) -> None:
     typer.echo(json.dumps(report, sort_keys=True, default=str) if json_output
                else json.dumps(report, indent=2, sort_keys=True, default=str))
@@ -215,6 +221,7 @@ def practice_index_eval(
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help="Metered routes only.")] = 4_000_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Metered routes only.")] = 1.0,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help=_PRICE_HELP)] = None,
+    embedding_price_per_million: Annotated[float | None, typer.Option("--embedding-price-per-million", min=0, help=_EMBEDDING_PRICE_HELP)] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Retrieval evaluation: dossier two-level search vs direct item search.
@@ -228,6 +235,8 @@ def practice_index_eval(
     try:
         if price_per_million is not None and price_per_million <= 0:
             raise ValueError("--price-per-million must be positive")
+        if embedding_price_per_million is not None and embedding_price_per_million <= 0:
+            raise ValueError("--embedding-price-per-million must be positive")
         caps = SpendCaps(max_candidates=max_candidates, max_pairs=max_pairs,
                          max_retries=max_retries, max_calls=max_calls,
                          max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd)
@@ -239,6 +248,7 @@ def practice_index_eval(
                 loaded, caps=caps, dry_run=dry_run, queries=queries,
                 logged_queries=logged_queries, seed=seed, bootstrap_samples=bootstrap_samples,
                 price_per_million=price_per_million,
+                embedding_price_per_million=embedding_price_per_million,
                 output_dir=None if dry_run else output_dir, cancelled=stop.is_set,
             )
     except ValueError as exc:

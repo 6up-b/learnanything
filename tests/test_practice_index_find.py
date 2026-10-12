@@ -291,3 +291,48 @@ def test_changed_index_content_voids_an_earlier_evaluation_approval(indexed):
                            "evidence_weights": {"facet_span": 1.0, "facet_independence": 1.0}})
     moved = load_vault(paths.root)
     assert load_snapshot(moved, repository, embedder=embedder).manifest_hash() != snapshot.manifest_hash()
+
+
+class _OtherModelEmbedder(HashingEmbedder):
+    model_id = model = "openai/text-embedding-3-small"
+
+
+def test_an_alternative_embedding_model_takes_an_explicit_price(tmp_path):
+    """F6: an owner price reaches query-embedding planning and execution; unknown stays closed."""
+    from learnloop.practice_index.evaluation import run_retrieval_evaluation
+
+    paths = build_practice_vault(tmp_path / "vault")
+    enable_practice_index(paths)
+    config = paths.root / "learnloop.toml"
+    config.write_text(config.read_text().replace(
+        'model = "qwen/qwen3-embedding-8b"', 'model = "openai/text-embedding-3-small"'))
+    open_vault_repository(paths.root, paths.sqlite_path)
+    llm, embedder = FakePracticeLLM(), _OtherModelEmbedder()
+    assert generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)["status"] == "complete"
+    vault = load_vault(paths.root)
+    assert backfill_embeddings(vault, caps=CAPS, price_per_million=0.02,
+                               client_factory=lambda: embedder)["status"] == "complete"
+    vault, repository = load_vault(paths.root), Repository(paths.sqlite_path)
+    eval_caps = SpendCaps(max_candidates=500, max_pairs=4000, max_calls=400, max_retries=4,
+                          max_total_tokens=10_000_000, max_estimated_usd=1.0)
+    clients = {"query_client": llm, "judge_client": llm, "embedder": embedder}
+    # Unknown prices stay fail-closed.
+    unpriced = find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert unpriced["signals"]["query_embedding"]["status"] == "skipped"
+    refused = run_retrieval_evaluation(vault, caps=eval_caps, dry_run=True, queries=4, **clients)
+    assert refused["status"] == "over_budget" and "--embedding-price-per-million" in refused["reason"]
+    # An explicit price is used by planning and by the run alike.
+    planned = run_retrieval_evaluation(vault, caps=eval_caps, dry_run=True, queries=4,
+                                       embedding_price_per_million=0.02, **clients)
+    assert planned["status"] == "dry_run", planned
+    assert planned["estimate"]["query_embedding"]["price_per_million"] == 0.02
+    assert planned["estimate"]["query_embedding"]["estimated_usd"] > 0
+    report = run_retrieval_evaluation(vault, caps=eval_caps, queries=4,
+                                      embedding_price_per_million=0.02, **clients)
+    assert report["status"] == "complete", report
+    assert report["query_embedding"]["status"] == "embedded"
+    vault.config.practice_index.query_embedding_price_per_million = 0.02
+    priced = find_practice(vault, repository, "practise orthogonal vectors", embedder=embedder,
+                           rerank_client=llm)
+    assert priced["signals"]["query_embedding"]["status"] == "embedded"
+    assert "item_vector" in priced["signals"]["item"]

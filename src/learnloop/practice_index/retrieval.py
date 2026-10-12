@@ -66,6 +66,9 @@ DOC_TASK_PREFIX = "retrieval-document"
 ITEM_RECIPE_PREFERENCE = ("item/skeleton", "item/stem")
 DOSSIER_RECIPES = tuple(f"facet/dossier_{name}" for name in DOSSIER_FIELDS)
 RERANK_PROMPT_VERSION = "practice_rerank.v1"
+#: The live query embedding: one request, never retried, at most a cent.
+QUERY_EMBEDDING_CAPS = SpendCaps(max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
+                                 max_total_tokens=20_000, max_estimated_usd=0.01)
 RERANK_OUTPUT_TOKENS = 2500
 CANDIDATE_PROMPT_CHARS = 700
 MAX_QUERY_CHARS = 2000
@@ -589,9 +592,9 @@ def find_practice(
     if needs_vectors and corpus:
         vectors = embed_queries(
             vault, repository, {query_id(text): text},
-            budget=SpendBudget(SpendCaps(max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
-                                         max_total_tokens=20_000, max_estimated_usd=0.01)),
+            budget=SpendBudget(QUERY_EMBEDDING_CAPS),
             embedder=embedder, owner_id=proposal_id,
+            price_per_million=config.query_embedding_price_per_million,
         )
         vector_status = vectors.as_dict()
         query_vector = vectors.vectors.get(query_id(text))

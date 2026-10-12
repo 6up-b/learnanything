@@ -88,18 +88,29 @@ def cached_query_vectors(repository: Repository, model_id: str,
         return found
 
 
+def query_embedding_price(model_id: str, price_per_million: float | None) -> tuple[float | None, str]:
+    """The owner's explicit price, else the published estimate; unknown is None."""
+    if price_per_million is not None:
+        return price_per_million, "owner_override"
+    price = PRICES_PER_MILLION.get(model_id)
+    return price, "spec_estimate" if price is not None else "unknown"
+
+
 def plan_query_embedding(vault: LoadedVault, repository: Repository,
-                         queries: dict[str, str]) -> dict[str, Any]:
+                         queries: dict[str, str], *,
+                         price_per_million: float | None = None) -> dict[str, Any]:
     """Dry-run view: how many query texts would be embedded, and at what cost."""
     model_id = vault.config.embedding.model
     pending = {k: v for k, v in queries.items()
                if k not in cached_query_vectors(repository, model_id, queries)}
     tokens = sum(estimated_tokens(text) for text in pending.values())
-    price = PRICES_PER_MILLION.get(model_id)
+    price, source = query_embedding_price(model_id, price_per_million)
     return {
         "model_id": model_id, "queries": len(queries), "pending": len(pending),
         "calls": -(-len(pending) // BATCH_SIZE), "estimated_tokens": tokens,
-        "estimated_usd": tokens * price / 1_000_000 if price is not None else None,
+        "estimated_usd": (tokens * price / 1_000_000 if price is not None
+                          else (0.0 if not pending else None)),
+        "price_per_million": price, "price_source": source,
         "embedding_enabled": vault.config.embedding.enabled,
     }
 
@@ -129,9 +140,11 @@ def embed_queries(
     if not pending:
         result.status = "cached"
         return result
-    price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
+    price, _source = query_embedding_price(model_id, price_per_million)
     if price is None:
-        result.status, result.reason = "skipped", f"unknown embedding price for {model_id}"
+        result.status, result.reason = "skipped", (
+            f"unknown embedding price for {model_id}; set an explicit price "
+            "(practice_index.query_embedding_price_per_million, or --embedding-price-per-million)")
         return result
     client = embedder
     if client is None:
@@ -198,5 +211,6 @@ __all__ = [
     "embedding_ready",
     "normalize_query",
     "plan_query_embedding",
+    "query_embedding_price",
     "query_id",
 ]

@@ -1022,6 +1022,10 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "practice_index.rerank_max_cost_usd": (
         "Per-request dollar cap for a metered rerank, checked before the request is sent."
     ),
+    "practice_index.query_embedding_price_per_million": (
+        "USD per million input tokens for find_practice's query embedding when embedding.model "
+        "has no published estimate; without it the query embedding is skipped (keyword search)."
+    ),
     "practice_index.facet_top_k": (
         "The fewest facets the two-level path keeps; it adds more in rank order until their "
         "admissible items fill candidate_pool."

@@ -784,9 +784,10 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
     # routes only; Phase 5b adds the practice index ([practice_index] and four
-    # practice_* routes), which proposes and never serves. No scoring,
-    # scheduling, projection or serving change.
-    "mvp-0.9": "beea7544139b5be78aab35c1d11dcffab7de9ed3e9b17d80cb9b4afa6557e631",
+    # practice_* routes), which proposes and never serves, plus its query
+    # embedding price override. No scoring, scheduling, projection or serving
+    # change.
+    "mvp-0.9": "7863d0f1a9f93589cff0da0dd01d807dd11eb3476133a7a08feb23656d4887ff",
 }
 
 
