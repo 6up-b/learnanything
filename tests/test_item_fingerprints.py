@@ -29,7 +29,7 @@ def test_keys_use_the_077_namespaces_and_never_mix_them():
     assert {(namespace, component) for namespace, component, _ in keys} == {
         ("surface_hash", "stem"), ("verbatim_target", "answer"), ("verbatim_target", "answer_quantities"),
         ("verbatim_target", "answer_sympy"), ("parameter_template", "generator"),
-        ("parameter_template", "parameters"), ("solution_recipe", "skeleton:m"),
+        ("parameter_template", "parameters"), ("solution_recipe", "skeleton:m@unversioned"),
     }
     assert fp.EXACT_COMPONENTS == {("surface_hash", "stem"), ("parameter_template", "parameters")}
 
@@ -121,3 +121,56 @@ def test_generic_rotation_claims_never_take_pf_generation_jobs(tmp_path):
 def connection_card_version(repository):
     with repository.connection() as connection:
         return connection.execute("SELECT id FROM activity_card_versions LIMIT 1").fetchone()[0]
+
+
+def test_skeletons_from_one_model_at_two_prompt_versions_rebuild_without_a_key_collision(tmp_path):
+    """Codex review F4: a prompt upgrade (or a published item later used as a parent,
+    re-skeletonised by the same model) leaves two skeletons per item and model."""
+    from learnloop.db.stores.pf import insert_skeleton
+    from learnloop.vault.hashes import skeleton_content_hash
+
+    vault, repository, _ = seed_pf_vault(tmp_path / "vault")
+    item = vault.practice_items["pi_linear_001"]
+    content_hash = skeleton_content_hash(item.prompt, item.expected_answer)
+    with repository.connection() as connection:
+        for version, techniques in (("pf-ensemble-propose-v1", ["isolate", "divide"]),
+                                    ("pf-skeleton-v1", ["subtract", "divide", "check"])):
+            insert_skeleton(connection, skeleton_id=f"sk_{version}", content_hash=content_hash,
+                            subject_kind="practice_item", subject_id=item.id, model_id="same-model",
+                            prompt_version=version, techniques=techniques, operations=[],
+                            checkpoints=["c"], skeleton_text="t", created_at="2026-10-12T00:00:00Z")
+    rebuild_all_derived_state(vault, repository)
+    rows = [row for row in item_fingerprints_snapshot(repository)
+            if row["practice_item_id"] == item.id and row["namespace"] == "solution_recipe"]
+    assert len(rows) == 2 and len({row["component"] for row in rows}) == 2
+    assert {row["fingerprint_version"] for row in rows} == {fp.FINGERPRINT_VERSION}
+    # Matching still works across versions and models on the technique sequence.
+    keys = fp.item_fingerprint_keys(item, skeletons=[{"model_id": "other", "prompt_version": "v9",
+                                                      "techniques": ["Subtract", "divide", "check"]}])
+    stored = [(row["namespace"], row["component"], row["value_hash"]) for row in rows]
+    assert ("solution_recipe", "skeleton") in fp.shared_keys(keys, stored)
+
+
+@needs_bwrap
+def test_a_published_item_later_used_as_the_parent_rebuilds(tmp_path):
+    """F4 end to end: the proposer and the skeleton writer are the same model."""
+    from learnloop.vault.writer import upsert_practice_item
+    from tests.pf_fakes import PFFake
+
+    _, repository, paths = seed_pf_vault(tmp_path / "vault")
+    same = PFFake("fake-a")
+    fakes = clients(skeleton=same, proposer=[same, PFFake("fake-b")])
+    first = generate_practice(load_vault(paths.root), caps=CAPS, price_per_million=1.0, clients=fakes,
+                              options=GenerationOptions(path="ensemble", round="r1"))
+    assert first["published_item_ids"]
+    parent = load_vault(paths.root).practice_items["pi_linear_001"].model_dump(mode="json")
+    parent["status"] = "retired"
+    upsert_practice_item(paths.root, parent)  # a published item becomes the family's parent
+    second = generate_practice(load_vault(paths.root), caps=CAPS, price_per_million=1.0, clients=fakes,
+                               options=GenerationOptions(path="ensemble", round="r2"))
+    assert second["families"][0]["parent_item_id"] in first["published_item_ids"]
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    new_parent = second["families"][0]["parent_item_id"]
+    components = [row["component"] for row in item_fingerprints_snapshot(repository)
+                  if row["practice_item_id"] == new_parent and row["namespace"] == "solution_recipe"]
+    assert len(components) == len(set(components)) >= 2

@@ -77,7 +77,7 @@ from learnloop.ops.pf_selection import DIVERSITY_BASIS, mmr_order, similarity, v
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.substrate.families import apply_family, family_operation_lock, sync_authored_families
 from learnloop.substrate.item_fingerprints import (
-    EXACT_COMPONENTS, final_answer_text, fingerprint_keys, item_fingerprint_keys,
+    EXACT_COMPONENTS, FINGERPRINT_VERSION, final_answer_text, fingerprint_keys, item_fingerprint_keys,
     published_candidate_payloads, render_expected_answer, shared_keys, skeleton_content_hash,
 )
 from learnloop.vault.loader import load_vault
@@ -860,7 +860,7 @@ class _FamilyRun:
                 self.ctx.caller.ledger(
                     task="isomorph", left_kind="pf_candidate", left_id=candidate.id,
                     right_kind=duplicate_of[0], right_id=duplicate_of[1], judge="exact_key",
-                    prompt_version="pf-fingerprint-v1", input_hash=candidate.content_hash,
+                    prompt_version=FINGERPRINT_VERSION, input_hash=candidate.content_hash,
                     verdict="same_surface", rationale={"keys": [list(key[:2]) for key in exact]},
                 )
                 self._reject(candidate, "exact_duplicate", {"of": duplicate_of[1]})
@@ -887,6 +887,7 @@ class _FamilyRun:
     def _candidate_keys(self, candidate: Candidate) -> list[tuple[str, str, str]]:
         payload = candidate.payload
         skeletons = [{"model_id": candidate.proposer_model or "generator",
+                      "prompt_version": candidate.prompt_version,
                       "techniques": payload.get("techniques") or []}]
         return fingerprint_keys(
             prompt=payload["stem"], expected_answer=candidate.expected_answer, skeletons=skeletons,

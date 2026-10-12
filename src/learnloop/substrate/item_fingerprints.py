@@ -30,7 +30,9 @@ from learnloop.db.stores.pf import candidates, replace_item_fingerprints, skelet
 from learnloop.vault.hashes import practice_item_hash, skeleton_content_hash
 from learnloop.vault.models import LoadedVault, PracticeItem
 
-FINGERPRINT_VERSION = "pf-fingerprint-v1"
+# v2: a skeleton component names its model AND prompt version (one row per
+# persisted skeleton; two versions from one model used to collide).
+FINGERPRINT_VERSION = "pf-fingerprint-v2"
 FINAL_ANSWER_PREFIX = "Final answer:"
 WORKED_SOLUTION_PREFIX = "Worked solution:"
 
@@ -120,9 +122,20 @@ def fingerprint_keys(
     for skeleton in skeletons:
         techniques = skeleton.get("techniques") or []
         if techniques:
-            keys.append(("solution_recipe", f"skeleton:{skeleton['model_id']}",
+            keys.append(("solution_recipe", skeleton_component(skeleton),
                          _sha(["skeleton", technique_signature(techniques)])))
     return sorted(set(keys))
+
+
+def skeleton_component(skeleton: Mapping[str, Any]) -> str:
+    """``skeleton:<model>@<prompt version>``: unique per persisted skeleton.
+
+    ``item_skeletons`` is unique per (content hash, model, prompt version), so
+    an item's skeleton keys never collide on (namespace, component), however
+    many prompt versions or roles described it with the same model.
+    """
+    version = skeleton.get("prompt_version") or "unversioned"
+    return f"skeleton:{skeleton['model_id']}@{version}"
 
 
 def published_candidate_payloads(connection: Any) -> dict[str, dict[str, Any]]:
@@ -195,5 +208,6 @@ __all__ = [
     "EXACT_COMPONENTS", "FINAL_ANSWER_PREFIX", "FINGERPRINT_VERSION", "WORKED_SOLUTION_PREFIX",
     "compute_item_fingerprints", "final_answer_text", "fingerprint_keys", "item_fingerprint_keys",
     "key_quantities", "normalize_answer", "normalize_text", "rebuild_item_fingerprints",
-    "render_expected_answer", "shared_keys", "skeleton_content_hash", "technique_signature",
+    "render_expected_answer", "shared_keys", "skeleton_component", "skeleton_content_hash",
+    "technique_signature",
 ]
