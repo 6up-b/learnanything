@@ -756,3 +756,23 @@ def test_f10_a_crash_before_the_first_block_keeps_requests_first(tmp_path, monke
     first = record.blocks[0]
     assert first.items[0].practice_item_id == "pi_req" and first.items[0].origin == "requested"
     assert step["practice_item_id"] == "pi_req"
+
+
+# -- N1 (found re-measuring the fixture copies): estimates and the stored split agree --
+
+
+def test_n1_an_item_whose_estimate_is_its_lanes_whole_load_is_planned(tmp_path):
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    # 9.26134 + 0.5 of feedback: an estimate with more decimals than the
+    # stored split (4), equal to the maintain lane's whole load.
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects={"lo_long": [("pi_long", 9.26134)]})
+    _no_goals(paths)
+    env = make_env(paths.root, [scheduled("pi_long", "lo_long", forgetting_risk=0.6)], clock=MovableClock(NOW))
+    seed_due(env.repository, "pi_long", due=NOW - timedelta(days=3), last=NOW - timedelta(days=40))
+    _ended_session(env.repository, "s_old", NOW - timedelta(days=30))
+    record = get_or_create_today(env)
+    assert record.kind == "reentry"
+    assert [item.practice_item_id for item in record.items()] == ["pi_long"]
+    allotment, spent = record.ledger()
+    assert spent["maintain"] <= allotment["maintain"]

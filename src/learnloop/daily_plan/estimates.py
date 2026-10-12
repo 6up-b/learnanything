@@ -29,6 +29,12 @@ from typing import Any
 from learnloop.clock import parse_utc
 
 ESTIMATOR_VERSION = "duration_shrinkage_v1"
+#: The plan works in the estimates it stores: every item and reading estimate
+#: it plans with is quantized to the 4 decimals the split, the admission and
+#: the item events persist, so an item whose estimate is its lane's whole load
+#: still fits the stored allotment (review N1; a 9.76134-minute item missed a
+#: 9.7613-minute lane by 4e-5 and the re-entry plan came out empty).
+ESTIMATE_DECIMALS = 4
 #: k: pseudo-observations behind each prior (§6.4).
 PSEUDO_OBSERVATIONS = 3.0
 #: The existing conservative constant (controller_snapshot, action_loss).
@@ -130,15 +136,20 @@ class Estimator:
         )
 
     def item_minutes(self, vault: Any, item_id: str) -> float:
+        """The item's planning estimate, as the plan stores it (4 decimals)."""
+
         item = vault.practice_items.get(item_id)
-        return self.estimate(
+        minutes = self.estimate(
             item_id,
             getattr(item, "practice_mode", None),
             getattr(item, "expected_minutes", None),
         ).minutes
+        return round(minutes, ESTIMATE_DECIMALS)
 
     def reading_minutes(self, words_left: int) -> float:
-        return reading_minutes(words_left, self.read_words_per_minute)
+        """A reading block's estimate, as the plan stores it (4 decimals)."""
+
+        return round(reading_minutes(words_left, self.read_words_per_minute), ESTIMATE_DECIMALS)
 
 
 def reading_minutes(words_left: int, words_per_minute: int) -> float:
@@ -209,6 +220,7 @@ def _feedback_dwell(connection: Any) -> list[float]:
 __all__ = [
     "DEFAULT_FEEDBACK_MINUTES",
     "DurationEvidence",
+    "ESTIMATE_DECIMALS",
     "ESTIMATOR_VERSION",
     "Estimator",
     "FALLBACK_PRIOR_MINUTES",
