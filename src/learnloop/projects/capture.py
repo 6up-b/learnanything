@@ -3,9 +3,10 @@
 - **Sweep** (``sweep``/``auto_sweep``): every enrolled repo's local branches
   are listed since the repo's ``capture_since``; commits with an agent trailer
   (``Co-Authored-By: Claude …`` and friends) that are not yet captured are
-  captured. The optional ``post-commit`` pending list feeds the same path;
-  trailer-less commits from it are kept as *unattributed* for a one-tap
-  self-report. Sweeps only run git: no model is ever called here.
+  captured. The optional ``post-commit`` pending list feeds the same path
+  through a durable queue in the store (an entry leaves it only once its repo
+  was swept); trailer-less commits from it are kept as *unattributed* for a
+  one-tap self-report. Sweeps only run git: no model is ever called here.
 - **Manual** (``capture_working_tree``/``capture_commit`` through
   ``learnloop project accept``): agent work without a trailer.
 
@@ -892,6 +893,8 @@ class SweepReport:
     unattributed: int = 0
     pending_lines: int = 0
     pending_malformed: int = 0
+    pending_unknown_repo: int = 0
+    pending_queued: int = 0
     errors: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -906,6 +909,8 @@ class SweepReport:
             "unattributed": self.unattributed,
             "pending_lines": self.pending_lines,
             "pending_malformed": self.pending_malformed,
+            "pending_unknown_repo": self.pending_unknown_repo,
+            "pending_queued": self.pending_queued,
             "errors": self.errors,
         }
 
@@ -948,6 +953,54 @@ def _read_pending(vault_root: Path, store: ProjectStore) -> tuple[list[dict[str,
     return entries, offset + len(complete), malformed
 
 
+def _process_pending(
+    store: ProjectStore,
+    vault_root: Path,
+    config: LearnLoopConfig,
+    repo_row: dict[str, Any],
+    repo: Path,
+    sha: str,
+    known: set[str],
+    report: SweepReport,
+    summary: dict[str, Any],
+    *,
+    trigger: str,
+    clock: Clock | None,
+) -> None:
+    """One queued hook entry: capture it, list it as unattributed, or drop it.
+
+    Raises only for repo-level failures, which keep the entry queued.
+    """
+
+    if sha in known:
+        return
+    try:
+        info = _commit_info(repo, sha)
+    except GitError:
+        return  # the commit was rewritten away; nothing to capture
+    if detect_agent(info["trailers"], info["message"]) is None:
+        if len(info["parents"]) <= 1:
+            subject = redact_text((info["message"].splitlines() or [""])[0], RedactionCounter())
+            added = store.note_unattributed(
+                {
+                    "repo_id": repo_row["id"],
+                    "sha": info["sha"],
+                    "subject": subject[:200],
+                    "committed_at": info["committed_at"],
+                    "seen_at": utc_now_iso(clock),
+                }
+            )
+            report.unattributed += int(added)
+        return
+    result = capture_commit(
+        store, vault_root, config, repo_row, info["sha"],
+        capture_source="pending_list", trigger=trigger, clock=clock, info=info,
+    )
+    _tally(report, result)
+    summary["captured"] += result.status in {"captured", "excluded"}
+    known.add(info["sha"])
+
+
 def sweep(
     vault_root: Path,
     config: LearnLoopConfig,
@@ -962,11 +1015,15 @@ def sweep(
     report = SweepReport(trigger=trigger, swept_at=utc_now_iso(clock))
     store = ProjectStore.for_vault(vault_root, busy_timeout_ms=busy_timeout_ms)
     repos = [repo for repo in store.repos(enabled_only=True) if repo_ids is None or repo["id"] in repo_ids]
+    # Hook entries move into the store's durable queue before the file offset
+    # advances (one transaction); each leaves the queue only once processed.
     entries, new_offset, malformed = _read_pending(vault_root, store)
+    enrolled = {repo["id"] for repo in store.repos()}
+    known_entries = [entry for entry in entries if entry["repo_id"] in enrolled]
     report.pending_lines, report.pending_malformed = len(entries), malformed
-    pending_by_repo: dict[str, list[dict[str, Any]]] = {}
-    for entry in entries:
-        pending_by_repo.setdefault(entry["repo_id"], []).append(entry)
+    report.pending_unknown_repo = len(entries) - len(known_entries)
+    if entries or new_offset != int(store.meta("pending_offset") or 0):
+        store.enqueue_pending(known_entries, offset=new_offset, received_at=report.swept_at or utc_now_iso(clock))
     for repo_row in repos:
         summary = {"repo_id": repo_row["id"], "name": repo_row["name"], "captured": 0, "error": None}
         repo = Path(repo_row["path"])
@@ -984,45 +1041,17 @@ def sweep(
                 _tally(report, result)
                 summary["captured"] += result.status in {"captured", "excluded"}
                 known.add(commit["sha"])
-            for entry in pending_by_repo.get(repo_row["id"], []):
-                sha = entry["sha"]
-                if sha in known:
-                    continue
-                try:
-                    info = _commit_info(repo, sha)
-                except GitError:
-                    continue  # the commit was rewritten away; nothing to capture
-                if detect_agent(info["trailers"], info["message"]) is None:
-                    if len(info["parents"]) <= 1:
-                        subject = redact_text((info["message"].splitlines() or [""])[0], RedactionCounter())
-                        store.note_unattributed(
-                            {
-                                "repo_id": repo_row["id"],
-                                "sha": info["sha"],
-                                "subject": subject[:200],
-                                "committed_at": info["committed_at"],
-                                "seen_at": utc_now_iso(clock),
-                            }
-                        )
-                        report.unattributed += 1
-                    continue
-                result = capture_commit(
-                    store, vault_root, config, repo_row, info["sha"],
-                    capture_source="pending_list", trigger=trigger, clock=clock, info=info,
-                )
-                _tally(report, result)
-                summary["captured"] += result.status in {"captured", "excluded"}
-                known.add(info["sha"])
+            for entry in store.pending_commits(repo_row["id"]):
+                _process_pending(store, vault_root, config, repo_row, repo, entry["sha"], known, report, summary,
+                                 trigger=trigger, clock=clock)
+                store.dequeue_pending(repo_row["id"], entry["sha"])
             store.record_repo_sweep(repo_row["id"], swept_at=report.swept_at, error=None)
         except (GitError, OSError, ValueError) as exc:
             summary["error"] = str(exc)
             report.errors.append(f"{repo_row['name']}: {exc}")
             store.record_repo_sweep(repo_row["id"], swept_at=report.swept_at, error=str(exc)[:500])
         report.repos.append(summary)
-    if repo_ids is None:
-        # A single-repo sweep leaves other repos' pending entries for the next
-        # full sweep; re-reading an entry is harmless (captures are deduplicated).
-        store.set_meta("pending_offset", str(new_offset))
+    report.pending_queued = len(store.pending_commits())
     if report.errors:
         report.status = "partial"
     return report

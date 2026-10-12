@@ -30,7 +30,10 @@ from learnloop.ids import new_ulid
 
 _LOG = logging.getLogger(__name__)
 
-STORE_SCHEMA_VERSION = 1
+# 1: the M1 tables. 2: ``pending_commits``, the durable queue of post-commit
+# hook entries. Every statement in _SCHEMA is idempotent, so an older store is
+# upgraded by running it again.
+STORE_SCHEMA_VERSION = 2
 STORE_RELATIVE_PATH = Path("projects") / "project_store.sqlite"
 PENDING_RELATIVE_PATH = Path("projects") / "pending.jsonl"
 
@@ -180,6 +183,17 @@ CREATE TABLE IF NOT EXISTS unattributed_commits (
     committed_at TEXT,
     seen_at TEXT NOT NULL,
     resolved_diff_id TEXT REFERENCES diffs(id),
+    PRIMARY KEY(repo_id, sha)
+);
+
+-- Post-commit hook entries, moved here from projects/pending.jsonl before the
+-- file offset advances; each is removed only once its repo was swept, so a
+-- repo that is unavailable for a while loses nothing.
+CREATE TABLE IF NOT EXISTS pending_commits (
+    repo_id TEXT NOT NULL REFERENCES repos(id),
+    sha TEXT NOT NULL,
+    logged_at TEXT,
+    received_at TEXT NOT NULL,
     PRIMARY KEY(repo_id, sha)
 );
 
@@ -751,15 +765,49 @@ class ProjectStore:
             _insert_judgment(connection, {**judgment, "supersedes_id": None if prior is None else prior["id"]})
             return True
 
+    # --- the post-commit pending queue -----------------------------------------
+
+    def enqueue_pending(self, entries: list[dict[str, Any]], *, offset: int, received_at: str) -> int:
+        """Queue hook entries and advance the pending-file offset in one transaction."""
+
+        with self.connection() as connection:
+            added = 0
+            for entry in entries:
+                cursor = connection.execute(
+                    "INSERT OR IGNORE INTO pending_commits (repo_id, sha, logged_at, received_at) VALUES (?, ?, ?, ?)",
+                    (entry["repo_id"], entry["sha"], entry.get("at"), received_at),
+                )
+                added += cursor.rowcount
+            connection.execute(
+                "INSERT INTO store_meta(key, value) VALUES ('pending_offset', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (str(offset),),
+            )
+        return added
+
+    def pending_commits(self, repo_id: str | None = None) -> list[dict[str, Any]]:
+        query = "SELECT * FROM pending_commits"
+        params: tuple[Any, ...] = ()
+        if repo_id is not None:
+            query += " WHERE repo_id = ?"
+            params = (repo_id,)
+        with self.connection() as connection:
+            return [dict(row) for row in connection.execute(query + " ORDER BY received_at, rowid", params)]
+
+    def dequeue_pending(self, repo_id: str, sha: str) -> None:
+        with self.connection() as connection:
+            connection.execute("DELETE FROM pending_commits WHERE repo_id = ? AND sha = ?", (repo_id, sha))
+
     # --- unattributed commits ---------------------------------------------------
 
-    def note_unattributed(self, row: dict[str, Any]) -> None:
+    def note_unattributed(self, row: dict[str, Any]) -> bool:
         with self.connection() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 "INSERT OR IGNORE INTO unattributed_commits (repo_id, sha, subject, committed_at, seen_at) "
                 "VALUES (?, ?, ?, ?, ?)",
                 (row["repo_id"], row["sha"], row["subject"], row.get("committed_at"), row["seen_at"]),
             )
+            return cursor.rowcount == 1
 
     def resolve_unattributed(self, repo_id: str, sha: str, diff_id: str) -> None:
         with self.connection() as connection:

@@ -130,3 +130,15 @@ def test_store_runs_in_wal_with_full_sync_in_production(tmp_path):
     ProjectStore.for_vault(tmp_path)
     with store.connection() as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == mode
+
+
+def test_a_version_1_store_gains_the_pending_queue(tmp_path):
+    store = ProjectStore.for_vault(tmp_path)
+    with closing(sqlite3.connect(store.path)) as connection:
+        connection.execute("DROP TABLE pending_commits")
+        connection.execute("PRAGMA user_version = 1")
+        connection.commit()
+    reopened = ProjectStore.for_vault(tmp_path)
+    assert reopened.pending_commits() == []
+    with closing(sqlite3.connect(store.path)) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 2

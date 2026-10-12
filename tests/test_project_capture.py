@@ -278,3 +278,36 @@ def test_enroll_rejects_a_non_repo(tmp_path, vault, isolated_git):
     (tmp_path / "plain").mkdir()
     with pytest.raises(capture.GitError):
         enroll_repo(vault, LearnLoopConfig(), tmp_path / "plain")
+
+
+def test_a_pending_entry_survives_a_sweep_while_its_repo_is_unavailable(isolated_git, tmp_path, vault):
+    repo = make_model_repo(tmp_path / "repo", agent_commit=False)
+    other = make_model_repo(tmp_path / "other")
+    row, store, config = _enroll(vault, repo)
+    _enroll(vault, other)
+    sha = repo.git("rev-parse", "HEAD").strip()
+    pending_path(vault).write_text(json.dumps({"repo_id": row["id"], "sha": sha, "at": "x"}) + "\n", encoding="utf-8")
+    away = tmp_path / "repo-away"
+    repo.path.rename(away)  # e.g. an unmounted drive
+    report = sweep(vault, config, clock=clock_at(0))
+    assert report.status == "partial" and store.unattributed() == []
+    away.rename(repo.path)
+    report = sweep(vault, config, clock=clock_at(0))
+    assert report.status == "ok"
+    assert [entry["sha"] for entry in store.unattributed()] == [sha]
+    # Processed once: a later sweep neither loses nor re-counts it.
+    assert sweep(vault, config, clock=clock_at(0)).unattributed == 0
+    assert [entry["sha"] for entry in store.unattributed()] == [sha]
+
+
+def test_a_single_repo_sweep_keeps_other_repos_pending_entries(isolated_git, tmp_path, vault):
+    repo = make_model_repo(tmp_path / "repo", agent_commit=False)
+    other = make_model_repo(tmp_path / "other")
+    row, store, config = _enroll(vault, repo)
+    other_row, _store, _config = _enroll(vault, other)
+    sha = repo.git("rev-parse", "HEAD").strip()
+    pending_path(vault).write_text(json.dumps({"repo_id": row["id"], "sha": sha, "at": "x"}) + "\n", encoding="utf-8")
+    sweep(vault, config, clock=clock_at(0), repo_ids={other_row["id"]})
+    assert store.unattributed() == []
+    sweep(vault, config, clock=clock_at(0))
+    assert [entry["sha"] for entry in store.unattributed()] == [sha]
