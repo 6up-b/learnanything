@@ -356,3 +356,51 @@ def test_cli_registration_does_not_load_the_vector_store():
         "assert 'learnloop.db.stores.embedding_vectors' not in sys.modules"
     )
     subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.parametrize("reply", [
+    SimpleNamespace(usage=SimpleNamespace(prompt_tokens=5, total_tokens=5)),  # no data
+    SimpleNamespace(data=[SimpleNamespace(index=0, embedding=[1, 2, 3])],
+                    usage=SimpleNamespace(prompt_tokens=5, total_tokens=5)),  # one vector for two inputs
+    SimpleNamespace(data=[SimpleNamespace(index=i, embedding=[1, 2]) for i in range(2)],
+                    usage=SimpleNamespace(prompt_tokens=5, total_tokens=5)),  # too narrow
+])
+def test_invalid_paid_response_keeps_the_report_and_is_not_retried(vault, monkeypatch, reply):
+    loaded, repository = vault
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    module = install_fake_openai(monkeypatch, embeddings=[reply, reply, reply])
+    report = backfill_embeddings(loaded, caps=SpendCaps(max_retries=2))
+    assert report["status"] == "provider_failed"
+    assert report["error_type"] == "ValueError"
+    assert report["run_id"]
+    assert report["embedded"] == 0 and report["remaining"] == 2
+    assert report["charged"]["calls"] == 1
+    assert report["charged"]["total_tokens"] >= 5
+    assert len(module.instances[0].embedding_requests) == 1
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM embedding_vectors").fetchone()[0] == 0
+        assert [tuple(row) for row in connection.execute(
+            "SELECT status, input_tokens FROM model_call_receipts WHERE owner_id=?", (report["run_id"],)
+        )] == [("failed", 5)]
+
+
+def test_provider_failure_reports_sdk_class_without_its_message(vault, monkeypatch):
+    loaded, _ = vault
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+
+    class AuthenticationError(Exception):
+        pass
+
+    install_fake_openai(monkeypatch, embeddings=[AuthenticationError("PRIVATE sk-or-v1-secret")])
+    report = backfill_embeddings(loaded, caps=SpendCaps(max_retries=0))
+    assert report["status"] == "provider_failed"
+    assert report["provider_error"] == "AuthenticationError"
+    assert "PRIVATE" not in json.dumps(report) and "sk-or" not in json.dumps(report)
+
+
+def test_unknown_price_reason_names_the_remedy(vault):
+    loaded, _ = vault
+    loaded.config.embedding.model = "unknown/model"
+    report = backfill_embeddings(loaded, caps=SpendCaps(), dry_run=True)
+    assert report["status"] == "over_budget"
+    assert "--price-per-million" in report["reason"] and "unknown/model" in report["reason"]

@@ -28,6 +28,14 @@ TASK_PREFIX = "retrieval-document"
 PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
 
 
+class _InvalidEmbeddingResponse(Exception):
+    """A paid batch came back unusable; it is reported, never retried or saved."""
+
+    def __init__(self, error_type: str):
+        super().__init__(error_type)
+        self.error_type = error_type
+
+
 def estimated_tokens(text: str) -> int:
     """Conservative UTF-8 byte bound, including coarse-prefix/framing allowance."""
     return len(text.encode("utf-8")) + 128
@@ -156,7 +164,13 @@ def backfill_embeddings(
         report["status"] = "cancelled"
         return report
     except SpendLimitExceeded as exc:
-        report.update(status="over_budget", reason=str(exc))
+        reason = str(exc)
+        if estimate.estimated_usd is None:
+            reason = (
+                f"Unknown price for {model_id}: pass --price-per-million with an explicit "
+                "USD estimate per million input tokens; it is still subject to --max-cost-usd."
+            )
+        report.update(status="over_budget", reason=reason)
         return report
     if dry_run:
         return report
@@ -231,6 +245,14 @@ def backfill_embeddings(
                             with budget.request(request) as charge:
                                 try:
                                     vectors = client.embed([record.text for record in batch], TASK_PREFIX)
+                                    if len(vectors) != len(batch) or any(
+                                        len(vector) != client.dims for vector in vectors
+                                    ):
+                                        raise ValueError("Embedding provider returned the wrong vector count or width")
+                                except ValueError as exc:
+                                    # EmbeddingClient's contract error for an invalid
+                                    # (possibly paid) response: report, never retry.
+                                    raise _InvalidEmbeddingResponse(type(exc).__name__) from None
                                 finally:
                                     actual_tokens = usage.get("input_tokens")
                                     actual_cost = usage.get("cost")
@@ -244,14 +266,10 @@ def backfill_embeddings(
                                 raise
                             attempt += 1
                             continue
-                        if len(vectors) != len(batch):
-                            raise ValueError("Embedding provider returned the wrong number of vectors")
                         # Persist the whole paid batch even if cancellation arrived
                         # during the request. Never hold a DB transaction over I/O.
                         with repository.connection() as connection:
                             for record, vector in zip(batch, vectors, strict=True):
-                                if len(vector) != client.dims:
-                                    raise ValueError("Embedding provider returned the wrong vector dimensions")
                                 put_vector(connection, **_identity(record, model_id), vector=vector)
                         report["embedded"] += len(batch)
                         break
@@ -262,8 +280,16 @@ def backfill_embeddings(
             report.update(status="over_budget", reason=str(exc))
         except AIProviderUnavailable as exc:
             # Aggregate report must not echo provider errors that can contain
-            # request/learner text or credentials.
-            report.update(status="provider_failed", error_type=type(exc).__name__)
+            # request/learner text or credentials; the SDK class name is safe.
+            report.update(
+                status="provider_failed", error_type=type(exc).__name__,
+                provider_error=getattr(exc, "provider_error", None),
+            )
+        except _InvalidEmbeddingResponse as exc:
+            report.update(
+                status="provider_failed", error_type=exc.error_type,
+                reason="The embedding client rejected the batch or returned an invalid response; that batch was not saved.",
+            )
         finally:
             report["charged"] = asdict(budget.used)
             report["remaining"] = len(pending) - report["embedded"]
