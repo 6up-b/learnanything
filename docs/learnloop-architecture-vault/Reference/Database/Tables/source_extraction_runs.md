@@ -3,13 +3,13 @@ title: "source_extraction_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
+source_commit_timestamp: "2026-10-12T17:32:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_extraction_runs"
   - "table source_extraction_runs"
-schema_head: 174
+schema_head: 175
 table_name: "source_extraction_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -125,8 +125,9 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
+- `src/learnloop/source_retrieval/b4.py`
+- `src/learnloop/source_retrieval/corpus.py`
 - `src/learnloop_sidecar/handlers/ingest.py`
-- `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -140,6 +141,7 @@ Indexes and uniqueness:
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`
+- `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_inventory.py`
 - `tests/test_source_layer.py`

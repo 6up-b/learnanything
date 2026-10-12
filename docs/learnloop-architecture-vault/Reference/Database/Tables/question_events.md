@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
+source_commit_timestamp: "2026-10-12T17:32:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 174
+schema_head: 175
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -137,6 +137,7 @@ Indexes and uniqueness:
 - `src/learnloop/learner/facet_diagnostics.py`
 - `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
+- `src/learnloop/source_retrieval/evaluation.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/question_queue.py`
 - `src/learnloop/tutor/question_signal.py`
@@ -169,7 +170,7 @@ Indexes and uniqueness:
 - `tests/test_question_queue.py`
 - `tests/test_scheduler_requested_floor.py`
 - `tests/test_sidecar_tutor_qa.py`
-- `tests/test_tutor_promotion_service.py`
+- `tests/test_source_retrieval_tutor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

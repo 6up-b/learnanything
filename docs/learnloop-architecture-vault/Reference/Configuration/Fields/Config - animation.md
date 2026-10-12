@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
+source_commit_timestamp: "2026-10-12T17:32:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop_sidecar/handlers/settings.py"
   - "tests/pf_fakes.py"
   - "tests/practice_index_fakes.py"
+  - "tests/source_retrieval_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
@@ -78,6 +79,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/pf_fakes.py`
 - `tests/practice_index_fakes.py`
+- `tests/source_retrieval_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
@@ -87,7 +89,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_concept_animation_service.py`
 - `tests/test_concept_animation_store.py`
 - `tests/test_concept_animation_validator.py`
-- `tests/test_config_refactor.py`
 
 ## Extension and modification guidance
 

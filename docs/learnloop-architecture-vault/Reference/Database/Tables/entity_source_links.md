@@ -3,13 +3,13 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
+source_commit_timestamp: "2026-10-12T17:32:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
   - "table entity_source_links"
-schema_head: 174
+schema_head: 175
 table_name: "entity_source_links"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -111,6 +111,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_append.py`
 - `src/learnloop/content/synthesis/study_map_diff.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/substrate/dataset.py`
 
 ### Direct SQL writers
@@ -131,6 +132,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/study_map_diff.py`
 - `src/learnloop/ops/maintenance_feed.py`
 - `src/learnloop/practice_index/dossiers.py`
+- `src/learnloop/source_retrieval/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -147,6 +149,7 @@ Indexes and uniqueness:
 - `tests/test_provenance_service.py`
 - `tests/test_revision_refresh.py`
 - `tests/test_source_deletion.py`
+- `tests/test_source_retrieval_tutor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

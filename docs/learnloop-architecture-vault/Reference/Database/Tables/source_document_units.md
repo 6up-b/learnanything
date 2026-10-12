@@ -3,13 +3,13 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
+source_commit_timestamp: "2026-10-12T17:32:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
   - "table source_document_units"
-schema_head: 174
+schema_head: 175
 table_name: "source_document_units"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,8 +23,8 @@ source_paths:
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/practice_leakage.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/content/pipeline/revision_refresh.py"
-  - "src/learnloop/content/sources/source_deletion.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -101,6 +101,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/practice_leakage.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/revision_refresh.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/content/sources/source_outline.py`
@@ -117,7 +118,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_render_views.py`
 - `src/learnloop/reader/source_review.py`
 - `src/learnloop/reader/span_view.py`
-- `src/learnloop_sidecar/handlers/ingest.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_sidecar_ingest_m3.py`
 - `tests/test_sidecar_quick_add.py`
 - `tests/test_sidecar_span_view.py`
+- `tests/test_source_block_fts.py`
 - `tests/test_source_deletion.py`
 - `tests/test_source_ingestion_v2lite.py`
 - `tests/test_source_inventory.py`
