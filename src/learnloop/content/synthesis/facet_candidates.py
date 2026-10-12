@@ -6,6 +6,10 @@ conditions, and misconception statements — and proposes REVIEW pairs for
 lexically similar candidates. Similarity is ephemeral and review-only: a
 lexical/MinHash Jaccard estimate never merges, and no similarity artifact is
 persisted as identity. Output is deterministic JSON.
+
+Slice 2 T5: with a review nominator, a pair of two registry facets also
+carries their definition-embedding cosine (stored vectors only). Other
+candidate kinds have no stored vector, so their column says so.
 """
 
 from __future__ import annotations
@@ -153,15 +157,30 @@ def _review_pairs(candidates: list[FacetCandidate]) -> list[ReviewPair]:
     return pairs
 
 
-def harvest_facet_candidates(vault: LoadedVault, repository=None) -> dict[str, object]:
+def _with_cosine(pair: ReviewPair, by_id: dict[str, FacetCandidate], nominator) -> dict[str, object]:
+    record: dict[str, object] = asdict(pair)
+    if nominator is None:
+        return record
+    left, right = by_id[pair.left], by_id[pair.right]
+    if left.source_kind == right.source_kind == "registry":
+        from learnloop.content.synthesis.graph_nomination import FACET_RECIPE
+
+        record.update(nominator.cosine_column(FACET_RECIPE, left.refs[0], right.refs[0]))
+    else:
+        record.update({"cosine": None, "cosine_status": "no_stored_vector_for_candidate_kind"})
+    return record
+
+
+def harvest_facet_candidates(vault: LoadedVault, repository=None, *, nominator=None) -> dict[str, object]:
     """Harvest candidates and lexical review pairs (§3.3). Deterministic JSON."""
 
     candidates = _harvest(vault, repository)
     pairs = _review_pairs(candidates)
+    by_id = {candidate.candidate_id: candidate for candidate in candidates}
     return {
         "version": 1,
         "candidates": [asdict(candidate) for candidate in candidates],
-        "review_pairs": [asdict(pair) for pair in pairs],
+        "review_pairs": [_with_cosine(pair, by_id, nominator) for pair in pairs],
         "notes": (
             "Similarity is review-only and ephemeral; no pair is a merge and no "
             "similarity artifact is persisted as identity (knowledge-model §3.3)."

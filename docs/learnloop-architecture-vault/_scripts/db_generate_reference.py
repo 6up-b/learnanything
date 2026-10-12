@@ -840,6 +840,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ingest": "source acquisition, extraction, media handling, token budgets, and durable workers",
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
+    "graph_nomination": "Slice 2 T5 embedding nominations for ingest and graph review (never identity), with ingest-time embedding caps",
     "project": "project-understanding M1: automatic capture of agent-written diffs and delayed probes in the standalone project store",
     "field": "offline learner-field analysis, revision exclusions, and opt-in paid experiments",
     "practice_index": "find_practice retrieval, rerank, coverage, and the paid dossier and evaluation switches",

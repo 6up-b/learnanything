@@ -20,6 +20,13 @@ from tests.openai_fakes import install_fake_openai
 
 # Phase 5b's practice-index recipes: one per dossier field, sorted by name.
 DOSSIER_RECIPES = [f"facet/dossier_{field}" for field in ("contrast", "errors", "moves", "scope")]
+# The default vault-content registry, in selection (name) order: Phase 1's
+# facet/item recipes, Phase 5b's dossier fields and Slice 2 T5's concept
+# definitions and instructional repairs. Consumer registries (T4) and
+# database-backed kinds (Slice 1 M2) never join it.
+DEFAULT_RECIPES = sorted([
+    "facet/definition", "item/stem", *DOSSIER_RECIPES, "concept/definition", "facet_repair/text",
+])
 
 
 class FakeEmbeddingClient:
@@ -56,6 +63,9 @@ def vault(tmp_path):
     loaded.evidence_facets["definition"] = EvidenceFacet(
         id="definition", title="SVD", claim="A canonical factorization claim.",
     )
+    # The counts below are about one facet and one item record; Slice 2 T5's
+    # concept/definition recipe is covered in test_graph_nomination.py.
+    loaded.concepts.clear()
     return loaded, Repository(paths.sqlite_path)
 
 
@@ -68,7 +78,7 @@ def run(loaded, client, **kwargs):
 
 def test_recipes_declare_canonical_text_and_hash_only_their_inputs(vault):
     loaded, _ = vault
-    assert set(EMBEDDING_RECIPES) == {"facet/definition", "item/stem", *DOSSIER_RECIPES}
+    assert set(EMBEDDING_RECIPES) == set(DEFAULT_RECIPES)
     records = embedding_records(loaded)
     # Dossier-field recipes read persisted dossiers; none exist in this vault.
     assert {(r.record_kind, r.field) for r in records} == {("facet", "definition"), ("item", "stem")}
@@ -90,7 +100,7 @@ def test_recipes_declare_canonical_text_and_hash_only_their_inputs(vault):
 def test_recipes_are_selected_by_kind_or_by_kind_and_field():
     # Slice 2 R3 adds fields per kind (item/skeleton, facet/dossier_*); a bare
     # kind selects all of its fields, kind/field exactly one.
-    assert [r.name for r in select_recipes()] == ["facet/definition", *DOSSIER_RECIPES, "item/stem"]
+    assert [r.name for r in select_recipes()] == DEFAULT_RECIPES
     assert [r.name for r in select_recipes(["item"])] == ["item/stem"]
     assert [r.name for r in select_recipes(["facet/definition", "facet"])] == [
         "facet/definition", *DOSSIER_RECIPES,
@@ -123,9 +133,7 @@ def test_backfill_is_batched_and_idempotent_with_receipts(vault):
         budget = json.loads(row[3])
         manifest = budget.pop("embedding")
         assert budget == SpendCaps().as_dict()
-        assert manifest["recipe_versions"] == {
-            "facet/definition": 1, "item/stem": 1, **{name: 1 for name in DOSSIER_RECIPES},
-        }
+        assert manifest["recipe_versions"] == {name: 1 for name in DEFAULT_RECIPES}
         assert manifest["prompt_version"] == "embedding-v1"
         assert connection.execute(
             "SELECT owner_id FROM model_call_receipts WHERE owner_kind='embedding_backfill'"
@@ -341,7 +349,7 @@ def test_cli_dry_run_on_disabled_vault_needs_no_provider(tmp_path, monkeypatch):
     assert report["status"] == "dry_run"
     assert not report["embedding_enabled"]
     assert not report["backfill_enabled"]
-    assert report["recipes"] == ["facet/definition", *DOSSIER_RECIPES, "item/stem"]
+    assert report["recipes"] == DEFAULT_RECIPES
     assert paths.sqlite_path.read_bytes() == before
     narrowed = CliRunner().invoke(app, [
         "embeddings", "backfill", "--vault", str(paths.root), "--dry-run", "--json",
@@ -415,3 +423,53 @@ def test_unknown_price_reason_names_the_remedy(vault):
     report = backfill_embeddings(loaded, caps=SpendCaps(), dry_run=True)
     assert report["status"] == "over_budget"
     assert "--price-per-million" in report["reason"] and "unknown/model" in report["reason"]
+
+
+def test_content_reuse_covers_explicit_extra_and_registry_records(vault):
+    """Slice 2 T5's content-addressed reuse, composed at its merge with T8's
+    explicit records, Slice 1 M2's database-backed extra records and T4's
+    consumer registry: a vector paid under one record id serves the identical
+    input under another, whichever way the record reached the backfill."""
+
+    from learnloop.db.stores.embedding_vectors import get_vector, put_vector
+    from learnloop.diagnosis.split.embeddings import misconception_record
+    from learnloop.ops.embedding_backfill import TASK_PREFIX
+    from learnloop.vault.embedding_recipes import EmbeddingRecipe
+
+    loaded, repository = vault
+    client = FakeEmbeddingClient()
+    stem = EMBEDDING_RECIPES["item/stem"]
+    shared = "A stem an earlier graded attempt showed."
+    consumer = EmbeddingRecipe(
+        "probe", "text", 1, "Test-only consumer recipe.", lambda _loaded: iter([("probe_new", shared)]),
+    )
+    paid = [
+        stem.record("item_paid", shared),
+        consumer.record("probe_paid", shared),
+        misconception_record("durable:paid", "Believes det(A+B) = det A + det B"),
+    ]
+    with repository.connection() as connection:
+        for record in paid:
+            put_vector(connection, record_kind=record.record_kind, record_id=record.record_id,
+                       field=record.field, content_hash=record.content_hash,
+                       model_id=client.model_id, task_prefix=TASK_PREFIX, vector=[0.5, 0.25, 1.0])
+    new = [
+        stem.record("item_seen", shared),
+        consumer.record("probe_new", shared),
+        misconception_record("candidate:new", "Believes det(A+B) = det A + det B"),
+    ]
+    reports = [
+        run(loaded, client, recipes=("item/stem",), records=[new[0]]),
+        run(loaded, client, registry={"probe/text": consumer}),
+        run(loaded, client, recipes=(), extra_records=[new[2]], extra_recipes=["misconception/statement"]),
+    ]
+    assert reports[0]["records_source"] == "explicit"
+    for report in reports:
+        assert report["status"] == "complete", report
+        assert (report["reused_by_content"], report["embedded"]) == (1, 0)
+    assert client.calls == []
+    with repository.connection() as connection:
+        for record in new:
+            assert get_vector(connection, record_kind=record.record_kind, record_id=record.record_id,
+                              field=record.field, content_hash=record.content_hash,
+                              model_id=client.model_id, task_prefix=TASK_PREFIX) is not None

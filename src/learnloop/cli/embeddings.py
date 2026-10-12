@@ -38,7 +38,8 @@ def embeddings_backfill(
     record_kind: Annotated[list[str] | None, typer.Option(
         "--record-kind",
         help=(
-            "A record kind (facet, item) or one recipe (facet/definition, facet/dossier_scope, item/stem, ...); "
+            "A record kind (facet, item, concept, facet_repair) or one recipe (facet/definition, "
+            "facet/dossier_scope, item/stem, concept/definition, ...); "
             "repeatable. Default: all vault recipes. Slice 1 adds hypothesis, misconception and attempt "
             "(attempt/divergence, for history_mode=hybrid), embedded only when named."
         ),
@@ -56,7 +57,10 @@ def embeddings_backfill(
     )] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Embed facet definitions, facet dossier fields and item stems; reruns skip saved hashes.
+    """Embed facet definitions, dossier fields, item stems, concept definitions and repairs.
+
+    Reruns skip saved hashes, and a text already paid for under another record
+    id (an ingest-time nomination, say) is reused, not bought again.
 
     Both embedding switches must be enabled for paid work. SIGINT/SIGTERM
     finishes and saves the current batch, then stops before the next request.
@@ -91,6 +95,63 @@ def embeddings_backfill(
         typer.echo(json.dumps(report, sort_keys=True))
     else:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
+    if report["status"] == "cancelled":
+        raise typer.Exit(code=130)
+    if report["status"] not in {"dry_run", "complete"}:
+        raise typer.Exit(code=1)
+
+
+@embeddings_app.command("nomination-report")
+def embeddings_nomination_report(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; use a fixtures-local copy.")],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan the backfill the report needs; no client, migration or data changes.")] = False,
+    stored_only: Annotated[bool, typer.Option("--stored-only", help="Skip the backfill; report from vectors already stored (no model calls).")] = False,
+    batch_size: Annotated[int, typer.Option("--batch-size", min=1, max=256)] = 32,
+    max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 1_000,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 100,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 2,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 1_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 0.25,
+    price_per_million: Annotated[float | None, typer.Option(
+        "--price-per-million", min=0,
+        help="Positive USD input-token estimate for an unknown/changed model price; still subject to cost cap.",
+    )] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Slice 2 T5 report: embedding nomination recall on doctor-found duplicates.
+
+    Backfills facet and concept definitions and facet repairs (paid, capped;
+    both embedding switches must be on), then reports recall@k against the
+    lexical review passes, candidate blocking cutoffs (recorded, never applied),
+    the noise floor, embedding-only nominations, the repair-equivalence shadow
+    and what ingest nominated. Nominations never merge anything.
+    """
+    from learnloop.ops.graph_nomination_report import nomination_report
+
+    try:
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must name a vault containing learnloop.toml")
+        if dry_run and stored_only:
+            raise ValueError("--dry-run plans the backfill; --stored-only skips it. Pass one.")
+        caps = SpendCaps(
+            max_candidates=max_candidates, max_pairs=0,
+            max_retries=max_retries, max_calls=max_calls,
+            max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd,
+        )
+        loaded = load_vault(vault)
+        if loaded.issues:
+            raise ValueError(
+                f"Vault has {len(loaded.issues)} validation issues; run doctor before reporting."
+            )
+        with _cancellation() as stop:
+            report = nomination_report(
+                loaded, caps=caps, dry_run=dry_run, stored_only=stored_only,
+                batch_size=batch_size, price_per_million=price_per_million,
+                cancelled=stop.is_set,
+            )
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
     if report["status"] == "cancelled":
         raise typer.Exit(code=130)
     if report["status"] not in {"dry_run", "complete"}:

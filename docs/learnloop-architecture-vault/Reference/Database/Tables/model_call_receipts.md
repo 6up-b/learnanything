@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -137,6 +137,8 @@ None found by exact static reference scan.
 - `tests/test_embedding_backfill.py`
 - `tests/test_family_proposals.py`
 - `tests/test_field_llm_cli.py`
+- `tests/test_graph_nomination.py`
+- `tests/test_graph_nomination_ingest.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
@@ -148,8 +150,6 @@ None found by exact static reference scan.
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_practice_index_paid.py`
-- `tests/test_spend_controls.py`
-- `tests/test_zero_data_llm.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

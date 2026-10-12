@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
+  - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
   - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/diagnosis/offline_review/__init__.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `src/learnloop/ops/contamination/judge.py`
 - `src/learnloop/ops/contamination/report.py`
 - `src/learnloop/ops/family_proposals.py`
+- `src/learnloop/ops/graph_nomination_report.py`
 - `src/learnloop/substrate/families.py`
 
 ### Direct SQL writers
@@ -134,6 +135,7 @@ None found by exact static reference scan.
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`
 - `tests/test_family_proposals.py`
+- `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judgment_ledger.py`
 - `tests/test_practice_index_evaluation.py`

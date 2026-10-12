@@ -10132,6 +10132,22 @@ class Repository(
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def completed_agent_runs_by_context(self, purpose: str, input_context_hash: str) -> list[dict[str, Any]]:
+        """Every completed run for this context, newest first (the order of
+        :meth:`completed_agent_run_by_context`), for callers that must also
+        check what a candidate run recorded before reusing it."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM agent_runs
+                WHERE purpose = ? AND input_context_hash = ? AND status = 'completed'
+                ORDER BY completed_at DESC, started_at DESC
+                """,
+                (purpose, input_context_hash),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def agent_run(self, run_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -19414,6 +19430,14 @@ class Repository(
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM synthesis_runs WHERE id = ?", (run_id,)
+            ).fetchone()
+        return _decode_synthesis_run(row) if row is not None else None
+
+    def synthesis_run_for_agent_run(self, agent_run_id: str) -> dict[str, Any] | None:
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM synthesis_runs WHERE agent_run_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                (agent_run_id,),
             ).fetchone()
         return _decode_synthesis_run(row) if row is not None else None
 

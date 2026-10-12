@@ -10,7 +10,12 @@ neighborhood deterministically from the new/changed inventories:
 - current provenance (``entity_source_links``) for the appended source/revision;
 - source scope (entities already linked to the appended source);
 - candidate facet contracts (lexical fingerprint overlap of new claims vs existing
-  facet claims / aliases / error signatures).
+  facet claims / aliases / error signatures);
+- Slice 2 T5 (when ``[graph_nomination]`` and embeddings are on): the top-k
+  registry facets / concepts nearest each new inventory claim / concept mention
+  by definition embedding, unioned with the reasons above as ``embedding``
+  reasons. Nominations only: the reconciliation model decides reuse vs mint,
+  and a missing or incomplete index leaves the lexical selection unchanged.
 
 The result is capped by ``[ingest.budgets].append_neighborhood_input_tokens``; the
 selection records *why* every entity matched so the manifest and the review UI can
@@ -19,7 +24,9 @@ concept mention that matched nothing on the first pass gets a looser lexical pas
 a genuinely-related-but-differently-worded neighbor is still pulled in (§3.2), still
 under the same cap.
 
-Nothing here calls an LLM: it is pure, deterministic, and unit-testable.
+Nothing here calls an LLM. Without a nominator it is pure and deterministic;
+with one, the only external input is the (content-addressed, cached) vector of
+each new claim, so a rerun selects the same neighbourhood.
 """
 
 from __future__ import annotations
@@ -63,7 +70,7 @@ def _estimate_tokens(obj: Any) -> int:
 
 @dataclass(frozen=True)
 class MatchReason:
-    kind: str  # concept_name | alias | prerequisite_hint | provenance | source_scope | fingerprint
+    kind: str  # concept_name | alias | prerequisite_hint | provenance | source_scope | fingerprint | embedding
     detail: str
     score: float
 
@@ -90,6 +97,11 @@ class Neighborhood:
     budget_tokens: int = 0
     capped: bool = False
     rounds: int = 1
+    # T5: the nominator's identity and honest label (None when nominations are
+    # off, so the manifest record is byte-identical to the lexical-only
+    # selection). Stable inputs only: usage counts and charges go to the run's
+    # coverage record, never into manifest identity.
+    nomination: dict[str, Any] | None = None
 
     def as_context(self) -> dict[str, Any]:
         """The compact dict placed in the reconciliation prompt context."""
@@ -108,7 +120,7 @@ class Neighborhood:
         }
 
     def as_manifest_record(self) -> dict[str, Any]:
-        return {
+        record = {
             "entity_hashes": dict(self.entity_hashes),
             "match_reasons": {k: list(v) for k, v in self.match_reasons.items()},
             "input_token_estimate": self.input_token_estimate,
@@ -116,6 +128,9 @@ class Neighborhood:
             "capped": self.capped,
             "rounds": self.rounds,
         }
+        if self.nomination is not None:
+            record["nomination"] = dict(self.nomination)
+        return record
 
     def entity_refs(self) -> set[str]:
         return set(self.entity_hashes.keys())
@@ -202,8 +217,13 @@ def select_neighborhood(
     revision_ids: Iterable[str] = (),
     fingerprint_threshold: float = 0.25,
     loose_threshold: float = 0.12,
+    nominator: Any = None,
 ) -> Neighborhood:
-    """Select the bounded affected-map neighborhood (deterministic, §10.1/§3.2)."""
+    """Select the bounded affected-map neighborhood (deterministic, §10.1/§3.2).
+
+    ``nominator`` (a :class:`GraphNominator`, T5) adds embedding nominations
+    after the lexical rounds; it never removes or reorders a lexical reason.
+    """
 
     signals = extract_new_signals(new_inventories, source_ids=source_ids, revision_ids=revision_ids)
     provenance_entities = _provenance_matched_entities(repository, signals)
@@ -268,7 +288,66 @@ def select_neighborhood(
                     break
 
     ordered = sorted(scored.items(), key=lambda kv: (-kv[1][0], kv[0]))
-    return _materialize(vault, repository, ordered, budget_tokens=budget_tokens, rounds=rounds)
+    if nominator is not None:
+        # Lexical and provenance matches keep today's order and come first, so
+        # under the token cap embeddings can only add, never displace them.
+        embedded = _embedding_reasons(nominator, new_inventories)
+        ordered = [
+            (ref, (score, [*reasons, *([embedded[ref]] if ref in embedded else [])]))
+            for ref, (score, reasons) in ordered
+        ] + sorted(
+            ((ref, (reason.score, [reason])) for ref, reason in embedded.items() if ref not in scored),
+            key=lambda kv: (-kv[1][0], kv[0]),
+        )
+    neighborhood = _materialize(vault, repository, ordered, budget_tokens=budget_tokens, rounds=rounds)
+    if nominator is not None:
+        neighborhood.nomination = nominator.identity()
+    return neighborhood
+
+
+def _embedding_reasons(nominator: Any, new_inventories: list[dict[str, Any]]) -> dict[str, MatchReason]:
+    """The top-k definition-embedding neighbours of the new material (T5).
+
+    One ``embedding`` reason per entity, from its best-scoring query. Its score
+    is the centred cosine floored at zero: an order among embedding-only
+    entities inside the token budget, never a cutoff. The reconciliation model
+    sees every nominated entity's full contract and decides; nothing here
+    merges or reuses.
+    """
+
+    from learnloop.content.synthesis.graph_nomination import (
+        CONCEPT_RECIPE,
+        FACET_RECIPE,
+        inventory_queries,
+        undefined_concept_mentions,
+    )
+
+    claims, concepts = inventory_queries(new_inventories)
+    # A mention no claim defines has no definition to embed (§8: never a bare
+    # label); it keeps the lexical concept-name match only, and says so.
+    nominator.lexical_only("concept_mentions_without_definition", undefined_concept_mentions(new_inventories))
+    best: dict[str, tuple[float, int, str]] = {}
+    for recipe, prefix, queries, label in (
+        (FACET_RECIPE, "facet", claims, "new claim"),
+        (CONCEPT_RECIPE, "concept", concepts, "new concept mention"),
+    ):
+        if not queries:
+            continue
+        nominated = nominator.nominate(recipe, queries)
+        for query_index, query in enumerate(queries):
+            for nomination in nominated.get(query.record_id, []):
+                ref = f"{prefix}:{nomination.record_id}"
+                current = best.get(ref)
+                candidate = (nomination.cosine, nomination.rank, f"{label} #{query_index + 1}")
+                if current is None or (candidate[0], -candidate[1]) > (current[0], -current[1]):
+                    best[ref] = candidate
+    return {
+        ref: MatchReason(
+            "embedding", f"definition embedding rank {rank} for {source} (cosine {cosine:.2f})",
+            max(0.0, cosine),
+        )
+        for ref, (cosine, rank, source) in sorted(best.items())
+    }
 
 
 def _provenance_matched_entities(

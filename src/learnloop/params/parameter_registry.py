@@ -858,6 +858,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "find_practice retrieval/proposal sizes, rank-fusion constant, coverage "
                 "threshold and rerank spend; it proposes and never serves, so no "
                 "measurement or serving authority."),
+    _ConfigRule(_prefix("graph_nomination."), "structural", "operational",
+                "Slice 2 T5 nomination rank limit and ingest-time embedding caps; "
+                "nominations only (the structuring/append model or the owner decides), "
+                "with no measurement or scheduling authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

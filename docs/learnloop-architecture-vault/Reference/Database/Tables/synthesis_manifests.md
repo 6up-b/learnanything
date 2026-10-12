@@ -3,8 +3,8 @@ title: "synthesis_manifests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_manifests"
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_graph_nomination_ingest.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_migrations.py`
 - `tests/test_mobile_host_coexistence.py`

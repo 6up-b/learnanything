@@ -148,7 +148,8 @@ def test_recipes_embed_only_the_model_text_and_stay_out_of_the_default_backfill(
     assert CONTAMINATION_RECIPES["item/stem"] is EMBEDDING_RECIPES["item/stem"]
     assert set(CONTAMINATION_RECIPES) - {"item/stem"} and not (set(CONTAMINATION_RECIPES) - {"item/stem"}) & set(EMBEDDING_RECIPES)
     # The default backfill is exactly the vault-content registry (Phase 1, plus
-    # Phase 5b's dossier recipes on main); no contamination-only kind joins it.
+    # Phase 5b's dossier recipes and Slice 2 T5's concept/repair recipes on
+    # main); no contamination-only kind joins it.
     default = [r.name for r in select_recipes()]
     assert default == sorted(EMBEDDING_RECIPES)
     assert not set(default) & (set(CONTAMINATION_RECIPES) - {"item/stem"})

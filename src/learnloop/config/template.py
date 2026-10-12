@@ -815,14 +815,20 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # at the merge and confirmed equal.
     # Slice 2 T4 adds the unset ai.routing.contamination_judge route, consumed
     # only by the owner-run `learnloop contamination report` (shadow flags).
-    "mvp-0.9": "c3e368c6fec135d6c8ea1519f301ac9839a962b0964963caa216cd5c29273be4",
+    # Slice 2 T5 adds [graph_nomination] (modelled defaults only, left out of
+    # the decision-only template): embedding nominations shown to the
+    # structuring / append models and cosine review columns. It acts only when
+    # embedding.enabled (default false) is also on, changes no scoring,
+    # scheduling, projection or serving, and enabled = false is its kill switch.
+    "mvp-0.9": "5c401c77583c1c260d2026505f3b49bf31cf123d4200a9e2221c700ab724d482",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
-    # algorithm_version changed.
-    "mvp-0.10": "5ab7006a8dcb0c37762a6820b031df9b1b54994c5be695c8bf9a998cb8373db9",
+    # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
+    # too (modelled defaults, nominations only; no serving change).
+    "mvp-0.10": "af30da2a0f63ad4e40d5327428efd4505d5d0cf9496fae34f70ece1d1f52211b",
 }
 
 

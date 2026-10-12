@@ -35,11 +35,14 @@ from pydantic import ValidationError
 from learnloop.ai.execution import content_key, declared_budgets, generation_limit, model_settings
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.synthesis.ai_contracts import (
+    CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
     SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
     ConceptGraphContext,
     ConceptGraphStructuring,
+    ConceptGraphStructuringWithRegistry,
     SourceSetSynthesis,
     SourceSetSynthesisContext,
+    concept_graph_has_registry_nominations,
     concept_graph_structuring_prompt,
     source_set_synthesis_prompt,
 )
@@ -49,6 +52,13 @@ from learnloop.ids import new_ulid, snake_case
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.brief import validate_brief
 from learnloop.content.synthesis.exam_profile import ExamUnitEntry, aggregate_exam_profile
+from learnloop.content.synthesis.graph_nomination import (
+    CONCEPT_RECIPE,
+    GraphNominator,
+    annotate_mint_report,
+    concept_query,
+    plan_ingest_embedding,
+)
 from learnloop.content.synthesis.facet_mint_gate import (
     MintDisposition,
     judge_facet_mints,
@@ -125,13 +135,20 @@ def request_source_set_synthesis(
 def request_concept_graph_structuring(
     client: StructuredTransport, context: ConceptGraphContext
 ) -> ConceptGraphStructuring:
-    """Structure a merged candidate graph through the shared transport."""
+    """Structure a merged candidate graph through the shared transport.
+
+    With T5 registry nominations the result model also carries
+    ``registry_merges``; without them the request is the pre-T5 one."""
 
     return execute_structured_operation(
         client,
         purpose="concept_graph_structuring",
         prompt=concept_graph_structuring_prompt(context),
-        result_model=ConceptGraphStructuring,
+        result_model=(
+            ConceptGraphStructuringWithRegistry
+            if concept_graph_has_registry_nominations(context)
+            else ConceptGraphStructuring
+        ),
     )
 
 
@@ -486,6 +503,10 @@ class _Normalized:
     facet_ids: list[str]
     # Review diagnostics from concept-edge derivation (dropped/invalid edges).
     edge_diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    # Slice 2 T5 shadow beside the D2 mint verdicts (None when nominations are
+    # off): embedding neighbours and the repair-equivalence shadow. Never
+    # changes a disposition.
+    graph_nomination: dict[str, Any] | None = None
 
 
 def _span_refs(
@@ -558,6 +579,7 @@ def _normalize(
     *,
     subject_id: str,
     items_off: bool = False,
+    nominator: Any = None,
 ) -> _Normalized:
     rows: list[dict[str, Any]] = []
     gate_items: list[GateItem] = []
@@ -752,12 +774,24 @@ def _normalize(
             }
         )
 
+    registered_payloads = [
+        facet.model_dump(mode="json") for facet in vault.evidence_facets.values()
+    ]
     mint_report = judge_facet_mints(
         [candidate["payload"] for candidate in candidate_facets],
-        registered=[
-            facet.model_dump(mode="json") for facet in vault.evidence_facets.values()
-        ],
+        registered=registered_payloads,
     )
+    graph_nomination: dict[str, Any] | None = None
+    if nominator is not None:
+        # T5 shadow: recorded beside the verdicts, never consulted by them.
+        try:
+            graph_nomination = annotate_mint_report(
+                nominator, mint_report,
+                [candidate["payload"] for candidate in candidate_facets],
+                registered_payloads,
+            )
+        except Exception as exc:  # noqa: BLE001 - a shadow never fails a paid build
+            graph_nomination = {"error": type(exc).__name__}
     # target facet id -> candidate ids that collapsed into it (alias-not-mint).
     alias_additions: dict[str, list[str]] = {}
     minted_payload_by_id: dict[str, dict[str, Any]] = {}
@@ -1365,6 +1399,7 @@ def _normalize(
         recipe_components=recipe_components,
         facet_ids=list(dict.fromkeys(facet_client_to_id.values())),
         edge_diagnostics=edge_diagnostics + dropped_diagnostics,
+        graph_nomination=graph_nomination,
     )
 
 
@@ -1408,6 +1443,44 @@ def _row(item_type: str, entity_id: str, payload: dict[str, Any], depends_on: li
     }
 
 
+# --- completed-run cache ----------------------------------------------------
+
+
+def _nominations_shaped(run: dict[str, Any] | None) -> bool:
+    """Whether Slice 2 T5 nominations reached this synthesis run.
+
+    A completed run made with a nominator records ``graph_nomination`` in its
+    coverage; one whose structuring saw registry concepts also records
+    ``registry_*`` usage, which a later revalidation keeps.
+    """
+
+    if run is None:
+        return False
+    usage = run.get("actual_usage") or {}
+    return "graph_nomination" in (run.get("coverage_decisions") or {}) or any(
+        key in usage for key in ("registry_nominated_candidates", "registry_merges")
+    )
+
+
+def _reusable_bootstrap_run(
+    repository: Repository, context_hash: str, *, nominations_on: bool,
+) -> dict[str, Any] | None:
+    """The newest completed bootstrap run this manifest may reuse.
+
+    With nominations on, the manifest carries the nominator's identity, so a
+    match was made under it. With the kill switch off, the manifest is the
+    pre-T5 one, which a nominated run cached by T5 before that identity
+    entered the manifest also has (review F1): such a run is never reused,
+    so its proposal is never applied with nominations off. Pre-T5 runs and
+    lexical-only reruns still are.
+    """
+
+    for run in repository.completed_agent_runs_by_context(SYNTHESIS_AGENT_PURPOSE, context_hash):
+        if nominations_on or not _nominations_shaped(repository.synthesis_run_for_agent_run(run["id"])):
+            return run
+    return None
+
+
 # --- lock refusal -----------------------------------------------------------
 
 
@@ -1449,7 +1522,11 @@ def create_study_map(
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
     progress: ProgressFn | None = None,
+    embedding_client_factory: Callable[[], Any] | None = None,
 ) -> StudyMapResult:
+    """``embedding_client_factory`` replaces the ``ai.routing.embedding`` client
+    for Slice 2 T5 nominations (tests); used only when nominations are on."""
+
     vault = load_vault(root)
     if repository is None:
         # Repository opens a fresh sqlite connection per call; nothing to close.
@@ -1460,7 +1537,26 @@ def create_study_map(
         create_goal=create_goal, clock=clock, budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
         progress=progress,
+        embedding_client_factory=embedding_client_factory,
     )
+
+
+def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
+    """Dry run of one bootstrap synthesis's Slice 2 T5 embedding spend.
+
+    Loads the vault and reads stored vectors only: no client, manifest, agent
+    run or other data change. The candidates a synthesis embeds are written by
+    its paid model call, so the plan bounds them by the per-run cap
+    (:func:`plan_ingest_embedding`).
+    """
+
+    vault = load_vault(root)
+    if not any(s.id == source_set_id for s in vault.source_sets):
+        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
+    plan = plan_ingest_embedding(
+        vault, VaultPaths(vault.root, vault.config).sqlite_path, entry="bootstrap",
+    )
+    return {"source_set_id": source_set_id, **plan}
 
 
 def _create_study_map(
@@ -1478,6 +1574,7 @@ def _create_study_map(
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
     progress: ProgressFn | None = None,
+    embedding_client_factory: Callable[[], Any] | None = None,
 ) -> StudyMapResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -1522,6 +1619,22 @@ def _create_study_map(
         }
     )
 
+    # Slice 2 T5: embedding nominations for the structuring pass and the mint
+    # shadow (None when switched off, which is today's behaviour exactly).
+    nominator = GraphNominator.for_ingest(
+        vault, repository, client_factory=embedding_client_factory,
+    )
+    scope: Any = brief.get("scope") if isinstance(brief, dict) else None
+    if nominator is not None:
+        # What the nominator can show the structuring model is run identity:
+        # the switch, its configuration, the registry prompt and the
+        # registry's definitions and index state. Off, the scope (and so the
+        # manifest hash) is the pre-T5 one.
+        scope = {
+            "brief_scope": scope,
+            "graph_nomination": nominator.identity(prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION),
+        }
+
     # 2. immutable manifest BEFORE the agent run.
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
     model = getattr(client, "model", None)
@@ -1532,7 +1645,7 @@ def _create_study_map(
         revision_ids=inputs.selected_revision_ids,
         extraction_ids=inputs.extraction_ids,
         unit_inventory_versions=inputs.unit_inventory_versions,
-        scope=brief.get("scope") if isinstance(brief, dict) else None,
+        scope=scope,
         brief=brief,
         prompt_version=SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
         provider=provider,
@@ -1546,8 +1659,9 @@ def _create_study_map(
     manifest_id = repository.synthesis_manifest_by_hash(manifest_hash)["id"]
     context_hash = agent_run_input_context_hash(manifest)
 
-    # cache: identical manifest reuses the completed agent run.
-    cached = repository.completed_agent_run_by_context(SYNTHESIS_AGENT_PURPOSE, context_hash)
+    # cache: identical manifest reuses the completed agent run (with the kill
+    # switch off, only one nominations never shaped).
+    cached = _reusable_bootstrap_run(repository, context_hash, nominations_on=nominator is not None)
     if cached is not None:
         batch = repository.proposal_batch_for_agent_run(cached["id"])
         result = StudyMapResult(
@@ -1602,7 +1716,7 @@ def _create_study_map(
                 client, repository, inputs, vault, source_set, brief, budgets, clock=clock,
                 client=client, provider=provider, model=model,
                 manifest_hash=manifest_hash, unlimited_token_budget=unlimited_token_budget,
-                progress=progress,
+                progress=progress, nominator=nominator,
             )
         token_usage = consume_client_usage(client)
         repository.save_synthesis_candidate(
@@ -1616,7 +1730,7 @@ def _create_study_map(
             agent_run_id=agent_run_id, synthesis_run_id=synthesis_run_id,
             now=now, usage=usage, resolved_hashes=resolved_hashes,
             clock=clock, progress=progress, items_off=items_off,
-            token_usage=token_usage, grading_client=client,
+            token_usage=token_usage, grading_client=client, nominator=nominator,
         )
     except StudyMapError as exc:
         if candidate_preserved:
@@ -1699,6 +1813,7 @@ def _gate_and_persist(
     items_off: bool = False,
     token_usage: TokenUsage | None = None,
     grading_client: Any = None,
+    nominator: Any = None,
 ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]], _Normalized]:
     """Normalize -> §8.7 gates -> persist proposal, over a merged candidate.
 
@@ -1723,7 +1838,9 @@ def _gate_and_persist(
         )
 
     _notify(progress, "validation", "Validating candidate structure")
-    normalized = _normalize(merged, inputs, vault, now, subject_id=subject_id, items_off=items_off)
+    normalized = _normalize(
+        merged, inputs, vault, now, subject_id=subject_id, items_off=items_off, nominator=nominator,
+    )
     duplicate_diagnostics = _duplicate_client_id_diagnostics(normalized.rows)
     if duplicate_diagnostics:
         _fail("duplicate synthesis client item ids", {"gate_diagnostics": duplicate_diagnostics})
@@ -1744,7 +1861,7 @@ def _gate_and_persist(
         recipe_components=normalized.recipe_components,
     )
     findings = analyze_identifiability(view)
-    gate_ctx = _gate_context(vault, repository, inputs, findings)
+    gate_ctx = _gate_context(vault, repository, inputs, findings, nominator=nominator)
     gate_proposal = GateProposal(
         items=normalized.gate_items,
         conflict_candidates=normalized.conflict_candidates,
@@ -1801,10 +1918,15 @@ def _gate_and_persist(
         },
         normalized.rows,
     )
+    coverage: dict[str, Any] = {"gate_diagnostics": diagnostics}
+    if nominator is not None:
+        coverage["graph_nomination"] = {
+            **(normalized.graph_nomination or {}), "summary": nominator.summary(),
+        }
     repository.complete_synthesis_run(
         synthesis_run_id, status="completed", proposal_id=patch_id,
         resolved_span_hashes=resolved_hashes,
-        coverage_decisions={"gate_diagnostics": diagnostics},
+        coverage_decisions=coverage,
         actual_usage=usage,
     )
     finish_agent_run(repository, agent_run_id, usage=token_usage, clock=clock)
@@ -2003,6 +2125,8 @@ def revalidate_synthesis_candidate(
             clock=clock, progress=progress,
             # Replay the item-authoring decision stamped into the manifest brief.
             items_off=(dict(manifest.get("brief") or {}).get("practice_items") == "as_you_read"),
+            # Zero model calls: stored (content-addressed) vectors only.
+            nominator=GraphNominator.for_review(vault),
         )
     except StudyMapError as exc:
         exc.candidate_preserved = True
@@ -2092,7 +2216,7 @@ def _run_synthesis(
     transport, repository, inputs, vault, source_set, brief, budgets, *, clock,
     client: Any = None, provider: str | None = None, model: str | None = None,
     manifest_hash: str | None = None, unlimited_token_budget: bool = False,
-    progress: ProgressFn | None = None,
+    progress: ProgressFn | None = None, nominator: Any = None,
 ):
     registry = _registry_index(vault)
     shards = _shards(inputs.unit_inventories, budgets.synthesis_shard_input_tokens)
@@ -2226,6 +2350,7 @@ def _run_synthesis(
         total_input_ceiling=spend.input_ceiling(),
         output_budget_tokens=spend.remaining_output(),
         progress=progress,
+        nominator=nominator,
     )
     spend.calls += int(structuring_usage.pop("calls", 0))
     spend.input_tokens_estimate += int(structuring_usage.pop("input_tokens_estimate", 0))
@@ -2468,6 +2593,7 @@ def _model_graph_structuring(
     total_input_ceiling: int | None,
     output_budget_tokens: int | None = None,
     progress: ProgressFn | None = None,
+    nominator: Any = None,
 ) -> tuple[Any, dict[str, Any]]:
     """One bounded model pass over the WHOLE merged candidate (§8.5): folds
     semantic duplicate concepts AND authors the big-picture concept relations
@@ -2477,14 +2603,31 @@ def _model_graph_structuring(
     Strictly best-effort: the shards are already paid for, so any failure here
     degrades to the deterministic same-title merge (and whatever relations the
     shards authored locally) rather than failing the synthesis. The model only
-    NOMINATES merges/relations; validation and application stay deterministic."""
+    NOMINATES merges/relations; validation and application stay deterministic.
+
+    Slice 2 T5: with a ``nominator``, the registry concepts nearest each
+    candidate by definition embedding are shown with their titles and
+    definitions (not ids alone), and the model may decide ``registry_merges``.
+    The embedding only nominates; the model decides, guards apply."""
 
     concepts = list(getattr(merged, "concepts", []) or [])
+    nominations: dict[str, list[Any]] = {}
+    candidate_queries: dict[str, Any] = {}
+    if (
+        nominator is not None and client is not None and concepts and vault.concepts
+        and output_budget_tokens != 0
+    ):
+        nominations, candidate_queries = _registry_concept_nominations(nominator, concepts)
     # Single-shard synthesis already saw its whole span and authors relations
     # inline; the global pass earns its call when shards were blind to each
-    # other, or when a single shard produced no structure at all.
-    needed = shard_count >= 2 or not list(getattr(merged, "concept_relations", []) or [])
-    if client is None or len(concepts) < 2 or not needed:
+    # other, when a single shard produced no structure at all, or (T5) when
+    # existing registry concepts were nominated for a candidate.
+    needed = (
+        shard_count >= 2
+        or not list(getattr(merged, "concept_relations", []) or [])
+        or bool(nominations)
+    )
+    if client is None or len(concepts) < (1 if nominations else 2) or not needed:
         return merged, {}
     if output_budget_tokens == 0:
         return merged, {"graph_structuring_skipped": "output budget exhausted"}
@@ -2506,6 +2649,7 @@ def _model_graph_structuring(
         {"source": edge.source, "target": edge.target, "relation_type": edge.relation_type}
         for edge in vault.edges
     ]
+    registry_details, registry_nominations = _registry_nomination_context(nominations, vault)
     context = ConceptGraphContext(
         source_set_id=source_set.id,
         subject_id=source_set.subject_id,
@@ -2513,10 +2657,13 @@ def _model_graph_structuring(
         source_skeletons=skeletons,
         registry_concepts=registry_concepts,
         registry_edges=registry_edges,
+        registry_concept_details=registry_details,
+        registry_nominations=registry_nominations,
     )
-    estimate = max(
-        1, len(json.dumps([compact, skeletons, registry_concepts, registry_edges], default=str)) // 4
-    )
+    estimate_parts: list[Any] = [compact, skeletons, registry_concepts, registry_edges]
+    if registry_details:
+        estimate_parts += [registry_details, registry_nominations]
+    estimate = max(1, len(json.dumps(estimate_parts, default=str)) // 4)
     if (
         total_input_ceiling is not None
         and input_tokens_estimate + estimate > total_input_ceiling
@@ -2533,6 +2680,30 @@ def _model_graph_structuring(
     mapping = _validated_merge_mapping(outcome, merged)
     if mapping:
         merged = _apply_concept_merges(merged, mapping)
+    registry_mapping: dict[str, str] = {}
+    ledger_failure: str | None = None
+    unrecorded: list[dict[str, Any]] = []
+    if registry_details:
+        decisions = _validated_registry_merges(outcome, merged, mapping, nominations, vault)
+        ledger_failure = _record_registry_merge_verdicts(
+            repository, client, decisions, candidate_queries, vault, source_set_id=source_set.id,
+        )
+        if ledger_failure is not None:
+            # An identity decision is used only once its verdict is durable in
+            # judgment_ledger: without it, every merge is declined (the
+            # candidate stays its own concept) and the decisions are kept on
+            # the run's usage record for the owner, never applied.
+            unrecorded = [
+                {key: decision[key] for key in ("client_item_id", "registry_concept_id", "rationale", "refused")}
+                for decision in decisions
+            ]
+            decisions = []
+        registry_mapping = {
+            decision["client_item_id"]: decision["registry_concept_id"]
+            for decision in decisions if decision["applied"]
+        }
+        if registry_mapping:
+            merged = _fold_into_registry_concepts(merged, registry_mapping)
     known = {
         concept.client_item_id
         for concept in getattr(merged, "concepts", []) or []
@@ -2542,6 +2713,8 @@ def _model_graph_structuring(
     for relation in getattr(outcome, "relations", []) or []:
         source = mapping.get(relation.source, relation.source)
         target = mapping.get(relation.target, relation.target)
+        source = registry_mapping.get(source, source)
+        target = registry_mapping.get(target, target)
         if not source or not target or source == target:
             continue
         if source not in known or target not in known:
@@ -2556,7 +2729,228 @@ def _model_graph_structuring(
         "consolidated_concepts": len(mapping),
         "authored_relations": authored,
     }
+    if registry_details:
+        usage["registry_nominated_candidates"] = len(registry_nominations)
+        usage["registry_merges"] = len(registry_mapping)
+        if ledger_failure is not None:
+            usage["registry_merges_declined"] = ledger_failure
+            usage["registry_merge_decisions_unrecorded"] = unrecorded
     return merged, usage
+
+
+# --- Slice 2 T5: registry nominations for the structuring pass -------------
+
+
+def _registry_concept_nominations(nominator: Any, concepts: list[Any]) -> tuple[dict[str, list[Any]], dict[str, Any]]:
+    """Each candidate's top-k registry concepts by definition embedding.
+
+    The candidate text is composed exactly like the ``concept/definition``
+    recipe, so the comparison is symmetric and the paid vector is reused if
+    the candidate is later applied and backfilled. Degrades to ``{}``.
+    """
+
+    queries = {
+        concept.client_item_id: concept_query(concept, concept.client_item_id)
+        for concept in concepts
+        if getattr(concept, "client_item_id", "")
+    }
+    return nominator.nominate(CONCEPT_RECIPE, list(queries.values())), queries
+
+
+def _registry_nomination_context(
+    nominations: dict[str, list[Any]], vault: LoadedVault,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Titles and definitions for the nominated registry concepts (not ids alone)."""
+
+    if not nominations:
+        return [], []
+    nominated_ids = sorted({n.record_id for ranked in nominations.values() for n in ranked})
+    details = []
+    for concept_id in nominated_ids:
+        concept = vault.concepts.get(concept_id)
+        if concept is None:
+            continue
+        details.append({
+            "id": concept_id,
+            "title": concept.title,
+            "type": concept.type,
+            "aliases": list(concept.aliases or []),
+            "description": (concept.description or "")[:400],
+        })
+    listed = [
+        {
+            "client_item_id": client_id,
+            "registry_concept_ids": [n.record_id for n in ranked],
+        }
+        for client_id, ranked in sorted(nominations.items())
+    ]
+    return details, listed
+
+
+def _validated_registry_merges(
+    outcome: Any, merged: Any, mapping: dict[str, str],
+    nominations: dict[str, list[Any]], vault: LoadedVault,
+) -> list[dict[str, Any]]:
+    """Every registry merge the model decided, with whether the guards allow it.
+
+    Applied only for a surviving candidate, a nominated registry concept of the
+    same type, and one decision per candidate. A refused decision about a known
+    candidate is still the model's verdict and is ledgered with the reason; it
+    changes nothing. A decision naming no known candidate is dropped.
+    """
+
+    by_client = {
+        concept.client_item_id: concept
+        for concept in getattr(merged, "concepts", []) or []
+        if getattr(concept, "client_item_id", "")
+    }
+    nominated_ids = {n.record_id for ranked in nominations.values() for n in ranked}
+    decisions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for entry in getattr(outcome, "registry_merges", []) or []:
+        named = str(getattr(entry, "client_item_id", "") or "")
+        client_id = mapping.get(named, named)
+        registry_id = str(getattr(entry, "registry_concept_id", "") or "")
+        candidate = by_client.get(client_id)
+        if candidate is None:
+            continue  # no candidate this verdict could be about; nothing to ledger
+        registry = vault.concepts.get(registry_id)
+        if registry is None:
+            refused = "unknown_registry_concept"
+        elif registry_id not in nominated_ids:
+            refused = "not_nominated"
+        elif (candidate.type or "concept") != (registry.type or "concept"):
+            refused = "type_mismatch"
+        elif client_id in seen:
+            refused = "duplicate_decision"
+        else:
+            refused = None
+        if refused is None:
+            seen.add(client_id)
+        ranks = {n.record_id: n.rank for n in nominations.get(named, []) or nominations.get(client_id, [])}
+        decisions.append({
+            "client_item_id": client_id,
+            "named_client_item_id": named,
+            "candidate_title": getattr(candidate, "title", None),
+            "registry_concept_id": registry_id,
+            "rationale": str(getattr(entry, "rationale", "") or "")[:2000],
+            "applied": refused is None,
+            "refused": refused,
+            "nomination_rank": ranks.get(registry_id),
+        })
+    return decisions
+
+
+def _record_registry_merge_verdicts(
+    repository: Repository, client: Any, decisions: list[dict[str, Any]],
+    candidate_queries: dict[str, Any], vault: LoadedVault, *, source_set_id: str,
+) -> str | None:
+    """Append each registry-merge decision to ``judgment_ledger`` (task ``same_concept``).
+
+    One transaction: every verdict is recorded or none is. Returns ``None`` on
+    success, else the failure (``ledger_write_failed:<type>``), which the
+    caller treats as "decline every merge": a ledger failure never fails the
+    paid synthesis, and a merge never proceeds without its verdict. Rebuild
+    never reads these rows to merge anything.
+    """
+
+    import sqlite3
+
+    from learnloop.content.synthesis.ai_contracts import CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION
+    from learnloop.db.stores.judgments import append_judgment
+    from learnloop.vault.embedding_recipes import concept_definition_text
+
+    if not decisions:
+        return None
+    model = (
+        getattr(client, "model", None) or getattr(client, "provider_name", None)
+        or getattr(client, "provider_type", None) or "unknown"
+    )
+    try:
+        with repository.connection() as connection:
+            for decision in decisions:
+                query = candidate_queries.get(decision["named_client_item_id"]) or candidate_queries.get(
+                    decision["client_item_id"]
+                )
+                candidate_text = query.text if query is not None else str(decision["candidate_title"] or "")
+                left_id = query.content_hash if query is not None else content_key(candidate_text)
+                registry = vault.concepts.get(decision["registry_concept_id"])
+                registry_text = concept_definition_text(registry) if registry is not None else ""
+                append_judgment(
+                    connection, task="same_concept",
+                    left_kind="concept_candidate", left_id=left_id,
+                    right_kind="concept", right_id=decision["registry_concept_id"] or "(unknown)",
+                    judge="llm", judge_model=str(model),
+                    prompt_version=CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
+                    input_hash=content_key({"candidate": candidate_text, "registry": registry_text}),
+                    verdict="same",
+                    rationale=json.dumps({**decision, "source_set_id": source_set_id}, sort_keys=True),
+                )
+    except (sqlite3.Error, ValueError) as exc:
+        return f"ledger_write_failed:{type(exc).__name__}"
+    return None
+
+
+def _fold_into_registry_concepts(result: Any, mapping: dict[str, str]) -> Any:
+    """Drop candidates decided to BE registry concepts; point references at them.
+
+    ``mapping`` is candidate client id -> registry concept id. Client-id
+    references become canonical-id references (``concept_client_id`` ->
+    ``concept_id``; prerequisite/confusable client lists -> canonical lists),
+    dependency edges on the dropped rows are removed, and relations are
+    rewritten, de-duplicated and stripped of self-edges.
+    """
+
+    data = result.model_dump(mode="python") if hasattr(result, "model_dump") else dict(result)
+    concepts = data.get("concepts") or []
+    declared = {
+        concept["id"]: mapping[concept["client_item_id"]]
+        for concept in concepts
+        if concept.get("client_item_id") in mapping and concept.get("id")
+    }
+    data["concepts"] = [c for c in concepts if c.get("client_item_id") not in mapping]
+
+    def anchor(entity: dict[str, Any]) -> None:
+        client_id = entity.get("concept_client_id") or ""
+        if client_id in mapping:
+            entity["concept_client_id"] = ""
+            entity["concept_id"] = mapping[client_id]
+        elif entity.get("concept_id") in declared:
+            entity["concept_id"] = declared[entity["concept_id"]]
+
+    for facet in data.get("facets") or []:
+        anchor(facet)
+    for learning_object in data.get("learning_objects") or []:
+        anchor(learning_object)
+        for client_key, canonical_key in (
+            ("prerequisite_concept_client_ids", "prerequisites"),
+            ("confusable_concept_client_ids", "confusables"),
+        ):
+            clients = list(learning_object.get(client_key) or [])
+            moved = [mapping[value] for value in clients if value in mapping]
+            learning_object[client_key] = [value for value in clients if value not in mapping]
+            canonical = [declared.get(value, value) for value in learning_object.get(canonical_key) or []]
+            learning_object[canonical_key] = list(dict.fromkeys([*canonical, *moved]))
+    for item in data.get("practice_items") or []:
+        item["depends_on_client_item_ids"] = [
+            value for value in item.get("depends_on_client_item_ids") or [] if value not in mapping
+        ]
+    seen: set[tuple[str, str, str]] = set()
+    relations = []
+    for relation in data.get("concept_relations") or []:
+        source = str(relation.get("source") or "")
+        target = str(relation.get("target") or "")
+        source = mapping.get(source, declared.get(source, source))
+        target = mapping.get(target, declared.get(target, target))
+        signature = (source, target, str(relation.get("relation_type") or ""))
+        if not source or not target or source == target or signature in seen:
+            continue
+        seen.add(signature)
+        relations.append({**relation, "source": source, "target": target})
+    data["concept_relations"] = relations
+    if hasattr(result, "model_validate"):
+        return result.__class__.model_validate(data)
+    return data
 
 
 def _validated_merge_mapping(consolidation: Any, result: Any) -> dict[str, str]:
@@ -2673,7 +3067,7 @@ def _duplicate_client_id_diagnostics(rows: list[dict[str, Any]]) -> list[dict[st
     ]
 
 
-def _gate_context(vault, repository, inputs, findings) -> GateContext:
+def _gate_context(vault, repository, inputs, findings, nominator=None) -> GateContext:
     registered_facets = set(vault.evidence_facets.keys())
     from learnloop.learner.capability_mapping import CAPABILITY_VOCABULARY
 
@@ -2691,6 +3085,8 @@ def _gate_context(vault, repository, inputs, findings) -> GateContext:
         vault=vault,
         repository=repository,
         identifiability_hook=hook,
+        # T5: the near-duplicate review diagnostic shows cosine beside Jaccard.
+        facet_cosine=nominator.facet_cosine if nominator is not None else None,
     )
 
 
