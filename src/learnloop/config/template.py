@@ -798,8 +798,9 @@ def default_config_text(algorithm_version: str = LATEST_ALGORITHM_VERSION) -> st
     New vaults are written at ``LATEST_ALGORITHM_VERSION`` (owner decision
     2026-10-12, Slice 1 M2 open question 1); existing vaults keep their version
     until the owner runs ``learnloop upgrade``. Every recorded defaults snapshot
-    is computed from this text at its own version, so a successor merge moves
-    only ``LATEST_ALGORITHM_VERSION`` (and records its own snapshot).
+    is pinned (by a test) to this text rendered at its own version, so a
+    successor merge appends its tag to ``algorithm_versions.SUCCESSOR_CHAIN``
+    (LATEST and every version gate follow) and records its own snapshot.
     """
 
     return _DEFAULT_CONFIG_TEMPLATE.replace(_ALGORITHM_VERSION_PLACEHOLDER, algorithm_version, 1)
@@ -809,8 +810,9 @@ DEFAULT_CONFIG_TEXT = default_config_text()
 
 
 #: The effective-defaults fingerprint of a new vault, per algorithm version.
-#: Each entry is ``defaults_fingerprint_for_version(version)``: the template at
-#: that version (``default_config_text``), so every version keeps its recorded
+#: Each entry is a literal hash (the tripwire), pinned by a test to
+#: ``defaults_fingerprint_for_version(version)``: the template rendered at that
+#: version (``default_config_text``), so every version keeps its recorded
 #: snapshot whichever version the template currently writes. A successor adds
 #: its own entry; a deliberate default change recomputes the entries it moves.
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {

@@ -399,6 +399,25 @@ def test_the_defaults_snapshot_covers_the_successor_chain() -> None:
     assert P0_SUCCESSOR_VERSIONS <= set(DEFAULTS_SNAPSHOT_BY_ALGORITHM)
 
 
+def test_a_successor_merge_appends_one_tag_and_every_gate_follows(monkeypatch) -> None:
+    """Codex review (placement owner decisions): moving LATEST alone would
+    drop a new vault out of the split and placement. The version sets and
+    LATEST are derived from SUCCESSOR_CHAIN, so a successor appends one tag."""
+
+    from learnloop import algorithm_versions as versions
+
+    chain = versions.SUCCESSOR_CHAIN
+    assert LATEST_ALGORITHM_VERSION == chain[-1]
+    assert P0_SUCCESSOR_VERSIONS == set(chain)
+    assert versions.DIAGNOSIS_SPLIT_VERSIONS == versions.successors_from(versions.DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
+    assert versions.PLACEMENT_VERSIONS == versions.successors_from(versions.PLACEMENT_ALGORITHM_VERSION)
+    assert LATEST_ALGORITHM_VERSION in versions.DIAGNOSIS_SPLIT_VERSIONS & versions.PLACEMENT_VERSIONS
+    # A later successor joins every gate from its predecessors' tags on.
+    monkeypatch.setattr(versions, "SUCCESSOR_CHAIN", (*chain, "mvp-next"))
+    assert "mvp-next" in versions.successors_from(versions.PLACEMENT_ALGORITHM_VERSION)
+    assert "mvp-next" in versions.successors_from(versions.DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
+
+
 def test_config_effective_reports_full_model_and_explicit_overrides(tmp_path) -> None:
     init_vault(tmp_path)
     runner = CliRunner()

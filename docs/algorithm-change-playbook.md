@@ -28,13 +28,20 @@ it; existing vault history must remain interpretable and reproducible.
    predecessor-to-successor upgrade path, foreign-key checks, doctor, and a
    second idempotent rebuild.
 
-A successor that no vault has upgraded to yet may be amended in place by an
-owner decision instead of minting another tag (the PF-c fix amended `mvp-0.10`;
-the owner's 2026-10-12 placement decisions amended `mvp-0.11`). The amendment
-is recorded beside the version in `learnloop.algorithm_versions` and in the
-stage's review, and items 4 and 6-8 still apply to it. New vaults start at
-`LATEST_ALGORITHM_VERSION`; a successor merge moves that constant and adds its
+New vaults start at `LATEST_ALGORITHM_VERSION` (owner decision 2026-10-12,
+Slice 1 M2 open question 1). The successors form one linear chain,
+`SUCCESSOR_CHAIN` in `learnloop.algorithm_versions`: a successor merge appends
+its tag there (`LATEST_ALGORITHM_VERSION` and every version gate, such as
+`DIAGNOSIS_SPLIT_VERSIONS` and `PLACEMENT_VERSIONS`, follow) and adds its
 defaults snapshot.
+
+Recorded exception, not a rule: on 2026-10-12 the owner's placement decisions
+amended `mvp-0.11` in place, hours after it merged and before any vault this
+repository tracks had reached it (as the PF-c fix amended `mvp-0.10`). The
+amendment is recorded beside the version and in
+`docs/reviews/placement-owner-decisions.md`, with items 4 and 6-8 run for it.
+Any other in-place amendment takes its own owner decision; by default a change
+to persisted meaning mints a new tag.
 
 Changes in `learnloop.substrate.compat` require a separate compatibility
 decision and a fixture representing the historical vault shape. They are never
