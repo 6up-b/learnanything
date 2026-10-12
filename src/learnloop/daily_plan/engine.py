@@ -623,11 +623,11 @@ class Decision:
     stop_offered: bool
 
 
-def _items_left(record: PlanRecord) -> int | None:
+def _items_left(record: PlanRecord, *, forced_items: int = 0) -> int | None:
     cap = record.split.get("items_cap")
     if cap is None:
         return None
-    return max(int(cap) - record.item_count(), 0)
+    return max(int(cap) - record.item_count() - int(forced_items), 0)
 
 
 def _intents(context: PoolContext) -> dict[str, IntentView]:
@@ -641,14 +641,20 @@ def decide(
     policy: PlanPolicy,
     *,
     forced_minutes: float = 0.0,
+    forced_items: int = 0,
 ) -> Decision:
-    """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure."""
+    """§6.8 at one boundary: redistribution, feasibility, choice, fallback. Pure.
+
+    ``forced_*`` are the items the container places in this block whatever is
+    chosen (requests first, mid-plan follow-ups): they come out of the plan's
+    minutes and a re-entry plan's item allowance before the choice.
+    """
 
     allotment, spent = record.ledger()
     lanes = context.lanes_allowed
     lefts = {lane: max(allotment[lane] - spent[lane], 0.0) if lane in lanes else 0.0 for lane in LANES}
     minutes_left = max(record.minutes_left() - forced_minutes, 0.0)
-    items_left = _items_left(record)
+    items_left = _items_left(record, forced_items=forced_items)
     base = PlanState(
         plan_id=record.id,
         kind=record.kind,  # type: ignore[arg-type]
@@ -833,7 +839,7 @@ def _boundary(
 
     forced = list(forced)
     forced_minutes = sum(item.est_minutes for item in forced)
-    decision = decide(record, context, env.policy, forced_minutes=forced_minutes)
+    decision = decide(record, context, env.policy, forced_minutes=forced_minutes, forced_items=len(forced))
     choice = decision.choice
     detail: dict[str, Any] = {
         "source": env.policy.source_name,

@@ -217,3 +217,42 @@ def test_rpcs_validate_their_inputs(vault, monkeypatch):
         _call(ctx, "next_plan_item", {"serve": True})
     with pytest.raises(SidecarError):
         _call(ctx, "plan_learner_pick", {"practiceItemId": "pi_missing"})
+
+
+def test_g3_every_shown_number_is_what_the_plan_serves(vault, monkeypatch):
+    """Gate G3: the DTO's figures are the engine's own (the client only shows them)."""
+
+    from learnloop.daily_plan.engine import PlanEnv, day_records, latest_today
+    from learnloop.vault.loader import load_vault
+
+    clock = _Clock(monkeypatch, DAY1)
+    ctx = _ctx(vault.root)
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    for _ in range(3):
+        step = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
+        if step["kind"] != "item":
+            break
+        clock.advance(minutes=2)
+        _call(ctx, "submit_dont_know", {"sessionId": session_id, "practiceItemId": step["practiceItemId"], "latencySeconds": 90})
+        clock.advance(minutes=1)
+    dto = _call(ctx, "get_daily_plan", {"sessionId": session_id})
+    env = PlanEnv(vault=load_vault(vault.root), repository=Repository(vault.sqlite_path))
+    record = latest_today(env)
+    body = dto["plan"]
+    # The split the engine enforces is the split shown.
+    assert {row["lane"]: row["minutes"] for row in body["split"]["lanes"]} == pytest.approx(
+        {lane: row["minutes"] for lane, row in record.split["lanes"].items()}
+    )
+    assert body["minutesBudget"] == record.budget
+    assert body["minutesLeft"] == pytest.approx(record.minutes_left(), abs=1e-3)
+    # Each block's "about N min" and its items are the persisted plan's.
+    assert [b["estMinutes"] for b in body["blocks"]] == pytest.approx([b.est_minutes() for b in record.blocks], abs=1e-3)
+    assert [[i["practiceItemId"] for i in b["items"]] for b in body["blocks"]] == [
+        [i.practice_item_id for i in b.items if not i.displaced] for b in record.blocks
+    ]
+    # The done screen's figures are the day's own.
+    day = day_records(env)
+    done = [item for r in day for item in r.items() if item.done]
+    assert dto["day"]["doneItems"] == len(done) >= 1
+    assert dto["day"]["actualMinutes"] == pytest.approx(sum((item.wall_ms or 0) for item in done) / 60000, abs=1e-3)
+    assert body["totals"]["plannedMinutes"] == pytest.approx(record.minutes_planned(), abs=1e-3)

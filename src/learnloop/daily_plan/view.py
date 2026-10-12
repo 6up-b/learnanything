@@ -224,8 +224,7 @@ def plan_view(
     current = record.current_block()
     current_id = current.id if current is not None else None
     projected = project_blocks(record, context, env.policy)
-    chosen_blocks = [_block_row(env, record, block, current_id) for block in record.blocks]
-    plan_blocks = [row for row in chosen_blocks if row["chosen_by"] != "learner_pick" or row["status"] != "done"]
+    plan_blocks = [_block_row(env, record, block, current_id) for block in record.blocks]
     day = day_records(env)
     first = current if current is not None else (record.blocks[0] if record.blocks else None)
     first_row = None
@@ -280,7 +279,7 @@ def plan_view(
         "blocks": plan_blocks,
         "current_block_id": current_id,
         "projected": projected,
-        "block_count_estimate": len([b for b in record.blocks if b.chosen_by != "learner_pick"]) + len(projected),
+        "block_count_estimate": len(record.blocks) + len(projected),
         "first_block": first_row,
         "next_step": next_step,
         "totals": _totals([record]),
