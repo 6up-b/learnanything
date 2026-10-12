@@ -3,8 +3,8 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
@@ -130,6 +130,8 @@ None found by exact static reference scan.
 - `tests/test_embedding_backfill.py`
 - `tests/test_family_proposals.py`
 - `tests/test_field_llm_cli.py`
+- `tests/test_graph_nomination.py`
+- `tests/test_graph_nomination_ingest.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`

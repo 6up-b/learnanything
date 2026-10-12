@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -32,6 +32,7 @@ source_paths:
   - "src/learnloop/cli/data.py"
   - "tests/conftest.py"
   - "tests/diagnosis_fakes.py"
+  - "tests/embedding_fakes.py"
   - "tests/helpers.py"
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_agent_run_tokens.py"
   - "tests/test_agent_runs.py"
   - "tests/test_ai_config.py"
-  - "tests/test_ai_tool_isolation.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -66,7 +66,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `ingest.min_content_chars` | `400` | integer | modeled default or validator seed | Sets the minimum content chars required by source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:793`; `src/learnloop/content/pipeline/source_ingestion.py:251` |
 | `ingest.default_goal_priority` | `0.5` | number | modeled default or validator seed | Controls default goal priority in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:794`; `src/learnloop/content/pipeline/source_ingestion.py:436` |
 | `ingest.allow_auto_captions` | `false` | boolean | modeled default or validator seed | Turns allow auto captions behavior on or off within source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:795`; `src/learnloop/content/pipeline/source_ingestion.py:198` |
-| `ingest.bootstrap_practice_items` | `"upfront"` | string | modeled default or validator seed | Controls bootstrap practice items in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:801`; `src/learnloop/content/synthesis/source_append.py:312`; `src/learnloop/content/synthesis/source_set_synthesis.py:1500` |
+| `ingest.bootstrap_practice_items` | `"upfront"` | string | modeled default or validator seed | Controls bootstrap practice items in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:801`; `src/learnloop/content/synthesis/source_append.py:326`; `src/learnloop/content/synthesis/source_set_synthesis.py:1539` |
 | `ingest.pdf.engine` | `"auto"` | string | explicit template decision | Controls engine in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:633`; `src/learnloop/ai/native_media.py:67`; `src/learnloop/content/pipeline/acquisition_preview.py:146` |
 | `ingest.pdf.torch_device` | `""` | string | modeled default or validator seed | Controls torch device in source acquisition, extraction, media handling, token budgets, and durable workers, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:636`; `src/learnloop/content/sources/pdf_extraction.py:119` |
 | `ingest.pdf.force_ocr` | `false` | boolean | modeled default or validator seed | Turns force ocr behavior on or off within source acquisition, extraction, media handling, token budgets, and durable workers. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:637`; `src/learnloop/content/sources/pdf_extraction.py:99` |
@@ -120,6 +120,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/conftest.py`
 - `tests/diagnosis_fakes.py`
+- `tests/embedding_fakes.py`
 - `tests/helpers.py`
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
@@ -129,7 +130,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_agent_run_tokens.py`
 - `tests/test_agent_runs.py`
 - `tests/test_ai_config.py`
-- `tests/test_ai_tool_isolation.py`
 
 ## Extension and modification guidance
 

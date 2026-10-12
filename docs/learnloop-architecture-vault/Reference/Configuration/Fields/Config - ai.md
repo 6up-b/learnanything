@@ -3,8 +3,8 @@ title: "Config - ai"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ai"
@@ -33,6 +33,7 @@ source_paths:
   - "tests/conftest.py"
   - "tests/diagnosis_fakes.py"
   - "tests/diagnosis_split_helpers.py"
+  - "tests/embedding_fakes.py"
   - "tests/helpers.py"
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_activity_backfill.py"
   - "tests/test_activity_contract_extensions.py"
   - "tests/test_activity_families.py"
-  - "tests/test_activity_patterns.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ai"
@@ -224,6 +224,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/diagnosis_fakes.py`
 - `tests/diagnosis_split_helpers.py`
+- `tests/embedding_fakes.py`
 - `tests/helpers.py`
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
@@ -232,7 +233,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_activity_families.py`
-- `tests/test_activity_patterns.py`
 
 ## Extension and modification guidance
 

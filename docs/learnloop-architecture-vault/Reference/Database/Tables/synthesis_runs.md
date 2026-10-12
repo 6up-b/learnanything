@@ -3,8 +3,8 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/044_provenance_manifests_apply_intents.sql"
   - "src/learnloop/cli/data.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/graph_nomination_report.py"
   - "src/learnloop/substrate/dataset.py"
   - "src/learnloop/substrate/model_usage.py"
   - "src/learnloop_sidecar/handlers/ingest.py"
@@ -103,6 +104,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/graph_nomination_report.py`
 
 ### Direct SQL writers
 
@@ -123,6 +125,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_graph_nomination_ingest.py`
 - `tests/test_migrations.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_source_set_synthesis.py`

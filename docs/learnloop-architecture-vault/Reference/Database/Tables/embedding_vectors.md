@@ -3,8 +3,8 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
+  - "src/learnloop/content/synthesis/graph_nomination.py"
   - "src/learnloop/db/stores/embedding_vectors.py"
   - "src/learnloop/diagnosis/split/retrieval.py"
   - "src/learnloop/ops/embedding_backfill.py"
@@ -112,6 +113,7 @@ None found by exact static reference scan.
 - `tests/test_embedding_backfill.py`
 - `tests/test_embedding_store.py`
 - `tests/test_family_proposals.py`
+- `tests/test_graph_nomination.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

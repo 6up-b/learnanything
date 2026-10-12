@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "6c6416d3ca89094d26835f12605096415eb44ed9"
+source_commit_timestamp: "2026-10-12T12:11:15-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/families.py"
+  - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
   - "src/learnloop/diagnosis/offline_review/__init__.py"
   - "src/learnloop/diagnosis/offline_review/links.py"
-  - "src/learnloop/diagnosis/offline_review/report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/ops/family_proposals.py`
+- `src/learnloop/ops/graph_nomination_report.py`
 - `src/learnloop/substrate/families.py`
 
 ### Direct SQL writers
@@ -125,6 +126,7 @@ None found by exact static reference scan.
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`
 - `tests/test_family_proposals.py`
+- `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judgment_ledger.py`
 
