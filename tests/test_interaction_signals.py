@@ -269,6 +269,162 @@ def test_classification_cli_is_offline_lazy_bounded_and_resumable(repository, mo
         assert len(calls) == 1
 
 
+# Owner decision 2026-10-12 (Slice A §5 rule 6): a Codex classifier runs on the
+# subscription without a physical-request bound; cost is estimated only.
+
+def _classification_cli(repository, monkeypatch, *, profile_type, client=None):
+    from typer.testing import CliRunner
+    import typer
+    from learnloop.cli import field_classification as cli
+
+    root = repository.sqlite_path.parent
+    (root / "learnloop.toml").write_text("")
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO question_events (id,context,question_md,created_at) VALUES (?,?,?,?)",
+            ("q", "library", "A question", "2026-01-01"),
+        )
+    config = SimpleNamespace(
+        field=SimpleNamespace(enabled=True, question_classification_enabled=True),
+        ai=SimpleNamespace(routing=SimpleNamespace(field_question_classifier="route"),
+                           providers={"route": SimpleNamespace(model="fake", type=profile_type)}),
+        storage=SimpleNamespace(sqlite_path="state.sqlite"),
+    )
+    loaded = SimpleNamespace(root=root, config=config, learning_objects={}, evidence_facets={})
+    monkeypatch.setattr(cli, "load_vault", lambda path, *, load_environment: loaded)
+
+    def resolve(*args, **kwargs):
+        if client is None:
+            pytest.fail("no client may be constructed")
+        assert args[2] == "field_question_classifier" and kwargs["allow_env"] is False
+        return SimpleNamespace(client=client, runtime=SimpleNamespace(ready=True))
+
+    monkeypatch.setattr(cli, "ready_client_for_task", resolve)
+    app = typer.Typer()
+
+    @app.callback()
+    def root_command():
+        pass
+
+    cli.register_classification_command(app)
+
+    def invoke(*extra):
+        result = CliRunner().invoke(app, ["classify-questions", "--vault", str(root), "--json", *extra])
+        return result.exit_code, json.loads(result.output)
+
+    return invoke
+
+
+class CodexClassifier:
+    provider_name = "codex"
+    provider_type = "codex_sdk"
+    model = "fake-codex"
+
+    def __init__(self, *, usage=True, physical_purpose="field_question_classification:sdk_turn"):
+        self.usage, self.purpose, self.turns = usage, physical_purpose, 0
+
+    def supports(self, capability):
+        return capability == "structured_completion"
+
+    def complete(self, request):
+        for _ in range(2):  # a repair turn: unbounded on the subscription
+            with model_call(self, purpose=self.purpose):
+                self.turns += 1
+                if self.usage:
+                    report_call_usage({"input_tokens": 10, "output_tokens": 20})
+        return request.result_model(question_type="other", lo_ids=[], facets=[])
+
+
+def _classifier_receipts(repository):
+    with repository.connection() as connection:
+        return [dict(row) for row in connection.execute(
+            "SELECT purpose, budget_json, usage_json FROM model_call_receipts "
+            "WHERE owner_kind='field_question_classification' ORDER BY started_at, id"
+        )]
+
+
+def test_codex_classification_dry_run_estimates_without_price(repository, monkeypatch):
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk")
+    with repository.connection() as connection:
+        before = tuple(connection.iterdump())
+    code, report = invoke("--dry-run", "--max-tokens", "0", "--max-cost-usd", "0")
+    assert code == 0, report
+    assert report["status"] == "dry_run" and report["pending"] == 1
+    assert report["billing"] == "subscription" and report["cost_basis"] == "estimated_only"
+    assert report["physical_request_bound"] is False
+    assert report["caps_in_force"]["not_enforced"] == ["max_total_tokens", "max_estimated_usd"]
+    assert report["estimate"]["total_tokens"] > 0 and report["estimate"]["estimated_usd"] is None
+    with repository.connection() as connection:
+        assert tuple(connection.iterdump()) == before
+
+
+def test_fake_codex_classification_records_estimated_only(repository, monkeypatch):
+    client = CodexClassifier()
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk", client=client)
+    code, report = invoke("--max-tokens", "1", "--max-cost-usd", "0")
+    assert code == 0, report
+    assert report["status"] == "complete" and report["classified"] == 1
+    assert client.turns == 2  # no physical-request bound
+    assert report["charged"]["calls"] == 1 and report["charged"]["estimated_usd"] is None
+    receipts = _classifier_receipts(repository)
+    roots = [json.loads(r["budget_json"]) for r in receipts if r["budget_json"]]
+    assert roots and all(b["cost_basis"] == "estimated_only" and b["billing"] == "subscription"
+                         and b["physical_request_bound"] is False for b in roots)
+    usage = [json.loads(r["usage_json"]) for r in receipts]
+    assert usage and all(u["cost_basis"] == "estimated_only" and u["estimated_usd"] is None for u in usage)
+    turns = [json.loads(r["usage_json"]) for r in receipts if r["purpose"].endswith(":sdk_turn")]
+    assert [(u["estimated_total_tokens"], u["estimated_token_source"]) for u in turns] == [
+        (30, "reported_usage"), (30, "reported_usage")]
+
+
+def test_codex_classification_estimate_falls_back_to_planned_tokens(repository, monkeypatch):
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk",
+                                 client=CodexClassifier(usage=False))
+    code, report = invoke("--price-per-million", "2")
+    assert code == 0 and report["status"] == "complete", report
+    usage = [json.loads(r["usage_json"]) for r in _classifier_receipts(repository)]
+    planned = report["estimate"]["total_tokens"]
+    assert usage and {u["estimated_token_source"] for u in usage} == {"input_plus_output_estimate"}
+    assert all(u["estimated_total_tokens"] == planned for u in usage)
+    assert all(u["estimated_usd"] == pytest.approx(planned * 2 / 1_000_000) for u in usage)
+
+
+def test_codex_classification_still_stops_at_the_call_cap(repository, monkeypatch):
+    client = CodexClassifier()
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk", client=client)
+    code, report = invoke("--max-calls", "0")
+    assert code == 1 and report["status"] == "over_budget"
+    assert client.turns == 0 and report["charged"]["calls"] == 0
+    # The worker's per-question reservation also counts calls on the subscription.
+    events = [question(id=str(i), question_type=None) for i in range(2)]
+    stopped = classify(repository, events, answer, subscription=True,
+                       caps=SpendCaps(max_calls=1, max_total_tokens=1, max_estimated_usd=0),
+                       estimate_per_question=SpendEstimate(calls=1, total_tokens=10))
+    assert stopped["status"] == "over_budget" and stopped["classified"] == 0
+
+
+def test_metered_classifier_keeps_bound_unknown_price_refusal_and_token_cap(repository, monkeypatch):
+    client = CodexClassifier(physical_purpose="chat_request")
+    client.provider_type = "openai_chat"
+    invoke = _classification_cli(repository, monkeypatch, profile_type="openai_chat", client=client)
+    code, report = invoke()  # no price: refused before any client
+    assert code == 1 and report["status"] == "over_budget" and client.turns == 0
+    assert report["billing"] == "metered" and report["physical_request_bound"] is True
+    code, report = invoke("--price-per-million", "1", "--max-tokens", "1")
+    assert code == 1 and report["status"] == "over_budget" and client.turns == 0
+    code, report = invoke("--price-per-million", "1")
+    assert code == 1 and report["status"] == "over_budget"
+    assert client.turns == 1  # the hidden second physical request never started
+
+
+def test_codex_classifier_resolving_to_metered_client_is_refused(repository, monkeypatch):
+    client = CodexClassifier()
+    client.provider_type = "openrouter"
+    invoke = _classification_cli(repository, monkeypatch, profile_type="codex_sdk", client=client)
+    code, report = invoke()
+    assert code == 1 and report["status"] == "invalid" and client.turns == 0
+
+
 def test_loader_logged_reader_mapping_not_current_span_provenance(repository, caplog):
     lo = SimpleNamespace(
         id="lo", subjects=["subject"], blueprints=[], updated_at="2025-01-01",

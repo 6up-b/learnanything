@@ -13,7 +13,7 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import generation_limit
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendCaps, SpendEstimate
+from learnloop.ai.spend import SpendCaps, SpendEstimate, is_subscription_transport
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
 from learnloop.cli.embeddings import _cancellation
 from learnloop.db.repositories import Repository
@@ -22,6 +22,11 @@ from learnloop.field.signals import classification_input
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import learning_object_facet_union
 from learnloop.vault.paths import VaultPaths
+
+
+# Metered routes bound every physical request; a Codex route runs on the
+# owner's subscription with estimated cost only (Slice A §5 rule 6).
+METERED_ROUTE_TYPES = frozenset({"openai_chat", "openrouter"})
 
 
 class QuestionClassification(WireModel):
@@ -43,7 +48,7 @@ def classify_questions(
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 100_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
     price_per_million: Annotated[float | None, typer.Option(
-        "--price-per-million", help="Explicit conservative USD rate for combined input/output tokens.",
+        "--price-per-million", help="Explicit conservative USD rate for combined input/output tokens. Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.",
     )] = None,
     output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 512,
     json_output: Annotated[bool, typer.Option("--json")] = False,
@@ -53,6 +58,8 @@ def classify_questions(
     Requires both field switches and an explicit field_question_classifier route.
     No automatic retries/JSON repairs: a new command re-admits unfinished work.
     Dry runs load no .env/global config, construct no client and migrate nothing.
+    A Codex route runs without a physical-request bound and records its cost as
+    estimated_only; the candidate and call caps still apply.
     """
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -64,10 +71,15 @@ def classify_questions(
         profile = loaded.config.ai.providers.get(route) if route else None
         if profile is None or not profile.model:
             raise ValueError("Configure an explicit ai.routing.field_question_classifier with a model")
-        # Chat transports expose each physical request before I/O; opaque SDK
-        # agents cannot guarantee this command's physical-call spend boundary.
-        if profile.type not in {"openai_chat", "openrouter"}:
-            raise ValueError("Bounded classification requires an openai_chat or openrouter route")
+        # Chat transports expose each physical request before I/O, so metered
+        # routes keep the physical-call bound. Codex turns cannot guarantee it;
+        # they are billed to the subscription and only estimate cost.
+        subscription = is_subscription_transport(profile=profile)
+        if profile.type not in METERED_ROUTE_TYPES and not subscription:
+            raise ValueError(
+                "Classification requires an openai_chat/openrouter route (bounded physical "
+                "requests) or a Codex route (subscription, estimated cost)"
+            )
         enabled = loaded.config.field.enabled and loaded.config.field.question_classification_enabled
         sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
         repository = (
@@ -109,6 +121,9 @@ def classify_questions(
                 resolved = ready_client_for_task(loaded.root, loaded.config, "field_question_classifier", allow_env=False)
                 if resolved.client is None or not resolved.runtime.ready:
                     raise AIProviderUnavailable("Configured field classifier is unavailable")
+                if is_subscription_transport(client=resolved.client) != subscription:
+                    # The admitted budget assumed the configured route's billing.
+                    raise AIProviderUnavailable("Field classifier resolved to a different billing transport")
                 client = resolved.client
             with generation_limit(output_tokens):
                 result = execute_structured_operation(
@@ -133,6 +148,7 @@ def classify_questions(
                                max_pairs=0, max_retries=0, max_total_tokens=max_tokens,
                                max_estimated_usd=max_cost_usd),
                 enabled=enabled, dry_run=dry_run, cancelled=stop.is_set,
+                subscription=subscription,
             )
             report["price_per_million"] = price_per_million
             report["price_source"] = "owner_override" if price_per_million is not None else "unknown"

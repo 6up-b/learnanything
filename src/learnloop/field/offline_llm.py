@@ -3,6 +3,12 @@
 Preparation reserves Phase-1 spend before each request, writes verdicts to the
 append-only judgment ledger and records model-call receipts. Raw probabilities
 are cached outside the vault. The returned point-only arm owns only numbers.
+
+A Codex route is billed to the owner's subscription (Slice A §5 rule 6): no
+physical-request bound, token and dollar caps not enforced, unknown price
+admitted; the candidate and call caps still apply. Receipts record the token
+estimate as ``estimated_only``. Metered routes keep the full cap set and the
+one-physical-request bound.
 """
 from __future__ import annotations
 
@@ -14,7 +20,9 @@ from types import SimpleNamespace
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import model_call, observe_model_calls
-from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
+from learnloop.ai.spend import (
+    ESTIMATED_ONLY, SpendBudget, SpendEstimate, SpendLimitExceeded, subscription_usage_estimate,
+)
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.field.evaluation import _eligible, _groups, _hash
 from learnloop.field.types import FacetRow, ItemFeatures, SignalRow
@@ -127,14 +135,16 @@ def load_cached_probability_arm(rows, *, cache_dir, model, settings=None):
 def prepare_llm_probability(
     rows, *, repository, cache_dir, vault_path, model, predict,
     estimate_per_prediction, caps, enabled=False, dry_run=False, cancelled=None,
-    settings=None,
+    settings=None, subscription=False,
 ):
     """Return ``(pure_arm_or_None, aggregate_spend_report)``.
 
-    The callback is lazy and must use a single-physical-call OpenAI transport;
-    hidden retry starts are refused. It receives numeric item features and only
-    preceding graded attempts, not the current outcome. No credentials are read
-    here. Disabled mode does not read cache or repository.
+    The callback is lazy. On a metered route it must use a single-physical-call
+    OpenAI transport; hidden retry starts are refused. ``subscription`` (a Codex
+    route) lifts that bound and the token/dollar caps, estimating cost only. It
+    receives numeric item features and only preceding graded attempts, not the
+    current outcome. No credentials are read here. Disabled mode does not read
+    cache or repository.
     """
     summary = {"status": "disabled", "model": model, "prompt_version": PROMPT_VERSION,
                "predictions": 0, "cached": 0, "invalid": 0, "caps": caps.as_dict()}
@@ -147,7 +157,7 @@ def prepare_llm_probability(
     directory, vault = Path(cache_dir).resolve(), Path(vault_path).resolve()
     if directory == vault or vault in directory.parents:
         raise ValueError("Offline probability cache must be outside the vault")
-    budget = SpendBudget(caps, cancelled=cancelled)
+    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription)
     requests = prediction_requests(rows)
     probabilities, pending = _read_cache(requests, directory, model, settings)
     count = len(pending)
@@ -158,7 +168,16 @@ def prepare_llm_probability(
     )
     summary.update(status="dry_run" if dry_run else "complete", predictions=len(requests),
                    cached=len(probabilities), settings_hash=_hash(settings or {}),
-                   estimate=asdict(estimate), charged=asdict(budget.used))
+                   estimate=asdict(estimate), charged=asdict(budget.used),
+                   billing="subscription" if subscription else "metered",
+                   cost_basis=ESTIMATED_ONLY if subscription else "metered_caps",
+                   physical_request_bound=not subscription,
+                   caps_in_force=budget.declared())
+    price_per_token = (
+        estimate_per_prediction.estimated_usd / estimate_per_prediction.total_tokens
+        if estimate_per_prediction.estimated_usd is not None and estimate_per_prediction.total_tokens
+        else None
+    )
     try:
         budget.check(estimate)
         if dry_run:
@@ -169,13 +188,21 @@ def prepare_llm_probability(
 
             def observe(action, event):
                 nonlocal physical_calls
-                if action == "start" and (
+                if action == "start" and not subscription and (
                     event.get("purpose") == "chat_request"
                     or str(event.get("purpose", "")).endswith(":sdk_turn")
                 ):
                     if physical_calls:
                         raise SpendLimitExceeded("Hidden offline probability retries are prohibited")
                     physical_calls += 1
+                if action != "start" and subscription:
+                    event = {**event, "usage_json": json.dumps({
+                        **json.loads(event.get("usage_json") or "{}"),
+                        **subscription_usage_estimate(
+                            event, planned_tokens=estimate_per_prediction.total_tokens,
+                            price_per_token=price_per_token,
+                        ),
+                    }, sort_keys=True)}
                 repository.record_model_event(action, event, owner_kind=TASK, owner_id=digest)
                 if action == "finish":
                     for name in ("input_tokens", "output_tokens", "cost"):
@@ -194,6 +221,8 @@ def prepare_llm_probability(
                         cost = usage.get("cost")
                         if tokens and estimate_per_prediction.total_tokens and estimate_per_prediction.estimated_usd is not None:
                             cost = max(cost or 0., tokens * estimate_per_prediction.estimated_usd / estimate_per_prediction.total_tokens)
+                        if subscription and estimate_per_prediction.estimated_usd is None:
+                            cost = None  # estimated tokens only; never refused
                         charge.reconcile(total_tokens=tokens or None, estimated_usd=cost)
             try:
                 probability = _probability(raw)

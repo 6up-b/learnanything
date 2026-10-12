@@ -134,7 +134,7 @@ def field_eval(
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 100,
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 100_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
-    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Conservative combined input/output-token USD rate for paid preparation.")] = None,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Conservative combined input/output-token USD rate for paid preparation. Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.")] = None,
     output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

@@ -10,13 +10,18 @@ from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import generation_limit
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendCaps, SpendEstimate
+from learnloop.ai.spend import SpendCaps, SpendEstimate, is_subscription_transport
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
 from learnloop.db.repositories import Repository
 from learnloop.field.offline_llm import (
     PROMPT_VERSION, TASK, prediction_requests, load_cached_probability_arm, prepare_llm_probability,
 )
 from learnloop.vault.paths import VaultPaths
+
+
+# Metered routes bound every physical request; a Codex route runs on the
+# owner's subscription with estimated cost only (Slice A §5 rule 6).
+METERED_ROUTE_TYPES = frozenset({"openai_chat", "openrouter"})
 
 
 class ProbabilityResult(WireModel):
@@ -32,7 +37,8 @@ def prepare_or_load_llm(
 
     No client or repository is constructed on cache-only reads. Preparation is
     separately gated by both field switches. The worker admits the entire plan
-    before invoking the lazy client and guards every physical request.
+    before invoking the lazy client. Metered routes guard every physical
+    request; a Codex route runs on the subscription with estimated cost only.
     """
     if price_per_million is not None and (
         isinstance(price_per_million, bool)
@@ -53,12 +59,16 @@ def prepare_or_load_llm(
     profile = loaded.config.ai.providers.get(route) if route else None
     if profile is None or not profile.model or not profile.model.strip():
         raise ValueError("Configure an explicit ai.routing.field_llm_probability with a model")
-    if profile.type not in {"openai_chat", "openrouter"}:
-        raise ValueError("Bounded probability preparation requires an openai_chat or openrouter route")
+    subscription = is_subscription_transport(profile=profile)
+    if profile.type not in METERED_ROUTE_TYPES and not subscription:
+        raise ValueError(
+            "Probability preparation requires an openai_chat/openrouter route (bounded physical "
+            "requests) or a Codex route (subscription, estimated cost)"
+        )
     directory, vault = Path(cache_dir).resolve(), Path(loaded.root).resolve()
     if directory == vault or vault in directory.parents:
         raise ValueError("Offline probability cache must be outside the vault")
-    endpoint = profile.base_url or (
+    endpoint = getattr(profile, "base_url", None) or (
         "https://openrouter.ai/api/v1" if profile.type == "openrouter" else ""
     )
     # Hash the endpoint too: URL userinfo/query strings may contain credentials.
@@ -101,6 +111,9 @@ def prepare_or_load_llm(
             resolved = ready_client_for_task(loaded.root, loaded.config, TASK, allow_env=False)
             if resolved.client is None or not resolved.runtime.ready:
                 raise AIProviderUnavailable("Configured field probability model is unavailable")
+            if is_subscription_transport(client=resolved.client) != subscription:
+                # The admitted budget assumed the configured route's billing.
+                raise AIProviderUnavailable("Field probability model resolved to a different billing transport")
             client = resolved.client
         with generation_limit(output_tokens):
             result = execute_structured_operation(
@@ -113,7 +126,7 @@ def prepare_or_load_llm(
     arm, report = prepare_llm_probability(
         attempts, repository=repository, cache_dir=directory, vault_path=vault,
         model=profile.model, predict=predict, settings=settings, caps=caps,
-        enabled=True, dry_run=dry_run, cancelled=cancelled,
+        enabled=True, dry_run=dry_run, cancelled=cancelled, subscription=subscription,
         estimate_per_prediction=SpendEstimate(
             calls=1, total_tokens=tokens,
             estimated_usd=None if price_per_million is None else tokens * price_per_million / 1_000_000,

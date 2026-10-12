@@ -27,7 +27,7 @@ the full cap set and the physical-request bound.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
@@ -52,6 +52,24 @@ def is_subscription_transport(*, profile=None, client=None) -> bool:
     if client is not None:
         return getattr(client, "provider_type", None) in SUBSCRIPTION_CLIENT_TYPES
     return getattr(profile, "type", None) in SUBSCRIPTION_PROFILE_TYPES
+
+
+def subscription_usage_estimate(
+    event: Mapping[str, object], *, planned_tokens: int, price_per_token: float | None,
+) -> dict[str, object]:
+    """A subscription receipt's ``usage_json`` estimate (``estimated_only``).
+
+    Tokens come from the usage the transport reported, else the planned
+    input-plus-output estimate. Dollars are priced only with an owner price.
+    """
+    reported = int(event.get("input_tokens") or 0) + int(event.get("output_tokens") or 0)
+    tokens = reported or planned_tokens
+    return {
+        "cost_basis": ESTIMATED_ONLY,
+        "estimated_total_tokens": tokens,
+        "estimated_token_source": "reported_usage" if reported else "input_plus_output_estimate",
+        "estimated_usd": tokens * price_per_token if price_per_token is not None else None,
+    }
 
 
 def _count(name: str, value: int) -> None:

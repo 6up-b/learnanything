@@ -33,7 +33,7 @@ from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import (
     ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
-    is_subscription_transport,
+    is_subscription_transport, subscription_usage_estimate,
 )
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION, execute_structured_operation, render_structured_prompt,
@@ -514,16 +514,11 @@ def propose_families(
 def _subscription_estimate(event: dict[str, Any], current: PairPass | None,
                            price_per_million: float | None) -> dict[str, Any]:
     """Codex receipt estimate: reported tokens, else the input-plus-output plan."""
-    reported = (event.get("input_tokens") or 0) + (event.get("output_tokens") or 0)
     planned = _estimate([current], price_per_million).total_tokens if current is not None else 0
-    tokens = reported or planned
-    return {
-        "cost_basis": ESTIMATED_ONLY,
-        "estimated_total_tokens": tokens,
-        "estimated_token_source": "reported_usage" if reported else "input_plus_output_estimate",
-        "estimated_usd": (tokens * price_per_million / 1_000_000
-                          if price_per_million is not None else None),
-    }
+    return subscription_usage_estimate(
+        event, planned_tokens=planned,
+        price_per_token=price_per_million / 1_000_000 if price_per_million is not None else None,
+    )
 
 
 def _apply_groups(vault, repository, pairs, passes, saved, report, cancelled):

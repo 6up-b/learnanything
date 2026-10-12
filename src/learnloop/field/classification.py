@@ -1,9 +1,18 @@
 """Explicit, bounded paid classification; never imported by signal replay.
 
-The caller supplies a lazy single-physical-call classifier using the explicit
+The caller supplies a lazy classifier using the explicit
 ``field_question_classifier`` route and ``field_question_classification``
-operation. It must disable hidden SDK retries. There are no implicit retries
-here: a rerun resumes successful WORKFLOW rows and re-admits unfinished work.
+operation. On a metered route (openai_chat/openrouter) it must be a
+single-physical-call classifier with hidden SDK retries disabled. There are no
+implicit retries here: a rerun resumes successful WORKFLOW rows and re-admits
+unfinished work.
+
+A Codex route is billed to the owner's subscription (Slice A §5 rule 6): it runs
+without the physical-request bound, its token and dollar caps are not enforced
+and an unknown price does not refuse it, while the candidate and call caps
+still stop a runaway loop. Its cost is estimated from reported token usage
+(else the planned input-plus-output estimate) and receipts record it as
+``estimated_only``.
 """
 from __future__ import annotations
 
@@ -17,7 +26,10 @@ from uuid import uuid4
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import observe_model_calls
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
+from learnloop.ai.spend import (
+    ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
+    subscription_usage_estimate,
+)
 from learnloop.db.stores.field import insert_question_classification
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.field.signals import QUESTION_TYPES, classification_input, input_hash
@@ -38,6 +50,12 @@ def _validated(raw: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(f"invalid {name}")
         result[name] = list(dict.fromkeys(value))
     return result
+
+
+def _price_per_token(estimate: SpendEstimate) -> float | None:
+    if estimate.estimated_usd is None or not estimate.total_tokens:
+        return None
+    return estimate.estimated_usd / estimate.total_tokens
 
 
 def load_cached_classifications(connection: Any) -> tuple[dict[str, Any], ...]:
@@ -62,6 +80,7 @@ def classify_missing_questions(
     enabled: bool = False,
     dry_run: bool = False,
     cancelled: Callable[[], bool] | None = None,
+    subscription: bool = False,
 ) -> dict[str, Any]:
     """Classify missing information, recording every returned verdict.
 
@@ -76,7 +95,7 @@ def classify_missing_questions(
         raise ValueError("explicit classification model is required")
     if estimate_per_question.calls != 1 or estimate_per_question.retries:
         raise ValueError("estimate must describe one physical call without retries")
-    budget = SpendBudget(caps, cancelled=cancelled)
+    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription)
     with repository.connection() as connection:
         cached = {
             (c["question_event_id"] or c["interaction_event_id"], c["input_hash"], c["model"], c["prompt_version"],
@@ -102,6 +121,10 @@ def classify_missing_questions(
         "status": "dry_run" if dry_run else "complete", "pending": count,
         "classified": 0, "invalid": 0, "model": model, "prompt_version": PROMPT_VERSION,
         "estimate": asdict(estimate), "charged": asdict(budget.used), "caps": caps.as_dict(),
+        "billing": "subscription" if subscription else "metered",
+        "cost_basis": ESTIMATED_ONLY if subscription else "metered_caps",
+        "physical_request_bound": not subscription,
+        "caps_in_force": budget.declared(),
     }
     if not enabled and not dry_run:
         return {**report, "status": "disabled"}
@@ -120,16 +143,25 @@ def classify_missing_questions(
 
                 def observe(action: str, event: dict[str, Any]) -> None:
                     nonlocal physical_calls
-                    if action == "start" and (
+                    if action == "start" and not subscription and (
                         event.get("purpose") == "chat_request"
                         or str(event.get("purpose", "")).endswith(":sdk_turn")
                     ):
                         # Structured transports may attempt JSON repair or retry
                         # internally. Their durable start occurs BEFORE I/O.
-                        # One callback reservation admits one physical call only.
+                        # One callback reservation admits one physical call only
+                        # on a metered route; Codex turns are not bounded.
                         if physical_calls:
                             raise SpendLimitExceeded("Implicit classification retry requires a new command")
                         physical_calls += 1
+                    if action != "start" and subscription:
+                        event = {**event, "usage_json": json.dumps({
+                            **json.loads(event.get("usage_json") or "{}"),
+                            **subscription_usage_estimate(
+                                event, planned_tokens=estimate_per_question.total_tokens,
+                                price_per_token=_price_per_token(estimate_per_question),
+                            ),
+                        }, sort_keys=True)}
                     repository.record_model_event(action, event, owner_kind=TASK, owner_id=event_id)
                     if action == "finish":
                         for name in ("input_tokens", "output_tokens", "cost"):
@@ -147,6 +179,8 @@ def classify_missing_questions(
                             cost = usage.get("cost")
                             if tokens and estimate_per_question.total_tokens and estimate_per_question.estimated_usd is not None:
                                 cost = max(cost or 0, tokens * estimate_per_question.estimated_usd / estimate_per_question.total_tokens)
+                            if subscription and estimate_per_question.estimated_usd is None:
+                                cost = None  # estimated tokens only; never refused
                             charge.reconcile(total_tokens=tokens, estimated_usd=cost)
             try:
                 result = _validated(raw)
