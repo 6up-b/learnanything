@@ -250,7 +250,20 @@ None. No real provider call was needed or made.
 
 ## Gate
 
-GATE_RESULTS_PLACEHOLDER
+Run on commit `db81b807` (the code commit; this section was filled in after
+it).
+
+- `uv sync --extra dev` and `uv pip install pypdfium2`: done. `learnloop_mobile`
+  is untouched, so no `--extra mobile`.
+- `uv run lint-imports --no-cache`: **10 kept, 0 broken**.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **7279 passed**,
+  0 failed, 14 warnings, 161 s.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **77 passed**, 7202 deselected, 59 s.
+- Frontend (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck`
+  clean; `npm test` **74 passed in 18 files**.
+- Schema unchanged, so the DB reference scripts were not needed.
+- Tracked fixtures: unchanged (`git status` clean after the gate).
 
 ## Open questions
 
