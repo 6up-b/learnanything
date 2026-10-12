@@ -31,6 +31,7 @@ impersonates learner/source authorship.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -195,6 +196,13 @@ def _practice_learning_object(
     return candidates[0] if candidates else None
 
 
+def reader_practice_item_id(commitment_id: str) -> str:
+    """The stable practice-item id of a reader question's card (its commitment's)."""
+
+    digest = hashlib.sha256(f"reader_authored_qa:{commitment_id}".encode("utf-8")).hexdigest()
+    return f"pi_learner_{digest[:26]}"
+
+
 def _adopt_into_practice(
     root: Path,
     repository: Repository,
@@ -228,24 +236,22 @@ def _adopt_into_practice(
     if source_id is None and anchor is not None:
         run = repository.get_extraction_run(anchor[0]) or {}
         source_id = (repository.get_source_revision(str(run.get("revision_id") or "")) or {}).get("source_id")
-    # Crash-safe idempotency: a card already written in these exact words under
-    # this LO (the commitment link below never landed) is reused, not duplicated.
-    existing = next(
-        (
-            item for item in vault.practice_items.values()
-            if item.learning_object_id == lo_id and item.status == "active"
-            and item.provenance.origin == "human"
-            and item.prompt == question.strip() and item.expected_answer == answer.strip()
-        ),
-        None,
-    )
+    # Crash-safe idempotency bound to THIS commitment: its card has an id derived
+    # from the commitment, so a card written before the link below landed is
+    # reused, while an identical question's card or an independently written
+    # matching card is never captured (review F2).
+    item_id = reader_practice_item_id(commitment_id)
+    existing = vault.practice_items.get(item_id)
     if existing is not None:
         C.add_target(
             repository, commitment_id=commitment_id,
             target={"target_kind": "legacy_practice_item", "target_ref": existing.id, "role": "required"},
             change_reason="adopted_into_practice", clock=clock,
         )
-        return {"practice_item_id": existing.id, "learning_object_id": lo_id, "practice_status": "scheduled"}
+        return {
+            "practice_item_id": existing.id, "learning_object_id": existing.learning_object_id,
+            "practice_status": "scheduled" if existing.status == "active" else "reference_only",
+        }
 
     source_refs = (
         [{
@@ -261,7 +267,7 @@ def _adopt_into_practice(
         root, repository, learning_object_id=lo_id, prompt=question, expected_answer=answer,
         source_refs=source_refs,
         event_detail={"mechanism": "reader_author_qa", "commitment_id": commitment_id},
-        clock=clock,
+        item_id=item_id, clock=clock,
     )
     # The commitment records which card it adopted; a learner-held commitment's
     # legacy_practice_item target is what the scheduler reads as "requested".
@@ -348,12 +354,46 @@ def _retire_adopted_items(
         item = vault.practice_items.get(target.target_ref) if target.target_kind == "legacy_practice_item" else None
         if item is None or item.status != "active":
             continue
+        if _requested_by_another_commitment(repository, item.id, commitment_id=commitment_id):
+            # Still another active commitment's practice: it is not this
+            # question's alone to retire (review F2).
+            continue
         retire_item(
             root, repository, practice_item_id=item.id, reason="no_longer_relevant",
             note="the reader question was retired", clock=clock,
         )
         retired.append(item.id)
     return retired
+
+
+def _requested_by_another_commitment(
+    repository: Repository, practice_item_id: str, *, commitment_id: str
+) -> bool:
+    """True when a different, unretired commitment's head still targets the item."""
+
+    with repository.connection() as connection:
+        others = [
+            row["commitment_id"]
+            for row in connection.execute(
+                """
+                SELECT DISTINCT version.commitment_id AS commitment_id
+                FROM commitment_versions version
+                JOIN commitment_target_versions target ON target.commitment_version_id = version.id
+                WHERE target.target_kind = 'legacy_practice_item' AND target.target_ref = ?
+                  AND version.commitment_id != ?
+                  AND NOT EXISTS (
+                    SELECT 1 FROM commitment_events event
+                    WHERE event.commitment_id = version.commitment_id AND event.kind = 'retired'
+                  )
+                """,
+                (practice_item_id, commitment_id),
+            )
+        ]
+    return any(
+        ("legacy_practice_item", practice_item_id)
+        in {(t.target_kind, t.target_ref) for t in C.resolve_head(repository, other).targets}
+        for other in others
+    )
 
 
 def mint_ai_sibling(

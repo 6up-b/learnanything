@@ -98,12 +98,15 @@ def author_item(
     evidence_facets: Sequence[str] | None = None,
     source_refs: Sequence[Mapping[str, Any]] | None = None,
     event_detail: Mapping[str, Any] | None = None,
+    item_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Create a learner-authored card under an existing Learning Object.
 
     ``source_refs`` ground the card in what the learner was reading (the reader's
-    "write my own question"); ``event_detail`` adds to the provenance event."""
+    "write my own question"); ``event_detail`` adds to the provenance event.
+    ``item_id`` lets a caller bind the card to its own stable identity (the
+    reader derives it from the question's commitment); default: a fresh id."""
 
     vault = load_vault(root)
     learning_object = vault.learning_objects.get(learning_object_id)
@@ -114,7 +117,7 @@ def author_item(
     if not expected_answer.strip():
         raise ItemAuthoringError("expected answer must not be empty")
     now = utc_now_iso(clock)
-    item_id = f"pi_learner_{new_ulid().lower()}"
+    item_id = item_id or f"pi_learner_{new_ulid().lower()}"
     payload: dict[str, Any] = {
         "id": item_id,
         "learning_object_id": learning_object_id,
