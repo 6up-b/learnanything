@@ -440,27 +440,44 @@ def _planted_section(data: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _links_section(data: Mapping[str, Any]) -> dict[str, Any]:
+    """Pattern-link trustworthiness per arm (§12.1), from the judge's two passes.
+
+    A link counts as judged ``same`` (and as a confirmed link) only when BOTH
+    passes of its current revision judged it the same; a link with one pass
+    missing is an incomplete pair, reported separately and excluded from every
+    confirmed-link decision metric. The arms credited with a link are the arms
+    whose CURRENT diagnoses propose it.
+    """
+
     planted_ids = {row["attempt_id"] for row in data["review_targets"] if row["kind"] == "planted"}
     by_link: dict[tuple[str, str], dict[int, str]] = defaultdict(dict)
-    arms_of: dict[tuple[str, str], set[str]] = defaultdict(set)
     for row in data["ledger:same_cause"]:
         key = (row["left_id"], row["right_id"])
         by_link[key][int(row["rationale"].get("pass", 0))] = row["verdict"]
-        arms_of[key].update(row["rationale"].get("arms") or [])
-    validated: dict[tuple[str, str], bool] = {}
     target_of = {row["id"]: row["attempt_id"] for row in data["review_targets"]}
+    rows_by_attempt: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in data["review_diagnoses"]:
+        rows_by_attempt[target_of.get(row["target_id"], "")].append(row)
+    arms_of: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for attempt_id, rows in rows_by_attempt.items():
+        for cited, entry in judging.cited_links(rows).items():
+            arms_of[(attempt_id, cited)].update(entry["arms"])
+    validated: dict[tuple[str, str], bool] = {}
     for row in data["review_diagnoses"]:
         for citation in data["review_context_receipts"].get(row["id"], {}).get("validated_citations") or []:
             validated[(target_of.get(row["target_id"], ""), str(citation.get("attempt_id")))] = True
     per_arm: dict[str, Counter] = defaultdict(Counter)
     confirmed_by_arm: dict[str, set[tuple[str, str]]] = defaultdict(set)
     agreement = []
+    incomplete = 0
     for key, passes in by_link.items():
-        verdicts = list(passes.values())
-        final = verdicts[0] if len(set(verdicts)) == 1 else "split"
-        if len(verdicts) == 2:
-            agreement.append(verdicts[0] == verdicts[1])
-        for arm in arms_of[key]:
+        if set(passes) >= {0, 1}:
+            agreement.append(passes[0] == passes[1])
+            final = passes[0] if passes[0] == passes[1] else "split"
+        else:
+            final = "incomplete"
+            incomplete += 1
+        for arm in arms_of.get(key, ()):
             per_arm[arm][final] += 1
             per_arm[arm]["validated" if validated.get(key) else "unvalidated"] += 1
             if final == "same":
@@ -472,6 +489,7 @@ def _links_section(data: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "links_judged": len(by_link),
         "real_links": sum(1 for key in by_link if key[0] not in planted_ids),
+        "incomplete_pairs": incomplete,
         "pass_agreement": wilson(sum(agreement), len(agreement)),
         "by_arm": {
             arm: {
@@ -480,6 +498,7 @@ def _links_section(data: Mapping[str, Any]) -> dict[str, Any]:
                 "judged_different": counts["different"],
                 "not_sure": counts["not_sure"],
                 "split_between_passes": counts["split"],
+                "incomplete_pairs": counts["incomplete"],
                 "same_share": wilson(counts["same"], sum(counts[value] for value in ("same", "different", "not_sure", "split"))),
                 "validated_citations": counts["validated"],
                 "unvalidated_citations": counts["unvalidated"],
@@ -836,9 +855,9 @@ def render_markdown(report: Mapping[str, Any]) -> str:
             for budget, row in planted["context_length_sweep"].items():
                 lines.append(f"| {budget} | {row['diagnoses']} | {row['context_tokens_mean']} | {row['cause_recovered']} | {row['expected_links_cited']} | {row['unknown_ids']} |")
     links = report["links"]
-    lines += ["", "## Are \"same mistake\" links trustworthy?", "", f"Links judged: {links['links_judged']} ({links['real_links']} on real attempts). Pass agreement: {_fmt_rate(links['pass_agreement'])}.", "", "| arm | same (both passes) | different | not sure | split | same share | validated / unvalidated citations | confirmed links unique to arm |", "|---|---|---|---|---|---|---|---|"]
+    lines += ["", "## Are \"same mistake\" links trustworthy?", "", f"Links judged: {links['links_judged']} ({links['real_links']} on real attempts). Pass agreement: {_fmt_rate(links['pass_agreement'])}. Incomplete pairs (one pass missing; never counted as confirmed): {links['incomplete_pairs']}.", "", "| arm | same (both passes) | different | not sure | split | incomplete | same share | validated / unvalidated citations | confirmed links unique to arm |", "|---|---|---|---|---|---|---|---|---|"]
     for arm, row in links["by_arm"].items():
-        lines.append(f"| {row['label']} | {row['judged_same_both_passes']} | {row['judged_different']} | {row['not_sure']} | {row['split_between_passes']} | {_fmt_rate(row['same_share'])} | {row['validated_citations']} / {row['unvalidated_citations']} | {row['confirmed_links_unique_to_arm']} |")
+        lines.append(f"| {row['label']} | {row['judged_same_both_passes']} | {row['judged_different']} | {row['not_sure']} | {row['split_between_passes']} | {row['incomplete_pairs']} | {_fmt_rate(row['same_share'])} | {row['validated_citations']} / {row['unvalidated_citations']} | {row['confirmed_links_unique_to_arm']} |")
     knn = report["knn"]
     lines += ["", "## Retrieval value, (c) only", "", f"- retrieval methods: {json.dumps(knn['retrieval_methods'], sort_keys=True)}", f"- traces only kNN surfaced that were cited: {knn['knn_only_traces_cited']} (validated: {knn['knn_only_citations_validated']})"]
     grader = report["grader"]

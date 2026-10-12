@@ -360,3 +360,39 @@ def test_a_diagnosis_repaired_on_resume_is_judged_and_only_the_current_revision_
     # Arm (a) was rated in both revisions; the report counts only the current one.
     assert sum(report["judge"]["ratings"]["a"]["distribution"].values()) == 2 * targets_with_a
     assert sum(report["judge"]["ratings"]["d"]["distribution"].values()) == 2 * len(d_ids)
+
+
+def _link_data(passes: dict[int, str]):
+    from learnloop.diagnosis.offline_review import judge as judging
+
+    claim = {"hypothesis_ref": "cause:0:0", "relation": "same_mechanism", "cited": [{"attempt_id": "att_x", "quote": "q"}]}
+    diagnoses = [
+        {"id": "dc", "target_id": "t1", "arm": "c", "status": "completed", "proposal": {"analysis_md": "a", "pattern_claims": [claim]}},
+        {"id": "dd", "target_id": "t1", "arm": "d", "status": "completed", "proposal": {"analysis_md": "a", "pattern_claims": []}},
+    ]
+    revision = judging.link_judgment_revision(["att_x"])
+    ledger = [
+        {"left_id": "att_t", "right_id": "att_x", "verdict": verdict, "rationale": {"pass": index, "revision": revision, "arms": ["c"]}}
+        for index, verdict in passes.items()
+    ]
+    return {
+        "review_targets": [{"id": "t1", "attempt_id": "att_t", "kind": "real"}],
+        "review_diagnoses": diagnoses,
+        "review_context_receipts": {},
+        "ledger:same_cause": ledger,
+    }
+
+
+def test_one_judge_pass_is_never_reported_as_a_confirmed_link():
+    """F15: a link is confirmed only when BOTH passes judged it the same."""
+
+    from learnloop.diagnosis.offline_review.report import _links_section
+
+    single = _links_section(_link_data({0: "same"}))
+    arm = single["by_arm"]["c"]
+    assert arm["judged_same_both_passes"] == 0
+    assert arm["incomplete_pairs"] == 1
+    assert arm["confirmed_links_unique_to_arm"] == 0
+    assert arm["same_share"]["n"] == 0
+    both = _links_section(_link_data({0: "same", 1: "same"}))["by_arm"]["c"]
+    assert (both["judged_same_both_passes"], both["incomplete_pairs"], both["confirmed_links_unique_to_arm"]) == (1, 0, 1)
