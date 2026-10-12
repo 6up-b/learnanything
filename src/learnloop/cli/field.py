@@ -39,6 +39,13 @@ _LEGACY_FALLBACK_HELP = (
 )
 
 
+_PROBABILITY_ARM_HELP = (
+    "Prepare or load the llm_probability V1-V3 arms instead of the numeric llm_probability "
+    "arm: all, v1|v2|v3, decider|llm, or v<n>/<judge>; repeatable. Needs --llm-cache and "
+    "field.enabled + field.llm_probability_enabled. Caps apply per judge."
+)
+
+
 def _sections(section: str) -> set[str]:
     """``all`` is the legacy calibration report; ``field`` is opt-in."""
     requested = {part.strip() for part in section.split(",") if part.strip()}
@@ -98,7 +105,7 @@ def _replay_inputs(loaded, *, legacy_fallback):
     }
 
 
-def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extra_arms=()):
+def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extra_arms=(), pairwise=()):
     from learnloop.field.evaluation import evaluate
 
     if extra_arms:
@@ -111,6 +118,7 @@ def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extr
         general_means=inputs["general_means"], lo_priors=inputs["lo_priors"],
         config=loaded.config.model_dump(mode="json"),
         fsrs_weights=inputs["fsrs_weights"], fsrs_fit_id=inputs["fsrs_fit_id"],
+        pairwise=pairwise,
     )
     report["data_check"] = inputs["data_check"]
     report["claim_priors"] = inputs["claim_priors"]
@@ -138,6 +146,8 @@ def field_eval(
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Conservative combined input/output-token USD rate for paid preparation. Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.")] = None,
     output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Probability arms only: counted retries per judge (a 429, 5xx or failed turn).")] = 2,
+    probability_arm: Annotated[list[str] | None, typer.Option("--probability-arm", help=_PROBABILITY_ARM_HELP)] = None,
 ) -> None:
     """Legacy calibration report by default; `--section field` adds reports 1-2."""
     try:
@@ -169,7 +179,41 @@ def field_eval(
         arms = tuple(arm) if arm else None
         spend_report = None
         extra_arms = ()
-        if llm_cache is not None:
+        pairwise = ()
+        if probability_arm:
+            from learnloop.ai.spend import SpendCaps
+            from learnloop.cli.embeddings import _cancellation
+            from learnloop.cli.probability_arms import (
+                pairwise_comparisons, prepare_or_load_probability_arms,
+            )
+            from learnloop.field.probability_arms import parse_arm_selection
+
+            if llm_cache is None:
+                raise ValueError("--probability-arm requires --llm-cache outside the vault")
+            selection = parse_arm_selection(probability_arm)
+            with _cancellation() as stop:
+                probability_arms, spend_report = prepare_or_load_probability_arms(
+                    loaded, inputs, cache_dir=llm_cache, selection=selection,
+                    prepare=prepare_llm, dry_run=dry_run,
+                    caps=SpendCaps(
+                        max_candidates=max_candidates, max_calls=max_calls, max_pairs=0,
+                        max_retries=max_retries, max_total_tokens=max_tokens,
+                        max_estimated_usd=max_cost_usd,
+                    ),
+                    price_per_million=price_per_million, output_tokens=output_tokens,
+                    cancelled=stop.is_set,
+                )
+            if dry_run:
+                _emit(spend_report, json_output)
+                if spend_report["status"] != "dry_run":
+                    raise typer.Exit(code=1)
+                return
+            if not probability_arms:
+                _emit(spend_report, json_output)
+                raise typer.Exit(code=130 if spend_report["status"] == "cancelled" else 1)
+            extra_arms = tuple(probability_arms)
+            pairwise = tuple(pairwise_comparisons(selection))
+        elif llm_cache is not None:
             from learnloop.ai.spend import SpendCaps
             from learnloop.cli.embeddings import _cancellation
             from learnloop.cli.field_llm import prepare_or_load_llm
@@ -199,7 +243,8 @@ def field_eval(
             _emit({"status": "dry_run", "calls": 0, "data_check": inputs["data_check"]}, json_output)
             return
         report = _replay(loaded, inputs, arms=arms, bootstrap_samples=bootstrap_samples,
-                         seed=seed, fast_track_q=fast_track_q, extra_arms=extra_arms)
+                         seed=seed, fast_track_q=fast_track_q, extra_arms=extra_arms,
+                         pairwise=pairwise)
         if spend_report is not None:
             report["offline_preparation"] = spend_report
         from learnloop.field.evaluation import write_reports

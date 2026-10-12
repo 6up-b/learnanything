@@ -194,7 +194,12 @@ allow_indirect_imports = true
 id = "field-predictors-are-pure"
 name = "Learner predictors cannot access stores, models, graphs or evidence writers"
 type = "forbidden"
-source_modules = ["learnloop.field.predictors", "learnloop.field.memory"]
+source_modules = [
+    "learnloop.field.predictors",
+    "learnloop.field.memory",
+    # Router R0: the llm_probability arms read only their prepared cache.
+    "learnloop.field.probability_arms",
+]
 forbidden_modules = [
     "learnloop.db",
     "learnloop.ai",

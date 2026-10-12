@@ -232,7 +232,7 @@ def evaluate(
     rows: Iterable[ObservationRow], *, arms=None, bootstrap_samples=1000, seed=0,
     config: Mapping | None = None, general_means=None, lo_priors=None,
     fast_track_q=0.9, fast_track_min_correct=2, switching_margin=0.0,
-    fsrs_weights=None, fsrs_fit_id=None,
+    fsrs_weights=None, fsrs_fit_id=None, pairwise=(),
 ):
     """Return JSON-ready report1/report2/manifest/recommendation aggregates.
 
@@ -243,6 +243,10 @@ def evaluate(
     prior decision that report-2 evidence is sufficient, never fitting this run.
     ``fsrs_weights`` is the caller-resolved current FSRS fit for the memory
     arms (``fsrs_fit_id`` its provenance); without it they use the defaults.
+    ``pairwise`` names ``(baseline, challenger)`` arm pairs to compare on
+    their common attempts (log-loss improvement of the challenger, overall
+    and on first attempts at a never-seen LO, against ``switching_margin``).
+    It reports; it never recommends or activates.
     """
     if bootstrap_samples < 1:
         raise ValueError("bootstrap_samples must be positive")
@@ -436,6 +440,24 @@ def evaluate(
                                  "report2_miss_no_worse": no_worse, "recommend_review": recommend}
             if recommend:
                 candidates.append(name)
+    pairs = {}
+    first_indexes = splits["attempt_position"].get("first_unseen_lo", [])
+    for baseline, challenger in pairwise:
+        if baseline not in names or challenger not in names:
+            raise ValueError(f"Pairwise comparison names an unselected arm: {baseline} vs {challenger}")
+        differences = _loss(y, np.asarray(predictions[baseline])) - _loss(y, np.asarray(predictions[challenger]))
+        overall = paired_bootstrap(differences[np.isfinite(differences)], samples=bootstrap_samples, seed=seed)
+        first_differences = differences[first_indexes]
+        first = paired_bootstrap(first_differences[np.isfinite(first_differences)],
+                                 samples=bootstrap_samples, seed=seed)
+        pairs[f"{challenger} vs {baseline}"] = {
+            "baseline": baseline, "challenger": challenger,
+            "log_loss_improvement": overall, "first_log_loss_improvement": first,
+            "clears_margin": {
+                key: stat["ci95"] is not None and stat["ci95"][0] > switching_margin
+                for key, stat in (("overall", overall), ("first", first))
+            },
+        }
     memory_manifest = None
     if memory_names:
         from learnloop.scheduling.family_memory_model import weights_digest
@@ -483,7 +505,7 @@ def evaluate(
                    "zero_ability_mass": counts["zero_ability_mass"],
                    "excluded_attempts": counts["excluded"], "signals": counts["signals"],
                    "revision_status": dict(sorted(revisions.items()))},
-        "report1": {"arms": report1, "comparisons": comparisons,
+        "report1": {"arms": report1, "comparisons": comparisons, **({"pairwise": pairs} if pairs else {}),
                     "validity": "One learner; only large differences are detectable. Sweep results are exploratory.",
                     "limitations": list(MEMORY_LIMITATIONS) if memory_names else []},
         "report2": {"arms": report2, "bias": "History shows only what was actually served; not a causal off-policy estimate.",
@@ -515,6 +537,20 @@ def write_reports(report, output_dir, *, stem="evaluation", title="Learner-field
                      f"{m['brier']['mean']} | {m['auc']} |")
     lines.extend(["", report["report1"]["validity"], ""])
     lines.extend(f"- {value}" for value in report["report1"].get("limitations", ()))
+    pairwise = report["report1"].get("pairwise") or {}
+    if pairwise:
+        lines.extend([
+            "", "### Paired comparisons", "",
+            "Positive means the challenger has lower log loss on the same attempts. "
+            "Clears margin: the 95% bootstrap interval lies above the frozen switching margin.", "",
+            "| Comparison | Attempts | Improvement | 95% CI | First-attempt improvement | 95% CI | Clears (overall, first) |",
+            "|---|---:|---:|---|---:|---|---|",
+        ])
+        for label, values in pairwise.items():
+            overall, first = values["log_loss_improvement"], values["first_log_loss_improvement"]
+            clears = values["clears_margin"]
+            lines.append(f"| {label} | {overall['n']} | {overall['mean']} | {overall['ci95']} | "
+                         f"{first['mean']} | {first['ci95']} | {clears['overall']}, {clears['first']} |")
     lines.extend(["", "## Report 2: fast-track simulation", "",
                   report["report2"]["bias"], "", "| Arm | Assumed LOs | Later attempts | Miss rate | 95% Wilson CI |",
                   "|---|---:|---:|---:|---|"])
