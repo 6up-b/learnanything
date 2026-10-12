@@ -83,6 +83,84 @@ def initial_probes_enabled(vault: LoadedVault) -> bool:
     return not placement_active(vault) or bool(vault.config.placement.initial_probes)
 
 
+#: ``probe_episodes.trigger`` of the opening episode earlier versions opened per new LO.
+OPENING_EPISODE_TRIGGER = "initial"
+
+
+def opening_probes_ignored(vault: LoadedVault) -> bool:
+    """Whether unanswered opening episodes are ignored (owner decision 2026-10-12).
+
+    Under placement with ``placement.initial_probes = false``, an opening
+    episode an earlier version opened and the learner never answered is not an
+    open episode for serving or for instrument generation. Nothing rewrites or
+    closes it: ``placement.enabled = false`` restores the predecessor exactly,
+    and ``placement.initial_probes = true`` serves opening probes again.
+    """
+
+    return placement_active(vault) and not bool(vault.config.placement.initial_probes)
+
+
+def unanswered_opening_episode_ids(connection: Any, episode_ids: Iterable[str] | None = None) -> frozenset[str]:
+    """Open ``initial`` episodes with nothing answered under them.
+
+    "Answered" is ``probe_episodes.episode_has_observations``: a recorded probe
+    observation, or a presentation the learner consumed (``submitted``).
+    """
+
+    sql = (
+        "SELECT e.id FROM probe_episodes e "
+        "WHERE e.trigger = ? AND e.status IN ('pending_items', 'in_progress') "
+        "AND NOT EXISTS (SELECT 1 FROM probe_presentations p "
+        "WHERE p.probe_episode_id = e.id AND p.status = 'submitted') "
+        "AND NOT EXISTS (SELECT 1 FROM probe_observations o "
+        "JOIN practice_attempts a ON a.id = o.attempt_id "
+        "JOIN probe_presentations p ON p.id = a.probe_presentation_id "
+        "WHERE p.probe_episode_id = e.id)"
+    )
+    params: list[Any] = [OPENING_EPISODE_TRIGGER]
+    if episode_ids is not None:
+        wanted = sorted(set(episode_ids))
+        if not wanted:
+            return frozenset()
+        sql += f" AND e.id IN ({','.join('?' for _ in wanted)})"
+        params.extend(wanted)
+    return frozenset(str(row[0]) for row in connection.execute(sql, params).fetchall())
+
+
+def ignored_opening_episode_ids(vault: LoadedVault, repository: Repository) -> frozenset[str]:
+    """The opening episodes placement ignores right now (empty when it does not)."""
+
+    if not opening_probes_ignored(vault):
+        return frozenset()
+    with repository.connection() as connection:
+        return unanswered_opening_episode_ids(connection)
+
+
+def episode_ignored(vault: LoadedVault, repository: Repository, episode: Any) -> bool:
+    """Whether this open episode is an unanswered opening episode placement ignores."""
+
+    if episode is None or getattr(episode, "trigger", None) != OPENING_EPISODE_TRIGGER:
+        return False
+    if not opening_probes_ignored(vault):
+        return False
+    with repository.connection() as connection:
+        return str(episode.id) in unanswered_opening_episode_ids(connection, [str(episode.id)])
+
+
+def servable_open_episodes(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
+    """``repository.open_probe_episodes()`` without the ignored opening episodes.
+
+    The serving and instrument-generation doors read this; error-driven
+    diagnosis and the episode ledger itself still see every open episode.
+    """
+
+    episodes = repository.open_probe_episodes()
+    ignored = ignored_opening_episode_ids(vault, repository)
+    if not ignored:
+        return episodes
+    return {lo: episode for lo, episode in episodes.items() if episode.id not in ignored}
+
+
 def placement_tables_present(connection: Any) -> bool:
     rows = connection.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name IN (?,?,?)", PLACEMENT_TABLES,

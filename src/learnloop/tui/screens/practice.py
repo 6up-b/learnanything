@@ -89,6 +89,12 @@ class PracticeScreen(Screen):
         episode = repository.open_probe_episode(self.learning_object.id)
         if episode is None or episode.status != "in_progress":
             return
+        from learnloop.placement.state import episode_ignored
+
+        if episode_ignored(vault, repository, episode):
+            # Placement ignores an unanswered opening episode (owner decision
+            # 2026-10-12): the item runs as ordinary new material.
+            return
         # §5.9 orchestration gate (shared with the sidecar): the fresh-vault
         # onboarding ceiling applies here too. The TUI has no session concept,
         # so the per-session cap arm is inert (session_id=None).

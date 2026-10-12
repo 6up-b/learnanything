@@ -606,6 +606,12 @@ def evaluate_attempt_intervention_followup(
     lo_independent_evidence_mass = sum(state.independent_evidence_mass for state in aggregate_facet_states)
     probe_state = repository.probe_state(result.learning_object_id)
     open_episode = repository.open_probe_episode(result.learning_object_id)
+    from learnloop.placement.state import episode_ignored
+
+    if episode_ignored(vault, repository, open_episode):
+        # An unanswered opening episode placement ignores is not a probe phase:
+        # it is never served (owner decision 2026-10-12).
+        open_episode = None
     probe_unfamiliar_probability = _probe_unfamiliar_probability(
         vault,
         repository,

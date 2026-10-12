@@ -221,7 +221,12 @@ def probe_pool_empty_conditions(
 
     conditions: dict[str, EmptyPoolCondition] = {}
 
-    for lo_id, episode in sorted(repository.open_probe_episodes().items()):
+    # Under placement an unanswered opening episode is ignored for instrument
+    # generation (owner decision 2026-10-12): it commissions nothing and raises
+    # no empty-pool notice. Every episode is visible again with the switch off.
+    from learnloop.placement.state import servable_open_episodes
+
+    for lo_id, episode in sorted(servable_open_episodes(vault, repository).items()):
         if lo_id not in vault.learning_objects:
             continue
         if fresh_by_lo.get(lo_id, 0) > 0:

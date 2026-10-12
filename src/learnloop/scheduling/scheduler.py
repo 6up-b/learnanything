@@ -170,7 +170,16 @@ def build_due_queue(
     # Probe redesign: open diagnostic episodes replace lo_probe_state (frozen
     # legacy). `pending_items` episodes keep their LO schedulable for ordinary
     # practice; only `in_progress` episodes score probe EIG.
-    open_episodes = repository.open_probe_episodes()
+    if placement_serving is not None:
+        # F2 (owner decision 2026-10-12): an opening episode an earlier version
+        # opened and nobody answered is ignored while placement serves, so its
+        # never-practised LO enters as new material. It is not rewritten or
+        # closed: the kill switch serves it again exactly.
+        from learnloop.placement.state import servable_open_episodes
+
+        open_episodes = servable_open_episodes(vault, repository)
+    else:
+        open_episodes = repository.open_probe_episodes()
     errors_by_lo = _errors_by_learning_object(repository.active_error_events())
     short_session = (
         session.available_minutes is not None

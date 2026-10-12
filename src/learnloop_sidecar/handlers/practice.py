@@ -264,6 +264,12 @@ def get_probe_contract(ctx: SidecarContext, params: ProbeContractInput) -> dict[
     episode = repository.open_probe_episode(item.learning_object_id)
     if episode is None or episode.status != "in_progress":
         return versioned({"active": False})
+    from learnloop.placement.state import episode_ignored
+
+    if episode_ignored(vault, repository, episode):
+        # Under placement an unanswered opening episode is ignored for serving
+        # (owner decision 2026-10-12): the item is ordinary new material.
+        return versioned({"active": False})
 
     # §5.9 orchestration gate (shared with the Textual surface): the routine
     # per-session qualifying-observation cap and the fresh-vault onboarding

@@ -3187,7 +3187,11 @@ def probe_instances_command(
         resolved = ready_client_for_task(root, loaded.config, "authoring")
         ai_client = resolved.client
     summaries = []
-    for lo_id, episode in sorted(repository.open_probe_episodes().items()):
+    # Under placement an unanswered opening episode is ignored for instrument
+    # generation (owner decision 2026-10-12); the kill switch restores it.
+    from learnloop.placement.state import servable_open_episodes
+
+    for lo_id, episode in sorted(servable_open_episodes(loaded, repository).items()):
         if episode.status != "pending_items":
             continue
         if learning_object_id is not None and lo_id != learning_object_id:
