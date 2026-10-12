@@ -3,13 +3,13 @@ title: "commitment_target_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_target_versions"
   - "table commitment_target_versions"
-schema_head: 166
+schema_head: 167
 table_name: "commitment_target_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/content/authoring/rung_variants.py"
+  - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -81,6 +82,7 @@ Indexes and uniqueness:
 - `Repository._insert_commitment_version_rows()`
 - `Repository.commitment_targets_for_version()`
 - `Repository.commitments_targeting()`
+- `Repository.requested_practice_item_ids()`
 
 ### Direct SQL readers
 
@@ -95,6 +97,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -102,6 +105,8 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_commitments.py`
+- `tests/test_question_promotions.py`
+- `tests/test_tutor_promotion_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

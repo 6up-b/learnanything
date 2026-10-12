@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 166
+schema_head: 167
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,7 +19,12 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
+  - "src/learnloop/cli/practice_index.py"
   - "src/learnloop/db/stores/judgments.py"
+  - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/practice_index/evaluation.py"
+  - "src/learnloop/practice_index/retrieval.py"
+  - "src/learnloop/practice_index/usage.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -43,7 +48,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `167_practice_index.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -93,7 +98,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/db/stores/practice_index.py`
 
 ### Direct SQL writers
 

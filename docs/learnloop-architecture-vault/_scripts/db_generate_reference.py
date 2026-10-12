@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_166/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_167/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_166" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_167" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 166
+SCHEMA_HEAD = 167
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -840,6 +840,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ingest": "source acquisition, extraction, media handling, token budgets, and durable workers",
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
+    "practice_index": "find_practice retrieval, rerank, coverage, and the paid dossier and evaluation switches",
     "capabilities": "optional capability-residual activation and shrinkage",
     "locks": "evidence gates that lock facets and curriculum progress",
     "error_impacts": "error-family severity shaping",
@@ -1000,6 +1001,53 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "embedding.privacy_disclosure": (
         "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
         "setting it in learnloop.toml has no effect."
+    ),
+    "practice_index.enabled": (
+        "Kill switch for find_practice (sidecar RPC, CLI and agent tool). It only proposes items; "
+        "turning it off changes nothing the scheduler serves."
+    ),
+    "practice_index.retrieval_path": (
+        "auto uses the two-level dossier path only when the latest retrieval evaluation on the "
+        "current index found that it beats direct item search; direct and dossier force a path "
+        "(dossier falls back to direct while the dossier index is incomplete)."
+    ),
+    "practice_index.rerank_enabled": (
+        "Lets find_practice ask the practice_rerank route to judge and pick from its candidate pool; "
+        "every verdict is appended to judgment_ledger (task practice_relevance)."
+    ),
+    "practice_index.rerank_price_per_million": (
+        "USD per million tokens for a metered rerank route; without it a metered rerank is skipped. "
+        "Codex routes run on the subscription and need no price."
+    ),
+    "practice_index.rerank_max_cost_usd": (
+        "Per-request dollar cap for a metered rerank, checked before the request is sent."
+    ),
+    "practice_index.facet_top_k": (
+        "How many facets the two-level path keeps before ranking their items."
+    ),
+    "practice_index.candidate_pool": (
+        "How many fused candidates find_practice sends to the rerank."
+    ),
+    "practice_index.proposals": (
+        "Default number of proposals find_practice returns when the request gives no limit."
+    ),
+    "practice_index.rrf_k": (
+        "Reciprocal-rank-fusion constant for combining keyword and embedding rankings; ranks are "
+        "fused, so no score threshold is set by hand."
+    ),
+    "practice_index.coverage_min_eligible": (
+        "Facets with fewer admissible items than this are listed as targets for generating more practice."
+    ),
+    "practice_index.usage_window_hours": (
+        "A proposed item attempted within this many hours of the proposal is logged as practised "
+        "(judgment_ledger task practice_usage, judge exact_key)."
+    ),
+    "practice_index.dossiers_enabled": (
+        "Consent for paid `learnloop practice-index dossiers` runs; dry-run estimates work without it."
+    ),
+    "practice_index.evaluation_enabled": (
+        "Consent for paid `learnloop practice-index eval` runs (query writing and relevance labels); "
+        "dry-run estimates work without it."
     ),
 }
 
@@ -1560,7 +1608,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_166/state.sqlite",
+                "fixtures/migration_head_167/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

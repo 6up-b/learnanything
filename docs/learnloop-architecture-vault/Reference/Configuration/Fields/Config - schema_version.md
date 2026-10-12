@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/ai/providers/codex_http.py"
   - "src/learnloop_sidecar/context.py"
   - "tests/helpers.py"
+  - "tests/practice_index_fakes.py"
   - "tests/test_activity_contract_extensions.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_runtime.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_causal_probe_commissioning.py"
   - "tests/test_causal_shadow_selection.py"
   - "tests/test_causal_trace_consistency_p2.py"
-  - "tests/test_certification_cold_probe.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1307`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop_sidecar/context.py:292` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1347`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop_sidecar/context.py:292` |
 
 ## Compatibility-only inputs
 
@@ -72,6 +72,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/helpers.py`
+- `tests/practice_index_fakes.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_runtime.py`
@@ -82,7 +83,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_causal_trace_consistency_p2.py`
-- `tests/test_certification_cold_probe.py`
 
 ## Extension and modification guidance
 

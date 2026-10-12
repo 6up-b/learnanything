@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 166
+schema_head: 167
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `tests/test_card_lineage.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_codex_attempt_flow.py`
+- `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_debug_advance.py`
 - `tests/test_diagnostic_probe_single_use.py`
 - `tests/test_e2e_codex_mock.py`
@@ -150,7 +151,6 @@ Indexes and uniqueness:
 - `tests/test_probe_remint.py`
 - `tests/test_probe_surface_mint.py`
 - `tests/test_review_log.py`
-- `tests/test_scheduler_requested_floor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

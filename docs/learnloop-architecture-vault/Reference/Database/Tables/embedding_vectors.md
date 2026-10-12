@@ -3,13 +3,13 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
   - "table embedding_vectors"
-schema_head: 166
+schema_head: 167
 table_name: "embedding_vectors"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,7 +20,10 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/db/stores/embedding_vectors.py"
+  - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/ops/embedding_backfill.py"
+  - "src/learnloop/practice_index/query_vectors.py"
+  - "src/learnloop/practice_index/retrieval.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -91,6 +94,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/embedding_vectors.py`
+- `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/ops/embedding_backfill.py`
 
 ### Direct SQL writers

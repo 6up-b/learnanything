@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 166
+schema_head: 167
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -138,11 +138,11 @@ Indexes and uniqueness:
 - `tests/test_cli_generate_practice.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_contract_commissioning.py`
+- `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_diagnostic_probe_single_use.py`
 - `tests/test_e2e_codex_mock.py`
-- `tests/test_e2e_local.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "source_document_blocks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_blocks"
   - "table source_document_blocks"
-schema_head: 166
+schema_head: 167
 table_name: "source_document_blocks"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
+- `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
@@ -121,7 +122,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_review.py`
 - `src/learnloop/reader/source_search.py`
 - `src/learnloop/reader/span_view.py`
-- `src/learnloop_sidecar/handlers/ingest.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -3,13 +3,13 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
   - "table commitment_events"
-schema_head: 166
+schema_head: 167
 table_name: "commitment_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -83,6 +83,7 @@ Indexes and uniqueness:
 - `Repository.append_commitment_event()`
 - `Repository.commitment_events_for()`
 - `Repository.record_depth_transition_atomic()`
+- `Repository.requested_practice_item_ids()`
 
 ### Direct SQL readers
 
@@ -99,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/depth_transition.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
+- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -111,6 +113,8 @@ Indexes and uniqueness:
 - `tests/test_depth_transition.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_journey6.py`
+- `tests/test_question_promotions.py`
+- `tests/test_tutor_promotion_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

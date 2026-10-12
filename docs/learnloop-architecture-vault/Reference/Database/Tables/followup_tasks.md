@@ -3,13 +3,13 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
+source_commit_timestamp: "2026-10-12T00:44:44-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
   - "table followup_tasks"
-schema_head: 166
+schema_head: 167
 table_name: "followup_tasks"
 table_role: "workflow"
 functionality_status: "active"
@@ -132,6 +132,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/goals/certification_cold_probe.py`
+- `src/learnloop/practice_index/admission.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
@@ -147,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_certification_cold_probe.py`
+- `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_guided_redo.py`
