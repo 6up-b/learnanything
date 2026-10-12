@@ -19,7 +19,6 @@ from learnloop.practice_index.retrieval import find_practice
 from learnloop.vault.loader import load_vault
 from learnloop.vault.repository import open_vault_repository
 from tests.practice_index_fakes import (
-    FakePracticeLLM,
     HashingEmbedder,
     build_practice_vault,
     enable_practice_index,
@@ -144,7 +143,12 @@ def test_end_to_end_with_fakes_persists_a_decision_and_reruns_free(indexed, tmp_
     # find_practice now follows the evaluation on this index.
     follow = find_practice(vault, repository, "span of vectors", embedder=embedder, rerank_client=llm)
     assert follow["path"] == winner
-    # A rerun pays for nothing: queries, vectors and labels are persisted inputs.
+    # A rerun pays for nothing: queries, vectors and labels are persisted inputs,
+    # and the dry run says so exactly.
+    planned = run_retrieval_evaluation(vault, caps=CAPS, dry_run=True, queries=12, logged_queries=0,
+                                       query_client=llm, judge_client=llm, embedder=embedder)
+    assert planned["estimate"]["relevance_labels"]["calls"] == 0
+    assert planned["estimate"]["relevance_labels"]["exact_queries"] == 13
     calls, embeds = len(llm.calls), len(embedder.calls)
     again = run_retrieval_evaluation(vault, caps=CAPS, queries=12, logged_queries=0,
                                      query_client=llm, judge_client=llm, embedder=embedder)

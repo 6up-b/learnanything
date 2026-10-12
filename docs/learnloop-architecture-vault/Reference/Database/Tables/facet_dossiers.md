@@ -3,8 +3,8 @@ title: "facet_dossiers"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
-source_commit_timestamp: "2026-10-12T00:44:44-04:00"
+source_commit: "94fdc9e58fcad72de389eb8b5798f42fa91c8886"
+source_commit_timestamp: "2026-10-12T01:10:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_dossiers"
@@ -107,7 +107,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_practice_index_dossiers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

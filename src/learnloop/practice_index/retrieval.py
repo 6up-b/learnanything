@@ -1,7 +1,9 @@
 """``find_practice(query, constraints)``: recall, rerank, admit; never serve.
 
 1. **Which skill?** (two-level path only) Facets are ranked by their dossier
-   field embeddings plus BM25 over dossier text, fused by reciprocal rank.
+   field embeddings plus BM25 over dossier text, fused by reciprocal rank. At
+   least ``facet_top_k`` facets are kept, and more in rank order until their
+   admissible items fill the candidate pool.
 2. **Which question?** Items are ranked by item-outline embeddings
    (``item/skeleton``) once that index exists, otherwise by item text
    (``item/stem``), plus BM25 over item text. In the two-level path only items
@@ -158,6 +160,7 @@ class IndexSnapshot:
     dossier_reason: str | None
     rrf_k: int
     facet_top_k: int
+    candidate_pool: int
 
     @property
     def dossier_available(self) -> bool:
@@ -178,6 +181,7 @@ class IndexSnapshot:
             "dossier_vectors": self.dossier_vectors_complete,
             "rrf_k": self.rrf_k,
             "facet_top_k": self.facet_top_k,
+            "candidate_pool": self.candidate_pool,
         }
 
     def manifest_hash(self) -> str:
@@ -250,6 +254,7 @@ def load_snapshot(vault: LoadedVault, repository: Repository, *,
         dossier_bm25=BM25(dossier_documents(dossiers, facets)) if dossiers else None,
         dossier_manifests=dossier_manifests, dossier_vectors_complete=dossier_vectors,
         dossier_reason=dossier_reason, rrf_k=config.rrf_k, facet_top_k=config.facet_top_k,
+        candidate_pool=config.candidate_pool,
     )
 
 
@@ -297,6 +302,25 @@ def rank_direct(snapshot: IndexSnapshot, repository: Repository, query_text: str
     return Ranking("direct", order, ranks, sorted(lists))
 
 
+def _top_facets(snapshot: IndexSnapshot, facet_order: Sequence[str],
+                corpus: Sequence[str]) -> list[str]:
+    """At least ``facet_top_k`` facets, then more in rank order until their
+    admissible items fill the candidate pool. Facets are often finer than an LO,
+    so a fixed handful could leave the item stage too few questions to rank."""
+    by_facet: dict[str, set[str]] = {}
+    for item_id in corpus:
+        for facet_id in snapshot.item_facets.get(item_id, set()):
+            by_facet.setdefault(facet_id, set()).add(item_id)
+    top: list[str] = []
+    covered: set[str] = set()
+    for facet_id in facet_order:
+        if len(top) >= snapshot.facet_top_k and len(covered) >= snapshot.candidate_pool:
+            break
+        top.append(facet_id)
+        covered |= by_facet.get(facet_id, set())
+    return top
+
+
 def rank_dossier(snapshot: IndexSnapshot, repository: Repository, query_text: str,
                  query: np.ndarray | None, corpus: Sequence[str]) -> Ranking:
     if not snapshot.dossier_available or snapshot.dossier_bm25 is None:
@@ -313,7 +337,7 @@ def rank_dossier(snapshot: IndexSnapshot, repository: Repository, query_text: st
                         connection, snapshot, name, manifest, query, None,
                     )
         facet_order, _ = reciprocal_rank_fusion(facet_lists, k=snapshot.rrf_k)
-        top = facet_order[: snapshot.facet_top_k]
+        top = _top_facets(snapshot, facet_order, corpus)
         facet_rank = {facet_id: position for position, facet_id in enumerate(top, start=1)}
         candidates = [item_id for item_id in corpus
                       if snapshot.item_facets.get(item_id, set()) & facet_rank.keys()]

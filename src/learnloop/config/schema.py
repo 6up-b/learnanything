@@ -1327,6 +1327,8 @@ class PracticeIndexConfig(BaseModel):
     # rerank is skipped; subscription (Codex) routes have no marginal cost.
     rerank_price_per_million: float | None = Field(default=None, gt=0)
     rerank_max_cost_usd: float = Field(default=0.05, ge=0)
+    # The two-level path keeps at least this many facets, then more in rank
+    # order until their admissible items fill candidate_pool.
     facet_top_k: int = Field(default=5, ge=1, le=50)
     candidate_pool: int = Field(default=20, ge=1, le=60)
     proposals: int = Field(default=5, ge=1, le=20)

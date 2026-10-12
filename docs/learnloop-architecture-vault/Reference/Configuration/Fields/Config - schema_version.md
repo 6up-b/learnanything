@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
-source_commit_timestamp: "2026-10-12T00:44:44-04:00"
+source_commit: "94fdc9e58fcad72de389eb8b5798f42fa91c8886"
+source_commit_timestamp: "2026-10-12T01:10:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1347`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop_sidecar/context.py:292` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1349`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop_sidecar/context.py:292` |
 
 ## Compatibility-only inputs
 

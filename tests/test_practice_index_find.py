@@ -88,7 +88,8 @@ def test_proposing_never_serves_or_writes_learning_state(indexed):
 def _evaluation(repository, snapshot, winner, *, manifest_hash=None):
     with repository.connection() as connection:
         insert_evaluation(
-            connection, id=f"pie_{winner}_{manifest_hash or 'current'}", created_at="2026-10-12T00:00:00Z",
+            connection, id=f"pie_{winner}_{manifest_hash or snapshot.manifest_hash()}",
+            created_at="2026-10-12T00:00:00Z",
             winner=winner, reason=f"{winner} won", manifest_hash=manifest_hash or snapshot.manifest_hash(),
             manifest=snapshot.manifest(), metrics={}, run_id="run",
         )
@@ -109,8 +110,17 @@ def test_the_dossier_path_needs_a_winning_evaluation_on_the_current_index(indexe
     assert "facet_stage" in result["signals"]["item"]
     assert result["facets"][0]["facet_id"] == "facet_eigen"
     top = {facet["facet_id"] for facet in result["facets"]}
-    assert len(top) == vault.config.practice_index.facet_top_k
+    # Five facets cover 15 admissible items, so a sixth fills the pool of 20.
+    assert len(top) == 6
     assert all(set(item["facet_ids"]) & top for item in result["items"])
+    vault.config.practice_index.facet_top_k = 1
+    vault.config.practice_index.candidate_pool = 3
+    snapshot = load_snapshot(vault, repository, embedder=embedder)
+    _evaluation(repository, snapshot, "dossier")
+    narrow = find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert narrow["path"] == "dossier"
+    assert [facet["facet_id"] for facet in narrow["facets"]] == ["facet_eigen"]
+    assert {item["practice_item_id"] for item in narrow["items"]} <= {"pi_eigen_1", "pi_eigen_2", "pi_eigen_3"}
 
 
 def test_a_forced_dossier_path_falls_back_while_dossiers_are_missing(tmp_path):

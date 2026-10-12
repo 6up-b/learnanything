@@ -56,6 +56,7 @@ from learnloop.practice_index.catalog import facet_items, facet_label, registere
 from learnloop.practice_index.contracts import RELEVANCE_SCORE, RelevanceLabels, WrittenQueries
 from learnloop.practice_index.paid import PaidCalls, estimated_call_tokens, plan_route, resolve_client
 from learnloop.practice_index.query_vectors import (
+    cached_query_vectors,
     embed_queries,
     plan_query_embedding,
     query_id,
@@ -208,6 +209,70 @@ def _label_prompt(request: str, pass_index: int, refs: Mapping[str, dict[str, An
     )
 
 
+def _rankings(snapshot, repository, text: str, vector, corpus) -> dict[str, list[str]]:
+    return {
+        "direct": rank_direct(snapshot, repository, text, vector, corpus).order[:TOP_K],
+        "dossier": rank_dossier(snapshot, repository, text, vector, corpus).order[:TOP_K],
+    }
+
+
+def _pool(ranked: Mapping[str, Sequence[str]]) -> list[str]:
+    return sorted(set(ranked["direct"]) | set(ranked["dossier"]))
+
+
+def _pass_work(vault, repository, text: str, pool: Sequence[str], pass_index: int,
+               judge_model: str) -> tuple[dict[str, str], list[str], dict[str, dict[str, Any]],
+                                          dict[str, dict[str, Any]]]:
+    """Label ids, the unlabelled items in pass order, candidates and saved rows."""
+    candidates = {item_id: _candidate(vault, item_id) for item_id in pool}
+    version = LABEL_PROMPT_VERSIONS[pass_index]
+    ids = {item_id: label_id(text, item_id, content_key(candidates[item_id]), version, judge_model)
+           for item_id in pool}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        saved = judgments_by_ids(connection, ids.values())
+    missing = [item_id for item_id in _pass_order(text, pool, pass_index) if ids[item_id] not in saved]
+    return ids, missing, candidates, saved
+
+
+def _upper_bound_tokens() -> int:
+    pool = {f"c{i}": {"practice_mode": "x", "learning_object": "x" * 80,
+                      "prompt": "x" * LABEL_PROMPT_CHARS} for i in range(2 * TOP_K)}
+    return estimated_call_tokens(_label_prompt("x" * 200, 1, pool), RelevanceLabels, LABEL_OUTPUT_TOKENS)
+
+
+def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int,
+                judge_model: str) -> dict[str, Any]:
+    """Exact pending label work for queries that can be ranked now; a full-pool
+    upper bound for queries not yet written or embedded."""
+    tokens: list[int] = []
+    pairs = 0
+    exact = bounded = 0
+    vectors = {}
+    if snapshot.uses_vectors:
+        vectors = cached_query_vectors(repository, snapshot.embedding_model,
+                                       {row["id"]: row["query_text"] for row in query_set})
+    for row in query_set if snapshot.dossier_available else []:
+        if snapshot.uses_vectors and row["id"] not in vectors:
+            new_queries += 1
+            continue
+        pool = _pool(_rankings(snapshot, repository, row["query_text"], vectors.get(row["id"]), corpus))
+        exact += 1
+        for pass_index in range(len(LABEL_PROMPT_VERSIONS)):
+            _ids, missing, candidates, _saved = _pass_work(
+                vault, repository, row["query_text"], pool, pass_index, judge_model)
+            if missing:
+                refs = {f"c{i}": candidates[item_id] for i, item_id in enumerate(missing, start=1)}
+                tokens.append(estimated_call_tokens(
+                    _label_prompt(row["query_text"], pass_index, refs), RelevanceLabels, LABEL_OUTPUT_TOKENS))
+                pairs += len(missing)
+    if not snapshot.dossier_available:
+        new_queries += len(query_set)
+    bounded = new_queries
+    tokens += [_upper_bound_tokens()] * (len(LABEL_PROMPT_VERSIONS) * bounded)
+    pairs += len(LABEL_PROMPT_VERSIONS) * 2 * TOP_K * bounded
+    return {"tokens": tokens, "pairs": pairs, "exact_queries": exact, "upper_bound_queries": bounded}
+
+
 # -- metrics -----------------------------------------------------------------
 
 
@@ -319,14 +384,8 @@ def run_retrieval_evaluation(
                       owner_kind="practice_eval", owner_id=run_id)
     judge_model = judge_route.model or "unspecified"
     total_queries = len(query_set) + len(seeds) + len(logged)
-    # Upper bound until the queries exist: every query needs both passes over a
-    # full pool of 2 * TOP_K items.
-    max_pool = [{"ref": f"c{i}", "practice_mode": "x", "learning_object": "x" * 80,
-                 "prompt": "x" * LABEL_PROMPT_CHARS} for i in range(2 * TOP_K)]
-    label_tokens = estimated_call_tokens(
-        _label_prompt("x" * 200, 1, {entry["ref"]: entry for entry in max_pool}),
-        RelevanceLabels, LABEL_OUTPUT_TOKENS,
-    )
+    labels_plan = _label_plan(vault, repository, snapshot, corpus, query_set,
+                              len(seeds) + len(logged), judge_model)
     writer_tokens = [estimated_call_tokens(prompt, WrittenQueries, QUERY_OUTPUT_TOKENS)
                      for _, prompt in batches]
     embed_plan = plan_query_embedding(
@@ -344,10 +403,14 @@ def run_retrieval_evaluation(
                   "embedding_reason": snapshot.embedding_reason},
         "estimate": {
             "query_writer": writer.plan(writer_tokens, candidates=len(seeds)),
-            "relevance_labels": judge.plan([label_tokens] * (2 * total_queries),
-                                           pairs=2 * TOP_K * total_queries),
+            "relevance_labels": {
+                **judge.plan(labels_plan["tokens"], pairs=labels_plan["pairs"]),
+                "exact_queries": labels_plan["exact_queries"],
+                "upper_bound_queries": labels_plan["upper_bound_queries"],
+            },
             "query_embedding": embed_plan,
-            "note": "Label calls are an upper bound: both passes over a full pool for every query.",
+            "note": ("Label work is exact for queries that can be ranked now and an upper bound "
+                     "(both passes over a full pool) for queries not yet written or embedded."),
         },
         "caps": caps.as_dict(),
         "evaluation_enabled": vault.config.practice_index.evaluation_enabled,
@@ -422,13 +485,11 @@ def _run(vault, repository, snapshot, corpus, batches, logged, writer, writer_ro
             vectors = embedded.vectors
             if embedded.status not in {"cached", "embedded"}:
                 raise _Stop(embedded.status, embedded.reason or "query embedding failed")
-        rankings = {}
-        for row in query_set:
-            vector = vectors.get(row["id"]) if snapshot.uses_vectors else None
-            rankings[row["id"]] = {
-                "direct": rank_direct(snapshot, repository, row["query_text"], vector, corpus).order[:TOP_K],
-                "dossier": rank_dossier(snapshot, repository, row["query_text"], vector, corpus).order[:TOP_K],
-            }
+        rankings = {
+            row["id"]: _rankings(snapshot, repository, row["query_text"],
+                                 vectors.get(row["id"]) if snapshot.uses_vectors else None, corpus)
+            for row in query_set
+        }
         if judge_client is None:
             judge_client, reason = resolve_client(vault, judge_route)
             if judge_client is None:
@@ -514,16 +575,10 @@ def _label_all(vault, repository, query_set, rankings, judge, client, judge_mode
     labels: dict[tuple[str, str], list[dict[str, Any] | None]] = {}
     calls = 0
     for row in query_set:
-        pool = sorted(set(rankings[row["id"]]["direct"]) | set(rankings[row["id"]]["dossier"]))
-        candidates = {item_id: _candidate(vault, item_id) for item_id in pool}
-        hashes = {item_id: content_key(entry) for item_id, entry in candidates.items()}
+        pool = _pool(rankings[row["id"]])
         for pass_index, version in enumerate(LABEL_PROMPT_VERSIONS):
-            ids = {item_id: label_id(row["query_text"], item_id, hashes[item_id], version, judge_model)
-                   for item_id in pool}
-            with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-                saved = judgments_by_ids(connection, ids.values())
-            missing = [item_id for item_id in _pass_order(row["query_text"], pool, pass_index)
-                       if ids[item_id] not in saved]
+            ids, missing, candidates, saved = _pass_work(
+                vault, repository, row["query_text"], pool, pass_index, judge_model)
             if missing:
                 refs = {f"c{index}": item_id for index, item_id in enumerate(missing, start=1)}
                 prompt = _label_prompt(row["query_text"], pass_index,
@@ -571,7 +626,7 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
     incomplete = 0
     label_models: Counter[str] = Counter()
     for row in query_set:
-        pool = sorted(set(rankings[row["id"]]["direct"]) | set(rankings[row["id"]]["dossier"]))
+        pool = _pool(rankings[row["id"]])
         gains: dict[str, float] = {}
         relevant: set[str] = set()
         complete = True

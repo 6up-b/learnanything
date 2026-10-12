@@ -391,6 +391,7 @@ def generate_dossiers(
             "prompt_version": DOSSIER_PROMPT_VERSION,
         },
     }
+    report.update(calls.report())
     try:
         budget.check(calls.estimate(sum(tokens), candidates=len(pending), calls=len(pending)))
     except AIInterrupted:

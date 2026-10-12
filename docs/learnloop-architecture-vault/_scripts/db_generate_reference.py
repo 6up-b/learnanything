@@ -1023,10 +1023,12 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Per-request dollar cap for a metered rerank, checked before the request is sent."
     ),
     "practice_index.facet_top_k": (
-        "How many facets the two-level path keeps before ranking their items."
+        "The fewest facets the two-level path keeps; it adds more in rank order until their "
+        "admissible items fill candidate_pool."
     ),
     "practice_index.candidate_pool": (
-        "How many fused candidates find_practice sends to the rerank."
+        "How many fused candidates find_practice sends to the rerank, and how many admissible "
+        "items the two-level path's facets must cover."
     ),
     "practice_index.proposals": (
         "Default number of proposals find_practice returns when the request gives no limit."

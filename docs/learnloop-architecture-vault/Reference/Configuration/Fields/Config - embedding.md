@@ -3,8 +3,8 @@ title: "Config - embedding"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5883aaa4de81dd13c7f133a2805abc92ef70d9a1"
-source_commit_timestamp: "2026-10-12T00:44:44-04:00"
+source_commit: "94fdc9e58fcad72de389eb8b5798f42fa91c8886"
+source_commit_timestamp: "2026-10-12T01:10:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml embedding"
@@ -58,7 +58,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `embedding.backfill_enabled` | `false` | boolean | explicit template decision | Separate consent for `learnloop embeddings backfill` paid runs; dry-run estimates work without it. Both switches must be true before any request is sent. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1294`; `src/learnloop/ops/embedding_backfill.py:154` |
 | `embedding.model` | `"qwen/qwen3-embedding-8b"` | string | explicit template decision | The embedding model id to request and to key stored vectors by; authoritative over the embedding profile's own model field. Changing it backfills a new model beside the old vectors. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1295`; `src/learnloop/ai/client.py:30`; `src/learnloop/ai/runtime.py:107` |
 | `embedding.dimensions` | `4096` | integer | explicit template decision | Stored vector width for embedding.model (MRL truncation, then L2-normalization). Fixed per model once vectors exist; consumers may request a narrower renormalized view at query time. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1296`; `src/learnloop/ai/client.py:31`; `src/learnloop/ops/embedding_backfill.py:138` |
-| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1368` |
+| `embedding.privacy_disclosure` | `"When enabled, remote embeddings send canonical or learner-derived text to the configured endpoint (by default OpenRouter and its upstream provider). Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore that option, so verify their retention policy. Vectors approximate plaintext: protect them like practice attempts in backups, exports and sync; never share them across vaults."` | string | modeled default or validator seed | Read-only disclosure computed by the schema and shown in Settings and `config effective`; setting it in learnloop.toml has no effect. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1370` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
