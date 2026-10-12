@@ -163,7 +163,8 @@ class ProjectFake(RecordingStructuredClientFake):
         usable = [(number, code) for number, code in rows if code.strip() and "[REDACTED" not in code]
         number, code = usable[-1]
         cite = ProbeCitation(source="file", path=entry["path"], line_start=number, line_end=number, quote=code.strip())
-        first_line = next((line for line in context.commit_message.splitlines() if line.strip()), "")
+        # The body line that states the reason (the subject only describes the change).
+        reason_line = next((line for line in context.commit_message.splitlines() if " so " in line), "")
         generic = "GENERIC" if self.all_generic else ""
         return ProbeCandidates(
             candidates=[
@@ -175,7 +176,7 @@ class ProjectFake(RecordingStructuredClientFake):
                                citations=[cite.model_copy(update={"quote": "this text is not in the code"})],
                                question="Q-bad-quote: what does forward return for x=-5?"),
                 ProbeCandidate(kind="why", reference_answer="So negative activations never reach the GRU.",
-                               citations=[ProbeCitation(source="commit_message", quote=first_line, rationale=True)],
+                               citations=[ProbeCitation(source="commit_message", quote=reason_line, rationale=True)],
                                question=f"Q-why-cited {generic}: why does forward use relu?"),
                 ProbeCandidate(kind="why", reference_answer="Probably for stability.",
                                citations=[cite], question="Q-why-uncited: why add one before relu?"),

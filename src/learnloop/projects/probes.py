@@ -7,7 +7,9 @@ paid call, so an interrupted or failed run resumes without paying twice:
    reference answer with ``file:line``/commit/diff citations, then the question.
 2. **Validity** (local, a ``verifier`` verdict): file citations must resolve to
    stored head-side lines, quotes must match verbatim, and a ``why`` needs a
-   citation that states the reason (P4). Invalid candidates are dropped.
+   cited span that itself states the reason: prose (commit message or code
+   comment), a reason cue, and terms shared with the reference answer
+   (``stated_reason``; P4). Invalid candidates are dropped.
 3. **Closed-book** (``project_closed_book_check``): a model with only the
    question answers each survivor; the probe grader grades that answer against
    the reference, and a ``correct`` answer rejects the candidate as generic.
@@ -258,10 +260,100 @@ class Validity:
     status: str
     detail: str | None = None
     rationale_label: str | None = None
+    rationale_check: dict[str, Any] | None = None
 
 
 def _clean_quote(quote: str) -> str:
     return quote.replace("\r\n", "\n").strip()
+
+
+# --- does a cited span state the reason? (P4) ------------------------------------------
+
+_COMMENT_START = re.compile(r"^\s*(?:#+|//+!?|/\*+|\*+/?|--|;+|%+|<!--|\"\"\"|\'\'\')\s?")
+_TRAILING_COMMENT = re.compile(r"(?:\s#|\s//|/\*)\s?(.*)$")
+_REASON_CUES = frozenset(
+    "because since so to for avoid avoids avoiding prevent prevents preventing ensure ensures ensuring "
+    "keep keeps keeping otherwise needed need needs required requires require reason due lest never must "
+    "should without guard guards protect protects stop stops".split()
+)
+_STOPWORDS = frozenset(
+    "the a an and or of in on at to for from with by is are was were be been it its this that these those "
+    "as so than then there here into onto out up down not no do does did can could would will may might "
+    "when which what who whom whose why how all any each every some such only own same too very just "
+    "also more most other but if else while about over under again further once".split()
+)
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _comment_text(lines: list[str], *, diff: bool = False) -> str:
+    """The comment parts of source lines (whole-line and trailing comments)."""
+
+    parts = []
+    for raw in lines:
+        line = raw[1:] if diff and raw[:1] in {"+", "-", " "} else raw
+        start = _COMMENT_START.match(line)
+        if start is not None:
+            parts.append(line[start.end():])
+            continue
+        trailing = _TRAILING_COMMENT.search(line)
+        if trailing is not None:
+            parts.append(trailing.group(1))
+    return "\n".join(part for part in parts if part.strip())
+
+
+def _prose(quote: str, source: str, span_lines: list[str] = ()) -> str:
+    """The natural-language part of a cited span: a commit message, or code comments.
+
+    A quote may omit the comment marker, so the cited source lines decide: the
+    quote counts as prose when each of its lines lies inside their comments.
+    """
+
+    if source == "commit_message":
+        return quote
+    direct = _comment_text(quote.splitlines(), diff=source == "diff")
+    if direct:
+        return direct
+    comments = _comment_text(list(span_lines), diff=source == "diff")
+    lines = [line.strip() for line in quote.splitlines() if line.strip()]
+    if comments and lines and all(line in comments for line in lines):
+        return quote
+    return ""
+
+
+def _terms(text: str) -> set[str]:
+    terms = set()
+    for word in _WORD.findall(text.lower()):
+        if len(word) < 3 or word in _STOPWORDS:
+            continue
+        for suffix in ("ing", "es", "ed", "s"):
+            if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+                word = word[: -len(suffix)]
+                break
+        terms.add(word)
+    return terms
+
+
+def stated_reason(quote: str, source: str, reference_answer: str, *, span_lines: list[str] = ()) -> dict[str, Any]:
+    """Whether a cited span itself states the reason a ``why`` reference gives.
+
+    Deterministic and conservative (P4: an unsupported reason is never a key):
+    the span must be prose (a commit message or a code comment, not code),
+    carry a reason cue ("because", "so", "to", "avoid", ...), and share at
+    least two content terms, and a quarter of them, with the reference
+    answer. The generator's ``rationale`` flag is not trusted.
+    """
+
+    prose = _prose(quote, source, span_lines)
+    if not prose.strip():
+        return {"states_reason": False, "why": "the cited span is code, not a stated reason"}
+    cues = sorted(set(_WORD.findall(prose.lower())) & _REASON_CUES)
+    if not cues:
+        return {"states_reason": False, "why": "the cited text describes the change but states no reason"}
+    reference = _terms(reference_answer)
+    shared = sorted(reference & _terms(prose))
+    if len(shared) < 2 or len(shared) < 0.25 * len(reference):
+        return {"states_reason": False, "why": "the cited text does not state this reason", "shared_terms": shared}
+    return {"states_reason": True, "cues": cues, "shared_terms": shared}
 
 
 def validate_candidate(
@@ -280,12 +372,14 @@ def validate_candidate(
         return Validity("no_citation")
     files = {entry["path"]: entry for entry in bundle["files"] if not entry.get("omitted")}
     rationale_sources: list[str] = []
+    checks: list[dict[str, Any]] = []
     for citation in candidate.citations:
         quote = _clean_quote(citation.quote)
         if not quote:
             return Validity("quote_mismatch", "empty quote")
         if "[REDACTED" in quote:
             return Validity("quote_mismatch", "quotes a redacted line")
+        span_lines: list[str] = []
         if citation.source == "commit_message":
             if quote not in bundle["commit_message"]:
                 return Validity("quote_mismatch", "commit message quote not found")
@@ -296,6 +390,8 @@ def validate_candidate(
                 return Validity("citation_unresolved", f"unknown file {citation.path!r}")
             if quote not in entry["diff"]:
                 return Validity("quote_mismatch", f"diff quote not found in {citation.path}")
+            first = quote.splitlines()[0]
+            span_lines = [line for line in entry["diff"].splitlines() if first in line]
             source = "agent_stated"
         else:
             entry = files.get(citation.path)
@@ -318,13 +414,23 @@ def validate_candidate(
                 return Validity("quote_mismatch", f"quote does not match {citation.path}:{start}-{end}")
             changed = added_lines(entry["diff"])
             source = "agent_stated" if any(line in changed for line in range(start, end + 1)) else "cited"
-        if citation.rationale:
-            rationale_sources.append(source)
+            span_lines = cited.splitlines()
+        if candidate.kind == "why":
+            # Every citation is checked; the model's ``rationale`` flag only
+            # says which one it meant, it proves nothing (P4).
+            check = {"citation": len(checks), "flagged": citation.rationale,
+                     **stated_reason(quote, citation.source, candidate.reference_answer, span_lines=span_lines)}
+            checks.append(check)
+            if check["states_reason"]:
+                rationale_sources.append(source)
     if candidate.kind == "why":
+        rationale_check = {"citations": checks}
         if not rationale_sources:
-            return Validity("why_uncited", "no citation states the reason")
+            flagged = [check for check in checks if check["flagged"]] or checks
+            reason = flagged[0]["why"] if flagged else "no citation states the reason"
+            return Validity("why_uncited", reason, rationale_check=rationale_check)
         label = "agent_stated" if "agent_stated" in rationale_sources else "cited"
-        return Validity("valid", rationale_label=label)
+        return Validity("valid", rationale_label=label, rationale_check=rationale_check)
     return Validity("valid")
 
 
@@ -486,11 +592,14 @@ def _author(
     now = _now(clock)
     sealed_until = _sealed_until(diff, config)
     rows = []
+    checks: dict[str, dict[str, Any] | None] = {}
     for index, candidate in enumerate(candidates):
         validity = validate_candidate(candidate, bundle, agent_committed=diff["agent_source"] == "trailer")
+        probe_id = new_ulid()
+        checks[probe_id] = validity.rationale_check
         rows.append(
             {
-                "id": new_ulid(),
+                "id": probe_id,
                 "diff_id": diff["id"],
                 "candidate_index": index,
                 "kind": candidate.kind,
@@ -519,7 +628,11 @@ def _author(
                 "judge": "verifier",
                 "input_hash": _input_hash({"citations": row["citations_json"], "bundle": diff["bundle_hash"]}),
                 "verdict": row["validity"],
-                "rationale": json.dumps({"detail": row["validity_detail"], "rationale_label": row["rationale_label"]}),
+                "rationale": json.dumps(
+                    {"detail": row["validity_detail"], "rationale_label": row["rationale_label"],
+                     "rationale_check": checks[row["id"]]},
+                    sort_keys=True,
+                ),
                 "created_at": now,
             }
             for row in rows
@@ -975,5 +1088,6 @@ __all__ = [
     "probe_header",
     "record_response",
     "reveal",
+    "stated_reason",
     "validate_candidate",
 ]

@@ -180,15 +180,17 @@ def test_citations_must_resolve_and_quote_verbatim(captured):
     assert check(ProbeCitation(source="commit_message", quote="Use relu so negative activations")).status == "valid"
     assert check(ProbeCitation(source="commit_message", quote="never said")).status == "quote_mismatch"
     assert check(ProbeCitation(source="diff", path="model.py", quote="return x * self.scale")).status == "valid"
-    # why: needs a citation that states the reason
+    # why: needs a citation that states the reason (see the stated_reason tests below)
     assert check(good, kind="why").status == "why_uncited"
     comment_number, _ = _line(bundle, "Clamp negatives")
     comment = ProbeCitation(source="file", path="model.py", line_start=comment_number, line_end=comment_number,
                             quote="Clamp negatives so the GRU never sees a sign flip.", rationale=True)
-    result = check(comment, kind="why")
+    candidate = ProbeCandidate(kind="why", reference_answer="So the GRU never sees a sign flip.",
+                               citations=[comment], question="q")
+    result = validate_candidate(candidate, bundle, agent_committed=True)
     assert result.status == "valid" and result.rationale_label == "agent_stated"  # an added line
     context_line = ProbeCitation(source="file", path="model.py", line_start=1, line_end=1, quote="import torch", rationale=True)
-    assert check(context_line, kind="why").rationale_label == "cited"  # pre-existing line
+    assert check(context_line, kind="why").status == "why_uncited"  # code is never a stated reason
 
 
 def test_redacted_lines_cannot_be_quoted(captured):
@@ -337,3 +339,48 @@ def test_errors_never_quote_model_output():
     assert secret_question not in safe_error(RuntimeError(secret_question))
     assert "auth required" in safe_error(AIProviderUnavailable("auth required"))
     assert "no grade for q1" in safe_error(GenerationError("grader returned no grade for q1"))
+
+
+def _why(bundle, citation, reference, *, agent_committed=True):
+    candidate = ProbeCandidate(kind="why", reference_answer=reference, citations=[citation], question="q")
+    return validate_candidate(candidate, bundle, agent_committed=agent_committed)
+
+
+def test_a_rationale_flag_on_plain_code_is_not_a_stated_reason(captured):
+    bundle = _bundle(captured)
+    number, _ = _line(bundle, "y = y + 1")
+    code = ProbeCitation(source="file", path="model.py", line_start=number, line_end=number, quote="y = y + 1", rationale=True)
+    result = _why(bundle, code, "The increment avoids collisions with legacy database ids.")
+    assert result.status == "why_uncited" and "code" in result.detail
+
+
+def test_a_cited_comment_must_state_the_proposed_reason(captured):
+    bundle = _bundle(captured)
+    number, _ = _line(bundle, "Clamp negatives")
+    comment = ProbeCitation(source="file", path="model.py", line_start=number, line_end=number,
+                            quote="# Clamp negatives so the GRU never sees a sign flip.", rationale=True)
+    assert _why(bundle, comment, "The increment avoids collisions with legacy database ids.").status == "why_uncited"
+    supported = _why(bundle, comment, "So the GRU never sees a sign flip from negative values.")
+    assert supported.status == "valid" and supported.rationale_label == "agent_stated"
+
+
+def test_a_descriptive_commit_subject_is_not_a_reason(captured):
+    bundle = _bundle(captured)
+    subject = ProbeCitation(source="commit_message", quote="Clamp the forward pass with relu", rationale=True)
+    assert _why(bundle, subject, "So negative activations never reach the GRU.").status == "why_uncited"
+    body = ProbeCitation(source="commit_message", quote="Use relu so negative activations never reach the GRU.")
+    stated = _why(bundle, body, "So negative activations never reach the GRU.")
+    assert stated.status == "valid" and stated.rationale_label == "agent_stated"  # no flag needed: it is verified
+    assert _why(bundle, body, "So negative activations never reach the GRU.", agent_committed=False).rationale_label == "cited"
+
+
+def test_the_reason_check_is_persisted_in_the_verifier_judgment(captured):
+    vault, config, store, diff = captured
+    _generate(vault, config, store, ProjectFake())
+    probes = {probe["question"].split(":")[0].strip(): probe for probe in store.probes_for_diff(diff["id"])}
+    verdicts = {row["left_id"]: json.loads(row["rationale"]) for row in store.judgments(task="project_probe_validity")}
+    cited = verdicts[probes["Q-why-cited"]["id"]]["rationale_check"]["citations"]
+    assert cited[0]["states_reason"] is True and cited[0]["shared_terms"]
+    uncited = verdicts[probes["Q-why-uncited"]["id"]]
+    assert uncited["rationale_check"]["citations"][0]["states_reason"] is False
+    assert verdicts[probes["Q-what"]["id"]]["rationale_check"] is None  # only why candidates need a reason
