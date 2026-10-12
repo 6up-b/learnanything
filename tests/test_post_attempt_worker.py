@@ -163,3 +163,79 @@ def test_an_older_job_queued_during_a_live_lease_is_never_leased_concurrently(tm
     assert repository.finish_post_attempt_job(running["id"], epoch=running["lease_epoch"], state="done")
     after = repository.lease_next_post_attempt_job(kind="diagnose", owner="cli", lease_seconds=60, clock=start)
     assert after["id"] == requeued
+
+
+def _canonical_rows(repository):
+    with repository.connection() as connection:
+        return {
+            table: [
+                tuple(value for key, value in dict(row).items() if key not in ("updated_at", "created_at"))
+                for row in connection.execute(f"SELECT * FROM {table} ORDER BY 1, 2, 3")
+            ]
+            for table in ("facet_capability_evidence", "facet_recall_state")
+        }
+
+
+@pytest.mark.durability
+def test_a_submission_committed_while_the_worker_projects_is_never_overwritten(tmp_path, monkeypatch):
+    """Review F3: the worker pauses right after its projection snapshot while
+    the sidecar commits another attempt and that attempt's projection. The
+    worker's publication must not replace the cache with its older snapshot."""
+
+    import threading
+
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.split.jobs import drain
+    from learnloop.substrate import canonical_projection
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
+
+    _paths, vault, repository = split_vault(tmp_path)
+    client = ReviewFakeClient()
+    submit(vault, repository, client, when=at(20))
+
+    real_snapshot = canonical_projection.load_canonical_projection_snapshot
+    snapshot_taken = threading.Event()
+    resume = threading.Event()
+    worker_thread: dict[str, int] = {}
+
+    def pausing_snapshot(*args, **kwargs):
+        snapshot = real_snapshot(*args, **kwargs)
+        if threading.get_ident() == worker_thread.get("id") and not snapshot_taken.is_set():
+            snapshot_taken.set()
+            resume.wait(timeout=10)
+        return snapshot
+
+    monkeypatch.setattr(canonical_projection, "load_canonical_projection_snapshot", pausing_snapshot)
+    errors: list[BaseException] = []
+
+    def run_worker():
+        worker_thread["id"] = threading.get_ident()
+        try:
+            drain(vault, Repository(repository.sqlite_path), client_factory=lambda: client,
+                  embedding_factory=lambda: None, kinds=("diagnose",))
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    def run_submission():
+        try:
+            # A correct answer on another item: new positive evidence.
+            submit(vault, Repository(repository.sqlite_path), client, item_id="pi_svd_compute_002",
+                   answer="U Sigma V^T", when=at(21))
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            errors.append(exc)
+
+    worker = threading.Thread(target=run_worker)
+    worker.start()
+    assert snapshot_taken.wait(timeout=30)
+    submission = threading.Thread(target=run_submission)
+    submission.start()
+    submission.join(timeout=0.5)  # with the fix it waits on the worker's write lock
+    resume.set()
+    worker.join(timeout=60)
+    submission.join(timeout=60)
+    assert not errors, errors
+    assert not worker.is_alive() and not submission.is_alive()
+
+    stored = _canonical_rows(repository)
+    project_canonical_facet_state(vault, repository)
+    assert stored == _canonical_rows(repository)

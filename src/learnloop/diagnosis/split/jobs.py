@@ -641,9 +641,15 @@ def apply_diagnosis(
 
     attempt_id = str(attempt["id"])
     learning_object_id = str(attempt.get("learning_object_id") or "")
-    project_canonical_facet_state(
-        vault, repository, clock=clock, refresh_factor_candidates_for={attempt_id}
-    )
+    # The projection reads the whole observation ledger, computes, and
+    # REPLACES the cache. Concurrent submissions publish their own projection
+    # inside their attempt transaction, so the worker's read-compute-replace
+    # takes the write lock first (BEGIN IMMEDIATE): no attempt can commit
+    # between its snapshot and its publication (review F3).
+    with repository.atomic():
+        project_canonical_facet_state(
+            vault, repository, clock=clock, refresh_factor_candidates_for={attempt_id}
+        )
     normalize_and_resolve_attempt(
         vault,
         repository,
