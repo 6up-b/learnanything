@@ -295,7 +295,20 @@ calls.
 
 ## Gate
 
-_(pass counts below)_
+Run on `2319969b` with a clean tree. The commit after it adds only this
+section.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 10 kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,123 passed**, 14 warnings, 173.9 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **66 passed**, 7,057 deselected, 49.5 s |
+| T4 tests (`test_contamination_report.py`, `test_contamination_symbolic.py`) | 47 passed |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated; 0 errors (schema 168, 266 table notes, 546 config leaves) |
+| `validate_vault.py` | passed (1,029 notes) |
+
+Not applicable: frontend and mobile (untouched).
 
 ## Files touched
 
