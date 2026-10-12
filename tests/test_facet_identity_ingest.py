@@ -390,3 +390,58 @@ def test_the_alias_only_append_gate_refuses_a_precondition_growth():
     assert _is_alias_only_facet_append(item({"positive_examples": ["e1", "e2"]}), ctx)
     assert not _is_alias_only_facet_append(item({"preconditions": ["p1", "p2"]}), ctx)
     assert not _is_alias_only_facet_append(item({"positive_examples": ["e2"]}), ctx)
+
+
+# --- review F7: two judged sets on one in-run survivor undo as one -------------------
+
+DUP2_ID = "facet_symmetry_definition_third"
+DUP2_CLAIM = "Symmetric matrices are exactly the square matrices equal to their own transposes."
+
+
+def _with_two_duplicates(context, ordinal):
+    payload = _with_duplicate(context, ordinal)
+    prov = payload.facets[0].provenance
+    payload.facets.append(SynthFacet(
+        client_item_id="f_def_dup2", id=DUP2_ID, concept_client_id="c_sym", kind="definition",
+        claim=DUP2_CLAIM, positive_examples=["the identity matrix"], provenance=prov,
+    ))
+    payload.blueprints[0].recipes[0].all_of.append(
+        SynthRecipeComponent(facet_client_id="f_def_dup2", capability="retrieval"))
+    return payload
+
+
+def test_two_sets_on_one_in_run_survivor_are_one_action_that_undoes_both(tmp_path, monkeypatch):
+    import learnloop.content.facet_identity.plan as plan_module
+
+    real = plan_module.build_plan
+
+    def second_group(*args, **kwargs):
+        # The attach phase can put a surviving candidate into a set with no
+        # registered facet: scope in_run, the same survivor, another group.
+        plan = real(*args, **kwargs)
+        for key, retirement in plan.retirements.items():
+            if key.endswith("f_def_dup2"):
+                retirement.group_id = "attach-phase-group"
+                retirement.action, retirement.absorb_as = "absorb", "example"
+        return plan
+
+    monkeypatch.setattr(plan_module, "build_plan", second_group)
+    root, repo = _setup(tmp_path, with_exam=False)
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM, DUP2_CLAIM]])
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_two_duplicates),
+                              repository=repo, clock=_CLOCK, apply=True, facet_identity_client=judge)
+    assert result.facet_identity["in_run_retired"] == 2
+    (action,) = result.facet_identity["actions"]
+    assert sorted(facet["id"] for facet in action["retired"]) == sorted([DUP_ID, DUP2_ID])
+    assert action["undoable"]
+    vault = load_vault(root)
+    survivor = vault.evidence_facets["facet_symmetry_definition"]
+    assert {DUP_ID, DUP2_ID} <= set(survivor.aliases) and DUP2_CLAIM in survivor.positive_examples
+
+    undo_action(root, repo, action["id"], clock=_CLOCK)
+    vault = load_vault(root)
+    assert {DUP_ID, DUP2_ID} <= set(vault.evidence_facets)
+    survivor = vault.evidence_facets["facet_symmetry_definition"]
+    assert survivor.aliases == [] and DUP2_CLAIM not in survivor.positive_examples
+    assert "the matrix is square" not in survivor.preconditions
+    assert vault.evidence_facets[DUP2_ID].claim == DUP2_CLAIM

@@ -1532,32 +1532,46 @@ def _facet_identity_actions(
     aliased: set[str] | None = None,
     contract_notes: Mapping[str, Sequence[str]] | None = None,
 ) -> list[dict[str, Any]]:
-    """One undoable action per judged set the proposal carries (facet identity).
+    """One undoable action per survivor the proposal changes (facet identity).
 
     ``before``/``after`` are the facets.yaml entries the proposal's apply will
-    replace and write: the survivor's entry without and with this set, and
-    each retired candidate's entry (absent after). A set whose survivor the
-    D2 mint gate itself aliased elsewhere is recorded without an undo.
+    replace and write: the survivor's entry without and with every set that
+    joined it, and each retired candidate's entry (absent after). Sets from
+    different judged groups on one survivor fold into one action (review F7):
+    both took ``before`` from the one pre-union snapshot, so separate undos
+    would strip each other's content. A set whose survivor the D2 mint gate
+    itself aliased elsewhere is recorded without an undo.
     """
 
     if not retired_targets:
         return []
-    groups: dict[tuple[str, str, str], list[tuple[str, str, Any, dict[str, Any]]]] = {}
+    groups: dict[tuple[str, str], list[tuple[str, str, Any, dict[str, Any]]]] = {}
     for fkey, (fid, target, retirement, payload) in sorted(retired_targets.items()):
-        groups.setdefault((retirement.scope, target, retirement.group_id), []).append(
-            (fkey, fid, retirement, payload))
+        groups.setdefault((retirement.scope, target), []).append((fkey, fid, retirement, payload))
     actions: list[dict[str, Any]] = []
-    for (scope, target, group_id), members in sorted(groups.items()):
+    for (scope, target), members in sorted(groups.items()):
         first = members[0][2]
         retired = [(fid, payload) for _fkey, fid, _r, payload in members
                    if fid != target and (aliased is None or fid in aliased)]
         if not retired:
             continue
         retired_ids = [fid for fid, _payload in retired]
+        kept = [(fkey, fid, r) for fkey, fid, r, _p in members if fid in set(retired_ids)]
+        verbs = {(r.action, r.absorb_as) for _fkey, _fid, r in kept}
+        action_name = "absorb" if {verb for verb, _as in verbs} == {"absorb"} else "merge"
+        absorb_as = next(iter(verbs))[1] if len(verbs) == 1 else None
+        group_ids = sorted({r.group_id for _fkey, _fid, r in kept})
         detail: dict[str, Any] = {
-            "group_id": group_id, "absorb_as": first.absorb_as,
-            "rationale": first.rationale, "retired_clients": [fkey for fkey, *_rest in members],
+            "group_id": group_ids[0] if len(group_ids) == 1 else group_ids,
+            "absorb_as": absorb_as if action_name == "absorb" else None,
+            "rationale": " / ".join(dict.fromkeys(r.rationale for _fkey, _fid, r in kept if r.rationale)),
+            "retired_clients": [fkey for fkey, *_rest in members],
         }
+        if len(verbs) > 1 or len(group_ids) > 1:
+            detail["members"] = [
+                {"facet_id": fid, "action": r.action, "absorb_as": r.absorb_as, "group_id": r.group_id}
+                for _fkey, fid, r in kept
+            ]
         if scope == "attach":
             if first.survivor_lock_reasons:
                 detail["lock_reasons"] = {target: list(first.survivor_lock_reasons)}
@@ -1593,7 +1607,7 @@ def _facet_identity_actions(
             if before_entry is not None and update is not None:
                 after_entry = {**before_entry, **copy.deepcopy(update)}
         actions.append({
-            "scope": scope, "action": first.action, "survivor_facet_id": target,
+            "scope": scope, "action": action_name, "survivor_facet_id": target,
             "retired_facet_ids": retired_ids,
             "before": {"facets": {target: before_entry, **dict(retired)}, "order": {}},
             "after": {"facets": {target: after_entry, **{fid: None for fid in retired_ids}}},
