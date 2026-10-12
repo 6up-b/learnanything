@@ -2174,6 +2174,20 @@ export interface CriterionEvidenceRowDto {
   graderTier: number;
   /** Rubric tier ("core" | "transfer"); shown as a pill when a rubric mixes tiers. */
   tier?: RubricTier | null;
+  /** PF-c: false when the learner's verified answer took a different route that
+   *  never exercised this criterion. It is not assessed (no credit, no failure,
+   *  out of the grade) and is shown with `notAssessedLabel`, never as points. */
+  assessed?: boolean;
+  notAssessedLabel?: string | null;
+}
+
+/** PF-c's manual-review reason: a non-blocking log, never a review to do. */
+export const UNVERIFIED_ROUTE_REVIEW_REASON = "valid_alternative_unverified";
+export const NOT_ASSESSED_LABEL = "not assessed (a different route)";
+
+/** Whether a criterion row counts toward the grade (PF-c unassessed rows do not). */
+export function criterionAssessed(row: Pick<CriterionEvidenceRowDto, "assessed">): boolean {
+  return row.assessed !== false;
 }
 
 export interface ErrorEventDto {

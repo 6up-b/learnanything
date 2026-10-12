@@ -12,6 +12,13 @@ a split vault is blind-graded. The merge pins three readings:
   is not a lapse in maintenance, and neither counts toward nor blocks
   fast-track. A located error on the same item is still a miss.
 
+Since the PF-c unassessed rule (owner decision 2026-10-12) the attempt row
+reads full marks for such an answer (the grade is over the assessed criteria)
+and its review reason is a non-blocking log that may name another concern or
+be cleared, so placement reads PF-c from its own records: the stamp on the
+evidence rows and the gate's ``assessed_shortfall`` (M2's points inference
+only for a record written before the rule).
+
 Fakes only; no network.
 """
 
@@ -26,13 +33,19 @@ from learnloop.placement.rules import (
     CHECK_FAIL,
     CHECK_INELIGIBLE,
     CHECK_PASS,
+    PFC_UNASSESSED_INTERPRETATION,
+    PFC_UNASSESSED_INTERPRETATION_KEY,
     PFC_UNVERIFIED_BLOCK,
     AnswerFacts,
     check_verdict,
     fast_track_verdict,
 )
 from learnloop.placement.state import load_placement_state, pfc_unverified_attempt_ids
-from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK
+from learnloop.substrate.canonical_projection import (
+    UNASSESSED_INTERPRETATION,
+    UNVERIFIED_CRITERION_BLOCK,
+    UNVERIFIED_INTERPRETATION_KEY,
+)
 
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.diagnosis_split_helpers import at
@@ -91,6 +104,9 @@ def _state(vault, repository):
 
 def test_the_pinned_block_reason_is_pfcs():
     assert PFC_UNVERIFIED_BLOCK == UNVERIFIED_CRITERION_BLOCK
+    assert (PFC_UNASSESSED_INTERPRETATION_KEY, PFC_UNASSESSED_INTERPRETATION) == (
+        UNVERIFIED_INTERPRETATION_KEY, UNASSESSED_INTERPRETATION,
+    )
 
 
 def test_a_clean_blind_grade_passes_the_check(tmp_path):
@@ -109,7 +125,10 @@ def test_an_unverified_pfc_grade_neither_passes_nor_fails_the_check(tmp_path):
     unverified = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_001",
                         answer=VERIFYING, when=at(DUE_HOURS + 1))
     row = repository.fetch_practice_attempt(unverified.attempt_id)
-    assert row["manual_review"] and float(row["correctness"]) < 1.0
+    # The grade is over the assessed criteria only (PF-c unassessed rule): full
+    # marks on ``setup``, and the review flag is a non-blocking log. Placement
+    # reads PF-c from its own records, not from the grade or the reason.
+    assert row["manual_review"] and float(row["correctness"]) == 1.0
     with repository.connection() as connection:
         assert unverified.attempt_id in pfc_unverified_attempt_ids(connection)
 
@@ -168,6 +187,122 @@ def test_a_regrade_to_unverified_makes_the_check_wait_again(tmp_path):
                     grading_source="ai", clock=FrozenClock(at(DUE_HOURS + 2)))
     with repository.connection() as connection:
         assert attempt.attempt_id in pfc_unverified_attempt_ids(connection)
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, assumption.ineligible_answers, intent) == ("open", 1, "assumed")
+
+
+class _LocatedSetupUnlocatedResult(ReviewFakeClient):
+    """``setup`` half-marked at an error quoted from the answer (located, so
+    assessed) and ``result`` zeroed naming no error (unverified)."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        points = {"setup": 1.0, "result": 0.0}
+        evidence = [
+            row.model_copy(update={"points_awarded": points[row.criterion_id]})
+            if row.criterion_id in points else row
+            for row in result.criterion_evidence
+        ]
+        quote = str(context["learner_answer_md"]).splitlines()[0]
+        attribution = {
+            "error_type": "conceptual_slip",
+            "evidence": "The set-up is wrong.",
+            "first_divergence": {"anchor_kind": "span", "criterion_id": "setup", "quote": quote},
+            "target_criterion_ids": ["setup"],
+            "target_evidence_families": ["compute"],
+            "resolution_status": "unresolved",
+            "validity_scope": "valid_measurement",
+        }
+        return result.model_copy(
+            update={
+                "criterion_evidence": evidence,
+                "rubric_score": int(sum(row.points_awarded for row in evidence)),
+                "error_attributions": [BlindErrorAttribution.model_validate(attribution)],
+            }
+        )
+
+
+class _UnverifiedWithAConcern(_ZeroWithoutAttribution):
+    """PF-c (``result`` unverified, ``setup`` full) on a grade that also
+    carries a review concern of its own, so the attempt's review reason is
+    that concern, not PF-c's (PF-c review F7)."""
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        return result.model_copy(update={"grader_confidence": 0.2})
+
+
+def test_a_pfc_grade_with_another_review_reason_still_waits(tmp_path):
+    """The marker, not the reason: a PF-c grade whose review reason names a
+    separate concern is still unassessed (the check waits)."""
+
+    _paths, vault, repository = _assumed(tmp_path)
+    unsure = submit(vault, repository, _UnverifiedWithAConcern(), item_id="pi_svd_compute_001",
+                    answer=VERIFYING, when=at(DUE_HOURS + 1))
+    row = repository.fetch_practice_attempt(unsure.attempt_id)
+    assert row["manual_review"] and row["manual_review_reason"] not in (None, PFC_UNVERIFIED_BLOCK)
+    with repository.connection() as connection:
+        assert unsure.attempt_id in pfc_unverified_attempt_ids(connection)
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, assumption.ineligible_answers, intent) == ("open", 1, "assumed")
+
+
+def test_a_pfc_grade_whose_review_was_cleared_still_waits(tmp_path):
+    """An expired clarification clears the review reason; the PF-c records
+    stay, so the answer is still unassessed."""
+
+    _paths, vault, repository = _assumed(tmp_path)
+    unverified = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_001",
+                        answer=VERIFYING, when=at(DUE_HOURS + 1))
+    row = repository.fetch_practice_attempt(unverified.attempt_id)
+    repository.update_attempt_grade(
+        unverified.attempt_id,
+        rubric_score=int(row["rubric_score"] or 0),
+        correctness=float(row["correctness"] or 0.0),
+        grader_confidence=float(row["grader_confidence"] or 0.0),
+        manual_review=False,
+        manual_review_reason=None,
+        error_type=row.get("error_type"),
+    )
+    with repository.connection() as connection:
+        assert unverified.attempt_id in pfc_unverified_attempt_ids(connection)
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, assumption.ineligible_answers, intent) == ("open", 1, "assumed")
+
+
+def test_an_assessed_shortfall_beside_an_unverified_criterion_is_a_miss(tmp_path):
+    """The gate applied (``result`` unverified) but a located error on
+    ``setup`` is assessed: ``assessed_shortfall`` makes it a miss."""
+
+    _paths, vault, repository = _assumed(tmp_path)
+    answer = "I set up B = U V first.\nFinal answer: U Sigma V^T"
+    mixed = submit(vault, repository, _LocatedSetupUnlocatedResult(), item_id="pi_svd_compute_001",
+                   answer=answer, when=at(DUE_HOURS + 1))
+    support = repository.latest_blind_grade_record(mixed.attempt_id)["record"]["grading_support"]
+    assert support["unverified_criterion_ids"] == ["result"] and support["assessed_shortfall"] is True
+    with repository.connection() as connection:
+        assert mixed.attempt_id not in pfc_unverified_attempt_ids(connection)
+    assumption, intent = _state(vault, repository)
+    assert (assumption.status, intent) == ("failed", "learning")
+
+
+def test_a_record_written_before_the_rule_keeps_m2s_reading(tmp_path, monkeypatch):
+    """A PF-c grade as ``mvp-0.10`` wrote it before the unassessed rule
+    (unmarked stamp, no ``assessed_shortfall``, the grader's own sum) is read
+    by M2's points inference: still unassessed, the check waits."""
+
+    from tests.test_pfc_unassessed_readers import _as_the_base_implementation_wrote_it
+
+    _paths, vault, repository = _assumed(tmp_path)
+    with monkeypatch.context() as patch:
+        _as_the_base_implementation_wrote_it(patch)
+        base = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_001",
+                      answer=VERIFYING, when=at(DUE_HOURS + 1))
+    support = repository.latest_blind_grade_record(base.attempt_id)["record"]["grading_support"]
+    assert "assessed_shortfall" not in support
+    assert float(repository.fetch_practice_attempt(base.attempt_id)["correctness"]) < 1.0
+    with repository.connection() as connection:
+        assert base.attempt_id in pfc_unverified_attempt_ids(connection)
     assumption, intent = _state(vault, repository)
     assert (assumption.status, assumption.ineligible_answers, intent) == ("open", 1, "assumed")
 

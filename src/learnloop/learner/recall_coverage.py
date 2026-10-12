@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from math import exp
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from learnloop.config import EvidenceConfig, LearnLoopConfig
 from learnloop.db.repositories import MasteryState, Repository
@@ -104,6 +104,7 @@ def scale_coverage_for_graded_criteria(
     *,
     criterion_points: Mapping[str, float],
     transfer_evidence_multiplier: float = 1.0,
+    criterion_facet_weights: Mapping[str, Mapping[str, float]] | None = None,
 ) -> CoverageResult:
     """Scale per-facet evidence mass by the graded (asked) criterion share.
 
@@ -121,11 +122,18 @@ def scale_coverage_for_graded_criteria(
     No-ops (bit-for-bit) when the rubric has no criteria, no criterion→facet
     mapping exists, ``criterion_points`` is empty (no criterion information:
     legacy behavior kept), or every criterion is graded and core-tier.
+
+    ``criterion_facet_weights`` overrides the item's map (PF-c passes
+    :func:`target_criterion_facet_weights`); None keeps it.
     """
 
     if rubric is None or not rubric.criteria or not criterion_points:
         return coverage
-    mapping = criterion_facet_weights_for_item(item, rubric)
+    mapping = (
+        dict(criterion_facet_weights)
+        if criterion_facet_weights is not None
+        else criterion_facet_weights_for_item(item, rubric)
+    )
     if not mapping:
         return coverage
     graded = set(criterion_points)
@@ -225,13 +233,20 @@ def derive_facet_outcomes(
     correctness: float,
     attempt_type: str,
     error_attributions: Iterable[Any] = (),
+    criterion_facet_weights: Mapping[str, Mapping[str, float]] | None = None,
 ) -> dict[str, float]:
     if attempt_type == "dont_know":
         return {facet: 0.0 for facet in covered_facets}
     criteria = {criterion.id: criterion for criterion in rubric.criteria}
     max_points = max(float(rubric.max_points), 1.0)
     attributed_failed_facets = _error_attributed_facets(error_attributions)
-    criterion_facet_weights = criterion_facet_weights_for_item(item, rubric)
+    # ``criterion_facet_weights`` overrides the item's map (PF-c passes
+    # ``target_criterion_facet_weights``); None keeps it.
+    criterion_facet_weights = (
+        dict(criterion_facet_weights)
+        if criterion_facet_weights is not None
+        else criterion_facet_weights_for_item(item, rubric)
+    )
     # Partial grading (teach_back asked-criteria-only; graders that omit a
     # criterion): a criterion absent from criterion_points was never assessed,
     # so it contributes nothing — it must not be scored as a zero-point
@@ -827,6 +842,52 @@ def criterion_facet_weights_for_item(item: PracticeItem, rubric: Rubric) -> dict
     if item.criterion_facet_weights:
         return dict(item.criterion_facet_weights)
     return _inferred_criterion_facet_weights(item, rubric)
+
+
+def target_criterion_facet_weights(
+    item: PracticeItem,
+    rubric: Rubric,
+    *,
+    resolve: Callable[[str], str] | None = None,
+) -> dict[str, dict[str, float]]:
+    """Each criterion's item facets, read from the rubric's observation contract.
+
+    PF-c (review F1): with a criterion left unassessed, the attempt step and
+    the learner field must drop exactly the facet evidence the canonical
+    projection drops, so they read the same criterion -> facet map it does:
+    ``compile_criterion_targets`` (authored targets; else the authored
+    ``criterion_facet_weights`` facets; else the item's facets), each target
+    weighted by its role as ``allocate_success_mass`` weights it. A criterion
+    without targets keeps its authored weights. Never the lexical inference,
+    which maps nothing on most items and then smears the attempt's outcome over
+    every facet. Target facets are matched to the item's evidence facets
+    through ``resolve`` (canonical ids); a facet outside the item is ignored.
+    """
+
+    from learnloop.learner.capability_mapping import ROLE_WEIGHTS, compile_criterion_targets
+
+    canonical = resolve or (lambda facet: facet)
+    item_facet: dict[str, str] = {}
+    for facet in item.evidence_facets:
+        item_facet.setdefault(canonical(str(facet)), str(facet))
+    mapping: dict[str, dict[str, float]] = {}
+    for criterion in rubric.criteria:
+        weights: dict[str, float] = {}
+        authored = item.criterion_facet_weights.get(criterion.id) if not criterion.targets else None
+        if authored:
+            pairs = [(str(facet), float(weight)) for facet, weight in authored.items()]
+        else:
+            pairs = [
+                (str(target.facet), ROLE_WEIGHTS.get(target.role, 1.0))
+                for target in compile_criterion_targets(item, criterion, resolved_rubric=rubric)
+            ]
+        for facet, weight in pairs:
+            own = item_facet.get(canonical(facet))
+            if own is not None and weight > 0:
+                weights[own] = weights.get(own, 0.0) + weight
+        if weights:
+            mapping[criterion.id] = weights
+    return mapping
 
 
 def _inferred_criterion_facet_weights(item: PracticeItem, rubric: Rubric) -> dict[str, dict[str, float]]:

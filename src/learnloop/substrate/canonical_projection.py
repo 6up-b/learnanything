@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Collection, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Collection, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -63,9 +63,96 @@ DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
 # PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
 # UNVERIFIED (the final answer verified against the reference, and no error
 # was located in the learner's words). Its ``attribution_json`` carries this
-# block reason: the failure is neither negative facet evidence nor an
-# observed unresolved failure, whatever the criterion's target count.
+# block reason.
+#
+# Two interpretations exist, and each row names its own (review F5):
+#
+# * written under the UNASSESSED rule (owner decision 2026-10-12) - the block
+#   carries ``UNVERIFIED_INTERPRETATION_KEY: UNASSESSED_INTERPRETATION``. The
+#   route never exercised the criterion's skill, so like a criterion nobody
+#   graded (projection v6) it produces no outcome at all: no positive or
+#   negative facet evidence, no unresolved failure, and the attempt's persisted
+#   grade is over the assessed criteria only;
+# * written before it (the M2 implementation; no key) - the grade kept the
+#   grader's points, which are credited, and the shortfall is blocked from
+#   negative evidence and from the unresolved-cause gate.
+#
+# Replay reads the row's own interpretation and never reinterprets history; a
+# regrade writes the attempt again under the current rule (the upgrade path).
 UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
+UNVERIFIED_INTERPRETATION_KEY = "unverified_interpretation"
+UNASSESSED_INTERPRETATION = "unassessed"
+
+
+def _attribution_mapping(attribution: Any) -> Mapping[str, Any] | None:
+    if isinstance(attribution, (str, bytes)):
+        try:
+            attribution = json.loads(attribution)
+        except (TypeError, ValueError):
+            return None
+    return attribution if isinstance(attribution, Mapping) else None
+
+
+def unverified_evidence_row(attribution: Any) -> bool:
+    """Whether a grading-evidence row is a PF-c unverified criterion, under
+    either interpretation. ``attribution`` is the row's persisted
+    ``attribution_json``: the JSON text or its decoded mapping."""
+
+    mapping = _attribution_mapping(attribution)
+    return mapping is not None and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
+
+
+def unassessed_evidence_row(attribution: Any) -> bool:
+    """Whether a grading-evidence row is a PF-c criterion written under the
+    unassessed rule (owner decision 2026-10-12).
+
+    Every reader that turns grading evidence into a grade, a facet outcome, a
+    probe feature, a repair verification or a display uses this one test. A
+    row written before the rule (no interpretation mark) is False here: it is
+    read as it was written.
+    """
+
+    mapping = _attribution_mapping(attribution)
+    return (
+        mapping is not None
+        and mapping.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
+        and mapping.get(UNVERIFIED_INTERPRETATION_KEY) == UNASSESSED_INTERPRETATION
+    )
+
+
+def pfc_assessment(attributions: Iterable[Any]) -> str | None:
+    """One attempt's PF-c assessment state from its current evidence rows'
+    ``attribution_json`` values: ``None`` unless a row was written under the
+    unassessed rule, else partially or nothing assessed (``outcome_contract``)."""
+
+    from learnloop.outcome_contract import PFC_NOTHING_ASSESSED, PFC_PARTIALLY_ASSESSED
+
+    flags = [unassessed_evidence_row(value) for value in attributions]
+    if not any(flags):
+        return None
+    return PFC_NOTHING_ASSESSED if all(flags) else PFC_PARTIALLY_ASSESSED
+
+
+def pfc_assessments(connection: Any, attempt_ids: Iterable[str]) -> dict[str, str]:
+    """``pfc_assessment`` for each of ``attempt_ids`` that has one, read from
+    the current (non-superseded) grading evidence on ``connection``."""
+
+    ids = sorted({str(value) for value in attempt_ids if value})
+    values: dict[str, list[Any]] = defaultdict(list)
+    for start in range(0, len(ids), 500):
+        chunk = ids[start : start + 500]
+        placeholders = ",".join("?" for _ in chunk)
+        for attempt_id, attribution in connection.execute(
+            "SELECT attempt_id, attribution_json FROM grading_evidence "
+            f"WHERE superseded_at IS NULL AND attempt_id IN ({placeholders})",
+            chunk,
+        ):
+            values[str(attempt_id)].append(attribution)
+    return {
+        attempt_id: state
+        for attempt_id, rows in values.items()
+        if (state := pfc_assessment(rows)) is not None
+    }
 
 # Assistance channels that certify nothing (§5.4/§6).
 #
@@ -699,7 +786,7 @@ def project_canonical_facet_state(
         outcomes: list[CriterionOutcome] = []
         for criterion in criteria:
             row = evidence_by_criterion.get(criterion.id)
-            if row is None:
+            if row is None or unassessed_evidence_row(row.get("attribution_json")):
                 # Projection v6: absent evidence is not an observation. A
                 # criterion nobody graded produces NO outcome — neither positive
                 # nor negative — rather than reading as fraction 0.0 and banking
@@ -709,6 +796,12 @@ def project_canonical_facet_state(
                 # from the outcome list as passed, so an ungraded parent neither
                 # manufactures its own failure nor suppresses its descendants'
                 # observed evidence.
+                # PF-c: a criterion written under the unassessed rule (owner
+                # decision 2026-10-12) is unassessed in exactly this sense: its
+                # kept points earn no credit and its shortfall is no failure.
+                # Only blind grades (DIAGNOSIS_SPLIT_VERSIONS) write the block,
+                # so joint vaults fold as before; a row written before the rule
+                # falls through to its M2 reading below.
                 continue
             fraction = 0.0
             if criterion.points > 0:
@@ -805,11 +898,12 @@ def project_canonical_facet_state(
             observed_fraction = (
                 adjudicated_fraction if adjudicated_fraction is not None else raw_fraction
             )
-            unverified_failure = (
-                isinstance(raw_attribution, Mapping)
-                and raw_attribution.get("negative_evidence_blocked")
-                == UNVERIFIED_CRITERION_BLOCK
-            )
+            # PF-c row written before the unassessed rule (review F5): read as
+            # the M2 implementation wrote it - its kept points are credited
+            # above, and the shortfall is neither negative facet evidence nor
+            # an observed unresolved failure. (Rows written under the rule
+            # never get here.)
+            unverified_failure = unverified_evidence_row(raw_attribution)
             unresolved_negative = not unverified_failure and observed_unresolved_failure(
                 observed_fraction, targets, attribution
             )

@@ -32,7 +32,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import Repository
-from learnloop.substrate.canonical_projection import surface_group_id
+from learnloop.substrate.canonical_projection import surface_group_id, unassessed_evidence_row
 from learnloop.diagnosis.causal_activity_policy import assess_near_clone
 from learnloop.diagnosis.causal_attribution import (
     CAUSAL_DECISION_POLICY_VERSION,
@@ -1895,6 +1895,18 @@ def record_delayed_cold_verification(
         raise ColdVerificationPrecondition(
             "missing_chain",
             "cold verification must declare the avoided source affordance",
+        )
+    cold_evidence = repository.fetch_grading_evidence(cold_attempt_id)
+    if cold_evidence and all(
+        unassessed_evidence_row(row.attribution_json) for row in cold_evidence
+    ):
+        # PF-c (review F2): the verified answer took a route no criterion
+        # measured. Its correctness of 1.0 is for scheduling only; the attempt
+        # is no evidence, so it can neither confirm nor fail the repair.
+        raise ColdVerificationPrecondition(
+            "missing_chain",
+            "the cold attempt assessed no criterion, so it measures nothing about the repair",
+            detail={"reason": "cold_attempt_unassessed"},
         )
     parameters = resolve_causal_probe_parameters(repository)
     threshold = parameters["cold_verification_success_correctness"]

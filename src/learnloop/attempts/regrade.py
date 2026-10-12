@@ -12,7 +12,11 @@ from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
-from learnloop.attempts.attempts import GradeAttribution, unverified_attribution_json
+from learnloop.attempts.attempts import (
+    GradeAttribution,
+    assessed_rubric_score,
+    unverified_attribution_json,
+)
 from learnloop.attempts.grading import (
     GradingValidationError,
     ValidatedCodexGrade,
@@ -250,13 +254,26 @@ def regrade_attempt(
                 "grading_support": dict(run.grading_support),
                 "regrade": True,
             }
-            # PF-c: a criterion the gate recorded unverified keeps its points
-            # but writes no negative evidence, exactly as on the live grade.
+            # PF-c: a criterion the gate recorded unverified is unassessed
+            # (owner decision 2026-10-12), exactly as on the live grade: its
+            # row is stamped with the block, the grade excludes it below, and
+            # replay leaves it out of the facet evidence. The informational
+            # reason is recorded only as the grade's sole concern (review F7).
             unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
             if run.grading_support.get("valid_alternative_gate_applied"):
-                from learnloop.attempts.grading_support import UNVERIFIED_REVIEW_REASON
+                from learnloop.attempts.grading_support import gated_review_reason
 
-                validated = replace(validated, manual_review_reason=UNVERIFIED_REVIEW_REASON)
+                validated = replace(
+                    validated,
+                    manual_review_reason=gated_review_reason(
+                        run,
+                        attempt_id=attempt["id"],
+                        item=item,
+                        vault=vault,
+                        learner_answer_md=attempt.get("learner_answer_md") or "",
+                        rubric=rubric,
+                    ),
+                )
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
             validated = validate_codex_grading_proposal(
@@ -288,6 +305,14 @@ def regrade_attempt(
     else:
         criterion_evidence = list(validated.criterion_evidence)
         new_score = validated.rubric_score
+        if unverified:
+            new_score = assessed_rubric_score(
+                rubric,
+                {evidence.criterion_id: evidence.points_awarded for evidence in criterion_evidence},
+                validated.fatal_errors,
+                unassessed_criterion_ids=unverified,
+            )
+            validated = replace(validated, rubric_score=new_score)
     first_new_evidence_id = new_ulid()
     new_evidence_rows = []
     criterion_points = {}

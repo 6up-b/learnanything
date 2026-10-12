@@ -17,6 +17,7 @@ from learnloop.numeric import percentiles
 from learnloop.scheduling.fsrs import MemoryState, apply_review, forgetting_curve
 from learnloop.scheduling.scheduler import UNAVAILABLE_PROPENSITY_KIND
 from learnloop.params.fitted_params import resolve_fsrs_weights
+from learnloop.substrate.canonical_projection import pfc_assessments
 from learnloop.vault.models import LoadedVault
 
 from math import log
@@ -347,8 +348,20 @@ def _retention_section(vault: LoadedVault, repository: Repository, *, bins: int)
     by_band: dict[str, list[tuple[float, float]]] = {label: [] for _, _, label in bands}
     unmatched = 0
     from learnloop.outcome_contract import LABEL_VERSION, retention_exclusions
+
+    label_rows = repository.retention_label_rows()
+    # PF-c: the review reason is informational once the grade is over the
+    # assessed criteria; an outcome with nothing assessed is no measurement.
+    # Read from the evidence for every outcome, whatever its review reason
+    # says (review F7).
+    outcomes = {row["outcome_attempt_id"] for row in label_rows}
+    pfc_states: dict[str, str] = {}
+    if outcomes:
+        with repository.connection() as connection:
+            pfc_states = pfc_assessments(connection, outcomes)
     excluded: dict[str, int] = {}
-    for label_row in repository.retention_label_rows():
+    for label_row in label_rows:
+        label_row["outcome_pfc_assessment"] = pfc_states.get(label_row["outcome_attempt_id"])
         reasons = retention_exclusions(label_row)
         if reasons:
             for reason in reasons:

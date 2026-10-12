@@ -945,9 +945,16 @@ def intervention_need_dto(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) -> dict[str, Any]:
+    from learnloop.attempts.grading_support import UNASSESSED_CRITERION_LABEL
+    from learnloop.substrate.canonical_projection import unassessed_evidence_row
+
     criterion = None
     if rubric is not None:
         criterion = next((candidate for candidate in rubric.criteria if candidate.id == row.criterion_id), None)
+    # PF-c: an unverified criterion is not assessed (the learner took a
+    # different route to a verified answer); it is shown as such, never as
+    # lost points, and the grade excludes it.
+    assessed = not unassessed_evidence_row(row.attribution_json)
     return to_camel(
         {
             "criterion_id": row.criterion_id,
@@ -960,6 +967,8 @@ def criterion_evidence_dto(row: GradingEvidenceRecord, rubric: Rubric | None) ->
             # Rubric tier ("core" | "transfer") — the feedback UI shows a pill
             # when a rubric actually distinguishes tiers (teach_back items).
             "tier": getattr(criterion, "tier", None) if criterion is not None else None,
+            "assessed": assessed,
+            "not_assessed_label": None if assessed else UNASSESSED_CRITERION_LABEL,
         }
     )
 

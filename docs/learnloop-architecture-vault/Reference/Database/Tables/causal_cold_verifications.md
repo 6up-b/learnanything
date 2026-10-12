@@ -3,8 +3,8 @@ title: "causal_cold_verifications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
+source_commit_timestamp: "2026-10-12T16:11:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_cold_verifications"
@@ -119,6 +119,7 @@ None found by exact static reference scan.
 - `tests/test_causal_orchestrator.py`
 - `tests/test_causal_p2_acceptance.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_pfc_unassessed_readers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

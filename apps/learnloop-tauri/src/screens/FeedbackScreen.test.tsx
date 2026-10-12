@@ -283,3 +283,28 @@ it("polls a pending diagnosis and fills the card in place", async () => {
   await waitFor(() => expect(api.refreshFeedback).toHaveBeenCalledWith("att_1"));
   expect(api.getFeedback).toHaveBeenCalledTimes(1);
 });
+
+// PF-c (owner decision 2026-10-12): a criterion the learner's verified route
+// never exercised is not assessed. It shows as such, never as lost points, and
+// the gate's review reason is informational, not a review to do.
+it("shows an unverified criterion as not assessed and the PF-c flag as information", async () => {
+  api.getFeedback.mockResolvedValue({
+    ...FEEDBACK,
+    rubricScore: 4,
+    correctness: 1,
+    fsrsRating: "easy",
+    manualReviewReason: "valid_alternative_unverified",
+    criterionEvidence: [
+      { criterionId: "setup", criterionDescription: "Sets up the factorization.", pointsAwarded: 2, pointsPossible: 2, evidence: null, notes: null, graderTier: 3, assessed: true, notAssessedLabel: null },
+      { criterionId: "result", criterionDescription: "States the factorization.", pointsAwarded: 1, pointsPossible: 2, evidence: null, notes: null, graderTier: 3, assessed: false, notAssessedLabel: "not assessed (a different route)" }
+    ]
+  });
+  api.getTodayQueue.mockResolvedValue(queue([]));
+  render(<FeedbackScreen {...props()} />);
+  expect(await screen.findByText("States the factorization.")).toBeTruthy();
+  expect(screen.getByText("not assessed (a different route)")).toBeTruthy();
+  expect(screen.queryByText("1.0 / 2.0")).toBeNull();
+  expect(screen.getByText("2.0 / 2.0")).toBeTruthy();
+  expect(screen.getByTestId("unassessed-route-note")).toBeTruthy();
+  expect(screen.queryByText(/manual review recommended/)).toBeNull();
+});

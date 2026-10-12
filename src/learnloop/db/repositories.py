@@ -6417,6 +6417,7 @@ class Repository(
                 """
                 SELECT l.*, a.primed AS outcome_primed,
                        a.manual_review AS outcome_manual_review,
+                       a.manual_review_reason AS outcome_manual_review_reason,
                        a.session_id AS outcome_session_id,
                        source.session_id AS source_session_id
                 FROM learning_outcome_labels l

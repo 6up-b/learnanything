@@ -425,16 +425,26 @@ class FeedbackScreen(Screen):
             record.criterion_id: record
             for record in self.state.repository.fetch_grading_evidence(result.attempt_id)
         }
+        from learnloop.attempts.grading_support import UNASSESSED_CRITERION_LABEL
+        from learnloop.substrate.canonical_projection import unassessed_evidence_row
+
         parts: list = []
         for i, criterion in enumerate(self.rubric.criteria):
             if i:
                 parts.append("\n")
             record = evidence_map.get(criterion.id)
-            awarded = record.points_awarded if record else self.criterion_points.get(criterion.id, 0.0)
-            mark, tone = self._criterion_mark(awarded, criterion.points)
-            parts.append((f"{mark} ", f"{tone} bold"))
-            parts.append((criterion.id, "$text"))
-            parts.append((f"  {awarded:.1f}/{criterion.points:g}", f"{tone}"))
+            if record is not None and unassessed_evidence_row(record.attribution_json):
+                # PF-c: a different route to a verified answer; the grade
+                # excludes this criterion, so it shows no points at all.
+                parts.append(("– ", "$text-muted bold"))
+                parts.append((criterion.id, "$text"))
+                parts.append((f"  {UNASSESSED_CRITERION_LABEL}", "$text-muted"))
+            else:
+                awarded = record.points_awarded if record else self.criterion_points.get(criterion.id, 0.0)
+                mark, tone = self._criterion_mark(awarded, criterion.points)
+                parts.append((f"{mark} ", f"{tone} bold"))
+                parts.append((criterion.id, "$text"))
+                parts.append((f"  {awarded:.1f}/{criterion.points:g}", f"{tone}"))
             evidence = record.evidence if record and record.evidence else criterion.description
             if evidence:
                 parts.append("\n")

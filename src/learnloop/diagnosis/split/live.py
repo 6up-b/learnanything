@@ -168,9 +168,21 @@ def current_attempt_for(
 
 
 def needs_diagnosis(record: Mapping[str, Any]) -> bool:
-    """§5.1: a non-pass criterion, a fatal error, or an error attribution."""
+    """§5.1: a non-pass criterion, a fatal error, or an error attribution.
 
-    if record.get("fatal_errors") or record.get("error_attributions"):
+    PF-c (owner decision 2026-10-12): an unverified criterion is unassessed,
+    so it is not a non-pass, and the attributions the gate rescoped onto it
+    explain nothing that was measured. When the gate applied, only a fatal
+    error or an assessed shortfall (the gate's ``assessed_shortfall``) needs a
+    diagnosis; a record without that key reads as before.
+    """
+
+    if record.get("fatal_errors"):
+        return True
+    support = record.get("grading_support") or {}
+    if support.get("valid_alternative_gate_applied") and "assessed_shortfall" in support:
+        return bool(support["assessed_shortfall"])
+    if record.get("error_attributions"):
         return True
     maximum = record.get("max_points")
     score = record.get("rubric_score")

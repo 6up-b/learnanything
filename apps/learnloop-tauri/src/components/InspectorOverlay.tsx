@@ -27,6 +27,7 @@ import type {
   SchedulerComponents,
   SchedulerExplanationDto
 } from "../api/dto";
+import { NOT_ASSESSED_LABEL, UNVERIFIED_ROUTE_REVIEW_REASON, criterionAssessed } from "../api/dto";
 import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, HelpTooltip, Meta, modePillColor, Pill, PlainEnglishPanel, SectionHeader, type PillColor } from "./term";
 import { CapabilityGridView } from "./KnowledgeModel";
 import { RungVariantActions } from "./CardControls";
@@ -1030,7 +1031,12 @@ function AttemptBody({ id, detail, onGo }: { id: string; detail: AttemptInspecto
       {detail.errorType ? (
         <div style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
           <Pill color="red">{detail.errorType}</Pill>
-          {detail.manualReview ? <Pill color="amber">manual review</Pill> : null}
+          {/* PF-c's reason is a non-blocking log: informational, not a chore. */}
+          {detail.manualReview && detail.manualReviewReason === UNVERIFIED_ROUTE_REVIEW_REASON ? (
+            <Pill color="slate">different route</Pill>
+          ) : detail.manualReview ? (
+            <Pill color="amber">manual review</Pill>
+          ) : null}
         </div>
       ) : null}
 
@@ -1048,22 +1054,24 @@ function AttemptBody({ id, detail, onGo }: { id: string; detail: AttemptInspecto
           <SectionHeader>Grading evidence</SectionHeader>
           <div style={{ display: "grid", gap: 8 }}>
             {evidence.map((row) => {
+              const assessed = criterionAssessed(row);
               const earned = row.pointsAwarded > 0;
+              const tone = !assessed ? COLOR.textDim : earned ? COLOR.green : COLOR.red;
               return (
                 <div
                   key={row.criterionId}
                   style={{
-                    borderLeft: `3px solid ${earned ? COLOR.green : COLOR.red}`,
+                    borderLeft: `3px solid ${tone}`,
                     background: COLOR.bgElev,
                     padding: "8px 12px",
                     fontSize: 12
                   }}
                 >
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                    <span style={{ color: earned ? COLOR.green : COLOR.red, fontFamily: FONT_MONO }}>{earned ? "✓" : "✗"}</span>
+                    <span style={{ color: tone, fontFamily: FONT_MONO }}>{!assessed ? "–" : earned ? "✓" : "✗"}</span>
                     <span style={{ color: COLOR.cyan, fontFamily: FONT_MONO, overflowWrap: "anywhere" }}>{row.criterionId}</span>
-                    <span style={{ color: earned ? COLOR.green : COLOR.red, fontFamily: FONT_MONO }}>
-                      {row.pointsAwarded}/{row.pointsPossible}
+                    <span style={{ color: tone, fontFamily: FONT_MONO }}>
+                      {assessed ? `${row.pointsAwarded}/${row.pointsPossible}` : row.notAssessedLabel ?? NOT_ASSESSED_LABEL}
                     </span>
                   </div>
                   {row.criterionDescription ? (

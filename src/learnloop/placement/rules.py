@@ -17,11 +17,15 @@ the rule fails closed.
 
 Grades are read as the Slice 1 split records them: a blind grade and a regrade
 both land on the attempt row (a regrade in place), and PF-c's unverified
-criteria are no failure evidence. An answer whose only shortfall is on
-criteria the valid-alternative gate recorded unverified is *unassessed*
-(:attr:`AnswerFacts.unassessed`): never a pass, never a miss, and skipped by
-fast-track and the quick check, as the field's outcome view leaves it
-unmeasured until it is reviewed.
+criteria are unassessed (owner decision 2026-10-12): neither credit nor
+failure. An answer whose only shortfall is on criteria the valid-alternative
+gate recorded unverified is *unassessed* (:attr:`AnswerFacts.unassessed`):
+never a pass, never a miss, and skipped by fast-track and the quick check, as
+the field's outcome view leaves it unmeasured. Its attempt row may read full
+marks (the grade is over the assessed criteria only), so placement reads PF-c
+from its own records - the stamp on the evidence rows and the gate's
+``assessed_shortfall`` - never from the grade or the review reason
+(``placement.state.pfc_unverified_attempt_ids``).
 """
 from __future__ import annotations
 
@@ -48,6 +52,13 @@ ASSISTED_CLASSES = frozenset({"repair_activity", "instructional_diagnostic"})
 #: ``substrate.canonical_projection.UNVERIFIED_CRITERION_BLOCK`` (pinned by a
 #: test): placement may not import ``substrate``, which already imports it.
 PFC_UNVERIFIED_BLOCK = "valid_alternative_unverified"
+#: The key and value an unverified row's stamp carries when it was written
+#: under the unassessed rule (owner decision 2026-10-12); a row from before the
+#: rule has no key. The same values as ``substrate.canonical_projection``'s
+#: ``UNVERIFIED_INTERPRETATION_KEY`` / ``UNASSESSED_INTERPRETATION`` (pinned by
+#: a test).
+PFC_UNASSESSED_INTERPRETATION_KEY = "unverified_interpretation"
+PFC_UNASSESSED_INTERPRETATION = "unassessed"
 _FULL_MARKS = 1.0 - 1e-9
 
 
@@ -79,9 +90,9 @@ class AnswerFacts:
     reveal_event_id: str | None = None
     #: Start of the window the independence check scanned (exclusive).
     independence_since: str | None = None
-    #: PF-c (Slice 1 M2): the current grade falls short only on criteria the
+    #: PF-c: the current grade falls short only on criteria the
     #: valid-alternative gate recorded unverified (the final answer verified;
-    #: no error was located). Not a measurement until it is reviewed.
+    #: nothing assessed fell short). Unassessed: not a measurement.
     grade_unverified: bool = False
 
     @property

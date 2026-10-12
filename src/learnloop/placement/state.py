@@ -15,15 +15,18 @@ Everything here is read from immutable rows: ``assumption_decisions`` and
   the item's previous attempt or the decision, whichever is later, plus any
   final coldness receipt) passes it; a clean answer the rule rejects is
   ineligible and the check waits;
-- an answer whose grade is PF-c unverified (Slice 1 M2: the final answer
-  verified, the grader marked a criterion down without locating an error) is
-  no failure evidence and no pass: it is ineligible, early or on schedule, and
-  never a lapse;
+- an answer whose grade is PF-c unverified (the final answer verified, the
+  grader marked a criterion down without locating an error, and nothing
+  assessed fell short) is unassessed - no failure evidence and no pass: it is
+  ineligible, early or on schedule, and never a lapse;
 - an "I don't know this" before any of that returns it.
 
 Grades are read from the attempt row, where a blind grade lands like a joint
-one and a regrade (which also re-queues the diagnosis) replaces it in place;
-``grading_evidence``'s current rows name the unverified criteria.
+one and a regrade (which also re-queues the diagnosis) replaces it in place.
+PF-c is read from its own records (:func:`pfc_unverified_attempt_ids`):
+``grading_evidence``'s current rows carry the unverified stamp, and the latest
+blind grade record's ``assessed_shortfall`` says whether anything assessed fell
+short.
 
 Each LO's current placement intent is derived from its decisions, returns and
 answers in time order (:class:`LearningObjectIntent`): ``assumed`` while an
@@ -51,6 +54,8 @@ from learnloop.db.repositories import Repository
 from learnloop.field.types import LearnerPredictor
 from learnloop.placement.rules import (
     CHECK_PASS,
+    PFC_UNASSESSED_INTERPRETATION,
+    PFC_UNASSESSED_INTERPRETATION_KEY,
     PFC_UNVERIFIED_BLOCK,
     AnswerFacts,
     answer_facts,
@@ -239,31 +244,69 @@ def _criterion_maxima(connection: Any, contract_ids: Iterable[str]) -> dict[tupl
     return maxima
 
 
-def pfc_unverified_attempt_ids(connection: Any) -> frozenset[str]:
-    """Attempts whose current grade is PF-c unverified (Slice 1 M2).
+def _latest_grading_supports(connection: Any, attempt_ids: Iterable[str]) -> dict[str, Mapping[str, Any]]:
+    """Each attempt's latest blind grade record's ``grading_support``.
 
-    The attempt row carries the current grade (a regrade rewrites it in place):
-    PF-c's valid-alternative gate sets ``manual_review_reason`` to its block
-    reason on the live grade and on a regrade alike. Each criterion's current
-    evidence is its latest unsuperseded ``grading_evidence`` row in write
-    order (a regrade appends rows and may leave the live grade's rows
-    unsuperseded). An attempt qualifies when a current criterion carries the
-    gate's ``negative_evidence_blocked`` block and no other current criterion
-    is below its maximum: a located error on a verified criterion is still a
-    miss. A verified criterion whose maximum cannot be read (no assessment
-    contract on the attempt) is not counted as a located error.
+    The latest record is the grade that wrote the attempt's current PF-c rows
+    (a regrade appends a superseding record beside its new evidence). A
+    pre-170 database has no blind grades.
     """
 
-    attempt_columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)").fetchall()}
+    wanted = sorted({str(value) for value in attempt_ids if value})
+    if not wanted or connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='blind_grade_records'"
+    ).fetchone() is None:
+        return {}
+    supports: dict[str, Mapping[str, Any]] = {}
+    for start in range(0, len(wanted), 500):
+        chunk = wanted[start:start + 500]
+        for attempt_id, record_json in connection.execute(
+            "SELECT attempt_id, record_json FROM blind_grade_records "
+            f"WHERE attempt_id IN ({','.join('?' for _ in chunk)}) ORDER BY attempt_id, created_at, id",
+            chunk,
+        ).fetchall():
+            try:
+                record = json.loads(record_json or "{}")
+            except ValueError:
+                record = {}
+            support = record.get("grading_support") if isinstance(record, dict) else None
+            supports[str(attempt_id)] = support if isinstance(support, Mapping) else {}
+    return supports
+
+
+def pfc_unverified_attempt_ids(connection: Any) -> frozenset[str]:
+    """Attempts whose current grade placement reads as PF-c *unassessed*.
+
+    Read from PF-c's own records, never from ``manual_review_reason``: since
+    the PF-c unassessed rule (owner decision 2026-10-12) that reason is a
+    non-blocking log, recorded only when it is the grade's sole review concern,
+    so a PF-c grade may carry another reason, or none once a review is cleared.
+
+    Each criterion's current evidence is its latest unsuperseded
+    ``grading_evidence`` row in write order (a regrade appends rows and may
+    leave the live grade's rows unsuperseded). An attempt qualifies when a
+    current criterion carries the valid-alternative gate's
+    ``negative_evidence_blocked`` stamp and nothing ASSESSED fell short:
+
+    - rows written under the unassessed rule (the stamp names
+      ``unverified_interpretation = unassessed``) are read with the gate's own
+      verdict, ``grading_support.assessed_shortfall`` on the attempt's latest
+      blind grade record (a below-full criterion that is not unverified, or an
+      attribution the gate left in force: still a miss);
+    - rows written before the rule (Slice 1 M2: an unmarked stamp, no
+      ``assessed_shortfall``) keep M2's reading: no other current criterion is
+      below its maximum. A verified criterion whose maximum cannot be read (no
+      assessment contract on the attempt) is not counted as a located error.
+    """
+
     evidence_columns = {row[1] for row in connection.execute("PRAGMA table_info(grading_evidence)").fetchall()}
-    if "manual_review_reason" not in attempt_columns or not {
-        "attribution_json", "assessment_contract_version_id",
-    } <= evidence_columns:
+    if not {"attribution_json", "assessment_contract_version_id", "superseded_at"} <= evidence_columns:
         return frozenset()
     candidates = [
         str(row[0])
         for row in connection.execute(
-            "SELECT id FROM practice_attempts WHERE manual_review_reason = ? ORDER BY id",
+            "SELECT DISTINCT attempt_id FROM grading_evidence "
+            "WHERE superseded_at IS NULL AND instr(attribution_json, ?) > 0 ORDER BY attempt_id",
             (PFC_UNVERIFIED_BLOCK,),
         ).fetchall()
     ]
@@ -286,16 +329,41 @@ def pfc_unverified_attempt_ids(connection: Any) -> frozenset[str]:
                 contracts[attempt_id].add(str(row["assessment_contract_version_id"]))
             if row["superseded_at"] is None:  # later writes overwrite earlier ones
                 current[attempt_id][str(row["criterion_id"])] = row
-    maxima = _criterion_maxima(connection, (cid for ids in contracts.values() for cid in ids))
 
-    def unverified(row: Mapping[str, Any]) -> bool:
+    def stamp(row: Mapping[str, Any]) -> Mapping[str, Any] | None:
         try:
             attribution = json.loads(row.get("attribution_json") or "null")
         except ValueError:
-            return False
-        return isinstance(attribution, dict) and (
-            attribution.get("negative_evidence_blocked") == PFC_UNVERIFIED_BLOCK
-        )
+            return None
+        if isinstance(attribution, dict) and attribution.get("negative_evidence_blocked") == PFC_UNVERIFIED_BLOCK:
+            return attribution
+        return None
+
+    stamped = {
+        attempt_id: [value for row in rows.values() if (value := stamp(row)) is not None]
+        for attempt_id, rows in current.items()
+    }
+    stamped = {attempt_id: values for attempt_id, values in stamped.items() if values}
+    supports = _latest_grading_supports(connection, stamped)
+    result: set[str] = set()
+    pre_rule: list[str] = []
+    for attempt_id, stamps in stamped.items():
+        support = supports.get(attempt_id) or {}
+        if (
+            any(value.get(PFC_UNASSESSED_INTERPRETATION_KEY) == PFC_UNASSESSED_INTERPRETATION for value in stamps)
+            and support.get("valid_alternative_gate_applied")
+            and "assessed_shortfall" in support
+        ):
+            # Written under the unassessed rule: the gate's own verdict.
+            if not support["assessed_shortfall"]:
+                result.add(attempt_id)
+        else:
+            pre_rule.append(attempt_id)
+    if not pre_rule:
+        return frozenset(result)
+    # Written before the rule (M2): a located error is a verified criterion
+    # below its maximum.
+    maxima = _criterion_maxima(connection, (cid for attempt_id in pre_rule for cid in contracts[attempt_id]))
 
     def maximum(attempt_id: str, criterion_id: str) -> float | None:
         values = {
@@ -305,15 +373,12 @@ def pfc_unverified_attempt_ids(connection: Any) -> frozenset[str]:
         }
         return min(values) if values else None
 
-    result: set[str] = set()
-    for attempt_id, rows in current.items():
-        if not any(unverified(row) for row in rows.values()):
-            continue
+    for attempt_id in pre_rule:
         located = any(
             (limit := maximum(attempt_id, criterion_id)) is not None
             and float(row["points_awarded"]) + 1e-9 < limit
-            for criterion_id, row in rows.items()
-            if not unverified(row)
+            for criterion_id, row in current[attempt_id].items()
+            if stamp(row) is None
         )
         if not located:
             result.add(attempt_id)

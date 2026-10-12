@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
+source_commit_timestamp: "2026-10-12T16:11:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -155,6 +155,7 @@ Indexes and uniqueness:
 - `tests/test_guided_redo.py`
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_item_authoring.py`
+- `tests/test_pfc_unassessed_readers.py`
 - `tests/test_practice_index_admission.py`
 - `tests/test_quick_check.py`
 - `tests/test_reveal_ledger.py`

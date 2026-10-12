@@ -3,8 +3,8 @@ title: "Config - placement"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "0583648dffd74e724a64c74bce0e3cbcd6036e74"
-source_commit_timestamp: "2026-10-12T15:19:50-04:00"
+source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
+source_commit_timestamp: "2026-10-12T16:11:05-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml placement"
@@ -53,8 +53,8 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `placement.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for F2 placement at mvp-0.11; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1553`; `src/learnloop/placement/state.py:76` |
-| `placement.initial_probes` | `false` | boolean | modeled default or validator seed | Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1556`; `src/learnloop/placement/state.py:83` |
+| `placement.enabled` | `true` | boolean | modeled default or validator seed | Kill switch for F2 placement at mvp-0.11; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1553`; `src/learnloop/placement/state.py:81` |
+| `placement.initial_probes` | `false` | boolean | modeled default or validator seed | Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1556`; `src/learnloop/placement/state.py:88` |
 | `placement.assumed_first_interval_days` | `14` | integer | modeled default or validator seed | Days from an assumed-known decision to its first review, which is the check (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1558`; `src/learnloop/placement/decisions.py:120` |
 | `placement.fast_track_min_correct` | `2` | integer | modeled default or validator seed | Clean full-marks first answers fast-track needs before the probability test (D6, at least 2). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1560`; `src/learnloop/placement/decisions.py:350` |
 | `placement.fast_track_q` | `0.8` | number | modeled default or validator seed | Probability the active predictor must give that the LO's ability exceeds the known threshold (D6). | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1562`; `src/learnloop/placement/decisions.py:116` |

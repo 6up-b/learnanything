@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import shutil
 import sqlite3
-from typing import Any
+from typing import Any, Mapping
 
 from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
@@ -447,7 +447,11 @@ def _cold_receipt_status(derived: dict[str, Any], observed: dict[str, Any]) -> s
     return "unknown"
 
 
-def _r_next(source: dict[str, Any], future: dict[str, Any] | None) -> dict[str, Any]:
+def _r_next(
+    source: dict[str, Any],
+    future: dict[str, Any] | None,
+    pfc_states: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
     if future is None:
         return {"status": "pending", "outcome_attempt_id": None, "value": None, "elapsed_seconds": None, "same_item": None, "retention_exclusions": [], "outcome_origin": None}
     elapsed = int((_timestamp(future["created_at"]) - _timestamp(source["created_at"])).total_seconds())
@@ -457,6 +461,8 @@ def _r_next(source: dict[str, Any], future: dict[str, Any] | None) -> dict[str, 
         "outcome_hints_used": future.get("hints_used"),
         "outcome_primed": future.get("primed"),
         "outcome_manual_review": future.get("manual_review"),
+        "outcome_manual_review_reason": future.get("manual_review_reason"),
+        "outcome_pfc_assessment": (pfc_states or {}).get(future["id"]),
         "source_session_id": source.get("session_id"),
         "outcome_session_id": future.get("session_id"),
         "intervening_attempt_count": 0,
@@ -495,6 +501,16 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 
     attempts = read("practice_attempts")
     attempt_by_id = {row["id"]: row for row in attempts}
+    # PF-c: an informational review reason, unless nothing was assessed. The
+    # state is read from the evidence of every attempt, whatever its review
+    # reason says (review F7).
+    from learnloop.substrate.canonical_projection import pfc_assessments
+
+    pfc_states = (
+        pfc_assessments(connection, (row["id"] for row in attempts))
+        if "grading_evidence" in tables
+        else {}
+    )
     history_by_learning_object = _index_by(attempts, "learning_object_id")
     final_receipts_by_source = _index_by((row for row in read("coldness_receipts") if row["stage"] == "final"), "source_attempt_id")
     opportunities_by_source = _index_by(read("cold_measurement_opportunities"), "source_attempt_id")
@@ -551,7 +567,7 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
                 "collection_version": source.get("collection_version", "legacy-unversioned"),
                 "label_version": LABEL_VERSION,
                 "evidence_origin": source.get("evidence_origin", "unknown"),
-                "R_next": _r_next(source, future),
+                "R_next": _r_next(source, future, pfc_states),
                 "R_cold": cold_records(source_id),
                 "Q": {"value": question_counts.get(source_id), "status": "observed_linked_questions" if source_id in question_counts else "unavailable"},
                 "B": {"attempt_latency_seconds": source.get("latency_seconds"), "total_burden_seconds": None, "status": "partial" if source.get("latency_seconds") is not None else "unavailable"},
