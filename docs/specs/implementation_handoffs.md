@@ -2,11 +2,16 @@
 
 These are the prompts for the agents that build the rest of Slice A and the slices after it. Each prompt is self-contained apart from the standard rules in §0, which every prompt tells the agent to read. Paste a prompt into a fresh agent session in the repo.
 
-**State when written:**
-- **Merged to `main` and pushed:** Slice A Phase 1 (migration head 166).
-- **In progress:**
-  - Phase 2 (learner field F1) and Phase 3 (practice families), launched by the owner;
-  - `fix/daily-loop-bugs`, the four daily-loop bugs.
+**State (updated 2026-10-12):**
+- **On `main`:** Slice A Phase 1 (migration head 166) and the daily-loop bug fixes (`be33cdd`).
+- **Delivered, not yet merged:**
+  - `fix/daily-loop-followups`;
+  - `slice-a/phase-2` (learner field F1);
+  - `slice-a/phase-3` (PF-a families);
+  - `mobile/m1`, built to revision 2's pairing and scopes, so the owner must choose revision 2 or 3.
+
+  All three delivery branches claim migration 167. They integrate one at a time, renumbering as they go (§0 rule 4).
+- **Before Phase 5a or 6 starts,** the integration of Phases 2 and 3 must merge, unifying the two `learnloop eval` harnesses (`docs/reviews/pf-a-evaluation-integration.md`).
 
 ---
 
@@ -87,12 +92,13 @@ These are the prompts for the agents that build the rest of Slice A and the slic
 
 | When | What | Needs |
 |---|---|---|
-| **Running now** | Slice A Phase 2, Phase 3; `fix/daily-loop-bugs` | — |
+| **Now** | Integrate `fix/daily-loop-followups`, `slice-a/phase-2` and `slice-a/phase-3` into `main`: renumber migrations, unify the two eval harnesses, rerun everything | — |
+| **After the owner decides mobile revision 2 vs 3** | Integrate `mobile/m1` (next free migration), then the owner runs acceptance A1–A3 on the iPhone | The integration above |
 | **Can start now** | Phase 5b (practice index) | Phase 1 only |
 | | Daily-loop spec draft | Nothing; docs only |
 | | Project understanding M1 | Nothing; standalone store |
 | | Mobile M1, if not already running | Nothing |
-| **After Phase 2 merges** | Router R0: the Decider client and the `llm_probability` V1–V3 harness arms | Phase 2 |
+| **After the Phase 2/3 integration merges** | Router R0: the Decider (via OpenRouter) and LLM clients, plus the `llm_probability` V1–V3 arms on both models | The integrated harness |
 | **After Phase 3 merges** | Phase 5a (generation) | Phase 3 |
 | **After Phase 2's checkpoint and the bug fixes merge** | Phase 6 (starting new material) | Phase 2 reviewed; `fix/daily-loop-bugs` |
 | **After Phase 6 merges** | Router R1: decision logging with full candidate sets and propensities | R0; Phase 6 (same scheduler files) |
@@ -376,6 +382,11 @@ The spec must:
   - Q12: time estimates (the learner's own durations, with an LLM prior).
 - Include an optional Today headline: "N demonstrated · N assumed · N learning ·
   N untested — expected recall today N%".
+- Leave block selection to the router. The plan's block choice is the action
+  router's job (docs/specs/spec_action_router_v1.md, phase R2). This spec defines
+  the plan container: minutes, block boundaries, "keep going", re-entry, the
+  streak, and what the learner sees. It also defines the interface the router
+  fills.
 - State which changes alter what is served (with successors and kill switches),
   the migrations, tests, gates and phases. Add an agent prompt template like
   spec_slice_a_practice_and_field_v1.md §6.
@@ -687,48 +698,58 @@ fixtures-local copy, and the review file gives the owner the commands to run it 
 real, with the dry-run first.
 ```
 
-### Router R0: the Decider client and the `llm_probability` V1–V3 harness arms
+### Router R0: the model clients and the `llm_probability` V1–V3 harness arms
 
 ```text
-Implement phase R0 of LearnLoop's action router: the Perplexity Decider client and the
-learner field's llm_probability V1–V3 harness arms. Follow the standard rules in
-docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/router-r0.md.
+Implement phase R0 of LearnLoop's action router: the Decider client (via OpenRouter),
+the router LLM route, and the learner field's llm_probability V1–V3 harness arms on
+both models. Follow the standard rules in docs/specs/implementation_handoffs.md §0.
+Review file: docs/reviews/router-r0.md.
 
 Specs:
-- docs/specs/spec_action_router_v1.md: §0, §6 (the facts, provider, routes and
-  question format) and §11's R0 row;
-- docs/specs/spec_learner_field_v1.md: §7.2 (the variant table and its rules), G11,
-  D8 and D9.
-The Decider facts in router §6.1 were checked against Perplexity's docs on
-2026-10-11. Re-check https://docs.perplexity.ai/docs/decisions/quickstart before
-coding, and note any change in the review file.
+- docs/specs/spec_action_router_v1.md: §0, §6 (facts, providers, routes, question
+  format) and §11's R0 row;
+- docs/specs/spec_learner_field_v1.md: §7.2 (the variant table, the two models and
+  the rules), G11, D8 and D9.
 
-Branch router/r0 from origin/main after Slice A Phase 2 has merged.
+First task: confirm how OpenRouter serves perplexity/pplx-decider-v1.1-27b, from
+OpenRouter's documentation:
+- the endpoint path under https://openrouter.ai/api;
+- the request body (state and named questions);
+- how typed answers and probabilities come back.
+Use Perplexity's Decisions API docs (https://docs.perplexity.ai/docs/decisions/quickstart)
+as the reference shape. Record what you found in the review file. If OpenRouter
+doesn't expose typed answers, stop and report; that is router D4.
+
+Branch router/r0 from origin/main after the Phase 2/3 integration has merged.
 
 Must hold:
-- Provider type perplexity_decisions, with profile perplexity_decider:
-  - PERPLEXITY_API_KEY and model pplx-decider-v1.1-27b;
-  - typed question classes (noul, choice, score) and response parsing;
+- Provider type decider, with profile openrouter_decider:
+  - OPENROUTER_API_KEY;
+  - typed question classes (noul, choice, score) and parsing;
   - unknown fields refused.
-- Routes ai.routing.router_decider and ai.routing.llm_probability:
-  - no fallback to a chat provider;
-  - LEARNLOOP_AI_PROVIDER does not override them, the same rule as
-    ai.routing.embedding.
-- Readiness, receipts (model_call purpose llm_probability / router_decision), the
-  Slice A spend controls with --dry-run, and the settings privacy disclosure.
-- Harness arms V1, V2 and V3 exactly as the field spec's table defines them:
+- Routes:
+  - ai.routing.router_decider and ai.routing.llm_probability_decider never fall back
+    to a chat provider, and LEARNLOOP_AI_PROVIDER doesn't override them;
+  - ai.routing.router_llm and ai.routing.llm_probability_llm use existing chat
+    providers with structured output, through a bounded transport only. Codex's
+    app-server transport is refused, as Phase 3 did for the family judge.
+- Readiness, receipts (purpose plus judge = decider | llm), the Slice A spend
+  controls with --dry-run, and privacy disclosures.
+- Harness: arms V1, V2 and V3 × {decider, llm}, exactly as the field spec defines
+  them:
   - each reported raw and recalibrated (one parameter, fit on past predictions
     only);
   - no outcome or post-attempt material in any prediction;
   - responses cached outside the vault, so replay makes zero calls;
   - never active (G11).
-- Tests use a fake Decisions endpoint. Make no live calls.
+  Register the arms in the unified `learnloop eval` harness.
+- Tests use fake endpoints. Make no live calls.
 
 Done also means the review file gives the owner:
-- where to put PERPLEXITY_API_KEY: ~/.config/learnloop/settings.env;
-- the dry-run cost estimate, then the real `learnloop eval` command with the three
+- the dry-run cost estimate, then the real `learnloop eval` command with the six
   arms on a copy of their vault;
-- what each outcome of V1 vs V2 vs V3 means, per the field spec.
+- what each outcome means: V1 vs V2 vs V3, and Decider vs LLM.
 ```
 
 ### Router R1: decision logging on today's paths
@@ -761,7 +782,7 @@ Must hold:
   an algorithm successor with its own kill switch.
 - router_outcomes (DERIVED, one replayer) joins R_next and R_cold under the
   Pipeline plan's S definition, with pending outcomes right-censored.
-- No Decider calls in R1.
+- No model calls in R1.
 
 Done also means:
 - a shadow rebuild of a fixtures-local copy shows only the probe-tie difference;
@@ -771,8 +792,8 @@ Done also means:
 ### Router R2: the Decider router, live for the daily plan
 
 ```text
-Implement phase R2 of LearnLoop's action router: the Decider choosing the daily plan's
-blocks inside the P4 staged frame. Follow the standard rules in
+Implement phase R2 of LearnLoop's action router: the Decider and a frontier LLM
+choosing the daily plan's blocks inside the P4 staged frame. Follow the standard rules in
 docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/router-r2.md.
 
 Specs:
@@ -791,10 +812,12 @@ Must hold:
   - never sent to the grader.
 - decision/context embeddings and similar-decision retrieval (§5), using matured
   outcomes only.
-- One Decider request per decision with question set router_qs_v1 (§6.3).
+- One Decider request (router_qs_v1) and one LLM request (router_llm_v1) per decision
+  (§6.3), with the LLM's evidence ids validated against the card.
 - Selection:
-  - the three modes (§7.3) and the decider_mixture randomization design, applied to
-    reversible candidates only;
+  - the staged and mixture modes (§7.3) and the model_mixture randomization design,
+    applied to reversible candidates only;
+  - per-component fallback, where a failed model's weight moves to staged;
   - irreversible actions are never sampled (§7.1);
   - the restraint asymmetry (§7.2);
   - fallback to the staged choice;
@@ -804,7 +827,7 @@ Must hold:
   - kill switch router.enabled restores the legacy scheduler exactly;
   - launch mode per D1.
 - The learner-facing "why" (§7.4), and `learnloop router report` (§10.3).
-- Gates G1–G9 (§12) pass, with a fake Decider.
+- Gates G1–G9 (§12) pass, with a fake Decider and a fake LLM.
 
 Done also means:
 - a shadow rebuild of a fixtures-local copy shows only the documented differences;

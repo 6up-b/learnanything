@@ -1,9 +1,15 @@
-# Action router: a decision model inside a deterministic frame (v1)
+# Action router: decision models inside a deterministic frame (v1)
 
 **Status:** draft for owner review (2026-10-11).
 
-**Owner decisions (2026-10-11):**
-- **The router's model is Perplexity Decider v1.1** (`pplx-decider-v1.1-27b`), not Jev or a fine-tuned local model. It also serves the learner field's `llm_probability` harness arms (`spec_learner_field_v1.md` §7.2).
+**Owner decisions (2026-10-11 and 2026-10-12):**
+- **Two judgment models compete; the evidence picks the winner** (2026-10-12):
+  - **Perplexity Decider v1.1** (`perplexity/pplx-decider-v1.1-27b`), a decision model that returns typed probabilities;
+  - **a frontier LLM** (`ai.routing.router_llm`), returning a probability distribution plus a rationale.
+
+  Both answer every decision. Selection samples from a mixture, so the replay can score the staged policy, the Decider and the LLM on the same decisions (§7.3, §10). Neither Jev nor a fine-tuned local model is used.
+- **The Decider is called through OpenRouter** (2026-10-12), with the existing `OPENROUTER_API_KEY`, not Perplexity's direct API.
+- **Both models also serve the learner field's `llm_probability` harness arms** (`spec_learner_field_v1.md` §7.2).
 - **Earlier decisions do not block this on their own.** Where this spec revises one, it says which and argues from the merits. The main revision: P4 §7.1 kept the action chooser transparent "indefinitely" because a deterministic incumbent leaves no off-policy evidence path at n=1. This spec supplies that path (§7).
 - **A learned or LoRA-tuned router is deferred, with a trigger** (§13). A review on 2026-10-11 found that the Qwen-LoRA proposal (`docs/brainstorming/Agent's qwen LoRA for action router.md`) can't be trained or evaluated on about 10³ decisions a year without logged propensities.
 
@@ -34,15 +40,15 @@ At n=1, LearnLoop makes about 10³ routing decisions a year. That is too few to 
 |---|---|---|
 | **Hard rules**: feasibility, cold reserves, blind grading, LO lifecycle, budget, depth envelope | Code (the P4 constraint engine) | Never negotiable, and never offered to a model |
 | **Numbers**: P(correct), retention, information value, cost | Explicit models fit on the learner's own data: the `LearnerPredictor` (field §4), FSRS, EVSI (`scheduling/evsi.py`) | Few parameters, honest uncertainty, they learn from n=1 |
-| **Judgment**: what is going on, whether to intervene now, which block fits | The Decider, reading the learner's history as text | A frontier-scale model is the best available pretrained "learner encoder". At ~10³ events a year a topic's filtered history fits in context |
+| **Judgment**: what is going on, whether to intervene now, which block fits | The Decider and a frontier LLM, each reading the learner's history as text. Both answer, and a logged mixture decides which choice is served (§7.3) | A frontier-scale model is the best available pretrained "learner encoder". At ~10³ events a year a topic's filtered history fits in context. Which kind of model routes better is an empirical question; the replay answers it (§10) |
 | **Restraint**: don't interrupt, "let them continue" | Code, as a deterministic gate, plus "continue" as a scored candidate | LLM tutors over-intervene, and prompting doesn't fix it (2607.21306). Scoring the no-op is what worked in DICE (2610.04825) |
 
-**Why the Decider specifically.** It returns **typed probabilities instead of prose**:
-- `noul`: P(yes);
-- `choice`: a probability for each of up to 255 named options;
-- `score`: an ordinal rubric.
+**Why two models.**
+- **The Decider returns typed probabilities instead of prose:** `noul` P(yes); `choice`, a probability for each of up to 255 named options; and `score`, an ordinal rubric. That makes it a sensor whose outputs can be scored, and a stochastic chooser whose distribution comes straight from the model. It gives no rationale.
+- **A frontier LLM reasons in text and can explain itself,** but its probabilities are verbalized: asked for, not read from the model. It is the obvious alternative.
+- **Both are cheap at ~10³ decisions a year,** so both answer every decision.
 
-That makes it a sensor whose outputs can be scored, and a stochastic chooser whose propensities are known exactly. Known propensities make the router evaluable by off-policy replay, which is the missing piece that kept P4's chooser deterministic.
+**Why exact propensities matter.** The served choice is sampled from a known mixture of the staged policy and the two models, so every propensity is exact. A propensity only has to be the distribution actually sampled from; it doesn't need to be calibrated. Exact propensities make all three policies evaluable by off-policy replay on the same decisions. That is the piece that was missing and kept P4's chooser deterministic.
 
 **Evidence shape.** In the best real-learner result in the sweep, an explicit belief state and planner made the decisions and the LLM supplied observations: an RCT with 770 students, +0.15 SD (2608.16907). This design keeps that shape, and also lets the model choose wherever the planner can't separate the candidates.
 
@@ -53,7 +59,7 @@ That makes it a sensor whose outputs can be scored, and a stochastic chooser who
 **In scope:**
 - **The learner state card,** generated deterministically from the ledger.
 - **Retrieval of similar past decisions,** with their outcomes.
-- **The Decider provider and client.**
+- **The Decider and LLM clients.**
 - **Router sensors and a block chooser** inside the P4 staged frame.
 - **Three router modes** behind a kill switch.
 - **Decision logging** with full candidate sets and propensities.
@@ -103,7 +109,7 @@ ControllerSnapshot ──► constraint engine ──► feasible block candidat
         │                         robust EVSI, predicted gain/cost from LearnerPredictor + FSRS
         │                                              │
         ├──► LearnerStateCardV1 (§4) ──┐               ▼
-        ├──► similar past decisions (§5) ──► Decider request (§6): sensors + choose_block
+        ├──► similar past decisions (§5) ──► Decider + LLM requests (§6): sensors + choose_block
         │                                              │
         │                                              ▼
         │                       selection (§7): deterministic, or sampled with a logged propensity
@@ -156,18 +162,21 @@ This is a new embedding record kind, `decision/context`, using the Phase 1 subst
 - **Different session.** Decisions from the current session are excluded.
 - **Within the learner's own history** (n=1).
 
-Each retrieved decision is shown to the Decider with its candidate set, the chosen block, the propensity, and its outcomes. Embeddings only choose *which* past decisions to show (Slice 2 R1/R4). They decide nothing.
+Each retrieved decision is shown to both models with its candidate set, the chosen block, the propensity, and its outcomes. Embeddings only choose *which* past decisions to show (Slice 2 R1/R4). They decide nothing.
 
-**Evaluation discipline.** Retrieval earns its place only if the replay (§10) shows that the Decider with similar decisions beats the Decider without them (MemDelta discipline, Pipeline plan §A).
+**Evaluation discipline.** Retrieval earns its place only if the replay (§10) shows that the models with similar decisions beat the models without them (MemDelta discipline, Pipeline plan §A).
 
 ---
 
-## 6. The Decider
+## 6. The judgment models
 
-### 6.1 Facts relied on (Perplexity docs and announcements, checked 2026-10-11)
+### 6.1 Decider facts relied on (Perplexity docs and announcements, checked 2026-10-11 and 2026-10-12)
 
-- **Model.** `pplx-decider-v1.1-27b`, released 2026-10-06. `pplx-decider-v1-27b` is also available.
-- **Endpoint.** `POST https://api.perplexity.ai/v1/decisions`, with `Authorization: Bearer <PERPLEXITY_API_KEY>`.
+- **Model.** `pplx-decider-v1.1-27b`, released 2026-10-06. On OpenRouter it is `perplexity/pplx-decider-v1.1-27b`. A third-party report found the v1 slug returning 404 there on 2026-10-10, and v1.1 returning 200.
+- **Endpoints.**
+  - **OpenRouter (owner's choice):** base URL `https://openrouter.ai/api`, with `OPENROUTER_API_KEY`. OpenRouter lists it at $0.02 per million input tokens and $0 output. The model doesn't appear in OpenRouter's public `/api/v1/models` chat list (checked 2026-10-12). Third-party sources describe it as reachable through OpenRouter's decision ("System One") interface rather than chat completions.
+  - **The exact path and body on OpenRouter are unverified.** R0's first task is to confirm them from OpenRouter's docs and pin them in the client.
+  - **Perplexity's direct endpoint** is `POST https://api.perplexity.ai/v1/decisions` with `PERPLEXITY_API_KEY`. It is the documented reference for the request shape and a fallback if OpenRouter's interface differs (D4).
 - **Request.**
   - `model`;
   - `state`: a string, an object, or an array (text plus base64 images);
@@ -184,39 +193,49 @@ Each retrieved decision is shown to the Decider with its candidate set, the chos
   - 10 requests per second per organization.
   - Latency under 2 s for a few hundred tokens, and about 23 s near the input limit.
 - **Price.** $0.02 per million input tokens; output is free. A 20K-token decision costs about $0.0004, so a year of decisions costs well under a dollar.
-- **OpenRouter.** It lists the model (announced 2026-10-07). Whether it exposes the typed answers is **unverified**.
 - **Weights.** Open weights are reported on Hugging Face (one listing says Apache 2.0). **Unverified.**
 
 These facts are pinned per receipt by model id. If Perplexity changes the API, the client fails closed.
 
-### 6.2 Provider and routes
+### 6.2 Providers and routes
 
-- **Provider type.** A new type, `perplexity_decisions`, in `ai/providers/`, with profile `perplexity_decider` (`api_key_env = "PERPLEXITY_API_KEY"`, model `pplx-decider-v1.1-27b`).
-- **Interface.** `DecisionClient.decide(state, questions) -> DecisionResult`, using typed question classes.
-- **Routes:**
-  - `ai.routing.router_decider`;
-  - `ai.routing.llm_probability` (field §7.2).
-- **No fallback.** Neither route falls back to a chat provider, because the interface differs. `LEARNLOOP_AI_PROVIDER` doesn't override them, the same rule as `ai.routing.embedding`.
-- **Readiness** checks the key and that the model is reachable.
-- **Settings** shows a privacy disclosure: learner text goes to Perplexity. The owner accepts text leaving the machine, but must check Perplexity's retention terms (D6).
-- **Receipts.** `model_call(purpose = "router_decision" | "llm_probability")` records tokens, cost, model id, the question-set version and the state-card hash.
-- **Spend controls.** Slice A's §5.6 framework applies, with a daily cap (`router.max_daily_cost_usd`, default $0.25) and `--dry-run` on every batch command.
-- **Later options** (D4, D5): an OpenRouter route, if it exposes typed answers; local hosting of the open weights. A 27B model fits a 32 GB GPU only quantized (estimate), and quantization changes outputs, so a local model gets its own model id and its own evaluation.
+- **The Decider.**
+  - **Provider type and profile.** A new type, `decider`, in `ai/providers/`. Profile `openrouter_decider`: base URL `https://openrouter.ai/api`, `api_key_env = "OPENROUTER_API_KEY"`, model `perplexity/pplx-decider-v1.1-27b`. A `perplexity_direct` profile can switch to Perplexity's endpoint (D4).
+  - **Interface.** `DecisionClient.decide(state, questions) -> DecisionResult`, with typed question classes.
+  - **Routes:** `ai.routing.router_decider` and `ai.routing.llm_probability_decider`.
+  - **Fallback.** Neither route falls back to a chat provider, because the interface differs. `LEARNLOOP_AI_PROVIDER` doesn't override them, the same rule as `ai.routing.embedding`.
+  - **Provider routing.** Don't set OpenRouter's `data_collection: "deny"` unless OpenRouter lists a compliant provider for this model. Otherwise every request fails. D6 covers the privacy side.
+- **The LLM.**
+  - **Routes:** `ai.routing.router_llm` and `ai.routing.llm_probability_llm`, using existing chat providers with structured output. An unset route falls back to the active provider, and receipts record the resolved model (handoff rule 6).
+  - **Transport.** It must be bounded (one physical request per call), as Phase 3 required for the family judge. Codex's app-server transport is refused for these routes.
+- **Readiness** checks keys and model reachability for both.
+- **Settings** shows a privacy disclosure for each provider that receives learner text.
+- **Receipts.** `model_call(purpose = "router_decision" | "llm_probability", judge = "decider" | "llm")` records tokens, cost, model id, the question-set version and the state-card hash.
+- **Spend controls.** Slice A's §5.6 framework applies, with a daily cap (`router.max_daily_cost_usd`, default $1.00, mostly the LLM) and `--dry-run` on every batch command.
+- **A later option** (D5): local hosting of the Decider's open weights. A 27B model fits a 32 GB GPU only quantized (estimate), and quantization changes outputs, so a local model would get its own model id and its own evaluation.
 
-### 6.3 One request per decision
+### 6.3 One request per model per decision
 
-One request carries the `state` (the card from §4, the similar decisions from §5, and the candidate list) and these named questions (question-set version `router_qs_v1`):
+Each model gets the same `state`: the card from §4, the similar decisions from §5, and the candidate list.
+- **The Decider** gets the named questions below (question-set version `router_qs_v1`).
+- **The LLM** gets the same questions as one structured-output request (`router_llm_v1`). Its JSON schema returns:
+  - `choose_block`: a probability for every candidate id, renormalized by the client;
+  - `intervene_now`, `teach_first_<lo>` and `will_pass_next_<lo>`, each as probabilities;
+  - `rationale`: at most 3 sentences;
+  - `evidence_ids`: the card event ids the rationale relies on, validated against the card.
+
+The questions:
 
 | Question | Type | Feeds | Prequential ground truth |
 |---|---|---|---|
 | `choose_block` | `choice` over the top `router.k` feasible candidates (default 6), always including `continue_current` (when a block is in progress) and `stop_for_today` (when feasible) | Selection (§7) | DR value of `S` (§10) |
-| `intervene_now` | `noul`: "Would interrupting the learner's current block to help or diagnose do more good than letting them continue?" | The deterministic restraint gate's tie input (§7.2) | `R_next` after continue vs after intervene, DR |
+| `intervene_now` | `noul`: "Would interrupting the learner's current block to help or diagnose do more good than letting them continue?" | The deterministic restraint gate's tie input (§7.2). Its source is `router.sensor_source` (default `decider`); both answers are scored | `R_next` after continue vs after intervene, DR |
 | `teach_first_<lo>` (≤ 3 LOs) | `noul`: "Does the evidence show a misunderstanding that should be taught before more practice?" | The staged rule's "target knowledge not acquired" branch, as a sensor beside `state_signals` | Failure on the next attempt on that LO |
 | `will_pass_next_<lo>` (≤ 3) | `noul` | Logged only (the harness §7.2 V3 arm, in decision context) | The next graded attempt on that LO |
 
 **Instructions.** Written in plain language, versioned, and stored with the question set. Options carry short descriptions: the action, the LOs, minutes, the planner's estimated gain, and why the block is feasible.
 
-**What the Decider can't do:**
+**What neither model can do:**
 - add candidates;
 - see infeasible ones;
 - see cold-answer material;
@@ -234,7 +253,7 @@ These are chosen only by the staged rule, and never sampled:
 - anything that burns a reserved surface;
 - `expand_model`.
 
-They appear in `choose_block` only as context. The Decider's probability for them is logged but can't select them.
+They appear in `choose_block` only as context. The models' probabilities for them are logged but can't select them.
 
 ### 7.2 Restraint gate
 
@@ -248,21 +267,21 @@ This asymmetry is deliberate (2607.21306).
 
 | Mode | Selection among reversible feasible candidates | Propensity |
 |---|---|---|
-| `staged` | The P4 staged rule chooses. Ties within margin δ go through `epsilon_tiebreak` (existing). The Decider runs only for logging and sensors | From the randomization layer |
-| `decider_ties` | Staged, except when the top candidates are within margin δ by planner value: then sample among them from the Decider's `choose_block` probabilities | Exact |
-| `decider_router` | Sample from π = (1 − λ) · Decider + λ · staged-argmax over the top `router.k` reversible candidates, with a per-candidate floor ε_min = 0.02 | Exact |
+| `staged` | The P4 staged rule chooses. Ties within margin δ go through `epsilon_tiebreak` (existing). Both models still answer, for logging and sensor scoring | From the randomization layer |
+| `mixture` | Sample from **π = w_s · staged-argmax + w_d · Decider + w_l · LLM** over the top `router.k` reversible candidates, with a per-candidate floor ε_min = 0.02. If `router.ties_only = true`, the mixture applies only when the top candidates are within margin δ by planner value; otherwise the staged choice stands | Exact. The logged propensity is π(chosen); each component's distribution is stored |
 
-- **A new randomization design.** These modes register `decider_mixture` as a fourth admissible design in `randomization_layer` (a revision of P4 §9.3). It applies to reversible candidates only, logs the seed and propensity before selection, and joins proximal outcomes at the next spaced cold review, as for the other designs.
-- **Launch mode** (owner preference: decisive live change, D1): `decider_router` with λ = 0.5. Half the probability mass stays on the staged choice, so both policies keep support for evaluation.
+- **A new randomization design.** `mixture` registers `model_mixture` as a fourth admissible design in `randomization_layer` (a revision of P4 §9.3). It applies to reversible candidates only, logs the seed, the component weights and π before selection, and joins proximal outcomes at the next spaced cold review, as for the other designs.
+- **Launch** (owner: see what works best; D1): `mixture` with w_s = w_d = w_l = 1/3 and `ties_only = false`. Every policy keeps support, so each one's argmax can be evaluated on every decision.
 - **Kill switch.** `router.enabled = false` returns Today to the legacy scheduler, exactly as before.
-- **Fallback.** On a timeout or error, the staged choice is used (`fallback = true` on the receipt).
+- **Fallback.** If one model times out or errors, its weight goes to the staged component for that decision. If both fail, the staged choice is used. Both cases are flagged on the receipt (`fallback = decider | llm | both`).
 - **The learner's explicit choice always wins** (P4 §4.1). It is logged as `learner_pick` with no propensity.
 
 ### 7.4 What the learner sees
 
-The Decider gives no rationale. So the "why" is:
-- the staged reason (P4 §3.3), when the staged choice stood;
-- otherwise, "LearnLoop's model picked this among N close options", plus the planner's top reason for that candidate.
+The "why" follows whichever component's draw selected the block:
+- **staged:** the staged reason (P4 §3.3);
+- **the Decider,** which gives no rationale: "LearnLoop's model picked this among N close options", plus the planner's top reason for that candidate;
+- **the LLM:** its rationale, labelled as model-written, with its cited evidence ids linking to those attempts.
 
 This follows honest labels: nothing pretends to be an explanation that wasn't computed.
 
@@ -280,28 +299,30 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 | Table | Role | Contents |
 |---|---|---|
-| `router_decisions` | RAW_LEDGER (append-only decision facts) | Each row records:<br>• decision id, snapshot hash, mode, design, seed;<br>• the candidate set with planner values, feasibility and staged eligibility;<br>• Decider probabilities and sensor answers;<br>• the chosen candidate and propensity, and the learner-pick and fallback flags;<br>• question-set version, model id, card hash, similar-decision ids;<br>• latency and cost |
-| `router_decision_payloads` | WORKFLOW | The rendered card text and the raw Decider response, for audit. Pruned after `router.payload_retention_days` (default 365); hashes stay on the decision |
+| `router_decisions` | RAW_LEDGER (append-only decision facts) | Each row records:<br>• decision id, snapshot hash, mode, design, seed;<br>• the candidate set with planner values, feasibility and staged eligibility;<br>• both models' distributions and sensor answers, and the mixture weights;<br>• the chosen candidate and propensity, and the learner-pick and fallback flags;<br>• question-set version, model id, card hash, similar-decision ids;<br>• latency and cost |
+| `router_decision_payloads` | WORKFLOW | The rendered card text and both models' raw responses, for audit. Pruned after `router.payload_retention_days` (default 365); hashes stay on the decision |
 | `router_outcomes` | DERIVED (one replayer) | `R_next` and `R_cold` per decision, joined from the attempt ledger and reveal ledger under the Pipeline plan's `S` definition. Pending outcomes stay right-censored |
 
-**Replay** reads the persisted Decider answers and makes zero model calls. A rebuild never re-asks.
+**Replay** reads the persisted model answers and makes zero model calls. A rebuild never re-asks.
 
 ---
 
 ## 10. Evaluation
 
-1. **Predictive first: the harness.** Before the router goes live, the learner field's `llm_probability` variants V1–V3 (field §7.2) answer whether the Decider predicts better from rich history than from item content alone. The router still launches either way, because its job is judgment, not prediction. The result decides whether `will_pass_next` ever feeds a live choice.
+1. **Predictive first: the harness.** Before the router goes live, the learner field's `llm_probability` variants V1–V3 (field §7.2), each run on both models, answer two questions: does rich history beat item content, and does the Decider or the LLM predict better. The router still launches either way, because its job is judgment, not prediction. The result decides whether `will_pass_next` ever feeds a live choice.
 2. **Sensors.** Each sensor is scored prequentially against its declared ground truth (§6.3), on log loss, Brier and reliability. A sensor that is no better than base rate after 100 resolved cases is dropped from the question set.
 3. **Policy: the router replay report.** Run with `learnloop router report`, after every 200 decisions.
-   - **Doubly-robust estimates** of mean `S` for staged-argmax, Decider-argmax, and the logged mixture. The outcome model is the active `LearnerPredictor`.
+   - **Doubly-robust estimates** of mean `S` for staged-argmax, Decider-argmax, LLM-argmax and the logged mixture. The outcome model is the active `LearnerPredictor`.
+   - **A head-to-head** of Decider vs LLM on the decisions where their argmaxes differ.
    - **Also:** false-remediation rate, minutes per unit of `S`, skips, "not now" and "too easy" rates, and plan completion.
    - **Effective sample size** per comparison.
    - **Split by** re-entry vs normal sessions and by block type.
-4. **Switching rule** (in the style of field §7.4):
-   - If Decider-argmax beats staged-argmax on DR mean `S`, with a bootstrap interval excluding 0 at a margin fixed before the run (D2), and its false-remediation rate is no worse, λ drops to 0.1. The floor keeps evaluation possible.
-   - If staged wins, the mode becomes `decider_ties`.
-   - "Can't tell" keeps the mixture until 600 decisions, then defaults to `decider_ties`.
+4. **Switching rule** (in the style of field §7.4). Use the margin fixed before the run (D2) and a bootstrap interval that excludes 0.
+   - **A winner.** If one policy beats both others on DR mean `S`, and its false-remediation rate is no worse, its weight rises to 0.8. The other two keep 0.1 each, so evaluation stays possible.
+   - **A clear loser.** A policy that loses to both others drops to the floor weight.
+   - **Can't tell.** Equal weights stay until 600 decisions. Then the weights go to staged 0.6, Decider 0.2 and LLM 0.2.
    - Each switch is an algorithm successor with the kill switch above.
+5. **Sensors.** `router.sensor_source` switches to whichever model's `intervene_now` scores better (log loss) after 100 resolved cases.
 
 ---
 
@@ -309,9 +330,9 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 | Phase | Builds | Needs | Gate |
 |---|---|---|---|
-| **R0: Decider client and harness variants** | The `perplexity_decisions` provider, routes, readiness and receipts; field §7.2 `llm_probability` V1–V3 | Slice A Phase 2 merged | Harness report on the owner's replay (owner-run, spend-capped) |
+| **R0: model clients and harness variants** | The `decider` provider over OpenRouter (exact path confirmed first), the `router_llm` / `llm_probability_*` routes, readiness and receipts; field §7.2 `llm_probability` V1–V3 on both models | Slice A Phase 2 merged | Harness report on the owner's replay (owner-run, spend-capped) |
 | **R1: decision logging on today's paths** | Full candidate sets and propensities on the legacy Today queue and the staged P2 path; "continue" logged as a candidate; probe near-ties admitted to `epsilon_tiebreak` with logged propensity (closing `scheduler.py:1544-1551`) | R0; after Slice A Phase 6 merges (same files) | Logging tests; no serving change except the probe tie admission (successor + kill switch) |
-| **R2: router live for the daily plan** | `LearnerStateCardV1`; `decision/context` embeddings and retrieval; the Decider request; the three modes and `decider_mixture`; `router_decisions` / payloads / outcomes; the staged frame composing Today's plan blocks (the P4 cutover extended from P2 runs to Today); the learner-facing "why" | The daily loop's finite plan (P1–P3, Q9); R1 | Algorithm successor with kill switch `router.enabled`; G1–G9 (§12) |
+| **R2: router live for the daily plan** | `LearnerStateCardV1`; `decision/context` embeddings and retrieval; both model requests; the two modes and `model_mixture`; `router_decisions` / payloads / outcomes; the staged frame composing Today's plan blocks (the P4 cutover extended from P2 runs to Today); the learner-facing "why" | The daily loop's finite plan (P1–P3, Q9); R1 | Algorithm successor with kill switch `router.enabled`; G1–G9 (§12) |
 | **R3: first replay report** | `learnloop router report`; switching per §10.4 | 200 decisions | Owner reads the report once |
 
 ---
@@ -320,18 +341,19 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 | # | Gate |
 |---|---|
-| G1 | **Hard rules hold:** no sampled or Decider-chosen candidate is ever infeasible. A fake Decider that puts all its mass on an infeasible id cannot select it |
+| G1 | **Hard rules hold:** no sampled or model-chosen candidate is ever infeasible. A fake Decider or LLM that puts all its mass on an infeasible id cannot select it |
 | G2 | **Irreversible actions are never sampled** (§7.1), asserted on a fixture with a terminal-assessment candidate |
-| G3 | **Propensities are exact:** the logged propensity equals the sampling distribution, seeds reproduce draws, and every candidate in `decider_router` has at least ε_min |
+| G3 | **Propensities are exact:** the logged propensity equals π(chosen) under the logged weights and component distributions, seeds reproduce draws, every candidate in `mixture` has at least ε_min, and a failed component's weight moves to staged |
 | G4 | **Restraint asymmetry:** `intervene_now` can block but never force an interruption |
 | G5 | **No leakage:** the card has no cold-answer or reserved-surface material, and similar decisions include only outcomes matured before the decision |
-| G6 | **Replay:** zero Decider calls on rebuild; `router_outcomes` rebuilds deterministically |
+| G6 | **Replay:** zero model calls on rebuild; `router_outcomes` rebuilds deterministically |
 | G7 | **Fallback:** timeouts, errors and spend caps fall back to the staged choice, flagged on the receipt |
 | G8 | **Kill switch:** with `router.enabled = false`, Today matches the pre-router version on fixture copies |
 | G9 | **Learner pick wins**, and is logged without a propensity |
 
 **Tests:**
-- the client against a fake Decisions endpoint (request shape, the 400 on unknown fields, typed parsing);
+- the Decider client against a fake endpoint (request shape, the 400 on unknown fields, typed parsing);
+- the LLM client's structured output: renormalization, unknown candidate ids rejected, evidence ids validated against the card;
 - card determinism and budget truncation;
 - the retrieval maturity filter;
 - each mode's sampling;
@@ -343,8 +365,8 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 | Deferred | Revisit when |
 |---|---|
-| **A learned action scorer** (frozen or fine-tuned embeddings, LoRA; the Qwen-LoRA proposal) | All four hold:<br>1. R2 is live with exact propensities;<br>2. ≥ 500 decisions with matured `R_cold`, and ≥ 50 randomized observations for each of ≥ 3 block types;<br>3. Slice 2 T8 shows embeddings add held-out predictive value;<br>4. Decider-argmax beats staged on DR `S`, so a cheaper learned version has a measured gap to close |
-| **Item-level routing by the Decider** (within a block) | R3 shows block-level gains and the within-block transparent selectors are the measured bottleneck |
+| **A learned action scorer** (frozen or fine-tuned embeddings, LoRA; the Qwen-LoRA proposal) | All four hold:<br>1. R2 is live with exact propensities;<br>2. ≥ 500 decisions with matured `R_cold`, and ≥ 50 randomized observations for each of ≥ 3 block types;<br>3. Slice 2 T8 shows embeddings add held-out predictive value;<br>4. The better of Decider-argmax and LLM-argmax beats staged on DR `S`, so a cheaper learned version has a measured gap to close |
+| **Item-level routing by a model** (within a block) | R3 shows block-level gains and the within-block transparent selectors are the measured bottleneck |
 | **Affect sensors** (fatigue, frustration) | P4 U-011's affect stream is wired into the snapshot |
 
 ---
@@ -353,14 +375,15 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Launch mode | `decider_router` with λ = 0.5 (live; both policies keep support) |
+| D1 | Launch mode | `mixture` with equal weights (1/3 each), `ties_only = false` (owner, 2026-10-12: see what works best) |
 | D2 | Switching margin for §10.4 | Fixed before the first report at 0.03 in mean `S` |
 | D3 | `router.k` (candidates shown) | 6 |
-| D4 | Route: Perplexity direct or OpenRouter | Direct, until OpenRouter's typed-answer support is verified |
+| D4 | Route: Perplexity direct or OpenRouter | **Decided (owner, 2026-10-12): OpenRouter.** Perplexity direct only if OpenRouter's interface lacks typed answers |
 | D5 | Local hosting of the open weights | Not now. Revisit if API cost or availability becomes a problem; it would be evaluated as its own model id |
-| D6 | Privacy | Learner text goes to Perplexity. The owner checks the retention terms before R2 |
-| D7 | Label when the Decider chose | "LearnLoop's model picked this among N close options" |
+| D6 | Privacy | Learner text goes to Perplexity (via OpenRouter) and to the LLM route's provider. The owner accepts text leaving the machine, and checks retention terms before R2 |
+| D7 | Label when a model chose | "LearnLoop's model picked this among N close options" (Decider), or the labelled rationale (LLM) |
 | D8 | Card budget | 16K tokens; revisit after the harness V3 results |
+| D9 | Which LLM for `router_llm` | The configured frontier route (bounded transport). Pin the model id per receipt |
 
 ---
 

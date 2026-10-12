@@ -361,8 +361,12 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   | `llm_probability` V1–V3 | **Optional, off by default** (D8). Three input variants of one sensor, run together as one offline comparison (revised 2026-10-11, owner). Details are below the table |
 
 - **`llm_probability` variants** (added 2026-10-11, owner). They test whether the model predicts better from the learner's rich history than from the item alone. JevKT (2610.11135) fed only a 25-item right/wrong window and found more marks added nothing, but never tested answer text, error traces or diagnoses.
-  - **Model:** Perplexity Decider v1.1 (`pplx-decider-v1.1-27b`), through `ai.routing.llm_probability` and provider type `perplexity_decisions` (`spec_action_router_v1.md` §6). Jev is not used.
-  - **The question:** one `noul` question, "Will the learner answer this item correctly on this attempt?". P(yes) is the prediction.
+  - **Models: two, each running every variant** (owner, 2026-10-12: see which works best). That makes six arms.
+    - **Perplexity Decider v1.1** (`perplexity/pplx-decider-v1.1-27b` via OpenRouter; route `ai.routing.llm_probability_decider`). Its prediction is P(yes) on one `noul` question.
+    - **A frontier LLM** (route `ai.routing.llm_probability_llm`; unset falls back to the active provider, and it needs a bounded transport). Its prediction is a verbalized probability, returned through structured output.
+
+    Router spec §6 has the client details. Jev is not used.
+  - **The question:** "Will the learner answer this item correctly on this attempt?"
   - **The variants:**
 
     | Variant | `state` sent to the model |
@@ -376,7 +380,13 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   - **Spend and storage.** Spend-capped, with `--dry-run` first. Responses are cached outside the vault, so replay makes zero calls.
   - **What the result decides.**
     - If V3 clearly beats V2 (bootstrap interval excluding 0 at D9's margin), the rich history carries information the numeric arms miss. That is evidence for the router's card (router spec §4), and for reconsidering `idea_hier_llm_prior` (§11).
-    - If V1 ≈ V2 ≈ V3, the model's value lies in judgment, and the numbers keep coming from the explicit arms.
+    - If V1 ≈ V2 ≈ V3, the models' value lies in judgment, and the numbers keep coming from the explicit arms.
+    - The Decider-vs-LLM split within each variant is reported too, as the router's first evidence on which model to weight (router spec §10).
+- **Population memory-model arm** (optional; added 2026-10-12).
+  - **What it is:** a content-agnostic recall model pretrained on a population. It sees only review timing and grades, like the population sequence models in the public srs-benchmark. Public results favour such models over per-user FSRS fits.
+  - **Comparison:** run as an arm against FSRS (fitted weights and `FSRS6_DEFAULT_WEIGHTS`) on retention prediction for graded cold reviews.
+  - **Only if usable:** build it only if a usable pretrained model or its training code and data are published with a compatible license. Check first; don't train one here.
+  - **Live use:** none. A win would become a separate retention-model successor decision.
   - **Never active** (G11): this is a point predictor.
 - **Metrics.**
   - Log loss, Brier, a reliability diagram, and AUC at attempt level.
@@ -484,7 +494,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | D5 | Self-report | "I know this" or "too easy" marks an LO assumed known immediately; "I don't know this" returns it to learning immediately. No triage screen |
 | D6 | Fast-track and first review | ≥ 2 cold correct first answers and `P(θ_L > θ_known) ≥ q`, with `q = 0.8` at `θ_known = logit(0.75)` (0.9 if report 2 lacked data); first review after 14 days. Tune from report 3 |
 | D7 | Wait for Slice 1's grader probes before F2? | No, per the owner's live-with-kill-switch preference. Confirm probes are the safety net; review E1 when Slice 1 produces it |
-| D8 | `llm_probability` | Off by default. The V1–V3 comparison (§7.2) runs once, offline, owner-run and spend-capped, on Perplexity Decider v1.1 |
+| D8 | `llm_probability` | Off by default. The V1–V3 comparison (§7.2) runs once, offline, owner-run and spend-capped, on both Perplexity Decider v1.1 (via OpenRouter) and a frontier LLM |
 | D9 | Switching margin | The attempt-level log-loss improvement's bootstrap interval excludes 0, overall and on first attempts, and the miss rate is no worse. Fixed before running |
 | D10 | Revisions missing from snapshots | `exclude` by default; `current_content` only by explicit config, flagged |
 | D12 | Interaction-signal constants | Hint depth: `1 − 0.2k` (floor 0.2), and help before any work caps at 0.3. Typed-question masses: 0.15 (prerequisite), 0.1 (mechanism or clarification after a correct answer); capped per LO per day. A priori and versioned, and the harness reports a sweep. Routing use (§5.2) is live with F2; predictor use waits for §7.4 activation |
@@ -504,7 +514,7 @@ The full design for everything below is preserved at commit `936813f` (`docs/spe
 | **Probe targeting** by the active predictor | A challenger is active, and the daily loop's finite plan (Q9) makes propensities known for evaluation |
 | **`idea_hier_llm_prior`**, or any live use of `llm_probability` | The offline test shows calibrated gains over the best LO-level arm on first attempts |
 | **Public-data benchmark** (time-to-useful-vault, kernel fits, transfer guard) | A specific question the owner's replay can't answer, such as whether a deferred facet-level design is worth reviving |
-| **Learned action router** (frozen or fine-tuned embeddings, LoRA) | The non-learned router is specified in `spec_action_router_v1.md`: the Decider inside the P4 staged frame, with exact propensities. A learned scorer's trigger is in that spec's §13 |
+| **Learned action router** (frozen or fine-tuned embeddings, LoRA) | The non-learned router is specified in `spec_action_router_v1.md`: Perplexity Decider v1.1 and a frontier LLM competing inside the P4 staged frame, with exact propensities. A learned scorer's trigger is in that spec's §13 |
 | **Facet dossiers** | Not deferred: **moved** to the practice-family track as the practice index (`spec_embedding_consumers_v1.md` §5.9) |
 
 ---

@@ -521,7 +521,7 @@ hash and coverage gaps on the selection trace.
 
 ### 7.1 Role and output
 
-> **Revised 2026-10-11 by `spec_action_router_v1.md`.** The chooser no longer has to stay transparent indefinitely. Perplexity Decider v1.1 returns per-candidate probabilities, and sampling from them through a new `decider_mixture` randomization design (router §7.3, extending §9.3 here) gives exact propensities. That is the off-policy evidence path this section said was missing. Hard and irreversible actions stay with the staged rule (router §7.1).
+> **Revised 2026-10-11 by `spec_action_router_v1.md`.** The chooser no longer has to stay transparent indefinitely. Perplexity Decider v1.1 and a frontier LLM each return per-candidate probabilities. Sampling from a logged mixture of them and the staged choice, through a new `model_mixture` randomization design (router §7.3, extending §9.3 here), gives exact propensities. That is the off-policy evidence path this section said was missing. Hard and irreversible actions stay with the staged rule (router §7.1).
 
 The scored selector decomposes into two parts with different fates (U-025):
 

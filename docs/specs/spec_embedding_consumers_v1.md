@@ -588,7 +588,7 @@ Facet dossiers moved here from the learner-field spec. That spec was reshaped an
   - **Labels** (revised 2026-10-11: no owner labelling chore). LLM relevance labels on held-out queries, in two passes with agreement reported, plus **usage signals**: which proposed items the learner actually practised, skipped, or marked "too easy" or "not what I asked for". All are stored in `judgment_ledger`. Owner labels are optional.
   - **Metrics.** Recall@10 and nDCG@10.
   - **The bar.** Two-level search through dossiers must beat **direct item search** (BM25 + item-outline or item-text embeddings) on held-out queries to stay in the path. Otherwise `find_practice` uses direct item search, and dossiers remain only as readable facet explanations for the tutor, diagnoser and map.
-- **Not a router.** Block-level routing is `spec_action_router_v1.md`: Perplexity Decider v1.1 inside the P4 staged frame. Within a "practice on X" block, `find_practice` proposes the items. A learned router using dossier embeddings as features stays deferred (router spec §13).
+- **Not a router.** Block-level routing is `spec_action_router_v1.md`: Perplexity Decider v1.1 and a frontier LLM competing inside the P4 staged frame. Within a "practice on X" block, `find_practice` proposes the items. A learned router using dossier embeddings as features stays deferred (router spec §13).
 
 ---
 
@@ -685,6 +685,11 @@ Predictive variance widens off-support. **The LLM never outputs the probability*
 *Note (2026-10-11):* 2610.11135 reports the opposite in LearnLoop's regime. A zero-data LLM probability call reached AUC 0.706, beating deep KT trained on 8 learners (single preprint, commercial model). Add it as a comparison arm in the replay; this does not change the rule above.
 
 **Evaluation:** temporal replay on vault history; log-loss, Brier, and reliability plots versus the baseline; pre-registered before running. No live consumer in this slice. A positive result feeds plan workstream B/J.
+
+**First arm, `emb_ridge`** (added 2026-10-12). This is the cheapest test, and it needs no new data.
+- **Model:** ridge or logistic regression over the already-stored `qwen3-embedding-8b` vectors (stem, plus the skeleton once PF-b lands) concatenated with the learner-state features the explicit arms use. It is fit prequentially, as an arm in `learnloop eval` (field §7.2), against `mastery_ekf` and `lo_general`.
+- **Kill rule:** if the bootstrap interval for its log-loss gain over the best explicit arm includes 0 at the margin fixed before the run, embeddings add no held-out predictive value. Then the GP model above isn't built.
+- **Why it matters beyond T8:** its result is condition 3 of the learned-router trigger (`spec_action_router_v1.md` §13).
 
 ---
 
