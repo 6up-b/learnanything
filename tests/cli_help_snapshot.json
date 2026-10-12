@@ -508,8 +508,8 @@
     "sha256": "faebeb365d27b8e26c577c1fe71e703ee9216a1840fc1aeb7efb8beb6faa5e58"
   },
   "pf generate": {
-    "bytes": 8684,
-    "sha256": "b37caf550985cf89586ba19b567d1f0f22f342ee388f9814c4e4f957d27ba002"
+    "bytes": 8769,
+    "sha256": "0c1e16e901d7ced0a6081af3d7c6d852a89a5bf71b2719cd328389ac3a86880f"
   },
   "pf publish": {
     "bytes": 1206,
