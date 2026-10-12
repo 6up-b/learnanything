@@ -403,3 +403,59 @@ def test_find_dry_run_names_metered_rerank_prices_and_caps(indexed):
     vault.config.practice_index.rerank_max_cost_usd = 0.0
     capped = plan_find_practice(vault, repository, QUERY)
     assert capped["rerank"]["status"].startswith("over_budget")
+
+
+def _live_rerank_prompt(repository):
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT input_text FROM model_call_receipts WHERE purpose='practice_rerank' "
+            "AND parent_call_id IS NULL ORDER BY started_at").fetchall()
+    return rows[-1]["input_text"] if rows else None
+
+
+@pytest.mark.parametrize("query", [
+    "zqxv wplk brrt",            # no keyword overlap: BM25 finds nothing
+    "eigenvalues zqxv wplk",     # partial overlap: BM25 finds only a few items
+])
+def test_find_dry_run_bounds_the_rerank_pool_the_query_vector_will_fill(indexed, query):
+    """F9: before the query is embedded, the keyword-only pool says nothing about
+    the rerank pool; the plan bounds it by the admissible corpus and candidate_pool."""
+    from learnloop.practice_index.contracts import PracticeRerank
+    from learnloop.practice_index.paid import estimated_call_tokens
+    from learnloop.practice_index.retrieval import RERANK_OUTPUT_TOKENS, plan_find_practice
+
+    _paths, vault, repository, llm, embedder = indexed
+    vault.config.practice_index.query_embedding_price_per_million = 0.02
+    plan = plan_find_practice(vault, repository, query)
+    bound = min(vault.config.practice_index.candidate_pool, plan["admission"]["admitted"])
+    assert plan["query_embedding"]["status"] == "would_embed"
+    rerank = plan["rerank"]
+    assert rerank["status"] == "would_call", rerank
+    assert rerank["pool_exact"] is False and rerank["pool"] == bound
+    assert rerank["caps"]["max_candidates"] == bound and rerank["caps"]["max_pairs"] == bound
+    assert rerank["budget_charge"]["candidates"] == bound
+    assert plan["admission"]["pool"] == bound and plan["admission"]["pool_exact"] is False
+    assert plan["estimate"]["calls"] == 2
+
+    result = find_practice(vault, repository, query, embedder=embedder, rerank_client=llm)
+    assert result["signals"]["query_embedding"]["status"] == "embedded"
+    assert result["rerank_status"] == "reranked"
+    live = [payload for purpose, payload in llm.calls if purpose == "practice_rerank"][-1]
+    assert 0 < len(live["context"]["candidates"]) <= rerank["pool"]
+    live_tokens = estimated_call_tokens(_live_rerank_prompt(repository), PracticeRerank,
+                                        RERANK_OUTPUT_TOKENS)
+    assert rerank["estimated_tokens"] >= live_tokens
+
+
+def test_find_dry_run_keeps_the_keyword_pool_when_no_query_embedding_will_run(indexed, monkeypatch):
+    """F9: when the query embedding is skipped, keyword search alone is the live pool."""
+    from learnloop.practice_index.retrieval import plan_find_practice
+
+    _paths, vault, repository, llm, embedder = indexed
+    monkeypatch.setattr("learnloop.practice_index.retrieval.query_embedding_price",
+                        lambda model_id, override: (None, "unknown"))
+    plan = plan_find_practice(vault, repository, "zqxv wplk brrt")
+    assert plan["query_embedding"]["status"] == "skipped"
+    assert plan["rerank"]["status"] == "empty_pool" and plan["rerank"]["pool_exact"] is True
+    assert plan["admission"]["pool"] == 0 and plan["estimate"]["calls"] == 0
+
