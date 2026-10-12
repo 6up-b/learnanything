@@ -83,8 +83,46 @@ def diagnose_data_check(
     _echo(data_check(loaded, repository), json_output)
 
 
+#: CLI experiment options -> the ``ReviewOptions`` fields they set. On a
+#: resume only these, when given explicitly, are checked against the run's.
+_EXPERIMENT_PARAMETERS: dict[str, tuple[str, ...]] = {
+    "sample_size": ("sample_size",),
+    "seed": ("seed",),
+    "arms": ("arms",),
+    "attempt": ("attempt_ids",),
+    "since": ("since",),
+    "repeat_subset": ("repeat_subset",),
+    "planted_per_shape": ("planted_per_shape",),
+    "planted_manifest": ("planted_manifest", "generate_planted"),
+    "no_planted": ("planted_per_shape", "planted_manifest", "generate_planted"),
+    "no_sweep": ("sweep",),
+    "sweep_budget": ("sweep_budgets",),
+    "no_probes": ("probes",),
+    "probe_items": ("probe_items",),
+    "no_joint_repeat": ("joint_repeat",),
+    "no_judge": ("judge",),
+    "full_budget": ("settings.full_history_token_budget",),
+    "history_error_limit": ("settings.history_error_limit",),
+    "history_success_limit": ("settings.history_success_limit",),
+}
+
+
+def _explicit_options(ctx: typer.Context) -> tuple[str, ...]:
+    """The ReviewOptions fields the command line set on purpose (not defaults)."""
+
+    # Compared by name: typer may ship its own click, whose enum is distinct.
+    defaults = {"DEFAULT", "DEFAULT_MAP"}
+    fields: dict[str, None] = {}
+    for parameter, names in _EXPERIMENT_PARAMETERS.items():
+        source = ctx.get_parameter_source(parameter)
+        if source is not None and getattr(source, "name", str(source)) not in defaults:
+            fields.update(dict.fromkeys(names))
+    return tuple(fields)
+
+
 @diagnose_app.command("run")
 def diagnose_run(
+    ctx: typer.Context,
     vault: Annotated[Path, typer.Option("--vault", help="Vault root; its database is copied, never modified.")],
     run_dir: Annotated[Path | None, typer.Option("--run-dir", help="Run directory (default: <vault>/.learnloop/diagnose-runs/<id>). An existing one resumes.")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the plan and cost estimate; no copy, no client, no calls.")] = False,
@@ -120,7 +158,9 @@ def diagnose_run(
     Everything lands in the run directory's scratch copy; the vault database
     is only read. Run with --dry-run first: it prints the planned calls,
     tokens and cost per route. SIGINT/SIGTERM stops before the next request;
-    rerunning with the same --run-dir resumes without paying twice.
+    rerunning with the same --run-dir resumes without paying twice, under the
+    run's own options (an explicit different option, vault, model or prompt
+    version is refused).
     """
 
     from learnloop.db.repositories import Repository
@@ -222,6 +262,7 @@ def diagnose_run(
             price_per_million=price_per_million,
             cancelled=stop.is_set,
             progress=progress,
+            explicit_options=_explicit_options(ctx),
         )
     _echo(result, json_output)
     if result["status"] == "cancelled":

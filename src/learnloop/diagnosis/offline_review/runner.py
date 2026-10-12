@@ -24,9 +24,10 @@ from contextlib import closing, contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, Sequence
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence
 
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
+from learnloop.ai.execution import model_settings
 from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import READ_ONLY_WORKSPACE
@@ -65,6 +66,7 @@ from learnloop.diagnosis.offline_review import probes as probing
 from learnloop.diagnosis.offline_review.planted import (
     SHAPES,
     PlantedCase,
+    PLANTED_PROMPT_VERSION,
     PlantedCaseInvalid,
     case_from_draft,
     cases_from_manifest,
@@ -97,6 +99,7 @@ from learnloop.diagnosis.split.legacy_view import (
 from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION, DiagnosisSettings
 from learnloop.ids import new_ulid
+from learnloop.vault.hashes import content_hash
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 RUN_FILE = "run.json"
@@ -145,6 +148,26 @@ class ReviewOptions:
         payload = asdict(self)
         payload["planted_manifest"] = self.planted_manifest is not None
         return payload
+
+    def as_persisted(self) -> dict[str, Any]:
+        """Every field, the planted manifest included, for ``run.json``."""
+
+        return asdict(self)
+
+    @classmethod
+    def from_persisted(cls, payload: Mapping[str, Any]) -> "ReviewOptions":
+        values = dict(payload)
+        for name in ("arms", "sweep_budgets", "attempt_ids"):
+            values[name] = tuple(values.get(name) or ())
+        values["settings"] = DiagnosisSettings(**dict(values.get("settings") or {}))
+        return cls(**values)
+
+    def value_of(self, name: str) -> Any:
+        """A field, or ``settings.<field>``, by dotted name."""
+
+        if name.startswith("settings."):
+            return getattr(self.settings, name.split(".", 1)[1])
+        return getattr(self, name)
 
 
 @dataclass
@@ -497,6 +520,132 @@ def estimate_spend(plan: Mapping[str, Any], spend: ReviewSpend) -> dict[str, Any
 
 
 # ---------------------------------------------------------------------------
+# Run binding (F11): one run directory, one experiment configuration
+# ---------------------------------------------------------------------------
+
+
+class IncompatibleResume(ValueError):
+    """A resume would mix configurations within one run."""
+
+    def __init__(self, reasons: Sequence[str]) -> None:
+        super().__init__("; ".join(reasons))
+        self.reasons = list(reasons)
+
+
+def prompt_versions() -> dict[str, str]:
+    return {
+        "review": REVIEW_VERSION,
+        "blind_grading": BLIND_GRADING_PROMPT_VERSION,
+        "joint_grading": GRADING_PROMPT_VERSION,
+        "diagnosis": DIAGNOSIS_PROMPT_VERSION,
+        "judge": judging.JUDGE_PROMPT_VERSION,
+        "link_judge": judging.LINK_JUDGE_PROMPT_VERSION,
+        "planted_judge": judging.PLANTED_JUDGE_PROMPT_VERSION,
+        "planted_generator": PLANTED_PROMPT_VERSION,
+        "probes": probing.PROBE_PROMPT_VERSION,
+    }
+
+
+def vault_content_hash(vault: LoadedVault) -> str:
+    """What every grading and diagnosis context reads from the vault's files."""
+
+    return content_hash(
+        {
+            "practice_items": {key: vault.practice_items[key] for key in sorted(vault.practice_items)},
+            "learning_objects": {key: vault.learning_objects[key] for key in sorted(vault.learning_objects)},
+            "default_rubrics": {key: vault.default_rubrics[key] for key in sorted(vault.default_rubrics)},
+            "edges": list(vault.edges),
+            "error_types": {key: vault.error_types[key] for key in sorted(vault.error_types)},
+            "evidence_facets": {key: vault.evidence_facets[key] for key in sorted(vault.evidence_facets)},
+            "facet_aliases": dict(sorted(vault.facet_aliases.items())),
+        }
+    )
+
+
+def route_bindings(clients: ReviewClients) -> dict[str, dict[str, Any] | None]:
+    """Per review route, the settings that change what its requests produce."""
+
+    bindings: dict[str, dict[str, Any] | None] = {}
+    for attribute, route in REVIEW_ROUTES:
+        client = getattr(clients, attribute)
+        if client is None:
+            bindings[route] = None
+            continue
+        bindings[route] = {
+            **model_settings(client),
+            "provider_type": getattr(client, "provider_type", None),
+            "model": getattr(client, "model", None) or getattr(client, "model_id", None),
+        }
+    return bindings
+
+
+def run_binding(vault: LoadedVault, clients: ReviewClients) -> dict[str, Any]:
+    return {
+        "vault_root": str(Path(vault.root).resolve()),
+        "vault_content_hash": vault_content_hash(vault),
+        "routes": route_bindings(clients),
+        "prompt_versions": prompt_versions(),
+    }
+
+
+def resume_options(
+    persisted: Mapping[str, Any],
+    options: ReviewOptions,
+    explicit_options: Iterable[str] | None,
+) -> ReviewOptions:
+    """The run's persisted options; an explicit different value is refused.
+
+    ``explicit_options`` names the fields the caller set on purpose (dotted
+    ``settings.<field>`` for diagnosis settings); ``None`` treats every field
+    as explicit, so a programmatic resume must pass the run's own options.
+    """
+
+    if "options_full" not in persisted:
+        raise IncompatibleResume(["the run predates configuration binding; start a new run directory"])
+    stored = ReviewOptions.from_persisted(persisted["options_full"])
+    if explicit_options is None:
+        if options != stored:
+            changed = sorted(
+                name for name in asdict(stored)
+                if name != "settings" and getattr(options, name) != getattr(stored, name)
+            ) + sorted(
+                f"settings.{name}" for name in asdict(stored.settings)
+                if getattr(options.settings, name) != getattr(stored.settings, name)
+            )
+            raise IncompatibleResume([f"option {name} differs from the run's ({stored.value_of(name)!r})" for name in changed])
+        return stored
+    reasons = [
+        f"option {name} differs from the run's ({stored.value_of(name)!r})"
+        for name in sorted(set(explicit_options))
+        if options.value_of(name) != stored.value_of(name)
+    ]
+    if reasons:
+        raise IncompatibleResume(reasons)
+    return stored
+
+
+def binding_mismatches(persisted: Mapping[str, Any] | None, current: Mapping[str, Any]) -> list[str]:
+    """Why ``current`` would mix with the run's recorded binding (empty = none)."""
+
+    if not persisted:
+        return ["the run predates configuration binding; start a new run directory"]
+    reasons = []
+    if persisted.get("vault_root") != current["vault_root"]:
+        reasons.append(f"the run was made from vault {persisted.get('vault_root')}, not {current['vault_root']}")
+    if persisted.get("vault_content_hash") != current["vault_content_hash"]:
+        reasons.append("the vault's items, learning objects, rubrics or graph changed since the run started")
+    old_versions = persisted.get("prompt_versions") or {}
+    for name, version in current["prompt_versions"].items():
+        if old_versions.get(name) != version:
+            reasons.append(f"prompt version {name} is {version}, the run used {old_versions.get(name)}")
+    for route, settings in current["routes"].items():
+        before = (persisted.get("routes") or {}).get(route)
+        if before is not None and settings is not None and before != settings:
+            reasons.append(f"route {route} changed provider/model/settings since the run started")
+    return reasons
+
+
+# ---------------------------------------------------------------------------
 # Run
 # ---------------------------------------------------------------------------
 
@@ -535,12 +684,22 @@ class ReviewRun:
 
     # -- setup ------------------------------------------------------------------
 
-    def open(self, source_sqlite: Path) -> None:
+    def open(self, source_sqlite: Path, *, binding: Mapping[str, Any] | None = None) -> None:
         self.run_dir.mkdir(parents=True, exist_ok=True)
         run_file = self.run_dir / RUN_FILE
         if run_file.exists() and self.scratch_path.exists():
-            self.run_id = str(json.loads(run_file.read_text(encoding="utf-8"))["run_id"])
+            meta = json.loads(run_file.read_text(encoding="utf-8"))
+            self.run_id = str(meta["run_id"])
             self.repository = Repository.attach(self.scratch_path)
+            if binding is not None:
+                # Record routes that became ready on this resume (they could
+                # not mix: nothing ran on them before).
+                routes = dict((meta.get("binding") or {}).get("routes") or {})
+                for route, settings in binding["routes"].items():
+                    if routes.get(route) is None and settings is not None:
+                        routes[route] = settings
+                meta["binding"] = {**(meta.get("binding") or binding), "routes": routes}
+                run_file.write_text(json.dumps(meta, indent=2, sort_keys=True, default=str), encoding="utf-8")
             return
         if self.scratch_path.exists():
             raise ValueError(f"{self.scratch_path} exists without {RUN_FILE}; choose an empty run directory")
@@ -572,9 +731,17 @@ class ReviewRun:
             )
         run_file.write_text(
             json.dumps(
-                {"run_id": self.run_id, "review_version": REVIEW_VERSION, "vault_root": str(self.vault.root), "options": self.options.as_dict()},
+                {
+                    "run_id": self.run_id,
+                    "review_version": REVIEW_VERSION,
+                    "vault_root": str(self.vault.root),
+                    "options": self.options.as_dict(),
+                    "options_full": self.options.as_persisted(),
+                    "binding": dict(binding) if binding is not None else None,
+                },
                 indent=2,
                 sort_keys=True,
+                default=str,
             ),
             encoding="utf-8",
         )
@@ -1480,14 +1647,7 @@ class ReviewRun:
             "review_version": REVIEW_VERSION,
             "run_id": self.run_id,
             "algorithm_version": self.vault.config.algorithms.algorithm_version,
-            "prompt_versions": {
-                "blind_grading": BLIND_GRADING_PROMPT_VERSION,
-                "joint_grading": GRADING_PROMPT_VERSION,
-                "diagnosis": DIAGNOSIS_PROMPT_VERSION,
-                "judge": judging.JUDGE_PROMPT_VERSION,
-                "link_judge": judging.LINK_JUDGE_PROMPT_VERSION,
-                "planted_judge": judging.PLANTED_JUDGE_PROMPT_VERSION,
-            },
+            "prompt_versions": prompt_versions(),
             "settings": asdict(self.options.settings),
             "options": self.options.as_dict(),
             "spend": self.spend.summary(),
@@ -1513,8 +1673,16 @@ def run_review(
     price_per_million: float | None = None,
     cancelled: Callable[[], bool] | None = None,
     progress: Callable[[str], None] | None = None,
+    explicit_options: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Run (or resume) every stage; returns the manifest and stage status."""
+    """Run (or resume) every stage; returns the manifest and stage status.
+
+    A resume restores the run's persisted experiment options (``options`` is
+    checked against them: every field, or only ``explicit_options`` when
+    given) and is refused, before anything is called, when the options, the
+    source vault or its content, a route's provider/model/settings or a
+    prompt version differ from the run's.
+    """
 
     missing = [route for route, client in (("grading", clients.grading), ("diagnosis", clients.diagnosis)) if client is None]
     if missing:
@@ -1540,6 +1708,23 @@ def run_review(
         if client is not None:
             spend.register(route, client)
     resuming = (Path(run_dir) / RUN_FILE).exists()
+    binding = run_binding(vault, clients)
+    if resuming:
+        persisted = json.loads((Path(run_dir) / RUN_FILE).read_text(encoding="utf-8"))
+        try:
+            options = resume_options(persisted, options, explicit_options)
+            reasons = binding_mismatches(persisted.get("binding"), binding)
+            if reasons:
+                raise IncompatibleResume(reasons)
+        except IncompatibleResume as exc:
+            return {
+                "status": "incompatible_resume",
+                "reasons": exc.reasons,
+                "run_dir": str(run_dir),
+                "run_id": persisted.get("run_id"),
+                "estimate": None,
+                "manifest": None,
+            }
     plan = plan_review(vault, Repository.attach(source_sqlite, read_only=True), options, clients=clients)
     try:
         estimate = estimate_spend(plan, spend)
@@ -1551,7 +1736,7 @@ def run_review(
         # re-paid); per-request admission still enforces every cap.
         return {"status": "over_budget", "run_dir": None, "run_id": None, "estimate": estimate, "manifest": None}
     run = ReviewRun(vault, run_dir, options, clients, spend, progress=progress)
-    run.open(source_sqlite)
+    run.open(source_sqlite, binding=binding)
     assert run.repository is not None
     spend.collector.sink = lambda action, event: run.repository.record_model_event(
         action, event, owner_kind=REVIEW_RECEIPT_OWNER_KIND, owner_id=run.run_id
@@ -1575,6 +1760,12 @@ def run_review(
 
 
 __all__ = [
+    "IncompatibleResume",
+    "binding_mismatches",
+    "prompt_versions",
+    "resume_options",
+    "run_binding",
+    "vault_content_hash",
     "REVIEW_ROUTES",
     "resolve_review_clients",
     "route_profiles",

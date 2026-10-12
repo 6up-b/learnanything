@@ -588,3 +588,68 @@ def test_an_owner_verdict_never_lands_on_a_receipt_the_owner_did_not_see(tmp_pat
     detail = json.loads(_scratch_rows(run, "SELECT detail_json FROM review_judgments WHERE session_id = ?", (session,))[0][0])
     assert detail["vault_adjudication"] is None
     assert detail["reason"] == "receipt_changed_since_review"
+
+
+RESUME_OPTIONS = ReviewOptions(sample_size=3, arms=("b",), planted_per_shape=0, generate_planted=False, probes=False,
+                               judge=False, sweep=False, joint_repeat=False, repeat_subset=0)
+
+
+def test_a_resume_restores_the_persisted_experiment_and_refuses_changes(tmp_path):
+    """F11: one run, one configuration; a mismatched resume is refused before any call."""
+
+    from dataclasses import replace
+
+    from learnloop.diagnosis.split.settings import DiagnosisSettings
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    run = tmp_path / "run"
+    original = replace(RESUME_OPTIONS, settings=DiagnosisSettings(history_error_limit=1))
+    _client, first = _run(paths, vault, run, options=original)
+    assert first["status"] == "complete"
+    # The documented resume passes no experiment options: the persisted ones apply.
+    client = ReviewFakeClient()
+    clients = ReviewClients(grading=client, diagnosis=client, judge=client, generator=client, embedding=FakeEmbeddingClient())
+    resumed = run_review(vault, source_sqlite=paths.sqlite_path, run_dir=run, options=RESUME_OPTIONS, clients=clients,
+                         caps=CAPS, explicit_options=())
+    assert resumed["status"] == "complete"
+    assert resumed["manifest"]["settings"]["history_error_limit"] == 1
+    # An explicit, different experiment option is refused.
+    refused = run_review(vault, source_sqlite=paths.sqlite_path, run_dir=run, options=RESUME_OPTIONS, clients=clients,
+                         caps=CAPS, explicit_options=("settings.history_error_limit",))
+    assert refused["status"] == "incompatible_resume"
+    assert any("history_error_limit" in reason for reason in refused["reasons"])
+    # A different diagnosis model is refused too.
+    other = ReviewFakeClient(model="another-model")
+    swapped = ReviewClients(grading=client, diagnosis=other, judge=client, generator=client, embedding=FakeEmbeddingClient())
+    refused_model = run_review(vault, source_sqlite=paths.sqlite_path, run_dir=run, options=original, clients=swapped, caps=CAPS)
+    assert refused_model["status"] == "incompatible_resume"
+    assert any("diagnosis" in reason for reason in refused_model["reasons"])
+    assert other.calls == [] and client.calls == []
+
+
+def test_cli_resume_with_only_the_run_dir_keeps_the_original_settings(tmp_path, monkeypatch):
+    from learnloop.diagnosis.offline_review import runner as runner_module
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    seed_history(paths)
+    client = ReviewFakeClient()
+
+    def fake_clients(_vault):
+        return ReviewClients(grading=client, diagnosis=client, judge=client, generator=client, embedding=None)
+
+    monkeypatch.setattr(runner_module, "resolve_review_clients", fake_clients)
+    run = tmp_path / "run"
+    base = ["diagnose", "run", "--vault", str(paths.root), "--run-dir", str(run), "--json"]
+    flags = ["--sample-size", "2", "--arms", "b", "--no-planted", "--no-probes", "--no-judge", "--no-sweep",
+             "--no-joint-repeat", "--repeat-subset", "0", "--history-error-limit", "1"]
+    first = CliRunner().invoke(app, [*base, *flags])
+    assert first.exit_code == 0, first.output
+    resumed = CliRunner().invoke(app, base)
+    assert resumed.exit_code == 0, resumed.output
+    payload = json.loads(resumed.output)
+    assert payload["manifest"]["settings"]["history_error_limit"] == 1
+    assert payload["manifest"]["options"]["arms"] == ["b"]
+    changed = CliRunner().invoke(app, [*base, "--history-error-limit", "3"])
+    assert changed.exit_code == 1
+    assert json.loads(changed.output)["status"] == "incompatible_resume"
