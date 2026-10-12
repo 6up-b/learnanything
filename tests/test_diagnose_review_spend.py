@@ -159,3 +159,19 @@ def test_subscription_requests_still_stop_on_cancellation(monkeypatch):
         with spend.request("diagnosis", "diagnosis", input_tokens=1_000):
             execute_structured_operation(client, purpose="diagnosis", prompt="p", result_model=Answer)
     assert client.sent == 1
+
+
+def test_the_call_count_cap_still_stops_subscription_work():
+    """F16 (rejected twice, by the spec): Slice A §5 rule 6 exempts Codex from
+    a PHYSICAL-request bound, tokens and dollars, but "Caps still apply to call
+    count, candidates and pairs, so a runaway loop stops". The shared
+    ``SpendBudget(subscription=True)`` on integrate/slice-a-2-3 enforces
+    max_calls the same way. max_calls=0 therefore refuses a Codex unit before
+    anything is sent, while its tokens and dollars are never capped."""
+
+    client = SubscriptionTurns(turns=3)
+    refused = _spend(client, SpendCaps(max_calls=0, max_retries=0, max_total_tokens=0, max_estimated_usd=0.0))
+    with refused.collector.observing(), pytest.raises(SpendLimitExceeded, match="calls"):
+        with refused.request("diagnosis", "diagnosis", input_tokens=10**9):
+            execute_structured_operation(client, purpose="diagnosis", prompt="p", result_model=Answer)
+    assert client.sent == 0
