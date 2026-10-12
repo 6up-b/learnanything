@@ -526,7 +526,18 @@ multimodal embedder, the bar, CLI), `test_sidecar_source_retrieval.py`,
 Gate (final commit; `uv sync --extra dev --extra mobile`, `uv pip install
 pypdfium2`):
 
-GATE_RESULTS
+| Check | Result |
+|---|---|
+| `uv run lint-imports --no-cache` | 12 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7906 passed**, 0 failed, 0 skipped (225.7 s) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **84 passed**, 7822 deselected (62.2 s) |
+| `npm install`, `npm run typecheck`, `npm test` (apps/learnloop-tauri) | install ok; typecheck clean; 24 files, **106 tests passed** |
+| `db_generate_reference.py`, `db_validate_reference.py` | regenerated; validator `errors: []` (schema head 175, 292 table notes, 631 config leaves, 3832 wikilinks checked) |
+
+The first full run on this branch failed 8 tests, all fixed before the gate:
+the SQL-owner registry (the new store), the CLI help snapshot, and six
+debug-advance, goal-series and scoreboard tests whose table walkers looked up
+a role for FTS5 shadow tables (section 2.1).
 
 ## 7. Owner-run commands
 
