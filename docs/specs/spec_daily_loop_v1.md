@@ -362,7 +362,7 @@ One segmented control on an LO, a subject, a source, a capture and an item. It s
 - **A broad choice is the newest choice.** A choice on a subject, source or LO is the most recent choice for everything it covers, so it replaces earlier narrower settings. A subject Pause therefore pauses an LO set to Master and items adopted earlier.
 - **A narrow choice made afterwards overrides it** for its own scope. Pause on one item under an LO set to Master excludes that item, and the rest of the LO stays at Master.
 - **Replaced settings don't come back.** Resuming, or choosing again, is a new choice.
-- **Requests follow the same rule.** `requested_practice_item_ids` (`learnloop/db/repositories.py:4574`) skips intent-control commitments, because an intent choice is not a request. It also skips items whose resolved disposition isn't `active`. With `intent.enabled = false` that query is unchanged.
+- **Requests follow the same rule.** The existing `help_me_remember` branch of `requested_practice_item_ids` (`learnloop/db/repositories.py:4574`) skips intent-control commitments, because choosing Master or Keep on an item is not a request. Every branch skips items whose resolved disposition is `paused`, `reference_only` or `stopped`. A control-chosen "Check once" becomes a request only through its own dated branch (§5.2). With `intent.enabled = false` the query is unchanged.
 
 Reaching a target permits closure (intentions §5).
 
@@ -415,8 +415,8 @@ A **daily plan** belongs to one local calendar date (D9) and one vault, and is s
 | `push` | `practice(transfer \| integration \| fluency)` | Items on goal frontiers or under Learn and Master commitments that are not yet due |
 
 - **Classifying items.** Each eligible item from the scheduler's ranked list takes the first lane that matches, in this order:
-  1. repair;
-  2. **scheduled checks → maintain.** They come before `new` because many have never been attempted (a project probe always, an assumed-known item or a "Check once" card often). They are never new material: they don't count toward §6.3's admission or item cap, and re-entry admits them (§7). Due project probes beyond `plan.project_probes_max_per_day` stay in the full list as "later", never in `new`;
+  1. **scheduled checks → maintain.** These are fixed-date cold checks, so they come before `repair` and `new`, and many have never been attempted: a project probe always, an assumed-known item or a "Check once" card often. They are never new material: they don't count toward §6.3's admission or item cap, and re-entry admits them (§7). Due project probes beyond `plan.project_probes_max_per_day` stay in the full list as "later", never in `new`;
+  2. repair;
   3. new;
   4. maintain (effective due passed, previously attempted requests);
   5. push.
@@ -715,7 +715,7 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 - `judgment_ledger` tasks: `capture_kind`, `capture_filing`, `reference_verification`.
 - An owner verdict is appended for every Move and every adoption undo, so filing error stays measurable without a review chore (the PF undo pattern).
 
-**Replay.** None of these tables is DERIVED. Replay ignores the plan and capture tables, and rebuild never calls a model (L5).
+**Replay.** None of these tables is DERIVED. Replay ignores the plan and capture tables. Projections read only `practice_attempts.reference_status`, an attempt-row field recorded once (§4.4). Rebuild never calls a model (L5).
 
 ---
 
@@ -769,8 +769,8 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | G5 | **Saving is a reference.** `capture.create` creates no practice item and no commitment. "Practice this" creates exactly one adoption per capture, idempotent under retries and concurrent runners; undo retires the item and the commitment |
 | G6 | **No decisions at capture.** The capture API has no subject, LO or intent parameter. Filing never blocks saving, and unfiled captures are found by search |
 | G7 | **Verification.** `verified` requires the §4.3 checks (PF's tests reused). An item with an unverified key is excluded from certification cold probes, exam pools and assumed-known checks, and is labelled everywhere it shows. An ordinary independent, unassisted attempt on it schedules FSRS but earns zero certification credit in both projections. That still holds after the key later verifies; attempts made after verification certify; a rebuild reproduces both |
-| G8 | **Replay.** Rebuild makes zero model and embedding calls with capture and plan tables populated; `capture_processing` is never re-run; DL1 and DL2 shadow rebuilds show zero projection deltas |
-| G9 | **Spend.** The processor respects per-capture and daily caps; `--dry-run` prints calls, tokens and cost; Codex receipts are `estimated_only`; every filing and verification verdict is in `judgment_ledger` |
+| G8 | **Replay.** Rebuild makes zero model and embedding calls with capture and plan tables populated; `capture_processing` is never re-run; DL1, DL2 and DL3 shadow rebuilds show zero projection deltas on the fixture copies |
+| G9 | **Spend.** The processor respects the lifetime per-capture call cap and the daily cost cap; `--dry-run` prints calls, tokens and cost; Codex receipts are `estimated_only`; every filing and verification verdict is in `judgment_ledger` |
 | G10 | **Re-entry.** It shows without any goal after the gap (measured per F1); it respects the minute and item caps; Light touch is excluded; no overdue count and no streak text appear; no due date is rewritten |
 | G11 | **Streak.** The count is unchanged on fixture copies; the label matches what is counted; phone sessions count |
 | G12 | **Learner picks win** and are logged with no propensity; picks displace the plan's tail rather than growing it |
@@ -858,9 +858,10 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - DL1 is the "finite, system-ordered plan" that field F7 waits on. Plan events carry `serving_origin` (`daily_plan` or `learner_pick`).
   - §5.2's "when daily-loop Q7 exists" mapping is §5.6 here.
   - §5.3's re-entry hand-off is §7 here.
-- **Embedding consumers.** Capture verification reuses that spec's §5.3 verified-reference rules. Its §5.9 "practice this box" is the "Practice on…" box (§6.9). `pf.max_published_per_day` becomes a generation guard; serving pace is §6.3.
+- **Embedding consumers.** Capture verification reuses that spec's §5.3 verified-reference rules. Adopting a capture whose key is unverified is a narrow, learner-requested exception to §5.3's no-publish rule, with an attempt-time certification gate (§4.4); generated variants still need a verified reference. Its §5.9 "practice this box" is the "Practice on…" box (§6.9). `pf.max_published_per_day` becomes a generation guard; serving pace is §6.3.
 - **Mobile.**
   - §6.7's background processor is §4.3. T6 is met when DL3 lands; the phone's part is M3.
+  - `purge_capture` extends to processed content, receipts, checkpoints, embeddings and adopted items (§4.7); M1's own purge and its manual-route destinations are unchanged.
   - Q14 is answered (minutes only), so §6.5's readiness note and the header's "Depends on … Q0–Q18 … unanswered" can be updated.
   - M2a's allowlist adds the DL1 plan RPCs.
 - **Project understanding.** From M2, due probes enter the maintain lane (§6.9).
