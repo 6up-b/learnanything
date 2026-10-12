@@ -78,6 +78,9 @@ PriceOption = Annotated[float | None, typer.Option(
 )]
 
 
+GRADING_BUSY = "another command is grading; the answer is saved and `learnloop project grade` grades it later"
+
+
 def _clock() -> Clock:
     return SystemClock()
 
@@ -209,9 +212,11 @@ def _grade(
                 return {"status": "provider_unavailable", "reason": route.message, "pending": len(pending)}
             try:
                 results = grade_responses(store, paid, route, response_ids=[r["id"] for r in pending], clock=clock)
-                status = "complete" if all(r["status"] == "graded" for r in results) else "partial"
             except SpendLimitExceeded as exc:
                 return {"status": "over_budget", "reason": str(exc), "spend": paid.summary()}
+    if results and all(r["status"] == "busy" for r in results):
+        return {"status": "busy", "reason": GRADING_BUSY, "pending": len(pending), "spend": paid.summary()}
+    status = "complete" if all(r["status"] in {"graded", "already_graded"} for r in results) else "partial"
     return {"status": status, "results": results, "spend": paid.summary()}
 
 
@@ -723,7 +728,9 @@ def _serve_probes(
             )
             if kind == "answer" and grader.ready:
                 try:
-                    grade_responses(store, paid, grader, response_ids=[response["id"]], clock=clock)
+                    graded = grade_responses(store, paid, grader, response_ids=[response["id"]], clock=clock)
+                    if any(result["status"] == "busy" for result in graded):
+                        typer.echo(f"Grading deferred: {GRADING_BUSY}")
                 except SpendLimitExceeded as exc:
                     typer.echo(f"Grading deferred (saved; `learnloop project grade` grades it later): {exc}")
             elif kind == "answer":

@@ -122,15 +122,18 @@ def safe_error(exc: BaseException) -> str:
 
 
 @contextmanager
-def _exclusive(vault_root: Path, name: str) -> Iterator[bool]:
-    """A non-blocking cross-process lock, so two commands never pay twice."""
+def _exclusive(lock_dir: Path, name: str) -> Iterator[bool]:
+    """A non-blocking cross-process lock in ``lock_dir`` (the store's directory).
+
+    Taken before any paid call, so two commands never pay for the same work.
+    """
 
     try:
         import fcntl
     except ImportError:  # pragma: no cover - POSIX hosts only
         yield True
         return
-    path = store_path(vault_root).parent / name
+    path = Path(lock_dir) / name
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a+") as handle:
         try:
@@ -661,7 +664,7 @@ def generate_probes(
         report.reason = "; ".join(f"{route.role}: {route.message or 'not ready'}" for route in unready)
         report.spend = paid.summary()
         return report
-    with _exclusive(vault_root, "generate.lock") as acquired:
+    with _exclusive(store_path(vault_root).parent, "generate.lock") as acquired:
         if not acquired:
             report.status, report.reason = "busy", "another command is generating questions; rerun when it finishes"
             report.spend = paid.summary()
@@ -811,14 +814,39 @@ def grade_responses(
     response_ids: list[str] | None = None,
     clock: Clock | None = None,
 ) -> list[dict[str, Any]]:
-    """Blind-grade pending answers one at a time; failures stay pending to retry."""
+    """Blind-grade pending answers one at a time; failures stay pending to retry.
 
-    results = []
+    Grading is claimed with a cross-process lock before any model call: a
+    second grader reports ``busy`` and pays nothing, and the answers stay
+    pending for it to grade later. Should two graders still race (the lock
+    is per host), the store accepts only the first grade and its judgment;
+    the other reports ``already_graded`` with the outcome of record.
+    """
+
     pending = [
         response for response in store.responses(grade_status="pending")
         if response_ids is None or response["id"] in response_ids
     ]
-    for response in pending:
+    if not pending:
+        return []
+    with _exclusive(store.path.parent, "grade.lock") as acquired:
+        if not acquired:
+            return [{"response_id": response["id"], "status": "busy"} for response in pending]
+        return _grade_pending(store, paid, route, pending, clock)
+
+
+def _grade_pending(
+    store: ProjectStore,
+    paid: PaidCalls,
+    route: ProjectRoute,
+    pending: list[dict[str, Any]],
+    clock: Clock | None,
+) -> list[dict[str, Any]]:
+    results = []
+    for listed in pending:
+        response = store.response(listed["id"])
+        if response is None or response["grade_status"] != "pending":
+            continue  # graded by a run that held the lock before us
         probe = store.probe(response["probe_id"])
         if probe is None:
             continue

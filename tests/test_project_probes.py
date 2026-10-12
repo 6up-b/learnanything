@@ -315,7 +315,7 @@ def test_a_concurrent_generation_run_is_refused_not_double_paid(captured):
 
     vault, config, store, diff = captured
     fake = ProjectFake()
-    with _exclusive(vault, "generate.lock") as held:
+    with _exclusive(store.path.parent, "generate.lock") as held:
         assert held
         report = _generate(vault, config, store, fake)
     assert report.status == "busy" and fake.calls == {}

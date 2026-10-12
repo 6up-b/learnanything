@@ -151,3 +151,49 @@ def test_an_unfair_tap_never_persists_without_its_judgment(captured):
     assert store.response_for_probe(selected[1]["id"]) is None
     record_response(store, selected[1]["id"], kind="unfair", clock=clock_at(8))
     assert len(store.judgments(task="project_probe_unfair")) == 1
+
+
+# --- concurrent graders (F6) ------------------------------------------------------------
+
+
+def test_a_second_grader_waits_its_turn_instead_of_paying(captured):
+    from learnloop.projects.probes import _exclusive
+
+    store, _selected, response = _answered(captured)
+    fake = ProjectFake()
+    with _exclusive(store.path.parent, "grade.lock") as held:
+        assert held
+        results = grade_responses(store, PaidCalls(store, caps=CAPS, run_id="late"), _routes(fake)["grading"], clock=clock_at(8))
+    assert [result["status"] for result in results] == ["busy"]
+    assert fake.calls == {} and store.response(response["id"])["grade_status"] == "pending"
+
+
+def test_interleaved_graders_leave_one_outcome_and_report_it(captured, monkeypatch):
+    from contextlib import contextmanager as _cm
+
+    from learnloop.projects import probes as probes_module
+
+    @_cm
+    def no_lock(*_args, **_kwargs):  # as if the lock could not help (e.g. another host)
+        yield True
+
+    monkeypatch.setattr(probes_module, "_exclusive", no_lock)
+    store, _selected, response = _answered(captured)
+
+    class FirstGrader(ProjectFake):
+        def run_project_probe_grading(self, context):
+            grades = super().run_project_probe_grading(context)
+            return grades.model_copy(update={"grades": [g.model_copy(update={"score": 0.0, "verdict": "incorrect"}) for g in grades.grades]})
+
+    class SlowGrader(ProjectFake):
+        def run_project_probe_grading(self, context):
+            # The first grader reads, pays and persists while this one is in flight.
+            grade_responses(store, PaidCalls(store, caps=CAPS, run_id="first"), _routes(FirstGrader())["grading"], clock=clock_at(8))
+            return super().run_project_probe_grading(context)
+
+    results = grade_responses(store, PaidCalls(store, caps=CAPS, run_id="second"), _routes(SlowGrader())["grading"], clock=clock_at(8))
+    stored = store.response(response["id"])
+    assert stored["score"] == 0.0
+    assert results == [{"response_id": response["id"], "status": "already_graded", "score": 0.0, "verdict": "incorrect"}]
+    (judgment,) = store.judgments(task="project_probe_grade", left_id=response["id"])
+    assert judgment["score"] == 0.0
