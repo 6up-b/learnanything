@@ -9,6 +9,9 @@ from contextlib import closing
 from learnloop.db.connection import connect
 from learnloop.db.scopes import allow_late_model_records
 
+#: Optional receipt labels (``learnloop.ai.execution.call_labels``).
+LABEL_FIELDS = ("judge", "question_set_version", "state_hash")
+
 
 class ModelCallStoreMixin:
     def record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
@@ -27,6 +30,10 @@ class ModelCallStoreMixin:
         with self.connection() as connection:
             if action == "start":
                 fields = ("id", "parent_call_id", "purpose", "provider", "model", "endpoint", "prompt_hash", "schema_hash", "input_text", "schema_json", "budget_json", "output_budget_tokens", "started_at")
+                # Judgment-call labels (migration 169) are written only when a
+                # caller set them, so unlabelled calls keep working on a
+                # database below that migration.
+                fields += tuple(label for label in LABEL_FIELDS if event.get(label) is not None)
                 connection.execute(
                     f"INSERT INTO model_call_receipts ({','.join(fields)},owner_kind,owner_id,status) VALUES ({','.join('?' for _ in fields)},?,?,'started')",
                     (*(event.get(field) for field in fields), owner_kind, owner_id),

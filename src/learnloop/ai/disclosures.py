@@ -1,0 +1,90 @@
+"""Privacy disclosures for the judgment routes (router spec §6.2, D6).
+
+Settings and ``learnloop eval judges`` show one disclosure per route whose
+provider would receive learner text, naming who receives it, what is sent,
+and when. Nothing is sent by merely configuring a route.
+"""
+from __future__ import annotations
+
+from typing import Any
+from urllib.parse import urlsplit
+
+from learnloop.config import LearnLoopConfig
+
+#: (route task, judge, consumer) for the four judgment routes.
+JUDGE_ROUTES: tuple[tuple[str, str, str], ...] = (
+    ("llm_probability_decider", "decider", "llm_probability"),
+    ("llm_probability_llm", "llm", "llm_probability"),
+    ("router_decider", "decider", "router"),
+    ("router_llm", "llm", "router"),
+)
+
+_WHEN = {
+    "llm_probability": (
+        "Only when you run the offline llm_probability harness yourself (field.enabled and "
+        "field.llm_probability_enabled, then an explicit --prepare-llm). V1 sends item content "
+        "only; V2 adds your recent right/wrong results; V3 adds excerpts of your earlier answers, "
+        "their grades, diagnosis hypotheses and your tutor questions."
+    ),
+    "router": (
+        "Nothing is sent yet: the router has no live consumer until router R2 is built and "
+        "enabled. Then each block choice sends the learner state card (your recent answers, "
+        "grades, hypotheses and questions)."
+    ),
+}
+
+
+def _host(url: str | None) -> str:
+    parts = urlsplit(url or "")
+    return parts.hostname or "an unnamed endpoint"
+
+
+def recipient(config: LearnLoopConfig, provider_name: str) -> str:
+    profile = config.ai.providers.get(provider_name)
+    if profile is None:
+        return f"the unconfigured provider {provider_name!r} (nothing can be sent)"
+    kind = profile.type.strip().lower()
+    if kind == "decider":
+        if getattr(profile, "api", "openrouter") == "perplexity":
+            return f"Perplexity's Decisions API directly ({_host(profile.base_url or 'https://api.perplexity.ai')})"
+        return (
+            "OpenRouter, which forwards it to Perplexity (the only provider OpenRouter lists for "
+            "the Decider). LearnLoop does not request OpenRouter's data_collection=deny for this "
+            "route: the listing does not show that Perplexity's endpoint satisfies it, and a request "
+            "that requires it fails when no provider does"
+        )
+    if kind in {"codex_sdk", "http"}:
+        return "OpenAI, through your ChatGPT subscription (Codex)"
+    if kind == "openrouter":
+        return "OpenRouter and the upstream provider it routes the model to"
+    if kind == "openai_chat":
+        return f"the chat endpoint at {_host(profile.base_url or 'https://api.openai.com')}"
+    return f"the {profile.type} endpoint at {_host(profile.base_url)}"
+
+
+def judge_route_disclosures(config: LearnLoopConfig) -> list[dict[str, Any]]:
+    """One entry per judgment route: who receives learner text, what and when."""
+
+    from learnloop.ai.routing import provider_for_task
+
+    entries = []
+    for task, judge, consumer in JUDGE_ROUTES:
+        name = provider_for_task(config, task).provider_name  # type: ignore[arg-type]
+        profile = config.ai.providers.get(name) if name else None
+        who = recipient(config, name) if name else "no provider (the route is unset)"
+        entries.append({
+            "route": task,
+            "judge": judge,
+            "consumer": consumer,
+            "provider": name or None,
+            "provider_type": profile.type if profile is not None else None,
+            "model": profile.model if profile is not None else None,
+            "disclosure": (
+                f"{_WHEN[consumer]} Learner text goes to {who}. Check that provider's retention "
+                "terms before relying on it (router D6)."
+            ),
+        })
+    return entries
+
+
+__all__ = ["JUDGE_ROUTES", "judge_route_disclosures", "recipient"]

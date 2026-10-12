@@ -63,6 +63,10 @@ def make_ai_provider_client_from_profile(
         from learnloop.ai.providers.codex_http import HttpAdapterProviderClient
 
         return HttpAdapterProviderClient(provider_name, profile)
+    if provider_type == "decider":
+        from learnloop.ai.providers.decider import DeciderProviderClient
+
+        return DeciderProviderClient(provider_name, profile)
     raise AIProviderUnavailable(f"Unsupported AI provider type {profile.type!r} for {provider_name!r}")
 
 

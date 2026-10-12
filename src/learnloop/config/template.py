@@ -800,7 +800,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The Slice A 2-3 review adds tutor_qa.adopt_reference_questions = true,
     # the kill switch over the daily-loop reference-question adoption sweep;
     # its default keeps the merged behaviour.
-    "mvp-0.9": "c1f6c55cd95d91515286ca27e010d05fdfb15f8718f220bf46097bd16f9696ca",
+    # Router R0 adds the decider provider type, the code-default
+    # openrouter_embedding and openrouter_decider profiles (B6) and the unset
+    # router/llm_probability judgment routes. The routes have no live consumer
+    # (the router is R2; the llm_probability arms are an opt-in offline
+    # harness): no scoring, scheduling, projection or serving change.
+    "mvp-0.9": "9bf4aff4294b8b57def41b4a1d12497ec9f4c01c6e68bce1d324bd922a13474b",
 }
 
 
