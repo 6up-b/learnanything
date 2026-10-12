@@ -105,6 +105,10 @@ class LoGeneral:
                 raise ValueError(f"unknown variant_relation: {f.variant_relation}")
             components.append((f"relation:{f.subject_id}:{f.variant_relation}",
                                means[f.variant_relation], c.offset_variance))
+        if "family" in self.extensions and f.family_id:
+            # idea_hier: an independent N(0, sigma_F^2) prior effect per PF-a
+            # family. Posterior covariances with the LO and subject are kept.
+            components.append((f"family:{f.family_id}", 0.0, c.family_variance))
         return components
 
     def _view(self, features: Iterable[ItemFeatures]):
@@ -437,29 +441,51 @@ class BetaPredictor:
         return json.dumps(self.counts, sort_keys=True).encode()
 
 
-_REGISTRY: dict[str, Callable[..., Predictor]] = {}
+# Frozen, store-free inputs the harness may hand to an arm factory. Each arm
+# declares the subset it consumes; the others are simply not passed to it.
+REPLAY_INPUTS = frozenset({"general_means", "lo_priors", "config", "fsrs_weights"})
+_EKF_INPUTS = frozenset({"general_means", "lo_priors", "config", "constants", "items"})
+
+_REGISTRY: dict[str, tuple[Callable[..., Predictor], frozenset[str]]] = {}
 _SWEEPS: set[str] = set()
+_GROUPS: dict[str, set[str]] = {}
 
 
-def register_predictor(name: str, factory: Callable[..., Predictor], *, sweep: bool = False) -> None:
-    """Phase 3's family arms register here without changing the harness."""
+def register_predictor(
+    name: str, factory: Callable[..., Predictor], *, sweep: bool = False,
+    inputs: Iterable[str] = _EKF_INPUTS, groups: Iterable[str] = (),
+) -> None:
+    """Phase 3's family arms register here without changing the harness.
+
+    ``inputs`` names the frozen replay inputs the factory accepts; ``groups``
+    lets a report select a named arm set (for example ``memory``).
+    """
     if name in _REGISTRY:
         raise ValueError(f"predictor already registered: {name}")
-    _REGISTRY[name] = factory
+    _REGISTRY[name] = (factory, frozenset(inputs))
     if sweep:
         _SWEEPS.add(name)
+    for group in groups:
+        _GROUPS.setdefault(group, set()).add(name)
 
 
-def registered_predictors(*, include_sweeps: bool = True) -> tuple[str, ...]:
-    return tuple(name for name in _REGISTRY if include_sweeps or name not in _SWEEPS)
+def registered_predictors(*, include_sweeps: bool = True, group: str | None = None) -> tuple[str, ...]:
+    members = _GROUPS.get(group, set()) if group is not None else None
+    return tuple(
+        name for name in _REGISTRY
+        if (include_sweeps or name not in _SWEEPS) and (members is None or name in members)
+    )
 
 
 def create_predictor(name: str, **kwargs) -> Predictor:
     try:
-        factory = _REGISTRY[name]
+        factory, inputs = _REGISTRY[name]
     except KeyError:
         raise ValueError(f"unknown predictor: {name}") from None
-    return factory(**kwargs)
+    unknown = set(kwargs) - REPLAY_INPUTS - inputs
+    if unknown:
+        raise TypeError(f"{name} does not accept: {', '.join(sorted(unknown))}")
+    return factory(**{key: value for key, value in kwargs.items() if key in inputs})
 
 
 def is_calibrated_predictor(predictor: str | Predictor) -> bool:
@@ -480,8 +506,8 @@ def validate_active_predictor(name: str, *, phase: str = "F1") -> None:
 
 register_predictor("base_rate_lo", lambda **kw: BetaPredictor(name="base_rate_lo", **kw))
 register_predictor("facet_beta", lambda **kw: BetaPredictor(name="facet_beta", **kw))
-register_predictor("mastery_ekf", MasteryEKF)
-register_predictor("lo_general", LoGeneral)
+register_predictor("mastery_ekf", MasteryEKF, groups=("families",))
+register_predictor("lo_general", LoGeneral, groups=("families",))
 _EXTENSIONS = ("practice", "capability", "transfer", "retrievability", "hints", "tutor_signals")
 for _extension in _EXTENSIONS:
     register_predictor(
@@ -491,6 +517,9 @@ for _extension in _EXTENSIONS:
     )
 register_predictor("lo_general+composite", lambda **kw: LoGeneral(
     name="lo_general+composite", extensions=_EXTENSIONS, **kw))
+# Field §4.3 idea_hier: lo_general plus PF-a family effects, on the same EKF.
+register_predictor("idea_hier", lambda **kw: LoGeneral(
+    name="idea_hier", extensions=("family",), **kw), groups=("families",))
 for _beta in (0.0, 0.5, 1.0):
     register_predictor(
         f"lo_general+retrievability:beta={_beta:g}",

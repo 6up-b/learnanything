@@ -2,6 +2,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+import learnloop.field.memory  # noqa: F401 - the registry includes the PF-a memory arms
 from learnloop.field.predictors import (
     create_predictor, is_calibrated_predictor, registered_predictors,
     validate_active_predictor,

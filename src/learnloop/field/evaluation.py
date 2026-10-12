@@ -1,7 +1,12 @@
 """Store-free, attempt-paired prequential evaluation. Never activates an arm.
 
-The only prediction input is immutable ItemFeatures. All predictions for an
-attempt (including its facets) finish before any arm receives its observation.
+This is the single offline harness behind ``learnloop eval``: the learner-field
+reports 1-2 and the PF-a families report are arm selections over the same
+replay loop. The only prediction input is immutable ItemFeatures. All
+predictions for an attempt (including its facets) finish before any arm
+receives its observation. Ability arms score positive-mass attempts; PF-a
+memory arms score graded cold retrievals (``AttemptRow.memory_scored``), so
+their sample counts can differ and each arm abstains on the other's rows.
 Reports contain aggregates, not rows, prompts, answers, or readable topic names.
 """
 from __future__ import annotations
@@ -17,11 +22,27 @@ from typing import Iterable, Mapping
 import numpy as np
 
 from learnloop.clock import parse_utc
+from learnloop.field import memory as _memory_arms  # noqa: F401 - registers the PF-a memory arms
 from learnloop.field.predictors import create_predictor, registered_predictors
 from learnloop.field.types import AttemptRow, FacetRow, ObservationRow, SignalRow
 
 
-HARNESS_VERSION = "field-prequential-v1"
+HARNESS_VERSION = "field-prequential-v2"
+
+MEMORY_LIMITATIONS = (
+    "Memory arms admit uncalibrated graded cold retrievals; ability arms require positive "
+    "effective mass. Their sample counts can differ; comparisons pair only common attempts.",
+    "Current fitted FSRS weights may include evaluation outcomes; the defaults arms are the "
+    "strictly fixed-weight comparison.",
+    "Current authored family assignments are a retrospective grouping, not historical family knowledge.",
+    "Missing skeleton distances receive no invented discount; compare distance coverage before "
+    "interpreting the distance arms.",
+)
+
+
+def family_arms() -> tuple[str, ...]:
+    """The PF-a report's arm set: incumbent, lo_general, idea_hier and memory arms."""
+    return registered_predictors(group="families")
 
 
 def _hash(value: object) -> str:
@@ -29,11 +50,20 @@ def _hash(value: object) -> str:
                              allow_nan=False).encode()).hexdigest()
 
 
+def report_digest(report: Mapping) -> str:
+    """Content address of an aggregate report (names the families report files)."""
+    return _hash(report)
+
+
 def _time(row):
     value = parse_utc(row.observed_at)
     if value is None:
         raise ValueError("Every observation needs a valid timestamp")
     return value
+
+
+def _uses_memory(arm) -> bool:
+    return bool(getattr(arm, "uses_graded_memory", False))
 
 
 def _eligible(row):
@@ -201,6 +231,7 @@ def evaluate(
     rows: Iterable[ObservationRow], *, arms=None, bootstrap_samples=1000, seed=0,
     config: Mapping | None = None, general_means=None, lo_priors=None,
     fast_track_q=0.9, fast_track_min_correct=2, switching_margin=0.0,
+    fsrs_weights=None, fsrs_fit_id=None,
 ):
     """Return JSON-ready report1/report2/manifest/recommendation aggregates.
 
@@ -209,6 +240,8 @@ def evaluate(
     No current database state or full future item catalogue is passed to an arm.
     The conservative q=.9 is fixed before replay; .8 requires the caller's
     prior decision that report-2 evidence is sufficient, never fitting this run.
+    ``fsrs_weights`` is the caller-resolved current FSRS fit for the memory
+    arms (``fsrs_fit_id`` its provenance); without it they use the defaults.
     """
     if bootstrap_samples < 1:
         raise ValueError("bootstrap_samples must be positive")
@@ -218,7 +251,8 @@ def evaluate(
         raise ValueError("Switching margin must be nonnegative and fixed before replay")
     config = dict(config or {})
     events = _groups(tuple(rows))
-    kwargs = {"general_means": general_means, "lo_priors": lo_priors}
+    kwargs = {"general_means": general_means, "lo_priors": lo_priors,
+              "fsrs_weights": tuple(fsrs_weights) if fsrs_weights is not None else None}
     if "mastery" in config:
         from learnloop.config import MasteryConfig
         kwargs["config"] = MasteryConfig.model_validate(config["mastery"])
@@ -229,9 +263,12 @@ def evaluate(
         raise ValueError("Choose at least one arm, with unique names")
     if any(a.granularity not in ("attempt", "facet") for a in predictors):
         raise ValueError("Arm granularity must be attempt or facet")
+    memory_names = {a.name for a in predictors if _uses_memory(a)}
+    if any(predictors[names.index(name)].granularity != "attempt" for name in memory_names):
+        raise ValueError("Memory arms review attempts, not facets")
 
     seen, blocked, initial_correct = set(), set(), Counter()
-    predictions, outcomes, labels = defaultdict(list), [], []
+    predictions, outcomes, labels, ability_rows = defaultdict(list), [], [], []
     assumed = {name: set() for name in names}
     later = {name: [] for name in names}
     counts, revisions = Counter(), Counter()
@@ -245,15 +282,34 @@ def evaluate(
             continue
         revisions[row.revision_status] += 1
         counts["attempts"] += 1
+        counts["zero_ability_mass"] += not (isfinite(row.effective_mass) and row.effective_mass > 0)
+        counts["memory_scored"] += row.memory_scored
+        counts["memory_training"] += row.memory_eligible
+        counts["missing_variant_distance"] += (
+            row.memory_scored and row.features.family_id is not None
+            and row.features.variant_distance is None
+        )
         first = row.lo_id not in seen
         seen.add(row.lo_id)
-        if not _eligible(row):
+        ability = _eligible(row)
+        memory = bool(memory_names) and row.memory_scored
+        if not ability and not memory:
             counts["excluded"] += 1
             blocked.add(row.lo_id)  # unknown initial answers cannot establish fast-track
             continue
+        counts["ability_scored"] += ability
         values = {}
         for arm in predictors:
-            if arm.granularity == "facet":
+            if arm.name in memory_names:
+                if not (memory and arm.scores(row)):
+                    values[arm.name] = float("nan")
+                    continue
+                p = arm.predict(row.features)
+            elif not ability:
+                # A memory-only graded retrieval is not ability evidence.
+                values[arm.name] = float("nan")
+                continue
+            elif arm.granularity == "facet":
                 if not facets:
                     # No measured facet is not a synthetic generic facet. This
                     # arm abstains; paired comparisons use common attempts only.
@@ -269,6 +325,8 @@ def evaluate(
             if not isfinite(p) or not 0 < p < 1:
                 raise ValueError("Arms must predict finite probabilities in (0, 1)")
             values[arm.name] = p
+        ability_rows.append(ability)
+        family_id = row.features.family_id
         # Outcomes are not handed to ANY arm until EVERY prediction has completed.
         outcomes.append(row.outcome)
         labels.append({
@@ -283,8 +341,14 @@ def evaluate(
             "questions_or_hints": "with" if row.preceded_by_question or row.hints_used else "without",
             "questions": "with" if row.preceded_by_question else "without",
             "hints": "with" if row.hints_used else "without",
+            "relation": row.features.variant_relation or ("unrelated" if family_id else "unfamilied"),
+            "retrieval": "cold" if row.retrieval_cold else "warm",
+            "grader_model": row.grader_model,
+            "calibration_status": row.calibration_status,
+            "family_judge_model": "+".join(row.family_judge_models) or (
+                "authored" if family_id else "unfamilied"),
         })
-        clean_correct = (row.outcome == 1 and row.features.cold and not row.features.primed
+        clean_correct = (ability and row.outcome == 1 and row.features.cold and not row.features.primed
                          and not row.assisted and not row.hints_used and not row.help_before_work)
         if not clean_correct:
             blocked.add(row.lo_id)
@@ -292,20 +356,24 @@ def evaluate(
             initial_correct[row.lo_id] += 1
         for arm in predictors:
             predictions[arm.name].append(values[arm.name])
-            if row.lo_id in assumed[arm.name]:
+            if arm.name not in memory_names and not ability:
+                # Ability arms never see a row they could not score.
+                continue
+            if ability and row.lo_id in assumed[arm.name]:
                 later[arm.name].append((len(outcomes) - 1, float(row.outcome < 1)))
             if arm.granularity == "facet":
                 for facet in facets:
                     arm.observe(facet)
             else:
                 arm.observe(row)
-            if (row.lo_id not in assumed[arm.name] and row.lo_id not in blocked
+            if (ability and row.lo_id not in assumed[arm.name] and row.lo_id not in blocked
                     and initial_correct[row.lo_id] >= fast_track_min_correct):
                 p_known = _known_probability(arm, row.lo_id)
                 if p_known is not None and p_known >= fast_track_q:
                     assumed[arm.name].add(row.lo_id)
 
     y = np.asarray(outcomes)
+    ability_mask = np.asarray(ability_rows, dtype=bool)
     splits = defaultdict(lambda: defaultdict(list))
     for i, label in enumerate(labels):
         for dimension, value in label.items():
@@ -314,9 +382,12 @@ def evaluate(
     for name in names:
         p = np.asarray(predictions[name])
         valid = np.isfinite(p)
+        arm = predictors[names.index(name)]
         report1[name] = {
-            "model": getattr(predictors[names.index(name)], "model", "not_used"),
-            "missing_facet_exclusions": int(sum(~valid)),
+            "model": getattr(arm, "model", "not_used"),
+            "scores": "graded_cold_retrievals" if name in memory_names else "positive_mass_attempts",
+            "missing_facet_exclusions": int(sum(ability_mask & ~valid)) if arm.granularity == "facet" else 0,
+            "unscored_attempts": int(sum(~valid)),
             "overall": _metrics(y[valid], p[valid], bootstrap_samples, seed),
             "splits": {
                 dimension: {value: _metrics(y[indexes][valid[indexes]], p[indexes][valid[indexes]],
@@ -364,6 +435,25 @@ def evaluate(
                                  "report2_miss_no_worse": no_worse, "recommend_review": recommend}
             if recommend:
                 candidates.append(name)
+    memory_manifest = None
+    if memory_names:
+        from learnloop.scheduling.family_memory_model import weights_digest
+        from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS
+
+        current = tuple(fsrs_weights) if fsrs_weights is not None else FSRS6_DEFAULT_WEIGHTS
+        memory_manifest = {
+            "weights": {
+                "current_fit": {"values": list(current), "hash": weights_digest(current),
+                                "fit_id": fsrs_fit_id,
+                                "is_defaults": fsrs_weights is None or fsrs_fit_id is None},
+                "defaults": {"values": list(FSRS6_DEFAULT_WEIGHTS),
+                             "hash": weights_digest(FSRS6_DEFAULT_WEIGHTS)},
+            },
+            "family_grouping": "current authored assignment, applied retrospectively",
+            "distance_source": "unavailable: PF-b skeleton measurements not present",
+            "training": "graded cold same_target/isomorph or unfamilied retrievals; near/far are probes",
+            "cold_start_probability": 0.5,
+        }
     manifest = {
         "harness": HARNESS_VERSION, "algorithm": config.get("algorithms", {}).get("algorithm_version", "unspecified"),
         "kernel": "not_used", "embedding_model": "not_used",
@@ -378,14 +468,23 @@ def evaluate(
         "prior_inputs_hash": _hash({"general_means": general_means, "lo_priors": lo_priors}),
         "claims": "caller_frozen_before_replay" if general_means or lo_priors else "unavailable_zero_prior",
         "prequential": True,
+        "ordering": ["observed_at", "signals_after_attempts", "attempt_id"],
     }
+    if memory_manifest is not None:
+        manifest["memory"] = memory_manifest
     return {
         "manifest": manifest,
         "counts": {"attempts": counts["attempts"], "scored_attempts": len(y),
+                   "ability_scored_attempts": counts["ability_scored"],
+                   "memory_scored_attempts": counts["memory_scored"],
+                   "memory_training_rows": counts["memory_training"],
+                   "missing_variant_distance": counts["missing_variant_distance"],
+                   "zero_ability_mass": counts["zero_ability_mass"],
                    "excluded_attempts": counts["excluded"], "signals": counts["signals"],
                    "revision_status": dict(sorted(revisions.items()))},
         "report1": {"arms": report1, "comparisons": comparisons,
-                    "validity": "One learner; only large differences are detectable. Sweep results are exploratory."},
+                    "validity": "One learner; only large differences are detectable. Sweep results are exploratory.",
+                    "limitations": list(MEMORY_LIMITATIONS) if memory_names else []},
         "report2": {"arms": report2, "bias": "History shows only what was actually served; not a causal off-policy estimate.",
                     "failure_definition": "Any later rubric fraction below 1; triggering initial answers excluded.",
                     "thin_data_conservative": fast_track_q == .9},
@@ -395,30 +494,35 @@ def evaluate(
     }
 
 
-def write_reports(report, output_dir):
+def write_reports(report, output_dir, *, stem="evaluation", title="Learner-field evaluation"):
     """Write the aggregate report to the caller's explicitly chosen directory."""
     directory = Path(output_dir)
     directory.mkdir(parents=True, exist_ok=True)
-    json_path, markdown_path = directory / "evaluation.json", directory / "evaluation.md"
+    json_path, markdown_path = directory / f"{stem}.json", directory / f"{stem}.md"
     payload = json.dumps(report, sort_keys=True, indent=2, allow_nan=False)
     json_path.write_text(payload + "\n", encoding="utf-8")
     lines = [
-        "# Learner-field evaluation", "",
+        f"# {title}", "",
         "Prequential: only past observations predict each outcome. No activation is performed.", "",
         "## Report 1: prequential replay", "",
-        "| Arm | Attempts | Log loss | Brier | AUC (binary outcomes) |",
-        "|---|---:|---:|---:|---:|",
+        "| Arm | Scores | Attempts | Log loss | Brier | AUC (binary outcomes) |",
+        "|---|---|---:|---:|---:|---:|",
     ]
     for name, values in report["report1"]["arms"].items():
         m = values["overall"]
-        lines.append(f"| {name} | {m['n']} | {m['log_loss']['mean']} | {m['brier']['mean']} | {m['auc']} |")
-    lines.extend(["", report["report1"]["validity"], "", "## Report 2: fast-track simulation", "",
+        lines.append(f"| {name} | {values['scores']} | {m['n']} | {m['log_loss']['mean']} | "
+                     f"{m['brier']['mean']} | {m['auc']} |")
+    lines.extend(["", report["report1"]["validity"], ""])
+    lines.extend(f"- {value}" for value in report["report1"].get("limitations", ()))
+    lines.extend(["", "## Report 2: fast-track simulation", "",
                   report["report2"]["bias"], "", "| Arm | Assumed LOs | Later attempts | Miss rate | 95% Wilson CI |",
                   "|---|---:|---:|---:|---|"])
     for name, values in report["report2"]["arms"].items():
         lines.append(f"| {name} | {values['assumed_los']} | {values['later_attempts']} | "
                      f"{values['miss_rate']['mean']} | {values['miss_rate_wilson_ci95']} |")
-    lines.extend(["", "## Full aggregate metrics, splits, intervals and manifest", "",
+    lines.extend(["", "## Counts", "", "```json",
+                  json.dumps(report["counts"], sort_keys=True, indent=2), "```",
+                  "", "## Full aggregate metrics, splits, intervals and manifest", "",
                   "Topic identifiers are one-way hashed. No individual attempts or learner text are exported.",
                   "", "```json", payload, "```", ""])
     markdown_path.write_text("\n".join(lines), encoding="utf-8")

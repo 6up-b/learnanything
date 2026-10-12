@@ -1,5 +1,17 @@
 # PF-a offline evaluation and family memory
 
+> **Integrated on `integrate/slice-a-2-3`.** The seam described below has been
+> merged into Phase 2's harness; see `slice-a-integration-2-3.md`. There is one
+> `learnloop eval` implementation (`learnloop.field.evaluation`). The
+> `learnloop.evaluation` package, `learnloop.offline_outcomes` and
+> `substrate.family_memory_rows` were deleted. Rows come from the canonical
+> outcome view (`field.outcomes`, with `retrieval=True`). The memory arms are
+> registered in the field arm registry by `learnloop.field.memory`. `idea_hier`
+> is `lo_general` plus a family effect on the shared EKF. `learnloop eval
+> families` runs the families arm set over that harness. The revision policy
+> is Phase 2's, with one `--legacy-fallback` option. The rest of this note
+> records the PF-a design as built on its own branch.
+
 ## Entry points
 
 The CLI is registered without importing an adapter from a domain module:

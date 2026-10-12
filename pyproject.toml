@@ -149,7 +149,7 @@ allow_indirect_imports = true
 id = "field-predictors-are-pure"
 name = "Learner predictors cannot access stores, models, graphs or evidence writers"
 type = "forbidden"
-source_modules = ["learnloop.field.predictors"]
+source_modules = ["learnloop.field.predictors", "learnloop.field.memory"]
 forbidden_modules = [
     "learnloop.db",
     "learnloop.ai",
@@ -161,7 +161,13 @@ forbidden_modules = [
 ]
 # The incumbent adapter reuses only mastery.py's pure arithmetic. A symbol-level
 # test restricts that import, whose module also contains historical DB helpers.
-ignore_imports = ["learnloop.field.predictors -> learnloop.learner.mastery"]
+# PF-a memory arms reuse only the pure FSRS fold and FSRS-6 default weights
+# (scheduling.fsrs imports nothing but learnloop.numeric).
+ignore_imports = [
+    "learnloop.field.predictors -> learnloop.learner.mastery",
+    "learnloop.field.memory -> learnloop.scheduling.family_memory_model",
+    "learnloop.field.memory -> learnloop.scheduling.fsrs",
+]
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
@@ -315,14 +321,8 @@ ignore_imports = [
     "learnloop.substrate.canonical_projection -> learnloop.goals.receipt_contributions",
     "learnloop.substrate.card_lineage -> learnloop.scheduling.fsrs",
     "learnloop.substrate.compat.substrate_cutover -> learnloop.scheduling.fsrs",
-    # Shadow PF projection consumes the same grading/activity/FSRS authorities
-    # as canonical_projection and administration_adapters; no serving dependency.
-    "learnloop.substrate.family_memory_rows -> learnloop.attempts.attempts",
-    "learnloop.substrate.family_memory_rows -> learnloop.attempts.effective_observation",
-    "learnloop.substrate.family_memory_rows -> learnloop.attempts.evidence",
-    "learnloop.substrate.family_memory_rows -> learnloop.attempts.reveal_ledger",
-    "learnloop.substrate.family_memory_rows -> learnloop.diagnosis.causal_activity_policy",
-    "learnloop.substrate.family_memory_rows -> learnloop.scheduling.fsrs",
+    # The shadow PF projection folds canonical outcome rows (loaded by the
+    # orchestrator's exempted field.outcomes edge) with the pure FSRS fold.
     "learnloop.substrate.family_memory -> learnloop.scheduling.family_memory_model",
     "learnloop.substrate.replay -> learnloop.attempts.attempts",
     "learnloop.substrate.replay -> learnloop.diagnosis.misconceptions",

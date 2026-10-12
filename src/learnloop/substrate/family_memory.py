@@ -1,20 +1,28 @@
-"""Sole owner of the shadow family FSRS projection. Never a scheduling reader."""
+"""Sole owner of the shadow family FSRS projection. Never a scheduling reader.
+
+Rows come from the learner-field canonical outcome view (the same rows every
+offline arm replays), supplied by the rebuild orchestrator through
+``load_rows`` so this module never imports the field package. The projection
+uses the explicit ``current_content`` revision fallback: it is retrospective
+state, not a prequential evaluation.
+"""
 from __future__ import annotations
 
 from collections import Counter
+from typing import Callable, Iterable
 
 from learnloop.db.scopes import atomic_repository_call
-from learnloop.offline_outcomes import digest
-from learnloop.scheduling.family_memory_model import FamilyMemory
-from learnloop.substrate.family_memory_rows import load_rows
+from learnloop.scheduling.family_memory_model import FamilyMemory, weights_digest
 from learnloop.substrate.activities import canonical_json
 from learnloop.params.fitted_params import resolve_fsrs_weights
 
-PROJECTION_VERSION = "family-memory-cold-v2"
+PROJECTION_VERSION = "family-memory-cold-v3"
+PROJECTION_LEGACY_FALLBACK = "current_content"
 
 
 @atomic_repository_call
-def rebuild_family_memory(vault, repository) -> dict:
+def rebuild_family_memory(vault, repository, load_rows: Callable[[], Iterable]) -> dict:
+    """Replace ``family_memory_state``; ``load_rows`` runs only if families exist."""
     if not any(getattr(item, "family_id", None) for item in vault.practice_items.values()):
         with repository.connection() as connection:
             connection.execute("DELETE FROM family_memory_state")
@@ -22,15 +30,17 @@ def rebuild_family_memory(vault, repository) -> dict:
                 "projection_version": PROJECTION_VERSION}
     weights = resolve_fsrs_weights(repository)
     arm = FamilyMemory("family", weights)
-    rows, source = load_rows(vault, repository, legacy_fallback="current_content",
-                             for_projection=True)
     skipped: Counter = Counter()
     count = 0
-    for row in sorted(rows, key=lambda r: (r.features.observed_at, r.features.attempt_id)):
+    for row in sorted(load_rows(), key=lambda r: (r.features.observed_at, r.attempt_id)):
         if not row.features.family_id:
             skipped["no_family"] += 1
         elif not row.memory_eligible:
-            skipped[row.exclusion or ("not_cold" if not row.cold else "transfer")] += 1
+            skipped[
+                "excluded_revision" if row.revision_status == "excluded"
+                else "not_graded_retrieval" if row.fsrs_rating is None
+                else "not_cold" if not row.retrieval_cold else "transfer"
+            ] += 1
         else:
             arm.observe(row)
             count += 1
@@ -53,6 +63,7 @@ def rebuild_family_memory(vault, repository) -> dict:
                 (key.removeprefix("family:"), history.state.difficulty,
                  history.state.stability, history.state.retrievability,
                  history.last_review_at.isoformat(), history.review_count,
-                 digest(weights), PROJECTION_VERSION))
-    return {"reviews": count, "families": len(arm.history), "skipped": dict(skipped),
-            "source": source, "projection_version": PROJECTION_VERSION}
+                 weights_digest(weights), PROJECTION_VERSION))
+    return {"reviews": count, "families": len(arm.history), "skipped": dict(sorted(skipped.items())),
+            "legacy_fallback": PROJECTION_LEGACY_FALLBACK,
+            "projection_version": PROJECTION_VERSION}

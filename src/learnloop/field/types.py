@@ -3,6 +3,10 @@
 Only ``ItemFeatures`` crosses the prediction boundary. Outcomes and reliability
 are delivered afterward, in observation rows. Identifiers are opaque strings;
 timestamps are UTC ISO strings, normalized by the projection layer.
+
+The same rows feed every offline arm, including the PF-a memory arms: an
+``AttemptRow`` also carries the persisted FSRS rating and the strict
+retrieval-coldness verdict those arms train on (``memory_eligible``).
 """
 
 from __future__ import annotations
@@ -24,6 +28,8 @@ class ArmConstants:
     early_help_cap: float = 0.3
     signal_scale: float = 1.0
     signal_daily_cap: float = 0.3
+    # PF-a idea_hier family effect u_F ~ N(0, 0.5), independent in v1.
+    family_variance: float = 0.5
 
     def __post_init__(self) -> None:
         for member in fields(self):
@@ -54,6 +60,14 @@ class ItemFeatures:
     retrievability: float | None = None
     facet_id: str | None = None
     facet_share: float = 1.0
+    # Only a past-administered, skeleton-derived measurement may populate this
+    # (PF-b). Authored transfer labels are never substituted for it.
+    variant_distance: float | None = None
+
+
+# Graded cold retrievals of these relations train family memory; ``near`` and
+# ``far`` variants are prediction-only transfer probes (PF-a P11 default).
+MEMORY_TRAINING_RELATIONS = frozenset({"same_target", "isomorph"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +90,15 @@ class AttemptRow:
     item_snapshot_hash: str | None = None
     interpretation_variance: float = 0.0
     preceded_by_question: bool = False
+    # Memory-arm inputs. ``fsrs_rating`` is the persisted rounded, capped grade
+    # of a graded retrieval (None for anything else, including quarantine).
+    # ``retrieval_cold`` is the strict research coldness: unassisted graded
+    # retrieval with no reveal in its window and passing coldness receipts.
+    fsrs_rating: int | None = None
+    retrieval_cold: bool = False
+    grader_model: str = "unknown"
+    calibration_status: str = "unknown"
+    family_judge_models: tuple[str, ...] = ()
 
     @property
     def observed_at(self) -> str:
@@ -84,6 +107,29 @@ class AttemptRow:
     @property
     def lo_id(self) -> str:
         return self.features.lo_id
+
+    @property
+    def memory_scored(self) -> bool:
+        """A graded cold retrieval that memory arms predict and are scored on.
+
+        Independent of ability mass: an uncalibrated legacy grade can be an
+        FSRS review without becoming invented ability evidence.
+        """
+        return (
+            self.revision_status != "excluded"
+            and self.fsrs_rating is not None
+            and self.retrieval_cold
+        )
+
+    @property
+    def memory_eligible(self) -> bool:
+        """A scored retrieval that also trains memory (not a transfer probe)."""
+        f = self.features
+        return self.memory_scored and (
+            f.variant_relation in MEMORY_TRAINING_RELATIONS
+            if f.family_id is not None
+            else f.variant_relation not in {"near", "far"}
+        )
 
 
 @dataclass(frozen=True, slots=True)

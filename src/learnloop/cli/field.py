@@ -30,9 +30,27 @@ def _emit(report: dict, json_output: bool) -> None:
     typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
 
 
+LEGACY_SECTIONS = frozenset({"predictions", "coverage", "gates", "retention", "propensity"})
+FIELD_SECTION = "field"
+_LEGACY_FALLBACK_HELP = (
+    "Revision policy for attempts without a verified graded snapshot: exclude "
+    "(default), or explicit, labelled current_content reconstruction. Defaults to "
+    "the vault's field.legacy_fallback."
+)
+
+
+def _sections(section: str) -> set[str]:
+    """``all`` is the legacy calibration report; ``field`` is opt-in."""
+    requested = {part.strip() for part in section.split(",") if part.strip()}
+    if "all" in requested:
+        requested = (requested - {"all"}) | LEGACY_SECTIONS
+    return requested
+
+
 @field_app.command("data-check")
 def field_data_check(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault copy to inspect.")],
+    legacy_fallback: Annotated[str | None, typer.Option("--legacy-fallback", help=_LEGACY_FALLBACK_HELP)] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Count evidence, revision exclusions and independence without model calls."""
@@ -43,7 +61,7 @@ def field_data_check(
         with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
             # All reads in this report see one ledger snapshot.
             connection.execute("BEGIN")
-            report = data_check(connection, loaded)
+            report = data_check(connection, loaded, legacy_fallback=legacy_fallback)
         report["vault_validation_issues"] = len(loaded.issues)
         _emit(report, json_output)
     except (ValueError, OSError, sqlite3.Error) as exc:
@@ -51,12 +69,61 @@ def field_data_check(
         raise typer.Exit(code=1) from exc
 
 
+def _replay_inputs(loaded, *, legacy_fallback):
+    """One read-only snapshot: rows, signals, frozen priors and the FSRS fit.
+
+    Every report reads the same canonical outcome view; arms never see a store.
+    """
+    from learnloop.field.outcomes import borrowed_repository, data_check, load_replay_rows
+    from learnloop.field.priors import load_frozen_priors
+    from learnloop.field.signals import enrich_attempts, load_interaction_signals
+    from learnloop.params.fitted_params import fitted_fsrs_provenance, resolve_fsrs_weights
+
+    with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
+        connection.execute("BEGIN")
+        attempts, facets = load_replay_rows(connection, loaded, legacy_fallback=legacy_fallback)
+        signals = load_interaction_signals(connection, loaded, attempts)
+        counts = data_check(connection, loaded, legacy_fallback=legacy_fallback)
+        general_means, lo_priors, prior_report = load_frozen_priors(connection, attempts, loaded.config)
+        repository = borrowed_repository(connection)
+        fsrs_fit_id = fitted_fsrs_provenance(repository)
+        fsrs_weights = resolve_fsrs_weights(repository) if fsrs_fit_id is not None else None
+    return {
+        "attempts": enrich_attempts(attempts, signals),
+        "facets": enrich_attempts(facets, signals),
+        "signals": signals, "data_check": counts,
+        "general_means": general_means, "lo_priors": lo_priors, "claim_priors": prior_report,
+        "fsrs_weights": fsrs_weights, "fsrs_fit_id": fsrs_fit_id,
+    }
+
+
+def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extra_arms=()):
+    from learnloop.field.evaluation import evaluate
+
+    if extra_arms:
+        from learnloop.field.predictors import registered_predictors
+
+        arms = (*(arms or registered_predictors(include_sweeps=True)), *extra_arms)
+    report = evaluate(
+        (*inputs["attempts"], *inputs["facets"], *inputs["signals"]),
+        arms=arms, bootstrap_samples=bootstrap_samples, seed=seed, fast_track_q=fast_track_q,
+        general_means=inputs["general_means"], lo_priors=inputs["lo_priors"],
+        config=loaded.config.model_dump(mode="json"),
+        fsrs_weights=inputs["fsrs_weights"], fsrs_fit_id=inputs["fsrs_fit_id"],
+    )
+    report["data_check"] = inputs["data_check"]
+    report["claim_priors"] = inputs["claim_priors"]
+    report["vault_validation_issues"] = len(loaded.issues)
+    return report
+
+
 def field_eval(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault copy; replay never calls a model.")],
-    section: Annotated[str, typer.Option("--section", help="predictions|coverage|gates|retention|propensity|field|all")] = "all",
+    section: Annotated[str, typer.Option("--section", help="all (legacy calibration: predictions|coverage|gates|retention|propensity), field (reports 1-2), or a comma list such as all,field")] = "all",
     bins: Annotated[int, typer.Option("--bins", min=1, help="Legacy decision-calibration bin count.")] = 10,
-    output_dir: Annotated[Path, typer.Option("--output-dir", help="Aggregate-only report destination.")] = Path("fixtures-local/reports"),
+    output_dir: Annotated[Path, typer.Option("--output-dir", "--output", help="Aggregate-only report destination.")] = Path("fixtures-local/reports"),
     arm: Annotated[list[str] | None, typer.Option("--arm", help="Repeat to select registered arms; default includes fixed sweeps.")] = None,
+    legacy_fallback: Annotated[str | None, typer.Option("--legacy-fallback", help=_LEGACY_FALLBACK_HELP)] = None,
     bootstrap_samples: Annotated[int, typer.Option("--bootstrap-samples", min=1)] = 1000,
     seed: Annotated[int, typer.Option("--seed")] = 0,
     fast_track_q: Annotated[float, typer.Option("--fast-track-q", min=0.5, max=1.0, help="Frozen simulation threshold; conservative 0.9 until report 2 supports 0.8.")] = 0.9,
@@ -71,15 +138,10 @@ def field_eval(
     output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Generate reports 1–2: prequential replay and historical fast-track simulation."""
-    from learnloop.field.evaluation import evaluate, write_reports
-    from learnloop.field.outcomes import data_check, load_attempt_rows, load_facet_rows
-    from learnloop.field.priors import load_frozen_priors
-    from learnloop.field.signals import enrich_attempts, load_interaction_signals
-
+    """Legacy calibration report by default; `--section field` adds reports 1-2."""
     try:
-        valid_sections = {"predictions", "coverage", "gates", "retention", "propensity", "field"}
-        sections = valid_sections if section == "all" else {s.strip() for s in section.split(",") if s.strip()}
+        valid_sections = LEGACY_SECTIONS | {FIELD_SECTION}
+        sections = _sections(section)
         if not sections or sections - valid_sections:
             typer.echo("Unknown evaluation section; use " + "|".join(sorted(valid_sections)) + "|all", err=True)
             raise typer.Exit(code=2)
@@ -87,41 +149,33 @@ def field_eval(
             raise ValueError("--prepare-llm requires --llm-cache outside the vault")
         loaded = _load_offline(vault)
         legacy_report = None
-        if sections - {"field"}:
+        if sections - {FIELD_SECTION}:
             from learnloop.db.repositories import Repository
             from learnloop.scheduling.evaluation import build_eval_report
 
             legacy_report = build_eval_report(
                 loaded,
                 Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True),
-                sections=sections - {"field"}, bins=bins,
+                sections=sections - {FIELD_SECTION}, bins=bins,
             )
-        if "field" not in sections:
+        if FIELD_SECTION not in sections:
             if json_output:
                 _emit({"version": 1, "eval": legacy_report.as_dict()}, True)
             else:
                 typer.echo(legacy_report.format_text())
             return
-        with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
-            connection.execute("BEGIN")
-            attempts = load_attempt_rows(connection, loaded)
-            facets = load_facet_rows(connection, loaded)
-            signals = load_interaction_signals(connection, loaded, attempts)
-            counts = data_check(connection, loaded)
-            general_means, lo_priors, prior_report = load_frozen_priors(connection, attempts, loaded.config)
-        attempts = enrich_attempts(attempts, signals)
-        facets = enrich_attempts(facets, signals)
+        inputs = _replay_inputs(loaded, legacy_fallback=legacy_fallback)
         arms = tuple(arm) if arm else None
         spend_report = None
+        extra_arms = ()
         if llm_cache is not None:
             from learnloop.ai.spend import SpendCaps
             from learnloop.cli.embeddings import _cancellation
             from learnloop.cli.field_llm import prepare_or_load_llm
-            from learnloop.field.predictors import registered_predictors
 
             with _cancellation() as stop:
                 llm_arm, spend_report = prepare_or_load_llm(
-                    loaded, attempts, cache_dir=llm_cache, prepare=prepare_llm,
+                    loaded, inputs["attempts"], cache_dir=llm_cache, prepare=prepare_llm,
                     dry_run=dry_run,
                     caps=SpendCaps(
                         max_candidates=max_candidates, max_calls=max_calls,
@@ -139,24 +193,16 @@ def field_eval(
             if llm_arm is None:
                 _emit(spend_report, json_output)
                 raise typer.Exit(code=130 if spend_report["status"] == "cancelled" else 1)
-            arms = (*(arms or registered_predictors(include_sweeps=True)), llm_arm)
+            extra_arms = (llm_arm,)
         elif dry_run:
-            _emit({"status": "dry_run", "calls": 0, "data_check": counts}, json_output)
+            _emit({"status": "dry_run", "calls": 0, "data_check": inputs["data_check"]}, json_output)
             return
-        report = evaluate(
-            (*attempts, *facets, *signals),
-            arms=arms,
-            bootstrap_samples=bootstrap_samples,
-            seed=seed,
-            fast_track_q=fast_track_q,
-            general_means=general_means, lo_priors=lo_priors,
-            config=loaded.config.model_dump(mode="json"),
-        )
-        report["data_check"] = counts
-        report["claim_priors"] = prior_report
-        report["vault_validation_issues"] = len(loaded.issues)
+        report = _replay(loaded, inputs, arms=arms, bootstrap_samples=bootstrap_samples,
+                         seed=seed, fast_track_q=fast_track_q, extra_arms=extra_arms)
         if spend_report is not None:
             report["offline_preparation"] = spend_report
+        from learnloop.field.evaluation import write_reports
+
         files = write_reports(report, output_dir)
         response = {"version": 1, "status": "complete", "reports": files, "evaluation": report}
         if legacy_report is not None:
@@ -167,6 +213,39 @@ def field_eval(
     except AIProviderUnavailable as exc:
         _emit({"status": "unavailable", "error_type": type(exc).__name__}, json_output)
         raise typer.Exit(code=1) from exc
+    except (ValueError, KeyError, OSError, sqlite3.Error) as exc:
+        _emit({"status": "invalid", "reason": str(exc)}, json_output)
+        raise typer.Exit(code=1) from exc
+
+
+def families_eval(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault copy; replay never calls a model.")],
+    output_dir: Annotated[Path, typer.Option("--output", "--output-dir", help="Aggregate-only report destination.")] = Path("fixtures-local/reports"),
+    legacy_fallback: Annotated[str | None, typer.Option("--legacy-fallback", help=_LEGACY_FALLBACK_HELP)] = None,
+    arm: Annotated[list[str] | None, typer.Option("--arm", help="Repeat to select arms; default is the families arm set.")] = None,
+    bootstrap_samples: Annotated[int, typer.Option("--bootstrap-samples", min=1)] = 1000,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """PF-a report on the shared harness: memory per item/family/LO and idea_hier.
+
+    The same rows, revision policy and replay loop as `--section field`, with
+    the families arm set (incumbent, lo_general, idea_hier and the twelve
+    memory arms). No model calls; report files are content-addressed.
+    """
+    from learnloop.field.evaluation import family_arms, report_digest, write_reports
+
+    try:
+        loaded = _load_offline(vault)
+        inputs = _replay_inputs(loaded, legacy_fallback=legacy_fallback)
+        report = _replay(loaded, inputs, arms=tuple(arm) if arm else family_arms(),
+                         bootstrap_samples=bootstrap_samples, seed=seed, fast_track_q=0.9)
+        files = write_reports(report, output_dir, stem="pf-a-" + report_digest(report)[:16],
+                              title="PF-a families replay (research only)")
+        if json_output:
+            _emit({"version": 1, "status": "complete", "reports": files, "evaluation": report}, True)
+        else:
+            typer.echo("\n".join((files["json"], files["markdown"])))
     except (ValueError, KeyError, OSError, sqlite3.Error) as exc:
         _emit({"status": "invalid", "reason": str(exc)}, json_output)
         raise typer.Exit(code=1) from exc

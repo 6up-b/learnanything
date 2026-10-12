@@ -1,4 +1,8 @@
-"""PF-a store-free harness invariants, plus the read-only vault boundary."""
+"""PF-a arms on the shared learner-field harness: store-free invariants.
+
+The memory arms and idea_hier are registered in the field arm registry and run
+in the one prequential loop (``learnloop.field.evaluation.evaluate``).
+"""
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import json
@@ -6,77 +10,121 @@ import json
 import numpy as np
 import pytest
 
-from learnloop.evaluation.harness import OutcomeRow, PredictionRow, replay
-from learnloop.evaluation.predictors import FamilyMemory, IdeaHier
-from learnloop.evaluation.report import evaluate, write_report
+from learnloop.field.evaluation import evaluate, family_arms, write_reports
+from learnloop.field.memory import memory_arm_name
+from learnloop.field.predictors import (
+    create_predictor, is_calibrated_predictor, registered_predictors, validate_active_predictor,
+)
+from learnloop.field.types import AttemptRow, ItemFeatures
+from learnloop.scheduling.family_memory_model import FamilyMemory
 from learnloop.scheduling.fsrs import FSRS6_DEFAULT_WEIGHTS as W, Rating, apply_review
 
+START = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
-def row(n=0, **kwargs):
-    features = PredictionRow(
-        str(n), datetime(2026, 1, 1, tzinfo=timezone.utc)+timedelta(days=n),
-        f"item{n}", "lo", family_id="family", variant_relation="same_target")
-    feature_names = set(PredictionRow.__dataclass_fields__)
+
+def row(n=0, *, outcome=1.0, rating=4, **kwargs):
+    """A graded cold same-target retrieval of a familied item, day ``n``."""
+    features = ItemFeatures(
+        f"item{n}", "lo", (START + timedelta(days=n)).isoformat(),
+        family_id="family", variant_relation="same_target")
+    feature_names = set(ItemFeatures.__dataclass_fields__)
     changes = {key: value for key, value in kwargs.items() if key in feature_names}
     rest = {key: value for key, value in kwargs.items() if key not in feature_names}
-    return replace(OutcomeRow(replace(features, **changes), 1.0, 4), **rest)
+    values = dict(effective_mass=1.0, fsrs_rating=rating, retrieval_cold=True)
+    values.update(rest)
+    return AttemptRow(str(n), replace(features, **changes), outcome, **values)
 
 
-def test_prequential_predict_all_before_observe_and_no_outcome():
+def run(rows, arms, **kwargs):
+    return evaluate(rows, arms=arms, bootstrap_samples=30, **kwargs)
+
+
+def test_family_arms_are_registered_in_the_field_registry():
+    names = family_arms()
+    assert names[:3] == ("mastery_ekf", "lo_general", "idea_hier")
+    memory = registered_predictors(group="memory")
+    assert len(memory) == 12 and set(memory) <= set(names)
+    assert set(names) <= set(registered_predictors())
+    assert memory_arm_name("family", "defaults", True) == "memory_family/defaults/distance"
+    # G11: memory arms are point predictors; idea_hier is calibrated but F1-inactive.
+    for name in memory:
+        assert not is_calibrated_predictor(name)
+        with pytest.raises(ValueError, match="calibrated uncertainty"):
+            validate_active_predictor(name)
+    assert is_calibrated_predictor("idea_hier")
+    with pytest.raises(ValueError, match="successor"):
+        validate_active_predictor("idea_hier")
+
+
+def test_memory_arm_inputs_are_frozen_and_never_a_store():
+    fit = tuple(w * 1.01 for w in W)
+    current = create_predictor("memory_lo/current_fit", fsrs_weights=fit)
+    defaults = create_predictor("memory_lo/defaults", fsrs_weights=fit)
+    assert current.weights == fit and defaults.weights == W
+    assert create_predictor("memory_lo/current_fit").weights == W
+    with pytest.raises(TypeError, match="does not accept"):
+        create_predictor("memory_lo/defaults", repository=object())
+
+
+def test_prequential_predict_all_before_observe_including_memory():
     events = []
 
-    class Spy:
-        granularity, version_hash = "attempt", "v1"
-
-        def __init__(self, name):
-            self.name = name
-
-        def predict(self, f):
-            assert not hasattr(f, "outcome")
-            events.append(("predict", self.name, f.attempt_id))
-            return .5
+    class Spy(FamilyMemory):
+        def predict(self, features):
+            events.append(("predict", self.name, features.item_id))
+            return super().predict(features)
 
         def observe(self, r):
-            events.append(("observe", self.name, r.features.attempt_id))
+            events.append(("observe", self.name, getattr(r, "attempt_id", "")))
+            super().observe(r)
 
-    replay([row(1), row(0)], [Spy("a"), Spy("b")])
-    assert events[:4] == [("predict", "a", "0"), ("predict", "b", "0"),
-                          ("observe", "a", "0"), ("observe", "b", "0")]
+    a, b = Spy("item", W), Spy("family", W)
+    run([row(1), row(0)], [a, b])
+    assert events[:4] == [("predict", a.name, "item0"), ("predict", b.name, "item0"),
+                          ("observe", a.name, "0"), ("observe", b.name, "0")]
 
 
 def test_prefix_predictions_do_not_change_with_future_outcomes():
-    class Recording(IdeaHier):
-        def __init__(self):
-            super().__init__()
-            self.predictions = []
+    predictions = {}
 
-        def predict(self, f):
-            p = super().predict(f)
-            self.predictions.append(p)
+    def recording(name):
+        arm = create_predictor(name)
+        original = arm.predict
+
+        def predict(features):
+            p = original(features)
+            predictions.setdefault(name, []).append(p)
             return p
+        arm.predict = predict
+        return arm
 
-    a, b = Recording(), Recording()
-    replay([row(0), row(1), row(2)], [a])
-    replay([row(0), row(1), row(2, outcome=0, rating=1)], [b])
-    assert a.predictions == b.predictions
+    for name in ("idea_hier", "memory_family/defaults"):
+        run([row(0), row(1), row(2)], [recording(name)])
+        first = predictions.pop(name)
+        run([row(0), row(1), row(2, outcome=0, rating=1)], [recording(name)])
+        assert predictions.pop(name) == first
 
 
 def test_report_splits_by_original_resolved_family_judge_models():
-    report = replay([row(family_judge_models=("producer-a", "producer-b"))], [IdeaHier()])
-    splits = report["arms"]["idea_hier"]
-    assert splits["family_judge_model:producer-a"]["count"] == 1
-    assert splits["family_judge_model:producer-b"]["count"] == 1
+    report = run([row(family_judge_models=("producer-a", "producer-b"))], ["idea_hier"])
+    splits = report["report1"]["arms"]["idea_hier"]["splits"]
+    assert splits["family_judge_model"]["producer-a+producer-b"]["n"] == 1
+    assert splits["relation"]["same_target"]["n"] == 1
+    assert splits["retrieval"]["cold"]["n"] == 1
 
 
-@pytest.mark.parametrize("relation,cold,exclusion,mass,expected", [
-    ("same_target", True, None, 1, 1), ("isomorph", True, None, 1, 1),
-    ("near", True, None, 1, 0), ("far", True, None, 1, 0),
-    ("same_target", False, None, 1, 0), ("same_target", True, "quarantined", 1, 0),
-    ("same_target", True, None, 0, 1),
+@pytest.mark.parametrize("relation,cold,revision,rating,expected", [
+    ("same_target", True, "exact", 4, 1), ("isomorph", True, "exact", 4, 1),
+    ("near", True, "exact", 4, 0), ("far", True, "exact", 4, 0),
+    ("same_target", False, "exact", 4, 0), ("same_target", True, "excluded", 4, 0),
+    # No persisted FSRS rating: quarantined, ungraded or not a graded retrieval.
+    ("same_target", True, "exact", None, 0),
+    ("same_target", True, "reconstructed_current", 4, 1),
 ])
-def test_memory_coldness_and_transfer_gate(relation, cold, exclusion, mass, expected):
+def test_memory_coldness_and_transfer_gate(relation, cold, revision, rating, expected):
     arm = FamilyMemory("family", W)
-    arm.observe(row(variant_relation=relation, cold=cold, exclusion=exclusion, effective_mass=mass))
+    arm.observe(row(variant_relation=relation, retrieval_cold=cold,
+                    revision_status=revision, rating=rating))
     assert len(arm.history) == expected
 
 
@@ -87,12 +135,13 @@ def test_shared_key_weights_and_elapsed_are_consistent():
             arm.observe(r)
     states = [next(iter(a.history.values())).state for a in arms]
     expected = apply_review(apply_review(None, Rating.EASY, 0, W), Rating.EASY, 4, W)
-    assert states == [expected]*3
+    assert states == [expected] * 3
 
 
 def test_unfamilied_falls_back_to_item_and_transfer_never_trains():
     item, family = FamilyMemory("item", W), FamilyMemory("family", W)
-    for r in [row(0, family_id=None), row(1, family_id=None)]:
+    for r in [row(0, family_id=None, variant_relation=None),
+              row(1, family_id=None, variant_relation=None)]:
         item.observe(r)
         family.observe(r)
     assert item.history == family.history
@@ -111,92 +160,82 @@ def test_distance_arm_discounts_only_real_positive_credit():
     assert discounted.history["family:family"].state.stability < plain.history["family:family"].state.stability
 
 
-def test_idea_hier_independent_priors_joint_update_and_no_mean_decay():
-    arm = IdeaHier(sigma2_drift=.01)
-    assert arm.predict(row().features) == .5
-    assert np.diag(arm.cov).tolist() == [.75, 2.25, .5]
-    assert np.count_nonzero(arm.cov-np.diag(np.diag(arm.cov))) == 0
+def test_idea_hier_is_lo_general_with_independent_family_priors_and_no_mean_decay():
+    arm = create_predictor("idea_hier")
+    features = row().features
+    assert arm.predict(features) == .5
+    keys, _, covariance = arm._view([features])
+    assert keys == ["general:default", "lo:lo", "family:family"]
+    assert np.diag(covariance).tolist() == [.75, 2.25, .5]
+    assert np.count_nonzero(covariance - np.diag(np.diag(covariance))) == 0
     arm.observe(row())
-    assert arm.cov[0, 2] != 0  # posterior, not priors, correlate
-    assert np.linalg.eigvalsh(arm.cov).min() > 0
+    assert arm.covariance[0, 2] != 0  # posteriors, not priors, correlate
+    assert np.linalg.eigvalsh(arm.covariance).min() > 0
     mean = arm.mean.copy()
-    old_variance = arm.cov[0, 0]
     arm.predict(row(10).features)
-    assert np.array_equal(arm.mean, mean)
-    assert arm.cov[0, 0] > old_variance
-    arm.predict(row(11, family_id="unseen").features)
-    estimate = next(r for r in arm.region_estimates() if r["id"] == "unseen")
-    assert estimate["untested"] and estimate["variance"] == .5
+    assert np.array_equal(arm.mean, mean)  # no mean decay, and prediction is pure
+    unseen = replace(row(11).features, family_id="unseen")
+    arm.items = {unseen.item_id: unseen}
+    estimate = arm.region_estimates()["family:unseen"]
+    assert estimate.untested and estimate.variance == .5
+    # Without a family the arm is exactly lo_general.
+    plain, base = create_predictor("idea_hier"), create_predictor("lo_general")
+    unfamilied = replace(row(0), features=replace(row(0).features, family_id=None, variant_relation=None))
+    plain.observe(unfamilied)
+    base.observe(unfamilied)
+    assert np.array_equal(plain.mean, base.mean) and np.array_equal(plain.covariance, base.covariance)
 
 
 def test_uncertainty_exclusions_counts_splits_and_aggregates_only(tmp_path):
-    report = replay([row(0), row(1, outcome=0, rating=1), row(2, exclusion="quarantined")],
-                    [IdeaHier(), FamilyMemory("family", W)])
-    assert report["counts"]["excluded"] == {"quarantined": 1}
-    assert report["counts"]["missing_skeleton_distance"] == 2
-    overall = report["arms"]["idea_hier"]["overall"]
-    assert overall["count"] == 2 and overall["intervals"]["brier"]
-    assert report["arms"]["idea_hier"]["lo_history:first"]["count"] == 1
-    assert report == replay([row(2, exclusion="quarantined"), row(1, outcome=0, rating=1), row(0)],
-                            [IdeaHier(), FamilyMemory("family", W)])
-    paths = write_report(report, tmp_path)
-    text = paths[0].read_text()
-    assert "item0" not in text and "family_id" not in text and "learner_answer" not in text
+    rows = [row(0), row(1, outcome=0, rating=1),
+            row(2, revision_status="excluded", effective_mass=0, rating=None)]
+    arms = ["idea_hier", "memory_family/defaults"]
+    report = run(rows, arms)
+    assert report["counts"]["excluded_attempts"] == 1
+    assert report["counts"]["missing_variant_distance"] == 2
+    assert report["counts"]["memory_scored_attempts"] == 2
+    overall = report["report1"]["arms"]["idea_hier"]["overall"]
+    assert overall["n"] == 2 and overall["brier"]["ci95"]
+    assert report["report1"]["arms"]["idea_hier"]["splits"]["attempt_position"]["first_unseen_lo"]["n"] == 1
+    assert report == run(list(reversed(rows)), arms)
+    assert report["manifest"]["memory"]["weights"]["current_fit"]["is_defaults"]
+    paths = write_reports(report, tmp_path, stem="families")
+    text = (tmp_path / "families.json").read_text()
+    assert "item0" not in text and '"family"' not in text and "learner_answer" not in text
     assert json.loads(text) == report
+    assert set(paths) == {"json", "markdown"}
 
 
 def test_empty_report_and_duplicate_epoch_rejection():
-    report = replay([], [IdeaHier()])
-    assert report["arms"]["idea_hier"]["overall"]["count"] == 0
-    assert report["arms"]["idea_hier"]["overall"]["log_loss"] is None
-    with pytest.raises(ValueError, match="epoch"):
-        replay([row(), row()], [IdeaHier()])
+    report = run([], ["idea_hier", "memory_item/defaults"])
+    assert report["report1"]["arms"]["idea_hier"]["overall"]["n"] == 0
+    assert report["report1"]["arms"]["idea_hier"]["overall"]["log_loss"]["mean"] is None
+    with pytest.raises(ValueError, match="Duplicate attempt rows"):
+        run([row(), row()], ["idea_hier"])
 
 
 def test_zero_ability_mass_trains_memory_but_never_idea_hier():
-    memory, ability = FamilyMemory("family", W), IdeaHier()
-    report = replay([row(0, effective_mass=0), row(1, effective_mass=0)],
-                    [memory, ability])
+    memory, ability = create_predictor("memory_family/defaults"), create_predictor("idea_hier")
+    before = ability.snapshot_bytes()
+    report = run([replace(row(0), effective_mass=0), replace(row(1), effective_mass=0)],
+                 [memory, ability])
     assert report["counts"]["zero_ability_mass"] == 2
-    assert report["arms"][memory.name]["overall"]["count"] == 2
-    assert report["arms"][ability.name]["overall"]["count"] == 0
+    assert report["counts"]["ability_scored_attempts"] == 0
+    arms = report["report1"]["arms"]
+    assert arms[memory.name]["overall"]["n"] == 2
+    assert arms[ability.name]["overall"]["n"] == 0
+    assert arms[ability.name]["unscored_attempts"] == 2
     assert memory.history["family:family"].review_count == 2
-    assert ability.keys == [] and ability.direct == {}
+    assert ability.snapshot_bytes() == before
 
 
-def test_real_legacy_grades_produce_memory_report_without_ability_evidence(tmp_path):
-    from tests.test_family_memory_projection import _attempt, _family, _vault
-
-    vault, repo = _vault(tmp_path)
-    _family(vault)
-    _attempt(repo, 0)
-    _attempt(repo, 2)
-    before = repo.list_all_attempts()
-    report = evaluate(vault, repo, legacy_fallback="current_content")
-    for name, metrics in report["arms"].items():
-        assert metrics["overall"]["count"] == (0 if name == "idea_hier" else 2)
-    assert report["counts"]["memory_eligible"] == 2
-    assert repo.list_all_attempts() == before
-
-
-def test_vault_report_no_models_no_compatibility_cache(tmp_path, monkeypatch):
-    from learnloop.db.repositories import Repository
-    from learnloop.vault.loader import load_vault
-    from tests.helpers import create_basic_vault
-
-    paths = create_basic_vault(tmp_path/"vault")
-    vault = load_vault(paths.root)
-    repo = Repository.attach(paths.sqlite_path, read_only=True)
-
-    def forbidden(*args, **kwargs):
-        raise AssertionError("offline replay must not read live memory or invoke a model")
-
-    monkeypatch.setattr(repo, "practice_item_state", forbidden)
-    monkeypatch.setattr(repo, "activity_card_state", forbidden)
-    monkeypatch.setattr(repo, "item_parameter_state", forbidden)
-    first = evaluate(vault, repo)
-    second = evaluate(vault, repo)
-    assert first == second
-    assert len(first["arms"]) == 13
-    assert first["manifest"]["weights"]["defaults"] == first["manifest"]["weights"]["current_fit"]
-    assert first["manifest"]["current_fit_is_defaults"]
+def test_memory_arms_score_only_cold_retrievals_and_never_recommend():
+    warm = row(1, retrieval_cold=False)
+    report = run([row(0), warm, row(2)], ["mastery_ekf", "idea_hier", "memory_item/defaults"])
+    arms = report["report1"]["arms"]
+    assert arms["memory_item/defaults"]["overall"]["n"] == 2
+    assert arms["memory_item/defaults"]["scores"] == "graded_cold_retrievals"
+    assert arms["mastery_ekf"]["overall"]["n"] == 3
+    assert "memory_item/defaults" not in report["recommendation"]["candidates"]
+    assert report["report2"]["arms"]["memory_item/defaults"]["assumed_los"] == 0
+    assert report["report1"]["limitations"]

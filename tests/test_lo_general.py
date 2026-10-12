@@ -4,6 +4,7 @@ from math import exp
 import numpy as np
 import pytest
 
+import learnloop.field.memory  # noqa: F401 - the registry includes the PF-a memory arms
 from learnloop.field.predictors import LoGeneral, MasteryEKF, create_predictor, registered_predictors
 from learnloop.field.types import ArmConstants, AttemptRow, FacetRow, ItemFeatures, SignalRow
 

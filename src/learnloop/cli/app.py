@@ -2990,7 +2990,7 @@ def eval_command(
     bins: Annotated[int, typer.Option("--bins", help="Calibration bin count.")] = 10,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
 ) -> None:
-    """Legacy callable; the shared command is registered in cli.field."""
+    """Legacy callable for the `learnloop eval` group callback (cli.evaluation)."""
 
     from learnloop.cli.field import field_eval
 

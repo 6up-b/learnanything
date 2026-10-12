@@ -112,9 +112,6 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # claims no DERIVED table: the resulting observations are replay inputs.
     DerivedStateReplayer("activity_substrate", frozenset()),
     DerivedStateReplayer(
-        "family_memory", frozenset({"family_memory_state"}), ("activity_substrate",),
-    ),
-    DerivedStateReplayer(
         "learning_state",
         frozenset(
             {
@@ -148,6 +145,11 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
         "field_outcomes",
         frozenset({"facet_outcome_observations"}),
         ("learning_state",),
+    ),
+    # Reads the same canonical outcome view as field_outcomes, so it is
+    # ordered with it; it writes only the shadow family FSRS projection.
+    DerivedStateReplayer(
+        "family_memory", frozenset({"family_memory_state"}), ("learning_state",),
     ),
 )
 
@@ -398,22 +400,34 @@ def _run_field_outcomes(spec, context):
 def _run_family_memory(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    from learnloop.substrate.family_memory import rebuild_family_memory
+    from learnloop.field.outcomes import load_attempt_rows
+    from learnloop.substrate.family_memory import (
+        PROJECTION_LEGACY_FALLBACK,
+        rebuild_family_memory,
+    )
+
+    def load_rows():
+        # The canonical outcome view: one row source for replay and evaluation.
+        with context.repository.connection() as connection:
+            return load_attempt_rows(
+                connection, context.vault,
+                legacy_fallback=PROJECTION_LEGACY_FALLBACK, retrieval=True,
+            )
 
     # Group membership can cross the requested LO subset; rebuild the small
     # whole-family projection so removals and undo cannot leave stale state.
-    report = rebuild_family_memory(context.vault, context.repository)
+    report = rebuild_family_memory(context.vault, context.repository, load_rows)
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
                           rows_processed=report["reviews"], details=report)
 
 
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
-    "family_memory": _run_family_memory,
     "learning_state": _run_learning_state,
     "canonical_projection": _run_canonical_projection,
     "identifiability": _run_identifiability,
     "field_outcomes": _run_field_outcomes,
+    "family_memory": _run_family_memory,
 }
 
 

@@ -1,16 +1,22 @@
-"""Integrated PF-a projection tests; requires the foundation's migration 168."""
+"""Integrated PF-a projection tests; requires the foundation's migration 168.
+
+Rows come from the learner-field canonical outcome view (``load_attempt_rows``
+with ``retrieval=True``), the same rows the offline harness replays.
+"""
 from datetime import timedelta
+import json
 
 import pytest
 
 from learnloop.db.repositories import Repository
-from learnloop.substrate.family_memory import rebuild_family_memory
-from learnloop.substrate.family_memory_rows import load_rows
+from learnloop.field.outcomes import load_attempt_rows
+from learnloop.substrate.family_memory import PROJECTION_LEGACY_FALLBACK, rebuild_family_memory
 from learnloop.vault.loader import load_vault
 from tests.helpers import NOW, create_basic_vault
 
 
 def _attempt(repo, n, **overrides):
+    """A legacy-path attempt plus its criterion grading evidence."""
     values = {
         "id": f"attempt-{n}", "practice_item_id": "pi_svd_define_001",
         "learning_object_id": "lo_svd_definition", "practice_mode": "define",
@@ -19,7 +25,16 @@ def _attempt(repo, n, **overrides):
         "learner_answer_md": "PRIVATE LEARNER RESPONSE",
     }
     values.update(overrides)
+    points = values.pop("points", None)
     repo.insert_practice_attempt(values)
+    if points is None:
+        points = 0 if values["attempt_type"] == "dont_know" else values["rubric_score"]
+    with repo.connection() as connection:
+        connection.execute(
+            """INSERT INTO grading_evidence
+               (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, grading_revision)
+               VALUES (?, ?, 'correctness', ?, 1, ?, 1)""",
+            (f"evidence-{n}", values["id"], points, values["created_at"]))
 
 
 def _vault(tmp_path):
@@ -41,13 +56,22 @@ def _family(vault):
     return family
 
 
-def test_no_family_rebuild_does_not_touch_other_state(tmp_path, monkeypatch):
+def _rows(vault, repo, legacy_fallback=PROJECTION_LEGACY_FALLBACK):
+    with repo.connection() as connection:
+        return load_attempt_rows(connection, vault, legacy_fallback=legacy_fallback, retrieval=True)
+
+
+def _rebuild(vault, repo):
+    return rebuild_family_memory(vault, repo, lambda: _rows(vault, repo))
+
+
+def test_no_family_rebuild_does_not_touch_other_state(tmp_path):
     vault, repo = _vault(tmp_path)
     _attempt(repo, 0)
     before = repo.list_all_attempts()
-    monkeypatch.setattr("learnloop.substrate.family_memory.load_rows",
-                        lambda *a, **kw: pytest.fail("no-family rebuild need not read outcomes"))
-    assert rebuild_family_memory(vault, repo)["families"] == 0
+    assert rebuild_family_memory(
+        vault, repo, lambda: pytest.fail("no-family rebuild need not read outcomes"),
+    )["families"] == 0
     assert repo.list_all_attempts() == before
 
 
@@ -75,17 +99,18 @@ def test_projection_deterministic_cold_only_no_models_and_undo(tmp_path, monkeyp
     monkeypatch.setattr(repo, "practice_item_state", forbidden)
     monkeypatch.setattr(repo, "activity_card_state", forbidden)
     original = repo.list_all_attempts()
-    first = rebuild_family_memory(vault, repo)
+    first = _rebuild(vault, repo)
     with repo.connection() as connection:
         state = [tuple(r) for r in connection.execute("SELECT * FROM family_memory_state")]
     assert first["reviews"] == 2
-    assert first == rebuild_family_memory(vault, repo)
+    assert first["skipped"] == {"not_cold": 3, "not_graded_retrieval": 3}
+    assert first == _rebuild(vault, repo)
     with repo.connection() as connection:
         assert state == [tuple(r) for r in connection.execute("SELECT * FROM family_memory_state")]
     assert repo.list_all_attempts() == original
     item = vault.practice_items["pi_svd_define_001"]
     vault.practice_items[item.id] = item.model_copy(update={"family_id": None, "variant_relation": None})
-    assert rebuild_family_memory(vault, repo)["families"] == 0
+    assert _rebuild(vault, repo)["families"] == 0
     with repo.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM family_memory_state").fetchone()[0] == 0
 
@@ -97,7 +122,7 @@ def test_projection_relation_gate(tmp_path, relation, count):
     item = vault.practice_items["pi_svd_define_001"]
     vault.practice_items[item.id] = item.model_copy(update={"variant_relation": relation})
     _attempt(repo, 0)
-    assert rebuild_family_memory(vault, repo)["reviews"] == count
+    assert _rebuild(vault, repo)["reviews"] == count
 
 
 @pytest.mark.durability
@@ -105,23 +130,32 @@ def test_family_projection_durable_repeat(tmp_path):
     vault, repo = _vault(tmp_path)
     _family(vault)
     _attempt(repo, 0)
-    first = rebuild_family_memory(vault, repo)
-    assert first == rebuild_family_memory(vault, Repository.attach(repo.sqlite_path))
+    first = _rebuild(vault, repo)
+    attached = Repository.attach(repo.sqlite_path)
+    assert first == rebuild_family_memory(vault, attached, lambda: _rows(vault, attached))
 
 
-def test_registry_has_exactly_one_owner():
-    from learnloop.substrate.rebuild_orchestrator import derived_table_owners, validate_replayer_registry
+def test_registry_has_exactly_one_owner_on_the_outcome_view():
+    from learnloop.substrate.rebuild_orchestrator import (
+        DERIVED_STATE_REPLAYERS, derived_table_owners, validate_replayer_registry,
+    )
 
     validate_replayer_registry()
     assert derived_table_owners()["family_memory_state"] == ("family_memory",)
+    spec = next(r for r in DERIVED_STATE_REPLAYERS if r.name == "family_memory")
+    assert spec.depends_on == ("learning_state",)
 
 
-def test_dont_know_is_full_mass_observed_failure(tmp_path):
+def test_dont_know_is_an_observed_failure_review(tmp_path):
     vault, repo = _vault(tmp_path)
     _attempt(repo, 0, attempt_type="dont_know", rubric_score=0)
-    rows, _ = load_rows(vault, repo, legacy_fallback="current_content")
-    assert rows[0].outcome == 0
-    assert rows[0].features.effective_mass == 1.0
+    row, = _rows(vault, repo)
+    assert row.outcome == 0
+    assert row.fsrs_rating == 1  # FSRS Again
+    assert row.memory_eligible
+    # Ability mass is the canonical view's configured dont_know mass.
+    assert row.effective_mass == pytest.approx(
+        vault.config.evidence.attempt_types["dont_know"].evidence_mass)
 
 
 def test_legacy_revision_fallback_is_explicit_and_reveal_is_past_only(tmp_path):
@@ -132,25 +166,24 @@ def test_legacy_revision_fallback_is_explicit_and_reveal_is_past_only(tmp_path):
         "practice_item_id": "sibling", "learning_object_id": "lo_svd_definition",
         "source_kind": "tutor_answer", "amount": 1,
         "created_at": (NOW+timedelta(days=1)).isoformat()})
-    strict, source = load_rows(vault, repo)
-    assert source["revision_counts"] == {"excluded": 2}
-    assert all(r.exclusion == "missing_graded_revision" for r in strict)
-    reconstructed, source = load_rows(vault, repo, legacy_fallback="current_content",
-                                      for_projection=True)
-    assert source["revision_counts"] == {"reconstructed_current": 2}
-    assert reconstructed[0].cold and not reconstructed[1].cold
-    assert all(r.exclusion is None for r in reconstructed)
+    strict = _rows(vault, repo, legacy_fallback="exclude")
+    assert [r.revision_status for r in strict] == ["excluded", "excluded"]
+    assert not any(r.memory_scored for r in strict)
+    reconstructed = _rows(vault, repo, legacy_fallback="current_content")
+    assert [r.revision_status for r in reconstructed] == ["reconstructed_current"] * 2
+    assert [r.retrieval_cold for r in reconstructed] == [True, False]
 
 
-def test_legacy_calibration_is_not_invented_for_idea_hier(tmp_path):
+def test_legacy_calibration_is_not_invented_for_ability_arms(tmp_path):
     vault, repo = _vault(tmp_path)
+    p0 = vault.config.algorithms.model_copy(update={"algorithm_version": "mvp-0.8"})
+    vault.config = vault.config.model_copy(update={"algorithms": p0})
     _attempt(repo, 0)
-    rows, _ = load_rows(vault, repo, legacy_fallback="current_content")
-    assert rows[0].features.effective_mass == 0
-    assert rows[0].memory_eligible
-    projection, _ = load_rows(vault, repo, legacy_fallback="current_content",
-                              for_projection=True)
-    assert projection[0].features.effective_mass == 0
+    row, = _rows(vault, repo)
+    # A P0 vault without an interpretation has no ability mass, but the graded
+    # cold retrieval is still an FSRS review for the memory arms.
+    assert row.effective_mass == 0
+    assert row.memory_eligible
 
 
 def test_old_reveal_does_not_permanently_veto_spaced_reviews(tmp_path):
@@ -162,15 +195,12 @@ def test_old_reveal_does_not_permanently_veto_spaced_reviews(tmp_path):
         "practice_item_id": "sibling", "learning_object_id": "lo_svd_definition",
         "source_kind": "tutor_answer", "amount": .1,
         "created_at": (NOW+timedelta(days=1)).isoformat()})
-    rows, _ = load_rows(vault, repo, legacy_fallback="current_content")
-    assert [row.cold for row in rows] == [True, False, True]
-    assert rebuild_family_memory(vault, repo)["reviews"] == 2
+    assert [row.retrieval_cold for row in _rows(vault, repo)] == [True, False, True]
+    assert _rebuild(vault, repo)["reviews"] == 2
 
 
 @pytest.mark.parametrize("status,expected", [("pass", True), ("fail", False), ("unknown", False)])
 def test_receipt_owns_measurement_window_and_unassisted_claim(tmp_path, status, expected):
-    import json
-
     vault, repo = _vault(tmp_path)
     _attempt(repo, 0)
     _attempt(repo, 7)
@@ -192,16 +222,21 @@ def test_receipt_owns_measurement_window_and_unassisted_claim(tmp_path, status, 
              json.dumps({"interval": {"from": (NOW+timedelta(days=2)).isoformat(),
                                        "to": (NOW+timedelta(days=7)).isoformat()}}),
              (NOW+timedelta(days=7)).isoformat()))
-    rows, _ = load_rows(vault, repo, legacy_fallback="current_content")
-    assert rows[-1].cold is expected
+    assert _rows(vault, repo)[-1].retrieval_cold is expected
 
 
-def test_regraded_label_is_not_backdated_into_prequential_training(tmp_path, monkeypatch):
+def test_regrade_uses_the_latest_surviving_epoch_not_an_exclusion(tmp_path):
     vault, repo = _vault(tmp_path)
     _attempt(repo, 0)
-    monkeypatch.setattr(repo, "attempt_regrade_marker", lambda _: {"at": "future"})
-    rows, _ = load_rows(vault, repo, legacy_fallback="current_content")
-    assert rows[0].exclusion == "regraded_after_attempt"
+    at = (NOW + timedelta(days=3)).isoformat()
+    with repo.connection() as connection:
+        connection.execute("UPDATE grading_evidence SET superseded_at=? WHERE id='evidence-0'", (at,))
+        connection.execute(
+            """INSERT INTO grading_evidence
+               (id, attempt_id, criterion_id, points_awarded, grader_tier, created_at, grading_revision)
+               VALUES ('evidence-0b', 'attempt-0', 'correctness', 1, 1, ?, 2)""", (at,))
+    row, = _rows(vault, repo)
+    assert row.outcome == .25 and row.memory_scored
 
 
 def test_reveal_read_failure_is_not_reported_as_cold(tmp_path, monkeypatch):
@@ -210,82 +245,34 @@ def test_reveal_read_failure_is_not_reported_as_cold(tmp_path, monkeypatch):
     vault, repo = _vault(tmp_path)
     _attempt(repo, 0)
 
-    def broken(**kwargs):
+    def broken(self, **kwargs):
         raise RuntimeError("ledger unavailable")
 
-    monkeypatch.setattr(repo, "reveal_events_for_target", broken)
     # Existing live callers retain best-effort behavior.
+    monkeypatch.setattr(Repository, "reveal_events_for_target", broken)
     assert production_admissibility(
         repo, practice_item_id="pi_svd_define_001", produced_at=NOW.isoformat()).admissible
     with pytest.raises(RuntimeError, match="ledger unavailable"):
-        load_rows(vault, repo, legacy_fallback="current_content")
+        _rows(vault, repo)
 
 
-@pytest.mark.parametrize("score,points,rating", [(1, 5, 2), (3, 3.5, 3), (4, 4.5, 4)])
-def test_fsrs_rating_uses_capped_rounded_grade_not_continuous_fraction(
-        tmp_path, monkeypatch, score, points, rating):
-    from types import SimpleNamespace
-
+@pytest.mark.parametrize("score,points,rating", [(1, 2, 2), (3, 3.5, 3), (4, 4, 4)])
+def test_fsrs_rating_uses_capped_rounded_grade_not_continuous_fraction(tmp_path, score, points, rating):
     vault, repo = _vault(tmp_path)
-    _attempt(repo, 0, rubric_score=score)
-    item = vault.practice_items["pi_svd_define_001"]
-    monkeypatch.setattr(repo, "fetch_grading_evidence",
-                        lambda _: [SimpleNamespace(points_awarded=points)])
-    monkeypatch.setattr("learnloop.substrate.family_memory_rows._graded_item",
-                        lambda *args: (item, {"rubric_total": 5, "rubric_max_points": 4}))
-    rows, _ = load_rows(vault, repo)
-    assert rows[0].outcome == points / 5
-    assert rows[0].rating == rating
+    _attempt(repo, 0, rubric_score=score, points=points)
+    row, = _rows(vault, repo)
+    assert row.outcome == points / 4
+    assert row.fsrs_rating == rating
 
 
-def test_exact_revision_requires_snapshot_hash_and_graded_contract(tmp_path):
-    from types import SimpleNamespace
-    import hashlib
-    import json
-    from learnloop.learner.assessment_contracts import compile_assessment_contract
-    from learnloop.substrate.family_memory_rows import _graded_item
-
+def test_family_grouping_is_current_authored_and_retrospective(tmp_path):
     vault, repo = _vault(tmp_path)
+    _attempt(repo, 0)
+    assert _rows(vault, repo)[0].features.family_id is None
+    _family(vault)
+    row, = _rows(vault, repo)
+    assert (row.features.family_id, row.features.variant_relation) == ("family-test", "same_target")
+    # An item pointing at a family file that does not exist stays unfamilied.
     item = vault.practice_items["pi_svd_define_001"]
-    contract = compile_assessment_contract(vault, item)
-    raw = json.dumps(item.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    snapshot_hash = hashlib.sha256(raw.encode()).hexdigest()
-    at = NOW.isoformat()
-    attempt = {"practice_item_id": item.id, "scheduler_candidate_id": "candidate", "created_at": at}
-    evidence = [SimpleNamespace(assessment_contract_version_id="contract")]
-    with repo.connection() as connection:
-        connection.execute(
-            """INSERT INTO assessment_contract_versions
-               (id, practice_item_id, contract_hash, contract_json, schema_version, created_at)
-               VALUES ('contract', ?, 'contract-hash', ?, 1, ?)""",
-            (item.id, json.dumps(contract), at))
-        connection.execute(
-            "INSERT INTO practice_item_snapshots VALUES (?, ?, ?, ?)",
-            (snapshot_hash, item.id, raw, at))
-        connection.execute(
-            """INSERT INTO decision_features
-               (id, decision_id, decision_type, ability_vector_json,
-                item_demand_vector_json, context_json, algorithm_version, created_at)
-               VALUES ('feature', 'candidate', 'selection', '{}', ?, '{}', 'mvp-0.8', ?)""",
-            (json.dumps({"content_hash": snapshot_hash}), at))
-        found, graded = _graded_item(connection, attempt, evidence)
-        assert found == item and graded == contract
-        found, _ = _graded_item(connection, {**attempt, "scheduler_candidate_id": "missing"}, evidence)
-        assert found is None
-        found, _ = _graded_item(connection, attempt, [])
-        assert found is None
-        # The hash is of the stored bytes, not a reserialization, and the
-        # selected row must still agree with the graded prompt contract.
-        bad_hash = hashlib.sha256((raw + " ").encode()).hexdigest()
-        connection.execute(
-            "INSERT INTO practice_item_snapshots VALUES (?, ?, ?, ?)",
-            (bad_hash, item.id, raw, at))
-        connection.execute(
-            """INSERT INTO decision_features
-               (id, decision_id, decision_type, ability_vector_json,
-                item_demand_vector_json, context_json, algorithm_version, created_at)
-               VALUES ('bad-feature', 'bad-candidate', 'selection', '{}', ?, '{}', 'mvp-0.8', ?)""",
-            (json.dumps({"content_hash": bad_hash}), at))
-        found, _ = _graded_item(
-            connection, {**attempt, "scheduler_candidate_id": "bad-candidate"}, evidence)
-        assert found is None
+    vault.practice_items[item.id] = item.model_copy(update={"family_id": "missing"})
+    assert _rows(vault, repo)[0].features.family_id is None

@@ -1,5 +1,11 @@
 # Slice A Phase 3 — PF-a
 
+> **Integration note (`integrate/slice-a-2-3`).** Phase 2's migration kept 167,
+> so this phase's migration is `168_activity_family_membership.sql` and the
+> head fixture is `fixtures/migration_head_168`. The offline harness is unified
+> with Phase 2's (`slice-a-integration-2-3.md`). References below to migration
+> 167 and to the `learnloop.evaluation` modules describe the branch as built.
+
 ## Mapping investigation (before implementation)
 
 P12 fits the existing substrate. No additional owner decision is needed.

@@ -282,6 +282,8 @@ def enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]
         result.append(replace(
             attempt,
             features=replace(attempt.features, cold=False) if leaked else attempt.features,
+            # A suspected answer leak also voids the strict memory coldness.
+            retrieval_cold=attempt.retrieval_cold and not leaked,
             help_before_work=attempt.help_before_work or any(s.help_before_work for s in linked),
             preceded_by_question=attempt.preceded_by_question or any(not s.signal_id.startswith("hint:") for s in prior),
         ))

@@ -16,13 +16,17 @@ from types import SimpleNamespace
 from typing import Any
 
 from learnloop.algorithm_versions import P0_SUCCESSOR_VERSIONS, P0_ALGORITHM_VERSION
+from learnloop.attempts.attempts import fsrs_rating_for_attempt
 from learnloop.attempts.effective_observation import (
     build_effective_observation,
     effective_observation_from_posterior,
     load_effective_observation_references,
 )
 from learnloop.attempts.evidence import attempt_evidence_mass
+from learnloop.attempts.reveal_ledger import production_admissibility
+from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.families import family_judge_models
 from learnloop.db.stores.field import replace_facet_outcomes
 from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
 from learnloop.diagnosis.causal_activity_policy import resolve_attempt_activity_policy
@@ -51,6 +55,11 @@ class _ReadRepository(Repository):
 
     def connection(self):
         return nullcontext(self._borrowed)
+
+
+def borrowed_repository(connection: sqlite3.Connection) -> Repository:
+    """A repository view that reads inside the caller's open snapshot."""
+    return _ReadRepository(connection)
 
 
 def _json(value: str | None, default: Any = None) -> Any:
@@ -187,10 +196,82 @@ def _revision(connection, vault, attempt, evidence, candidate_id, fallback):
     return None, None, digest, "excluded"
 
 
-def _load(connection, vault, *, legacy_fallback=None, as_of=None):
+# Graded retrievals that can be FSRS reviews; everything else is never memory.
+GRADED_RETRIEVAL_TYPES = frozenset({"independent_attempt", "dont_know", "exam_attempt"})
+
+
+def resolve_legacy_fallback(vault, legacy_fallback=None) -> str:
+    """The single revision policy: an explicit option, else ``field.legacy_fallback``."""
     fallback = legacy_fallback or getattr(getattr(vault.config, "field", None), "legacy_fallback", "exclude")
     if fallback not in {"exclude", "current_content"}:
         raise ValueError("legacy_fallback must be exclude or current_content")
+    return fallback
+
+
+def _grader_models(connection) -> dict[str, str]:
+    """Latest raw grade event of each attempt's latest observation (no text)."""
+    rows = connection.execute(
+        """WITH ranked AS (
+               SELECT o.id, o.attempt_id, ROW_NUMBER() OVER (
+                   PARTITION BY o.attempt_id ORDER BY o.created_at DESC, o.id DESC
+               ) AS replay_rank
+                 FROM activity_observations AS o WHERE o.attempt_id IS NOT NULL)
+           SELECT ranked.attempt_id, r.grader_model_revision, r.grader_provider
+             FROM ranked JOIN raw_grade_events AS r ON r.observation_id = ranked.id
+            WHERE ranked.replay_rank = 1
+            ORDER BY r.created_at, r.id"""
+    )
+    return {row[0]: str(row[1] or row[2] or "unknown") for row in rows}
+
+
+def _retrieval_cold(connection, repository, attempt, policy, since):
+    """Strict research coldness for memory arms; returns (cold, window start).
+
+    Ordinary submissions use the since-last-item-attempt window. A final
+    coldness receipt instead owns its explicit interval and its unassisted and
+    answer-leakage findings. Old exposure is absorbed by the next attempt,
+    never a permanent veto. Unknown coldness fails: the reveal lookup is
+    strict, unlike the live best-effort helper.
+    """
+    at = parse_utc(attempt["created_at"])
+    cold = (
+        at is not None and not policy.counts_as_assisted and policy.eligible_for_fsrs
+        and attempt["attempt_type"] in GRADED_RETRIEVAL_TYPES
+    )
+    receipt_starts = []
+    for receipt in connection.execute(
+        """SELECT dimensions_json, telemetry_coverage_json FROM coldness_receipts
+           WHERE cold_attempt_id = ? AND stage = 'final' ORDER BY id""",
+        (attempt["id"],),
+    ):
+        dimensions = _json(receipt[0], {})
+        interval = _json(receipt[1], {}).get("interval") or {}
+        start, end = parse_utc(interval.get("from")), parse_utc(interval.get("to"))
+        valid_interval = start is not None and at is not None and end == at and start <= at
+        if valid_interval:
+            receipt_starts.append(start)
+        cold = cold and valid_interval and all(
+            dimensions.get(name, {}).get("status") == "pass"
+            for name in ("unassisted", "answer_leakage")
+        )
+    if receipt_starts:
+        # Multiple receipts cannot narrow one another's absence claims.
+        since = min(receipt_starts).isoformat()
+    return cold and production_admissibility(
+        repository, practice_item_id=attempt["practice_item_id"],
+        learning_object_id=attempt["learning_object_id"],
+        since=since, produced_at=attempt["created_at"], strict=True,
+    ).admissible
+
+
+def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=False, diagnostics=None):
+    """Derive attempt and facet rows; ``retrieval`` adds the memory-arm fields.
+
+    The family grouping is the CURRENT authored assignment, deliberately
+    retrospective (PF-a applies families after the fact); it never retargets a
+    row's LO, outcome or revision status.
+    """
+    fallback = resolve_legacy_fallback(vault, legacy_fallback)
     repository = _ReadRepository(connection)
     ledger = {r["attempt_id"]: r for r in load_authoritative_observation_ledger(connection)}
     references = load_effective_observation_references(
@@ -209,15 +290,24 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
             current = vault.canonical_facet_id(merges[current])
         return current
 
+    families = getattr(vault, "activity_families", {}) or {}
+    judge_models = family_judge_models(connection) if families else {}
+    grader_models = _grader_models(connection) if retrieval else {}
     attempts, facets = [], []
     recent_by_lo = defaultdict(list)
+    prior_item_attempt: dict[str, str] = {}
+    ungraded = Counter()
     for raw_attempt in connection.execute("SELECT * FROM practice_attempts ORDER BY created_at,id"):
         attempt = dict(raw_attempt)
         if as_of is not None and attempt["created_at"] > as_of:
             continue
         source = ledger[attempt["id"]]
         evidence = source["evidence"]
+        # Every earlier attempt on the item closes a reveal window, graded or not.
+        since = prior_item_attempt.get(attempt["practice_item_id"])
+        prior_item_attempt[attempt["practice_item_id"]] = attempt["created_at"]
         if not evidence or attempt["attempt_type"] == "skip":
+            ungraded["skip" if attempt["attempt_type"] == "skip" else "no_grading_evidence"] += 1
             continue
         # Partial supersession is cumulative: select the latest surviving
         # record for each criterion, not merely the largest revision number.
@@ -241,6 +331,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
         outcome = 0.0
         covered = {}
         effective_mass = mass_without_assistance = 0.0
+        calibration_status = "excluded_revision"
         outcomes = {}
         if item is not None:
             assessed_max = sum(float(c.points) for c in rubric.criteria if c.id in points)
@@ -289,6 +380,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
                     observation_id=None, posterior={"graded": 1.0}, certainty_lcb=1.0, **kwargs,
                 )
             effective_mass = effective.effective_mass
+            calibration_status = effective.calibration_status
             mass_without_assistance = replace(
                 effective, assistance_discount=1.0,
                 attempt_type_mass=(
@@ -351,6 +443,24 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
             item is None or item.difficulty is None or llm_estimate
         ):
             difficulty_source += "_missing_historical_prior"
+        # Retrospective PF-a grouping from today's authored families (above).
+        current = vault.practice_items.get(attempt["practice_item_id"])
+        family_id = getattr(current, "family_id", None)
+        relation = getattr(current, "variant_relation", None)
+        if family_id not in families:
+            family_id, relation = None, None
+        # FSRS consumes the persisted rounded, max-point/fatal-capped grade with
+        # the authored hint cap, not the continuous criterion fraction.
+        fsrs_rating = None
+        score = 0 if dont_know else attempt.get("rubric_score")
+        quarantined = (source.get("quarantine_state") == "quarantined")
+        if (retrieval and item is not None and score is not None and not quarantined
+                and attempt["attempt_type"] in GRADED_RETRIEVAL_TYPES):
+            fsrs_rating = int(fsrs_rating_for_attempt(item, score, rubric.max_points, hints))
+        retrieval_cold = bool(
+            retrieval and fsrs_rating is not None
+            and _retrieval_cold(connection, repository, attempt, policy, since)
+        )
         # Captured demand stays fixed, including LLM estimates. Uncertainty
         # widens the observation, never replaces b with today's LO prior.
         feature = ItemFeatures(
@@ -358,7 +468,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
             observed_at=attempt["created_at"], subject_id=attempt["subject"] or "default",
             a=a, b=b, primed=primed, cold=not policy.counts_as_assisted and not primed,
             capability=item.capability if item else None,
-            family_id=getattr(item, "family_id", None), variant_relation=getattr(item, "variant_relation", None),
+            family_id=family_id, variant_relation=relation,
             difficulty_source=difficulty_source, difficulty_variance=1.0 if llm_estimate else 0.0,
         )
         row = AttemptRow(
@@ -367,6 +477,10 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
             revision_status=status, assisted=policy.counts_as_assisted, hints_used=hints,
             serving_origin=origin, serving_propensity=propensity, scheduler_candidate_id=candidate_id,
             surface_group_id=surface_group_id(item) if item else None, item_snapshot_hash=digest,
+            fsrs_rating=fsrs_rating, retrieval_cold=retrieval_cold,
+            grader_model=grader_models.get(attempt["id"], "unknown"),
+            calibration_status=calibration_status,
+            family_judge_models=judge_models.get(family_id, ()) if family_id else (),
         )
         attempts.append(row)
         merged = defaultdict(lambda: [0.0, 0.0])
@@ -386,16 +500,27 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None):
                 "correctness": outcome, "surface_family": item.surface_family if item else None,
                 "evidence_facets": list(covered),
             })
+    if diagnostics is not None:
+        diagnostics["attempts_without_outcome_row"] = dict(sorted(ungraded.items()))
     return tuple(attempts), tuple(facets)
 
 
-def load_attempt_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[AttemptRow, ...]:
+def load_attempt_rows(
+    connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False,
+) -> tuple[AttemptRow, ...]:
     """Immutable attempt rows, including zero-mass exclusions for accounting.
 
     ``as_of`` is an attempt-completion cutoff, not a point-in-time reconstruction
     of grader knowledge: the latest surviving grading epoch remains authoritative.
+    ``retrieval`` also derives the memory-arm fields (FSRS rating, strict
+    coldness, grader model); the DERIVED facet cache never needs them.
     """
-    return _load(connection, vault, legacy_fallback=legacy_fallback, as_of=as_of)[0]
+    return _load(connection, vault, legacy_fallback=legacy_fallback, as_of=as_of, retrieval=retrieval)[0]
+
+
+def load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None):
+    """Attempt and facet rows for one prequential replay, read in one pass."""
+    return _load(connection, vault, legacy_fallback=legacy_fallback, retrieval=True)
 
 
 def load_facet_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[FacetRow, ...]:
@@ -417,7 +542,10 @@ def rebuild_outcome_view(connection, vault: LoadedVault, *, legacy_fallback=None
 
 def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[str, Any]:
     """Aggregate-only diagnostic; no learner answers, prompts or debug text."""
-    attempts, facets = _load(connection, vault, legacy_fallback=legacy_fallback)
+    load_diagnostics: dict[str, Any] = {}
+    attempts, facets = _load(
+        connection, vault, legacy_fallback=legacy_fallback, retrieval=True, diagnostics=load_diagnostics,
+    )
     interaction_diagnostics: dict[str, Any] = {}
     load_interaction_signals(connection, vault, attempts, diagnostics=interaction_diagnostics)
     direct = [r for r in facets if r.effective_mass > 0]
@@ -452,8 +580,16 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
     return {
         "outcome_view_version": OUTCOME_VIEW_VERSION,
         "interaction_signals": interaction_diagnostics,
+        "legacy_fallback": resolve_legacy_fallback(vault, legacy_fallback),
         "graded_attempts": len(attempts),
         "eligible_attempts": sum(r.effective_mass > 0 for r in attempts),
+        "attempts_without_outcome_row": load_diagnostics["attempts_without_outcome_row"],
+        "memory": {
+            "graded_cold_retrievals": sum(r.memory_scored for r in attempts),
+            "memory_training_rows": sum(r.memory_eligible for r in attempts),
+            "familied_attempts": sum(r.features.family_id is not None for r in attempts),
+            "fsrs_rated_attempts": sum(r.fsrs_rating is not None for r in attempts),
+        },
         "revision_status": dict(Counter(r.revision_status for r in attempts)),
         "serving_origin": dict(Counter(r.serving_origin for r in attempts)),
         "serving_propensity_availability": {
