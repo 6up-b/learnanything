@@ -310,3 +310,24 @@ def test_malformed_cause_refs_are_recorded_never_raised_or_wrapped(world, ref):
     assert result.proposal["pattern_claims"] == []
     assert result.validated_citations == ()
     assert {"pattern_ref_malformed", "pattern_ref_unknown_cause"} & set(_rules(result))
+
+
+def test_a_stored_unanchored_divergence_quote_is_not_verbatim_evidence(world):
+    """F7: the grader may degrade an unplaceable quote to whole_answer; repeating it proves nothing."""
+
+    vault, store = world
+    prior = store.attempt("att_02_svd_fail")
+    store.replace_attempt(dataclasses.replace(prior, first_divergence_quotes=("the learner wrote V twice",)))
+    assert "the learner wrote V twice" not in prior.learner_answer_md
+    result = _validate(vault, store, {
+        "analysis_md": "a",
+        "evidence_attempt_ids": ["att_02_svd_fail"],
+        "event_diagnoses": [_event()],
+        "pattern_claims": [
+            {"hypothesis_ref": "cause:0:0", "relation": "same_mechanism",
+             "cited": [{"attempt_id": "att_02_svd_fail", "quote": "the learner wrote V twice"}]},
+        ],
+    })
+    assert result.validated_citations == ()
+    assert result.proposal["pattern_claims"][0]["cited"] == []
+    assert "citation_quote_unanchored" in _rules(result)

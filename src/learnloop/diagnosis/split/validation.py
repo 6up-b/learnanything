@@ -456,17 +456,16 @@ def validate_diagnosis_proposal(
             if attempt_id not in evidence_set:
                 report.issue("citation_not_in_evidence", claim_index=claim_index, attempt_id=attempt_id)
             quote = str(citation.get("quote") or "")
+            # The learner's answer is the only source of verbatim evidence. A
+            # stored grader quote is model output: when the grader could not
+            # place it, it degraded to a whole-answer anchor, and repeating it
+            # here must not turn it into a validated citation.
             anchor = resolve_quote_anchor(prior.learner_answer_md, quote)
             if anchor.char_start is None:
-                anchored_to_divergence = any(
-                    " ".join(quote.split()) == " ".join(value.split())
-                    for value in prior.first_divergence_quotes
+                report.issue(
+                    "citation_quote_unanchored", claim_index=claim_index, attempt_id=attempt_id,
                 )
-                if not anchored_to_divergence:
-                    report.issue(
-                        "citation_quote_unanchored", claim_index=claim_index, attempt_id=attempt_id,
-                    )
-                    continue
+                continue
             cited_out.append(citation)
             reason = _citation_invalid_reason(prior, targets)
             if reason is not None:
