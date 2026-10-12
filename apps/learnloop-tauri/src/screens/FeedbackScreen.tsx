@@ -20,7 +20,9 @@ import type {
   MasteryStepDto,
   MatchedMisconceptionDto,
   PracticeItemDetail,
+  QueueInput,
   ResolvedSourceRefDto,
+  ScheduledItemDto,
   UnresolvedCauseSelfReportResponse,
 } from "../api/dto";
 import { EntityLink, KeyBar, Pill } from "../components/ui";
@@ -31,6 +33,7 @@ import { ClaimSurface, mintVisitId } from "../components/ClaimSurface";
 import { RepairTraceBlocks } from "../components/RepairTrace";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
+import { useNextQueueItem } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
 import {
   CausalFeedbackPanel,
@@ -1372,6 +1375,8 @@ function ClarificationCard({
 export function FeedbackScreen({
   attemptId,
   sessionId,
+  nextQueue = null,
+  onOpenNext,
   onNext,
   onBack,
   onOpenNotes,
@@ -1389,7 +1394,15 @@ export function FeedbackScreen({
   /** Active session, when known — lets claim exposure attribute to the session
    *  (a per-mount visitId is always minted as a fallback). */
   sessionId?: string | null;
+  /** Daily-loop P2 (spec §6.5): Today's queue input for this session. With
+   *  `onOpenNext`, Next (n / Enter) opens the head of the live queue, read while
+   *  feedback shows. Without them, or when that queue is empty or unreadable,
+   *  Next falls back to `onNext`. */
+  nextQueue?: QueueInput | null;
+  onOpenNext?: (practiceItemId: string, schedulerCandidateId: string | null) => void;
+  /** Next without auto-advance: back to the list (or the overlay that owns the round). */
   onNext: () => void;
+  /** Esc / b: always the list. */
   onBack: () => void;
   onOpenNotes: () => void;
   /** Open a sibling practice item as a primed retry. */
@@ -1432,6 +1445,44 @@ export function FeedbackScreen({
   // Stable per-mount visit id so claim exposure is attributable even when no
   // session id is threaded into this screen (present_claims needs one of them).
   const visitId = useRef(mintVisitId()).current;
+  // Daily-loop P2 auto-advance. The queue is read only once the feedback
+  // bundle is on screen, so it never queues ahead of feedback on the sidecar
+  // pipe. A generation counter drops a pending advance when the learner goes
+  // back to the list (or the screen unmounts) before the queue lands.
+  const autoAdvance = Boolean(nextQueue && onOpenNext);
+  const nextItem = useNextQueueItem(autoAdvance ? nextQueue : null, feedback !== null);
+  const [advancing, setAdvancing] = useState(false);
+  const advanceGeneration = useRef(0);
+  const advancingRef = useRef(false);
+  useEffect(() => () => { advanceGeneration.current += 1; }, []);
+  const resolveNext = nextItem.resolve;
+  const advance = useCallback(async () => {
+    if (!autoAdvance || !onOpenNext) {
+      onNext();
+      return;
+    }
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    const generation = ++advanceGeneration.current;
+    setAdvancing(true);
+    let head: ScheduledItemDto | null = null;
+    try {
+      head = await resolveNext();
+    } catch {
+      head = null; // the list surfaces the queue error itself
+    }
+    if (generation !== advanceGeneration.current) return;
+    advancingRef.current = false;
+    setAdvancing(false);
+    if (head) onOpenNext(head.practiceItemId, head.schedulerCandidateId ?? null);
+    else onNext();
+  }, [autoAdvance, onOpenNext, onNext, resolveNext]);
+  const goBack = useCallback(() => {
+    advanceGeneration.current += 1;
+    advancingRef.current = false;
+    setAdvancing(false);
+    onBack();
+  }, [onBack]);
   const [triggeringFollowup, setTriggeringFollowup] = useState(false);
   const [reportingFactorId, setReportingFactorId] = useState<string | null>(null);
   // P2 §6: the typed causal repair hold for this attempt's diagnosis, rendered
@@ -1856,12 +1907,12 @@ export function FeedbackScreen({
       if (!feedback) {
         if (event.key === "Escape" || event.key === "b") {
           event.preventDefault();
-          onBack();
+          goBack();
         }
         return;
       }
-      if (event.key === "n" || event.key === "Enter") { event.preventDefault(); onNext(); }
-      else if (event.key === "Escape" || event.key === "b") { event.preventDefault(); onBack(); }
+      if (event.key === "n" || event.key === "Enter") { event.preventDefault(); void advance(); }
+      else if (event.key === "Escape" || event.key === "b") { event.preventDefault(); goBack(); }
       else if (event.key === "r") { event.preventDefault(); void handleRegrade(); }
       else if (event.key === "D") { event.preventDefault(); void handleTriggerFollowup(); }
       else if (event.key === "a") { event.preventDefault(); setAddingError(true); }
@@ -1877,7 +1928,7 @@ export function FeedbackScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onNext, onBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry]);
+  }, [advance, goBack, onOpenNotes, onAsk, attemptId, feedback, regrading, triggeringFollowup, ratingFollowup, startingRetry]);
 
   if (!feedback) {
     if (feedbackLoadError) {
@@ -2604,7 +2655,7 @@ export function FeedbackScreen({
 
       <KeyBar
         keys={[
-          { key: "n / ↵", label: "next item" },
+          { key: "n / ↵", label: nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty) },
           { key: "r", label: regrading ? "regrading…" : "regrade" },
           { key: "⇧D", label: triggeringFollowup ? "triggering…" : "force follow-up" },
           { key: "a", label: "add error" },
@@ -2617,6 +2668,24 @@ export function FeedbackScreen({
       />
     </div>
   );
+}
+
+// What n / Enter will actually do (L1: the key bar never claims a "next item"
+// that Next would not open).
+function nextKeyLabel(
+  autoAdvance: boolean,
+  advancing: boolean,
+  head: ScheduledItemDto | null,
+  empty: boolean
+): string {
+  if (!autoAdvance) return "continue";
+  if (advancing) return "opening next…";
+  if (head) {
+    const title = head.learningObjectTitle;
+    return `next: ${title.length > 36 ? `${title.slice(0, 35)}…` : title}`;
+  }
+  if (empty) return "list (queue empty)";
+  return "next item";
 }
 
 function uniqueIds(values: Array<string | null | undefined>): string[] {

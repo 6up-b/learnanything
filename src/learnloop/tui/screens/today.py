@@ -75,6 +75,9 @@ class TodayScreen(Screen):
         # Flat, priority-ordered list of items parallel to the rendered cards.
         self._items: list[ScheduledItem] = []
         self._cards: list[PracticeCard] = []
+        # Set by feedback's Next (daily-loop P2): on return, the rebuilt queue's
+        # head opens directly instead of the list.
+        self.open_head_on_resume = False
 
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="today-scroll"):
@@ -100,6 +103,10 @@ class TodayScreen(Screen):
         self.selected_index = 0
         self.state.refresh()
         self._render_queue()
+        if self.open_head_on_resume:
+            self.open_head_on_resume = False
+            if self._items:
+                self.action_open_selected()
 
     # ── actions ──────────────────────────────────────────────────────────────
     def action_refresh(self) -> None:
