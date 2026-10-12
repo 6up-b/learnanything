@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from contextlib import nullcontext
 from dataclasses import dataclass, field, fields as dataclass_fields, replace
 from datetime import UTC, timedelta
 from typing import Any, Iterable, Mapping
@@ -579,6 +580,10 @@ def _complete_attempt_with_agent_fallback(
         else None
     )
     if blind is None:
+        if draft.declared_stuck:
+            # mvp-0.11 (review F3): the joint grader (split switched off)
+            # reads a stuck answer under the same stuck rules.
+            context = replace(context, answer_prompt=stuck_answer_prompt())
         context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -607,25 +612,15 @@ def _complete_attempt_with_agent_fallback(
                 clock=clock,
             )
         else:
-            consensus = _run_augmented_diagnosis(vault, ai_client, context)
-            proposal = consensus.proposal
-            result = complete_codex_graded_attempt(
+            result = _complete_joint_graded_attempt(
                 vault,
                 repository,
                 draft,
-                proposal,
+                context,
+                ai_client=ai_client,
                 attempt_id=attempt_id,
                 agent_run_id=agent_run_id,
                 grading_source=grading_source,
-                diagnostic_sample_support=consensus.agreement_support,
-                clock=clock,
-            )
-            _record_diagnostic_augmentation(
-                repository,
-                attempt_id=attempt_id,
-                context=context,
-                consensus=consensus,
-                client=ai_client,
                 clock=clock,
             )
     except sqlite3.IntegrityError as exc:
@@ -829,6 +824,10 @@ def _complete_attempt_with_agent_required(
         else None
     )
     if blind is None:
+        if draft.declared_stuck:
+            # mvp-0.11 (review F3): the joint grader (split switched off)
+            # reads a stuck answer under the same stuck rules.
+            context = replace(context, answer_prompt=stuck_answer_prompt())
         context = _augmented_grading_context(vault, repository, item, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
@@ -857,25 +856,15 @@ def _complete_attempt_with_agent_required(
                 clock=clock,
             )
         else:
-            consensus = _run_augmented_diagnosis(vault, ai_client, context)
-            proposal = consensus.proposal
-            result = complete_codex_graded_attempt(
+            result = _complete_joint_graded_attempt(
                 vault,
                 repository,
                 draft,
-                proposal,
+                context,
+                ai_client=ai_client,
                 attempt_id=attempt_id,
                 agent_run_id=agent_run_id,
                 grading_source=grading_source,
-                diagnostic_sample_support=consensus.agreement_support,
-                clock=clock,
-            )
-            _record_diagnostic_augmentation(
-                repository,
-                attempt_id=attempt_id,
-                context=context,
-                consensus=consensus,
-                client=ai_client,
                 clock=clock,
             )
     except sqlite3.IntegrityError as exc:
@@ -1399,8 +1388,10 @@ def _blind_grading_plan(
 
 def _grading_run_identity(context: Any, blind: _BlindGradingPlan | None) -> dict[str, str]:
     if blind is None:
+        from learnloop.attempts.ai_contracts import grading_prompt_version
+
         return {
-            "prompt_version": GRADING_PROMPT_VERSION,
+            "prompt_version": grading_prompt_version(context),
             "input_context_hash": grading_context_hash(context),
             "output_schema": "GradingProposal",
         }
@@ -1409,6 +1400,69 @@ def _grading_run_identity(context: Any, blind: _BlindGradingPlan | None) -> dict
         "input_context_hash": blind.context_hash,
         "output_schema": "BlindGradingProposal",
     }
+
+
+def _complete_joint_graded_attempt(
+    vault: LoadedVault,
+    repository: Repository,
+    draft: AttemptDraft,
+    context: Any,
+    *,
+    ai_client: AIProviderClient,
+    attempt_id: str,
+    agent_run_id: str,
+    grading_source: str,
+    clock: Clock | None = None,
+) -> AttemptResult:
+    """Grade jointly (split off), apply it, and record its augmentation receipt.
+
+    A stuck answer's joint grade carries the grader's reading (mvp-0.11,
+    review F3): it is verified against the answer and appended to
+    ``judgment_ledger`` in the transaction that records the grade, so the
+    confusion signal and :func:`learnloop.attempts.stuck.stuck_answers` read
+    it in either grading mode. The applied proposal is the ordinary joint one.
+    """
+
+    from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
+    from learnloop.attempts.grading import grading_context_hash
+
+    consensus = _run_augmented_diagnosis(vault, ai_client, context)
+    proposal = consensus.proposal
+    marker = None
+    if isinstance(proposal, StuckGradingProposal):
+        marker = verified_stuck_reading(proposal.stuck_reading, draft.learner_answer_md)
+        proposal = proposal.as_grading_proposal()
+    with repository.atomic() if marker is not None else nullcontext():
+        result = complete_codex_graded_attempt(
+            vault,
+            repository,
+            draft,
+            proposal,
+            attempt_id=attempt_id,
+            agent_run_id=agent_run_id,
+            grading_source=grading_source,
+            diagnostic_sample_support=consensus.agreement_support,
+            clock=clock,
+        )
+        if marker is not None:
+            record_stuck_reading_judgment(
+                repository.connection(),
+                attempt_id=attempt_id,
+                marker=marker,
+                judge_model=_client_model(ai_client),
+                prompt_version=grading_prompt_version(context),
+                input_hash=grading_context_hash(context),
+                created_at=utc_now_iso(clock),
+            )
+    _record_diagnostic_augmentation(
+        repository,
+        attempt_id=attempt_id,
+        context=context,
+        consensus=consensus,
+        client=ai_client,
+        clock=clock,
+    )
+    return result
 
 
 def _complete_blind_graded_attempt(

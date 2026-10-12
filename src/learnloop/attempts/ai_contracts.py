@@ -9,6 +9,11 @@ from pydantic import Field, model_validator
 
 from learnloop.ai.schemas import AttributionTargetRef, CandidateCause, WireModel
 from learnloop.ai.transport import render_structured_prompt
+from learnloop.attempts.stuck import (
+    STUCK_PROMPT_RULES,
+    STUCK_PROMPT_VERSION_SUFFIX,
+    StuckReading,
+)
 
 class CriterionEvidence(WireModel):
     criterion_id: str
@@ -362,6 +367,11 @@ class GradingContext:
     error_hunt_solution: str | None = None
     verifier_observations: list[dict[str, Any]] = field(default_factory=list)
     diagnostic_history: list[dict[str, Any]] = field(default_factory=list)
+    #: ``mvp-0.11``: how this answer was asked for when it was not the plain
+    #: answer box (``attempts.stuck.stuck_answer_prompt()`` for "I'm stuck").
+    #: ``None`` renders and hashes exactly as before (review F3: the joint
+    #: grader reads a stuck answer too when the split is switched off).
+    answer_prompt: dict[str, Any] | None = None
 
 
 class GradingProposal(WireModel):
@@ -382,19 +392,45 @@ class GradingProposal(WireModel):
     error_hunt_report: ErrorHuntReport | None = None
 
 
+class StuckGradingProposal(GradingProposal):
+    """The joint wire model for a stuck answer (``mvp-0.11``): the shared
+    fields, then the grader's :class:`StuckReading` LAST (it never moves a
+    criterion)."""
+
+    stuck_reading: StuckReading
+
+    def as_grading_proposal(self) -> GradingProposal:
+        return GradingProposal.model_validate(
+            self.model_dump(mode="json", exclude={"stuck_reading"})
+        )
+
+
 GRADING_PROMPT_VERSION = (
     "mvp-1.5-joint-candidate-causes-verbalized-weights-eliciting-repair"
 )
 
 
-def grading_prompt(context: GradingContext) -> str:
-    """Render the grading request owned by the attempts domain."""
+def grading_prompt_version(context: GradingContext) -> str:
+    """The joint prompt version; ``+stuck-v1`` when the answer came from
+    "I'm stuck" (the stuck rules are in the task)."""
 
-    return render_structured_prompt(
-        "learnloop grading proposal",
-        GRADING_PROMPT_VERSION,
-        {
-            "task": (
+    if context.answer_prompt is None:
+        return GRADING_PROMPT_VERSION
+    return f"{GRADING_PROMPT_VERSION}{STUCK_PROMPT_VERSION_SUFFIX}"
+
+
+def grading_context_payload(context: GradingContext) -> dict[str, Any]:
+    """The context as rendered; an absent answer prompt is omitted."""
+
+    payload = asdict(context)
+    if payload.get("answer_prompt") is None:
+        payload.pop("answer_prompt", None)
+    return payload
+
+
+#: The joint grading task (unchanged text; the stuck rules are appended for
+#: an answer written after "I'm stuck").
+_JOINT_TASK = (
                 "Grade the learner answer against the prompt, expected answer, and "
                 "rubric. Return a LearnLoop GradingProposal as schema-valid JSON only. "
                 "Write `diagnosis_md` FIRST, before filling any structured field. "
@@ -568,10 +604,34 @@ def grading_prompt(context: GradingContext) -> str:
                 "to you. The solution may contain no errors at all, and "
                 "reporting that the learner found one in correct work is the "
                 "informative outcome, not a mistake to smooth over."
-            ),
-            "context": asdict(context),
+)
+
+
+def grading_prompt(context: GradingContext) -> str:
+    """Render the grading request owned by the attempts domain.
+
+    An answer written after "I'm stuck" (``context.answer_prompt``) adds the
+    stuck rules to the task and ``+stuck-v1`` to the version; every other
+    answer renders exactly as before.
+    """
+
+    task = _JOINT_TASK if context.answer_prompt is None else f"{_JOINT_TASK} {STUCK_PROMPT_RULES}"
+    return render_structured_prompt(
+        "learnloop grading proposal",
+        grading_prompt_version(context),
+        {
+            "task": task,
+            "context": grading_context_payload(context),
         },
     )
 
 
-__all__ = ["GRADING_PROMPT_VERSION", "GradingContext", "GradingProposal", "grading_prompt"]
+__all__ = [
+    "GRADING_PROMPT_VERSION",
+    "GradingContext",
+    "GradingProposal",
+    "StuckGradingProposal",
+    "grading_context_payload",
+    "grading_prompt",
+    "grading_prompt_version",
+]

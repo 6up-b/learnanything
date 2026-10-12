@@ -205,6 +205,12 @@ def regrade_attempt(
         blind_plan = _blind_grading_plan(
             vault, item, context, stuck=bool(attempt.get("declared_stuck"))
         )
+    if blind_plan is None and attempt.get("declared_stuck"):
+        # mvp-0.11 (review F3): a joint regrade of a stuck answer re-reads it
+        # under the same stuck rules, as its first joint grade did.
+        from learnloop.attempts.stuck import stuck_answer_prompt
+
+        context = replace(context, answer_prompt=stuck_answer_prompt())
     if blind_plan is not None:
         identity = {
             "prompt_version": blind_plan.prompt_version,
@@ -278,6 +284,20 @@ def regrade_attempt(
                 validated = replace(validated, manual_review_reason=UNVERIFIED_REVIEW_REASON)
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
+            from learnloop.attempts.ai_contracts import StuckGradingProposal, grading_prompt_version
+
+            if isinstance(proposal, StuckGradingProposal):
+                from learnloop.attempts.grading import grading_context_hash
+                from learnloop.attempts.stuck import verified_stuck_reading
+
+                stuck_judgment = {
+                    "marker": verified_stuck_reading(
+                        proposal.stuck_reading, attempt.get("learner_answer_md") or ""
+                    ),
+                    "prompt_version": grading_prompt_version(context),
+                    "input_hash": grading_context_hash(context),
+                }
+                proposal = proposal.as_grading_proposal()
             validated = validate_codex_grading_proposal(
                 proposal,
                 attempt_id=attempt["id"],

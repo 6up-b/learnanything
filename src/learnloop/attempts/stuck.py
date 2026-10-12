@@ -3,19 +3,21 @@
 The learner's "I'm stuck" control opens the answer box with one prompt. What
 they send is an ORDINARY attempt at the standard attempt mass:
 
-* with text, it is graded by the grader (the blind grader in split vaults)
-  and diagnosed by the diagnoser like any other answer. The blind grader also
-  returns a :class:`StuckReading`: whether the text attempts the answer,
-  whether it says what is confusing, and the learner's own words for it. A
-  reading that describes confusion becomes a ``stuck_confusion`` interaction
-  signal on the item's LO (``learnloop.field.signals``);
+* with text, it is graded by the grader (the blind grader in split vaults,
+  the joint grader when the split is switched off) and diagnosed like any
+  other answer. The grader also returns a :class:`StuckReading`: whether the
+  text attempts the answer, whether it says what is confusing, and the
+  learner's own words for it. A reading that describes confusion becomes a
+  ``stuck_confusion`` interaction signal on the item's LO
+  (``learnloop.field.signals``). Text on a choice item never takes the
+  option-letter shortcut: the grader reads it;
 * empty, it is scored 0 by a deterministic grade, with no model call (there
   is nothing to grade).
 
 Nothing here is ``dont_know``: there is no separate weight. The algorithm
 version gates the control and ``stuck_prompt.enabled`` is its kill switch;
 replay never reads either (the persisted ``practice_attempts.declared_stuck``
-column and the blind record's ``stuck_reading`` are what an attempt was).
+column and the reading's ``judgment_ledger`` verdict are what an attempt was).
 
 This module is a leaf: wire model, prompt text, the activity gate, the
 reading's ``judgment_ledger`` verdict (task ``stuck_reading``, written in the

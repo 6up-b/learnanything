@@ -5,8 +5,9 @@ day (D12 does not specify a number). Missing timing is NOT evidence of help
 before work: only an explicitly logged zero, or the practice screen's explicit
 "no work yet" marker (``attempt_progress = "no_draft"``), qualifies.
 
-A stuck answer (``mvp-0.11``) whose CURRENT blind grade reads it as describing
-confusion is one more signal of the same kind: a ``stuck_confusion`` row on
+A stuck answer (``mvp-0.11``) whose CURRENT grader reading (its
+``stuck_reading`` judgment, blind or joint) describes confusion is one more
+signal of the same kind: a ``stuck_confusion`` row on
 the item's LO. It is already graded as an attempt, so it carries no outcome
 and no mass (no double counting); it only blocks fast-track, like a confused
 question.
@@ -351,7 +352,7 @@ def load_interaction_signals(
         questions, readers, attempts,
         facet_to_lo={}, cached_classifications=cached, diagnostics=diagnostics,
         # mvp-0.11: graded stuck answers the grader read as confusion. Read
-        # from the persisted flag and blind record, never from config.
+        # from the persisted flag and the reading's judgment, never config.
         stuck_confusions=stuck_answers(connection),
     )
 

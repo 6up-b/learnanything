@@ -62,11 +62,21 @@ def request_grading_proposal(
 ) -> GradingProposal:
     """Run the feature-owned grading operation on a structured provider."""
 
+    from learnloop.ai.transport import STRUCTURED_COMPLETION
+    from learnloop.attempts.ai_contracts import StuckGradingProposal
+
+    # mvp-0.11 (review F3): a stuck answer's joint grade carries the reading.
+    # A legacy endpoint adapter never sees the prompt, so it cannot read it.
+    result_model: type[GradingProposal] = (
+        StuckGradingProposal
+        if context.answer_prompt is not None and client.supports(STRUCTURED_COMPLETION)
+        else GradingProposal
+    )
     return execute_structured_operation(
         client,
         purpose="grading",
         prompt=grading_prompt(context),
-        result_model=GradingProposal,
+        result_model=result_model,
         legacy_capability="grading",
         legacy_context=context,
     )
@@ -106,7 +116,7 @@ def request_vault_grading_proposal(
 def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> dict[str, str]:
     """The agent-run identity of :func:`request_vault_grading_proposal`'s call."""
 
-    from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
+    from learnloop.attempts.ai_contracts import grading_prompt_version
     from learnloop.attempts.blind_grading import (
         blind_context_from_grading_context,
         blind_grading_context_hash,
@@ -116,7 +126,7 @@ def vault_grading_run_identity(vault: LoadedVault, context: GradingContext) -> d
 
     if not split_grading_active(vault):
         return {
-            "prompt_version": GRADING_PROMPT_VERSION,
+            "prompt_version": grading_prompt_version(context),
             "input_context_hash": grading_context_hash(context),
             "output_schema": "GradingProposal",
         }
@@ -876,6 +886,10 @@ def grading_context_hash(context: GradingContext) -> str:
         "verifier_observations": context.verifier_observations,
         "diagnostic_history": context.diagnostic_history,
     }
+    if context.answer_prompt is not None:
+        # mvp-0.11: only a stuck answer's context hashes the prompt it was
+        # asked with; every other context hashes exactly as before.
+        payload["answer_prompt"] = context.answer_prompt
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
