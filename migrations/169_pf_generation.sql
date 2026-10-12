@@ -38,6 +38,9 @@ CREATE TABLE pf_candidates (
   panel_json TEXT,
   selection_json TEXT,
   cost_json TEXT NOT NULL DEFAULT '{}',
+  -- The parent/family revisions and effective rubric the judges saw;
+  -- publication revalidates them and refuses a stale selection.
+  judged_inputs_json TEXT NOT NULL DEFAULT '{}',
   published_item_id TEXT,
   published_at TEXT,
   created_at TEXT NOT NULL,

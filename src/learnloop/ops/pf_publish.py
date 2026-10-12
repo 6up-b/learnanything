@@ -18,6 +18,7 @@ discounting treats sibling evidence as correlated, as rung variants do.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 import json
 import logging
@@ -37,12 +38,21 @@ from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.substrate.item_fingerprints import render_expected_answer
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.loader import load_vault
-from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.models import ActivityFamily, LoadedVault, PracticeItem
 from learnloop.vault.writer import upsert_practice_item
+from learnloop.vault_lock import vault_mutation_lock
 
 _LOGGER = logging.getLogger(__name__)
 
 PUBLISH_POLICY_VERSION = "pf-publish-v2"
+JUDGED_INPUTS_VERSION = "pf-judged-inputs-v1"
+# The parent fields a published item copies or the judges compared against.
+_CONTRACT_FIELDS = (
+    "schema_version", "learning_object_id", "subjects", "practice_mode", "attempt_types_allowed",
+    "evidence_facets", "evidence_weights", "criterion_facet_weights", "trace_contract", "prompt",
+    "expected_answer", "grading_rubric", "retrieval_demand", "scaffold_level", "capability",
+    "task_features", "task_feature_schema", "evidence_fingerprint", "status",
+)
 PF_TAG = "pf_generated"
 # Relations that keep the parent's trace contract: each needs a passing
 # checkpoint-preservation (structure) check.
@@ -123,15 +133,77 @@ def build_item_payload(vault: LoadedVault, parent: PracticeItem, row: dict[str, 
     }
 
 
+def _contract_view(vault: LoadedVault, parent: PracticeItem) -> dict[str, Any]:
+    """What the judges compared against and what publication copies from the parent."""
+    dumped = parent.model_dump(mode="json")
+    rubric = vault.rubric_for_item(parent)
+    return {
+        **{field: dumped.get(field) for field in _CONTRACT_FIELDS},
+        "effective_rubric": rubric.model_dump(mode="json") if rubric is not None else None,
+        "source_family": surface_group_id(parent),
+    }
+
+
+def judged_inputs(vault: LoadedVault, parent: PracticeItem, family: ActivityFamily) -> dict[str, Any]:
+    """The parent/family revisions and effective rubric a family run is judged against.
+
+    Persisted on every candidate (``pf_candidates.judged_inputs_json``) when the
+    run starts; publication recomputes it under the vault mutation lock and
+    refuses a selection whose inputs changed (an edited rubric, facets or
+    family contract, or a family undo that removed the parent).
+    """
+    rubric = vault.rubric_for_item(parent)
+    return {
+        "version": JUDGED_INPUTS_VERSION,
+        "parent_item_id": parent.id,
+        "parent_input_hash": content_key(_contract_view(vault, parent)),
+        "effective_rubric_hash": content_key(rubric.model_dump(mode="json") if rubric is not None else None),
+        "parent_membership": {"family_id": parent.family_id, "variant_relation": parent.variant_relation},
+        "family_id": family.id,
+        "family_revision": content_key({"purpose": family.purpose, "learning_object_id": family.learning_object_id,
+                                        "idea_statement": family.idea_statement,
+                                        "retrieval_target": family.retrieval_target}),
+    }
+
+
+def stale_inputs(vault: LoadedVault, row: Mapping[str, Any]) -> list[str]:
+    """The judged inputs that no longer hold (empty when the selection is current)."""
+    try:
+        stored = json.loads(row.get("judged_inputs_json") or "{}")
+    except ValueError:
+        stored = {}
+    if stored.get("version") != JUDGED_INPUTS_VERSION:
+        return ["judged_inputs_missing"]
+    parent = vault.practice_items.get(row["parent_item_id"])
+    family = vault.activity_families.get(row["family_id"])
+    if parent is None or family is None:
+        return ["parent_or_family_missing"]
+    current = judged_inputs(vault, parent, family)
+    return sorted(key for key, value in current.items() if stored.get(key) != value)
+
+
+class StaleSelection(PublishRefused):
+    """The selection was judged against a parent or family that has since changed."""
+
+
 def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: str, *,
                       clock: Clock | None = None) -> tuple[LoadedVault, str]:
     """Publish one selected, verified candidate; idempotent after a crash.
 
-    Returns the refreshed vault and the published item id. The caller checks
-    the daily cap and holds the PF run lock.
+    Runs under the shared vault mutation lock and reloads the vault inside it,
+    so the parent contract and family it copies are the ones the judges saw
+    (else :class:`StaleSelection`). Returns the refreshed vault and the
+    published item id. The caller checks the daily cap and holds the PF run
+    lock.
     """
     if not vault.config.pf.generation_enabled:
         raise PublishRefused("pf.generation_enabled is off")
+    with vault_mutation_lock(vault.root, purpose="pf_publish"):
+        return _publish_locked(load_vault(vault.root), repository, candidate_id, clock=clock)
+
+
+def _publish_locked(vault: LoadedVault, repository: Repository, candidate_id: str, *,
+                    clock: Clock | None) -> tuple[LoadedVault, str]:
     with repository.connection() as connection:
         row = load_candidate(connection, candidate_id)
     if row is None:
@@ -150,17 +222,27 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
     with repository.connection() as connection:
         verdicts = candidate_verdicts(connection, [candidate_id])[candidate_id]
     _check_ledger(row, verdicts)
+    item_id = published_item_id(candidate_id)
+    now_iso = utc_now_iso(clock)
+    decision_id = "pfpub_" + content_key([candidate_id, row["content_hash"], PUBLISH_POLICY_VERSION])
+    with repository.connection() as connection:
+        decided = connection.execute("SELECT 1 FROM judgment_ledger WHERE id=?", (decision_id,)).fetchone()
+    if decided is None or item_id not in vault.practice_items:
+        # Only a publication whose item file is already written (a crash after
+        # the decision) resumes as is; anything else copies the parent's
+        # contract now, so the judged inputs must still hold.
+        changed = stale_inputs(vault, row)
+        if changed:
+            _refuse_stale(repository, row, changed, now_iso)
+            raise StaleSelection(f"The parent or family changed since judging: {', '.join(changed)}")
     parent = vault.practice_items.get(row["parent_item_id"])
     family = vault.activity_families.get(row["family_id"])
     if parent is None or family is None:
         raise PublishRefused("The parent item or family no longer exists")
-    item_id = published_item_id(candidate_id)
-    now_iso = utc_now_iso(clock)
     payload = build_item_payload(vault, parent, row, item_id=item_id, now_iso=now_iso)
     PracticeItem.model_validate(payload)
-    decision_id = "pfpub_" + content_key([candidate_id, row["content_hash"], PUBLISH_POLICY_VERSION])
     with repository.connection() as connection:
-        if connection.execute("SELECT 1 FROM judgment_ledger WHERE id=?", (decision_id,)).fetchone() is None:
+        if decided is None:
             append_judgment(
                 connection, id=decision_id, task="pf_publish", left_kind="pf_candidate",
                 left_id=candidate_id, right_kind="practice_item", right_id=item_id,
@@ -199,6 +281,23 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
     return vault, item_id
 
 
+def _refuse_stale(repository: Repository, row: Mapping[str, Any], changed: list[str], now_iso: str) -> None:
+    """Ledger the refusal and retire the selection from the backlog (regenerate to retry)."""
+    with repository.connection() as connection:
+        refusal_id = "pfstale_" + content_key([row["id"], row["judged_inputs_json"], changed, PUBLISH_POLICY_VERSION])
+        if connection.execute("SELECT 1 FROM judgment_ledger WHERE id=?", (refusal_id,)).fetchone() is None:
+            append_judgment(
+                connection, id=refusal_id, task="pf_publish", left_kind="pf_candidate", left_id=row["id"],
+                judge="verifier", prompt_version=PUBLISH_POLICY_VERSION,
+                input_hash=content_key([row["content_hash"], row["judged_inputs_json"]]), verdict="refuse_stale",
+                rationale=json.dumps({"changed": changed, "family_id": row["family_id"],
+                                      "parent_item_id": row["parent_item_id"]}, sort_keys=True),
+                created_at=now_iso,
+            )
+        update_candidate(connection, row["id"], status="rejected", rejection_filter="stale_judged_inputs",
+                         updated_at=now_iso)
+
+
 def _check_ledger(row: dict[str, Any], verdicts: dict[str, Any]) -> None:
     """Publication reads the authoritative verdicts (§5.8), never workflow JSON.
 
@@ -232,6 +331,7 @@ def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: 
     """Publish in order while today's cap allows; the rest stay ``selected``."""
     published: list[str] = []
     capped: list[str] = []
+    stale: list[str] = []
     for candidate_id in candidate_ids:
         with repository.connection() as connection:
             row = load_candidate(connection, candidate_id)
@@ -240,14 +340,18 @@ def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: 
         if remaining_publish_slots(vault, repository, clock) <= 0:
             capped.append(candidate_id)
             continue
-        vault, item_id = publish_candidate(vault, repository, candidate_id, clock=clock)
+        try:
+            vault, item_id = publish_candidate(vault, repository, candidate_id, clock=clock)
+        except StaleSelection:
+            stale.append(candidate_id)
+            continue
         published.append(item_id)
     return vault, {"published_item_ids": published, "capped_candidates": len(capped),
-                   "cap": vault.config.pf.max_published_per_day}
+                   "stale_candidates": len(stale), "cap": vault.config.pf.max_published_per_day}
 
 
 __all__ = [
-    "PF_TAG", "PUBLISH_POLICY_VERSION", "TRACE_RELATIONS", "PublishRefused", "build_item_payload",
-    "publish_candidate", "publish_selected", "published_item_id", "remaining_publish_slots",
-    "utc_day_bounds",
+    "JUDGED_INPUTS_VERSION", "PF_TAG", "PUBLISH_POLICY_VERSION", "TRACE_RELATIONS", "PublishRefused",
+    "StaleSelection", "build_item_payload", "judged_inputs", "publish_candidate", "publish_selected",
+    "published_item_id", "remaining_publish_slots", "stale_inputs", "utc_day_bounds",
 ]

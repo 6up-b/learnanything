@@ -876,3 +876,43 @@ def test_publication_reads_the_ledger_so_forged_workflow_state_cannot_publish(pf
         publish_candidate(load_vault(paths.root), repository, stale["id"], clock=DAY)
     with pytest.raises(PublishRefused, match="checkpoint-preservation"):
         publish_candidate(load_vault(paths.root), repository, near["id"], clock=DAY)
+
+
+# -- Codex review F5: publication revalidates the judged parent contract -------------------
+
+
+@needs_bwrap
+@pytest.mark.parametrize("change", ["rubric", "facets", "family_undo"])
+def test_a_selection_whose_parent_contract_changed_is_never_published(pf, change):
+    from learnloop.ops.pf_publish import publish_candidate, StaleSelection
+    from learnloop.substrate.families import undo_family
+    from learnloop.vault.writer import upsert_practice_item
+
+    _, repository, paths = pf
+    run(paths, publish=False, select=1)
+    selected = rows(repository, "status='selected'")
+    assert len(selected) == 1
+    judged = json.loads(selected[0]["judged_inputs_json"])
+    assert judged["parent_item_id"] == "pi_linear_001" and judged["parent_input_hash"] and judged["family_revision"]
+    vault = load_vault(paths.root)
+    if change == "family_undo":
+        undo_family(vault, repository, "pfp_test")  # the family record is retained
+        assert "af_linear" in load_vault(paths.root).activity_families
+    else:
+        parent = vault.practice_items["pi_linear_001"].model_dump(mode="json")
+        if change == "rubric":
+            parent["grading_rubric"]["criteria"][0]["description"] = "Isolates x and states the domain."
+        else:
+            parent["evidence_facets"] = ["recall", "procedure"]
+            parent["evidence_weights"] = {"recall": 0.5, "procedure": 0.5}
+        upsert_practice_item(paths.root, parent)
+    outcome = publish_backlog(load_vault(paths.root), clock=NEXT_DAY)
+    assert outcome["published_item_ids"] == [] and outcome["stale_candidates"] == 1
+    row = rows(repository, "id=?", (selected[0]["id"],))[0]
+    assert row["status"] == "rejected" and row["rejection_filter"] == "stale_judged_inputs"
+    refusals = [entry for entry in ledger(repository, "pf_publish") if entry["verdict"] == "refuse_stale"]
+    assert len(refusals) == 1 and refusals[0]["left_id"] == row["id"]
+    assert not any("pf_generated" in item.tags for item in load_vault(paths.root).practice_items.values())
+    with pytest.raises(Exception):
+        publish_candidate(load_vault(paths.root), repository, row["id"], clock=NEXT_DAY)
+    assert StaleSelection

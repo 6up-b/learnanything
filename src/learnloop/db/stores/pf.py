@@ -19,16 +19,18 @@ _CANDIDATE_COLUMNS = (
     "learning_object_id", "generation_path", "declared_relation", "final_relation",
     "proposer_model", "prompt_version", "payload_json", "content_hash", "verification",
     "verification_check", "status", "rejection_filter", "filters_json", "difficulty",
-    "difficulty_source", "panel_json", "selection_json", "cost_json", "published_item_id",
-    "published_at", "created_at", "updated_at",
+    "difficulty_source", "panel_json", "selection_json", "cost_json", "judged_inputs_json",
+    "published_item_id", "published_at", "created_at", "updated_at",
 )
-_UPDATABLE = frozenset(_CANDIDATE_COLUMNS) - {"id", "created_at", "run_id"}
+# The judged inputs are fixed at insert: publication compares against them.
+_UPDATABLE = frozenset(_CANDIDATE_COLUMNS) - {"id", "created_at", "run_id", "judged_inputs_json"}
 
 
 def insert_candidate(connection: sqlite3.Connection, row: Mapping[str, Any]) -> bool:
     """Insert once; a resumed run that regenerates the same id keeps the first row."""
     values = {column: row.get(column) for column in _CANDIDATE_COLUMNS}
-    for column, default in (("filters_json", "{}"), ("cost_json", "{}"), ("verification", "unverified")):
+    for column, default in (("filters_json", "{}"), ("cost_json", "{}"), ("judged_inputs_json", "{}"),
+                            ("verification", "unverified")):
         if values[column] is None:
             values[column] = default
     # Only an existing id is tolerated; every CHECK still fails loudly.

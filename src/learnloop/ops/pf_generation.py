@@ -76,7 +76,7 @@ from learnloop.ops.pf_calls import (
     PFCaller, PFUnavailable, RoleClient, distinct_models, estimate_tokens, planned_role_clients,
     resolve_role_clients,
 )
-from learnloop.ops.pf_publish import TRACE_RELATIONS, publish_selected, remaining_publish_slots
+from learnloop.ops.pf_publish import TRACE_RELATIONS, judged_inputs, publish_selected, remaining_publish_slots
 from learnloop.ops.pf_selection import DIVERSITY_BASIS, mmr_order, similarity, vendi_contributions, vendi_score
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.substrate.families import apply_family, family_operation_lock, sync_authored_families
@@ -309,6 +309,9 @@ class _FamilyRun:
         self.parent_rate: tuple[int, int] | None = None
         self.program: dict[str, Any] | None = None
         self.notes: list[str] = []
+        # The parent/family revisions and effective rubric every judge of this
+        # run sees; stored per candidate and revalidated at publication.
+        self.judged_inputs = judged_inputs(ctx.vault, parent, family)
         self.report: dict[str, Any] = {"family_id": family.id, "path": path,
                                        "parent_item_id": parent.id, "declared_relation": self.relation}
 
@@ -375,6 +378,7 @@ class _FamilyRun:
                     "proposer_model": candidate.proposer_model, "prompt_version": candidate.prompt_version,
                     "payload_json": json.dumps(candidate.payload, sort_keys=True),
                     "content_hash": candidate.content_hash, "status": candidate.status,
+                    "judged_inputs_json": json.dumps(self.judged_inputs, sort_keys=True),
                     "created_at": now, "updated_at": now,
                 })
             stored = store.candidate(connection, candidate.id)
@@ -1406,7 +1410,7 @@ class _FamilyRun:
         self.ctx.vault = vault
         self.ctx.caller.vault = vault
         self.report.update(published_item_ids=outcome["published_item_ids"],
-                           capped=outcome["capped_candidates"])
+                           capped=outcome["capped_candidates"], stale=outcome["stale_candidates"])
         for candidate in self.candidates:
             if candidate.id in order:
                 with self.ctx.repository.connection() as connection:
