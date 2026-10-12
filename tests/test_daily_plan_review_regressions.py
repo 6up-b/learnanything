@@ -559,3 +559,36 @@ def test_f7_malformed_choices_fall_back_and_are_flagged(tmp_path):
     block = build_plan(env, kind="normal", budget=10.0, remembered=10, minutes_source="chip").blocks[0]
     assert block.chosen["fallback"] is False and block.chosen_by == "mixture"
     assert block.chosen["propensity"] == 0.4 and block.decision_ref == "rd_x"
+
+
+# -- F8: an out-of-range expected_minutes never rejects a generated item --
+
+
+def test_f8_out_of_range_expected_minutes_reach_the_writer_bounded(tmp_path):
+    import math
+
+    import yaml
+
+    from learnloop.content.proposals.ai_contracts import PracticeItemPatchPayload
+    from learnloop.vault.models import PracticeItem
+    from learnloop.vault.writer import upsert_practice_item
+
+    bounds = {meta.__class__.__name__: meta for meta in PracticeItem.model_fields["expected_minutes"].metadata}
+    assert bounds["Le"].le == 240.0 and bounds["Gt"].gt == 0.0  # the wire keeps to the model's bounds
+    cases = [(0, None), (-2, None), (math.nan, None), (math.inf, None), ("soon", None), (True, None),
+             (300, 240.0), (240, 240.0), (4.5, 4.5)]
+    paths = create_daily_plan_vault(
+        tmp_path / "vault", learning_objects={"lo_w": [(f"pi_w{index}", None) for index in range(len(cases))]}
+    )
+    vault = load_vault(paths.root)
+    for index, (raw, kept) in enumerate(cases):
+        item_id = f"pi_w{index}"
+        wire = PracticeItemPatchPayload.model_validate({"prompt": "p", "expected_minutes": raw})
+        assert wire.expected_minutes == kept, raw
+        # The generated payload as the proposal stores it, written through the
+        # vault writer (which validates PracticeItem): never rejected.
+        payload = {**vault.practice_items[item_id].model_dump(mode="json", exclude_none=True),
+                   **wire.model_dump(exclude_none=True, include={"expected_minutes"})}
+        path = upsert_practice_item(paths.root, payload)
+        written = yaml.safe_load(path.read_text())
+        assert written.get("expected_minutes") == kept, (raw, written.get("expected_minutes"))
