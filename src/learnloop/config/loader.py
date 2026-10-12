@@ -47,21 +47,26 @@ def global_ai_defaults_path() -> Path:
     return global_settings_path().parent / "ai_defaults.toml"
 
 
-def load_config(path: Path) -> LearnLoopConfig:
-    """Load, compatibility-normalize, validate, and environment-overlay TOML."""
+def load_config(path: Path, *, load_environment: bool = True) -> LearnLoopConfig:
+    """Load TOML, optionally without dotenv files or machine-specific overlays.
+
+    Offline evaluation uses only the explicit vault configuration so a replay
+    neither reads credentials nor depends on the evaluator's machine settings.
+    """
 
     # Precedence: shell env > vault-local .env > machine-global settings.env.
     # load_dotenv never overwrites keys already in os.environ, so loading the
     # vault .env first lets it win over the global file for the same key.
-    load_dotenv(path.parent / ".env")
-    load_dotenv(global_settings_path())
+    if load_environment:
+        load_dotenv(path.parent / ".env")
+        load_dotenv(global_settings_path())
     try:
         with path.open("rb") as handle:
             raw = tomllib.load(handle)
     except tomllib.TOMLDecodeError as exc:
         raise ConfigLoadError(path, _format_toml_error(path, exc)) from exc
     config = LearnLoopConfig.model_validate(normalize_config_input(raw))
-    return _apply_global_overrides(config)
+    return _apply_global_overrides(config) if load_environment else config
 
 
 def load_dotenv(path: Path) -> None:

@@ -18,6 +18,8 @@ EMBEDDING_PROFILE_TYPE = "openai_embedding"
 
 AITask = Literal[
     "embedding",
+    "field_question_classifier",
+    "field_llm_probability",
     "pf_generator",
     "pf_family_judge",
     "pf_isomorph_judge",
@@ -40,6 +42,8 @@ AITask = Literal[
 # This is documentation as executable data: feature callers no longer invent
 # provider-routing policy from the operation's method name.
 ROUTE_FOR_OPERATION: dict[str, AITask] = {
+    "field_question_classification": "field_question_classifier",
+    "field_llm_probability": "field_llm_probability",
     "authoring_proposal": "authoring",
     "canonical_ingest": "canonical_ingest",
     "grading_proposal": "grading",
@@ -120,6 +124,9 @@ def provider_for_task(
     if task == "embedding":
         # A global chat override must never redirect learner text or select Codex.
         return AIProviderSelection(provider_name=config.ai.routing.embedding or "", explicit=True)
+    if task in {"field_question_classifier", "field_llm_probability"}:
+        # Offline experiments must not silently inherit a paid serving route.
+        return AIProviderSelection(provider_name=getattr(config.ai.routing, task) or "", explicit=True)
     env_provider = os.environ.get("LEARNLOOP_AI_PROVIDER") if allow_env else None
     if env_provider:
         return AIProviderSelection(provider_name=env_provider, from_env=True)

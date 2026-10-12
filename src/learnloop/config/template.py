@@ -749,6 +749,8 @@ animation = "codex_medium"
 transcription = ""
 video_generation = ""
 embedding = "openrouter_embedding"
+field_question_classifier = ""
+field_llm_probability = ""
 
 # Embeddings are opt-in: both switches stay off until you enable them.
 # Remote embeddings send learner-derived text to OpenRouter and its upstream
@@ -759,6 +761,13 @@ enabled = false
 backfill_enabled = false
 model = "qwen/qwen3-embedding-8b"
 dimensions = 4096
+
+# F1 is offline analysis, not serving. Paid analysis is independently opt-in.
+[field]
+active_predictor = "mastery_ekf"
+legacy_fallback = "exclude"
+question_classification_enabled = false
+llm_probability_enabled = false
 
 [ingest]
 [ingest.pdf]
@@ -775,9 +784,9 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
-    # routes only; no scoring, scheduling, projection or serving change.
-    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
+    # Slice A F1 adds offline field analysis and disabled paid routes only.
+    # No scoring, scheduling, evidence projection or serving change.
+    "mvp-0.9": "0fa8d393e7bffa3bd1cc9a03a38596e1b1169444172aef34f610ca349baee8ad",
 }
 
 
