@@ -60,8 +60,15 @@ These are the prompts for the agents that build the rest of Slice A and the slic
    - Prefer decisive live changes behind kill switches over shadow stages.
 8. **Safety.**
    - Never read `~/.config/learnloop/`, any `.env` file, or the owner's vault databases. Never search the filesystem for vaults.
-   - No live or paid API calls during development or tests. Use `tests/structured_ai.py` and `tests/openai_fakes.py`.
-   - The owner runs paid commands. Give them the exact commands, with the dry-run first.
+   - **Tests always use fakes** (`tests/structured_ai.py`, `tests/openai_fakes.py`).
+   - **Real paid calls are allowed** (owner, 2026-10-12; the OpenRouter key has a credit limit). Use them:
+     - to verify an external interface with a minimal call;
+     - to run the stage's own paid commands (backfills, judges, benchmarks, pilots, harness arms) on backup copies under `fixtures-local/`.
+
+     Always dry-run first, stay inside spend caps, and record calls and cost in the review file. Codex runs on the owner's subscription.
+   - **The app loads keys itself** from `~/.config/learnloop/settings.env`. Never read that file.
+   - **The owner's vault configs predate Phase 1.** To enable embeddings on a copy, add `routing.embedding`, the `openrouter_embedding` provider profile and an `[embedding]` section with both switches on to the copy's `learnloop.toml`.
+   - **Never run paid or mutating commands against the tracked working vaults.** Runs meant for the live vaults stay the owner's; list them in the review file.
    - Manual runs use backup-API copies (`learnloop.db.copies`) of your worktree's tracked fixtures, under your worktree's `fixtures-local/`.
    - Never commit changes to `fixtures/linear_algebra`, `fixtures/probability` or `fixtures/arxiv_v2`.
    - Never run `tailscale` commands or enable Funnel.
