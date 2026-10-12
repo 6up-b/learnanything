@@ -54,6 +54,7 @@ from learnloop.practice_index.paid import (
     estimated_call_tokens,
     plan_route,
     planning_repository,
+    receipt_answer,
     resolve_client,
     transport_problem,
 )
@@ -349,12 +350,21 @@ def _checkpoint_key(route, plan: DossierPlan) -> str:
 
 
 def _recoverable(sqlite_path: Path, route, pending: list[DossierPlan]) -> set[str]:
-    """Facets whose paid answer is checkpointed but whose row never committed."""
+    """Facets whose paid answer is checkpointed, or left on a completed receipt
+    whose checkpoint never committed, but whose row never committed."""
     if not pending or not sqlite_path.exists():
         return set()
-    keys = {_checkpoint_key(route, plan): plan.facet_id for plan in pending}
+    keys = {_checkpoint_key(route, plan): plan for plan in pending}
     with closing(connect(sqlite_path, read_only=True)) as connection:
-        return {keys[key] for key in checkpointed_keys(connection, keys)}
+        found = {keys[key].facet_id for key in checkpointed_keys(connection, keys)}
+        for plan in pending:
+            if plan.facet_id not in found and receipt_answer(
+                connection, route, purpose="practice_dossier", prompt=plan.prompt,
+                result_model=FacetDossierDraft, output_tokens=DOSSIER_OUTPUT_TOKENS,
+                validate=lambda draft, plan=plan: render_dossier(draft, plan.neighbor_titles),
+            ) is not None:
+                found.add(plan.facet_id)
+    return found
 
 
 def select_dossier(rows: list[DossierRow], *, source_hash: str | None, model_id: str,

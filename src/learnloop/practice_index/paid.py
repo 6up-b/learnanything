@@ -27,14 +27,23 @@ A validated answer is checkpointed (``model_work_checkpoints``) under its full
 request identity before the caller writes it anywhere, so a crash or a failed
 write after a paid response never pays for it again: the rerun recovers the
 answer and materializes it idempotently.
+
+The completed receipt commits before that checkpoint, so a crash or a failed
+checkpoint write between the two leaves the paid answer only on its receipt.
+Each root receipt therefore names its request key (and the caller's context)
+in its ``practice_index`` block, written before the request is sent. Before
+paying, a call with no checkpoint looks for a completed receipt with the same
+request identity (request key, prompt hash, schema hash and output budget)
+whose answer still validates; it recovers that answer and checkpoints it.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from contextlib import nullcontext
+from contextlib import closing, nullcontext
 from dataclasses import asdict, dataclass, field
 import json
 from pathlib import Path
+import sqlite3
 from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
@@ -48,7 +57,9 @@ from learnloop.ai.transport import (
     STRUCTURED_COMPLETION,
     execute_structured_operation,
 )
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.practice_index import completed_root_receipts
 from learnloop.vault.models import LoadedVault
 
 
@@ -163,8 +174,10 @@ class UsageTotals:
     reported_cost_usd: float = 0.0
     estimated_only_tokens: int = 0
     estimated_only_usd: float | None = 0.0
-    #: Answers recovered from a checkpoint instead of being paid for again.
+    #: Answers recovered (from a checkpoint or a receipt) instead of being paid for again.
     recovered: int = 0
+    #: Of those, answers whose checkpoint never committed: recovered from the receipt.
+    recovered_from_receipts: int = 0
     resolved_models: set[str] = field(default_factory=set)
 
     def as_dict(self) -> dict[str, Any]:
@@ -185,6 +198,47 @@ def checkpoint_key(route: PaidRoute, *, purpose: str, prompt: str,
         "purpose": purpose, "prompt": prompt, "schema": result_model.model_json_schema(),
         "output_tokens": output_tokens, "provider": route.provider, "model": route.model,
     })
+
+
+_UNUSABLE = (KeyError, TypeError, ValueError, ValidationError, AIInvalidOutput)
+
+
+def receipt_answer(
+    connection: sqlite3.Connection, route: PaidRoute, *, purpose: str, prompt: str,
+    result_model: type[BaseModel], output_tokens: int,
+    validate: Callable[[Any], Any] | None = None,
+) -> tuple[Any, BaseModel, dict[str, Any]] | None:
+    """A paid answer left only on its completed receipt, or None.
+
+    The receipt must carry the same request identity: the request key it
+    declared before the request was sent, the prompt hash, the schema hash and
+    the output budget. Its answer must parse and pass ``validate``; a receipt
+    whose answer fails (an attempt that was retried) is skipped. Newest first.
+    Returns ``(value, answer, receipt)``.
+    """
+    key = checkpoint_key(route, purpose=purpose, prompt=prompt, result_model=result_model,
+                         output_tokens=output_tokens)
+    schema_hash = content_key(result_model.model_json_schema())
+    receipts = completed_root_receipts(connection, purpose=purpose, prompt_hash=content_key(prompt))
+    for receipt in receipts:
+        if (receipt["declared"].get("request_key") != key or receipt["schema_hash"] != schema_hash
+                or receipt["output_budget_tokens"] != output_tokens):
+            continue
+        try:
+            answer = result_model.model_validate_json(receipt["output_text"])
+            value = validate(answer) if validate is not None else answer
+        except _UNUSABLE:
+            continue
+        return value, answer, receipt
+    return None
+
+
+def receipt_answers(connection: sqlite3.Connection, *, purpose: str) -> list[dict[str, Any]]:
+    """Every completed root receipt of one paid role that declared a request key
+    (newest first): for roles whose rerun cannot rebuild the request, such as
+    query-writer batches, which a rerun plans differently."""
+    return [receipt for receipt in completed_root_receipts(connection, purpose=purpose)
+            if str(receipt["declared"].get("request_key") or "").startswith(CHECKPOINT_PREFIX)]
 
 
 class PaidCalls:
@@ -267,6 +321,11 @@ class PaidCalls:
         key = self.checkpoint_key(purpose=purpose, prompt=prompt, result_model=result_model,
                                   output_tokens=output_tokens)
         recovered = self._recover(key, result_model, validate)
+        if recovered is _MISSING:
+            recovered = self._recover_receipt(key, purpose=purpose, prompt=prompt,
+                                              result_model=result_model,
+                                              output_tokens=output_tokens, validate=validate,
+                                              context=context)
         if recovered is not _MISSING:
             return recovered
         problem = transport_problem(self.route, client)
@@ -285,7 +344,7 @@ class PaidCalls:
                     # Metered: exactly one physical request per admitted attempt.
                     bound = nullcontext() if self.subscription else single_request()
                     try:
-                        with observe_model_calls(self._observer(metadata, events)), \
+                        with observe_model_calls(self._observer(metadata, events, key, context)), \
                                 generation_limit(output_tokens), bound:
                             raw = execute_structured_operation(
                                 client, purpose=purpose, prompt=prompt, result_model=result_model,
@@ -329,6 +388,31 @@ class PaidCalls:
             self.totals.resolved_models.add(self.last_resolved_model)
         return value
 
+    def _recover_receipt(self, key: str, *, purpose: str, prompt: str,
+                         result_model: type[BaseModel], output_tokens: int,
+                         validate: Callable[[Any], Any] | None,
+                         context: Mapping[str, Any] | None) -> Any:
+        """A paid answer whose receipt committed but whose checkpoint did not.
+
+        It is checkpointed now, so the caller materializes it like any other
+        recovered answer (its destination writes are idempotent)."""
+        if self.repository is None:
+            return _MISSING
+        with closing(connect(self.repository.sqlite_path, read_only=True)) as connection:
+            found = receipt_answer(connection, self.route, purpose=purpose, prompt=prompt,
+                                   result_model=result_model, output_tokens=output_tokens,
+                                   validate=validate)
+        if found is None:
+            return _MISSING
+        value, answer, receipt = found
+        self.last_resolved_model = str(receipt["resolved_model"]) if receipt["resolved_model"] else None
+        if self.last_resolved_model:
+            self.totals.resolved_models.add(self.last_resolved_model)
+        self._checkpoint(key, purpose, answer, context)
+        self.totals.recovered += 1
+        self.totals.recovered_from_receipts += 1
+        return value
+
     def _checkpoint(self, key: str, purpose: str, result: BaseModel,
                     context: Mapping[str, Any] | None) -> None:
         if self.repository is None:
@@ -340,9 +424,14 @@ class PaidCalls:
             "context": dict(context or {}),
         })
 
-    def _observer(self, metadata: Mapping[str, Any], events: list[dict[str, Any]]):
+    def _observer(self, metadata: Mapping[str, Any], events: list[dict[str, Any]],
+                  request_key: str, context: Mapping[str, Any] | None = None):
         declared_block = {
             **metadata,
+            # Written before the request is sent: a completed receipt whose
+            # checkpoint never committed is recoverable by this identity.
+            "request_key": request_key,
+            **({"context": dict(context)} if context else {}),
             "task": self.route.task,
             "billing": self.route.billing,
             "cost_basis": "estimated_only" if self.subscription else "metered_estimate",
@@ -414,6 +503,8 @@ __all__ = [
     "estimated_call_tokens",
     "plan_route",
     "planning_repository",
+    "receipt_answer",
+    "receipt_answers",
     "resolve_client",
     "transport_problem",
 ]

@@ -459,3 +459,32 @@ def test_find_dry_run_keeps_the_keyword_pool_when_no_query_embedding_will_run(in
     assert plan["rerank"]["status"] == "empty_pool" and plan["rerank"]["pool_exact"] is True
     assert plan["admission"]["pool"] == 0 and plan["estimate"]["calls"] == 0
 
+
+def test_a_rerank_whose_checkpoint_failed_is_recovered_from_its_receipt(indexed, monkeypatch):
+    """F8 (re-review): a completed rerank receipt whose checkpoint never committed
+    is recovered (same request identity, validated), not paid for again."""
+    import sqlite3
+
+    from learnloop.db.stores.model_calls import ModelCallStoreMixin
+    from learnloop.practice_index.retrieval import plan_find_practice
+
+    _paths, vault, repository, llm, embedder = indexed
+    real_save = ModelCallStoreMixin.save_model_checkpoint
+
+    def failing_save(self, cache_key, *, purpose, result, usage=None):
+        if purpose == "practice_rerank":
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_save(self, cache_key, purpose=purpose, result=result, usage=usage)
+
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", failing_save)
+    with pytest.raises(sqlite3.OperationalError):
+        find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    reranks = sum(1 for purpose, _ in llm.calls if purpose == "practice_rerank")
+    assert reranks == 1
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", real_save)
+    plan = plan_find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert plan["rerank"]["status"] == "recoverable" and plan["estimate"]["calls"] == 0
+    result = find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert result["rerank_status"] == "reranked" and result["items"]
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_rerank") == reranks
+    assert result["rerank_model"] == llm.model

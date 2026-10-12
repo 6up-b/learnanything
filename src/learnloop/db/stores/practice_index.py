@@ -242,6 +242,41 @@ def checkpoints_for_purpose(connection: sqlite3.Connection, *, prefix: str,
     )]
 
 
+def completed_root_receipts(connection: sqlite3.Connection, *, purpose: str,
+                            prompt_hash: str | None = None) -> list[dict[str, Any]]:
+    """Completed root receipts of one paid role that kept their answer, newest first.
+
+    A receipt's finish commits before the caller checkpoints the answer, so a
+    failed checkpoint write leaves the paid answer only here (crash recovery).
+    ``resolved_model`` falls back to the newest child receipt that reported one.
+    """
+    if not table_exists(connection, "model_call_receipts"):
+        return []
+    where, parameters = "", [purpose]
+    if prompt_hash is not None:
+        where, parameters = " AND r.prompt_hash=?", [purpose, prompt_hash]
+    rows = connection.execute(
+        "SELECT r.id, r.prompt_hash, r.schema_hash, r.output_budget_tokens, r.budget_json, "
+        "r.output_text, COALESCE(r.resolved_model, (SELECT c.resolved_model FROM "
+        "model_call_receipts c WHERE c.parent_call_id=r.id AND c.resolved_model IS NOT NULL "
+        "ORDER BY c.started_at DESC, c.id DESC LIMIT 1)) AS resolved_model "
+        "FROM model_call_receipts r WHERE r.purpose=? AND r.parent_call_id IS NULL "
+        "AND r.status='completed' AND r.output_text IS NOT NULL" + where
+        + " ORDER BY r.started_at DESC, r.id DESC",
+        tuple(parameters),
+    ).fetchall()
+    found = []
+    for row in rows:
+        try:
+            declared = json.loads(row[4] or "{}").get("practice_index") or {}
+        except (TypeError, ValueError, AttributeError):
+            declared = {}
+        found.append({"id": str(row[0]), "prompt_hash": row[1], "schema_hash": row[2],
+                      "output_budget_tokens": row[3], "declared": declared,
+                      "output_text": row[5], "resolved_model": row[6]})
+    return found
+
+
 # -- judgment_ledger reads for this index ---------------------------------
 
 

@@ -58,6 +58,7 @@ from learnloop.practice_index.paid import (
     checkpoint_key,
     estimated_call_tokens,
     plan_route,
+    receipt_answer,
     resolve_client,
     transport_problem,
 )
@@ -669,14 +670,18 @@ def _plan_rerank(vault: LoadedVault, repository: Repository, text: str, pool: Se
     if skip is not None:
         return {**base, "status": skip}
     if pool_exact:
-        prompt, _refs, _input_hash, ids = _rerank_request(vault, route, text, pool, pick_at_most)
+        prompt, refs, _input_hash, ids = _rerank_request(vault, route, text, pool, pick_at_most)
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
             cached = judgments_by_ids(connection, ids.values())
             if all(ids[item_id] in cached for item_id in pool):
                 return {**base, "status": "cached"}
             key = checkpoint_key(route, purpose="practice_rerank", prompt=prompt,
                                  result_model=PracticeRerank, output_tokens=RERANK_OUTPUT_TOKENS)
-            if checkpointed_keys(connection, [key]):
+            if checkpointed_keys(connection, [key]) or receipt_answer(
+                connection, route, purpose="practice_rerank", prompt=prompt,
+                result_model=PracticeRerank, output_tokens=RERANK_OUTPUT_TOKENS,
+                validate=lambda value: _validate_rerank(value, refs),
+            ) is not None:
                 return {**base, "status": "recoverable"}
     else:
         prompt = _largest_rerank_prompt(vault, text, corpus, size, pick_at_most)

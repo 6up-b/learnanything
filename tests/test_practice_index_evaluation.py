@@ -256,6 +256,57 @@ def test_paid_labels_and_queries_survive_a_failed_write(indexed, monkeypatch):
         judged + report["label_calls"] - 1)
 
 
+def test_paid_labels_and_queries_whose_checkpoint_failed_are_recovered_from_receipts(indexed, monkeypatch):
+    """F8 (re-review): a query-writer batch and a label pass whose completed
+    receipts committed but whose checkpoints failed are recovered, not paid again."""
+    import sqlite3
+
+    from learnloop.db.stores.model_calls import ModelCallStoreMixin
+
+    _paths, vault, _repository, llm, embedder = indexed
+    real_save = ModelCallStoreMixin.save_model_checkpoint
+    saves = {"practice_query_writer": 0, "practice_relevance_judge": 0}
+
+    def failing_save(self, cache_key, *, purpose, result, usage=None):
+        if purpose in saves:
+            saves[purpose] += 1
+            if purpose == "practice_query_writer" and saves[purpose] == 2:  # the second batch
+                raise sqlite3.OperationalError("disk I/O error")
+            if purpose == "practice_relevance_judge" and saves[purpose] == 1:
+                raise sqlite3.OperationalError("disk I/O error")
+        return real_save(self, cache_key, purpose=purpose, result=result, usage=usage)
+
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", failing_save)
+    with pytest.raises(sqlite3.OperationalError):
+        run_retrieval_evaluation(vault, caps=CAPS, queries=12, logged_queries=0, query_client=llm,
+                                 judge_client=llm, embedder=embedder)
+    writer_calls = sum(1 for purpose, _ in llm.calls if purpose == "practice_query_writer")
+    assert writer_calls == 2
+    planned = run_retrieval_evaluation(vault, caps=CAPS, dry_run=True, queries=12, logged_queries=0,
+                                       query_client=llm, judge_client=llm, embedder=embedder)
+    assert planned["query_set"]["recovered"] == 4
+    assert planned["query_set"]["new_generated"] == 0
+    with pytest.raises(sqlite3.OperationalError):
+        run_retrieval_evaluation(vault, caps=CAPS, queries=12, logged_queries=0, query_client=llm,
+                                 judge_client=llm, embedder=embedder)
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_query_writer") == writer_calls
+    judged = sum(1 for purpose, _ in llm.calls if purpose == "practice_relevance_judge")
+    assert judged == 1
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", real_save)
+    planned = run_retrieval_evaluation(vault, caps=CAPS, dry_run=True, queries=12, logged_queries=0,
+                                       query_client=llm, judge_client=llm, embedder=embedder)
+    assert planned["estimate"]["relevance_labels"]["recoverable_calls"] == 1, planned["estimate"]
+    report = run_retrieval_evaluation(vault, caps=CAPS, queries=12, logged_queries=0,
+                                      query_client=llm, judge_client=llm, embedder=embedder)
+    assert report["status"] == "complete", report
+    assert report["query_set"]["total"] == 12
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_query_writer") == writer_calls
+    usage = report["spend"]["relevance_judge"]["usage"]
+    assert usage["recovered"] == 1 and usage["recovered_from_receipts"] == 1
+    assert sum(1 for purpose, _ in llm.calls if purpose == "practice_relevance_judge") == (
+        judged + report["label_calls"] - 1)
+
+
 def test_duplicate_queries_cannot_manufacture_a_winning_evaluation(indexed, monkeypatch):
     """F5: one request written by ten seeds is one observation, not ten."""
     from learnloop.db.stores.practice_index import insert_eval_query

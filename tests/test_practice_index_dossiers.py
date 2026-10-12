@@ -251,6 +251,122 @@ def test_a_paid_answer_survives_a_failed_write_and_is_not_paid_again(practice, m
     assert len(_rows(paths)) == 6
 
 
+def _span_receipts(paths) -> list[str]:
+    """Completed root receipts of the facet_span dossier (by its answer)."""
+    with Repository(paths.sqlite_path).connection() as connection:
+        rows = connection.execute(
+            "SELECT id, output_text FROM model_call_receipts WHERE purpose='practice_dossier' "
+            "AND parent_call_id IS NULL AND status='completed' AND output_text IS NOT NULL").fetchall()
+    return [row["id"] for row in rows if json.loads(row["output_text"])["covers"][0] == "Span"]
+
+
+def _span_checkpoints(paths) -> int:
+    with Repository(paths.sqlite_path).connection() as connection:
+        rows = connection.execute("SELECT result_json FROM model_work_checkpoints "
+                                  "WHERE purpose='practice_dossier'").fetchall()
+    return sum(1 for row in rows if json.loads(row[0])["answer"]["covers"][0] == "Span")
+
+
+def test_a_paid_answer_whose_checkpoint_failed_is_recovered_from_its_receipt(practice, monkeypatch):
+    """F8 (re-review): the completed receipt commits before the checkpoint. If the
+    checkpoint write fails, the rerun recovers the answer from the receipt (full
+    request identity, validated) instead of paying for it again."""
+    import sqlite3
+
+    from learnloop.db.stores.model_calls import ModelCallStoreMixin
+
+    paths = practice
+    llm = FakePracticeLLM()
+    real_save = ModelCallStoreMixin.save_model_checkpoint
+
+    def failing_save(self, cache_key, *, purpose, result, usage=None):
+        if purpose == "practice_dossier" and result["answer"]["covers"][0] == "Span":
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_save(self, cache_key, purpose=purpose, result=result, usage=usage)
+
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", failing_save)
+    with pytest.raises(sqlite3.OperationalError):
+        generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    paid = [payload["context"]["facet"]["id"] for _, payload in llm.calls]
+    assert paid.count("facet_span") == 1
+    assert "facet_span" not in {row["facet_id"] for row in _rows(paths)}
+    assert len(_span_receipts(paths)) == 1 and _span_checkpoints(paths) == 0
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", real_save)
+    planned = generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True, client=llm)
+    assert planned["recoverable"] == 1
+    assert planned["estimate"]["calls"] == planned["pending"] - 1
+    report = generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    assert report["status"] == "complete", report
+    assert report["usage"]["recovered"] == 1 and report["usage"]["recovered_from_receipts"] == 1
+    assert [payload["context"]["facet"]["id"] for _, payload in llm.calls].count("facet_span") == 1
+    assert len(_rows(paths)) == 6
+    span = next(row for row in _rows(paths) if row["facet_id"] == "facet_span")
+    assert json.loads(span["draft_json"])["resolved_model"] == llm.model
+    assert _span_checkpoints(paths) == 1  # the recovered answer is now checkpointed too
+
+
+def test_a_receipt_for_another_request_or_an_invalid_answer_is_not_recovered(practice, monkeypatch):
+    """F8 (re-review): only a completed receipt with the same request identity
+    and an answer that still validates replaces a paid request."""
+    import sqlite3
+
+    from learnloop.db.stores.model_calls import ModelCallStoreMixin
+
+    paths = practice
+    llm = FakePracticeLLM()
+    real_save = ModelCallStoreMixin.save_model_checkpoint
+
+    def failing_save(self, cache_key, *, purpose, result, usage=None):
+        if purpose == "practice_dossier" and result["answer"]["covers"][0] == "Span":
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_save(self, cache_key, purpose=purpose, result=result, usage=usage)
+
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", failing_save)
+    with pytest.raises(sqlite3.OperationalError):
+        generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    monkeypatch.setattr(ModelCallStoreMixin, "save_model_checkpoint", real_save)
+    (receipt_id,) = _span_receipts(paths)
+    where = f"WHERE id='{receipt_id}'"
+    repository = Repository(paths.sqlite_path)
+    assert generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True,
+                             client=llm)["recoverable"] == 1
+    with repository.connection() as connection:
+        # Another request (here: another request key, as for another model or prompt).
+        connection.execute("UPDATE model_call_receipts SET budget_json=json_set(budget_json, "
+                           f"'$.practice_index.request_key', 'practice_index:other') {where}")
+    assert generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True,
+                             client=llm)["recoverable"] == 0
+    with repository.connection() as connection:
+        connection.execute("UPDATE model_call_receipts SET budget_json=json_remove(budget_json, "
+                           f"'$.practice_index.request_key') {where}")
+    assert generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True,
+                             client=llm)["recoverable"] == 0
+    with repository.connection() as connection:
+        connection.execute("UPDATE model_call_receipts SET status='failed' " + where)
+    assert generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True,
+                             client=llm)["recoverable"] == 0
+    # The same request, but an answer that no longer validates.
+    vault = load_vault(paths.root)
+    plan = next(p for p in build_plans(vault, repository) if p.facet_id == "facet_span")
+    from learnloop.practice_index.dossiers import DOSSIER_OUTPUT_TOKENS, _checkpoint_key
+    from learnloop.practice_index.paid import plan_route
+
+    key = _checkpoint_key(plan_route(vault, "practice_dossier", llm), plan)
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE model_call_receipts SET status='completed', output_text='{\"covers\": 3}', "
+            "budget_json=json_set(budget_json, '$.practice_index.request_key', ?) " + where, (key,))
+        assert connection.execute(
+            f"SELECT input_text, output_budget_tokens FROM model_call_receipts {where}",
+        ).fetchone()[:] == (plan.prompt, DOSSIER_OUTPUT_TOKENS)
+    planned = generate_dossiers(load_vault(paths.root), caps=CAPS, dry_run=True, client=llm)
+    assert planned["recoverable"] == 0
+    report = generate_dossiers(load_vault(paths.root), caps=CAPS, client=llm)
+    assert report["status"] == "complete", report
+    assert report["usage"]["recovered_from_receipts"] == 0
+    assert [payload["context"]["facet"]["id"] for _, payload in llm.calls].count("facet_span") == 2
+
+
 class _ItemAware(FakePracticeLLM):
     """Dossier text that depends on the grounding items, so revisions differ."""
 

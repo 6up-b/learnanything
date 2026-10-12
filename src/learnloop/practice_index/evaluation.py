@@ -63,6 +63,8 @@ from learnloop.practice_index.paid import (
     estimated_call_tokens,
     plan_route,
     planning_repository,
+    receipt_answer,
+    receipt_answers,
     resolve_client,
     transport_problem,
 )
@@ -204,6 +206,22 @@ def _recovered_queries(sqlite_path: Path, existing: set[tuple[str, str]]) -> lis
     with closing(connect(sqlite_path, read_only=True)) as connection:
         saved = checkpoints_for_purpose(connection, prefix=CHECKPOINT_PREFIX,
                                         purpose="practice_query_writer")
+        # A batch whose receipt completed but whose checkpoint never committed:
+        # its request key and seed context were declared before it was sent.
+        checkpointed = {row["cache_key"] for row in saved}
+        for receipt in reversed(receipt_answers(connection, purpose="practice_query_writer")):
+            key = receipt["declared"]["request_key"]
+            if key in checkpointed:
+                continue
+            try:
+                answer = json.loads(receipt["output_text"])
+            except (TypeError, ValueError):
+                continue
+            checkpointed.add(key)
+            saved.append({"cache_key": key, "result": {
+                "answer": answer, "resolved_model": receipt["resolved_model"],
+                "route": {}, "context": receipt["declared"].get("context") or {},
+            }})
     found: dict[tuple[str, str], dict[str, Any]] = {}
     for row in saved:
         context = row["result"].get("context") or {}
@@ -332,7 +350,11 @@ def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int
                 key = checkpoint_key(judge_route, purpose="practice_relevance_judge", prompt=prompt,
                                      result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS)
                 with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-                    if checkpointed_keys(connection, [key]):
+                    if checkpointed_keys(connection, [key]) or receipt_answer(
+                        connection, judge_route, purpose="practice_relevance_judge", prompt=prompt,
+                        result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS,
+                        validate=lambda result, refs=refs: _validate_labels(result, refs),
+                    ) is not None:
                         recoverable += 1
                         continue
                 tokens.append(estimated_call_tokens(prompt, RelevanceLabels, LABEL_OUTPUT_TOKENS))
@@ -698,6 +720,12 @@ def _generate_queries(vault, repository, batches, recovered, logged, writer, rou
     report["queries_written"] = written
 
 
+def _validate_labels(result: RelevanceLabels, refs: Mapping[str, Any]) -> RelevanceLabels:
+    if not any(label.ref in refs for label in result.labels):
+        raise AIInvalidOutput("The relevance judge labelled none of the candidates")
+    return result
+
+
 def _label_all(vault, repository, query_set, rankings, judge, client, judge_model,
                report, clock) -> dict[tuple[str, str], list[dict[str, Any] | None]]:
     labels: dict[tuple[str, str], list[dict[str, Any] | None]] = {}
@@ -714,16 +742,11 @@ def _label_all(vault, repository, query_set, rankings, judge, client, judge_mode
                 input_hash = content_key({"prompt": prompt, "schema": RelevanceLabels.model_json_schema(),
                                           "model": judge_model, "output_tokens": LABEL_OUTPUT_TOKENS})
 
-                def validate(result: RelevanceLabels, refs=refs) -> RelevanceLabels:
-                    if not any(label.ref in refs for label in result.labels):
-                        raise AIInvalidOutput("The relevance judge labelled none of the candidates")
-                    return result
-
                 result = judge.call(client, purpose="practice_relevance_judge", prompt=prompt,
                                     result_model=RelevanceLabels, output_tokens=LABEL_OUTPUT_TOKENS,
                                     candidates=1 if pass_index == 0 else 0, pairs=len(missing),
                                     metadata={"prompt_version": version, "input_hash": input_hash},
-                                    validate=validate)
+                                    validate=lambda value, refs=refs: _validate_labels(value, refs))
                 calls += 1
                 model = judge.last_resolved_model or judge_model
                 with repository.connection() as connection:
