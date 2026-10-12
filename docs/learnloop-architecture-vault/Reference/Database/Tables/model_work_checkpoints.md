@@ -3,8 +3,8 @@ title: "model_work_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8b2cd1081c957fb5bc2195058d68ede6da9e8735"
-source_commit_timestamp: "2026-10-12T01:22:37-04:00"
+source_commit: "4289dd62ac2ec8b3cac575c9c3e6219048c0427f"
+source_commit_timestamp: "2026-10-12T01:59:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_work_checkpoints"
@@ -21,6 +21,8 @@ source_paths:
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/db/stores/model_calls.py"
+  - "src/learnloop/db/stores/practice_index.py"
+  - "src/learnloop/practice_index/paid.py"
   - "src/learnloop/substrate/dataset.py"
 tags:
   - "learnloop/database/table"
@@ -77,6 +79,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/model_calls.py`
+- `src/learnloop/db/stores/practice_index.py`
 
 ### Direct SQL writers
 
@@ -93,6 +96,7 @@ None found by exact static reference scan.
 
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_model_work_checkpoints.py`
+- `tests/test_practice_index_find.py`
 - `tests/test_source_ingestion_v2lite.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
