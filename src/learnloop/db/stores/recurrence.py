@@ -104,10 +104,7 @@ def replace_recurrence_projection(
 def clear_recurrence_projection(connection: sqlite3.Connection) -> bool:
     """Empty the projection (the successor is off); True when rows were removed."""
 
-    present = any(
-        connection.execute(f'SELECT 1 FROM "{table}" LIMIT 1').fetchone() is not None
-        for table in DERIVED_TABLES
-    )
+    present = projection_present(connection)
     if present:
         for table in DERIVED_TABLES:
             connection.execute(f'DELETE FROM "{table}"')
@@ -128,9 +125,19 @@ def recurrence_state(connection: sqlite3.Connection) -> dict[str, Any] | None:
 
 
 def recurrence_group_map(connection: sqlite3.Connection) -> dict[str, str]:
-    """normalized statement -> group key, for merged classes only."""
+    """normalized statement -> group key, for merged classes only.
+
+    Only ACTIVE groups are in force: groups PREPARED by the upgrade before
+    its config switch (``active = 0``) are never read, so a failed switch
+    leaves every grouping site on exact keys.
+    """
 
     try:
+        state = connection.execute(
+            "SELECT active FROM hypothesis_recurrence_state WHERE scope = 'vault'"
+        ).fetchone()
+        if state is None or int(state[0]) != 1:
+            return {}
         rows = connection.execute(
             "SELECT DISTINCT statement_normalized, group_key FROM hypothesis_recurrence_groups"
         ).fetchall()
@@ -138,6 +145,28 @@ def recurrence_group_map(connection: sqlite3.Connection) -> dict[str, str]:
         # A historical schema attached without migrations has no projection.
         return {}
     return {str(row[0]): str(row[1]) for row in rows}
+
+
+def projection_present(connection: sqlite3.Connection) -> bool:
+    """Whether any projection row (active or prepared) exists."""
+
+    return any(
+        connection.execute(f'SELECT 1 FROM "{table}" LIMIT 1').fetchone() is not None
+        for table in DERIVED_TABLES
+    )
+
+
+def activate_prepared_projection(
+    connection: sqlite3.Connection, *, prepared_fingerprint: str, active_fingerprint: str
+) -> bool:
+    """Flip PREPARED groups to active when their inputs are unchanged since preparation."""
+
+    cursor = connection.execute(
+        "UPDATE hypothesis_recurrence_state SET active = 1, input_fingerprint = ? "
+        "WHERE scope = 'vault' AND active = 0 AND input_fingerprint = ?",
+        (active_fingerprint, prepared_fingerprint),
+    )
+    return cursor.rowcount == 1
 
 
 def recurrence_group_rows(connection: sqlite3.Connection, group_key: str | None = None) -> list[dict[str, Any]]:
@@ -348,9 +377,18 @@ def insert_escalation(
     prior_operators: Iterable[str],
     different_approach: bool,
     algorithm_version: str,
+    repair_source: str = "diagnosis",
+    repair: Mapping[str, Any] | None = None,
+    generation: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> str | None:
-    """Append once per (attempt, diagnosis); returns the id, or None if present."""
+    """Append once per (attempt, diagnosis); returns the id, or None if present.
+
+    ``repair_source``: ``diagnosis`` (one of the diagnosis's own repairs, by
+    ``repair_suggestion_id``), ``generated`` (written at escalation time; its
+    payload is ``repair``) or ``none``. ``generation`` records the request for
+    a different repair, when one was made.
+    """
 
     existing = connection.execute(
         "SELECT id FROM recurrence_escalations WHERE attempt_id = ? AND diagnosis_id = ?",
@@ -362,12 +400,14 @@ def insert_escalation(
     connection.execute(
         "INSERT INTO recurrence_escalations(id, attempt_id, diagnosis_id, group_key, recurrence_count, "
         "earlier_attempt_ids_json, repair_suggestion_id, repair_operator, prior_operators_json, "
-        "different_approach, algorithm_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "different_approach, repair_source, repair_json, generation_json, algorithm_version, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             escalation_id, attempt_id, diagnosis_id, group_key, int(recurrence_count),
             _dumps(list(earlier_attempt_ids)), repair_suggestion_id, repair_operator,
             _dumps(sorted(set(prior_operators))), 1 if different_approach else 0,
-            algorithm_version, utc_now_iso(clock),
+            repair_source, _dumps(dict(repair)) if repair is not None else None,
+            _dumps(dict(generation or {})), algorithm_version, utc_now_iso(clock),
         ),
     )
     return escalation_id
@@ -378,6 +418,8 @@ def _decode_escalation(names: Sequence[str], raw: Sequence[Any]) -> dict[str, An
     row["earlier_attempt_ids"] = _loads(row.pop("earlier_attempt_ids_json"), [])
     row["prior_operators"] = _loads(row.pop("prior_operators_json"), [])
     row["different_approach"] = bool(row["different_approach"])
+    row["repair"] = _loads(row.pop("repair_json", None), None)
+    row["generation"] = _loads(row.pop("generation_json", None), {})
     return row
 
 
@@ -399,6 +441,48 @@ def escalation_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
     cursor = connection.execute("SELECT * FROM recurrence_escalations ORDER BY created_at, id")
     names = [column[0] for column in cursor.description]
     return [_decode_escalation(names, raw) for raw in cursor.fetchall()]
+
+
+# -- the guard's registered planted cases (append-only) ---------------------------------
+
+
+GUARD_CASE_COLUMNS = (
+    "case_id", "suite_version", "expected", "topic", "problem", "shared_answer",
+    "statement_a", "statement_b", "quote_a", "quote_b", "source",
+)
+
+
+def register_guard_cases(
+    connection: sqlite3.Connection, cases: Iterable[Mapping[str, Any]], *, clock: Clock | None = None
+) -> int:
+    """Register planted cases once (by case id); returns how many were new."""
+
+    if not _has_table(connection, "recurrence_guard_cases"):
+        return 0
+    added = 0
+    now = utc_now_iso(clock)
+    for case in cases:
+        cursor = connection.execute(
+            "INSERT OR IGNORE INTO recurrence_guard_cases(case_id, suite_version, expected, topic, problem, "
+            "shared_answer, statement_a, statement_b, quote_a, quote_b, source, registered_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                str(case["case_id"]), str(case["suite_version"]), str(case["expected"]),
+                str(case.get("topic") or ""), str(case.get("problem") or ""), case.get("shared_answer"),
+                str(case["statement_a"]), str(case["statement_b"]), case.get("quote_a"), case.get("quote_b"),
+                str(case["source"]), now,
+            ),
+        )
+        added += cursor.rowcount
+    return added
+
+
+def guard_case_rows(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    if not _has_table(connection, "recurrence_guard_cases"):
+        return []
+    cursor = connection.execute("SELECT * FROM recurrence_guard_cases ORDER BY registered_at, case_id")
+    names = [column[0] for column in cursor.description]
+    return [dict(zip(names, raw)) for raw in cursor.fetchall()]
 
 
 class RecurrenceStoreMixin:
@@ -428,9 +512,15 @@ class RecurrenceStoreMixin:
         with self.connection() as connection:  # type: ignore[attr-defined]
             return escalation_rows(connection)
 
+    def recurrence_guard_cases(self) -> list[dict[str, Any]]:
+        with self.connection() as connection:  # type: ignore[attr-defined]
+            return guard_case_rows(connection)
+
 
 __all__ = [
     "DERIVED_TABLES",
+    "activate_prepared_projection",
+    "projection_present",
     "clear_recurrence_projection",
     "ESCALATION_RESPONSES",
     "RecurrenceStoreMixin",
@@ -438,6 +528,7 @@ __all__ = [
     "diagnosis_with_citations",
     "escalation_for_diagnosis",
     "escalation_rows",
+    "guard_case_rows",
     "hypothesis_episode_rows",
     "input_fingerprint_parts",
     "insert_escalation",
@@ -446,6 +537,7 @@ __all__ = [
     "recurrence_group_rows",
     "recurrence_review_rows",
     "recurrence_state",
+    "register_guard_cases",
     "replace_recurrence_projection",
     "same_cause_judgments",
 ]

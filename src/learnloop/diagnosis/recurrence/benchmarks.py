@@ -9,11 +9,16 @@ cache in the output directory (never the vault).
 
 **Integration point.** Phase 5a's harness is not on this branch's base. Until
 it merges, :func:`run_bench` is a small local runner with the same contract
-(``learnloop recurrence bench``). At merge, the composition root
-(``cli/embeddings.py``) calls :func:`register_suites` on 5a's ``SUITES`` so
-``learnloop embeddings compare --suite b1|b3`` runs them, and the one LLM role
-here (B1's hypothesis writer) goes through ``ctx.complete`` when the context
-has it, else 5a's ``ctx.caller.call(ctx.role(...)[0], ...)``.
+(``learnloop recurrence bench``). The suites read 5a's actual request and
+context, not a look-alike: ``request.dims`` is a TUPLE of widths (an int is
+accepted too), there is no ``request.k`` (B1's k is its own constant), and
+B1's one LLM role is a registered PF role, :data:`B1_WRITER_ROLE`, routed to
+the ``diagnosis`` task. At merge, the composition root (``cli/embeddings.py``)
+calls ``register_suites(SUITES, role_tasks=ROLE_TASKS)`` with 5a's registries
+before ``run_compare``: the suites join 5a's ``SUITES`` and the writer role
+joins 5a's ``ROLE_TASKS``, so 5a's whole-plan admission prices it and
+``ctx.role(B1_WRITER_ROLE)`` resolves it. Calls then go through
+``ctx.caller.call`` (5a) or ``ctx.complete`` (the local runner).
 
 * **B1**: Eedi "Mining Misconceptions in Mathematics" (2024). The data needs
   a Kaggle login, so the owner downloads it; the loader reads ``train.csv``
@@ -30,7 +35,11 @@ has it, else 5a's ``ctx.caller.call(ctx.role(...)[0], ...)``.
   under the production shortlist rule, the recall-oriented blocking cutoff and
   its judge load (this sets ``recurrence.blocking_cutoffs`` and ``top_k``),
   and merge precision/recall when the groups are replayed from a subset of
-  sources. No LLM call; embeddings only.
+  sources. No LLM call; embeddings only. It embeds the PRODUCTION recipe
+  (the hypothesis text and task prefix the shortlist ranks) at the SERVING
+  width (``embedding.dimensions``) by default, and every recommended cutoff
+  names the model, width, recipe and prefix it was measured on; the
+  shortlist refuses an entry that does not match its stored vectors.
 
 Reports are aggregate except B3's config recommendation; no learner text.
 """
@@ -61,8 +70,8 @@ from learnloop.ai.transport import execute_structured_operation, render_structur
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.offline_review.spend import ReviewSpend, RouteInfo
-from learnloop.diagnosis.recurrence.judging import estimate_tokens
-from learnloop.diagnosis.recurrence.kind import compatible, hypothesis_subjects, scope_of
+from learnloop.diagnosis.recurrence.judging import estimate_tokens, sum_estimates
+from learnloop.diagnosis.recurrence.kind import SAME_CAUSE, compatible, hypothesis_subjects, scope_of
 from learnloop.matching.union import UnionEdge, effective_verdicts, union_with_refusals
 from learnloop.substrate.recurrence_groups import AUTHORITY, compute_groups
 from learnloop.vault.models import LoadedVault
@@ -70,8 +79,15 @@ from learnloop.vault.paths import VaultPaths
 
 HARNESS_CONTRACT = "embeddings-compare-v1"
 B1_PROMPT_VERSION = "b1-misconception-hypothesis-v1"
-B1_WRITER_ROUTE = "diagnosis"
+#: B1's hypothesis writer as a harness role, and the AI task that serves it
+#: (production hypotheses are diagnoser text, so the diagnoser's own route).
+B1_WRITER_ROLE = "recurrence_hypothesis_writer"
+B1_WRITER_TASK = "diagnosis"
 B1_WRITER_PURPOSE = "recurrence_b1_hypothesis"
+#: Roles these suites add to the harness's role registry.
+ROLE_TASKS = {B1_WRITER_ROLE: B1_WRITER_TASK}
+#: B1's retrieval depth (recall@25, MAP@25; the Eedi metric).
+B1_K = 25
 DEFAULT_MODELS = (
     "qwen/qwen3-embedding-8b",
     "qwen/qwen3-embedding-4b",
@@ -79,7 +95,9 @@ DEFAULT_MODELS = (
     "openai/text-embedding-3-large",
     "openai/text-embedding-3-small",
 )
-DEFAULT_DIMS = 1024
+#: B1 compares models at one common MRL width (every candidate reaches it);
+#: B3 defaults to the vault's serving width instead (``embedding.dimensions``).
+B1_DEFAULT_DIMS = 1024
 DEFAULT_TARGET_RECALL = 0.95
 EMBED_BATCH = 32
 EMBEDDING_ROUTE = "embedding"
@@ -99,16 +117,31 @@ _TOKEN = re.compile(r"\w+")
 
 @dataclass(frozen=True)
 class BenchRequest:
+    """The local runner's request: the fields of Phase 5a's ``CompareRequest``
+    the suites read, with the same types (``dims`` is a tuple of widths)."""
+
     suite: str
     output_dir: Path
     benchmark_dir: Path | None = None
     models: tuple[str, ...] = ()
-    dims: int = DEFAULT_DIMS
+    dims: tuple[int, ...] = ()
     views: tuple[str, ...] = ()
     target_recall: float = DEFAULT_TARGET_RECALL
     max_cases: int | None = None
-    k: int = 25
     dry_run: bool = False
+
+
+def requested_dims(request: Any, default: int) -> tuple[int, ...]:
+    """The widths a request asks for: 5a's tuple, a bare int, or ``default``."""
+
+    raw = getattr(request, "dims", None)
+    if raw is None or raw == () or raw == []:
+        return (int(default),)
+    values = (raw,) if isinstance(raw, int) else tuple(raw)
+    widths = tuple(sorted({int(value) for value in values}))
+    if not widths or any(width <= 0 for width in widths):
+        raise ValueError("dims must be positive widths")
+    return widths
 
 
 class VectorCache:
@@ -170,6 +203,7 @@ class BenchContext:
         self._injected = dict(embedding_clients or {})
         self._clients: dict[tuple[str, int], Any] = {}
         self._writer = writer_client
+        self._registered: set[str] = set()
         self.embedding_price = embedding_price
 
     def _embedder(self, model: str, dims: int) -> Any:
@@ -218,12 +252,15 @@ class BenchContext:
         if self._writer is None:
             from learnloop.ai.routing import ready_client_for_task
 
-            resolved = ready_client_for_task(self.vault.root, self.vault.config, role)  # type: ignore[arg-type]
+            task = ROLE_TASKS.get(role, role)
+            resolved = ready_client_for_task(self.vault.root, self.vault.config, task)  # type: ignore[arg-type]
             if not resolved.ready:
-                raise AIProviderUnavailable(f"the {role} route is not ready")
+                raise AIProviderUnavailable(f"the {task} route ({role}) is not ready")
             self._writer = resolved.client
-        if role not in self.spend.routes:
+        if role not in self._registered:
+            # Billed as the client actually built (the plan classified it from config).
             self.spend.register(role, self._writer)
+            self._registered.add(role)
         with self.spend.collector.observing():
             with self.spend.request(role, purpose, input_tokens=estimate_tokens(prompt)):
                 return execute_structured_operation(
@@ -232,13 +269,20 @@ class BenchContext:
 
 
 def _complete(ctx: Any, role: str, prompt: str, result_model: type[WireModel], purpose: str, prompt_version: str) -> Any:
-    """Through the local context, or Phase 5a's PF caller once it merges."""
+    """Through the local context, or Phase 5a's PF caller (``ctx.role`` + ``ctx.caller.call``)."""
 
     if hasattr(ctx, "complete"):
         return ctx.complete(role, prompt, result_model, purpose)
     entry = ctx.role(role)[0]
     return ctx.caller.call(entry, prompt=prompt, prompt_version=prompt_version, result_model=result_model,
                            output_tokens=WRITER_OUTPUT_TOKENS).result
+
+
+def writer_tokens(prompt: str, result_model: type[WireModel]) -> int:
+    """One writer call's input-plus-output bound, as 5a's harness counts it."""
+
+    schema = len(json.dumps(result_model.model_json_schema()).encode("utf-8"))
+    return len(prompt.encode("utf-8")) + schema + 512 + WRITER_OUTPUT_TOKENS
 
 
 # -- metrics --------------------------------------------------------------------------------
@@ -392,6 +436,7 @@ class B1Data:
     cases: list[dict[str, Any]]
     models: tuple[str, ...]
     views: tuple[str, ...]
+    dims: tuple[int, ...] = (B1_DEFAULT_DIMS,)
 
 
 def load_eedi(directory: Path, *, max_cases: int | None = None) -> tuple[dict[str, Any], list[tuple[str, str]], list[dict[str, Any]]]:
@@ -462,7 +507,8 @@ class B1Suite:
         unknown = sorted(set(views) - set(self.VIEWS))
         if unknown:
             raise ValueError(f"unknown b1 view(s): {', '.join(unknown)}")
-        return B1Data(manifest, misconceptions, cases, tuple(request.models or DEFAULT_MODELS), views)
+        return B1Data(manifest, misconceptions, cases, tuple(request.models or DEFAULT_MODELS), views,
+                      requested_dims(request, B1_DEFAULT_DIMS))
 
     def _hypothesis_cache(self, request: BenchRequest) -> Path:
         return request.output_dir / "b1_hypotheses.jsonl"
@@ -488,23 +534,25 @@ class B1Suite:
         query_tokens = sum(estimate_tokens(raw_query(case)) + 32 for case in data.cases) if "raw" in data.views else 0
         hypothesis_tokens = 100 * len(data.cases) if "hypothesis" in data.views else 0
         per_model_tokens = corpus_tokens + query_tokens + hypothesis_tokens
-        texts = len(data.misconceptions) + len(data.cases) * len(data.views)
+        # The corpus and each query view are separate vector requests, each batched.
+        requests = math.ceil(len(data.misconceptions) / EMBED_BATCH) + len(data.views) * math.ceil(
+            len(data.cases) / EMBED_BATCH
+        )
         return {
             "cases": len(data.cases),
             "misconceptions": len(data.misconceptions),
             "views": list(data.views),
             "models": list(data.models),
-            "dims": request.dims,
+            "dims": list(data.dims),
             "roles": {
-                B1_WRITER_ROUTE: {
+                B1_WRITER_ROLE: {
                     "calls": len(to_write),
-                    "tokens": sum(estimate_tokens(b1_prompt(case)) + WRITER_OUTPUT_TOKENS for case in to_write),
+                    # Input plus output of every call not cached yet.
+                    "tokens": sum(writer_tokens(b1_prompt(case), MisconceptionHypothesis) for case in to_write),
                     "cached": len(data.cases) - len(to_write) if "hypothesis" in data.views else 0,
                 }
             },
-            "embedding": {
-                model: {"calls": math.ceil(texts / EMBED_BATCH), "tokens": per_model_tokens} for model in data.models
-            },
+            "embedding": {model: {"calls": requests, "tokens": per_model_tokens} for model in data.models},
             "note": "embedding calls are an upper bound; texts already in the output directory's cache are not sent",
         }
 
@@ -517,7 +565,7 @@ class B1Suite:
             for case in data.cases:
                 key = self._case_key(case)
                 if key not in cached:
-                    result = _complete(ctx, B1_WRITER_ROUTE, b1_prompt(case), MisconceptionHypothesis, B1_WRITER_PURPOSE, B1_PROMPT_VERSION)
+                    result = _complete(ctx, B1_WRITER_ROLE, b1_prompt(case), MisconceptionHypothesis, B1_WRITER_PURPOSE, B1_PROMPT_VERSION)
                     cached[key] = str(result.misconception).strip()
                     with path.open("a", encoding="utf-8") as handle:
                         handle.write(json.dumps({"key": key, "misconception": cached[key]}) + "\n")
@@ -525,6 +573,7 @@ class B1Suite:
         ids = [identifier for identifier, _name in data.misconceptions]
         names = [name for _identifier, name in data.misconceptions]
         position = {identifier: index for index, identifier in enumerate(ids)}
+        k = B1_K
         bm25 = BM25(names)
         queries = {
             view: [raw_query(case) if view == "raw" else hypotheses.get(case["id"], "") for case in data.cases]
@@ -537,28 +586,35 @@ class B1Suite:
             scored = [bm25.scores(text) for text in texts]
             bm25_ranks[view] = [_ranks_from_order(scores) for scores in scored]
             results["bm25"][view] = rank_metrics(
-                [_rank_of(scores, gold_index) for scores, gold_index in zip(scored, gold, strict=True)], request.k
+                [_rank_of(scores, gold_index) for scores, gold_index in zip(scored, gold, strict=True)], k
             )
+        widest = max(data.dims)
         for model in data.models:
-            corpus_vectors = ctx.vectors(model, names, dims=request.dims, task_prefix="retrieval-document")
-            corpus = _matrix(corpus_vectors, names, request.dims)
-            corpus_centred = _centred(corpus)
-            for view, texts in queries.items():
-                query_vectors = ctx.vectors(model, texts, dims=request.dims, task_prefix="retrieval-query")
-                matrix = _matrix(query_vectors, texts, request.dims)
-                for variant, (left, right) in {"cosine": (matrix, corpus), "centred": (_centred(matrix), corpus_centred)}.items():
-                    scores = left @ right.T
-                    ranks = [_rank_of(row, gold_index) for row, gold_index in zip(scores, gold, strict=True)]
-                    results["embedding"].setdefault(model, {}).setdefault(view, {})[variant] = rank_metrics(ranks, request.k)
-                    if variant == "centred":
-                        fused = []
-                        for row, bm, gold_index in zip(scores, bm25_ranks[view], gold, strict=True):
-                            emb_rank = _ranks_from_order(row)
-                            rrf = 1.0 / (60 + emb_rank) + 1.0 / (60 + bm)
-                            fused.append(_rank_of(rrf, gold_index))
-                        results["hybrid"].setdefault(model, {})[view] = rank_metrics(fused, request.k)
-        results["dims"] = request.dims
-        results["k"] = request.k
+            # Embedded once at the widest width; narrower widths are MRL truncations.
+            corpus_vectors = ctx.vectors(model, list(names), dims=widest, task_prefix="retrieval-document")
+            query_vectors = {
+                view: ctx.vectors(model, list(texts), dims=widest, task_prefix="retrieval-query")
+                for view, texts in queries.items()
+            }
+            for dims in data.dims:
+                label = model if len(data.dims) == 1 else f"{model}@{dims}"
+                corpus = _matrix(corpus_vectors, names, dims)
+                corpus_centred = _centred(corpus)
+                for view, texts in queries.items():
+                    matrix = _matrix(query_vectors[view], texts, dims)
+                    for variant, (left, right) in {"cosine": (matrix, corpus), "centred": (_centred(matrix), corpus_centred)}.items():
+                        scores = left @ right.T
+                        ranks = [_rank_of(row, gold_index) for row, gold_index in zip(scores, gold, strict=True)]
+                        results["embedding"].setdefault(label, {}).setdefault(view, {})[variant] = rank_metrics(ranks, k)
+                        if variant == "centred":
+                            fused = []
+                            for row, bm, gold_index in zip(scores, bm25_ranks[view], gold, strict=True):
+                                emb_rank = _ranks_from_order(row)
+                                rrf = 1.0 / (60 + emb_rank) + 1.0 / (60 + bm)
+                                fused.append(_rank_of(rrf, gold_index))
+                            results["hybrid"].setdefault(label, {})[view] = rank_metrics(fused, k)
+        results["dims"] = list(data.dims)
+        results["k"] = k
         return results
 
 
@@ -571,6 +627,10 @@ class B3Data:
     pairs: list[dict[str, Any]]
     groups: Any
     models: tuple[str, ...]
+    dims: tuple[int, ...] = ()
+    #: The width the shortlist serves (``embedding.dimensions``): only a
+    #: cutoff measured there is recommended for the config.
+    serving_dims: int = 0
 
 
 def _episode_labels(build: Any) -> list[dict[str, Any]]:
@@ -604,7 +664,9 @@ class B3Suite:
             build = compute_groups(connection)
         known = {subject.id for subject in subjects}
         pairs = [pair for pair in _episode_labels(build) if pair["left"] in known and pair["right"] in known]
-        return B3Data(subjects, pairs, build, tuple(request.models or (vault.config.embedding.model,)))
+        serving = int(vault.config.embedding.dimensions)
+        return B3Data(subjects, pairs, build, tuple(request.models or (vault.config.embedding.model,)),
+                      requested_dims(request, serving), serving)
 
     def plan(self, vault: LoadedVault, data: B3Data, request: BenchRequest) -> dict[str, Any]:
         tokens = sum(estimate_tokens(subject.text) + 32 for subject in data.subjects)
@@ -615,7 +677,10 @@ class B3Suite:
             "negatives": sum(1 for pair in data.pairs if not pair["same"]),
             "labels_by_judge": dict(Counter(pair["judge"] for pair in data.pairs)),
             "models": list(data.models),
-            "dims": request.dims,
+            "dims": list(data.dims),
+            "serving_dims": data.serving_dims,
+            "recipe": SAME_CAUSE.recipe,
+            "task_prefix": SAME_CAUSE.task_prefix,
             "roles": {},
             "embedding": {model: {"calls": math.ceil(len(data.subjects) / EMBED_BATCH), "tokens": tokens} for model in data.models},
         }
@@ -624,67 +689,90 @@ class B3Suite:
         by_id = {subject.id: subject for subject in data.subjects}
         texts = [subject.text for subject in data.subjects]
         results: dict[str, Any] = {"models": {}, "merge_replay": _merge_replay(data.groups)}
+        widest = max(data.dims) if data.dims else data.serving_dims
+        target_recall = float(getattr(request, "target_recall", DEFAULT_TARGET_RECALL))
         for model in data.models:
-            vectors = ctx.vectors(model, texts, dims=request.dims, task_prefix="retrieval-document")
-            ids = [subject.id for subject in data.subjects]
-            unit = _centred(_matrix(vectors, texts, request.dims)) if ids else np.zeros((0, request.dims))
-            row_of = {identifier: index for index, identifier in enumerate(ids)}
-
-            def score(left: str, right: str) -> float:
-                return float(unit[row_of[left]] @ unit[row_of[right]])
-
-            labels = [pair["same"] for pair in data.pairs]
-            scores = [score(pair["left"], pair["right"]) for pair in data.pairs]
-            ranks: list[int | None] = []
-            out_of_scope = 0
-            positive_scores: list[float] = []
-            for pair in data.pairs:
-                if not pair["same"]:
-                    continue
-                left, right = by_id[pair["left"]], by_id[pair["right"]]
-                query, candidate = (left, right) if scope_of(right).attempt_order < scope_of(left).attempt_order else (right, left)
-                if not compatible(query, candidate):
-                    out_of_scope += 1
-                    ranks.append(None)
-                    continue
-                pool = [
-                    other for other in data.subjects
-                    if other.id != query.id and compatible(query, other)
-                    and scope_of(other).statement_normalized != scope_of(query).statement_normalized
-                ]
-                ordered = sorted(pool, key=lambda other: (-score(query.id, other.id), other.id))
-                rank = next((position for position, other in enumerate(ordered, start=1) if other.id == candidate.id), None)
-                ranks.append(rank)
-                positive_scores.append(score(query.id, candidate.id))
-            recall_at = {f"recall@{k}": rank_metrics(ranks, k)[f"recall@{k}"] for k in (1, 2, 3, 5, 10)}
-            recommended_k = next(
-                (k for k in range(1, 21) if (rank_metrics(ranks, k)[f"recall@{k}"] or 0.0) >= request.target_recall),
-                None,
-            )
-            in_scope_labels = [label for label, pair in zip(labels, data.pairs, strict=True)
-                               if _in_scope(by_id, pair)]
-            in_scope_scores = [value for value, pair in zip(scores, data.pairs, strict=True) if _in_scope(by_id, pair)]
-            cutoff = blocking_cutoff(in_scope_scores, in_scope_labels, request.target_recall)
-            load = _judge_load(data.subjects, score, recommended_k or 3, cutoff.get("cutoff"))
-            results["models"][model] = {
-                "auc": roc_auc(scores, labels),
-                "positives": sum(labels),
-                "positives_out_of_scope": out_of_scope,
-                **recall_at,
-                "recommended_top_k": recommended_k,
-                "blocking_cutoff": cutoff,
-                "judge_load": load,
-                "recommendation_backed": sum(labels) >= MIN_CONFIRMED_FOR_RECOMMENDATION,
-                "config": _config_lines(model, cutoff.get("cutoff"), recommended_k)
-                if sum(labels) >= MIN_CONFIRMED_FOR_RECOMMENDATION
-                else [
-                    f"# {sum(labels)} confirmed matches (< {MIN_CONFIRMED_FOR_RECOMMENDATION}): too few to set a "
-                    "cutoff; keep recurrence.blocking_cutoffs empty (top-k only) and rerun B3 later",
-                ],
-            }
-        results["dims"] = request.dims
-        results["target_recall"] = request.target_recall
+            # The production recipe and prefix (what the shortlist ranks),
+            # embedded once at the widest width and truncated per width.
+            vectors = ctx.vectors(model, list(texts), dims=widest, task_prefix=SAME_CAUSE.task_prefix)
+            for dims in data.dims:
+                label = model if len(data.dims) == 1 else f"{model}@{dims}"
+                results["models"][label] = self._score(
+                    data, by_id, vectors, texts, model=model, dims=dims, target_recall=target_recall,
+                )
+        results["dims"] = list(data.dims)
+        results["serving_dims"] = data.serving_dims
+        results["recipe"] = SAME_CAUSE.recipe
+        results["task_prefix"] = SAME_CAUSE.task_prefix
+        results["target_recall"] = target_recall
         return results
+
+    def _score(self, data: B3Data, by_id: Mapping[str, Any], vectors: Mapping[str, np.ndarray], texts: list[str],
+               *, model: str, dims: int, target_recall: float) -> dict[str, Any]:
+        ids = [subject.id for subject in data.subjects]
+        unit = _centred(_matrix(vectors, texts, dims)) if ids else np.zeros((0, dims))
+        row_of = {identifier: index for index, identifier in enumerate(ids)}
+
+        def score(left: str, right: str) -> float:
+            return float(unit[row_of[left]] @ unit[row_of[right]])
+
+        labels = [pair["same"] for pair in data.pairs]
+        scores = [score(pair["left"], pair["right"]) for pair in data.pairs]
+        ranks: list[int | None] = []
+        out_of_scope = 0
+        for pair in data.pairs:
+            if not pair["same"]:
+                continue
+            left, right = by_id[pair["left"]], by_id[pair["right"]]
+            query, candidate = (left, right) if scope_of(right).attempt_order < scope_of(left).attempt_order else (right, left)
+            if not compatible(query, candidate):
+                out_of_scope += 1
+                ranks.append(None)
+                continue
+            pool = [
+                other for other in data.subjects
+                if other.id != query.id and compatible(query, other)
+                and scope_of(other).statement_normalized != scope_of(query).statement_normalized
+            ]
+            ordered = sorted(pool, key=lambda other: (-score(query.id, other.id), other.id))
+            ranks.append(next((position for position, other in enumerate(ordered, start=1) if other.id == candidate.id), None))
+        recall_at = {f"recall@{k}": rank_metrics(ranks, k)[f"recall@{k}"] for k in (1, 2, 3, 5, 10)}
+        recommended_k = next(
+            (k for k in range(1, 21) if (rank_metrics(ranks, k)[f"recall@{k}"] or 0.0) >= target_recall),
+            None,
+        )
+        in_scope_labels = [label for label, pair in zip(labels, data.pairs, strict=True) if _in_scope(by_id, pair)]
+        in_scope_scores = [value for value, pair in zip(scores, data.pairs, strict=True) if _in_scope(by_id, pair)]
+        cutoff = blocking_cutoff(in_scope_scores, in_scope_labels, target_recall)
+        provenance = {
+            "model_id": model, "dims": dims, "recipe": SAME_CAUSE.recipe, "task_prefix": SAME_CAUSE.task_prefix,
+            "target_recall": target_recall, "confirmed_matches": sum(labels),
+        }
+        backed = sum(labels) >= MIN_CONFIRMED_FOR_RECOMMENDATION
+        if not backed:
+            config = [
+                f"# {sum(labels)} confirmed matches (< {MIN_CONFIRMED_FOR_RECOMMENDATION}): too few to set a "
+                "cutoff; keep recurrence.blocking_cutoffs empty (top-k only) and rerun B3 later",
+            ]
+        elif dims != data.serving_dims:
+            config = [
+                f"# measured at {dims} dimensions; the shortlist serves {data.serving_dims} "
+                "(embedding.dimensions), where this cutoff does not apply: rerun B3 at the serving width",
+            ]
+        else:
+            config = _config_lines(provenance, cutoff.get("cutoff"), recommended_k)
+        return {
+            "auc": roc_auc(scores, labels),
+            "positives": sum(labels),
+            "positives_out_of_scope": out_of_scope,
+            **recall_at,
+            "recommended_top_k": recommended_k,
+            "blocking_cutoff": {**cutoff, **provenance},
+            "judge_load": _judge_load(data.subjects, score, recommended_k or 3, cutoff.get("cutoff")),
+            "recommendation_backed": backed,
+            "serving_width": dims == data.serving_dims,
+            "config": config,
+        }
 
 
 def _in_scope(by_id: Mapping[str, Any], pair: Mapping[str, Any]) -> bool:
@@ -710,12 +798,19 @@ def _judge_load(subjects: Sequence[Any], score: Callable[[str, str], float], top
     return {"top_k": top_k, "pairs_top_k": pairs, "pairs_reaching_judge": above}
 
 
-def _config_lines(model: str, cutoff: float | None, top_k: int | None) -> list[str]:
+def _config_lines(provenance: Mapping[str, Any], cutoff: float | None, top_k: int | None) -> list[str]:
+    """The [recurrence] lines; a cutoff always carries what it was measured on."""
+
     lines = ["[recurrence]"]
     if top_k is not None:
         lines.append(f"top_k = {top_k}")
     if cutoff is not None:
-        lines.append(f'blocking_cutoffs = {{ "{model}" = {cutoff} }}')
+        entry = (
+            f'cutoff = {cutoff}, dims = {int(provenance["dims"])}, recipe = "{provenance["recipe"]}", '
+            f'task_prefix = "{provenance["task_prefix"]}", target_recall = {provenance["target_recall"]}, '
+            f'confirmed_matches = {int(provenance["confirmed_matches"])}'
+        )
+        lines.append(f'blocking_cutoffs = {{ "{provenance["model_id"]}" = {{ {entry} }} }}')
     return lines
 
 
@@ -751,11 +846,19 @@ def _merge_replay(build: Any) -> dict[str, Any]:
 SUITES: dict[str, Any] = {"b1": B1Suite(), "b3": B3Suite()}
 
 
-def register_suites(registry: dict[str, Any]) -> dict[str, Any]:
-    """Register B1/B3 on Phase 5a's harness (call from the composition root)."""
+def register_suites(registry: dict[str, Any], *, role_tasks: dict[str, str] | None = None) -> dict[str, Any]:
+    """Register B1/B3 on Phase 5a's harness (call from the composition root).
+
+    ``role_tasks`` is 5a's ``pf_calls.ROLE_TASKS``: B1's writer role joins it,
+    so 5a's plan admission prices the role from its route and ``ctx.role``
+    resolves it. Registration alone is not enough without it.
+    """
 
     for name, suite in SUITES.items():
         registry.setdefault(name, suite)
+    if role_tasks is not None:
+        for role, task in ROLE_TASKS.items():
+            role_tasks.setdefault(role, task)
     return registry
 
 
@@ -792,19 +895,16 @@ def run_bench(
             "benchmark": getattr(data, "manifest", None),
         },
     }
-    roles = plan.get("roles") or {}
-    llm_calls = sum(int(role.get("calls", 0)) for role in roles.values())
-    embed_calls = sum(int(entry.get("calls", 0)) for entry in (plan.get("embedding") or {}).values())
-    embed_usd = 0.0
-    for model, entry in (plan.get("embedding") or {}).items():
-        price = embedding_price_per_million if embedding_price_per_million is not None else EMBEDDING_PRICES_PER_MILLION.get(model)
-        if price is None:
-            report.update(status="over_budget", reason=f"Unknown embedding price for {model}: pass --embedding-price-per-million")
-            return report
-        embed_usd += int(entry.get("tokens", 0)) * price / 1_000_000
-    report["estimate"] = {"llm_calls": llm_calls, "embedding_calls": embed_calls, "embedding_usd_upper_bound": round(embed_usd, 6)}
     try:
-        spend.check(SpendEstimate(calls=llm_calls + embed_calls, estimated_usd=embed_usd))
+        estimate = plan_admission(
+            vault, plan, spend, writer_client=writer_client, embedding_price_per_million=embedding_price_per_million,
+        )
+    except SpendLimitExceeded as exc:
+        report.update(status="over_budget", reason=str(exc))
+        return report
+    report["estimate"] = estimate
+    try:
+        spend.check(estimate.pop("_total"))
     except SpendLimitExceeded as exc:
         report.update(status="over_budget", reason=str(exc))
         return report
@@ -844,6 +944,75 @@ def run_bench(
     return report
 
 
+def plan_admission(
+    vault: LoadedVault,
+    plan: Mapping[str, Any],
+    spend: ReviewSpend,
+    *,
+    writer_client: Any = None,
+    embedding_price_per_million: float | None = None,
+) -> dict[str, Any]:
+    """The whole plan's estimate on ``spend``'s routes (no client built, nothing sent).
+
+    Each LLM role is classified from its configured route (or the injected
+    client): a subscription route (Codex) counts its calls only and its cost
+    is ``estimated_only``; a metered route counts its input-plus-output tokens
+    at the owner's price, and an unknown price fails closed at admission.
+    Embeddings are metered at the published or owner price (unknown: refused
+    here). ``_total`` is the combined estimate to check.
+    """
+
+    from learnloop.diagnosis.recurrence.backlog import route_profile
+
+    estimates: list[SpendEstimate] = []
+    billing: dict[str, str] = {}
+    subscription = {"calls": 0, "tokens": 0}
+    llm_calls = llm_tokens = 0
+    for role, info in (plan.get("roles") or {}).items():
+        calls, tokens = int(info.get("calls", 0)), int(info.get("tokens", 0))
+        llm_calls += calls
+        llm_tokens += tokens
+        if writer_client is not None:
+            route = spend.register(role, writer_client)
+        else:
+            profile = route_profile(vault, ROLE_TASKS.get(role, role))
+            route = spend.register_profile(role, provider=profile["provider"], model=profile["model"],
+                                           subscription=bool(profile["subscription"]), max_tokens=profile["max_tokens"])
+        billing[role] = route.billing
+        if route.billing == "subscription":
+            subscription["calls"] += calls
+            subscription["tokens"] += tokens
+        # ``tokens`` already holds input plus output.
+        estimates.append(spend.estimate(role, calls=calls, input_tokens=tokens, output_tokens=0))
+    embed_calls = embed_tokens = 0
+    for model, entry in (plan.get("embedding") or {}).items():
+        calls, tokens = int(entry.get("calls", 0)), int(entry.get("tokens", 0))
+        if not calls:
+            continue
+        price = embedding_price_per_million if embedding_price_per_million is not None else EMBEDDING_PRICES_PER_MILLION.get(model)
+        if price is None:
+            raise SpendLimitExceeded(f"Unknown embedding price for {model}: pass --embedding-price-per-million")
+        route_name = f"{EMBEDDING_ROUTE}:{model}"
+        source = "owner_override" if embedding_price_per_million is not None else "known"
+        spend.routes[route_name] = RouteInfo(route_name, "embedding", model, "metered", price, source, 0)
+        billing[route_name] = "metered"
+        embed_calls += calls
+        embed_tokens += tokens
+        estimates.append(spend.estimate(route_name, calls=calls, input_tokens=tokens, output_tokens=0))
+    total = sum_estimates(*estimates) if estimates else SpendEstimate(estimated_usd=0.0)
+    return {
+        "llm_calls": llm_calls,
+        "llm_tokens": llm_tokens,
+        "embedding_calls": embed_calls,
+        "embedding_tokens": embed_tokens,
+        "metered": {"calls": total.calls - subscription["calls"], "tokens": total.total_tokens,
+                    "estimated_usd": total.estimated_usd, "cost_basis": "metered_caps"},
+        "subscription": {**subscription, "cost_basis": "estimated_only"},
+        "billing": billing,
+        "_total": total,
+    }
+
+
 def render_markdown(report: Mapping[str, Any]) -> str:
     lines = [f"# Recurrence benchmark {report['suite']}", "", f"Status: {report['status']}.", ""]
     results = report.get("results") or {}
@@ -876,6 +1045,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
 
 
 __all__ = [
+    "B1_WRITER_ROLE",
     "B1Suite",
     "B3Suite",
     "BenchContext",
@@ -884,8 +1054,10 @@ __all__ = [
     "VectorCache",
     "blocking_cutoff",
     "load_eedi",
+    "plan_admission",
     "rank_metrics",
     "register_suites",
+    "requested_dims",
     "roc_auc",
     "run_bench",
 ]

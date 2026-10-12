@@ -38,13 +38,21 @@ class StatementFake(ReviewFakeClient):
     """
 
     def __init__(self, statements: Mapping[str, str], *, cite: bool = False, decide: Decide = different,
-                 operators: Mapping[str, str] | None = None, **kwargs: Any) -> None:
+                 operators: Mapping[str, str] | None = None, escalation_operator: str = "elicit_rule",
+                 on_diagnosis: Callable[[str], None] | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.statements = dict(statements)
         self.cite = cite
         self.decide = decide
         #: answer substring -> the repair operator its diagnosis suggests.
         self.operators = dict(operators or {})
+        #: The operator the escalated-repair request answers with (the
+        #: default repeats the diagnoser's: a model ignoring the instruction).
+        self.escalation_operator = escalation_operator
+        #: Every escalated-repair request's context, in order.
+        self.escalation_requests: list[dict[str, Any]] = []
+        #: Called with the answer text on every diagnosis (e.g. to cancel a command).
+        self.on_diagnosis = on_diagnosis
         self.judged: list[tuple[str, str]] = []
 
     def _operator(self, answer: str) -> str:
@@ -62,6 +70,8 @@ class StatementFake(ReviewFakeClient):
     def _diagnosis(self, request, context):
         result = super()._diagnosis(request, context)
         answer = str(context["current_attempt"]["learner_answer_md"])
+        if self.on_diagnosis is not None:
+            self.on_diagnosis(answer)
         statement = self._statement(answer)
         events = [
             event.model_copy(
@@ -91,6 +101,19 @@ class StatementFake(ReviewFakeClient):
         first, second = context["first"]["statement"], context["second"]["statement"]
         self.judged.append((first, second))
         return SameOrDifferent(verdict=self.decide(first, second), rationale="fake judgment")
+
+    def _recurrence_escalation_repair(self, request, context):
+        from learnloop.diagnosis.recurrence.escalation import EscalatedRepair
+
+        self.escalation_requests.append(dict(context))
+        operator = self.escalation_operator
+        return EscalatedRepair(
+            operator=operator,
+            representation="worked contrast",
+            practice_mode="contrast",
+            rationale="Put the wrong and the right reasoning side by side.",
+            eliciting_question="Which step differs?" if operator.startswith("elicit_") else None,
+        )
 
 
 class JudgeFake(ReviewFakeClient):

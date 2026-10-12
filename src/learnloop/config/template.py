@@ -814,21 +814,22 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the unset ai.routing.same_cause_judge route. Both are dormant below
     # mvp-0.11 (the algorithm version gates the recurrence groups), so
     # mvp-0.9 and mvp-0.10 serving are unchanged.
-    "mvp-0.9": "0faf3bf489a17cec015c6767cac0d565aced9036184f086b5d7d6a2ef19a5c0d",
+    "mvp-0.9": "75331093a127ed2ab016db813641a840511ccc9a7142b5b7bf2d3fde8cfafd09",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed.
-    "mvp-0.10": "fc47eada8e5270f9d63e4741c332f1240866ca477b9f38208cd883b216209e8a",
+    "mvp-0.10": "af833305e29c7f381254f26283c921ce4df72ee2099f8761dc68a7bf69cf2b34",
     # mvp-0.11 (Slice 2 T1 / M3): the same effective defaults with recurrence
     # groups live (recurrence.enabled, the live same-cause judge with top_k 3
-    # and no blocking cutoff until B3 sets one, the escalation card). Reached
+    # and no blocking cutoff until B3 sets one, the escalation card and its
+    # escalated-repair request). Reached
     # by `learnloop upgrade --to mvp-0.11` once the same-answer/different-cause
     # guard passes. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed.
-    "mvp-0.11": "54429a9360fe8bb771eb2005b52655602bd2894fd0894a5aeedcdf0306c6822b",
+    "mvp-0.11": "075e8f99b594184023862ab0d5331b955623962787f60d23e6badcb5d94162d8",
 }
 
 

@@ -14,8 +14,11 @@ blind-grading/diagnosis split (`blind_grade_records`, `attempt_diagnoses`,
 and the `diagnostic_augmentation_receipts.grader_mode` column); migration 172
 adds Slice 2 T1's recurrence groups (`hypothesis_recurrence_groups`,
 `hypothesis_recurrence_review`, `hypothesis_recurrence_state`), the
-`recurrence_escalations` receipt, and rebuilds `diagnosis_feedback` so its
-response also accepts the `escalation:` usefulness taps. It pins
+`recurrence_escalations` receipt (with the escalated repair's source and
+payload), the guard's registered planted cases (`recurrence_guard_cases`),
+the shared judge's work claims (`judgment_work_claims`), and rebuilds
+`diagnosis_feedback` so its response also accepts the `escalation:`
+usefulness taps. It pins
 current-head schema coverage while the original populated fixture and the
 other vaults remain at historical versions for upgrade-path tests.
 

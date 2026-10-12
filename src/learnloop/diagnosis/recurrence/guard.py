@@ -8,12 +8,18 @@ verdicts go to ``judgment_ledger`` (task ``same_cause``, subject kind
 ``planted_hypothesis``, which never touches a vault's groups).
 
 **Any false merge blocks the switch**: ``learnloop upgrade --to mvp-0.11``
-refuses unless every negative pair has a verdict from the configured judge
-under the current prompt version and none of them is ``same``.
+refuses unless every REQUIRED negative pair has a verdict from the CONFIGURED
+judge model under the current prompt version and input, and none of that
+model's standing verdicts on them is ``same``. Verdicts from another model
+never count (a route change needs a rerun, which asks the new model: reuse is
+per producer), and ``--rerun`` asks the same model again, superseding its
+previous verdicts.
 
-The built-in suite is authored here (deterministic, no learner data). An M1
-review run directory adds its planted ``same_answer_different_cause`` and
-``paraphrased_recurrence`` cases (Slice 1 S1.0).
+The required suite is the built-in one (authored here: deterministic, no
+learner data) plus every case registered in ``recurrence_guard_cases``: an M1
+review run's planted ``same_answer_different_cause`` cases, registered the
+first time ``learnloop recurrence guard --from-run`` runs them, stay required
+for every later switch check.
 """
 
 from __future__ import annotations
@@ -52,6 +58,7 @@ GUARD_KIND = MatchKind(
     question=SAME_CAUSE.question,
     guidance=SAME_CAUSE.guidance,
     render=SAME_CAUSE.render,
+    recipe=SAME_CAUSE.recipe,
 )
 
 
@@ -198,11 +205,50 @@ def guard_pairs(suite: Sequence[PlantedPair]) -> list[CandidatePair]:
     ]
 
 
-def guard_suite(*, from_run: Path | None = None) -> list[PlantedPair]:
+def registered_cases(repository: Repository) -> list[PlantedPair]:
+    """The planted cases registered as required (beyond the built-in suite)."""
+
+    return [
+        PlantedPair(
+            case_id=str(row["case_id"]), expected=str(row["expected"]), topic=str(row.get("topic") or ""),
+            problem=str(row.get("problem") or ""), shared_answer=row.get("shared_answer"),
+            statement_a=str(row["statement_a"]), statement_b=str(row["statement_b"]),
+            quote_a=row.get("quote_a"), quote_b=row.get("quote_b"), source=str(row["source"]),
+        )
+        for row in repository.recurrence_guard_cases()
+    ]
+
+
+def register_suite(repository: Repository, cases: Sequence[PlantedPair]) -> int:
+    """Make cases required for the switch (idempotent by case id)."""
+
+    from learnloop.db.stores.recurrence import register_guard_cases
+
+    extra = [case for case in cases if case.source != "builtin"]
+    if not extra:
+        return 0
+    with repository.atomic():
+        return register_guard_cases(
+            repository.connection(),
+            [{**case.__dict__, "suite_version": GUARD_SUITE_VERSION} for case in extra],
+        )
+
+
+def guard_suite(*, from_run: Path | None = None, repository: Repository | None = None) -> list[PlantedPair]:
+    """The built-in suite, the registered cases, and an M1 run's cases (deduplicated)."""
+
     suite = list(BUILTIN_SUITE)
+    if repository is not None:
+        suite.extend(registered_cases(repository))
     if from_run is not None:
         suite.extend(suite_from_run(from_run))
-    return suite
+    seen: set[str] = set()
+    unique = []
+    for case in suite:
+        if case.case_id not in seen:
+            seen.add(case.case_id)
+            unique.append(case)
+    return unique
 
 
 def suite_hash(suite: Sequence[PlantedPair]) -> str:
@@ -217,49 +263,58 @@ def guard_status(
     suite: Sequence[PlantedPair] | None = None,
     judge_model: str | None = None,
 ) -> dict[str, Any]:
-    """The latest verdict per planted pair under the current prompt version.
+    """Each planted pair's standing verdicts under the current prompt and input.
 
-    ``passed`` needs every NEGATIVE pair judged (by ``judge_model`` when it is
-    given) and no false merge. Positives only report recall.
+    ``suite`` defaults to the REQUIRED suite (built-in plus registered cases).
+    ``passed`` needs every negative judged by ``judge_model`` and none of its
+    standing (not superseded) verdicts ``same``; without ``judge_model`` any
+    model's verdicts count (a report, never the switch check). Positives only
+    report recall.
     """
 
-    suite = list(suite if suite is not None else BUILTIN_SUITE)
-    rows: dict[tuple[str, str], dict[str, Any]] = {}
+    suite = list(suite if suite is not None else guard_suite(repository=repository))
+    verdicts: dict[frozenset[str], list[dict[str, Any]]] = {}
     with repository.connection() as connection:
         for row in connection.execute(
-            "SELECT left_id, right_id, verdict, judge_model, input_hash, created_at, id FROM judgment_ledger "
-            "WHERE task = ? AND judge = 'llm' AND prompt_version = ? AND left_kind = ? AND right_kind = ? "
-            "ORDER BY created_at, id",
+            "SELECT j.left_id, j.right_id, j.verdict, j.judge_model, j.input_hash FROM judgment_ledger j "
+            "WHERE j.task = ? AND j.judge = 'llm' AND j.prompt_version = ? AND j.left_kind = ? AND j.right_kind = ? "
+            "AND NOT EXISTS (SELECT 1 FROM judgment_ledger later WHERE later.supersedes_id = j.id) "
+            "ORDER BY j.created_at, j.id",
             (GUARD_KIND.task, GUARD_KIND.prompt_version, GUARD_SUBJECT_KIND, GUARD_SUBJECT_KIND),
         ):
             if judge_model is not None and str(row[3]) != judge_model:
                 continue
-            rows[(str(row[0]), str(row[1]))] = {"verdict": str(row[2]), "judge_model": row[3], "input_hash": row[4]}
-            rows[(str(row[1]), str(row[0]))] = rows[(str(row[0]), str(row[1]))]
+            verdicts.setdefault(frozenset((str(row[0]), str(row[1]))), []).append(
+                {"verdict": str(row[2]), "judge_model": row[3], "input_hash": row[4]}
+            )
     false_merges: list[str] = []
     missing: list[str] = []
     recall_hits = 0
     positives = 0
     models: set[str] = set()
     for pair, candidate in zip(suite, guard_pairs(suite), strict=True):
-        found = rows.get((candidate.left.id, candidate.right.id))
-        if found is not None and found["input_hash"] != pair_input_hash(GUARD_KIND, candidate.left, candidate.right):
-            found = None  # judged on different text: the suite changed since
-        if found is not None and found.get("judge_model"):
-            models.add(str(found["judge_model"]))
+        expected_hash = pair_input_hash(GUARD_KIND, candidate.left, candidate.right)
+        # Verdicts on different text (the suite changed since) do not count.
+        found = [
+            row for row in verdicts.get(frozenset((candidate.left.id, candidate.right.id)), [])
+            if row["input_hash"] == expected_hash
+        ]
+        models.update(str(row["judge_model"]) for row in found if row.get("judge_model"))
         if pair.expected == "different":
-            if found is None:
+            if not found:
                 missing.append(pair.case_id)
-            elif found["verdict"] == "same":
+            elif any(row["verdict"] == "same" for row in found):
                 false_merges.append(pair.case_id)
         else:
             positives += 1
-            if found is not None and found["verdict"] == "same":
+            if found and found[-1]["verdict"] == "same":
                 recall_hits += 1
     negatives = sum(1 for pair in suite if pair.expected == "different")
     return {
         "suite_version": GUARD_SUITE_VERSION,
         "suite_hash": suite_hash(suite),
+        "cases": len(suite),
+        "registered_cases": sum(1 for pair in suite if pair.source != "builtin"),
         "prompt_version": GUARD_KIND.prompt_version,
         "judge_model": judge_model,
         "judge_models_seen": sorted(models),
@@ -281,10 +336,16 @@ def run_guard(
     price_per_million: float | None = None,
     from_run: Path | None = None,
     dry_run: bool = False,
+    rerun: bool = False,
     cancelled: Any = None,
     judge_client: Any = None,
 ) -> dict[str, Any]:
-    """Judge every planted pair not yet judged under the current prompt version."""
+    """Judge every required planted pair the configured judge has not judged.
+
+    ``from_run`` adds an M1 run's cases and (unless ``dry_run``) registers
+    them as required. ``rerun`` asks the judge again on every pair and its
+    verdicts supersede that model's earlier ones.
+    """
 
     from learnloop.ai.execution import record_model_calls
     from learnloop.ai.spend import SpendLimitExceeded
@@ -293,18 +354,21 @@ def run_guard(
         default_judge_client,
         estimate_tokens,
         judge_executor,
+        model_label,
         receipt_sink,
     )
     from learnloop.matching.judge import already_judged, judge_pairs, pair_prompt
 
-    suite = guard_suite(from_run=from_run)
+    suite = guard_suite(from_run=from_run, repository=repository)
     pairs = guard_pairs(suite)
+    producer = model_label(judge_client) if judge_client is not None else configured_judge_model(vault)
     spend = command_spend(vault, caps, price_per_million=price_per_million, cancelled=cancelled, embedding=False)
     with repository.connection() as connection:
         todo = [
             pair for pair in pairs
-            if not already_judged(connection, GUARD_KIND, pair.left, pair.right,
-                                  input_hash=pair_input_hash(GUARD_KIND, pair.left, pair.right))
+            if rerun or not already_judged(connection, GUARD_KIND, pair.left, pair.right,
+                                           input_hash=pair_input_hash(GUARD_KIND, pair.left, pair.right),
+                                           producer=producer)
         ]
     prompt_tokens = sum(estimate_tokens(pair_prompt(GUARD_KIND, pair.left, pair.right)) for pair in todo)
     estimate = spend.estimate(
@@ -322,6 +386,8 @@ def run_guard(
         "suite_hash": suite_hash(suite),
         "cases": len(suite),
         "negatives": sum(1 for pair in suite if pair.expected == "different"),
+        "judge_model": producer,
+        "rerun": rerun,
         "pairs_to_judge": len(todo),
         "estimate": {"calls": estimate.calls, "metered_tokens": estimate.total_tokens, "metered_usd": estimate.estimated_usd},
         "routes": {route: info.as_dict() for route, info in spend.routes.items()},
@@ -330,11 +396,13 @@ def run_guard(
         "refusal": refusal,
     }
     if dry_run:
-        report["current"] = guard_status(repository, suite=suite)
+        report["current"] = guard_status(repository, suite=suite, judge_model=producer)
         return report
     if not admissible:
         report["status"] = "over_budget"
         return report
+    # The run's cases are required from now on, judged or not.
+    report["registered"] = register_suite(repository, suite)
     results = []
     if todo:
         client = judge_client if judge_client is not None else default_judge_client(vault)
@@ -344,10 +412,14 @@ def run_guard(
         owner_id = repository.sqlite_path.parent.name
         spend.collector.sink = receipt_sink(repository, owner_kind="recurrence_guard", owner_id=owner_id)
         with record_model_calls(repository, owner_kind="recurrence_guard", owner_id=owner_id):
-            results = judge_pairs(repository, GUARD_KIND, todo, execute=judge_executor(spend, client))
+            executor = judge_executor(spend, client)
+            report["judge_model"] = executor.producer
+            results = judge_pairs(repository, GUARD_KIND, todo, execute=executor, rerun=rerun)
     report["judged"] = sum(1 for row in results if row.status == "judged")
-    report["not_judged"] = [row.as_dict() for row in results if row.status in ("failed", "not_run")]
-    report["result"] = guard_status(repository, suite=suite)
+    report["not_judged"] = [
+        row.as_dict() for row in results if row.status in ("failed", "not_run", "claimed_elsewhere", "fenced")
+    ]
+    report["result"] = guard_status(repository, suite=suite, judge_model=report["judge_model"])
     report["spend"] = spend.summary()
     report["status"] = "complete" if not report["not_judged"] else "incomplete"
     return report
@@ -374,6 +446,8 @@ __all__ = [
     "guard_pairs",
     "guard_status",
     "guard_suite",
+    "register_suite",
+    "registered_cases",
     "run_guard",
     "suite_from_run",
     "suite_hash",

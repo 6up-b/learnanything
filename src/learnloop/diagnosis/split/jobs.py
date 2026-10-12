@@ -44,7 +44,7 @@ from learnloop.diagnosis.offline_review.spend import ReviewSpend
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import project_canonical_facet_state
-from learnloop.substrate.recurrence_groups import claim_for_citation
+from learnloop.substrate.recurrence_groups import claim_for_citation, recurrence_active
 from learnloop.vault.models import LoadedVault
 
 LOG = logging.getLogger(__name__)
@@ -501,6 +501,26 @@ def _diagnosis_reserve(spend: ReviewSpend, count: int) -> SpendEstimate:
     )
 
 
+def _remaining_diagnoses_reserve(
+    spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None = None
+) -> Callable[[], SpendEstimate]:
+    """What a command must keep for the diagnoses still queued after this one.
+
+    Slice 2 T1's judge calls, embedding requests and escalated repair are
+    optional work inside a diagnose job: each is admitted on the command's
+    budget only while every OTHER queued diagnosis (the current one is done)
+    still fits after it (a call and its output limit each).
+    """
+
+    def reserve() -> SpendEstimate:
+        queued = len(
+            repository.post_attempt_jobs(kind=DIAGNOSE_KIND, states=("queued", "leased"), attempt_id=scope_attempt_id)
+        )
+        return _diagnosis_reserve(spend, max(queued - 1, 0))
+
+    return reserve
+
+
 def _command_retrieval_guard(
     spend: ReviewSpend, repository: Repository, *, scope_attempt_id: str | None = None
 ) -> Callable[[str, int], Any]:
@@ -668,7 +688,8 @@ def run_diagnose_job(
         if existing["status"] == "completed" and existing["mode"] == "live":
             apply_diagnosis(
                 vault, repository, attempt=attempt, diagnosis=existing, session_id=session_id, clock=clock,
-                judge_factory=judge_factory, embedding_factory=embedding_factory,
+                judge_factory=judge_factory, embedding_factory=embedding_factory, writer_factory=client_factory,
+                spend=spend, scope_attempt_id=scope_attempt_id, cancelled=cancelled,
             )
             if vault.config.embedding.enabled:
                 enqueue_embed_job(
@@ -900,8 +921,18 @@ def apply_diagnosis(
     clock: Clock | None = None,
     judge_factory: ClientFactory | None = None,
     embedding_factory: ClientFactory | None = None,
+    writer_factory: ClientFactory | None = None,
+    spend: ReviewSpend | None = None,
+    scope_attempt_id: str | None = None,
+    cancelled: Cancelled | None = None,
 ) -> None:
     """The diagnosis-dependent pipeline steps (§7.2 worker half). Idempotent.
+
+    ``spend``: the enclosing command's budget (``drain``/``retry``). Its caps,
+    cancellation and spend summary then cover T1's judge calls, embedding
+    requests and escalated-repair request too, each admitted only while the
+    command's remaining diagnoses still fit; without one they run under
+    per-job budgets.
 
     1. The attempt's still-open factor takes the candidate set the projection
        now derives from the diagnosis (what a rebuild would open it with).
@@ -934,9 +965,10 @@ def apply_diagnosis(
         project_canonical_facet_state(
             vault, repository, clock=clock, refresh_factor_candidates_for={attempt_id}
         )
+    reserve = _remaining_diagnoses_reserve(spend, repository, scope_attempt_id=scope_attempt_id) if spend is not None else None
     recurrence_step(
         vault, repository, attempt_id=attempt_id, judge_factory=judge_factory,
-        embedding_factory=embedding_factory, clock=clock,
+        embedding_factory=embedding_factory, spend=spend, reserve=reserve, cancelled=cancelled, clock=clock,
     )
     normalize_and_resolve_attempt(
         vault,
@@ -956,7 +988,10 @@ def apply_diagnosis(
     )
     record_pattern_verdicts(repository, diagnosis=diagnosis, attempt_id=attempt_id)
     try:
-        record_escalation(vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, clock=clock)
+        record_escalation(
+            vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, writer_factory=writer_factory,
+            spend=spend, reserve=reserve, cancelled=cancelled, clock=clock,
+        )
     except Exception:  # noqa: BLE001 - the escalation display never fails the diagnosis
         LOG.warning("escalation receipt failed for attempt %s", attempt_id, exc_info=True)
 
@@ -1219,6 +1254,78 @@ def _retrieval_plan(
     }
 
 
+def _recurrence_plan(
+    vault: LoadedVault, spend: ReviewSpend, diagnosis_estimate: SpendEstimate, *, jobs: int
+) -> dict[str, Any] | None:
+    """Slice 2 T1's work inside the planned diagnose jobs, on the same caps.
+
+    An upper bound per job: ``recurrence.judge_max_pairs_per_attempt`` judge
+    calls, one embedding request for the attempt's own hypotheses and, at a
+    recurrence group's K-th answer, one escalated-repair request. Like
+    retrieval it is optional: at run time each request is admitted only while
+    the remaining diagnoses still fit, and a refused one sends nothing.
+    """
+
+    from learnloop.diagnosis.recurrence.backlog import route_profile
+    from learnloop.diagnosis.recurrence.escalation import (
+        ESCALATION_REPAIR_PROMPT_TOKENS,
+        ESCALATION_REPAIR_ROUTE,
+    )
+    from learnloop.diagnosis.recurrence.kind import SAME_CAUSE_ROUTE
+    from learnloop.diagnosis.recurrence.live import PLANNED_EMBED_TOKENS_PER_JOB, PLANNED_JUDGE_PROMPT_TOKENS
+
+    if jobs <= 0 or not recurrence_active(vault):
+        return None
+    config = vault.config.recurrence
+    judging = bool(config.judge_enabled) and bool(vault.config.embedding.enabled) and int(config.judge_max_pairs_per_attempt) > 0
+    judge_calls = jobs * int(config.judge_max_pairs_per_attempt) if judging else 0
+    embed_calls = jobs if judging and RETRIEVAL_ROUTE in spend.routes else 0
+    repair_calls = jobs if bool(getattr(config, "escalation_repair_enabled", True)) else 0
+    for route, source in ((SAME_CAUSE_ROUTE, SAME_CAUSE_ROUTE), (ESCALATION_REPAIR_ROUTE, DIAGNOSIS_ROUTE)):
+        if route not in spend.routes:
+            profile = route_profile(vault, source)
+            spend.register_profile(route, provider=profile["provider"], model=profile["model"],
+                                   subscription=bool(profile["subscription"]), max_tokens=profile["max_tokens"])
+    parts = {
+        "judge": spend.estimate(SAME_CAUSE_ROUTE, calls=judge_calls, input_tokens=judge_calls * PLANNED_JUDGE_PROMPT_TOKENS,
+                                output_tokens=judge_calls * spend.output_limit(SAME_CAUSE_ROUTE)),
+        "escalation_repair": spend.estimate(
+            ESCALATION_REPAIR_ROUTE, calls=repair_calls, input_tokens=repair_calls * ESCALATION_REPAIR_PROMPT_TOKENS,
+            output_tokens=repair_calls * spend.output_limit(ESCALATION_REPAIR_ROUTE),
+        ),
+    }
+    if embed_calls:
+        parts["embedding"] = spend.estimate(RETRIEVAL_ROUTE, calls=embed_calls,
+                                            input_tokens=embed_calls * PLANNED_EMBED_TOKENS_PER_JOB, output_tokens=0)
+    total = _sum_estimates(*parts.values())
+    try:
+        spend.check(_sum_estimates(diagnosis_estimate, total))
+        fits, reason = True, None
+    except SpendLimitExceeded as exc:
+        fits, reason = False, str(exc)
+    return {
+        "max_calls": total.calls,
+        "by_part": {
+            name: {"calls": value.calls, "metered_total_tokens": value.total_tokens, "estimated_usd": value.estimated_usd}
+            for name, value in parts.items()
+        },
+        "estimate": {"calls": total.calls, "metered_total_tokens": total.total_tokens, "estimated_usd": total.estimated_usd},
+        "routes": {
+            name: spend.routes[route].as_dict()
+            for name, route in (("judge", SAME_CAUSE_ROUTE), ("escalation_repair", ESCALATION_REPAIR_ROUTE),
+                                ("embedding", RETRIEVAL_ROUTE))
+            if route in spend.routes
+        },
+        "fits": fits,
+        "reason": reason,
+        "note": (
+            "Slice 2 T1 inside each diagnose job, an upper bound: judge calls, one embedding request and at most "
+            "one escalated-repair request per job; each is admitted on these caps only while the queued diagnoses "
+            "still fit, and a refused one sends nothing (its pairs wait for the backlog)"
+        ),
+    }
+
+
 _RETRIEVAL_NOTE = (
     "retrieval embeddings are admitted on these caps one request at a time, only while every queued "
     "diagnosis still fits after them; a refused request sends nothing and that diagnosis uses the exact set (S6)"
@@ -1318,8 +1425,11 @@ def plan_diagnosis_jobs(
         admissible, reason = False, str(exc)
     info = spend.routes[DIAGNOSIS_ROUTE]
     retrieval = _retrieval_plan(spend, estimate, calls=retrieval_calls, input_tokens=retrieval_tokens)
+    applying = sum(1 for entry in planned if entry.get("action") in ("diagnose", "resume:no_call"))
+    recurrence = _recurrence_plan(vault, spend, estimate, jobs=applying)
     return {
         "jobs": planned,
+        "recurrence": recurrence,
         "blocked": blocked,
         "calls": calls,
         "estimated_input_tokens": input_tokens,
@@ -1364,8 +1474,10 @@ def plan_unqueued_diagnosis(
     except SpendLimitExceeded as exc:
         admissible, reason = False, str(exc)
     retrieval = _retrieval_plan(spend, estimate, calls=requests, input_tokens=embed_tokens)
+    recurrence = _recurrence_plan(vault, spend, estimate, jobs=1)
     return {
         "jobs": [{"attempt_id": attempt_id, "action": "diagnose", "estimated_input_tokens": tokens}],
+        "recurrence": recurrence,
         "blocked": None,
         "calls": 1,
         "estimated_input_tokens": tokens,

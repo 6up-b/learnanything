@@ -42,9 +42,12 @@ CREATE TABLE hypothesis_recurrence_review (
 );
 CREATE INDEX hypothesis_recurrence_review_kind ON hypothesis_recurrence_review(case_kind, occurred_at);
 
--- One row (scope 'vault') while the successor is active: the inputs the
--- current groups were built from (a cheap fingerprint lets normalization skip
--- an unchanged rebuild) and counts. No row while it is inactive.
+-- One row (scope 'vault'): the inputs the current groups were built from (a
+-- cheap fingerprint lets normalization skip an unchanged rebuild) and counts.
+-- active = 1: the groups are in force (the successor is active and
+-- recurrence.enabled is on). active = 0: PREPARED by `upgrade --to mvp-0.11`
+-- before its config switch; consumers read no group until activation flips
+-- it. No row while the successor is off.
 CREATE TABLE hypothesis_recurrence_state (
   scope TEXT PRIMARY KEY,
   input_fingerprint TEXT NOT NULL,
@@ -70,9 +73,18 @@ CREATE TABLE recurrence_escalations (
   repair_operator TEXT,
   prior_operators_json TEXT NOT NULL DEFAULT '[]',
   different_approach INTEGER NOT NULL CHECK (different_approach IN (0, 1)),
+  -- Where the shown repair came from: one of the diagnosis's own repairs, a
+  -- repair written at escalation time with a different operator and
+  -- representation (its payload in repair_json), or none.
+  repair_source TEXT NOT NULL DEFAULT 'diagnosis'
+    CHECK (repair_source IN ('diagnosis', 'generated', 'none')),
+  repair_json TEXT,
+  -- The escalated-repair request: whether it ran, and why it was not used.
+  generation_json TEXT NOT NULL DEFAULT '{}',
   algorithm_version TEXT NOT NULL,
   created_at TEXT NOT NULL,
-  UNIQUE (attempt_id, diagnosis_id)
+  UNIQUE (attempt_id, diagnosis_id),
+  CHECK ((repair_source = 'generated') = (repair_json IS NOT NULL))
 );
 CREATE INDEX recurrence_escalations_group ON recurrence_escalations(group_key, created_at);
 CREATE TRIGGER recurrence_escalations_no_update
@@ -85,6 +97,58 @@ BEFORE DELETE ON recurrence_escalations
 BEGIN
   SELECT RAISE(ABORT, 'recurrence_escalations are append-only');
 END;
+
+-- The same-answer/different-cause guard's planted cases beyond the built-in
+-- suite (an M1 run's cases added with `recurrence guard --from-run`). Once
+-- registered, a case is required: the switch to mvp-0.11 needs a verdict on
+-- every registered negative from the configured judge (§3.6). Append-only.
+CREATE TABLE recurrence_guard_cases (
+  case_id TEXT PRIMARY KEY,
+  suite_version TEXT NOT NULL,
+  expected TEXT NOT NULL CHECK (expected IN ('same', 'different')),
+  topic TEXT NOT NULL DEFAULT '',
+  problem TEXT NOT NULL DEFAULT '',
+  shared_answer TEXT,
+  statement_a TEXT NOT NULL,
+  statement_b TEXT NOT NULL,
+  quote_a TEXT,
+  quote_b TEXT,
+  source TEXT NOT NULL,
+  registered_at TEXT NOT NULL
+);
+CREATE TRIGGER recurrence_guard_cases_no_update
+BEFORE UPDATE ON recurrence_guard_cases
+BEGIN
+  SELECT RAISE(ABORT, 'recurrence_guard_cases are append-only');
+END;
+CREATE TRIGGER recurrence_guard_cases_no_delete
+BEFORE DELETE ON recurrence_guard_cases
+BEGIN
+  SELECT RAISE(ABORT, 'recurrence_guard_cases are append-only');
+END;
+
+-- Work claims of the shared "same or different?" judge (learnloop.matching):
+-- one row per (task, producer, prompt version, input) question. A worker
+-- claims it in a short write transaction BEFORE the model call (the call
+-- itself runs outside any transaction); a live lease held by another worker
+-- makes it skip the pair, an expired lease is re-claimed with a new epoch,
+-- and the verdict is appended only while the worker's epoch still holds
+-- (completion fencing), so two workers never pay for, or append, the same
+-- verdict twice. Mutable workflow state, never replayed.
+CREATE TABLE judgment_work_claims (
+  claim_key TEXT PRIMARY KEY,
+  task TEXT NOT NULL,
+  producer TEXT NOT NULL,
+  prompt_version TEXT,
+  input_hash TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('leased', 'done', 'released')),
+  lease_owner TEXT,
+  lease_expires_at TEXT,
+  lease_epoch INTEGER NOT NULL DEFAULT 0,
+  judgment_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 
 -- diagnosis_feedback gains the escalation usefulness tap (§3.7): the response
 -- is prefixed "escalation:". SQLite cannot widen a CHECK in place, so the

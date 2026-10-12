@@ -75,6 +75,7 @@ from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.diagnostic_gate import normalize_answer
 from learnloop.diagnosis.scoreboard import Metric
+from learnloop.substrate.recurrence_groups import active_group_map
 from learnloop.vault.models import LoadedVault, PlantedError, PracticeItem
 
 #: Stamped into outcomes so a later reader knows which matching rules produced a
@@ -463,11 +464,13 @@ def record_error_hunt_outcome(
         # (the vault's recurrence groups once Slice 2 T1's successor is on).
         from learnloop.recurrence import recurrence_key
 
+        if vault is not None:
+            groups = active_group_map(vault, repository)
+        else:
+            groups = repository.recurrence_group_map()
         existing = repository.misconception_candidate_by_normalized(
             learning_object_id=learning_object_id,
-            statement_normalized=recurrence_key(
-                {"statement_normalized": normalized}, repository.recurrence_group_map()
-            ),
+            statement_normalized=recurrence_key({"statement_normalized": normalized}, groups),
         )
         if existing is not None:
             candidate_id = str(existing["id"])

@@ -163,14 +163,19 @@ def escalation_block(
     headline = f"{_ordinal(count)} time with this one"
     if escalation["different_approach"]:
         headline += " - trying a different approach"
-    repair = next(
-        (
-            dict(row)
-            for row in repair_suggestions
-            if escalation.get("repair_suggestion_id") and str(row.get("id")) == escalation["repair_suggestion_id"]
-        ),
-        None,
-    )
+    if escalation.get("repair_source") == "generated" and isinstance(escalation.get("repair"), Mapping):
+        # Written at escalation time with an operator none of the earlier
+        # repairs used (§3.7); it is not one of the diagnosis's own.
+        repair: dict[str, Any] | None = dict(escalation["repair"])
+    else:
+        repair = next(
+            (
+                dict(row)
+                for row in repair_suggestions
+                if escalation.get("repair_suggestion_id") and str(row.get("id")) == escalation["repair_suggestion_id"]
+            ),
+            None,
+        )
     earlier = []
     for attempt_id in escalation["earlier_attempt_ids"]:
         attempt = repository.fetch_practice_attempt(attempt_id) or {}
@@ -199,6 +204,7 @@ def escalation_block(
         if escalation["different_approach"]
         else "This is the same kind of repair you were shown before; no different one was available.",
         "repair": repair,
+        "repair_source": escalation.get("repair_source", "diagnosis"),
         "earlier_answers": earlier,
         "responses": [{"response": value, "label": ESCALATION_LABELS[value]} for value in ESCALATION_RESPONSES],
         "recorded_response": taps[-1] if taps else None,

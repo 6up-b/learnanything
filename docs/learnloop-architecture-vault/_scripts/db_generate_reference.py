@@ -851,7 +851,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "diagnostic_augmentation": "multi-sample diagnostic augmentation",
     "families": "explicit-command offline family authoring, not live scheduling",
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
-    "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.11): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs) and caps, and the escalation card",
+    "recurrence": "Slice 2 T1 recurrence groups with authority (mvp-0.11): kill switch, the live same-cause judge's shortlist (top-k and benchmark-set blocking cutoffs bound to the vectors they were measured on) and caps, the escalation card and its escalated-repair request",
 }
 
 
@@ -1145,8 +1145,9 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
         "Earlier in-scope hypotheses per new hypothesis whose pair reaches the same-cause judge."
     ),
     "recurrence.blocking_cutoffs": (
-        "Embedding model id to the recall-oriented cosine cutoff B3 sets; a model without one is blocked "
-        "by top-k alone. Never merges or rejects anything by score."
+        "Embedding model id to B3's entry: the recall-oriented cosine cutoff and the width, text recipe and "
+        "task prefix it was measured on. It applies only to stored vectors of exactly that identity (others "
+        "are refused); a model without one is blocked by top-k alone. Never merges or rejects anything by score."
     ),
     "recurrence.judge_max_pairs_per_attempt": (
         "Live judge calls per diagnose job; shortlisted pairs past it wait for the backlog command."
@@ -1156,6 +1157,11 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     ),
     "recurrence.escalation_card_enabled": (
         "Shows the escalated repair, its earlier answers and its usefulness tap on the diagnosis card."
+    ),
+    "recurrence.escalation_repair_enabled": (
+        "At a recurrence group's K-th answer, when none of the diagnosis's repairs differs from those shown "
+        "before, asks the diagnosis route once for a repair with a different operator and representation; "
+        "off, the card says the repair is the same kind as before."
     ),
 }
 

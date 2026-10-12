@@ -88,6 +88,7 @@ def recurrence_guard(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root (a fixtures-local copy first).")],
     from_run: Annotated[Path | None, typer.Option("--from-run", help="Also judge an M1 review run's planted same-answer/different-cause cases.")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Count the pairs and estimate the calls; no client, no call, no write.")] = False,
+    rerun: Annotated[bool, typer.Option("--rerun", help="Ask the configured judge again on every pair; its new verdicts supersede its earlier ones.")] = False,
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 60,
     max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 20,
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 400_000,
@@ -97,10 +98,14 @@ def recurrence_guard(
 ) -> None:
     """Run the same-answer/different-cause regression suite through the judge.
 
-    Every planted pair is judged once per judge prompt version (reruns skip
-    judged pairs); verdicts go to judgment_ledger on planted subjects, which
-    never join the vault's groups. A false merge on any negative pair blocks
-    `learnloop upgrade --to mvp-0.11`.
+    Every required planted pair (the built-in suite, every M1 case registered
+    by an earlier --from-run, and this --from-run's cases, which become
+    required) is judged once per judge MODEL and prompt version: a run skips
+    pairs this model already judged, a route change asks the new model, and
+    --rerun asks the same model again (superseding its verdicts). Verdicts go
+    to judgment_ledger on planted subjects, which never join the vault's
+    groups. A false merge on any negative pair blocks `learnloop upgrade --to
+    mvp-0.11`, as does any required negative the configured judge has not judged.
     """
 
     from learnloop.diagnosis.recurrence.guard import run_guard
@@ -110,7 +115,8 @@ def recurrence_guard(
     with _cancellation() as stop:
         report = run_guard(
             loaded, repository, caps=_caps(max_calls, max_retries, max_tokens, max_cost_usd),
-            price_per_million=price_per_million, from_run=from_run, dry_run=dry_run, cancelled=stop.is_set,
+            price_per_million=price_per_million, from_run=from_run, dry_run=dry_run, rerun=rerun,
+            cancelled=stop.is_set,
         )
     _echo(report, json_output)
     if report["status"] not in {"dry_run", "complete"}:
@@ -181,7 +187,7 @@ def recurrence_bench(
     output_dir: Annotated[Path, typer.Option("--output", "--output-dir", help="Report and vector-cache directory (outside the vault).")] = Path("fixtures-local/reports/recurrence-bench"),
     benchmark: Annotated[Path | None, typer.Option("--benchmark", help="b1: directory with the Eedi train.csv, misconception_mapping.csv and a manifest.json.")] = None,
     model: Annotated[list[str] | None, typer.Option("--model", help="Embedding model id (OpenRouter); repeatable. b1 default: the five candidates; b3: embedding.model.")] = None,
-    dims: Annotated[int, typer.Option("--dims", min=1, help="Common MRL width for every model compared.")] = 1024,
+    dims: Annotated[list[int] | None, typer.Option("--dims", min=1, help="Width(s) compared; repeatable. b1 default: 1024 (a width every candidate reaches); b3 default: the serving width, embedding.dimensions.")] = None,
     view: Annotated[list[str] | None, typer.Option("--view", help="b1 query views: raw, hypothesis; repeatable. Default: both.")] = None,
     target_recall: Annotated[float, typer.Option("--target-recall", min=0.5, max=1.0, help="b3: recall on confirmed matches that sets the cutoff and top_k.")] = 0.95,
     max_cases: Annotated[int | None, typer.Option("--max-cases", min=1, help="b1: cases sampled (deterministically).")] = None,
@@ -196,17 +202,21 @@ def recurrence_bench(
 ) -> None:
     """Run B1 or B3 (interim runner until Phase 5a's `embeddings compare` merges).
 
-    B1's hypothesis writer uses the diagnosis route (Codex: estimated only);
-    every embedding request is metered and admitted against the caps. Vectors
-    are cached in the output directory, never in the vault. Reports are
-    aggregate; B3 prints the recommended [recurrence] top_k and cutoff.
+    B1's hypothesis writer uses the diagnosis route: the dry run prices it
+    from that route's configuration (Codex: calls only, estimated_only;
+    metered: input plus output tokens at --price-per-million, unknown fails
+    closed) together with the embeddings. Every embedding request is metered
+    and admitted against the caps. Vectors are cached in the output
+    directory, never in the vault. Reports are aggregate; B3 prints the
+    recommended [recurrence] top_k and cutoff, with the width, recipe and
+    prefix it was measured on, only for the serving width.
     """
 
     from learnloop.diagnosis.recurrence.benchmarks import BenchRequest, run_bench
 
     loaded = _load(vault)
     request = BenchRequest(
-        suite=suite, output_dir=output_dir, benchmark_dir=benchmark, models=tuple(model or ()), dims=dims,
+        suite=suite, output_dir=output_dir, benchmark_dir=benchmark, models=tuple(model or ()), dims=tuple(dims or ()),
         views=tuple(view or ()), target_recall=target_recall, max_cases=max_cases, dry_run=dry_run,
     )
     caps = SpendCaps(

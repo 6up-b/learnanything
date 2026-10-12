@@ -31,7 +31,15 @@ joins nothing.
 The projection is empty unless the vault is at a ``RECURRENCE_GROUP_VERSIONS``
 successor with ``recurrence.enabled`` on. :func:`refresh_recurrence_groups`
 recomputes it when its input fingerprint (cheap ledger counters) changed; the
-``recurrence_groups`` rebuild replayer forces it.
+``recurrence_groups`` rebuild replayer forces it, and vault open
+(``sync_vault_state``) re-syncs it so the kill switch takes effect there.
+
+**Prepared vs active.** ``learnloop upgrade --to mvp-0.11`` builds the groups
+BEFORE its config switch as PREPARED (state ``active = 0``), which no
+consumer reads (``recurrence_group_map`` returns only active groups); only
+after the config rename succeeds does :func:`activate_recurrence_groups` flip
+them. Consumers that hold the vault use :func:`active_group_map`, which also
+checks the effective algorithm version and kill switch directly.
 """
 
 from __future__ import annotations
@@ -63,6 +71,19 @@ def recurrence_active(vault: LoadedVault) -> bool:
         vault.config.algorithms.algorithm_version in RECURRENCE_GROUP_VERSIONS
         and bool(getattr(config, "enabled", True))
     )
+
+
+def active_group_map(vault: LoadedVault, repository: Repository) -> dict[str, str]:
+    """The group map in force for this vault's EFFECTIVE config, else empty.
+
+    Gated twice: on the vault's algorithm version and kill switch (so a
+    switch turned off takes effect before any refresh), and on the stored
+    activation (so prepared groups of an unfinished upgrade are never read).
+    """
+
+    if not recurrence_active(vault):
+        return {}
+    return repository.recurrence_group_map()
 
 
 def _facet_of(target_ref: Any) -> str | None:
@@ -552,10 +573,15 @@ def input_fingerprint(connection: Any, *, active: bool) -> str:
     return hashlib.sha256(json.dumps(parts, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def _write(repository: Repository, *, active: bool, force: bool) -> dict[str, Any]:
-    if not active:
+def _write(repository: Repository, *, active: bool, force: bool, prepare: bool = False) -> dict[str, Any]:
+    if not active and not prepare:
         # Off (below the successor, or the kill switch): an empty projection,
-        # so every recurrence key is the exact statement again.
+        # so every recurrence key is the exact statement again. Read first:
+        # an already-empty projection costs no write transaction.
+        with repository.connection() as connection:
+            present = store.projection_present(connection)
+        if not present:
+            return {"rebuilt": False, "active": False, "group_count": 0, "member_count": 0, "review_count": 0}
         with repository.atomic():
             cleared = store.clear_recurrence_projection(repository.connection())
         return {"rebuilt": cleared, "active": False, "group_count": 0, "member_count": 0, "review_count": 0}
@@ -577,7 +603,7 @@ def _write(repository: Repository, *, active: bool, force: bool) -> dict[str, An
             reviews=build.reviews,
             state={"input_fingerprint": fingerprint, "builder_version": BUILDER_VERSION, "active": active, **counts},
         )
-    return {"rebuilt": True, "active": active, **counts}
+    return {"rebuilt": True, "active": active, "prepared": prepare and not active, **counts}
 
 
 def _counts(state: Mapping[str, Any]) -> dict[str, int]:
@@ -598,6 +624,41 @@ def refresh_recurrence_groups(vault: LoadedVault, repository: Repository, *, for
     return _write(repository, active=recurrence_active(vault), force=force)
 
 
+def prepare_recurrence_groups(repository: Repository) -> dict[str, Any]:
+    """Build the groups as PREPARED (not in force): the upgrade's pre-switch step."""
+
+    with repository.connection() as connection:
+        if not _has_projection(connection):
+            return {"rebuilt": False, "active": False, "skipped": "no_projection_tables"}
+    return _write(repository, active=False, force=True, prepare=True)
+
+
+def activate_recurrence_groups(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
+    """Put prepared groups in force once the vault's config switch has landed.
+
+    A cheap flip when the inputs are unchanged since preparation; otherwise a
+    full rebuild. Does nothing (and the map stays empty) unless the vault's
+    effective config makes recurrence active.
+    """
+
+    if not recurrence_active(vault):
+        return refresh_recurrence_groups(vault, repository)
+    with repository.connection() as connection:
+        if not _has_projection(connection):
+            return {"rebuilt": False, "active": False, "skipped": "no_projection_tables"}
+    with repository.atomic():
+        connection = repository.connection()
+        flipped = store.activate_prepared_projection(
+            connection,
+            prepared_fingerprint=input_fingerprint(connection, active=False),
+            active_fingerprint=input_fingerprint(connection, active=True),
+        )
+        state = store.recurrence_state(connection) if flipped else None
+    if flipped and state is not None:
+        return {"rebuilt": False, "active": True, "activated": "prepared", **_counts(state)}
+    return {**refresh_recurrence_groups(vault, repository, force=True), "activated": "rebuilt"}
+
+
 def _has_projection(connection: Any) -> bool:
     return connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'hypothesis_recurrence_state'"
@@ -606,6 +667,8 @@ def _has_projection(connection: Any) -> bool:
 
 __all__ = [
     "AUTHORITY",
+    "activate_recurrence_groups",
+    "active_group_map",
     "BUILDER_VERSION",
     "EpisodeIndex",
     "GroupBuild",
@@ -613,6 +676,7 @@ __all__ = [
     "compute_groups",
     "input_fingerprint",
     "load_episode_index",
+    "prepare_recurrence_groups",
     "recurrence_active",
     "refresh_recurrence_groups",
 ]

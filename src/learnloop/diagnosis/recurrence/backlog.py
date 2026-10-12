@@ -28,10 +28,13 @@ from learnloop.ai.execution import record_model_calls
 from learnloop.ai.spend import SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.embedding_vectors import get_vector, put_vector
+from learnloop.db.stores.embedding_vectors import get_vector
 from learnloop.diagnosis.offline_review.spend import ReviewSpend
 from learnloop.diagnosis.recurrence.judging import (
+    EMBED_BATCH,
+    EMBEDDING_ROUTE,
     default_judge_client,
+    embed_on_spend,
     estimate_tokens,
     judge_executor,
     learner_state,
@@ -43,9 +46,6 @@ from learnloop.diagnosis.split.embeddings import TASK_PREFIX, hypothesis_records
 from learnloop.matching.judge import already_judged, judge_pairs, pair_input_hash, pair_prompt
 from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault
-
-EMBEDDING_ROUTE = "embedding"
-EMBED_BATCH = 32
 MODEL_CALL_OWNER_KIND = "recurrence_backlog"
 #: Output allowance of one verdict (a short JSON object).
 JUDGE_OUTPUT_TOKENS = 600
@@ -111,30 +111,19 @@ def _missing_records(repository: Repository, model_id: str) -> list[Any]:
         ]
 
 
-def _embed_missing(spend: ReviewSpend, client: Any, repository: Repository, records: list[Any]) -> int:
-    embedded = 0
-    if not records:
-        return 0
-    spend.register(EMBEDDING_ROUTE, client, model_id=getattr(client, "model_id", None))
-    for offset in range(0, len(records), EMBED_BATCH):
-        batch = records[offset:offset + EMBED_BATCH]
-        tokens = sum(estimate_tokens(record.text) + 32 for record in batch)
-        with spend.collector.observing():
-            with spend.request(EMBEDDING_ROUTE, "embedding", input_tokens=tokens, output_tokens=0):
-                vectors = client.embed([record.text for record in batch], TASK_PREFIX)
-        if len(vectors) != len(batch):
-            raise ValueError("the embedding endpoint returned a different number of vectors")
-        with closing(connect(repository.sqlite_path)) as connection, connection:
-            for record, vector in zip(batch, vectors, strict=True):
-                put_vector(
-                    connection, record_kind=record.record_kind, record_id=record.record_id, field=record.field,
-                    content_hash=record.content_hash, model_id=client.model_id, task_prefix=TASK_PREFIX, vector=vector,
-                )
-        embedded += len(batch)
-    return embedded
+def plan_backlog(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    spend: ReviewSpend,
+    max_pairs: int | None = None,
+    producer: str | None = None,
+) -> dict[str, Any]:
+    """``producer``: the judge model (an injected client's, else the configured route's)."""
 
+    from learnloop.diagnosis.recurrence.guard import configured_judge_model
 
-def plan_backlog(vault: LoadedVault, repository: Repository, *, spend: ReviewSpend, max_pairs: int | None = None) -> dict[str, Any]:
+    producer = producer or configured_judge_model(vault)
     model_id = vault.config.embedding.model
     missing = _missing_records(repository, model_id) if vault.config.embedding.enabled else []
     population = hypothesis_subjects(vault, repository)
@@ -145,7 +134,7 @@ def plan_backlog(vault: LoadedVault, repository: Repository, *, spend: ReviewSpe
         todo = [
             pair for pair in pairs
             if not already_judged(connection, SAME_CAUSE, pair.left, pair.right,
-                                  input_hash=pair_input_hash(SAME_CAUSE, pair.left, pair.right))
+                                  input_hash=pair_input_hash(SAME_CAUSE, pair.left, pair.right), producer=producer)
         ]
     already = len(pairs) - len(todo)
     if max_pairs is not None:
@@ -177,6 +166,7 @@ def plan_backlog(vault: LoadedVault, repository: Repository, *, spend: ReviewSpe
         admissible, reason = False, str(exc)
     return {
         "embedding_model": model_id,
+        "judge_model": producer,
         "embeddings_enabled": bool(vault.config.embedding.enabled),
         "hypotheses": len(population),
         "learner_state_hypotheses": len(learner),
@@ -219,8 +209,11 @@ def run_backlog(
             "reason": "embedding.enabled is false: the backlog shortlists with hypothesis embeddings. "
             "Only validated citations and exact statements can link hypotheses without them.",
         }
+    from learnloop.diagnosis.recurrence.judging import model_label
+
+    producer = model_label(judge_client) if judge_client is not None else None
     spend = command_spend(vault, caps, price_per_million=price_per_million, cancelled=cancelled)
-    plan = plan_backlog(vault, repository, spend=spend, max_pairs=max_pairs)
+    plan = plan_backlog(vault, repository, spend=spend, max_pairs=max_pairs, producer=producer)
     pairs = plan.pop("_pairs")
     report: dict[str, Any] = {"status": "dry_run" if dry_run else "pending", "caps": caps.as_dict(), "plan": plan}
     if dry_run:
@@ -242,14 +235,15 @@ def run_backlog(
                 report.update(status="provider_failed", reason="the embedding route is not ready")
                 return report
             try:
-                report["embedded"] = _embed_missing(
+                report["embedded"] = embed_on_spend(
                     spend, embedding_client, repository, _missing_records(repository, embedding_client.model_id)
                 )
             except SpendLimitExceeded as exc:
                 report.update(status="over_budget", reason=str(exc), spend=spend.summary())
                 return report
             # The shortlist needs the new vectors: plan again (nothing sent).
-            replanned = plan_backlog(vault, repository, spend=command_spend(vault, caps, price_per_million=price_per_million), max_pairs=max_pairs)
+            replanned = plan_backlog(vault, repository, spend=command_spend(vault, caps, price_per_million=price_per_million),
+                                     max_pairs=max_pairs, producer=producer)
             pairs = replanned.pop("_pairs")
             report["replanned"] = {"pairs_to_judge": replanned["pairs_to_judge"], "shortlist": replanned["shortlist"]}
         if pairs:
@@ -264,7 +258,9 @@ def run_backlog(
     report["verdicts"] = {
         verdict: sum(1 for row in results if row.verdict == verdict) for verdict in ("same", "different", "unsure")
     }
-    report["not_judged"] = [row.as_dict() for row in results if row.status in ("failed", "not_run")]
+    report["not_judged"] = [
+        row.as_dict() for row in results if row.status in ("failed", "not_run", "claimed_elsewhere", "fenced")
+    ]
     report["groups"] = refresh_recurrence_groups(vault, repository)
     report["spend"] = spend.summary()
     stopped = {row.error for row in results if row.status == "not_run"}

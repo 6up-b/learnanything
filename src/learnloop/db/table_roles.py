@@ -209,6 +209,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("item_misconception_discrimination", TableRole.RAW_LEDGER),
     ("item_parameter_state", TableRole.DERIVED),
     ("judgment_ledger", TableRole.RAW_LEDGER),
+    # Slice 2 T1: leases of the shared judge's in-flight pair questions.
+    ("judgment_work_claims", TableRole.WORKFLOW),
     ("activity_family_membership_events", TableRole.RAW_LEDGER),
     ("family_proposals", TableRole.WORKFLOW),
     ("family_memory_state", TableRole.DERIVED),
@@ -297,6 +299,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reader_section_progress", TableRole.WORKFLOW),
     # What an escalated repair showed (Slice 2 T1 §3.7); append-only.
     ("recurrence_escalations", TableRole.RECEIPT),
+    # The guard's registered planted cases (an M1 run's); required inputs of
+    # the mvp-0.11 switch, append-only (Slice 2 T1 §3.6).
+    ("recurrence_guard_cases", TableRole.RAW_LEDGER),
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
     ("reveal_events", TableRole.RAW_LEDGER),

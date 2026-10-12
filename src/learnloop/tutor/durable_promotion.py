@@ -59,6 +59,7 @@ from typing import Any, Mapping
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
+from learnloop.substrate.recurrence_groups import active_group_map
 from learnloop.vault.models import LoadedVault
 
 
@@ -213,7 +214,7 @@ def _promote_hypothesis(
     if learning_object is None:
         return None, f"learning_object_absent:{learning_object_id}"
 
-    groups = repository.recurrence_group_map()
+    groups = active_group_map(vault, repository)
     normalized = recurrence_key(hypothesis, groups) or normalize_text(
         str(hypothesis.get("statement") or "")
     )

@@ -64,6 +64,11 @@ class MatchKind:
     guidance: str
     #: How a subject is shown to the judge (defaults to its ``view``).
     render: Callable[[Subject], Mapping[str, Any]] = _default_render
+    #: The declared text recipe its subjects' vectors embed (e.g.
+    #: ``hypothesis/statement@v1``). A benchmark-set blocking cutoff names the
+    #: recipe, width and task prefix it was measured on and applies only to
+    #: vectors of exactly that identity.
+    recipe: str = ""
 
 
 __all__ = ["MatchKind", "Subject", "VERDICTS"]

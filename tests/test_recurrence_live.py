@@ -70,6 +70,8 @@ def test_the_judge_merges_reworded_recurrences_and_the_third_escalates(tmp_path)
     assert escalation["earlier_attempt_ids"] == [second.attempt_id, first.attempt_id]
     assert escalation["different_approach"] is True and escalation["repair_operator"] == "worked_contrast"
     assert escalation["prior_operators"] == ["elicit_rule"]
+    # The diagnosis's own repair already differs: nothing else is requested.
+    assert escalation["repair_source"] == "diagnosis" and client.escalation_requests == []
     # Nothing escalates before the third time.
     assert repository.recurrence_escalation(repository.current_live_diagnosis(second.attempt_id)["id"]) is None
 
@@ -91,13 +93,58 @@ def test_the_judge_merges_reworded_recurrences_and_the_third_escalates(tmp_path)
     assert [row["response"] for row in rows] == ["escalation:helped"]
 
 
-def test_the_same_repair_again_is_labelled_honestly(tmp_path):
+def test_identical_repairs_three_times_obtain_a_different_one_at_escalation(tmp_path):
+    """Review F9 / §3.7: every diagnosis suggests ``elicit_rule``; the third
+    answer's escalation ASKS for a different operator and representation,
+    given what was shown, and shows it."""
+
     _paths, vault, repository = _vault(tmp_path)
-    client = StatementFake(STATEMENTS, decide=shares_word("transpos"))
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), escalation_operator="worked_contrast")
+    first, second, third = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS)
+    shown = {
+        repair["operator"]
+        for result in (first, second, third)
+        for repair in (repository.fetch_attempt_feedback_metadata(result.attempt_id) or {}).get("repair_suggestions") or []
+    }
+    assert shown == {"elicit_rule"}, "the diagnoser suggested the same repair every time"
+    (request,) = client.escalation_requests
+    assert {row["operator"] for row in request["earlier_repairs"]} == {"elicit_rule"}
+    assert {row["operator"] for row in request["current_repairs"]} == {"elicit_rule"}
+    escalation = repository.recurrence_escalation(repository.current_live_diagnosis(third.attempt_id)["id"])
+    assert escalation["repair_source"] == "generated" and escalation["different_approach"] is True
+    assert escalation["repair_operator"] == "worked_contrast" and escalation["repair"]["representation"] == "worked contrast"
+    assert escalation["generation"]["status"] == "used"
+    with repository.connection() as connection:
+        receipted = {row[0] for row in connection.execute(
+            "SELECT purpose FROM model_call_receipts WHERE owner_kind = 'attempt_diagnosis' AND owner_id = ? "
+            "AND parent_call_id IS NULL", (third.attempt_id,),
+        )}
+    assert "recurrence_escalation_repair" in receipted, "the request is receipted under the attempt"
+    block = diagnosis_card(vault, repository, third.attempt_id)["escalation"]
+    assert block["headline"] == "Third time with this one - trying a different approach"
+    assert block["repair"]["operator"] == "worked_contrast" and block["repair_source"] == "generated"
+    assert block["approach_note"] is None
+
+
+@pytest.mark.parametrize(
+    "kwargs, config, status",
+    [
+        ({}, "", "same_operator"),  # the model repeats the operator: refused, not shown as new
+        ({"fail_purposes": ("recurrence_escalation_repair",)}, "", "failed"),
+        ({"escalation_operator": "worked_contrast"}, "[recurrence]\nescalation_repair_enabled = false", "disabled"),
+    ],
+)
+def test_the_same_repair_again_is_labelled_honestly(tmp_path, kwargs, config, status):
+    _paths, vault, repository = _vault(tmp_path, config=config)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), **kwargs)
     *_rest, third = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS)
+    escalation = repository.recurrence_escalation(repository.current_live_diagnosis(third.attempt_id)["id"])
+    assert escalation["generation"]["status"] == status and escalation["repair_source"] == "diagnosis"
     block = diagnosis_card(vault, repository, third.attempt_id)["escalation"]
     assert block["headline"] == "Third time with this one"
     assert block["different_approach"] is False and "same kind of repair" in block["approach_note"]
+    # Asked once unless switched off; nothing new is ever shown as new.
+    assert ("recurrence_escalation_repair" in client.calls) is (status != "disabled")
 
 
 def test_a_judge_that_says_different_merges_nothing(tmp_path):
@@ -259,3 +306,105 @@ def test_a_citation_of_an_existing_hypothesis_resolves_through_prior_hypothesis_
         (normalize_statement(V_REWORDED), normalize_statement(V_SAME), "different")
     ]
     assert not repository.recurrence_review("exact_key_conflict")
+
+
+# -- the enclosing command's spend controls (review F1) ------------------------------------
+
+
+def _third_queued(tmp_path, **fake):
+    from datetime import timedelta
+
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), **fake)
+    embedder = FakeEmbeddingClient()
+    _run(vault, repository, client, embedder, ANSWERS[:2])
+    third = submit(vault, repository, client, item_id=ANSWERS[2][0], answer=ANSWERS[2][1], when=at(14))
+    return vault, repository, client, embedder, third, FrozenClock(at(15) + timedelta(minutes=1))
+
+
+def _drain_on(vault, repository, client, embedder, spend, clock, cancelled=None):
+    from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, drain
+
+    return drain(
+        vault, repository, owner="cli", kinds=(DIAGNOSE_KIND,), client_factory=lambda: client,
+        embedding_factory=lambda: embedder, judge_factory=lambda: client, spend=spend, cancelled=cancelled,
+        clock=clock,
+    )
+
+
+def test_the_dry_run_plans_the_recurrence_work_on_the_same_caps(tmp_path):
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.split.jobs import command_spend, plan_diagnosis_jobs
+
+    vault, repository, client, embedder, _third, _clock = _third_queued(tmp_path)
+    caps = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=50, max_total_tokens=1_000_000, max_estimated_usd=1.0)
+    plan = plan_diagnosis_jobs(vault, repository, spend=command_spend(vault, caps))
+    recurrence = plan["recurrence"]
+    assert recurrence["by_part"]["judge"]["calls"] == vault.config.recurrence.judge_max_pairs_per_attempt
+    assert recurrence["by_part"]["embedding"]["calls"] == 1 and recurrence["by_part"]["escalation_repair"]["calls"] == 1
+    assert recurrence["routes"]["judge"]["billing"] == "subscription" and recurrence["fits"] is True
+    tight = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=plan["calls"], max_total_tokens=1_000_000,
+                      max_estimated_usd=1.0)
+    assert plan_diagnosis_jobs(vault, repository, spend=command_spend(vault, tight))["recurrence"]["fits"] is False
+
+
+def test_the_judge_runs_on_the_commands_budget_and_shows_in_its_summary(tmp_path):
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.split.jobs import command_spend
+
+    vault, repository, client, embedder, third, clock = _third_queued(tmp_path)
+    before = len(client.judged)
+    caps = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=50, max_total_tokens=1_000_000, max_estimated_usd=1.0)
+    spend = command_spend(vault, caps)
+    outcomes = _drain_on(vault, repository, client, embedder, spend, clock)
+    assert [outcome.state for outcome in outcomes] == ["done"]
+    judged = len(client.judged) - before
+    assert judged >= 1
+    routes = spend.summary()["routes"]
+    assert routes["same_cause_judge"]["calls"] == judged, "the judge calls are the command's"
+    assert spend.budget.used.calls <= caps.max_calls
+    with repository.connection() as connection:
+        owners = {row[0] for row in connection.execute(
+            "SELECT owner_id FROM model_call_receipts WHERE purpose = 'same_cause_judgment' AND parent_call_id IS NULL"
+        )}
+    assert third.attempt_id in owners, "receipted under the attempt they judged for"
+
+
+def test_an_exhausted_command_budget_stops_the_judge(tmp_path):
+    """The command's caps fit its diagnosis and nothing more: the recurrence
+    step must not open a fresh budget of its own."""
+
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.split.jobs import command_spend, plan_diagnosis_jobs
+
+    vault, repository, client, embedder, _third, clock = _third_queued(tmp_path)
+    before, embeds = len(client.judged), embedder.calls
+    big = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=50, max_total_tokens=1_000_000, max_estimated_usd=1.0)
+    plan = plan_diagnosis_jobs(vault, repository, spend=command_spend(vault, big))
+    needed = plan["calls"] + ((plan.get("retrieval") or {}).get("calls") or 0)
+    caps = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=needed, max_total_tokens=1_000_000,
+                     max_estimated_usd=1.0)
+    spend = command_spend(vault, caps)
+    outcomes = _drain_on(vault, repository, client, embedder, spend, clock)
+    assert [outcome.state for outcome in outcomes] == ["done"]
+    assert len(client.judged) == before, "no judge call past the command's caps"
+    assert spend.budget.used.calls <= caps.max_calls
+    assert embedder.calls - embeds <= max(0, needed - plan["calls"])
+
+
+def test_a_cancelled_command_stops_the_judge(tmp_path):
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.split.jobs import command_spend
+
+    flag = {"stop": False}
+
+    def on_diagnosis(answer):
+        flag["stop"] = flag["stop"] or "third" in answer
+
+    vault, repository, client, embedder, _third, clock = _third_queued(tmp_path, on_diagnosis=on_diagnosis)
+    before = len(client.judged)
+    caps = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=50, max_total_tokens=1_000_000, max_estimated_usd=1.0)
+    spend = command_spend(vault, caps, cancelled=lambda: flag["stop"])
+    outcomes = _drain_on(vault, repository, client, embedder, spend, clock, cancelled=lambda: flag["stop"])
+    assert [outcome.state for outcome in outcomes] == ["done"], "the diagnosis that was already paid completes"
+    assert len(client.judged) == before, "cancellation reaches the recurrence step"

@@ -17,7 +17,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from learnloop.db.repositories import Repository
-from learnloop.diagnosis.split.embeddings import HYPOTHESIS_FIELD, HYPOTHESIS_KIND, TASK_PREFIX, hypothesis_records
+from learnloop.diagnosis.split.embeddings import (
+    HYPOTHESIS_FIELD,
+    HYPOTHESIS_KIND,
+    HYPOTHESIS_VERSION,
+    TASK_PREFIX,
+    hypothesis_records,
+)
 from learnloop.matching.kinds import MatchKind, Subject
 from learnloop.vault.models import LoadedVault
 
@@ -25,6 +31,8 @@ SAME_CAUSE_TASK = "same_cause"
 SAME_CAUSE_PROMPT_VERSION = "same-cause-judge-v1"
 SAME_CAUSE_ROUTE = "same_cause_judge"
 SAME_CAUSE_PURPOSE = "same_cause_judgment"
+#: The declared text recipe of hypothesis vectors (statement + mechanism slug).
+HYPOTHESIS_RECIPE = f"{HYPOTHESIS_KIND}/{HYPOTHESIS_FIELD}@v{HYPOTHESIS_VERSION}"
 
 _QUESTION = (
     "Each item is a hypothesis a diagnoser wrote about why the SAME learner got an "
@@ -59,6 +67,7 @@ SAME_CAUSE = MatchKind(
     question=_QUESTION,
     guidance=_GUIDANCE,
     render=_render,
+    recipe=HYPOTHESIS_RECIPE,
 )
 
 
@@ -162,6 +171,7 @@ def compatible(query: Subject, candidate: Subject) -> bool:
 
 
 __all__ = [
+    "HYPOTHESIS_RECIPE",
     "HypothesisScope",
     "SAME_CAUSE",
     "SAME_CAUSE_PROMPT_VERSION",

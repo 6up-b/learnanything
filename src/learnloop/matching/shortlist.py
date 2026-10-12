@@ -9,9 +9,18 @@ skipped before ranking, so the judge's budget goes to undecided pairs.
 
 The score only chooses which pairs a judge sees. Nothing here merges,
 rejects or skips a judge by score, and a model without a benchmark-set
-cutoff is blocked by top-k alone (cutoffs are never hand-set in code).
-Partial coverage is allowed and reported: a subject without a current vector
-can be neither a query nor a candidate.
+cutoff is blocked by top-k alone (cutoffs are never hand-set in code). A
+cutoff applies only to vectors of the identity it was measured on (model,
+width, text recipe, task prefix); any other is refused and top-k alone blocks.
+
+**Which model ranks** (Slice 1 §9.6: retrieval switches only once the new
+model's backfill is complete). The configured model ranks once its current
+vectors cover every subject that any other stored model covers. Until then a
+replacement is pending: the previous model with the most current vectors
+keeps ranking (subjects it never embedded, such as new ones, can then be
+neither query nor candidate, so they link by exact statement and validated
+citation only), and the replacement's partial index is never ranked. Partial
+coverage of the ranking model is allowed and reported.
 """
 
 from __future__ import annotations
@@ -47,13 +56,20 @@ class Shortlist:
     pool_with_vector: int = 0
     below_cutoff: int = 0
     skipped_settled: int = 0
+    #: Why the cutoff is or is not applied (``benchmark`` | ``top_k_only`` |
+    #: ``refused_incompatible``) and which model ranks and why.
+    cutoff_basis: str | None = None
+    cutoff_refusal: str | None = None
+    activation: dict[str, Any] | None = None
 
     def summary(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,
             "top_k": self.top_k,
             "cutoff": self.cutoff,
-            "cutoff_basis": "benchmark" if self.cutoff is not None else "top_k_only",
+            "cutoff_basis": self.cutoff_basis or ("benchmark" if self.cutoff is not None else "top_k_only"),
+            "cutoff_refusal": self.cutoff_refusal,
+            "model_activation": self.activation,
             "queries": self.queries,
             "queries_without_vector": self.queries_without_vector,
             "pool_with_vector": self.pool_with_vector,
@@ -61,6 +77,87 @@ class Shortlist:
             "below_cutoff": self.below_cutoff,
             "skipped_settled": self.skipped_settled,
         }
+
+
+@dataclass(frozen=True)
+class ModelActivation:
+    """Which stored model ranks a kind's subjects, and why (Slice 1 §9.6)."""
+
+    configured: str
+    ranking: str | None
+    status: str  # active | replacement_pending | no_vectors
+    population: int
+    coverage: Mapping[str, int]
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "configured_model": self.configured,
+            "ranking_model": self.ranking,
+            "status": self.status,
+            "subjects": self.population,
+            "current_vectors_by_model": dict(self.coverage),
+        }
+
+
+def active_model(
+    connection: sqlite3.Connection, kind: MatchKind, subjects: Sequence[Subject], *, configured: str
+) -> ModelActivation:
+    """The configured model once its backfill covers what the others cover, else the previous one."""
+
+    # Imported here: CLI start-up must not load the numpy-backed vector store.
+    from learnloop.db.stores.embedding_vectors import current_records_by_model
+
+    expected = {subject.id: subject.content_hash for subject in subjects}
+    coverage = current_records_by_model(
+        connection, record_kind=kind.record_kind, field=kind.field, task_prefix=kind.task_prefix,
+        expected_records=expected,
+    ) if expected else {}
+    own = coverage.get(configured, frozenset())
+    others = {model: ids for model, ids in coverage.items() if model != configured and ids}
+    counts = {model: len(ids) for model, ids in coverage.items()}
+    if all(ids <= own for ids in others.values()):
+        if not own:
+            return ModelActivation(configured, None, "no_vectors", len(expected), counts)
+        return ModelActivation(configured, configured, "active", len(expected), counts)
+    previous = min(others, key=lambda model: (-len(others[model]), model))
+    return ModelActivation(configured, previous, "replacement_pending", len(expected), counts)
+
+
+def stored_width(connection: sqlite3.Connection, kind: MatchKind, *, model_id: str) -> int | None:
+    """The width of a model's stored vectors for this kind (one per model)."""
+
+    rows = connection.execute(
+        "SELECT DISTINCT dims FROM embedding_vectors WHERE record_kind = ? AND field = ? AND model_id = ? "
+        "AND task_prefix = ?",
+        (kind.record_kind, kind.field, model_id, kind.task_prefix),
+    ).fetchall()
+    widths = {int(row[0]) for row in rows}
+    return widths.pop() if len(widths) == 1 else None
+
+
+def compatible_cutoff(
+    entry: Any, kind: MatchKind, *, model_id: str, dims: int | None
+) -> tuple[float | None, str, str | None]:
+    """(cutoff, basis, refusal) for a configured benchmark cutoff entry.
+
+    ``entry`` carries ``cutoff``, ``dims``, ``recipe`` and ``task_prefix``: the
+    identity of the vectors the benchmark measured. A cutoff measured on
+    another width, recipe or prefix describes another cosine distribution, so
+    it is refused (and top-k alone blocks) instead of silently applied.
+    """
+
+    if entry is None:
+        return None, "top_k_only", None
+    problems = []
+    if dims is None or int(getattr(entry, "dims", 0) or 0) != int(dims):
+        problems.append(f"measured at {getattr(entry, 'dims', None)} dimensions, stored vectors are {dims}")
+    if str(getattr(entry, "recipe", "") or "") != kind.recipe:
+        problems.append(f"measured on recipe {getattr(entry, 'recipe', None)!r}, this kind embeds {kind.recipe!r}")
+    if str(getattr(entry, "task_prefix", "") or "") != kind.task_prefix:
+        problems.append(f"measured with prefix {getattr(entry, 'task_prefix', None)!r}, vectors use {kind.task_prefix!r}")
+    if problems:
+        return None, "refused_incompatible", f"{model_id}: " + "; ".join(problems)
+    return float(entry.cutoff), "benchmark", None
 
 
 def stored_vectors(
@@ -156,4 +253,14 @@ def shortlist_pairs(
     return result
 
 
-__all__ = ["CandidatePair", "Shortlist", "centred_unit", "shortlist_pairs", "stored_vectors"]
+__all__ = [
+    "CandidatePair",
+    "ModelActivation",
+    "Shortlist",
+    "active_model",
+    "centred_unit",
+    "compatible_cutoff",
+    "shortlist_pairs",
+    "stored_vectors",
+    "stored_width",
+]

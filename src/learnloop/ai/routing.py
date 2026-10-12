@@ -73,6 +73,9 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # the diagnoser's own route (production hypotheses are diagnoser text).
     "same_cause_judgment": "same_cause_judge",
     "recurrence_b1_hypothesis": "diagnosis",
+    # Slice 2 T1 §3.7: a repair with a different operator and representation
+    # for a recurrence group's K-th answer (the diagnoser's own route).
+    "recurrence_escalation_repair": "diagnosis",
     "tutor_qa": "tutor_qa",
     "teach_back_question": "teach_back",
     "teach_back_authoring": "teach_back",

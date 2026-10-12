@@ -23,7 +23,7 @@ from learnloop.db.repositories import MisconceptionRecord, Repository
 from learnloop.diagnosis.error_taxonomy_map import map_legacy_error_type
 from learnloop.learner.facet_state_reader import is_canonical_state_vault
 from learnloop.recurrence import key_for_statement
-from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
+from learnloop.substrate.recurrence_groups import active_group_map, refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault
 
 _PUNCT_RE = re.compile(r"[^\w\s]")
@@ -625,7 +625,7 @@ def _normalize_compositional(
     # unless the successor is active and the inputs changed; no model call)
     # BEFORE the sweep and the holding-pen lookup read them.
     refresh_recurrence_groups(vault, repository)
-    groups = repository.recurrence_group_map()
+    groups = active_group_map(vault, repository)
     # Bounded deferral (exits b-ii/c): escalate or expire promotion-blocking
     # factors BEFORE reading the block, so a signature that has already earned
     # its K unengaged recurrences promotes on THIS materialization instead of

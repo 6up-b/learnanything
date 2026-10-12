@@ -220,8 +220,8 @@
     "sha256": "00689fa483289dc3772af53bde1c716ff4f3f5f2f3ce3f1e1971f529e465de6f"
   },
   "diagnose drain": {
-    "bytes": 5501,
-    "sha256": "4e9d9518af2aa00151f0d422910a89f736433ff7d435c11901dedac11c695355"
+    "bytes": 6011,
+    "sha256": "ba8d411fbd8ebddfe314309f34a70ee1a5b45f79c80d8a13cd8e682ac28ec372"
   },
   "diagnose import-links": {
     "bytes": 1546,
@@ -240,8 +240,8 @@
     "sha256": "e970f2bac7efc734be4230d40238937988665f9f5a4b84c350d989810ce32e40"
   },
   "diagnose retry": {
-    "bytes": 6300,
-    "sha256": "74bd19357061e70f4dd567eb6700516256e315fd80b7aa40de025701221d18f1"
+    "bytes": 6895,
+    "sha256": "1d1a9786d18753ac39306aac8f8ff82bfed45784212fda51aecb6ec098740ade"
   },
   "diagnose review": {
     "bytes": 2299,
@@ -680,16 +680,16 @@
     "sha256": "14f56281c041a6a713512876874dba751410deaadc4e8c10f5a45e7321171a50"
   },
   "recurrence bench": {
-    "bytes": 5871,
-    "sha256": "35f49adce9d5d484e113318a6abcc4afaab5630ffc5175ccf5cde99848adda6f"
+    "bytes": 6535,
+    "sha256": "c48cd98551bd2bc8988fd5dbff8eb7f8ad61b51d7d3f8ffd8e37ee9c5f2f8310"
   },
   "recurrence groups": {
     "bytes": 1295,
     "sha256": "d26be1fb471fd258c506fd18818b0a45fd9fe0c0ae24931ad222eae8edb93356"
   },
   "recurrence guard": {
-    "bytes": 3317,
-    "sha256": "354016d2a93dd55fd3236044ce17269f63230f0fde23a4de5d87dec63f96d3eb"
+    "bytes": 3981,
+    "sha256": "93ad25dbb5bd0dcdbe0fcbd37d454028cf4f89e2b5b7b3633eb042c75ada18c0"
   },
   "recurrence report": {
     "bytes": 1716,
