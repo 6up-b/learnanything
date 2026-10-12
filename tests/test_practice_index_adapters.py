@@ -129,8 +129,6 @@ def test_sidecar_rpcs(vault_paths):
 
 def _schema_166_rollback_database(paths) -> None:
     """Replace the vault database with one built through migration 166 only."""
-    import shutil
-
     from learnloop.db.connection import connect
     from learnloop.db.migrate import apply_migrations, discover_migrations
 
@@ -141,8 +139,8 @@ def _schema_166_rollback_database(paths) -> None:
     older = paths.root.parent / "migrations_166"
     older.mkdir()
     for migration in discover_migrations():
-        if migration.version <= 166:
-            shutil.copy2(migration.path, older / migration.path.name)
+        if migration.version <= 166:  # migration SQL text, not a database
+            (older / migration.path.name).write_bytes(migration.path.read_bytes())
     apply_migrations(paths.sqlite_path, migrations_dir=older)
     connection = connect(paths.sqlite_path)
     try:
