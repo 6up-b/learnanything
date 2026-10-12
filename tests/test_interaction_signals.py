@@ -131,7 +131,9 @@ def test_missing_only_cache_resume_ledger_and_no_replay_calls(repository):
         assert "answer_md" not in row
         return answer(row)
     missing = question(question_type=None, answer_md="Future tutor answer")
-    report = classify(repository, [question(), missing], fake)
+    # Logged type and a logged LO target: nothing is missing, so no call.
+    complete = question(id="complete", lo_ids_json='["lo"]')
+    report = classify(repository, [complete, missing], fake)
     assert report["classified"] == 1 and len(calls) == 1
     assert classify(repository, [missing], fake)["pending"] == 0
     with repository.connection() as connection:

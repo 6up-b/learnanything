@@ -61,7 +61,7 @@ from learnloop.ai.runs import finish_agent_run
 from learnloop.learner.facet_diagnostics import required_facets
 from learnloop.attempts.reveal_ledger import record_reveal, reveal_episode_id
 from learnloop.vault.loader import add_note
-from learnloop.vault.models import LoadedVault, PracticeItem
+from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
 
 logger = logging.getLogger(__name__)
 
@@ -473,6 +473,17 @@ def ask_question(
         {vault.canonical_facet_id(str(facet)) for facet in answer.facets}
         & set(candidates)
     )
+    if facets:
+        # The facet -> LO mapping as of this question, persisted so the learner
+        # field never re-derives history from today's mutable membership. A
+        # prerequisite question points below the item: its own LO is never a
+        # target (an unresolved mapping is left to the opt-in classifier).
+        source_context = dict(source_context or {})
+        source_context["facet_learning_object_ids"] = _facet_learning_objects(
+            vault, facets,
+            exclude=item.learning_object_id
+            if item is not None and answer.question_type == "prerequisite" else None,
+        )
     citations = _validated_citations(answer, ai_context.source_spans)
     if citations:
         source_context = dict(source_context or {})
@@ -800,6 +811,27 @@ def build_tutor_qa_note(
 
 def _normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip()
+
+
+def _facet_learning_objects(
+    vault: LoadedVault, facets: Sequence[str], *, exclude: str | None,
+) -> dict[str, list[str]]:
+    """Each canonical facet's owning LOs now: blueprint facets or active items."""
+
+    owners: dict[str, set[str]] = {facet: set() for facet in facets}
+    for learning_object in vault.learning_objects.values():
+        for facet in learning_object_facet_union(learning_object):
+            canonical = vault.canonical_facet_id(str(facet))
+            if canonical in owners:
+                owners[canonical].add(learning_object.id)
+    for practice_item in vault.practice_items.values():
+        if practice_item.status != "active":
+            continue
+        for facet in practice_item.evidence_facets:
+            canonical = vault.canonical_facet_id(str(facet))
+            if canonical in owners:
+                owners[canonical].add(practice_item.learning_object_id)
+    return {facet: sorted(los - {exclude}) for facet, los in sorted(owners.items())}
 
 
 def _candidate_facets(

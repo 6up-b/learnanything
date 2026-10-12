@@ -53,21 +53,42 @@ def normalize_question(event: Mapping[str, Any], *, reader: bool = False) -> dic
         source = json.loads(source)
     if not (row.get("lo_ids") or row.get("lo_ids_json") or row.get("lo_id")):
         row["lo_ids"] = _list(source.get("candidate_learning_object_ids"))
+    # Question-time facet -> LO mapping, persisted with the tutor's answer
+    # (review F4). Immutable once logged; never today's facet membership.
+    mapping = source.get("facet_learning_object_ids")
+    row["_question_time_facet_los"] = (
+        {str(f): _list(los) for f, los in mapping.items()} if isinstance(mapping, Mapping) else {}
+    )
     row["event_kind"] = "interaction_event" if reader or row.get("kind") == "learner_question_asked" else "question_event"
     row["context"] = row.get("context") or ("library" if row["event_kind"] == "interaction_event" else "")
     return row
 
 
+def _question_time_targets(row: Mapping[str, Any], facets: Iterable[str]) -> list[str]:
+    """LOs a logged facet mapped to when the question was asked (sorted)."""
+    mapping = row.get("_question_time_facet_los") or {}
+    return sorted({lo for facet in facets for lo in mapping.get(facet, ())})
+
+
 def classification_input(event: Mapping[str, Any]) -> dict[str, Any]:
-    """Whitelist question-time inputs; never include tutor answers/later grades."""
+    """Whitelist question-time inputs; never include tutor answers/later grades.
+
+    ``lo_ids`` are the logged targets: explicit LO ids, else the LOs the logged
+    facets mapped to at question time. Empty means the LO mapping is missing.
+    """
     row = normalize_question(event)
+    facets = _list(row.get("facets_json", row.get("facets")))
     return {
         "id": row["id"], "event_kind": row["event_kind"],
         "question_md": row.get("question_md", ""),
         "context": row["context"],
         "question_type": row.get("question_type"),
-        "facets": _list(row.get("facets_json", row.get("facets"))),
-        "lo_ids": _list(row.get("lo_ids_json", row.get("lo_ids"))) or ([row["lo_id"]] if row.get("lo_id") else []),
+        "facets": facets,
+        "lo_ids": (
+            _list(row.get("lo_ids_json", row.get("lo_ids")))
+            or ([row["lo_id"]] if row.get("lo_id") else [])
+            or _question_time_targets(row, facets)
+        ),
         "source_id": row.get("source_id"),
         "extraction_id": row.get("extraction_id"),
         "span_id": row.get("span_id"),
@@ -134,6 +155,11 @@ def derive_interaction_signals(
         los = _list(event.get("lo_ids_json", event.get("lo_ids")))
         if event.get("lo_id"):
             los.append(event["lo_id"])
+        if not los:
+            # Logged facets resolve through the mapping persisted at question
+            # time; only an unresolved mapping is left to a paid classification.
+            los = _question_time_targets(event, facets)
+        lookup = {**facet_to_lo, **event["_question_time_facet_los"]}
         classification = cache.get((kind, event_id, event.get("_classification_input_hash") or input_hash(event)))
         if classification and (not qtype or not los):
             qtype = qtype or classification["question_type"]
@@ -141,7 +167,7 @@ def derive_interaction_signals(
                 facets = facets or _list(classification["facets_json"])
                 los = _list(classification["lo_ids_json"])
             observed = max((observed, classification["created_at"]), key=instant)
-        los = sorted(set(los) if los else {lo for f in facets for lo in _facet_los(facet_to_lo, f)})
+        los = sorted(set(los) if los else {lo for f in facets for lo in _facet_los(lookup, f)})
         if not los:
             unmapped += 1
         attempt = by_attempt.get(event.get("attempt_id"))
@@ -187,7 +213,7 @@ def derive_interaction_signals(
                 subject_id=attempt.features.subject_id if attempt else (
                     event.get("learner_subject_id") or event.get("subject_id") or "default"
                 ),
-                facet_id=next((f for f in facets if lo in _facet_los(facet_to_lo, f)), None),
+                facet_id=next((f for f in facets if lo in _facet_los(lookup, f)), None),
                 attempt_id=event.get("attempt_id"), help_before_work=before,
                 leak_suspected=leak,
             ))

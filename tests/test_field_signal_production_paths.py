@@ -111,3 +111,90 @@ def test_mid_attempt_question_is_linked_but_not_early_help(tmp_path):
     attempt, = inputs["attempts"]
     assert not attempt.help_before_work
     assert next(s for s in inputs["signals"] if s.signal_id == "hint:a1").outcome == 0.8
+
+
+def _add_prerequisite_lo(vault, facets=("recall",)):
+    """In-memory LO with an active item measuring the given facets."""
+    lo = vault.learning_objects[LO].model_copy(update={"id": "lo_prereq"})
+    vault.learning_objects[lo.id] = lo
+    item = vault.practice_items[ITEM].model_copy(update={
+        "id": "pi_prereq", "learning_object_id": lo.id, "evidence_facets": list(facets),
+    })
+    vault.practice_items[item.id] = item
+
+
+def test_logged_tutor_facets_map_through_the_question_time_mapping(tmp_path):
+    """Review F4: a typed tutor question with facets but no LO ids is not lost."""
+    vault, repository = _setup(tmp_path)
+    _attempt(repository, "a1", at=NOW)
+    result = _ask(vault, repository, "mechanism", at=NOW + timedelta(minutes=1),
+                  context="feedback", attempt_id="a1", seconds=None)
+    event = repository.question_event(result["event_id"])
+    assert event["facets"] == ["recall"]
+    assert event["source_context"]["facet_learning_object_ids"] == {"recall": [LO]}
+    mechanism, = [s for s in _inputs(vault)["signals"] if s.signal_type == "mechanism"]
+    assert (mechanism.lo_id, mechanism.outcome, mechanism.effective_mass) == (LO, 0.5, 0.1)
+    assert mechanism.facet_id == "recall"
+    # Today's membership cannot retarget it: another LO now shares the facet.
+    _add_prerequisite_lo(vault)
+    again, = [s for s in _inputs(vault)["signals"] if s.signal_type == "mechanism"]
+    assert again == mechanism
+
+
+def test_prerequisite_question_never_targets_its_own_item_lo(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_prerequisite_lo(vault)
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    event = repository.question_event(result["event_id"])
+    assert event["source_context"]["facet_learning_object_ids"] == {"recall": ["lo_prereq"]}
+    prerequisite, = [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"]
+    assert (prerequisite.lo_id, prerequisite.outcome, prerequisite.effective_mass) == (
+        "lo_prereq", 0.0, 0.15)
+
+
+def _classify(repository, verdict):
+    from learnloop.ai.spend import SpendCaps, SpendEstimate
+    from learnloop.field.classification import classify_missing_questions
+
+    calls = []
+
+    def classify(row):
+        calls.append(row)
+        return verdict
+
+    report = classify_missing_questions(
+        repository, repository.question_events(), model="fake-model", classify=classify,
+        estimate_per_question=SpendEstimate(calls=1, total_tokens=10, estimated_usd=0.01),
+        caps=SpendCaps(), enabled=True,
+    )
+    return report, calls
+
+
+def test_unresolved_mapping_is_classified_keeping_logged_type_and_facets(tmp_path):
+    """Historical rows (and prerequisite questions only their own LO measures)."""
+    vault, repository = _setup(tmp_path)
+    _add_prerequisite_lo(vault)
+    repository.insert_question_event({
+        "id": "historical", "context": "practice", "practice_item_id": ITEM,
+        "question_md": "What is an orthogonal matrix again?", "question_type": "prerequisite",
+        "facets": ["recall"], "hint_equivalent": True, "created_at": NOW.isoformat(),
+    })
+    _ask(vault, repository, "prerequisite", at=NOW + timedelta(hours=1), session_id="sess_1")
+    vault.learning_objects.pop("lo_prereq")
+    vault.practice_items.pop("pi_prereq")
+    _ask(vault, repository, "prerequisite", at=NOW + timedelta(hours=2), session_id="sess_1")
+    assert not [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"
+                and s.signal_id.startswith("question_event:historical")]
+    # The paid classifier proposes only the missing LO; its type is ignored.
+    report, calls = _classify(repository, {"question_type": "other", "facets": [],
+                                           "lo_ids": ["lo_prereq"]})
+    assert report["status"] == "complete" and report["pending"] == 2
+    assert {row["question_type"] for row in calls} == {"prerequisite"}
+    assert all(row["facets"] == ["recall"] and row["lo_ids"] == [] for row in calls)
+    signals = [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"]
+    assert sorted(s.lo_id for s in signals) == ["lo_prereq"] * 3
+    historical = next(s for s in signals if s.signal_id.startswith("question_event:historical"))
+    assert (historical.outcome, historical.effective_mass) == (0.0, 0.15)
+    assert historical.observed_at > NOW.isoformat()  # available from classification time
+    # Resolved rows are never classified again.
+    assert _classify(repository, {})[0]["pending"] == 0

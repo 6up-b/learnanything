@@ -105,7 +105,10 @@ def classify_missing_questions(
     pending = {}
     for event in events:
         row = classification_input(event)
-        if row["question_type"] and (row["facets"] or row["lo_ids"]):
+        # A logged type with logged facets but no resolvable LO (no explicit
+        # target and no question-time mapping) is still missing its mapping;
+        # the logged type and facets are kept, only the LO is supplied.
+        if row["question_type"] and row["lo_ids"]:
             continue
         digest = input_hash(event)
         key = row["id"], digest, model, PROMPT_VERSION, row["event_kind"]
