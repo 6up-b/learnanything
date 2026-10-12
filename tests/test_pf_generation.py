@@ -722,3 +722,29 @@ def test_a_degenerate_equivalence_check_verifies_no_ensemble_candidate(pf):
     assert candidates and all(row["verification"] == "unverified" for row in candidates)
     assert {row["verdict"] for row in ledger(repository, "answer_equivalence") if row["judge"] == "verifier"} \
         == {"degenerate_check"}
+
+
+# -- Codex review F7: a new round generates new material; a resumed job reuses its own -----
+
+
+@needs_bwrap
+def test_a_new_round_asks_the_proposers_again_with_its_own_generation_seed(pf):
+    _, repository, paths = pf
+    run(paths, round="r1")
+    fakes = clients()
+    second = run(paths, round="r2", fakes=fakes)
+    assert second["status"] == "complete"
+    proposals = [request for fake in fakes["proposer"] for request in fake.calls
+                 if request.result_model is C.ProposalBatch]
+    assert len(proposals) == 2  # not served from round r1's checkpoints
+    seeds = {json.loads(request.prompt[request.prompt.index("{"):])["context"]["generation_seed"]
+             for request in proposals}
+    assert len(seeds) == 1 and None not in seeds
+    first_ids = {row["id"] for row in rows(repository, "round='r1'")}
+    second_rows = rows(repository, "round='r2'")
+    assert second_rows and not first_ids & {row["id"] for row in second_rows}
+    assert len(second["published_item_ids"]) == 2  # new material, not the old batch
+    again = clients()
+    resumed = run(paths, round="r2", fakes=again)
+    assert resumed["families"][0]["status"].startswith("already_")
+    assert all_calls(again) == 0

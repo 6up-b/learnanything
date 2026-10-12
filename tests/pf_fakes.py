@@ -123,7 +123,7 @@ class PFFake:
                                             rationale="linear draws")
         if model is C.ProposalBatch:
             count = context["count"]
-            items = self.proposals or default_proposals(self.model)
+            items = self.proposals or default_proposals(self.model, context.get("generation_seed"))
             return C.ProposalBatch(candidates=[C.ProposedCandidate(**item) for item in items[:count]])
         if model is C.PanelSolve and "question" in context:  # closed-book answer
             generic = "GENERIC" in context["question"]
@@ -219,12 +219,13 @@ def proposal(stem: str, answer: str | None = None) -> dict[str, Any]:
 _CONTAINERS = ("tank", "barrel", "flask", "basin", "vat", "jug", "cask")
 
 
-def default_proposals(model: str) -> list[dict[str, Any]]:
-    """Distinct per model, so different proposers never collide by accident."""
+def default_proposals(model: str, generation_seed: str | None = None) -> list[dict[str, Any]]:
+    """Distinct per model (and per generation job), so proposers never collide by accident."""
     seed = sum(map(ord, model))
     container = _CONTAINERS[seed % len(_CONTAINERS)]
     offset = seed % 5
-    return [proposal(f"A {container} holds {3 + offset}x + {5 + index} = {30 + index} litres; solve for x.")
+    job = int(generation_seed[:6], 16) % 40 if generation_seed else 0
+    return [proposal(f"A {container} holds {3 + offset}x + {5 + index} = {30 + index + job} litres; solve for x.")
             for index in range(10)]
 
 

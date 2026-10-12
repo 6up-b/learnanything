@@ -326,6 +326,10 @@ class _FamilyRun:
             request_id, worker_id=self.ctx.caller.run_id, now_iso=now, lease_expires_at=expires,
         )
         self.report["mint_request_id"] = request_id
+        # Stable per job (family, path, relation, round, tier, count): a resumed
+        # job sends identical requests (checkpoint hits); a new round does not.
+        self.generation_seed = content_key(["pf_generation_seed", GENERATOR_VERSIONS[self.path],
+                                            json.dumps(angle, sort_keys=True)])[:16]
         if claimed is None:
             current = repository.surface_mint_request(request_id) or {}
             self.report["status"] = "already_" + str(current.get("status") or "claimed")
@@ -671,7 +675,7 @@ class _FamilyRun:
                 entry, prompt=C.proposer_prompt(
                     parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family),
                     skeleton=self.parent_skeleton or {}, relation=self.relation, count=count,
-                    single_shot=single),
+                    generation_seed=self.generation_seed, single_shot=single),
                 prompt_version=C.SINGLE_SHOT_PROMPT if single else C.PROPOSER_PROMPT,
                 result_model=C.ProposalBatch, output_tokens=OUTPUT_TOKENS["proposer"], candidates=count,
             )
@@ -718,7 +722,8 @@ class _FamilyRun:
         call = self.ctx.caller.call(
             entry, prompt=C.source_anchored_prompt(
                 passages=[{"ref": passage["ref"], "text": passage["text"]} for passage in passages],
-                parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family), count=self.count),
+                parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family), count=self.count,
+                generation_seed=self.generation_seed),
             prompt_version=C.SOURCE_ANCHORED_PROMPT, result_model=C.SourceAnchoredBatch,
             output_tokens=OUTPUT_TOKENS["source"], candidates=self.count,
         )
@@ -1380,7 +1385,7 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
         "program": C.generator_program_prompt(parent=context, family=_family_context(family), skeleton={},
                                               relation="isomorph", previous_failure=None),
         "proposer": C.proposer_prompt(parent=context, family=_family_context(family), skeleton={},
-                                      relation=options.relation, count=n),
+                                      relation=options.relation, count=n, generation_seed="0" * 16),
         "panel": C.panel_solve_prompt(stem=stem_proxy, solve_index=0),
         "equivalence": C.equivalence_prompt(stem=stem_proxy, reference=final_answer_text(parent.expected_answer),
                                             answers=["x"] * (panel * k)),
@@ -1391,7 +1396,8 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
         "selection": C.selection_prompt(family=_family_context(family),
                                         survivors=[{"ref": "c0", "stem": stem_proxy}] * n, slots=pf.select_per_family),
         "source": C.source_anchored_prompt(passages=[{"ref": "s0", "text": stem_proxy * 4}] * 6,
-                                           parent=context, family=_family_context(family), count=n),
+                                           parent=context, family=_family_context(family), count=n,
+                                           generation_seed="0" * 16),
         "closed_book": C.closed_book_prompt(stem=stem_proxy),
     }
     models = {"skeleton": C.SkeletonResult, "program": C.GeneratorProgramResult, "proposer": C.ProposalBatch,
