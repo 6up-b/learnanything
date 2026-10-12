@@ -11,7 +11,7 @@ operators can never become query syntax or a syntax error.
 """
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass
 import json
 import re
@@ -201,12 +201,37 @@ def extraction_fingerprint(connection: sqlite3.Connection, extraction_id: str) -
     return int(row[0]), int(row[1])
 
 
+def extraction_fingerprints(connection: sqlite3.Connection,
+                            extraction_ids: Iterable[str]) -> dict[str, tuple[int, int]]:
+    """:func:`extraction_fingerprint` of many extractions in one grouped query
+    (an extraction without blocks is ``(0, 0)``)."""
+
+    ids = sorted({str(value) for value in extraction_ids if value})
+    found = {extraction_id: (0, 0) for extraction_id in ids}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        for extraction_id, count, max_rowid in connection.execute(
+            "SELECT extraction_id, COUNT(*), COALESCE(MAX(rowid), 0) FROM source_document_blocks "
+            f"WHERE extraction_id IN ({', '.join('?' for _ in chunk)}) GROUP BY extraction_id", chunk,
+        ):
+            found[str(extraction_id)] = (int(count), int(max_rowid))
+    return found
+
+
 @dataclass(frozen=True)
 class AssessmentLink:
+    """Where one provenance link points: its extraction, locator, source, revision."""
+
     extraction_id: str | None
     locator: str
     source_id: str | None
     revision_id: str | None
+
+
+def _link(row) -> AssessmentLink:
+    return AssessmentLink(None if row[0] is None else str(row[0]), str(row[1] or ""),
+                          None if row[2] is None else str(row[2]),
+                          None if row[3] is None else str(row[3]))
 
 
 def assessment_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]:
@@ -214,14 +239,100 @@ def assessment_link_locators(connection: sqlite3.Connection) -> list[AssessmentL
     ``assessment_alignment``), which never enters a teaching context (ING M8 §9.1).
     """
 
-    return [AssessmentLink(None if row[0] is None else str(row[0]), str(row[1] or ""),
-                           None if row[2] is None else str(row[2]),
-                           None if row[3] is None else str(row[3]))
-            for row in connection.execute(
+    return [_link(row) for row in connection.execute(
         "SELECT extraction_id, locator, source_id, revision_id FROM entity_source_links "
         "WHERE relation IN ('exercise', 'assessment_alignment') "
         "AND (status IS NULL OR status = 'current') ORDER BY id",
     )]
+
+
+def entity_link_locators(connection: sqlite3.Connection, entity_type: str,
+                         entity_id: str) -> list[AssessmentLink]:
+    """Every provenance link of one entity, whatever its relation or status."""
+
+    return [_link(row) for row in connection.execute(
+        "SELECT extraction_id, locator, source_id, revision_id FROM entity_source_links "
+        "WHERE entity_type = ? AND entity_id = ? ORDER BY id", (entity_type, entity_id),
+    )]
+
+
+#: Entities whose ``primary`` / ``support`` / ``alternate`` provenance vouches
+#: for a source as teaching material (what synthesis grounded them on).
+TEACHING_LINK_ENTITY_TYPES = ("learning_object", "facet", "concept")
+
+
+def teaching_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]:
+    """Every current teaching-relation link of a learning object, facet or concept."""
+
+    marks = ", ".join("?" for _ in TEACHING_LINK_ENTITY_TYPES)
+    return [_link(row) for row in connection.execute(
+        "SELECT extraction_id, locator, source_id, revision_id FROM entity_source_links "
+        "WHERE relation IN ('primary', 'support', 'alternate') "
+        f"AND entity_type IN ({marks}) AND (status IS NULL OR status = 'current') ORDER BY id",
+        TEACHING_LINK_ENTITY_TYPES,
+    )]
+
+
+def revision_source_ids(connection: sqlite3.Connection, revision_ids: Iterable[str]) -> dict[str, str]:
+    """``{revision id: source id}`` for the given revisions."""
+
+    ids = sorted({str(value) for value in revision_ids if value})
+    found: dict[str, str] = {}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        for revision_id, source_id in connection.execute(
+            f"SELECT id, source_id FROM source_revisions WHERE id IN ({', '.join('?' for _ in chunk)})", chunk,
+        ):
+            found[str(revision_id)] = str(source_id)
+    return found
+
+
+def extraction_source_ids(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> dict[str, str]:
+    """``{extraction id: source id}`` through each run's revision."""
+
+    ids = sorted({str(value) for value in extraction_ids if value})
+    found: dict[str, str] = {}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        for extraction_id, source_id in connection.execute(
+            "SELECT run.id, revision.source_id FROM source_extraction_runs AS run "
+            "JOIN source_revisions AS revision ON revision.id = run.revision_id "
+            f"WHERE run.id IN ({', '.join('?' for _ in chunk)})", chunk,
+        ):
+            found[str(extraction_id)] = str(source_id)
+    return found
+
+
+def spans_with_content_hashes(connection: sqlite3.Connection, extraction_id: str,
+                              content_hashes: Collection[str]) -> list[str]:
+    """Span ids of one extraction's blocks whose text hashes to one of ``content_hashes``."""
+
+    hashes = sorted({str(value) for value in content_hashes if value})
+    found: list[str] = []
+    for start in range(0, len(hashes), 500):
+        chunk = hashes[start:start + 500]
+        found.extend(str(row[0]) for row in connection.execute(
+            "SELECT span_id FROM source_document_blocks WHERE extraction_id = ? "
+            f"AND content_hash IN ({', '.join('?' for _ in chunk)}) ORDER BY ordinal, span_id",
+            (extraction_id, *chunk),
+        ))
+    return found
+
+
+def block_content_hashes(connection: sqlite3.Connection, extraction_id: str,
+                         span_ids: Collection[str]) -> list[str]:
+    """The content hashes of the named blocks of one extraction."""
+
+    ids = sorted({str(value) for value in span_ids if value})
+    found: list[str] = []
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        found.extend(str(row[0]) for row in connection.execute(
+            "SELECT content_hash FROM source_document_blocks WHERE extraction_id = ? "
+            f"AND span_id IN ({', '.join('?' for _ in chunk)}) AND content_hash IS NOT NULL",
+            (extraction_id, *chunk),
+        ))
+    return found
 
 
 def source_extraction_ids(connection: sqlite3.Connection, *, source_id: str | None = None,
@@ -268,51 +379,88 @@ def extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list
     return units
 
 
-#: Role hints that continue a solution's region (its body follows a short lead
-#: block such as "Solution:"). Any other hint, or a section header, ends it.
-_REGION_BODY_HINTS = frozenset({None, "", "ordinary_prose", "equation", "table", "figure"})
+#: Role hints that continue a lead's region (a solution's or worked example's
+#: body follows a short lead block such as "Solution:"). Any other hint, or a
+#: section header, ends it.
+REGION_BODY_HINTS = frozenset({None, "", "ordinary_prose", "equation", "table", "figure"})
 #: A region never runs past this many blocks after its lead.
 MAX_REGION_BLOCKS = 20
 
 
-def role_hint_spans(connection: sqlite3.Connection, extraction_ids: Iterable[str],
-                    hints: Collection[str], *, region_hints: Collection[str] = ()) -> set[tuple[str, str]]:
-    """Blocks whose ``role_hint`` is in ``hints``, within the given extractions.
+@dataclass(frozen=True)
+class HintRow:
+    """One block's role-hint facts, in document order."""
 
-    A block whose hint is in ``region_hints`` also takes the blocks after it,
-    up to the next section header or structural hint (definition, theorem,
-    another exercise, ...) and at most ``MAX_REGION_BLOCKS``: Marker gives the
-    lead line ("Solution:") the hint and leaves the body that follows unhinted.
-    """
+    extraction_id: str
+    span_id: str
+    block_type: str
+    role_hint: str | None
+    text: str
+    section_path_json: str | None
+
+    @property
+    def key(self) -> tuple[str, str]:
+        return (self.extraction_id, self.span_id)
+
+
+def hinted_extraction_ids(connection: sqlite3.Connection, extraction_ids: Iterable[str],
+                          hints: Collection[str]) -> list[str]:
+    """The given extractions that have at least one block hinted with ``hints``."""
 
     wanted = sorted({str(hint) for hint in hints if hint})
     ids = sorted({str(value) for value in extraction_ids if value})
     if not wanted or not ids:
-        return set()
+        return []
     marks = ", ".join("?" for _ in wanted)
-    regions = {str(hint) for hint in region_hints}
-    found: set[tuple[str, str]] = set()
+    found: list[str] = []
     for start in range(0, len(ids), 500):
         chunk = ids[start:start + 500]
-        hinted = connection.execute(
+        found.extend(str(row[0]) for row in connection.execute(
             f"SELECT DISTINCT extraction_id FROM source_document_blocks WHERE role_hint IN ({marks}) "
             f"AND extraction_id IN ({', '.join('?' for _ in chunk)}) ORDER BY extraction_id",
             (*wanted, *chunk),
-        ).fetchall()
-        for (extraction_id,) in hinted:
+        ))
+    return found
+
+
+def extraction_hint_rows(connection: sqlite3.Connection, extraction_id: str) -> list[HintRow]:
+    """One extraction's blocks in document order, with what role hinting reads."""
+
+    return [HintRow(str(extraction_id), str(row[0]), str(row[1]), None if row[2] is None else str(row[2]),
+                    str(row[3] or ""), row[4])
+            for row in connection.execute(
+        "SELECT span_id, block_type, role_hint, text, section_path_json FROM source_document_blocks "
+        "WHERE extraction_id = ? ORDER BY ordinal, span_id", (extraction_id,),
+    )]
+
+
+#: What :func:`lead_regions` does with one block: ``region`` (take it and open
+#: a region after it), ``block`` (take it alone), ``body`` (taken only inside an
+#: open region) or ``stop`` (closes any open region).
+RegionMark = str
+
+
+def lead_regions(rows: Iterable[HintRow], mark: Callable[[HintRow], RegionMark]) -> set[tuple[str, str]]:
+    """The blocks ``mark`` takes, plus each region's body.
+
+    A region takes the ``body`` blocks after its lead, up to the next section
+    header or ``stop`` block and at most ``MAX_REGION_BLOCKS``: Marker gives a
+    lead line ("Solution:", "Example 5.2") the hint and leaves the body that
+    follows unhinted.
+    """
+
+    found: set[tuple[str, str]] = set()
+    open_region = 0
+    for row in rows:
+        kind = mark(row)
+        if kind in ("region", "block"):
+            found.add(row.key)
+            open_region = MAX_REGION_BLOCKS if kind == "region" else 0
+        elif kind == "body" and open_region and row.block_type != "SectionHeader":
+            found.add(row.key)
+            open_region -= 1
+        else:
             open_region = 0
-            for span_id, block_type, role_hint in connection.execute(
-                "SELECT span_id, block_type, role_hint FROM source_document_blocks "
-                "WHERE extraction_id = ? ORDER BY ordinal, span_id", (extraction_id,),
-            ):
-                if role_hint in wanted:
-                    found.add((str(extraction_id), str(span_id)))
-                    open_region = MAX_REGION_BLOCKS if role_hint in regions else 0
-                elif open_region and block_type != "SectionHeader" and role_hint in _REGION_BODY_HINTS:
-                    found.add((str(extraction_id), str(span_id)))
-                    open_region -= 1
-                else:
-                    open_region = 0
     return found
 
 
@@ -354,22 +502,34 @@ __all__ = [
     "AssessmentLink",
     "BlockMatch",
     "BlockRow",
+    "EXCLUDED_BLOCK_TYPES",
+    "HintRow",
+    "MAX_QUERY_TERMS",
     "MAX_REGION_BLOCKS",
+    "REGION_BODY_HINTS",
+    "TEACHING_LINK_ENTITY_TYPES",
     "UnitRow",
     "assessment_link_locators",
+    "block_content_hashes",
     "blocks_by_key",
+    "entity_link_locators",
     "extraction_blocks",
     "extraction_fingerprint",
+    "extraction_fingerprints",
+    "extraction_hint_rows",
+    "extraction_source_ids",
     "extraction_units",
-    "EXCLUDED_BLOCK_TYPES",
-    "MAX_QUERY_TERMS",
     "fts_drift",
+    "hinted_extraction_ids",
     "indexed_block_count",
-    "role_hint_spans",
-    "source_extraction_ids",
-    "section_header_titles",
+    "lead_regions",
     "match_expression",
     "query_terms",
     "rebuild_source_block_fts",
+    "revision_source_ids",
     "search_blocks",
+    "section_header_titles",
+    "source_extraction_ids",
+    "spans_with_content_hashes",
+    "teaching_link_locators",
 ]

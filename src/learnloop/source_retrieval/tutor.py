@@ -8,7 +8,8 @@ learning-object-linked spans whatever it asked. Now:
    nothing is retrieved or paid for and the tutor keeps the linked spans.
 1. **Retrieve** over the teaching scope (the LOs' subjects' sources that have
    teaching authority; every assessment span excluded; in a practice or feedback
-   context also every exercise and solution block): BM25 and dense lists for the
+   context also every passage linked to the item, whatever the relation, and
+   every exercise and solution block): BM25 and dense lists for the
    learner's question alone (never the practice question, whose own worked
    answer would rank first), the LLM-rewritten query when
    ``tutor_query_rewrite`` is on, and the LOs' own linked spans as one more
@@ -98,7 +99,8 @@ class TutorSpanProvider:
         owner_id = "tq_" + new_ulid()
         item_bound = context in ITEM_BOUND_CONTEXTS and item is not None
         lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
-        scope = teaching_scope(vault, repository, lo_ids, item_bound=item_bound)
+        scope = teaching_scope(vault, repository, lo_ids, item_bound=item_bound,
+                               item=item if item_bound else None)
         provenance = [
             (span.extraction_id, span.span_id)
             for lo_id in lo_ids

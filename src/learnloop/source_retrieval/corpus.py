@@ -7,14 +7,17 @@ sources minus everything without teaching authority: source-set material whose
 role lacks ``semantic_contract`` authority (exam, problem set, notes, unknown;
 whole members or unit overrides, in every extraction of the source) and spans
 linked by ``exercise`` or ``assessment_alignment`` provenance. Assessment lanes
-never enter a teaching context (ING M8 §9.1). In an item-bound context
-(practice, feedback) exercise and solution blocks are dropped as well.
+never enter a teaching context (ING M8 §9.1). A source with no role (in no
+source set, cited by no teaching link) fails closed like an unknown role. In an
+item-bound context (practice, feedback) the item's own linked passages, and
+exercise and solution blocks, are dropped as well.
 """
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+import json
 from typing import Any
 
 from learnloop.content.sources.role_authority import role_authority
@@ -22,15 +25,27 @@ from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import (
+    REGION_BODY_HINTS,
     AssessmentLink,
+    HintRow,
     UnitRow,
     assessment_link_locators,
+    block_content_hashes,
+    entity_link_locators,
+    extraction_hint_rows,
+    extraction_source_ids,
     extraction_units,
-    role_hint_spans,
+    hinted_extraction_ids,
+    lead_regions,
+    revision_source_ids,
+    section_header_titles,
     source_extraction_ids,
+    spans_with_content_hashes,
+    teaching_link_locators,
 )
+from learnloop.ingest.block_roles import lead_role, unit_heading_role
 from learnloop.ingest.locators import parse_block_span
-from learnloop.vault.models import LoadedVault, learning_object_facet_union
+from learnloop.vault.models import LoadedVault, PracticeItem, learning_object_facet_union
 
 
 @dataclass(frozen=True)
@@ -136,9 +151,17 @@ def _linked_extractions(vault: LoadedVault, repository: Repository,
 
 #: In an item-bound tutor context (practice, feedback) these block roles are
 #: never grounding: an exercise statement, or a solution (its lead block and
-#: the body that follows it), may be the item's own worked answer.
+#: the body that follows it), may be the item's own worked answer. Worked
+#: examples are not dropped wholesale: the one the item was made from is
+#: linked to it (dropped below, with its body), and any other is the tutor's
+#: best scaffold; the answer-overlap filter and the verifier still apply.
 ITEM_BOUND_EXCLUDED_ROLE_HINTS = ("exercise", "solution")
 _REGION_ROLE_HINTS = ("solution",)
+#: An item-linked block that leads one of these takes the body after it.
+_ITEM_LEAD_REGION_HINTS = ("worked_example", "exercise", "solution")
+#: Hints a heading cue can assign to every block under a heading. Trusted only
+#: from the block's own lead text or a heading that names the whole unit.
+_CUED_ROLES = frozenset({"exercise", "solution", "worked_example"})
 
 
 @dataclass(frozen=True)
@@ -270,16 +293,174 @@ def assessment_spans(vault: LoadedVault, repository: Repository) -> frozenset[tu
     return teaching_exclusions(vault, repository).spans
 
 
+def _heading(row: HintRow, titles: Mapping[str, str]) -> str:
+    """The block's nearest heading, a Marker header ref resolved to its text."""
+
+    try:
+        path = json.loads(row.section_path_json or "[]")
+    except (TypeError, ValueError):
+        return ""
+    for element in reversed(path if isinstance(path, list) else []):
+        value = str(element or "").strip()
+        if value and value.lower() != "root":
+            return titles.get(value, value)
+    return ""
+
+
+def _effective_hint(row: HintRow, titles: Mapping[str, str]) -> str | None:
+    """The block's role hint, unless only a heading substring gave it.
+
+    Heading cues tag every block under a heading such as "Solutions of linear
+    systems" or "The eigenvalue problem"; such a hint is not the block's own
+    role, so it counts as ordinary prose. A hint from the block's lead text
+    ("Solution:", "Problem 4.") or from a heading naming the whole unit
+    ("Exercises", "Solutions to Selected Problems") is kept.
+    """
+
+    hint = row.role_hint
+    if hint in _CUED_ROLES and lead_role(row.text) != hint \
+            and unit_heading_role(_heading(row, titles)) != hint:
+        return "ordinary_prose"
+    return hint
+
+
+def _role_hint_exclusions(connection, extraction_ids: Iterable[str]) -> set[tuple[str, str]]:
+    """Exercise and solution blocks (a solution with the body after its lead)."""
+
+    found: set[tuple[str, str]] = set()
+    for extraction_id in hinted_extraction_ids(connection, extraction_ids, ITEM_BOUND_EXCLUDED_ROLE_HINTS):
+        titles = section_header_titles(connection, extraction_id)
+
+        def mark(row: HintRow, titles: Mapping[str, str] = titles) -> str:
+            hint = _effective_hint(row, titles)
+            if hint in ITEM_BOUND_EXCLUDED_ROLE_HINTS:
+                return "region" if hint in _REGION_ROLE_HINTS else "block"
+            return "body" if hint in REGION_BODY_HINTS else "stop"
+
+        found |= lead_regions(extraction_hint_rows(connection, extraction_id), mark)
+    return found
+
+
+def _ref_spans(extraction_id: str | None, span_ids: Sequence[str]) -> set[tuple[str, str]]:
+    """A YAML source ref's ``span_ids``: plain (``s4``) or namespaced (``ext/s4``, ``ext:s4``)."""
+
+    found: set[tuple[str, str]] = set()
+    for value in span_ids:
+        span = str(value or "").strip()
+        if not span:
+            continue
+        if extraction_id and span.startswith((f"{extraction_id}/", f"{extraction_id}:")):
+            found.add((extraction_id, span[len(extraction_id) + 1:]))
+        elif "/" in span:
+            head, _, tail = span.partition("/")
+            found.add((head, tail))
+        elif extraction_id:
+            found.add((extraction_id, span))
+    return found
+
+
+def _same_text_elsewhere(connection, linked: set[tuple[str, str]]) -> set[tuple[str, str]]:
+    """The linked blocks' text in every other extraction of the same source.
+
+    A re-extraction renumbers span ids, and the tutor reads the source's
+    latest run, so a link into an older run is matched there by block text.
+    """
+
+    by_extraction: dict[str, set[str]] = {}
+    for extraction_id, span_id in linked:
+        by_extraction.setdefault(extraction_id, set()).add(span_id)
+    sources = extraction_source_ids(connection, by_extraction)
+    found: set[tuple[str, str]] = set()
+    for extraction_id, span_ids in sorted(by_extraction.items()):
+        source_id = sources.get(extraction_id)
+        hashes = block_content_hashes(connection, extraction_id, span_ids)
+        if not source_id or not hashes:
+            continue
+        for other in source_extraction_ids(connection, source_id=source_id):
+            if other != extraction_id:
+                found.update((other, span_id) for span_id in spans_with_content_hashes(connection, other, hashes))
+    return found
+
+
+def item_exclusions(repository: Repository, item: PracticeItem) -> Exclusions:
+    """Every passage the practice item is linked to, whatever the relation.
+
+    An item made from a worked example (or an exercise, or a solution) may link
+    it as ``primary``, ``support`` or ``alternate`` as well as ``exercise``: in
+    an item-bound context that passage is the item's own worked answer. Both
+    the item's ``entity_source_links`` (every relation and status) and its YAML
+    ``provenance.source_refs`` count. A block locator names one block (and the
+    same text in the source's other extractions), and a linked block that
+    leads a worked example, exercise or solution takes the body after it too;
+    a link or source ref that names no block excludes its whole extraction (or
+    its revision's or source's extractions). A ref to another entity or a note
+    names no source and excludes nothing.
+    """
+
+    whole: set[str] = set()
+    spans: set[tuple[str, str]] = set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        links = list(entity_link_locators(connection, "practice_item", item.id))
+        for ref in item.provenance.source_refs:
+            source_id = ref.source_id or (ref.ref_id if ref.ref_type == "canonical_source" else None)
+            if not (ref.extraction_id or ref.revision_id or source_id):
+                continue
+            named = _ref_spans(ref.extraction_id, ref.span_ids)
+            spans |= named
+            if ref.locator or not named:
+                links.append(AssessmentLink(ref.extraction_id, ref.locator or "", source_id, ref.revision_id))
+        for link in links:
+            _link_exclusions(connection, link, whole, spans)
+        linked = {key for key in spans if key[0] not in whole}
+        linked |= {key for key in _same_text_elsewhere(connection, linked) if key[0] not in whole}
+        spans |= linked
+        for extraction_id in sorted({key[0] for key in linked}):
+            titles = section_header_titles(connection, extraction_id)
+
+            def mark(row: HintRow, titles: Mapping[str, str] = titles) -> str:
+                hint = _effective_hint(row, titles)
+                if row.key in linked:
+                    return "region" if hint in _ITEM_LEAD_REGION_HINTS else "block"
+                return "body" if hint in REGION_BODY_HINTS else "stop"
+
+            spans |= lead_regions(extraction_hint_rows(connection, extraction_id), mark)
+    return Exclusions(frozenset(whole), frozenset(spans))
+
+
+def _teaching_standing(vault: LoadedVault, repository: Repository) -> tuple[set[str], set[str]]:
+    """Sources (and extractions) with a role: a source-set member, or cited by
+    a learning object's, facet's or concept's teaching-relation link."""
+
+    sources = {str(member.source_id) for source_set in vault.source_sets for member in source_set.members}
+    extractions: set[str] = set()
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        links = teaching_link_locators(connection)
+        revisions = revision_source_ids(connection, [link.revision_id for link in links
+                                                     if link.revision_id and not link.source_id])
+    for link in links:
+        if link.extraction_id:
+            extractions.add(link.extraction_id)
+        if link.source_id:
+            sources.add(link.source_id)
+        elif link.revision_id in revisions:
+            sources.add(revisions[link.revision_id])
+    return sources, extractions
+
+
 def teaching_scope(vault: LoadedVault, repository: Repository,
-                   learning_object_ids: Iterable[str], *, item_bound: bool = False) -> Scope:
+                   learning_object_ids: Iterable[str], *, item_bound: bool = False,
+                   item: PracticeItem | None = None) -> Scope:
     """The tutor's grounding scope: the LOs' subjects' teaching sources.
 
     Sources come from the subjects' source sets plus any source the LOs'
     teaching provenance cites. With no LO, or no source found for them, every
-    current source is searched. Either way :func:`teaching_exclusions` applies
-    (whole extractions leave the scope), and an ``item_bound`` context
-    (practice, feedback) also drops exercise and solution blocks, since one of
-    them may be the item's own worked answer.
+    current source with a role is searched: a source in no source set that no
+    learning object, facet or concept cites as teaching material has no role,
+    and fails closed like an unknown one. Either way
+    :func:`teaching_exclusions` applies (whole extractions leave the scope),
+    and an ``item_bound`` context (practice, feedback) also drops exercise and
+    solution blocks and, given the ``item``, every passage linked to it
+    (:func:`item_exclusions`), since one of them may be its own worked answer.
     """
 
     lo_ids = [lo_id for lo_id in dict.fromkeys(learning_object_ids) if lo_id in vault.learning_objects]
@@ -301,8 +482,14 @@ def teaching_scope(vault: LoadedVault, repository: Repository,
         # source's current one; its own extraction is still searchable.
         extractions[extraction_id] = extraction_scope(repository, extraction_id).extractions[extraction_id]
     if not extractions:
-        extractions = dict(every)
-        notes.append("no source is linked to these learning objects; every source is searched")
+        standing_sources, standing_extractions = _teaching_standing(vault, repository)
+        extractions = {key: value for key, value in every.items()
+                       if value.source_id in standing_sources or key in standing_extractions}
+        notes.append("no source is linked to these learning objects; every source with a role is searched")
+        unplaced = len({value.source_id for value in every.values()}) - len(
+            {value.source_id for value in extractions.values()})
+        if unplaced:
+            notes.append(f"{unplaced} source(s) in no source set and cited by no teaching link excluded")
     exclusions = teaching_exclusions(vault, repository)
     dropped = sorted(set(extractions) & exclusions.extractions)
     for extraction_id in dropped:
@@ -310,10 +497,22 @@ def teaching_scope(vault: LoadedVault, repository: Repository,
     if dropped:
         notes.append(f"{len(dropped)} source extraction(s) without teaching authority excluded")
     excluded = set(exclusions.spans)
+    if item_bound and item is not None:
+        own = item_exclusions(repository, item)
+        own_whole = sorted(set(extractions) & own.extractions)
+        for extraction_id in own_whole:
+            del extractions[extraction_id]
+        own_spans = {key for key in own.spans if key[0] in extractions}
+        excluded |= own_spans
+        if own_whole or own_spans:
+            notes.append(f"{len(own_spans)} block(s) and {len(own_whole)} whole source extraction(s) "
+                         "linked to the practice item excluded")
     if item_bound and extractions:
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            excluded |= role_hint_spans(connection, extractions, ITEM_BOUND_EXCLUDED_ROLE_HINTS,
-                                        region_hints=_REGION_ROLE_HINTS)
+            hinted = _role_hint_exclusions(connection, extractions)
+        if hinted:
+            notes.append(f"{len(hinted)} exercise or solution block(s) excluded")
+        excluded |= hinted
     return Scope("teaching", extractions, frozenset(excluded), tuple(notes))
 
 
@@ -325,6 +524,7 @@ __all__ = [
     "assessment_spans",
     "current_extractions",
     "extraction_scope",
+    "item_exclusions",
     "library_scope",
     "teaching_exclusions",
     "teaching_scope",

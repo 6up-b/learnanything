@@ -77,6 +77,50 @@ _LEAD_ROLE = {
 }
 
 
+# Words a heading may consist of when it names a whole exercise, solution or
+# example unit ("Exercises", "Solutions to Selected Problems", "Problem Set 4",
+# "Exercises for Section 5.3"), as opposed to a teaching section whose title
+# merely contains such a word ("Solutions of linear systems", "The eigenvalue
+# problem", "Least-squares problems"). Numbers and roman numerals are ignored.
+_UNIT_WORDS = {
+    "solution": "solution", "solutions": "solution", "answer": "solution", "answers": "solution",
+    "hint": "solution", "hints": "solution",
+    "exercise": "exercise", "exercises": "exercise", "problem": "exercise", "problems": "exercise",
+    "homework": "exercise", "assignment": "exercise", "assignments": "exercise",
+    "example": "worked_example", "examples": "worked_example", "worked": "worked_example",
+}
+_UNIT_FILLER = frozenset("""
+a an the and to for of on in with set sets selected odd even numbered chapter chapters section sections
+part parts review practice additional further more supplementary extra end unit lesson week
+""".split())
+_ROMAN_RE = re.compile(r"^[ivxlc]+$")
+_UNIT_ROLE_ORDER = ("solution", "exercise", "worked_example")
+
+
+def lead_role(text: str) -> str | None:
+    """The role a block's own lead text names ("Solution:", "Example 5.2"), or None."""
+
+    if _WORKED_LEAD_RE.match(text or ""):
+        return "worked_example"
+    lead = _LEAD_RE.match(text or "")
+    if lead:
+        return _LEAD_ROLE.get(lead.group(1).lower())
+    return None
+
+
+def unit_heading_role(heading: str | None) -> str | None:
+    """The role of a heading that names a whole exercise, solution or example
+    unit, or None for any other heading (a teaching section's title that only
+    contains such a word)."""
+
+    words = re.findall(r"[a-z]+", (heading or "").lower().replace("-", " "))
+    words = [word for word in words if not _ROMAN_RE.match(word)]
+    roles = {_UNIT_WORDS[word] for word in words if word in _UNIT_WORDS}
+    if not roles or any(word not in _UNIT_WORDS and word not in _UNIT_FILLER for word in words):
+        return None
+    return next(role for role in _UNIT_ROLE_ORDER if role in roles)
+
+
 def classify_block_role(
     block_type: str,
     section_path: list[str] | None,
@@ -88,13 +132,9 @@ def classify_block_role(
     if native is not None:
         return native
 
-    if _WORKED_LEAD_RE.match(text or ""):
-        return "worked_example"
-    lead = _LEAD_RE.match(text or "")
-    if lead:
-        role = _LEAD_ROLE.get(lead.group(1).lower())
-        if role is not None:
-            return role
+    role = lead_role(text)
+    if role is not None:
+        return role
 
     # Nearest (deepest) heading in the section path dominates.
     heading = ""
