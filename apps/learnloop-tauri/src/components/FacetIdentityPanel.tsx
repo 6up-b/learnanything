@@ -76,12 +76,15 @@ export function FacetIdentityPanel({
               >
                 {busy === action.id ? "undoing…" : "undo"}
               </button>
+            ) : action.note ? (
+              <Faint style={{ fontFamily: FONT_MONO, fontSize: 10 }}>no undo</Faint>
             ) : (
               <Faint style={{ fontFamily: FONT_MONO, fontSize: 10 }}>applies with the proposal</Faint>
             )}
           </div>
-          {(action.rationale || action.locked) && (
+          {(action.rationale || action.locked || action.note) && (
             <Faint style={{ display: "block", fontSize: 10 }}>
+              {action.note ? `${action.note} · ` : ""}
               {action.locked ? "facet had practice history; undo restores it · " : ""}
               {action.rationale}
             </Faint>

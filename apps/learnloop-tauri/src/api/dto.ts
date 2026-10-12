@@ -2618,6 +2618,8 @@ export interface FacetIdentityActionDto {
   /** proposed = applies with its proposal; applied = undoable now; undone. */
   status: "proposed" | "applied" | "undone";
   undoable: boolean;
+  /** Why this merge has no undo, when it has none by construction. */
+  note?: string | null;
   createdAt: string;
   undoneAt: string | null;
 }

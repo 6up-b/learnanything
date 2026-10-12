@@ -346,7 +346,9 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
         "judge": record["judge"],
         "judge_model": record.get("judge_model"),
         "status": status,
-        "undoable": status == "applied",
+        "undoable": status == "applied" and not detail.get("undo"),
+        # Why there is no undo, when there is none by construction.
+        "note": detail.get("undo"),
         "created_at": record["created_at"],
         "undone_at": record.get("undone_at"),
     }
@@ -381,6 +383,8 @@ def undo_action(root: Path, repository: Repository, action_id: str, *, clock: Cl
             raise FacetIdentityActionError("unknown_action", f"No facet identity action {action_id!r}.")
         if record["status"] == "undone":
             raise FacetIdentityActionError("already_undone", f"Action {action_id} was already undone.")
+        if (record.get("detail") or {}).get("undo"):
+            raise FacetIdentityActionError("no_undo", f"Action {action_id} has no undo: {record['detail']['undo']}.")
         vault = load_vault(root)
         status = effective_status(record, vault)
         if status == "proposed":

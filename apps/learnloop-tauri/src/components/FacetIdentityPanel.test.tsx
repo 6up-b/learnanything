@@ -60,6 +60,18 @@ it("never offers an undo for a merge whose proposal is not applied", () => {
   expect(screen.getByText("applies with the proposal")).toBeTruthy();
 });
 
+it("labels a merge that has no undo by construction", () => {
+  render(
+    <FacetIdentityPanel
+      summary={summary([action({ undoable: false, note: "unavailable: the survivor was aliased by the mint gate" })])}
+      onError={vi.fn()}
+    />
+  );
+  expect(screen.queryByRole("button", { name: "undo" })).toBeNull();
+  expect(screen.getByText("no undo")).toBeTruthy();
+  expect(screen.getByTestId("facet-identity").textContent).toContain("aliased by the mint gate");
+});
+
 it("says when the duplicate check was skipped", () => {
   render(<FacetIdentityPanel summary={summary([], "judge_unavailable")} onError={vi.fn()} />);
   expect(screen.getByText(/duplicate check skipped/)).toBeTruthy();

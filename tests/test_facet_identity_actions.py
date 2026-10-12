@@ -168,3 +168,20 @@ def test_a_merge_leaves_the_vault_doctor_clean(tmp_path):
     after = {issue.code for issue in run_doctor(paths.root).issues if issue.severity == "error"}
     assert after <= before
     assert not any("unregistered" in code for code in after)
+
+
+def test_a_merge_without_an_undo_says_so_and_refuses(tmp_path):
+    from learnloop.content.facet_identity.actions import describe, record_proposed_actions
+
+    paths, vault, repository = _vault_with_duplicate(tmp_path)
+    (action_id,) = record_proposed_actions(repository, [{
+        "scope": "in_run", "action": "merge", "survivor_facet_id": SHARED, "retired_facet_ids": ["facet_gone"],
+        "before": {"facets": {SHARED: None, "facet_gone": {"id": "facet_gone"}}, "order": {}},
+        "after": {"facets": {SHARED: None, "facet_gone": None}}, "judge": "llm", "judge_model": "fake",
+        "prompt_version": "v1", "detail": {"undo": "unavailable: the survivor was aliased by the mint gate"},
+    }], origin="ingest", run_id="run1", proposal_id=None, clock=_CLOCK)
+    view = describe(list_actions(repository)[0], vault)
+    assert view["undoable"] is False and "mint gate" in view["note"]
+    with pytest.raises(FacetIdentityActionError) as exc:
+        undo_action(paths.root, repository, action_id)
+    assert exc.value.code == "no_undo"
