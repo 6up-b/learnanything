@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 167
+schema_head: 168
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -141,11 +141,11 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/learner_review_feed.py`
+- `src/learnloop/substrate/family_memory_rows.py`
 - `src/learnloop/tui/screens/feedback.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
-- `src/learnloop_sidecar/handlers/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

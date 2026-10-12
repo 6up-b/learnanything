@@ -3,13 +3,13 @@ title: "practice_item_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_state"
   - "table practice_item_state"
-schema_head: 167
+schema_head: 168
 table_name: "practice_item_state"
 table_role: "compat"
 functionality_status: "active-historical-seam"
@@ -135,6 +135,8 @@ Indexes and uniqueness:
 - `tests/test_card_lineage.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_codex_attempt_flow.py`
+- `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_loop_reader_retire.py`
 - `tests/test_debug_advance.py`
 - `tests/test_diagnostic_probe_single_use.py`
 - `tests/test_e2e_codex_mock.py`
@@ -143,14 +145,12 @@ Indexes and uniqueness:
 - `tests/test_evaluation.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_exam_seeding.py`
+- `tests/test_family_evaluation.py`
+- `tests/test_family_memory_projection.py`
 - `tests/test_hot_path_eligibility_cutover.py`
 - `tests/test_item_authoring.py`
 - `tests/test_measurement_corrections.py`
 - `tests/test_patch_applier.py`
-- `tests/test_probe_remint.py`
-- `tests/test_probe_surface_mint.py`
-- `tests/test_review_log.py`
-- `tests/test_scheduler_requested_floor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

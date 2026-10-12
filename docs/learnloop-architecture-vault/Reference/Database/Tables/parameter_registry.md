@@ -3,13 +3,13 @@ title: "parameter_registry"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite parameter_registry"
   - "table parameter_registry"
-schema_head: 167
+schema_head: 168
 table_name: "parameter_registry"
 table_role: "raw_ledger"
 functionality_status: "active"

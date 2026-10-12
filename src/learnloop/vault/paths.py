@@ -59,6 +59,9 @@ class VaultPaths:
     def practice_item_path(self, subject_id: str, practice_item_id: str) -> Path:
         return self.subject_dir(subject_id) / "practice-items" / f"{practice_item_id}.yaml"
 
+    def activity_family_path(self, subject_id: str, family_id: str) -> Path:
+        return self.subject_dir(subject_id) / "activity-families" / f"{family_id}.yaml"
+
     def note_path(self, subject_id: str, note_id: str) -> Path:
         return self.subject_dir(subject_id) / "notes" / f"{note_id}.md"
 

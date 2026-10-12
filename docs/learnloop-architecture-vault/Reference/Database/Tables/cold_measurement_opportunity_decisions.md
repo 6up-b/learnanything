@@ -3,13 +3,13 @@ title: "cold_measurement_opportunity_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite cold_measurement_opportunity_decisions"
   - "table cold_measurement_opportunity_decisions"
-schema_head: 167
+schema_head: 168
 table_name: "cold_measurement_opportunity_decisions"
 table_role: "receipt"
 functionality_status: "active"
@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_certification_cold_probe.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_instrument_servability_journeys.py`

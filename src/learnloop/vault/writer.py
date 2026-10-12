@@ -10,6 +10,7 @@ from learnloop.config import load_config
 from learnloop.vault.loader import load_vault
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.models import (
+    ActivityFamily,
     Concept,
     ConceptEdge,
     ErrorType,
@@ -25,6 +26,21 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 
 class VaultWriterError(ValueError):
     pass
+
+
+def upsert_activity_family(root: Path, family: ActivityFamily) -> Path:
+    """Write authored family content; identity/history syncing belongs to substrate."""
+    vault = load_vault(root)
+    lo = vault.learning_objects.get(family.learning_object_id)
+    if lo is None or not lo.subjects:
+        raise VaultWriterError("Family requires an existing subject-owned learning object")
+    if not family.id or Path(family.id).name != family.id or family.id in {".", ".."}:
+        raise VaultWriterError("Family id must be a single safe path component")
+    paths = VaultPaths(vault.root, vault.config)
+    path = paths.activity_family_path(lo.subjects[0], family.id)
+    _ensure_subject_path(paths, lo.subjects[0], path)
+    write_yaml(path, family.model_dump(mode="json"))
+    return path
 
 
 CONCEPT_ORDER = [

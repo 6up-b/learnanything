@@ -3,13 +3,13 @@ title: "commitment_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_versions"
   - "table commitment_versions"
-schema_head: 167
+schema_head: 168
 table_name: "commitment_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,7 +21,9 @@ source_paths:
   - "migrations/072_commitments.sql"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/content/authoring/rung_variants.py"
+  - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -101,10 +103,12 @@ Indexes and uniqueness:
 - `Repository.commitments_targeting()`
 - `Repository.find_commitment_by_idempotency()`
 - `Repository.find_commitment_candidate()`
+- `Repository.requested_practice_item_ids()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_authoring.py`
 
 ### Direct SQL writers
 
@@ -115,6 +119,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/curriculum/commitments.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -123,6 +128,9 @@ Indexes and uniqueness:
 
 - `tests/test_golden_path_confirm.py`
 - `tests/test_commitments.py`
+- `tests/test_daily_loop_reader_retire.py`
+- `tests/test_question_promotions.py`
+- `tests/test_tutor_promotion_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 167
+schema_head: 168
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,7 +19,11 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
+  - "src/learnloop/cli/families.py"
+  - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
+  - "src/learnloop/ops/family_proposals.py"
+  - "src/learnloop/substrate/families.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -43,7 +47,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -93,7 +97,10 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/cli/families.py`
+- `src/learnloop/db/stores/families.py`
+- `src/learnloop/ops/family_proposals.py`
+- `src/learnloop/substrate/families.py`
 
 ### Direct SQL writers
 
@@ -108,8 +115,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_activity_families.py`
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`
+- `tests/test_family_proposals.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_judgment_ledger.py`
 

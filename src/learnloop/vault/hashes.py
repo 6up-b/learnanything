@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from learnloop.vault.models import Concept, ConceptEdge, LearningObject, PracticeItem, Rubric
+from learnloop.vault.models import ActivityFamily, Concept, ConceptEdge, LearningObject, PracticeItem, Rubric
 
 
 def _plain(value: Any) -> Any:
@@ -87,6 +87,11 @@ def concept_edge_hash(edge: ConceptEdge) -> str:
             "rationale": edge.rationale,
         }
     )
+
+
+def activity_family_hash(family: ActivityFamily) -> str:
+    """Authored family content has its own revision hash, never the item hash."""
+    return content_hash(family.model_dump(mode="json"))
 
 
 def rubric_hash(rubric: Rubric) -> str:

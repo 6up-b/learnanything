@@ -3,13 +3,13 @@ title: "golden_path_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite golden_path_runs"
   - "table golden_path_runs"
-schema_head: 167
+schema_head: 168
 table_name: "golden_path_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -133,6 +133,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/scheduling/controller_cutover.py`
 - `src/learnloop_sidecar/handlers/golden_path.py`
+- `src/learnloop_sidecar/handlers/golden_path_assessment.py`
 - `src/learnloop_sidecar/handlers/ladder.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 

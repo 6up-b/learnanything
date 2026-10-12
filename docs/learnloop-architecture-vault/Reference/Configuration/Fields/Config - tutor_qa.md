@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -22,6 +22,9 @@ source_paths:
   - "src/learnloop/reader/reader_dialogue.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/tutor/question_signal.py"
+  - "tests/test_daily_loop_reader_authored_practice.py"
+  - "tests/test_daily_loop_reader_retire.py"
+  - "tests/test_daily_loop_reference_adoption.py"
   - "tests/test_question_signal.py"
   - "tests/test_reader_dialogue.py"
   - "tests/test_sidecar_reader.py"
@@ -69,6 +72,9 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_loop_reader_retire.py`
+- `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_question_signal.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_sidecar_reader.py`

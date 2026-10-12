@@ -3,13 +3,13 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
   - "table practice_item_snapshots"
-schema_head: 167
+schema_head: 168
 table_name: "practice_item_snapshots"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
+  - "src/learnloop/substrate/family_memory_rows.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -85,6 +86,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/substrate/family_memory_rows.py`
 
 ### Direct SQL writers
 
@@ -101,6 +103,7 @@ None found by exact static reference scan.
 
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_family_memory_projection.py`
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
 

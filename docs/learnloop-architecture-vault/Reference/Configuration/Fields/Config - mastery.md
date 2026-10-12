@@ -3,8 +3,8 @@ title: "Config - mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml mastery"
@@ -19,11 +19,13 @@ source_paths:
   - "src/learnloop/config/template.py"
   - "tests/test_config_refactor.py"
   - "src/learnloop/attempts/surprise.py"
+  - "src/learnloop/evaluation/report.py"
   - "src/learnloop/learner/mastery.py"
-  - "src/learnloop_sidecar/context.py"
   - "src/learnloop/curriculum/depth_rungs.py"
+  - "src/learnloop_sidecar/context.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/substrate/family_memory_rows.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
   - "tests/test_cli_ingest.py"
@@ -33,8 +35,8 @@ source_paths:
   - "tests/test_embedding_route_isolation.py"
   - "tests/test_eval_harness.py"
   - "tests/test_facet_outcome_view.py"
+  - "tests/test_family_evaluation.py"
   - "tests/test_field_llm_cli.py"
-  - "tests/test_goal_intent.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/mastery"
@@ -55,13 +57,13 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `mastery.base_observation_variance` | `1.0` | number | modeled default or validator seed | Sets the base observation variance used by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:177`; `src/learnloop/attempts/surprise.py:52`; `src/learnloop/learner/mastery.py:431` |
-| `mastery.sigma2_drift` | `0.01` | number | modeled default or validator seed | Controls sigma2 drift in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:178`; `src/learnloop/learner/mastery.py:353`; `src/learnloop_sidecar/context.py:330` |
-| `mastery.p_max` | `4.0` | number | modeled default or validator seed | Caps p allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:179`; `src/learnloop/learner/mastery.py:353`; `src/learnloop_sidecar/context.py:331` |
+| `mastery.base_observation_variance` | `1.0` | number | modeled default or validator seed | Sets the base observation variance used by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:177`; `src/learnloop/attempts/surprise.py:52`; `src/learnloop/evaluation/report.py:22` |
+| `mastery.sigma2_drift` | `0.01` | number | modeled default or validator seed | Controls sigma2 drift in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:178`; `src/learnloop/evaluation/report.py:23`; `src/learnloop/learner/mastery.py:353` |
+| `mastery.p_max` | `4.0` | number | modeled default or validator seed | Caps p allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:179`; `src/learnloop/evaluation/report.py:23`; `src/learnloop/learner/mastery.py:353` |
 | `mastery.cold_start_prior_logit_variance` | `3.0` | number | modeled default or validator seed | Sets the cold start prior logit variance used by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:186`; `src/learnloop/learner/mastery.py:178` |
 | `mastery.claim_prior_min_variance` | `2.0` | number | modeled default or validator seed | Sets the claim prior min variance used by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:187`; `src/learnloop/learner/mastery.py:196` |
-| `mastery.display_strong_threshold` | `0.6` | number | modeled default or validator seed | Sets the decision cutoff for display strong in difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:191`; `src/learnloop/curriculum/depth_rungs.py:269`; `src/learnloop_sidecar/context.py:332` |
-| `mastery.display_developing_threshold` | `0.35` | number | modeled default or validator seed | Sets the decision cutoff for display developing in difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:192`; `src/learnloop/curriculum/depth_rungs.py:268`; `src/learnloop_sidecar/context.py:333` |
+| `mastery.display_strong_threshold` | `0.6` | number | modeled default or validator seed | Sets the decision cutoff for display strong in difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:191`; `src/learnloop/curriculum/depth_rungs.py:269`; `src/learnloop_sidecar/context.py:354` |
+| `mastery.display_developing_threshold` | `0.35` | number | modeled default or validator seed | Sets the decision cutoff for display developing in difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:192`; `src/learnloop/curriculum/depth_rungs.py:268`; `src/learnloop_sidecar/context.py:355` |
 | `mastery.irt.enabled` | `true` | boolean | modeled default or validator seed | Turns item-response behavior on or off within difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:126`; `src/learnloop/attempts/surprise.py:68`; `src/learnloop/learner/mastery.py:517` |
 | `mastery.irt.discrimination_default` | `1.0` | number | modeled default or validator seed | Controls discrimination default in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:127`; `src/learnloop/content/authoring/practice_generation.py:406`; `src/learnloop/learner/mastery.py:369` |
 | `mastery.irt.discrimination_min` | `0.2` | number | modeled default or validator seed | Sets the minimum discrimination required by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:128` |
@@ -73,7 +75,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `mastery.irt.p_clip` | `0.0001` | number | modeled default or validator seed | Controls p clip in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:134`; `src/learnloop/learner/mastery.py:427` |
 | `mastery.irt.mu_abs_max` | `5.0` | number | modeled default or validator seed | Caps mu abs allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:135`; `src/learnloop/learner/mastery.py:554` |
 | `mastery.irt.max_logit_step` | `4.0` | number | modeled default or validator seed | Caps logit step allowed by difficulty-aware mastery filtering and display. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:136`; `src/learnloop/learner/mastery.py:549` |
-| `mastery.irt.priming_b_offset` | `2.0` | number | modeled default or validator seed | Controls priming b offset in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:149`; `src/learnloop/attempts/attempts.py:2463` |
+| `mastery.irt.priming_b_offset` | `2.0` | number | modeled default or validator seed | Controls priming b offset in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:149`; `src/learnloop/attempts/attempts.py:2463`; `src/learnloop/substrate/family_memory_rows.py:196` |
 | `mastery.irt.eb_difficulty_enabled` | `false` | boolean | modeled default or validator seed | Turns eb difficulty behavior on or off within difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:150`; `src/learnloop/attempts/attempts.py:2377`; `src/learnloop/learner/mastery.py:395` |
 | `mastery.irt.b_prior_variance` | `0.25` | number | modeled default or validator seed | Sets the b prior variance used by difficulty-aware mastery filtering and display. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:151`; `src/learnloop/learner/mastery.py:423` |
 | `mastery.irt.b_learning_rate_scale` | `0.2` | number | modeled default or validator seed | Controls b learning rate scale in difficulty-aware mastery filtering and display, using the typed value shown here as the fresh-vault default. | **DORMANT** — Empirical-Bayes item difficulty ships dark behind eb_difficulty_enabled=false. | `src/learnloop/config/schema.py:152`; `src/learnloop/learner/mastery.py:434` |
@@ -97,8 +99,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_embedding_route_isolation.py`
 - `tests/test_eval_harness.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_family_evaluation.py`
 - `tests/test_field_llm_cli.py`
-- `tests/test_goal_intent.py`
 
 ## Extension and modification guidance
 

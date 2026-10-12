@@ -315,6 +315,15 @@ ignore_imports = [
     "learnloop.substrate.canonical_projection -> learnloop.goals.receipt_contributions",
     "learnloop.substrate.card_lineage -> learnloop.scheduling.fsrs",
     "learnloop.substrate.compat.substrate_cutover -> learnloop.scheduling.fsrs",
+    # Shadow PF projection consumes the same grading/activity/FSRS authorities
+    # as canonical_projection and administration_adapters; no serving dependency.
+    "learnloop.substrate.family_memory_rows -> learnloop.attempts.attempts",
+    "learnloop.substrate.family_memory_rows -> learnloop.attempts.effective_observation",
+    "learnloop.substrate.family_memory_rows -> learnloop.attempts.evidence",
+    "learnloop.substrate.family_memory_rows -> learnloop.attempts.reveal_ledger",
+    "learnloop.substrate.family_memory_rows -> learnloop.diagnosis.causal_activity_policy",
+    "learnloop.substrate.family_memory_rows -> learnloop.scheduling.fsrs",
+    "learnloop.substrate.family_memory -> learnloop.scheduling.family_memory_model",
     "learnloop.substrate.replay -> learnloop.attempts.attempts",
     "learnloop.substrate.replay -> learnloop.diagnosis.misconceptions",
     "learnloop.substrate.state_sync -> learnloop.diagnosis.probe_episodes",

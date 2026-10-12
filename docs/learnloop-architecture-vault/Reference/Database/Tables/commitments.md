@@ -3,13 +3,13 @@ title: "commitments"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitments"
   - "table commitments"
-schema_head: 167
+schema_head: 168
 table_name: "commitments"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -88,10 +88,12 @@ Indexes and uniqueness:
 - `Repository.create_commitment()`
 - `Repository.find_commitment_by_idempotency()`
 - `Repository.find_commitment_candidate()`
+- `Repository.requested_practice_item_ids()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/scheduling/controller_store.py`
 
 ### Direct SQL writers
@@ -106,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_dialogue.py`
+- `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/staged_policy.py`
 - `src/learnloop/scheduling/state_signals.py`
 
@@ -121,6 +124,8 @@ Indexes and uniqueness:
 - `tests/test_controller_ownership.py`
 - `tests/test_controller_snapshot.py`
 - `tests/test_cross_seam_exposure.py`
+- `tests/test_daily_loop_reader_authored_practice.py`
+- `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_depth_transition.py`
 - `tests/test_dispersion.py`
 - `tests/test_dual_authority_administration.py`
@@ -132,8 +137,6 @@ Indexes and uniqueness:
 - `tests/test_reentry_short_session.py`
 - `tests/test_source_deletion.py`
 - `tests/test_staged_policy.py`
-- `tests/test_state_signals.py`
-- `tests/test_reader_dialogue.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

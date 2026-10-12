@@ -784,9 +784,10 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
-    # Slice A F1 adds offline field analysis and disabled paid routes only.
-    # No scoring, scheduling, evidence projection or serving change.
-    "mvp-0.9": "0fa8d393e7bffa3bd1cc9a03a38596e1b1169444172aef34f610ca349baee8ad",
+    # Slice A F1 adds offline field analysis and disabled paid routes; Phase 3
+    # (PF-a) adds explicit-command family proposal blocking defaults. No live
+    # scoring, scheduling, evidence projection or serving change (no Phase 3b).
+    "mvp-0.9": "ec9f1d5972f1fbff85281911d42a2daf79fa35e25d03aaf133a74bb199924168",
 }
 
 

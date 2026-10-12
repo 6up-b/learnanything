@@ -834,6 +834,9 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "measurement authority."),
     _ConfigRule(_exact("embedding.dimensions"), "structural", "operational",
                 "Vector representation width; embeddings have no measurement authority."),
+    _ConfigRule(_prefix("families."), "structural", "operational",
+                "Explicit-command authoring candidate bounds; judges decide identity, "
+                "with no live measurement or scheduling authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

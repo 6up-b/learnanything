@@ -122,6 +122,7 @@ def production_admissibility(
     learning_object_id: str | None = None,
     produced_at: str | None,
     since: str | None = None,
+    strict: bool = False,
 ) -> ProductionAdmissibility:
     """Admit a learner production unless a reveal preceded it in its window.
 
@@ -133,7 +134,8 @@ def production_admissibility(
 
     Best-effort by construction. A lookup that fails ADMITS, because refusing
     evidence on the strength of a database error would silently starve the lane
-    while looking like a finding.
+    while looking like a finding. Offline research passes ``strict=True`` to
+    propagate lookup failures rather than report an unverified cold opportunity.
     """
 
     if not produced_at or not (practice_item_id or learning_object_id):
@@ -146,6 +148,8 @@ def production_admissibility(
             until=produced_at,
         )
     except Exception:  # pragma: no cover - defensive
+        if strict:
+            raise
         logger.warning(
             "reveal admissibility lookup failed for item %s",
             practice_item_id,

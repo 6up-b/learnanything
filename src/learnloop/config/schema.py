@@ -1284,6 +1284,13 @@ class DiagnosticAugmentationConfig(BaseModel):
     history_limit: int = Field(default=4, ge=0, le=20)
 
 
+class FamiliesConfig(BaseModel):
+    """Offline family authoring only; live scheduling remains per card."""
+
+    max_exhaustive_items: int = Field(default=40, ge=2)
+    blocking_top_k: int = Field(default=20, ge=1)
+
+
 class EmbeddingConfig(BaseModel):
     enabled: bool = False
     backfill_enabled: bool = False
@@ -1339,6 +1346,7 @@ class LearnLoopConfig(BaseModel):
     ai: AIConfig = Field(default_factory=AIConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
+    families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

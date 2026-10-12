@@ -48,7 +48,10 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/embedding_vectors.py",
         "src/learnloop/db/stores/judgments.py",
         "src/learnloop/db/stores/field.py",
+        "src/learnloop/db/stores/families.py",
         "src/learnloop/substrate/replay.py",
+        # Sole derived shadow-family FSRS writer; never a serving cache.
+        "src/learnloop/substrate/family_memory.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
         "src/learnloop/scheduling/kinship_feature.py",

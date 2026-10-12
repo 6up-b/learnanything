@@ -3,13 +3,13 @@ title: "commitment_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite commitment_events"
   - "table commitment_events"
-schema_head: 167
+schema_head: 168
 table_name: "commitment_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/072_commitments.sql"
   - "src/learnloop/curriculum/commitments.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/reader/reader_authoring.py"
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/curriculum/depth_transition.py"
   - "src/learnloop/scheduling/controller_snapshot.py"
@@ -83,10 +84,12 @@ Indexes and uniqueness:
 - `Repository.append_commitment_event()`
 - `Repository.commitment_events_for()`
 - `Repository.record_depth_transition_atomic()`
+- `Repository.requested_practice_item_ids()`
 
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/reader/reader_authoring.py`
 
 ### Direct SQL writers
 
@@ -99,6 +102,7 @@ Indexes and uniqueness:
 - `src/learnloop/curriculum/depth_transition.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
+- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -108,9 +112,12 @@ Indexes and uniqueness:
 - `tests/test_p2_acceptance.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`
+- `tests/test_daily_loop_reader_retire.py`
 - `tests/test_depth_transition.py`
 - `tests/test_golden_path_assessment.py`
 - `tests/test_journey6.py`
+- `tests/test_question_promotions.py`
+- `tests/test_tutor_promotion_service.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

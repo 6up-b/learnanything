@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 167
+schema_head: 168
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -80,6 +80,7 @@ Indexes and uniqueness:
 - `Repository.acknowledge_practice_checkpoint()`
 - `Repository.clear_session_checkpoint()`
 - `Repository.deactivate_practice_item_serving()`
+- `Repository.end_open_sessions_except()`
 - `Repository.fetch_session_checkpoint()`
 - `Repository.find_record()`
 - `Repository.update_session_checkpoint()`

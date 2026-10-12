@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
-source_commit_timestamp: "2026-10-11T23:19:23-04:00"
+source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
+source_commit_timestamp: "2026-10-12T00:04:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -23,6 +23,7 @@ source_paths:
   - "tests/conftest.py"
   - "tests/helpers.py"
   - "tests/test_activity_backfill.py"
+  - "tests/test_activity_families.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_agent_runs.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_apply_write_ahead.py"
   - "tests/test_assessment_contracts.py"
   - "tests/test_assessment_enforcement.py"
-  - "tests/test_attempt_ai_flow.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -64,6 +64,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/helpers.py`
 - `tests/test_activity_backfill.py`
+- `tests/test_activity_families.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_agent_runs.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_apply_write_ahead.py`
 - `tests/test_assessment_contracts.py`
 - `tests/test_assessment_enforcement.py`
-- `tests/test_attempt_ai_flow.py`
 
 ## Extension and modification guidance
 
