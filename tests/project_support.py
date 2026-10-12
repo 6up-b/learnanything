@@ -237,12 +237,16 @@ def project_fake(monkeypatch):
     return fake
 
 
-def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}') -> dict[str, Any]:
+def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}', spawn: bool = False) -> dict[str, Any]:
     """A stand-in ``openai_codex`` SDK that records what a turn is started with.
 
-    The real SDK spawns the Codex app-server; this one only captures the
-    ``CodexConfig`` kwargs (``codex_bin``, ``launch_args_override``, ``cwd``)
-    and the ``thread_start``/``turn`` kwargs (``cwd``, ``effort``, ...).
+    It captures the ``CodexConfig`` kwargs (``codex_bin``,
+    ``launch_args_override``, ``cwd``) and the ``thread_start``/``turn`` kwargs
+    (``cwd``, ``effort``, ...). With ``spawn=True`` it also starts the
+    app-server command the way the real SDK does (``launch_args_override`` as
+    the whole command, else ``codex_bin app-server --listen stdio://``, in
+    ``cwd``) and keeps its output, so a test can run a fake agent program
+    through the exact launch path.
     """
 
     import sys
@@ -254,6 +258,11 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
     class FakeCodex:
         def __init__(self, config):
             captured["app_config"] = config.kwargs
+            if spawn:
+                kwargs = config.kwargs
+                command = list(kwargs["launch_args_override"] or [kwargs["codex_bin"], "app-server", "--listen", "stdio://"])
+                completed = subprocess.run(command, cwd=kwargs["cwd"], capture_output=True, text=True, timeout=60)
+                captured["spawned"] = {"command": command, "stdout": completed.stdout, "stderr": completed.stderr}
 
         def __enter__(self):
             return self

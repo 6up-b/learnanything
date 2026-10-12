@@ -3,10 +3,16 @@
 - **Routes.** Authoring and the closed-book check use ``ai.routing.project``
   (default: the grading route, then the active provider); probe grading uses
   ``ai.routing.grading`` at ``project.grading_reasoning_effort`` (default
-  ``high``, spec §5.2's one high-effort pass). Clients are built with an *empty temporary working
-  directory* in place of the vault root, so an agentic transport (Codex runs
-  in its working directory) cannot browse the vault — the project store holds
-  reference answers and the closed-book check must stay closed-book.
+  ``high``, spec §5.2's one high-effort pass).
+- **Isolation.** Every call promises a scope in its receipt (``diff``,
+  ``questions_only``, ``quoted_evidence``), and the project store beside the
+  vault holds the reference answers. Clients are built around an *empty
+  temporary working directory* instead of the vault root, but a directory
+  only sets where an agentic transport starts: Codex can still read absolute
+  paths. So with ``project.require_tool_isolation`` (the default) Codex runs
+  in the bubblewrap sandbox of ``learnloop.ai.isolation`` (no home, vault or
+  repo visible), chat transports are tool-free by construction, and any other
+  transport is refused before a request is sent. Receipts record which.
 - **Spend** (Slice A plan §5 rule 6). Every logical call is admitted against
   the command's call and candidate caps. Metered routes (OpenRouter, OpenAI
   keys) are also admitted against token and dollar caps; an unknown price
@@ -23,13 +29,15 @@
 from __future__ import annotations
 
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import ExitStack, contextmanager, nullcontext
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
+from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import declared_budgets, generation_limit, observe_model_calls
+from learnloop.ai.isolation import ToolIsolation, isolation_mode, tool_isolation
 from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate
 from learnloop.ai.transport import execute_structured_operation
@@ -59,6 +67,10 @@ class ProjectRoute:
     message: str | None
     client: Any = None
     reasoning_effort: str | None = None
+    # "tool_free" (a chat completion), "bubblewrap" (an agentic transport in
+    # the sandbox) or "none" (project.require_tool_isolation = false).
+    tool_isolation: str | None = None
+    isolation: ToolIsolation | None = None
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -71,6 +83,7 @@ class ProjectRoute:
             "subscription": self.subscription,
             "ready": self.ready,
             "message": self.message,
+            "tool_isolation": self.tool_isolation,
         }
 
 
@@ -173,13 +186,52 @@ def set_route_resolver(resolver: ClientResolver | None) -> None:
     _route_resolver = resolver or resolve_route
 
 
+ISOLATION_KILL_SWITCH_HINT = "set project.require_tool_isolation = false to run it unconfined"
+
+
+def _with_isolation(route: ProjectRoute, isolation: ToolIsolation, *, required: bool) -> ProjectRoute:
+    """Attach the isolation a route's calls run under, or mark the route not ready."""
+
+    if route.client is None:
+        return route
+    mode, reason = isolation_mode(route.client)
+    if not required:
+        return replace(route, tool_isolation="tool_free" if mode == "tool_free" else "none")
+    if mode is None:
+        if not route.ready:
+            return route
+        return replace(route, ready=False, message=f"{reason}; {ISOLATION_KILL_SWITCH_HINT}")
+    return replace(route, tool_isolation=mode, isolation=isolation if mode == "bubblewrap" else None)
+
+
 @contextmanager
-def project_routes(vault_root: Path, config: LearnLoopConfig, roles: tuple[str, ...]) -> Iterator[dict[str, ProjectRoute]]:
-    """Resolve the requested roles inside an isolated empty working directory."""
+def project_routes(
+    vault_root: Path,
+    config: LearnLoopConfig,
+    roles: tuple[str, ...],
+    *,
+    hidden: Iterable[Path] = (),
+) -> Iterator[dict[str, ProjectRoute]]:
+    """Resolve the requested roles around an empty working directory.
+
+    With ``project.require_tool_isolation`` (the default) every call runs
+    either on a tool-free chat transport or, for an agentic transport, in the
+    bubblewrap sandbox of ``learnloop.ai.isolation``: the empty directory is
+    all of the filesystem it can see besides system files, and ``hidden``
+    (the vault, the enrolled repos) is masked even inside those. A transport
+    that can be neither is not ready.
+    """
 
     with tempfile.TemporaryDirectory(prefix="learnloop-project-") as workdir:
         pinned = _config_for_workdir(config, vault_root)
-        yield {role: _route_resolver(Path(workdir), config_for_role(pinned, role), role) for role in roles}
+        isolation = ToolIsolation(workdir=Path(workdir), hidden=(Path(vault_root), *(Path(path) for path in hidden)))
+        required = config.project.require_tool_isolation
+        yield {
+            role: _with_isolation(
+                _route_resolver(Path(workdir), config_for_role(pinned, role), role), isolation, required=required
+            )
+            for role in roles
+        }
 
 
 @dataclass(frozen=True)
@@ -206,11 +258,13 @@ class PaidCalls:
         run_id: str,
         price_per_million: float | None = None,
         cancelled: Callable[[], bool] | None = None,
+        require_tool_isolation: bool = True,
     ) -> None:
         self.store = store
         self.caps = caps
         self.run_id = run_id
         self.price_per_million = price_per_million
+        self.require_tool_isolation = require_tool_isolation
         # Calls, candidates and retries bind every route; tokens and dollars
         # bind only metered routes (rule 6: no restraint on the subscription).
         self.counts = SpendBudget(
@@ -297,6 +351,11 @@ class PaidCalls:
     ) -> Any:
         from learnloop.projects.capture import estimate_tokens
 
+        mode, reason = isolation_mode(route.client)
+        if self.require_tool_isolation and mode is None:
+            # Refused before admission: nothing is spent or sent.
+            raise AIProviderUnavailable(f"{reason}; {ISOLATION_KILL_SWITCH_HINT}")
+        isolation_label = mode if (self.require_tool_isolation or mode == "tool_free") else "none"
         estimated_tokens = estimate_tokens(prompt) + output_tokens
         usd = self.usd(route, estimated_tokens)
         cost_label = "estimated_only" if route.subscription else (
@@ -305,7 +364,7 @@ class PaidCalls:
         state: dict[str, Any] = {"physical": 0, "root": None, "usage": {}, "root_usage": {}}
         disclosure = {
             **(disclosure or {}), "route_role": route.role, "provider": route.provider_name,
-            "reasoning_effort": route.reasoning_effort,
+            "reasoning_effort": route.reasoning_effort, "tool_isolation": isolation_label,
         }
 
         with ExitStack() as stack:
@@ -320,6 +379,13 @@ class PaidCalls:
             stack.enter_context(
                 declared_budgets({**self.caps.as_dict(), "subscription": route.subscription, "cost_label": cost_label})
             )
+            if isolation_label == "bubblewrap":
+                isolation = route.isolation
+                if isolation is None:
+                    isolation = ToolIsolation(
+                        workdir=Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="learnloop-project-")))
+                    )
+                stack.enter_context(tool_isolation(isolation))
             if not route.subscription:
                 # The admitted spend counts ``output_tokens``; the provider
                 # request (and its JSON repair, which spends from the same
@@ -410,6 +476,7 @@ def caps_from_options(
 
 
 __all__ = [
+    "ISOLATION_KILL_SWITCH_HINT",
     "PaidCalls",
     "PlannedCall",
     "ProjectRoute",

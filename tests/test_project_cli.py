@@ -194,7 +194,7 @@ class _RetryingClient:
     model = "m"
 
     def supports(self, capability):
-        return capability == "structured_completion"
+        return capability in {"structured_completion", "tool_free"}
 
     def complete(self, request):
         for _attempt in range(2):
@@ -283,7 +283,7 @@ class _BudgetRecorder:
         self.budgets = []
 
     def supports(self, capability):
-        return capability == "structured_completion"
+        return capability in {"structured_completion", "tool_free"}
 
     def complete(self, request):
         self.budgets.append(request.output_budget_tokens)

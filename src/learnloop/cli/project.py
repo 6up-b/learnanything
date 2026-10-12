@@ -100,6 +100,27 @@ def _store(root: Path) -> ProjectStore:
     return store
 
 
+def _paid(
+    store: ProjectStore,
+    config: LearnLoopConfig,
+    caps,
+    price_per_million: float | None,
+    *,
+    run_id: str | None = None,
+    cancelled=None,
+) -> PaidCalls:
+    return PaidCalls(
+        store, caps=caps, run_id=run_id or new_ulid(), price_per_million=price_per_million,
+        cancelled=cancelled, require_tool_isolation=config.project.require_tool_isolation,
+    )
+
+
+def _routes(root: Path, config: LearnLoopConfig, store: ProjectStore, roles: tuple[str, ...]):
+    """Project routes with the vault and every enrolled repo masked from agents."""
+
+    return project_routes(root, config, roles, hidden=[Path(row["path"]) for row in store.repos()])
+
+
 def _emit(payload: dict[str, Any], json_output: bool, text: str | None = None) -> None:
     if json_output or text is None:
         typer.echo(json.dumps(payload, sort_keys=True, indent=None if json_output else 2, default=str))
@@ -127,7 +148,7 @@ def _generate(
         return {"status": "nothing_to_generate", "diffs": []}
     routes = describe_routes(config)
     with _cancellation() as stop:
-        paid = PaidCalls(store, caps=caps, run_id=new_ulid(), price_per_million=price_per_million, cancelled=stop.is_set)
+        paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
         planned = plan_generation(store, root, config, diffs)
         try:
             estimate = paid.plan(planned, routes)
@@ -135,7 +156,7 @@ def _generate(
             return {"status": "over_budget", "reason": str(exc), "diffs": len(diffs), "routes": routes}
         if dry_run:
             return {"status": "dry_run", "diffs": len(diffs), "estimate": estimate, "routes": routes}
-        with project_routes(root, config, ("authoring", "closed_book", "grading")) as resolved:
+        with _routes(root, config, store, ("authoring", "closed_book", "grading")) as resolved:
             report = generate_probes(store, root, config, paid, resolved, diffs, clock=clock)
     return {**report.as_dict(), "estimate": estimate}
 
@@ -170,14 +191,14 @@ def _grade(
         return {"status": "nothing_to_grade", "results": []}
     routes = describe_routes(config)
     with _cancellation() as stop:
-        paid = PaidCalls(store, caps=caps, run_id=new_ulid(), price_per_million=price_per_million, cancelled=stop.is_set)
+        paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
         try:
             estimate = paid.plan(_grading_plan(store, pending), routes)
         except SpendLimitExceeded as exc:
             return {"status": "over_budget", "reason": str(exc), "pending": len(pending)}
         if dry_run:
             return {"status": "dry_run", "pending": len(pending), "estimate": estimate, "routes": {"grading": routes["grading"]}}
-        with project_routes(root, config, ("grading",)) as resolved:
+        with _routes(root, config, store, ("grading",)) as resolved:
             route = resolved["grading"]
             if not route.ready:
                 return {"status": "provider_unavailable", "reason": route.message, "pending": len(pending)}
@@ -620,7 +641,7 @@ def project_probes(
         ) if awaiting else None
     due = due_probes(store, clock=clock, repo_id=repo_id)
     if dry_run:
-        grading = PaidCalls(store, caps=caps, run_id="dry-run", price_per_million=price_per_million)
+        grading = _paid(store, config, caps, price_per_million, run_id="dry-run")
         planned = [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, grading_output_tokens(1))] * min(limit, len(due))
         try:
             grading_estimate = grading.plan(planned, describe_routes(config))
@@ -643,8 +664,8 @@ def project_probes(
             typer.echo(f"Question generation: {generation.get('status')} {generation.get('reason') or ''}".rstrip())
         return
     with _cancellation() as stop:
-        paid = PaidCalls(store, caps=caps, run_id=new_ulid(), price_per_million=price_per_million, cancelled=stop.is_set)
-        with project_routes(root, config, ("grading",)) as routes:
+        paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
+        with _routes(root, config, store, ("grading",)) as routes:
             grader = routes["grading"]
             for index, probe in enumerate(due[:limit], start=1):
                 opened = open_probe(store, probe["id"], clock=clock)
@@ -707,7 +728,7 @@ def project_answer(
         caps = caps_from_options(max_candidates=0, max_calls=max_calls, max_retries=max_retries, max_tokens=max_tokens, max_cost_usd=max_cost_usd)
         if dry_run:
             open_probe(store, probe_id, clock=clock)  # refuses sealed probes without rendering them
-            paid = PaidCalls(store, caps=caps, run_id="dry-run", price_per_million=price_per_million)
+            paid = _paid(store, config, caps, price_per_million, run_id="dry-run")
             estimate = paid.plan(
                 [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, grading_output_tokens(1))]
                 if chosen[0] == "answer" else [],

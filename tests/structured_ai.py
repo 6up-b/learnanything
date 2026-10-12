@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
 from learnloop.attempts.ai_contracts import GradingContext
@@ -167,7 +168,9 @@ class StructuredClientFake:
     model = "fake-model"
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION
+        # A payload fake runs no tools (it cannot demonstrate isolation; see
+        # tests/test_ai_tool_isolation.py for the enforced boundary).
+        return capability in {STRUCTURED_COMPLETION, TOOL_FREE}
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         context = _request_context(request.prompt, request.purpose)

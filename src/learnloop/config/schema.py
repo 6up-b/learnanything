@@ -1316,6 +1316,13 @@ class ProjectConfig(BaseModel):
     # one high-effort pass. Applied to the grading route's profile when that
     # profile takes a reasoning effort; "" keeps the route's own effort.
     grading_reasoning_effort: Literal["", "minimal", "low", "medium", "high", "xhigh"] = "high"
+    # Model calls promise a scope (diff, questions only, quoted evidence). An
+    # agentic transport (Codex) can read any file its process can, so it runs
+    # in a bubblewrap sandbox that shows it an empty working directory and no
+    # home, vault or repo; a transport that cannot be confined is refused.
+    # Kill switch: false runs agentic transports unconfined, and receipts
+    # record tool_isolation = "none".
+    require_tool_isolation: bool = True
 
 
 class EmbeddingConfig(BaseModel):

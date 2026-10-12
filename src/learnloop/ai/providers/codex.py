@@ -9,6 +9,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -39,6 +40,13 @@ from learnloop.ai.schemas import (
 from learnloop.ai.strict_schema import strict_output_schema
 from learnloop.ai.transport import INTERRUPT, STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
+from learnloop.ai.isolation import (
+    TOOL_ISOLATION,
+    ToolIsolationUnavailable,
+    current_tool_isolation,
+    sandboxed_command,
+    write_launcher,
+)
 from learnloop.ai.usage import TokenUsageAccounting, UsageMeter, receipt_fields_from_codex_turn, usage_from_codex_turn
 from learnloop.config import AIProviderConfig, CodexConfig
 
@@ -149,6 +157,9 @@ class SdkCodexClient(TokenUsageAccounting):
             "complete",
             "structured",
             INTERRUPT,
+            # Under learnloop.ai.isolation.tool_isolation the app-server runs
+            # in a bubblewrap sandbox (see _isolated_launch).
+            TOOL_ISOLATION,
         }
 
     def _complete_validated(
@@ -272,14 +283,21 @@ class SdkCodexClient(TokenUsageAccounting):
                 f"Codex Python SDK is not importable from {self.sdk_python_path}."
             ) from exc
 
+        isolation = current_tool_isolation()
+        launcher_dir = tempfile.mkdtemp(prefix="learnloop-codex-launch-") if isolation is not None else None
         try:
             effort = _sdk_reasoning_effort(ReasoningEffort, self.config.reasoning_effort)
             summary = _sdk_reasoning_summary(ReasoningSummary, self.config.reasoning_summary)
             launch_args = _sdk_launch_args(self.config.sdk_launch_command)
+            codex_bin = _resolved_sdk_codex_bin(self.config.sdk_codex_bin)
+            cwd = self.vault_root
+            if isolation is not None and launcher_dir is not None:
+                codex_bin, launch_args = _isolated_launch(isolation, codex_bin, launch_args, Path(launcher_dir))
+                cwd = Path(isolation.workdir)
             app_config = SdkAppConfig(
-                codex_bin=_resolved_sdk_codex_bin(self.config.sdk_codex_bin),
+                codex_bin=codex_bin,
                 launch_args_override=launch_args,
-                cwd=str(self.vault_root),
+                cwd=str(cwd),
                 client_name="learnloop",
                 client_title="LearnLoop",
             )
@@ -289,7 +307,8 @@ class SdkCodexClient(TokenUsageAccounting):
                 provider_type=self.provider_type,
                 purpose=purpose,
                 model=self.config.model,
-                cwd=str(self.vault_root),
+                cwd=str(cwd),
+                isolated=isolation is not None,
                 service_name=f"learnloop:{purpose}",
                 reasoning_effort=self.config.reasoning_effort,
                 reasoning_summary=self.config.reasoning_summary,
@@ -299,13 +318,13 @@ class SdkCodexClient(TokenUsageAccounting):
             )
             with Codex(config=app_config) as codex:
                 thread = codex.thread_start(
-                    cwd=str(self.vault_root),
+                    cwd=str(cwd),
                     model=self.config.model or None,
                     service_name=f"learnloop:{purpose}",
                 )
                 turn = thread.turn(
                     prompt,
-                    cwd=str(self.vault_root),
+                    cwd=str(cwd),
                     model=self.config.model or None,
                     effort=effort,
                     output_schema=output_schema,
@@ -345,6 +364,9 @@ class SdkCodexClient(TokenUsageAccounting):
             raise
         except CodexTurnTimeout:
             raise
+        except ToolIsolationUnavailable as exc:
+            # Fail closed: an isolated request never runs unconfined.
+            raise CodexUnavailable(str(exc)) from exc
         except Exception as exc:
             if self._deadline_expired.is_set():
                 raise CodexTurnTimeout(
@@ -362,6 +384,9 @@ class SdkCodexClient(TokenUsageAccounting):
                 error=str(exc),
             )
             raise CodexUnavailable(str(exc)) from exc
+        finally:
+            if launcher_dir is not None:
+                shutil.rmtree(launcher_dir, ignore_errors=True)
 
         # A7 (spec_diagnostic_augmentation_v1.md §2): meter before the
         # deadline/interrupt/empty-response checks below. A turn the learner
@@ -407,6 +432,37 @@ def _is_structured_json_transport_error(exc: BaseException) -> bool:
             "json syntax",
         )
     )
+
+
+def _bundled_codex_path() -> str | None:
+    try:
+        from codex_cli_bin import bundled_codex_path
+
+        return str(bundled_codex_path())
+    except (ImportError, FileNotFoundError):
+        return None
+
+
+def _isolated_launch(
+    isolation: Any,
+    codex_bin: str | None,
+    launch_args: tuple[str, ...] | None,
+    launcher_dir: Path,
+) -> tuple[str | None, tuple[str, ...] | None]:
+    """The SDK launch settings that run the app-server inside the sandbox.
+
+    A full launch command (``sdk_launch_command``) is wrapped as a whole. A
+    program path gets a launcher that execs bubblewrap around it, so the SDK
+    can still append its own app-server arguments. Raises
+    ``ToolIsolationUnavailable`` rather than launching unconfined.
+    """
+
+    if launch_args:
+        return None, tuple(sandboxed_command(isolation, list(launch_args)))
+    program = codex_bin or _bundled_codex_path() or shutil.which("codex.cmd" if os.name == "nt" else "codex")
+    if not program:
+        raise ToolIsolationUnavailable("the Codex executable was not found, so it cannot be sandboxed")
+    return str(write_launcher(launcher_dir, isolation, program)), None
 
 
 def _sdk_reasoning_effort(reasoning_effort_type: Any, value: str | None) -> Any:
