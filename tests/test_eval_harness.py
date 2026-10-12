@@ -172,6 +172,8 @@ def test_the_cluster_option_leaves_every_other_report_byte_identical():
     rows = _rich_stream()
     assert report_digest(evaluate(rows, bootstrap_samples=50, seed=3)) == (
         "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
+    assert report_digest(evaluate(rows, bootstrap_samples=50, seed=3, bootstrap_unit="attempt")) == (
+        "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
     assert report_digest(evaluate(rows, arms=family_arms(), bootstrap_samples=50, seed=3)) == (
         "f2f30485ff38a9bd9c8d5360579a2e502542c60cb83fc289a5f08e452960c74e")
     values = np.random.default_rng(4).normal(size=37)
@@ -198,17 +200,80 @@ def test_cluster_bootstrap_is_at_least_as_wide_as_the_attempt_bootstrap_on_clust
     assert singletons["ci95"] == pytest.approx(attempt["ci95"], abs=1e-12)
 
 
-def test_cluster_bootstrap_reports_no_interval_when_it_cannot_be_computed():
+def test_cluster_bootstrap_reports_no_interval_only_when_every_draw_is_the_same():
+    # Review F2: no minimum cluster count. Only genuinely degenerate inputs
+    # (no attempts, one cluster, equal cluster means) have no interval.
     one = paired_bootstrap([.1, .3, .2], samples=50, clusters=["i", "i", "i"])
-    assert one["ci95"] is None and one["degenerate"].startswith("1 clusters, fewer than 6")
+    assert (one["clusters"], one["ci95"]) == (1, None)
+    assert one["degenerate"] == "one cluster: every resample is the same"
+    two = paired_bootstrap([.1, .2, .3, .4], samples=200, clusters=[0, 0, 1, 1])
+    assert two["degenerate"] is None and two["ci95"] == pytest.approx([.15, .35])
     five = paired_bootstrap([.1, .2, .3, .4, .5], samples=50, clusters=[0, 1, 2, 3, 4])
-    assert five["ci95"] is None and five["clusters"] == 5
-    assert paired_bootstrap([.1, .2, .3, .4, .5, .6], samples=50, clusters=range(6))["ci95"] is not None
+    assert five["clusters"] == 5 and five["degenerate"] is None
+    assert .1 <= five["ci95"][0] < five["ci95"][1] <= .5
     flat = paired_bootstrap([.1] * 12, samples=50, clusters=np.arange(12) // 2)
     assert flat["ci95"] is None and flat["degenerate"] == "zero variance across clusters"
-    assert paired_bootstrap([], clusters=[])["mean"] is None
+    empty = paired_bootstrap([], clusters=[])
+    assert (empty["mean"], empty["ci95"], empty["degenerate"]) == (None, None, "no attempts")
     with pytest.raises(ValueError, match="one label per difference"):
         paired_bootstrap([.1, .2], clusters=[0])
+
+
+def _intervals(value):
+    """Every bootstrap result (a dict with ``ci95``) anywhere in a report."""
+    if isinstance(value, dict):
+        if "ci95" in value:
+            yield value
+        for child in value.values():
+            yield from _intervals(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _intervals(child)
+
+
+def _rotating_items(n=24, items=4):
+    """One LO, items served in rotation: two clean starts, then mixed outcomes."""
+    return [AttemptRow(str(k), ItemFeatures(f"item{k % items}", "lo", f"2026-01-{k + 1:02}T00:00:00Z"),
+                       1. if k < 2 else float(k % 3 != 0), 1.) for k in range(n)]
+
+
+def test_the_item_unit_resamples_items_in_every_interval_and_the_manifest_says_so():
+    # Review F1: a report run with bootstrap_unit="item" (the T8 report) has no
+    # attempt-resampled interval left: report 1 metrics and splits, the
+    # incumbent comparisons and report 2's miss rates all draw whole items.
+    rows = _rotating_items()
+    items = [k % 4 for k in range(len(rows))]
+    report = evaluate(rows, arms=[Spy(), Spy("lo_general", p=.7)], bootstrap_samples=40,
+                      bootstrap_unit="item")
+    bootstrap = report["manifest"]["bootstrap"]
+    assert {key: bootstrap[key] for key in ("unit", "paired", "samples", "seed")} == {
+        "unit": "item", "paired": True, "samples": 40, "seed": 0}
+    assert "each drawn item brings all its scored attempts" in bootstrap["resample"]
+    assert "Wilson intervals are analytic" in bootstrap["scope"]
+    intervals = list(_intervals(report))
+    assert len(intervals) > 20 and all("clusters" in interval for interval in intervals)
+    y = np.array([row.outcome for row in rows])
+    loss = -y * np.log(.7) - (1 - y) * np.log1p(-.7)
+    arms = report["report1"]["arms"]
+    assert arms["lo_general"]["overall"]["log_loss"] == paired_bootstrap(
+        loss, samples=40, seed=0, clusters=items)
+    assert arms["lo_general"]["overall"]["log_loss"]["clusters"] == 4
+    comparison = report["report1"]["comparisons"]["lo_general"]
+    assert comparison["log_loss_improvement"] == paired_bootstrap(
+        np.log(2) - loss, samples=40, seed=0, clusters=items)
+    assert comparison["report2_miss_improvement"]["clusters"] == 4
+    # Both arms fast-track the LO after two clean answers; every later
+    # attempt is scored, and its miss rate resamples items too.
+    later = range(2, len(rows))
+    assert report["report2"]["arms"]["mastery_ekf"]["miss_rate"] == paired_bootstrap(
+        [float(k % 3 == 0) for k in later], samples=40, seed=0, clusters=[items[k] for k in later])
+    # The default is unchanged and says so.
+    default = evaluate(rows, arms=[Spy(), Spy("lo_general", p=.7)], bootstrap_samples=40)
+    assert default["manifest"]["bootstrap"] == {"unit": "attempt", "paired": True, "samples": 40,
+                                                "seed": 0}
+    assert not any("clusters" in interval for interval in _intervals(default))
+    with pytest.raises(ValueError, match="bootstrap_unit"):
+        evaluate(rows, arms=[Spy()], bootstrap_unit="lo")
 
 
 def test_fast_track_requires_two_initial_clean_correct_and_scores_only_later():

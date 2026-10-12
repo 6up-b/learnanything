@@ -2,9 +2,11 @@
 
 The three-way interval rule, the gated heads and the descriptive comparisons,
 exactly as recorded in ``docs/reviews/slice-2-t8.md`` and frozen in
-``success_head.PREREGISTRATION`` (v3). Every interval resamples items: a drawn
-item brings all its attempts. It reads the harness's in-memory arrays and
-never exports a row.
+``success_head.PREREGISTRATION`` (v3). Every interval in the T8 report
+resamples items, a drawn item bringing all its attempts: this analysis's own
+and, through the harness's ``bootstrap_unit="item"``, report 1's metrics and
+comparisons and report 2's miss rates. It reads the harness's in-memory arrays
+and never exports a row.
 """
 from __future__ import annotations
 
@@ -108,6 +110,9 @@ def make_t8_analysis(*, unavailable: Mapping[str, str] | None = None) -> Callabl
     unavailable = dict(unavailable or {})
 
     def analysis(arrays: ReplayArrays) -> dict:
+        if arrays.bootstrap_unit != "item":
+            # One unit per report: the T8 registration resamples items in every interval.
+            raise ValueError("The T8 report resamples items: run the harness with bootstrap_unit='item'")
         ability_scored = int(arrays.ability.sum())
         primary = _comparison(arrays, PRIMARY_ARM, EXPLICIT_ARMS)
         verdict = _verdict(primary, ability_scored)

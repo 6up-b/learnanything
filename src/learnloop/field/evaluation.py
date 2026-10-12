@@ -48,7 +48,8 @@ class ReplayArrays:
     ``predictions[name][i]`` is NaN where the arm abstained or did not score.
     ``labels[i]`` holds the split values of scored row ``i``. ``item_clusters[i]``
     is an opaque integer naming row ``i``'s item (first-appearance order), for
-    analyses that resample whole items; no item id is held.
+    analyses that resample whole items; no item id is held. ``bootstrap_unit``
+    is the unit the rest of the report resampled (``attempt`` or ``item``).
     """
 
     outcomes: np.ndarray
@@ -58,6 +59,7 @@ class ReplayArrays:
     bootstrap_samples: int
     seed: int
     item_clusters: np.ndarray | None = None
+    bootstrap_unit: str = "attempt"
 
 
 def family_arms() -> tuple[str, ...]:
@@ -114,21 +116,16 @@ def _interval(values):
 # would give the same mean, so there is no interval to report.
 ZERO_SPREAD = 1e-12
 
-
-def _min_clusters(level=0.95):
-    """Fewest clusters for which any distribution-free interval reaches ``level``.
-
-    Even the widest interval, the full range of G cluster means, misses their
-    median with probability 2 ** (1 - G). Below this count no 95% interval
-    exists, whatever the data (6 at 95%; a derived bound, not a chosen one).
-    """
-    count = 2
-    while 1 - 2.0 ** (1 - count) < level:
-        count += 1
-    return count
+BOOTSTRAP_UNITS = ("attempt", "item")
 
 
-MIN_CLUSTERS = _min_clusters()
+def _subset(units, *selections):
+    """``units`` narrowed by each selection in turn; None (attempt unit) stays None."""
+    if units is None:
+        return None
+    for selection in selections:
+        units = units[selection]
+    return units
 
 
 def paired_bootstrap(differences, *, samples=1000, seed=0, clusters=None):
@@ -153,9 +150,10 @@ def _cluster_bootstrap(values, clusters, *, samples, seed):
 
     Each draw takes as many clusters as there are, with replacement, and every
     drawn cluster brings all its attempts; the statistic is the mean over the
-    drawn attempts. ``ci95`` is None, and ``degenerate`` says why, where no
-    95% interval can be computed: fewer than :data:`MIN_CLUSTERS` clusters, or
-    numerically equal cluster means (every draw gives the same mean).
+    drawn attempts. ``ci95`` is None, and ``degenerate`` says why, only where
+    every draw gives the same mean: no attempts, one cluster, or numerically
+    equal cluster means. There is no minimum cluster count: the report shows
+    ``clusters`` instead (percentile intervals under-cover at small counts).
     Singleton clusters in attempt order reproduce the attempt bootstrap's draws.
     """
     labels = np.asarray(clusters)
@@ -168,9 +166,8 @@ def _cluster_bootstrap(values, clusters, *, samples, seed):
     count, cluster_means = len(sizes), sums / sizes
     result = {"n": len(values), "clusters": count, "mean": float(values.mean()), "ci95": None,
               "degenerate": None}
-    if count < MIN_CLUSTERS:
-        result["degenerate"] = (f"{count} clusters, fewer than {MIN_CLUSTERS}: no distribution-free "
-                                "95% interval exists")
+    if count < 2:
+        result["degenerate"] = "one cluster: every resample is the same"
     elif float(cluster_means.max() - cluster_means.min()) <= ZERO_SPREAD:
         result["degenerate"] = "zero variance across clusters"
     else:
@@ -205,7 +202,7 @@ def _auc(y, p):
     return float(concordant / (positives * negatives)), len(y)
 
 
-def _metrics(y, p, samples, seed):
+def _metrics(y, p, samples, seed, clusters=None):
     y, p = np.asarray(y), np.asarray(p)
     loss, brier = _loss(y, p), (y - p) ** 2
     auc, auc_n = _auc(y, p)
@@ -219,8 +216,8 @@ def _metrics(y, p, samples, seed):
         })
     return {
         "n": len(y),
-        "log_loss": paired_bootstrap(loss, samples=samples, seed=seed),
-        "brier": paired_bootstrap(brier, samples=samples, seed=seed),
+        "log_loss": paired_bootstrap(loss, samples=samples, seed=seed, clusters=clusters),
+        "brier": paired_bootstrap(brier, samples=samples, seed=seed, clusters=clusters),
         "auc": auc, "auc_binary_n": auc_n, "reliability": reliability,
     }
 
@@ -234,21 +231,33 @@ def _wilson(failures, n):
     return [max(0., center - half), min(1., center + half)]
 
 
-def _paired_miss_improvement(baseline, challenger, *, samples, seed):
-    """Paired attempt-cluster resampling with each policy's own denominator."""
+def _paired_miss_improvement(baseline, challenger, *, samples, seed, clusters=None):
+    """Paired attempt-cluster resampling with each policy's own denominator.
+
+    ``clusters`` (one label per scored row) resamples whole items instead: a
+    drawn item brings its later attempts under both policies.
+    """
     left, right = dict(baseline), dict(challenger)
     keys = sorted(left.keys() | right.keys())
+    if clusters is None:
+        units, extra = [[key] for key in keys], {}
+    else:
+        grouped = defaultdict(list)
+        for key in keys:
+            grouped[int(clusters[key])].append(key)
+        units = [grouped[label] for label in sorted(grouped)]
+        extra = {"clusters": len(units)}
     if not left or not right:
-        return {"n": len(keys), "mean": None, "ci95": None}
+        return {"n": len(keys), "mean": None, "ci95": None, **extra}
     rng = np.random.default_rng(seed)
     draws = []
     for _ in range(samples):
-        indexes = [keys[i] for i in rng.integers(0, len(keys), len(keys))]
+        indexes = [key for i in rng.integers(0, len(units), len(units)) for key in units[i]]
         a, b = [left[i] for i in indexes if i in left], [right[i] for i in indexes if i in right]
         if a and b:
             draws.append(float(np.mean(a) - np.mean(b)))
     return {"n": len(keys), "mean": float(np.mean(list(left.values())) - np.mean(list(right.values()))),
-            "ci95": _interval(draws)}
+            "ci95": _interval(draws), **extra}
 
 
 def _known_probability(arm, lo_id):
@@ -309,11 +318,22 @@ def _groups(rows):
     return events
 
 
+def _bootstrap_manifest(unit, samples, seed):
+    manifest = {"unit": unit, "paired": True, "samples": samples, "seed": seed}
+    if unit == "item":
+        manifest["resample"] = ("whole items: each drawn item brings all its scored attempts; the "
+                                "statistic is the mean over the drawn attempts")
+        manifest["scope"] = ("every bootstrap interval in this report: report 1 metrics, splits and "
+                             "comparisons, report 2 miss rates, and the analyses; the Wilson "
+                             "intervals are analytic")
+    return manifest
+
+
 def evaluate(
     rows: Iterable[ObservationRow], *, arms=None, bootstrap_samples=1000, seed=0,
     config: Mapping | None = None, general_means=None, lo_priors=None,
     fast_track_q=0.9, fast_track_min_correct=2, switching_margin=0.0,
-    fsrs_weights=None, fsrs_fit_id=None, analyses=None,
+    fsrs_weights=None, fsrs_fit_id=None, analyses=None, bootstrap_unit="attempt",
 ):
     """Return JSON-ready report1/report2/manifest/recommendation aggregates.
 
@@ -328,9 +348,14 @@ def evaluate(
     :class:`ReplayArrays` after replay and returns JSON-ready aggregates only;
     they appear under ``report["analyses"]``. An attempt arm may abstain on a
     row through an optional ``covers(features)``; it still observes the row.
+    ``bootstrap_unit="item"`` makes every bootstrap interval in the report
+    resample whole items (each drawn item brings all its scored attempts)
+    instead of single attempts; the manifest records the unit.
     """
     if bootstrap_samples < 1:
         raise ValueError("bootstrap_samples must be positive")
+    if bootstrap_unit not in BOOTSTRAP_UNITS:
+        raise ValueError(f"bootstrap_unit must be one of {', '.join(BOOTSTRAP_UNITS)}")
     if fast_track_q not in (0.8, 0.9) or fast_track_min_correct < 2:
         raise ValueError("Fast-track requires q=.8 or .9 and at least two answers")
     if not isfinite(switching_margin) or switching_margin < 0:
@@ -471,6 +496,8 @@ def evaluate(
 
     y = np.asarray(outcomes)
     ability_mask = np.asarray(ability_rows, dtype=bool)
+    item_labels = np.asarray(item_clusters, dtype=np.int64)
+    units = item_labels if bootstrap_unit == "item" else None
     splits = defaultdict(lambda: defaultdict(list))
     for i, label in enumerate(labels):
         for dimension, value in label.items():
@@ -485,10 +512,11 @@ def evaluate(
             "scores": "graded_cold_retrievals" if name in memory_names else "positive_mass_attempts",
             "missing_facet_exclusions": int(sum(ability_mask & ~valid)) if arm.granularity == "facet" else 0,
             "unscored_attempts": int(sum(~valid)),
-            "overall": _metrics(y[valid], p[valid], bootstrap_samples, seed),
+            "overall": _metrics(y[valid], p[valid], bootstrap_samples, seed, _subset(units, valid)),
             "splits": {
                 dimension: {value: _metrics(y[indexes][valid[indexes]], p[indexes][valid[indexes]],
-                                           bootstrap_samples, seed)
+                                           bootstrap_samples, seed,
+                                           _subset(units, indexes, valid[indexes]))
                             for value, indexes in sorted(groups.items())}
                 for dimension, groups in sorted(splits.items())
             },
@@ -500,7 +528,8 @@ def evaluate(
             "assumed_share": len(assumed[name]) / len(seen) if seen else None,
             "assumed_share_ci95": _wilson(len(assumed[name]), len(seen)),
             "later_attempts": len(failures), "later_failures": int(sum(failures)),
-            "miss_rate": paired_bootstrap(failures, samples=bootstrap_samples, seed=seed),
+            "miss_rate": paired_bootstrap(failures, samples=bootstrap_samples, seed=seed,
+                                          clusters=_subset(units, [i for i, _ in later[name]])),
             # Wilson remains informative with zero observed misses / tiny samples.
             "miss_rate_wilson_ci95": _wilson(sum(failures), len(failures)),
         }
@@ -513,11 +542,15 @@ def evaluate(
             if name == "mastery_ekf":
                 continue
             differences = baseline_loss - _loss(y, np.asarray(predictions[name]))
-            overall = paired_bootstrap(differences[np.isfinite(differences)], samples=bootstrap_samples, seed=seed)
+            finite = np.isfinite(differences)
+            overall = paired_bootstrap(differences[finite], samples=bootstrap_samples, seed=seed,
+                                       clusters=_subset(units, finite))
             first_differences = differences[first_indexes]
-            first = paired_bootstrap(first_differences[np.isfinite(first_differences)], samples=bootstrap_samples, seed=seed)
+            first_finite = np.isfinite(first_differences)
+            first = paired_bootstrap(first_differences[first_finite], samples=bootstrap_samples, seed=seed,
+                                     clusters=_subset(units, first_indexes, first_finite))
             miss_improvement = _paired_miss_improvement(
-                later["mastery_ekf"], later[name], samples=bootstrap_samples, seed=seed)
+                later["mastery_ekf"], later[name], samples=bootstrap_samples, seed=seed, clusters=units)
             # No observed later reviews is uncertainty, not a zero miss rate.
             no_worse = (miss_improvement["ci95"] is not None
                         and miss_improvement["ci95"][0] >= 0
@@ -559,7 +592,7 @@ def evaluate(
             for r, fs in events]),
         "arm_hashes": {a.name: a.version_hash for a in predictors},
         "arm_models": {a.name: getattr(a, "model", "not_used") for a in predictors},
-        "bootstrap": {"unit": "attempt", "paired": True, "samples": bootstrap_samples, "seed": seed},
+        "bootstrap": _bootstrap_manifest(bootstrap_unit, bootstrap_samples, seed),
         "frozen_policy": {"fast_track_q": fast_track_q, "fast_track_min_correct": fast_track_min_correct,
                           "theta_known": log(3), "switching_margin": switching_margin},
         "prior_inputs_hash": _hash({"general_means": general_means, "lo_priors": lo_priors}),
@@ -575,7 +608,7 @@ def evaluate(
             outcomes=y, predictions={name: np.asarray(predictions[name]) for name in names},
             labels=tuple(labels), ability=ability_mask,
             bootstrap_samples=bootstrap_samples, seed=seed,
-            item_clusters=np.asarray(item_clusters, dtype=np.int64),
+            item_clusters=item_labels, bootstrap_unit=bootstrap_unit,
         )
         analysis_reports = {name: analysis(arrays) for name, analysis in sorted(analyses.items())}
     return {

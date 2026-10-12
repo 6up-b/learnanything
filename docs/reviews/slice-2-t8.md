@@ -119,9 +119,12 @@ manifest. A run that changes the bootstrap settings is flagged as a deviation
 in the report.
 
 **Current version: `t8-preregistration-v3`**, hash
-`e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976`. Two
+`a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372`. Two
 revisions were made, both before any run on owner data: v2 (the embedding
-prior) and v3 (the decision rule). Each is recorded below.
+prior) and v3 (the decision rule). Each is recorded below. v3 was amended in
+its Codex review before merge (no item minimum; items resampled in every
+interval of the report), which changed its hash; see
+`docs/reviews/t8-interval-rule-codex-review.md`.
 
 **Question (§11).** For this one learner, does a frozen-embedding predictor of
 success add held-out predictive value over explicit learner-state predictors?
@@ -195,7 +198,7 @@ success add held-out predictive value over explicit learner-state predictors?
 | Margin m (D9) | 0.0 nats per attempt |
 | Smallest worthwhile gain δ | 0.005 nats per attempt |
 | Bootstrap | paired percentile, 95%, B = 1000, seed 0, resampling **items** (each drawn item brings all its attempts) |
-| No interval | fewer than 6 item clusters, or cluster means within 1e-12 nats of each other |
+| No interval | only where every resample gives the same mean: no common attempts, one item cluster, or cluster means within 1e-12 nats of each other. There is no minimum item count |
 | Coverage caveat | below 80% of ability-scored attempts |
 
 There is no minimum number of attempts.
@@ -233,9 +236,10 @@ There is no minimum number of attempts.
     reaching m was a kill.
   - **An item-cluster bootstrap.** Each resample draws items, and each drawn
     item brings all its attempts. v2 resampled single attempts.
-  - **No-interval guard.** Where no 95% interval can be computed (fewer than
-    6 item clusters, or numerically equal cluster means), the verdict is
-    `insufficient_data` and the report says why.
+  - **No-interval guard.** Where every resample gives the same mean (no
+    common attempts, one item cluster, or numerically equal cluster means),
+    there is no interval; the verdict is `insufficient_data` and the report
+    says why. There is no minimum item count (review F2).
   - **The report** shows n, the number of item clusters, the interval, m, δ,
     the verdict and its reason.
 - **Why** (owner, 2026-10-12):
@@ -250,11 +254,12 @@ There is no minimum number of attempts.
     success head for: T8's own "weak signal" scale (the gain at block variance
     0.25 in the v2 table above).
   - **m = 0.0** is unchanged (D9).
-  - **6 clusters** is derived, not chosen (this stage added it; see open
-    question 1 in `t8-interval-rule.md`). Even the widest interval, the full
-    range of G cluster means, misses their median with probability
-    2^(1−G): 6.25% at G = 5 and 3.1% at G = 6. Below 6 clusters no
-    distribution-free 95% interval exists.
+  - **No item minimum.** The stage first added a 6-item cutoff, justified by
+    a sample-range bound for a population *median*. T8's statistic is an
+    attempt-weighted *mean*, so that bound neither forbids an interval below
+    6 items nor guarantees coverage above it. Review F2 removed the cutoff.
+    Percentile intervals still under-cover with few items, so the report
+    shows the item count (see `t8-interval-rule-codex-review.md`).
   - **1e-12 nats** is numerical resolution: cluster means closer than that are
     equal, and every resample gives the same mean.
 - **Why items are the cluster unit:** see `docs/reviews/t8-interval-rule.md`.
@@ -265,7 +270,8 @@ There is no minimum number of attempts.
   `spec_action_router_v1.md` §13 reads them), the arms, e*, the priors, B,
   the seed and the coverage caveat.
 - **Version:** `t8-preregistration-v3`, hash
-  `e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976` (v2 was
+  `a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372` (as amended in review; first staged as
+  `e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976`; v2 was
   `746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee`).
 
 **Primary endpoint and decision rule** (spec §11 `emb_ridge`; v3).
@@ -290,9 +296,8 @@ There is no minimum number of attempts.
     pursued.
   - `insufficient_data` otherwise: the interval reaches both m and δ, so no
     decision. Rerun with more data.
-  - `insufficient_data` also when there is no interval (fewer than 6 item
-    clusters, cluster means within 1e-12 nats, or no common attempts), with
-    the reason.
+  - `insufficient_data` also when there is no interval (no common attempts,
+    one item cluster, or cluster means within 1e-12 nats), with the reason.
   - Coverage below 80% of ability-scored attempts adds a `partial_coverage`
     caveat but does not change the verdict.
 
@@ -315,7 +320,13 @@ is closed.
 - log loss, Brier, AUC and reliability bins for every arm.
 
 Every T8 interval, descriptive ones included, uses the same item-cluster
-bootstrap. A split with fewer than 6 items reports no interval.
+bootstrap. That covers the whole T8 report, not only the T8 analysis block:
+the harness runs with `bootstrap_unit="item"`, so report 1's log loss and
+Brier (overall and split), its comparisons against the incumbent and
+report 2's miss rates resample items too. The manifest records it as
+`bootstrap.unit = "item"`, with the resampling method and its scope. The
+Wilson intervals are analytic. A split on a single item, or with equal item
+means, reports no interval.
 
 ## Overlap with router R0 (for the merge)
 
@@ -584,7 +595,7 @@ uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallbac
 
 **6. The report.** Replay makes zero calls. Leave out `--llm-cache` to skip the
 LLM arms. The dry run and the report both print the pre-registration; check
-that it reads `t8-preregistration-v3` (hash `e7a174f459e76138…`). A copy
+that it reads `t8-preregistration-v3` (hash `a2beed27c4ee19db…`). A copy
 prepared under v2 can be reused: the stored vectors and the LLM cache don't
 depend on the decision rule.
 
@@ -598,7 +609,7 @@ gain, m = 0.0, δ = 0.005, the verdict and its reason:
 - `embeddings_add_value` (lower bound above m) opens the gated heads;
 - `kill` (upper bound below δ) means the GP success head is not pursued;
 - `insufficient_data` is no decision. Either the interval reaches both m and
-  δ, or there is no interval (fewer than 6 items, or no variation). Rerun the
+  δ, or there is no interval (one item, or no variation). Rerun the
   same command when more attempts exist. The distance from the interval's
   bounds to m and δ shows how far the data is from a decision; there is no
   fixed attempt count to wait for.
@@ -676,6 +687,6 @@ All run in this worktree at the final code commit.
 6. **Minimum data.** Resolved by pre-registration v3 (owner, 2026-10-12):
    there is no attempt floor. The verdict comes from the item-cluster
    interval, and it is `insufficient_data` only while the interval reaches
-   both m and δ, or where no interval exists (fewer than 6 items, a derived
-   bound). The tracked fixture has 53 attempts in 37 items, so it can reach a
-   decision.
+   both m and δ, or where no interval exists (one item, or no variation).
+   There is no item minimum either (review F2). The tracked fixture has 53
+   attempts in 37 items, so it can reach a decision.

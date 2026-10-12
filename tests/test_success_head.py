@@ -1,12 +1,13 @@
 """T8 success-head arms and the pre-registered analysis: synthetic, store-free."""
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+import itertools
 import json
 
 import numpy as np
 import pytest
 
-from learnloop.field.evaluation import ReplayArrays, evaluate
+from learnloop.field.evaluation import ReplayArrays, _loss, evaluate, paired_bootstrap
 from learnloop.field.predictors import is_calibrated_predictor
 from learnloop.field.success_head import (
     EXPLICIT_ARMS, PREREGISTRATION, AttemptContent, ContentIndex, HeadPriors, LogisticHead,
@@ -203,6 +204,8 @@ def test_priors_are_a_priori_and_recorded():
 # -- the pre-registered analysis ------------------------------------------------
 
 V2_HASH = "746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee"
+# v3 as first staged, with the six-item cutoff that review F2 removed.
+V3_STAGED_HASH = "e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976"
 ADDS_VALUE, NULL, NOISY_NULL = (.05, .02), (.01, .02), (.01, .2)  # (mean gain, per-attempt sd)
 
 
@@ -230,7 +233,7 @@ def _arrays(n, gains, *, extra=None, samples=200, seed=0, labels=None, per_item=
     labels = labels or tuple({"item_position": "first_unseen_item" if i % 3 == 0 else "repeat_item",
                               "attempt_position": "later"} for i in range(n))
     items = np.arange(n) // per_item
-    return ReplayArrays(y, predictions, labels, np.ones(n, dtype=bool), samples, seed, items)
+    return ReplayArrays(y, predictions, labels, np.ones(n, dtype=bool), samples, seed, items, "item")
 
 
 def _primary(arrays):
@@ -292,14 +295,7 @@ def test_no_interval_is_insufficient_data_with_the_reason():
     one_item = _primary(_arrays(40, {"emb_ridge": .2}, per_item=40))
     assert one_item["decision"] == "insufficient_data" and one_item["item_clusters"] == 1
     assert one_item["ci95"] is None
-    assert one_item["reason"] == ("no interval: 1 clusters, fewer than 6: no distribution-free 95% "
-                                  "interval exists")
-    # Five items all favouring e*: a percentile interval would be wholly
-    # negative (a false kill); no 95% interval exists, so no decision.
-    five = _primary(_arrays(40, {"emb_ridge": -.2}, per_item=8))
-    assert (five["item_clusters"], five["ci95"], five["decision"]) == (5, None, "insufficient_data")
-    six = _primary(_arrays(48, {"emb_ridge": -.2}, per_item=8))
-    assert six["item_clusters"] == 6 and six["decision"] == "kill"
+    assert one_item["reason"] == "no interval: one cluster: every resample is the same"
     arrays = _arrays(400, {})
     same = make_t8_analysis()(_arrays(400, {}, extra={"emb_ridge": arrays.predictions["lo_general"]}))
     assert same["primary"]["verdict"]["reason"] == "no interval: zero variance across clusters"
@@ -307,6 +303,82 @@ def test_no_interval_is_insufficient_data_with_the_reason():
     assert same["gated"]["success_head"]["status"] == "unavailable"
     missing = _primary(_arrays(40, {}))
     assert missing["decision"] == "insufficient_data" and missing["reason"] == "no interval: arm not run"
+
+
+def test_five_items_with_a_clear_gain_are_decided():
+    # Review F2: five items, 100 attempts each, gains 0.10-0.14 nats. All 5**5
+    # item draws give the percentile interval [0.108, 0.132]; there is no item
+    # minimum, so the interval decides.
+    item_gains = np.array([.10, .11, .12, .13, .14])
+    gains = np.repeat(item_gains, 100) + .01  # over lo_general's 0.01
+    verdict = _primary(_arrays(500, {"emb_ridge": (gains, 0.)}, per_item=100, samples=1000))
+    enumerated = np.quantile([np.mean(draw) for draw in itertools.product(item_gains, repeat=5)],
+                             [.025, .975])
+    assert enumerated == pytest.approx([.108, .132])
+    assert (verdict["n"], verdict["item_clusters"]) == (500, 5)
+    assert verdict["ci95"] == pytest.approx(enumerated, abs=.002)
+    assert verdict["decision"] == "embeddings_add_value"
+
+
+@pytest.mark.parametrize("items", [2, 3, 5])
+def test_a_few_items_are_decided_by_their_interval_alone(items):
+    # Every item favours e* by 0.2 nats (sd 0.02 per attempt): the interval is
+    # wholly below delta at any item count, and there is no item floor.
+    verdict = _primary(_arrays(8 * items, {"emb_ridge": -.2}, per_item=8, samples=1000))
+    assert verdict["item_clusters"] == items
+    assert verdict["ci95"][1] < 0
+    assert verdict["decision"] == "kill" and verdict["reason"].startswith("upper bound ")
+
+
+def test_every_interval_in_the_t8_report_resamples_items():
+    # Review F1: 60 attempts on three items. The whole T8 report, not only
+    # analyses.t8, resamples items (report 1 metrics, splits and the incumbent
+    # comparisons included), and the manifest says so.
+    rows, content = _rows_and_content(n=60, n_items=3)
+    captured = {}
+
+    def keep(arrays):
+        captured["arrays"] = arrays
+        return {}
+
+    report = evaluate(rows, arms=("base_rate_lo", "mastery_ekf", "lo_general", *success_head_arms(content)),
+                      bootstrap_samples=50, bootstrap_unit="item",
+                      analyses={"t8": make_t8_analysis(), "keep": keep})
+    arrays = captured["arrays"]
+    assert arrays.bootstrap_unit == "item"
+    assert report["manifest"]["bootstrap"]["unit"] == "item"
+    intervals = []
+    stack = [report]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, dict):
+            intervals += [value] if "ci95" in value else []
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+    assert len(intervals) > 100
+    # The verdict repeats the primary interval under ``item_clusters``.
+    counts = [interval.get("clusters", interval.get("item_clusters")) for interval in intervals
+              if interval["n"]]
+    assert counts and all(1 <= count <= 3 for count in counts)
+    y, clusters = arrays.outcomes, arrays.item_clusters
+    loss = {name: _loss(y, arrays.predictions[name]) for name in ("mastery_ekf", "emb_ridge")}
+    scored = np.isfinite(loss["emb_ridge"])
+    assert report["report1"]["arms"]["emb_ridge"]["overall"]["log_loss"] == paired_bootstrap(
+        loss["emb_ridge"][scored], samples=50, seed=0, clusters=clusters[scored])
+    difference = loss["mastery_ekf"] - loss["emb_ridge"]
+    finite = np.isfinite(difference)
+    assert report["report1"]["comparisons"]["emb_ridge"]["log_loss_improvement"] == paired_bootstrap(
+        difference[finite], samples=50, seed=0, clusters=clusters[finite])
+    verdict = report["analyses"]["t8"]["primary"]["verdict"]
+    assert verdict["item_clusters"] == 3 and verdict["ci95"] is not None  # no item floor (F2)
+
+
+def test_t8_refuses_a_harness_that_resamples_attempts():
+    rows, content = _rows_and_content(n=40, n_items=10)
+    with pytest.raises(ValueError, match="bootstrap_unit"):
+        evaluate(rows, arms=("base_rate_lo", "mastery_ekf", "lo_general", *success_head_arms(content)),
+                 bootstrap_samples=10, analyses={"t8": make_t8_analysis()})
 
 
 GATE_INPUTS = {"embeddings_add_value": ADDS_VALUE, "kill": NULL, "insufficient_data": NOISY_NULL}
@@ -364,7 +436,7 @@ def test_partial_coverage_is_flagged():
 
 
 def test_preregistration_v3_changes_the_hash_and_every_report_carries_it():
-    from learnloop.field.evaluation import MIN_CLUSTERS, ZERO_SPREAD
+    from learnloop.field.evaluation import ZERO_SPREAD
 
     assert PREREGISTRATION["version"] == "t8-preregistration-v3"
     assert "min_common_attempts" not in PREREGISTRATION
@@ -372,10 +444,12 @@ def test_preregistration_v3_changes_the_hash_and_every_report_carries_it():
     assert PREREGISTRATION["smallest_worthwhile_gain_nats_per_attempt"] == .005
     assert PREREGISTRATION["bootstrap"]["unit"] == "item"
     assert {k: PREREGISTRATION["bootstrap"][k] for k in ("samples", "seed")} == {"samples": 1000, "seed": 0}
-    assert PREREGISTRATION["no_interval"] == {"min_clusters": MIN_CLUSTERS, "zero_spread_nats": ZERO_SPREAD}
-    assert MIN_CLUSTERS == 6 and 1 - 2.0 ** -4 < .95 <= 1 - 2.0 ** -5
+    assert PREREGISTRATION["bootstrap"]["scope"] == "every bootstrap interval in the T8 report"
+    # Review F2: no minimum item count; only degenerate inputs have no interval.
+    assert PREREGISTRATION["no_interval"]["zero_spread_nats"] == ZERO_SPREAD
+    assert "min_clusters" not in json.dumps(dict(PREREGISTRATION))
     digest = preregistration_hash()
-    assert digest != V2_HASH
+    assert digest not in (V2_HASH, V3_STAGED_HASH)
     analysis = make_t8_analysis()(_arrays(100, {"emb_ridge": ADDS_VALUE}))
     assert analysis["preregistration"] == {"version": "t8-preregistration-v3", "hash": digest,
                                            "deviations": ["bootstrap_samples"]}
@@ -386,7 +460,7 @@ def test_preregistration_v3_changes_the_hash_and_every_report_carries_it():
 def test_the_harness_hands_item_clusters_and_t8_resamples_items():
     rows, content = _rows_and_content(n=80, n_items=20)
     report, arrays = _capture(rows, ("base_rate_lo", "mastery_ekf", "lo_general",
-                                     *success_head_arms(content)))
+                                     *success_head_arms(content)), bootstrap_unit="item")
     items = [row.features.item_id for row in rows]
     assert len(arrays.item_clusters) == len(arrays.outcomes) == len(rows)
     # One opaque integer per item, in first-appearance order; never an id.

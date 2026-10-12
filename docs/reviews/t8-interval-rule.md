@@ -15,6 +15,11 @@ frontend change. Nothing was merged or pushed.
 The rule had run only on fakes, never on owner data, so revising it is
 legitimate. It is recorded as v3, the same way v1 became v2.
 
+**Amended in the Codex review** (`t8-interval-rule-codex-review.md`): the
+6-item cutoff below is removed (F2), and the whole T8 report, not only its
+analysis block, now resamples items (F1). Where this file disagrees with the
+review, the review wins.
+
 ## What changed
 
 ### The rule (`field/success_head_analysis.py`, `field/success_head.py`)
@@ -28,7 +33,7 @@ attempts, where e* is the best explicit arm. The verdict now comes from the
 | `embeddings_add_value` | lower bound > m = 0.0 (D9, unchanged) |
 | `kill` | upper bound < δ = 0.005 nats per attempt |
 | `insufficient_data` | otherwise: the interval reaches both m and δ |
-| `insufficient_data` | no interval: fewer than 6 item clusters, cluster means within 1e-12 nats, or no common attempts. The reason is reported |
+| `insufficient_data` | no interval: one item cluster, cluster means within 1e-12 nats, or no common attempts. The reason is reported. (The 6-item cutoff first staged here was removed in review F2.) |
 
 - **No attempt floor.** `min_common_attempts` is gone from the
   pre-registration.
@@ -61,7 +66,8 @@ attempts, where e* is the best explicit arm. The verdict now comes from the
 
 - **Pre-registration:**
   - version `t8-preregistration-v3`;
-  - hash `e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976`;
+  - hash `a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372` after the review amendments (first staged as
+    `e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976`);
   - v2's hash was `746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee`.
 
   Every report carries the new hash: the analysis block, the manifest's `t8`
@@ -83,36 +89,32 @@ attempts, where e* is the best explicit arm. The verdict now comes from the
 - **No silent fallback.** The T8 analysis refuses to run without item
   clusters rather than falling back to attempts.
 - **Every T8 interval resamples items:** primary, gated and descriptive,
-  including the `item_position` and `attempt_position` splits.
-- **Other reports are byte-identical.** Only T8 passes `clusters`. A test pins
+  including the `item_position` and `attempt_position` splits. As first
+  staged, report 1 and report 2 of the same T8 report still resampled
+  attempts; review F1 added the harness's `bootstrap_unit="item"`, which the
+  T8 command passes and the T8 analysis requires.
+- **Other reports are byte-identical.** Only T8 passes `clusters` (and
+  `bootstrap_unit="item"`). A test pins
   the learner-field and families report digests, and one attempt-bootstrap
   result, to the values recorded on `d154f85e`.
 
-### The no-interval guard: 6 item clusters, derived
+### The no-interval guard (6-item cutoff removed in review F2)
 
-The task named fewer than 2 clusters, or zero variance, as examples of an
-interval that can't be computed. Building the rule showed one more case, and
-the guard covers it with a derived bound, not a chosen one.
+As first staged, the guard also refused an interval below 6 item clusters. It
+was justified as a derived bound: the full range of G cluster means misses
+their *median* with probability 2^(1−G), under 5% only from G = 6. T8's
+statistic is an attempt-weighted *mean*, so that bound says nothing about it.
+It neither forbids an interval below 6 items nor guarantees coverage above 6,
+and the cutoff acted as an unregistered item floor. Review F2 removed it.
 
-- **The case.** The CLI test vault has seven attempts on three items.
-  - Under the bare rule, the percentile interval over those three items was
-    wholly negative, [−0.173, −0.0001] (the test runs 20 resamples), and the
-    verdict was `kill`.
-  - This is exactly the small-sample false kill the owner wants removed.
-  - A percentile interval over G clusters can never reach beyond the range of
-    the G cluster means.
-- **The bound.** Even that full range misses the cluster means' median with
-  probability 2^(1−G): 25% at G = 3, 6.25% at G = 5 and 3.1% at G = 6. Below
-  6 clusters, no distribution-free 95% interval exists, whatever the data.
-- **In code:**
-  - `MIN_CLUSTERS` is computed from the 95% level (`_min_clusters`);
-  - the pre-registration records 6;
-  - a test ties the two together.
-- **Not a decision floor.** Six items with one attempt each can be decided.
-  A test shows that six items all favouring e* give `kill`, while five give
-  `insufficient_data`.
-- **Numerical tolerance.** 1e-12 nats is the resolution for "zero variance":
-  cluster means closer than that give the same mean on every resample.
+- **No interval only where every resample gives the same mean:** no common
+  attempts, one item cluster, or cluster means within 1e-12 nats (numerical
+  resolution).
+- **Few items decide from their interval.** The CLI test vault (seven attempts
+  on three items) now gets an interval and a verdict.
+- **Small-G coverage** is a property of the registered percentile interval.
+  The report shows the item count; the review records a synthetic coverage
+  table and leaves any explicit minimum to the owner.
 
 ## Why items are the cluster unit
 
@@ -121,8 +123,8 @@ the guard covers it with a derived bound, not a chosen one.
   item-specific residual the arms miss. Resampling items asks how the gain
   would vary over a different set of items, which is the §11 question
   ("success on never-seen items").
-- **LOs give too few clusters.** The tracked fixture has 8 LOs, just above
-  the 6-cluster bound, where percentile intervals are known to under-cover.
+- **LOs give too few clusters.** The tracked fixture has 8 LOs, where
+  percentile intervals are known to under-cover.
   On the fake-vector copy, the LO interval came out *narrower* than the item
   interval despite being the coarser unit, a symptom of exactly that.
 - **Sessions cut across items.** Session-level dependence (fatigue, priming)
@@ -138,7 +140,7 @@ the tracked `linear_algebra` fixture (`--legacy-fallback current_content`):
 | Items | 37 (25 seen once; 9 twice; 2 three times; 1 four times) |
 | LOs | 8 |
 
-- **Plenty of clusters.** 37 is far above 6.
+- **Plenty of clusters:** 37.
 - **Small clusters.** Most clusters are singletons, so the item bootstrap
   stays close to the attempt bootstrap and only corrects for the 28 attempts
   on 12 repeated items. Singletons are valid clusters: a singleton cluster has
@@ -233,8 +235,9 @@ v2/v3 differences are in the scenario table above.
   - `test_only_embeddings_add_value_opens_the_gate[add/kill/insufficient]`;
   - `test_each_secondary_verdict_gates_the_next_comparison[add/kill/insufficient]`.
 - **No interval:**
-  - `test_no_interval_is_insufficient_data_with_the_reason`: one item, five
-    items vs six, zero variance and an arm that wasn't run;
+  - `test_no_interval_is_insufficient_data_with_the_reason`: one item, zero
+    variance and an arm that wasn't run (the five-versus-six items case was
+    replaced in review F2);
   - `test_cluster_bootstrap_reports_no_interval_when_it_cannot_be_computed`.
 - **The hash:** `test_preregistration_v3_changes_the_hash_and_every_report_carries_it`.
   The CLI test also checks the report's hash against the manifest.
@@ -258,7 +261,7 @@ interface check.
   - open question 6 ("Minimum data"), now resolved.
 - `docs/reviews/t8-interval-rule.md` (this file).
 - `src/learnloop/field/evaluation.py`: the `clusters` option,
-  `ReplayArrays.item_clusters`, and `MIN_CLUSTERS` / `ZERO_SPREAD`.
+  `ReplayArrays.item_clusters`, and `ZERO_SPREAD` (`MIN_CLUSTERS` was removed in review F2).
 - `src/learnloop/field/success_head.py`: `PREREGISTRATION` v3.
 - `src/learnloop/field/success_head_analysis.py`: the three-way verdict, item
   clusters, the reasons and the report lines.
@@ -289,18 +292,17 @@ Run in this worktree at code commit `06d857b9` (the review commit changes docs o
 
 ## Open questions
 
-1. **The 6-cluster guard.** It goes beyond the task's examples (fewer than 2
-   clusters, zero variance), but it is derived from the 95% level, not
-   chosen. Without it, 2–5 items could produce a `kill` from an interval that
-   can't reach 95% coverage, as the three-item test vault did. Keep it?
+1. **The 6-cluster guard.** Resolved in review F2: removed. Its derivation
+   was for a median, not T8's mean. See open question 3 for coverage.
 2. **An interval wholly inside (0, δ).** By rule order this is
    `embeddings_add_value`, and the reason says the gain is real but below δ.
    The alternatives are to treat it as `kill` (not worth building) or as its
    own label, but the verdict names were to stay fixed. Is the current
    reading right?
-3. **Few-cluster coverage.** Above 6 clusters, percentile cluster intervals
-   still under-cover somewhat at small G (roughly below 20–30 clusters). The
-   report shows G instead of adding another constant. Is that enough?
+3. **Few-cluster coverage.** Percentile cluster intervals under-cover at
+   small G (roughly below 20–30 clusters; the review's synthetic table shows
+   about 75% at G = 3 and 84% at G = 6). The report shows G instead of adding
+   another constant. Is that enough, or should the owner register a minimum?
 4. **The nested baseline narrows the interval.** When e* is `tag_logistic`,
    `emb_ridge` differs only by a shrunk embedding block, so Δ is small and the
    interval narrow. A decision can then come early: the fake-vector fixture

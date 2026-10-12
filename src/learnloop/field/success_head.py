@@ -65,7 +65,9 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
     # 1.0 -> 0.25 per dimension, after a synthetic-only check; see the review.
     # v3 (owner, 2026-10-12, before any run on owner data): no fixed minimum
     # sample; a three-way interval rule with the smallest worthwhile gain, and
-    # an item-cluster bootstrap. See docs/reviews/slice-2-t8.md.
+    # an item-cluster bootstrap. See docs/reviews/slice-2-t8.md. Amended in
+    # review before merge (still before any owner-data run): no item minimum,
+    # and items are resampled in every interval of the T8 report.
     "registered": "2026-10-12",
     "question": "Does a frozen-embedding success predictor add held-out value over explicit arms?",
     "primary_arm": PRIMARY_ARM,
@@ -83,12 +85,15 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
         "kill": "ci95 upper bound < smallest_worthwhile_gain",
         "insufficient_data": "otherwise, or no interval",
     },
-    # No 95% interval exists below 6 clusters (1 - 2**(1 - G) < 0.95 for the
-    # full range of G cluster means) or with numerically equal cluster means.
-    "no_interval": {"min_clusters": 6, "zero_spread_nats": 1e-12},
+    # No interval only where every resample gives the same mean (review F2: no
+    # minimum item count; the report shows the number of item clusters).
+    "no_interval": {"when": "no common attempts, one item cluster, or item-cluster means "
+                            "within zero_spread_nats",
+                    "zero_spread_nats": 1e-12},
     "coverage_caveat_below": 0.8,
     "bootstrap": {"samples": 1000, "seed": 0, "unit": "item", "paired": True,
-                  "interval": "percentile_95", "statistic": "mean over the drawn attempts"},
+                  "interval": "percentile_95", "statistic": "mean over the drawn attempts",
+                  "scope": "every bootstrap interval in the T8 report"},
     "embedding_view": {"dimensions": EMBEDDING_DIMENSIONS, "projection": "mrl_prefix_l2",
                        "centering": "mean_of_previously_observed_attempts", "renormalize": True},
     "priors": asdict(HeadPriors()),
