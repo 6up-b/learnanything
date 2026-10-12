@@ -3,13 +3,13 @@ title: "grade_interpretations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "9044bfd1d4383b8eaa28de7590e93037d35791bb"
+source_commit_timestamp: "2026-10-11T23:30:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grade_interpretations"
   - "table grade_interpretations"
-schema_head: 166
+schema_head: 167
 table_name: "grade_interpretations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/cli/grading.py"
+  - "src/learnloop/substrate/family_memory_rows.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -120,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
 - `src/learnloop/substrate/compat/card_outcome_replay.py`
+- `src/learnloop/substrate/family_memory_rows.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

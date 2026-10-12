@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "9044bfd1d4383b8eaa28de7590e93037d35791bb"
+source_commit_timestamp: "2026-10-11T23:30:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 166
+schema_head: 167
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -125,6 +125,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_embedding_backfill.py`
+- `tests/test_family_proposals.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`

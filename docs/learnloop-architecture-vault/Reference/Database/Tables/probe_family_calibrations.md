@@ -3,13 +3,13 @@ title: "probe_family_calibrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "9044bfd1d4383b8eaa28de7590e93037d35791bb"
+source_commit_timestamp: "2026-10-11T23:30:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_family_calibrations"
   - "table probe_family_calibrations"
-schema_head: 166
+schema_head: 167
 table_name: "probe_family_calibrations"
 table_role: "raw_ledger"
 functionality_status: "active"

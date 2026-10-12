@@ -3,8 +3,8 @@ title: "Config - ingest"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "9044bfd1d4383b8eaa28de7590e93037d35791bb"
+source_commit_timestamp: "2026-10-11T23:30:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml ingest"
@@ -34,6 +34,7 @@ source_paths:
   - "tests/helpers.py"
   - "tests/media_fakes.py"
   - "tests/openai_fakes.py"
+  - "tests/test_activity_families.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_agent_run_tokens.py"
   - "tests/test_agent_runs.py"
@@ -41,7 +42,6 @@ source_paths:
   - "tests/test_apply_write_ahead.py"
   - "tests/test_attempt_ai_flow.py"
   - "tests/test_authoring_contract.py"
-  - "tests/test_build_study_map_routing.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/ingest"
@@ -122,6 +122,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/helpers.py`
 - `tests/media_fakes.py`
 - `tests/openai_fakes.py`
+- `tests/test_activity_families.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_agent_run_tokens.py`
 - `tests/test_agent_runs.py`
@@ -129,7 +130,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_apply_write_ahead.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_authoring_contract.py`
-- `tests/test_build_study_map_routing.py`
 
 ## Extension and modification guidance
 
