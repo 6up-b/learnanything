@@ -30,8 +30,10 @@ from learnloop.projects.ai_runtime import (
 )
 from learnloop.projects.capture import (
     AGENTS,
+    PreparedCapture,
     capture_commit,
     capture_working_tree,
+    discover_captures,
     enroll_repo,
     estimate_tokens,
     find_repo,
@@ -52,6 +54,7 @@ from learnloop.projects.probes import (
     generate_probes,
     grade_responses,
     open_probe,
+    plan_for_bundle,
     plan_generation,
     record_response,
     reveal,
@@ -145,19 +148,28 @@ def _generate(
     paid: PaidCalls,
     dry_run: bool,
     clock: Clock,
+    prospective: list[PreparedCapture] = (),
 ) -> dict[str, Any]:
-    """Generate for ``diffs`` under the command's one budget (``paid``)."""
+    """Generate for ``diffs`` under the command's one budget (``paid``).
 
-    if not diffs:
+    A dry run also plans for ``prospective`` captures: commits the real run
+    would capture first and then generate for.
+    """
+
+    if not diffs and not prospective:
         return {"status": "nothing_to_generate", "diffs": []}
     routes = describe_routes(config)
     planned = plan_generation(store, root, config, diffs)
+    for capture in prospective:
+        planned += plan_for_bundle(capture.bundle.payload, repo_name=capture.repo_row["name"], config=config)
     try:
         estimate = paid.plan(planned, routes)
     except SpendLimitExceeded as exc:
-        return {"status": "over_budget", "reason": str(exc), "diffs": len(diffs), "routes": routes}
+        return {"status": "over_budget", "reason": str(exc), "diffs": len(diffs),
+                "prospective_captures": len(prospective), "routes": routes}
     if dry_run:
-        return {"status": "dry_run", "diffs": len(diffs), "estimate": estimate, "routes": routes}
+        return {"status": "dry_run", "diffs": len(diffs), "prospective_captures": len(prospective),
+                "estimate": estimate, "routes": routes}
     with _routes(root, config, store, ("authoring", "closed_book", "grading")) as resolved:
         if all(route.ready for route in resolved.values()):
             # An explicit retry: failed diffs go back to pending only now that
@@ -355,7 +367,7 @@ def project_sweep(
     vault: VaultOption = None,
     repo: Annotated[str | None, typer.Option("--repo", help="Only this enrolled repo (path or id).")] = None,
     capture_only: Annotated[bool, typer.Option("--capture-only", help="Capture without generating questions (no model calls).")] = False,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate generation for captured diffs; no capture, model calls or writes.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate generation for captured diffs and for the commits a real sweep would capture; no model calls or writes.")] = False,
     max_diffs: Annotated[int, typer.Option("--max-diffs", min=0, help="Generate for at most this many diffs, oldest first.")] = 30,
     retry_failed: Annotated[bool, typer.Option("--retry-failed", help="Also retry diffs whose question generation failed (finished stages are kept, not re-paid).")] = False,
     max_candidates: MaxCandidates = 300,
@@ -394,14 +406,24 @@ def project_sweep(
             diff for diff in diffs_awaiting_generation(store, include_failed=retry_failed)
             if repo_ids is None or diff["repo_id"] in repo_ids
         ][:max_diffs]
+        prospective: list[PreparedCapture] = []
+        discovery = None
+        if dry_run:
+            # What the real sweep would capture first (git reads only).
+            found, errors = discover_captures(root, config, repo_ids=repo_ids)
+            prospective = [capture for capture in found if capture.excluded_reason(config) is None]
+            discovery = {"dry_run": True, "prospective_captures": len(found),
+                         "excluded": len(found) - len(prospective), "errors": errors}
+            prospective = prospective[: max(0, max_diffs - len(awaiting))]
         generation = None
         if not capture_only:
             with _cancellation() as stop:
                 paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
-                generation = _generate(root, config, store, awaiting, paid=paid, dry_run=dry_run, clock=clock)
+                generation = _generate(root, config, store, awaiting, paid=paid, dry_run=dry_run, clock=clock,
+                                       prospective=prospective)
         payload = {
             "status": "dry_run" if dry_run else (swept.status if swept else "ok"),
-            "sweep": swept.as_dict() if swept else None,
+            "sweep": swept.as_dict() if swept else discovery,
             "generation": generation,
         }
     except Exception as exc:  # noqa: BLE001 - G1: a sweep reports, it never fails

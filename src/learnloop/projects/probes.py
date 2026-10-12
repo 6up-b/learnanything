@@ -550,31 +550,44 @@ def plan_generation(
             repo = store.repo(diff["repo_id"]) or {"name": ""}
             try:
                 bundle = load_bundle(vault_root, diff["bundle_hash"])
-                prompt = probe_authoring_prompt(authoring_context(bundle, repo_name=repo["name"], config=config))
-                input_tokens = estimate_tokens(prompt)
+                planned += plan_for_bundle(bundle, repo_name=repo["name"], config=config)
             except BundleIntegrityError:
-                input_tokens = int(diff["token_estimate"]) + PROMPT_OVERHEAD_TOKENS
-            planned.append(PlannedCall("authoring", input_tokens, authoring_output_tokens(), candidates=count))
-            closed_book, grading = count, count
-        else:
-            closed_book = sum(probe["status"] == "pending_closed_book" for probe in existing)
-            grading = closed_book + sum(probe["status"] == "pending_closed_book_grade" for probe in existing)
-        if closed_book:
-            planned.append(
-                PlannedCall(
-                    "closed_book",
-                    PROMPT_OVERHEAD_TOKENS + CLOSED_BOOK_QUESTION_TOKENS_ESTIMATE * closed_book,
-                    closed_book_output_tokens(closed_book),
-                )
+                planned += _plan_stages(int(diff["token_estimate"]) + PROMPT_OVERHEAD_TOKENS, count, count, count)
+            continue
+        closed_book = sum(probe["status"] == "pending_closed_book" for probe in existing)
+        grading = closed_book + sum(probe["status"] == "pending_closed_book_grade" for probe in existing)
+        planned += _plan_stages(None, 0, closed_book, grading)
+    return planned
+
+
+def plan_for_bundle(bundle: dict[str, Any], *, repo_name: str, config: LearnLoopConfig) -> list[PlannedCall]:
+    """Every call a not-yet-generated bundle needs (also for not-yet-captured ones)."""
+
+    count = config.project.candidates_per_diff
+    prompt = probe_authoring_prompt(authoring_context(bundle, repo_name=repo_name, config=config))
+    return _plan_stages(estimate_tokens(prompt), count, count, count)
+
+
+def _plan_stages(authoring_input: int | None, candidates: int, closed_book: int, grading: int) -> list[PlannedCall]:
+    planned: list[PlannedCall] = []
+    if authoring_input is not None:
+        planned.append(PlannedCall("authoring", authoring_input, authoring_output_tokens(), candidates=candidates))
+    if closed_book:
+        planned.append(
+            PlannedCall(
+                "closed_book",
+                PROMPT_OVERHEAD_TOKENS + CLOSED_BOOK_QUESTION_TOKENS_ESTIMATE * closed_book,
+                closed_book_output_tokens(closed_book),
             )
-        if grading:
-            planned.append(
-                PlannedCall(
-                    "grading",
-                    PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE * grading,
-                    grading_output_tokens(grading),
-                )
+        )
+    if grading:
+        planned.append(
+            PlannedCall(
+                "grading",
+                PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE * grading,
+                grading_output_tokens(grading),
             )
+        )
     return planned
 
 
@@ -1110,6 +1123,7 @@ __all__ = [
     "grade_items",
     "grade_responses",
     "open_probe",
+    "plan_for_bundle",
     "plan_generation",
     "probe_header",
     "record_response",

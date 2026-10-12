@@ -20,6 +20,7 @@ from learnloop.projects.ai_runtime import PaidCalls, PlannedCall, ProjectRoute
 from learnloop.projects.experiment_store import ProjectStore
 from tests.helpers import create_basic_vault
 from tests.project_support import (
+    MODEL_PY_RELU,
     TempRepo,
     clock_at,
     isolated_git,  # noqa: F401
@@ -122,7 +123,7 @@ def test_sweep_dry_run_makes_no_calls_and_no_writes(isolated_git, project_fake, 
     store = ProjectStore.existing(cli.vault)
     receipts_before = len(store.receipts())
     payload = json.loads(cli(["sweep", "--dry-run", "--json"]))
-    assert payload["status"] == "dry_run" and payload["sweep"] is None
+    assert payload["status"] == "dry_run" and payload["sweep"]["dry_run"] is True
     estimate = payload["generation"]["estimate"]
     assert estimate["calls"] == 3 and estimate["total_tokens"] > 0
     assert payload["generation"]["routes"]["authoring"]["subscription"] is True
@@ -470,3 +471,39 @@ def test_failed_generation_can_be_retried_without_re_authoring(isolated_git, pro
     cli(["sweep", "--retry-failed"])
     assert store.diff(diff["id"])["probe_status"] == "generated"
     assert project_fake.calls["authoring"] == 1
+
+
+def _store_files(vault):
+    return sorted(str(path.relative_to(vault)) for path in vault.rglob("*") if path.is_file() and "-wal" not in path.name and "-shm" not in path.name)
+
+
+def test_sweep_dry_run_includes_commits_the_real_sweep_would_capture(isolated_git, project_fake, cli, tmp_path):
+    repo = make_model_repo(tmp_path / "repo")
+    cli(["enroll", str(repo.path)])
+    cli(["sweep"])  # the enrollment-time commit is captured and generated
+    store = ProjectStore.existing(cli.vault)
+    rescale = "".join(f"y = y * {factor}\n        " for factor in range(2, 8))
+    repo.write("model.py", MODEL_PY_RELU.replace("return torch.relu(y)", rescale + "return torch.relu(y)"))
+    repo.commit("Rescale before the relu\n\nSo the GRU sees a centred input.")
+    before = (len(store.diffs()), len(store.receipts()), _store_files(cli.vault))
+    payload = json.loads(cli(["sweep", "--dry-run", "--json"], day=1))
+    assert payload["generation"]["prospective_captures"] == 1
+    assert payload["generation"]["estimate"]["calls"] == 3
+    assert (len(store.diffs()), len(store.receipts()), _store_files(cli.vault)) == before
+    calls = sum(project_fake.calls.values())
+    cli(["sweep"], day=1)
+    assert sum(project_fake.calls.values()) - calls == 3  # what the dry run estimated
+
+
+def test_sweep_dry_run_includes_queued_hook_entries(isolated_git, project_fake, cli, tmp_path):
+    repo = make_model_repo(tmp_path / "repo")
+    sha = repo.git("rev-parse", "HEAD").strip()
+    repo.git("checkout", "-q", "--detach", "HEAD~1")
+    repo.git("branch", "-q", "-D", "main")  # only the hook's entry can find it now
+    cli(["enroll", str(repo.path)])
+    store = ProjectStore.existing(cli.vault)
+    repo_id = store.repos()[0]["id"]
+    (cli.vault / "projects" / "pending.jsonl").write_text(json.dumps({"repo_id": repo_id, "sha": sha, "at": "x"}) + "\n")
+    payload = json.loads(cli(["sweep", "--dry-run", "--json"]))
+    assert payload["generation"]["prospective_captures"] == 1 and payload["generation"]["estimate"]["calls"] == 3
+    assert store.diffs() == [] and store.pending_commits() == []

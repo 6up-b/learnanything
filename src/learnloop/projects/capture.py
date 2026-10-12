@@ -664,6 +664,16 @@ def _parse_commit_record(record: str) -> dict[str, Any]:
     }
 
 
+def _excluded_reason(bundle: Bundle, config: LearnLoopConfig) -> str | None:
+    changed = bundle.lines_added + bundle.lines_removed
+    included = [entry for entry in bundle.files if not entry["omitted"]]
+    if not included:
+        return "no_probeable_content"
+    if changed < config.project.min_diff_lines:
+        return "trivial"
+    return None
+
+
 def _store_capture(
     store: ProjectStore,
     vault_root: Path,
@@ -684,13 +694,7 @@ def _store_capture(
     clock: Clock | None,
     rules: PathRules,
 ) -> CaptureResult:
-    changed = bundle.lines_added + bundle.lines_removed
-    included = [entry for entry in bundle.files if not entry["omitted"]]
-    excluded_reason = None
-    if not included:
-        excluded_reason = "no_probeable_content"
-    elif changed < config.project.min_diff_lines:
-        excluded_reason = "trivial"
+    excluded_reason = _excluded_reason(bundle, config)
     store_original_bytes(Path(vault_root), bundle.digest, bundle.raw)
     row, created = store.insert_diff(
         {
@@ -732,20 +736,40 @@ def _store_capture(
     )
 
 
-def capture_commit(
+@dataclass(frozen=True)
+class PreparedCapture:
+    """A commit capture worked out from git alone: nothing is stored yet."""
+
+    repo_row: dict[str, Any]
+    bundle: Bundle
+    head: str
+    base_sha: str | None
+    patch: str | None
+    agent: str
+    agent_source: str
+    committed_at: str | None
+    rules: PathRules
+
+    def excluded_reason(self, config: LearnLoopConfig) -> str | None:
+        return _excluded_reason(self.bundle, config)
+
+
+def prepare_commit(
     store: ProjectStore,
-    vault_root: Path,
     config: LearnLoopConfig,
     repo_row: dict[str, Any],
     sha: str,
     *,
-    capture_source: str,
-    trigger: str,
-    clock: Clock | None = None,
     agent: str | None = None,
     agent_source: str | None = None,
     info: dict[str, Any] | None = None,
-) -> CaptureResult:
+) -> PreparedCapture | CaptureResult:
+    """Everything a commit capture needs, read-only (git and store reads).
+
+    Returns a ``CaptureResult`` instead when there is nothing to capture
+    (already captured, a rebased twin, a merge).
+    """
+
     repo = Path(repo_row["path"])
     resolved = git_text(repo, ["rev-parse", "--verify", f"{sha}^{{commit}}"]).strip()
     existing = store.diff_for_commit(repo_row["id"], resolved)
@@ -783,23 +807,53 @@ def capture_commit(
         rules=rules,
         config=config,
     )
-    result = _store_capture(
-        store, vault_root, config, repo_row, bundle,
-        snapshot_kind="commit",
-        base_sha=info["parents"][0] if info["parents"] else None,
+    return PreparedCapture(
+        repo_row=repo_row,
+        bundle=bundle,
         head=resolved,
+        base_sha=info["parents"][0] if info["parents"] else None,
         patch=patch,
         agent=agent,
-        agent_source=agent_source,
+        agent_source=agent_source or "self_report",
+        committed_at=info["committed_at"],
+        rules=rules,
+    )
+
+
+def capture_commit(
+    store: ProjectStore,
+    vault_root: Path,
+    config: LearnLoopConfig,
+    repo_row: dict[str, Any],
+    sha: str,
+    *,
+    capture_source: str,
+    trigger: str,
+    clock: Clock | None = None,
+    agent: str | None = None,
+    agent_source: str | None = None,
+    info: dict[str, Any] | None = None,
+) -> CaptureResult:
+    prepared = prepare_commit(store, config, repo_row, sha, agent=agent, agent_source=agent_source, info=info)
+    if isinstance(prepared, CaptureResult):
+        return prepared
+    result = _store_capture(
+        store, vault_root, config, repo_row, prepared.bundle,
+        snapshot_kind="commit",
+        base_sha=prepared.base_sha,
+        head=prepared.head,
+        patch=prepared.patch,
+        agent=prepared.agent,
+        agent_source=prepared.agent_source,
         capture_timing="post_commit",
         capture_source=capture_source,
         trigger=trigger,
-        committed_at=info["committed_at"],
+        committed_at=prepared.committed_at,
         clock=clock,
-        rules=rules,
+        rules=prepared.rules,
     )
     if result.diff_id is not None:
-        store.resolve_unattributed(repo_row["id"], resolved, result.diff_id)
+        store.resolve_unattributed(repo_row["id"], prepared.head, result.diff_id)
     return result
 
 
@@ -1057,6 +1111,60 @@ def sweep(
     return report
 
 
+def discover_captures(
+    vault_root: Path,
+    config: LearnLoopConfig,
+    *,
+    repo_ids: set[str] | None = None,
+) -> tuple[list[PreparedCapture], list[str]]:
+    """What ``sweep`` would capture now, without writing anything (for dry runs).
+
+    Covers both sources a sweep reads: agent-trailer commits in the capture
+    window and the post-commit queue (stored entries plus unread lines of the
+    pending file). Returns the prepared captures and per-repo errors.
+    """
+
+    store = ProjectStore.existing(vault_root)
+    if store is None:
+        return [], []
+    repos = [repo for repo in store.repos(enabled_only=True) if repo_ids is None or repo["id"] in repo_ids]
+    unread, _offset, _malformed = _read_pending(vault_root, store)
+    queued: dict[str, list[str]] = {}
+    for entry in [*store.pending_commits(), *unread]:
+        queued.setdefault(entry["repo_id"], []).append(entry["sha"])
+    prepared: list[PreparedCapture] = []
+    errors: list[str] = []
+    for repo_row in repos:
+        repo = Path(repo_row["path"])
+        try:
+            if repo_toplevel(repo) != repo:
+                raise GitError(f"{repo} is no longer the root of a git work tree")
+            known = store.known_commit_shas(repo_row["id"])
+            patches: set[str] = set()
+            candidates: list[tuple[str, dict[str, Any]]] = [
+                (commit["sha"], commit) for commit in _agent_commits(repo, repo_row["capture_since"])
+            ]
+            for sha in queued.get(repo_row["id"], []):
+                try:
+                    info = _commit_info(repo, sha)
+                except GitError:
+                    continue
+                if detect_agent(info["trailers"], info["message"]) is not None:
+                    candidates.append((info["sha"], info))
+            for sha, info in candidates:
+                if sha in known:
+                    continue
+                known.add(sha)
+                result = prepare_commit(store, config, repo_row, sha, info=info)
+                if isinstance(result, PreparedCapture) and (result.patch is None or result.patch not in patches):
+                    if result.patch is not None:
+                        patches.add(result.patch)
+                    prepared.append(result)
+        except (GitError, OSError, ValueError) as exc:
+            errors.append(f"{repo_row['name']}: {exc}")
+    return prepared, errors
+
+
 def auto_sweep(
     vault_root: Path,
     config: LearnLoopConfig | None,
@@ -1108,6 +1216,7 @@ __all__ = [
     "capture_commit",
     "capture_working_tree",
     "detect_agent",
+    "discover_captures",
     "enroll_repo",
     "estimate_tokens",
     "find_repo",
@@ -1115,6 +1224,8 @@ __all__ = [
     "load_bundle",
     "parse_hunks",
     "parse_trailers",
+    "prepare_commit",
+    "PreparedCapture",
     "scope_range",
     "strip_agent_trailers",
     "sweep",
