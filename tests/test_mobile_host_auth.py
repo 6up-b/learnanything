@@ -302,12 +302,13 @@ def test_every_registry_method_is_http_denied(mobile):
 def test_desktop_only_and_main_rpcs_are_http_denied_for_every_phone_scope(mobile, scope):
     from learnloop_sidecar import handlers  # noqa: F401
     from learnloop_sidecar.registry import METHOD_REGISTRY
-    from tests.test_mobile_allowlist import DESKTOP_ONLY_CAPTURE_RPCS, MAIN_SIDECAR_RPCS
+    from tests.test_mobile_allowlist import DAILY_PLAN_RPCS, DESKTOP_ONLY_CAPTURE_RPCS, MAIN_SIDECAR_RPCS
     client, _, repo, _, headers = mobile
     pending = capture.create_pairing(repo, scope=scope)
     device = capture.exchange_pairing(repo, secret=pending["secret"])
     phone = {**headers, "Authorization": f"Bearer {device['token']}"}
-    for method in DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS:
+    # Daily-loop DL1's plan RPCs are pinned here too until mobile M2a allows them.
+    for method in DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + DAILY_PLAN_RPCS:
         assert method in METHOD_REGISTRY
         response = client.post("/rpc", json={"method": method, "params": {"captureId": "c"}},
                                headers=phone)

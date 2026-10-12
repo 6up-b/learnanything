@@ -44,9 +44,27 @@ MAIN_SIDECAR_RPCS = (
     "get_placement_state",
     "start_quick_check",
 )
+# Daily-loop DL1: the finite plan. Mobile M2a will show the plan through
+# allowlisted plan RPCs; until then they are desktop-only, pinned by name.
+DAILY_PLAN_RPCS = (
+    "get_daily_plan",
+    "set_plan_minutes",
+    "next_plan_item",
+    "plan_reading_ended",
+    "plan_keep_going",
+    "plan_more_new",
+    "plan_learner_pick",
+    "get_today_headline",
+)
 
 
-@pytest.mark.parametrize("method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS)
+def test_the_pinned_daily_plan_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.daily_plan import DAILY_PLAN_RPCS as registered
+
+    assert set(DAILY_PLAN_RPCS) == set(registered)
+
+
+@pytest.mark.parametrize("method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + DAILY_PLAN_RPCS)
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY
