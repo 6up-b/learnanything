@@ -89,14 +89,31 @@ class CompareRequest:
     max_cases: int | None = None
     alternatives: int = 2
     max_items: int = 20
+    # A [pf.scaling] tier ("cheap" | "frontier"): PF roles resolve through that
+    # tier's routes and verdicts record it, so the scaling check can compare
+    # the tiers' judges on identical labelled pairs.
+    tier: str | None = None
     dry_run: bool = False
+
+
+def tier_routes(vault: LoadedVault, tier: str | None) -> list[str] | None:
+    if tier is None:
+        return None
+    if tier not in {"cheap", "frontier"}:
+        raise ValueError("tier must be cheap or frontier")
+    routes = list(getattr(vault.config.pf.scaling, tier, []) or [])
+    if not routes:
+        raise ValueError(f"pf.scaling.{tier} names no routes; configure the tier's profiles first")
+    return routes
 
 
 class CompareContext:
     def __init__(self, vault: LoadedVault, caller: PFCaller, *, clients: Mapping[str, Any] | None,
                  embedding_clients: Mapping[str, Any] | None, embedding_price: float | None,
-                 output_dir: Path) -> None:
+                 output_dir: Path, tier: str | None = None) -> None:
         self.vault = vault
+        self.tier = tier
+        self.tier_routes = tier_routes(vault, tier)
         self.caller = caller
         self.injected = dict(clients or {})
         self.embedding_injected = dict(embedding_clients or {})
@@ -107,7 +124,8 @@ class CompareContext:
 
     def role(self, name: str) -> list[RoleClient]:
         if name not in self._roles:
-            self._roles[name] = resolve_role_clients(self.vault, name, injected=self.injected.get(name))
+            self._roles[name] = resolve_role_clients(self.vault, name, injected=self.injected.get(name),
+                                                     tier_routes=self.tier_routes)
         return self._roles[name]
 
     def embedder(self, model: str, dims: int) -> Any:
@@ -460,11 +478,14 @@ class B2Suite:
                         comparisons=[{"ref": "item_0", "prompt": case.right["stem"]}]),
                     prompt_version=C.FRESHNESS_PROMPT, result_model=C.FreshnessVerdict, output_tokens=2500, pairs=1)
                 verdict = next((c.verdict for c in call.result.comparisons if c.ref == "item_0"), "missing")
+                # Labelled verdicts on identical pairs: the scaling check's judge accuracy per tier.
                 ctx.caller.ledger(task="isomorph", left_kind="b2_case", left_id=f"{case.id}:left",
                                   right_kind="b2_case", right_id=f"{case.id}:right", judge="llm",
                                   judge_model=call.model, prompt_version=C.FRESHNESS_PROMPT,
-                                  input_hash=call.input_hash, verdict=verdict,
-                                  rationale={"benchmark": data.manifest.get("name"), "label": "positive" if label else "negative"})
+                                  input_hash=content_key([call.input_hash, ctx.tier]) if ctx.tier else call.input_hash,
+                                  verdict=verdict,
+                                  rationale={"benchmark": data.manifest.get("name"), "tier": ctx.tier,
+                                             "label": "positive" if label else "negative"})
                 predictions.append(verdict in {"same_surface", "isomorph"})
                 case_models.append(call.model)
             report["views"]["judge"] = {
@@ -611,6 +632,7 @@ def run_compare(
     suite = SUITES.get(request.suite)
     if suite is None:
         raise ValueError(f"Unknown suite {request.suite!r}; registered: {', '.join(sorted(SUITES))}")
+    tier_routes(vault, request.tier)  # validate before anything else
     data = suite.load(vault, request)
     plan = suite.plan(vault, data, request)
     sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
@@ -618,7 +640,7 @@ def run_compare(
     caller = PFCaller(vault, repository, caps=caps, price_per_million=price_per_million, run_id=new_ulid(),
                       owner_kind="embeddings_compare", cancelled=cancelled)
     report: dict[str, Any] = {
-        "status": "dry_run" if request.dry_run else "pending", "suite": suite.name,
+        "status": "dry_run" if request.dry_run else "pending", "suite": suite.name, "tier": request.tier,
         "description": suite.description, "harness_version": HARNESS_VERSION, "plan": plan,
         "caps": caps.as_dict(), "price_per_million": price_per_million,
         "embedding_price_per_million": embedding_price_per_million,
@@ -650,7 +672,7 @@ def run_compare(
     output = request.output_dir
     output.mkdir(parents=True, exist_ok=True)
     ctx = CompareContext(vault, caller, clients=clients, embedding_clients=embedding_clients,
-                         embedding_price=embedding_price_per_million, output_dir=output)
+                         embedding_price=embedding_price_per_million, output_dir=output, tier=request.tier)
     try:
         report["results"] = suite.run(data, request, ctx)
         report["status"] = "complete"
@@ -661,7 +683,8 @@ def run_compare(
     except (AIProviderUnavailable, PFUnavailable) as exc:
         report.update(status="provider_failed", error_type=type(exc).__name__, reason=str(exc)[:300])
     report["usage"] = caller.report()
-    identity = content_key({"suite": suite.name, "plan": plan, "manifest": report["manifest"]})[:16]
+    identity = content_key({"suite": suite.name, "plan": plan, "manifest": report["manifest"],
+                            "tier": request.tier})[:16]
     report["report_files"] = [f"{suite.name}-{identity}.json", f"{suite.name}-{identity}.md"]
     (output / report["report_files"][0]).write_text(json.dumps(report, sort_keys=True, indent=2, default=str), encoding="utf-8")
     (output / report["report_files"][1]).write_text(_markdown(report), encoding="utf-8")

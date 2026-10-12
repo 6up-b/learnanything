@@ -81,7 +81,7 @@ def test_scaling_check_reports_each_tier_and_component(tmp_path):
     assert set(report["tiers"]) == {"cheap", "frontier"}
     for tier in report["tiers"].values():
         assert tier["candidates"] > 0
-        assert tier["judge_agreement"]["structure_judge_vs_program_invariance"]["n"] >= 1
+        assert tier["judge_agreement"]["descriptive"]["structure_isomorph_rate_on_program_draws"]["n"] >= 1
     assert report["blind_comparison"]["pairs"] > 0
     assert report["components"]["generators_verified_pass_rate"] in {
         "insufficient_data", "rises_with_tier", "falls_with_tier", "no_clear_difference"}
@@ -190,3 +190,61 @@ def test_pilot_recommends_only_from_agreed_comparisons_on_the_same_families(tmp_
     assert consistent["recommendation"]["default_path"] == "generator", consistent["recommendation"]
     for arm in ("generator", "ensemble"):
         assert consistent["blind_comparison"][arm]["families"] == ["af_linear"]
+
+
+@needs_bwrap
+def test_suspect_acceptance_is_descriptive_and_never_ranks_a_tier(tmp_path):
+    """Codex review F12: a frontier judge that calls every suspect isomorphic is not 'better'."""
+    _, _, paths = seed_pf_vault(tmp_path / "vault")
+    append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
+    judges = {"cheap": PFFake("cheap-judge"), "frontier": PFFake("frontier-judge", freshness_parent="isomorph")}
+    for tier, judge in judges.items():
+        report = generate_practice(load_vault(paths.root), caps=CAPS, price_per_million=1.0,
+                                   clients=clients(freshness=judge),
+                                   options=GenerationOptions(path="ensemble", round="scale-2", tier=tier,
+                                                             count=10, publish=False))
+        assert report["status"] == "complete", report
+    report = scaling_report(load_vault(paths.root), round_id="scale-2", output_dir=tmp_path / "reports")
+    rates = {tier: report["tiers"][tier]["judge_agreement"]["descriptive"]["freshness_suspect_acceptance"]
+             for tier in ("cheap", "frontier")}
+    assert rates["frontier"]["rate"] > rates["cheap"]["rate"] and rates["frontier"]["n"] >= 10
+    assert report["components"]["freshness_judge"] == "insufficient_data"
+    assert report["components"]["structure_judge"] == "insufficient_data"
+
+
+def test_judge_accuracy_comes_from_labelled_pairs_judged_at_both_tiers(tmp_path):
+    from learnloop.content.authoring import pf_contracts as C
+    from learnloop.ops.embedding_compare import CompareRequest, run_compare
+    from tests.pf_fakes import prompt_context
+    from tests.test_embedding_compare import benchmark
+
+    class Reads(PFFake):
+        """Calls a pair isomorphic only when both stems are about apples (the benchmark's positives)."""
+
+        def __init__(self, model, always=False):
+            super().__init__(model)
+            self.always = always
+
+        def complete(self, request):
+            if request.result_model is not C.FreshnessVerdict:
+                return super().complete(request)
+            self.calls.append(request)
+            context = prompt_context(request.prompt)
+            same = self.always or ("apples" in context["candidate"]["stem"]
+                                   and "apples" in context["comparisons"][0]["prompt"])
+            return C.FreshnessVerdict(comparisons=[C.FreshnessComparison(
+                ref="item_0", verdict="isomorph" if same else "different", rationale="r")])
+
+    vault, _, paths = seed_pf_vault(tmp_path / "vault")
+    append_config_toml(paths.root, '[pf.scaling]\ncheap = ["codex"]\nfrontier = ["codex"]')
+    bench = benchmark(tmp_path)
+    for tier, judge in (("cheap", Reads("careful")), ("frontier", Reads("eager", always=True))):
+        result = run_compare(load_vault(paths.root), request=CompareRequest(
+            suite="b2", output_dir=tmp_path / f"b2-{tier}", benchmark_dir=bench, views=("judge",), tier=tier),
+            caps=CAPS, price_per_million=1.0, clients={"freshness": judge})
+        assert result["status"] == "complete" and result["tier"] == tier
+    report = scaling_report(load_vault(paths.root), round_id="none", output_dir=tmp_path / "reports")
+    labelled = report["judge_accuracy_on_labelled_pairs"]["freshness"]
+    assert labelled["pairs_judged_at_both_tiers"] == 12
+    assert labelled["cheap"]["accuracy"]["rate"] == 1.0 and labelled["frontier"]["accuracy"]["rate"] == 0.5
+    assert report["components"]["freshness_judge"] == "falls_with_tier"

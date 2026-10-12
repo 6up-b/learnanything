@@ -436,6 +436,7 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
                 report.update(status="over_budget", reason=str(exc))
             except (AIProviderUnavailable, PFUnavailable) as exc:
                 report.update(status="provider_failed", error_type=type(exc).__name__)
+    report["judge_accuracy_on_labelled_pairs"] = {"freshness": _labelled_judge_accuracy(repository)}
     report["components"] = _components(report)
     if not dry_run:
         report["report_files"] = _write(output_dir, "pf-scaling", report, _scaling_markdown(report))
@@ -443,14 +444,21 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
 
 
 def _judge_agreement(repository: Repository, vault: LoadedVault, rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """LLM judges against verifiers and usage signals (Slice 2 §5.6).
+    """Judge behaviour on this tier's own candidates, and usage signals (Slice 2 §5.6).
 
-    * structure judge vs program invariance: generator draws are verified
-      invariant, so the share the structure judge calls ``isomorph``;
-    * freshness judge vs symbolic suspicion: the share of fingerprint-suspect
-      pairs the judge marks ``same_surface`` or ``isomorph``;
-    * undo / contest: the share of published items later retired or tapped
-      ``misgraded`` / ``ambiguous``.
+    Both judge rates here are **descriptive only**, never judge accuracy or
+    quality, and never rank a tier:
+
+    * the share of program draws the structure judge calls ``isomorph``: the
+      program verifies invariance, but every label is positive, so a judge that
+      always says ``isomorph`` scores 1.0;
+    * the share of fingerprint-suspect pairs the freshness judge accepts as
+      ``same_surface`` / ``isomorph``: suspicion (a shared answer or technique
+      sequence) is not verified equivalence, so a higher rate is not better.
+
+    Judge accuracy comes from independently labelled pairs judged at both
+    tiers (:func:`_labelled_judge_accuracy`). Undo / contest: the share of
+    published items later retired or tapped ``misgraded`` / ``ambiguous``.
     """
     ids = [row["id"] for row in rows]
     if not ids:
@@ -470,34 +478,77 @@ def _judge_agreement(repository: Repository, vault: LoadedVault, rows: list[dict
     contested = sum(signals.get("retired_by_reason", {}).values()) + sum(
         count for kind, count in signals.get("affect_taps", {}).items() if kind in {"misgraded", "ambiguous"})
     return {
-        "structure_judge_vs_program_invariance": _rate(sum(1 for v in structure if v["verdict"] == "isomorph"), len(structure)),
-        "freshness_judge_on_symbolic_suspects": _rate(
-            sum(1 for v in suspects if v["verdict"] in {"same_surface", "isomorph"}), len(suspects)),
+        "descriptive": {
+            "note": "descriptive only: not judge accuracy or quality; never compared across tiers",
+            "structure_isomorph_rate_on_program_draws": _rate(
+                sum(1 for v in structure if v["verdict"] == "isomorph"), len(structure)),
+            "freshness_suspect_acceptance": _rate(
+                sum(1 for v in suspects if v["verdict"] in {"same_surface", "isomorph"}), len(suspects)),
+        },
         "undo_or_contest_on_published": _rate(min(contested, len(published)), len(published)),
     }
 
 
+def _labelled_judge_accuracy(repository: Repository) -> dict[str, Any]:
+    """Each tier's freshness judge against B2's independent labels, on identical pairs.
+
+    Reads the B2 judge view's ledgered verdicts (``learnloop embeddings compare
+    --suite b2 --view judge --tier cheap|frontier``): only cases both tiers
+    judged count, so the tiers face the same pairs and the same labels.
+    """
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT left_id, verdict, rationale FROM judgment_ledger WHERE task='isomorph' "
+            "AND left_kind='b2_case' AND prompt_version=? ORDER BY rowid", (C.FRESHNESS_PROMPT,),
+        ).fetchall()
+    latest: dict[str, dict[str, tuple[bool, bool]]] = {"cheap": {}, "frontier": {}}
+    for row in rows:
+        rationale = json.loads(row["rationale"] or "{}")
+        tier, label = rationale.get("tier"), rationale.get("label")
+        if tier in latest and label in {"positive", "negative"}:
+            key = f"{rationale.get('benchmark')}|{row['left_id']}"
+            latest[tier][key] = (row["verdict"] in {"same_surface", "isomorph"}, label == "positive")
+    shared = sorted(set(latest["cheap"]) & set(latest["frontier"]))
+    result: dict[str, Any] = {"source": "b2 judge view (independent labels)", "pairs_judged_at_both_tiers": len(shared)}
+    for tier, judged in latest.items():
+        outcomes = [judged[key] for key in shared]
+        correct = sum(1 for predicted, label in outcomes if predicted == label)
+        positives = [predicted for predicted, label in outcomes if label]
+        negatives = [predicted for predicted, label in outcomes if not label]
+        result[tier] = {"accuracy": _rate(correct, len(outcomes)),
+                        "recall_on_positives": _rate(sum(positives), len(positives)),
+                        "false_positive_rate": _rate(sum(negatives), len(negatives))}
+    return result
+
+
+def _tier_verdict(cheap: dict[str, Any], frontier: dict[str, Any]) -> str:
+    if not cheap.get("n") or not frontier.get("n") or min(cheap["n"], frontier["n"]) < 10:
+        return "insufficient_data"
+    if frontier["wilson95"][0] > cheap["wilson95"][1]:
+        return "rises_with_tier"
+    if frontier["wilson95"][1] < cheap["wilson95"][0]:
+        return "falls_with_tier"
+    return "no_clear_difference"
+
+
 def _components(report: dict[str, Any]) -> dict[str, Any]:
     tiers = report["tiers"]
+    labelled = (report.get("judge_accuracy_on_labelled_pairs") or {}).get("freshness") or {}
     if not tiers.get("cheap", {}).get("candidates") or not tiers.get("frontier", {}).get("candidates"):
-        return {"status": "insufficient_data", "reason": "run the same round at both tiers"}
+        return {"status": "insufficient_data", "reason": "run the same round at both tiers",
+                "freshness_judge": _tier_verdict((labelled.get("cheap") or {}).get("accuracy") or {},
+                                                 (labelled.get("frontier") or {}).get("accuracy") or {})}
 
-    def verdict(cheap: dict[str, Any], frontier: dict[str, Any]) -> str:
-        if not cheap.get("n") or not frontier.get("n") or min(cheap["n"], frontier["n"]) < 10:
-            return "insufficient_data"
-        if frontier["wilson95"][0] > cheap["wilson95"][1]:
-            return "rises_with_tier"
-        if frontier["wilson95"][1] < cheap["wilson95"][0]:
-            return "falls_with_tier"
-        return "no_clear_difference"
-
+    labelled = (report.get("judge_accuracy_on_labelled_pairs") or {}).get("freshness") or {}
     result = {
-        "generators_verified_pass_rate": verdict(tiers["cheap"]["verified"], tiers["frontier"]["verified"]),
-        "generators_survival": verdict(tiers["cheap"]["survived_all_filters"], tiers["frontier"]["survived_all_filters"]),
-        "structure_judge": verdict(tiers["cheap"]["judge_agreement"].get("structure_judge_vs_program_invariance", {}),
-                                   tiers["frontier"]["judge_agreement"].get("structure_judge_vs_program_invariance", {})),
-        "freshness_judge": verdict(tiers["cheap"]["judge_agreement"].get("freshness_judge_on_symbolic_suspects", {}),
-                                   tiers["frontier"]["judge_agreement"].get("freshness_judge_on_symbolic_suspects", {})),
+        "generators_verified_pass_rate": _tier_verdict(tiers["cheap"]["verified"], tiers["frontier"]["verified"]),
+        "generators_survival": _tier_verdict(tiers["cheap"]["survived_all_filters"],
+                                             tiers["frontier"]["survived_all_filters"]),
+        # No independently labelled pairs for the structure judge exist at both
+        # tiers; its isomorph rate on program draws is descriptive only.
+        "structure_judge": "insufficient_data",
+        "freshness_judge": _tier_verdict((labelled.get("cheap") or {}).get("accuracy") or {},
+                                         (labelled.get("frontier") or {}).get("accuracy") or {}),
     }
     comparison = report.get("blind_comparison") or {}
     if comparison.get("pairs"):
@@ -506,7 +557,9 @@ def _components(report: dict[str, Any]) -> dict[str, Any]:
                                     else "cheap_preferred" if preferred["right_wins_when_agreed"] > preferred["left_wins_when_agreed"]
                                     else "no_preference")
     result["note"] = ("A component whose quality does not rise with the tier is where hand-built structure may beat "
-                      "more compute; verifiers (panel, sandboxed sympy) are held fixed across tiers.")
+                      "more compute; verifiers (panel, sandboxed sympy) are held fixed across tiers. Judge components "
+                      "are scored only against independent labels on pairs both tiers judged (B2 judge view with "
+                      "--tier); suspect acceptance and positive-only agreement are descriptive.")
     return result
 
 

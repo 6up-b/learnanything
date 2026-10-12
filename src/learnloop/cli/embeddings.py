@@ -107,6 +107,7 @@ def embeddings_compare(
     max_cases: Annotated[int | None, typer.Option("--max-cases", min=1)] = None,
     max_items: Annotated[int, typer.Option("--max-items", min=1, help="valid_alternative: family items to cover.")] = 20,
     alternatives: Annotated[int, typer.Option("--alternatives", min=1, max=6, help="valid_alternative: alternative traces per item.")] = 2,
+    tier: Annotated[str | None, typer.Option("--tier", help="Run the PF roles at a [pf.scaling] tier (cheap or frontier); B2's judge view then measures that tier's judge on labelled pairs.")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan calls and tokens; no client, request or write.")] = False,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,
     max_pairs: Annotated[int, typer.Option("--max-pairs", min=0)] = 2000,
@@ -133,7 +134,7 @@ def embeddings_compare(
             suite=suite, output_dir=output_dir, benchmark_dir=benchmark, models=tuple(model or ()),
             dims=tuple(dims or ()), views=tuple(view or ()), family_ids=tuple(family or ()),
             target_recall=target_recall, max_cases=max_cases, alternatives=alternatives,
-            max_items=max_items, dry_run=dry_run,
+            max_items=max_items, tier=tier, dry_run=dry_run,
         )
         caps = SpendCaps(
             max_candidates=max_candidates, max_pairs=max_pairs, max_retries=max_retries,
