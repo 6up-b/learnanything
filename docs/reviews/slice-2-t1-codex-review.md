@@ -203,7 +203,33 @@ learner can answer unaided, so `status: used`. No metered call was made.
 
 ## Test results (gate)
 
-Pending: filled in by the gate run on the commit that adds this file.
+Run on `e4f8aa26` (the fixes in `c5ae36a2`, the regenerated DB reference and
+this file); the commit that records these numbers changes only this file.
+
+- `uv sync --extra dev`, `uv pip install pypdfium2`: done (no mobile extra:
+  this stage does not touch `learnloop_mobile`).
+- `uv run lint-imports --no-cache`: **10 kept, 0 broken**.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **7356 passed,
+  1 skipped**, 0 failed, 235 s. The skip is
+  `test_b1_and_b3_run_through_the_real_phase_5a_harness_once_merged`
+  (`importorskip` until Phase 5a's harness is on the branch).
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **78 passed**, 7279 deselected, 64 s.
+- DB reference (`_scripts/db_generate_reference.py`, then
+  `db_validate_reference.py`): `errors: []` (schema head 172, 283 table
+  notes, 591 effective config leaves in 34 sections); `validate_vault.py`
+  passed (1,050 notes).
+- Frontend: not run; no file under `apps/learnloop-tauri` changed (the card
+  reads the generated repair's `rationale` like any other repair).
+
+Test count: 7331 before (`a647b04d`) to 7357 collected now. New or rewritten
+tests: `test_matching.py` (+7), `test_recurrence_commands.py` (+8, two
+rewritten), `test_recurrence_live.py` (+7 with the parametrized honest-label
+cases), `test_recurrence_benchmarks.py` (+4, one of them skipped until 5a merges);
+the CLI help snapshot (four commands' help changed) and the defaults
+fingerprints of `mvp-0.9`, `mvp-0.10` and `mvp-0.11` (the new
+`recurrence.escalation_repair_enabled` leaf and the cutoff entry type) were
+regenerated.
 
 ## Notes for the owner
 
