@@ -2335,6 +2335,11 @@ export interface LearningObjectDetail {
  *  "assumed known (not tested)" decision; nothing here is evidence. */
 export interface PlacementLearningObjectDto {
   learningObjectId: string;
+  /** Current routing: assumed (check pending), maintenance (check passed:
+   *  remaining learning items withheld) or learning; null when placement never
+   *  acted on this LO. */
+  intent: "assumed" | "maintenance" | "learning" | null;
+  intentReason: "assumed" | "check_passed" | "check_missed" | "missed_in_maintenance" | "i_dont_know_this" | null;
   assumed: boolean;
   label: string | null;
   source: AssumptionSource | null;
@@ -2362,6 +2367,9 @@ export interface PlacementSelfReportInput {
   report: PlacementReport;
   learningObjectIds?: string[];
   practiceItemId?: string;
+  /** With practiceItemId: the session whose draft for that card is cleared in
+   *  the same transaction when the report succeeds. */
+  sessionId?: string;
 }
 
 export interface PlacementSelfReportResult {
@@ -2373,12 +2381,16 @@ export interface PlacementSelfReportResult {
     assumptionId?: string | null;
     firstReviewDue?: IsoTimestamp;
   }>;
+  /** Whether the reporting card's durable draft was cleared. */
+  checkpointCleared: boolean;
   placement: PlacementStateDto;
 }
 
 export interface StartQuickCheckInput {
   sessionId: string;
   learningObjectIds: string[];
+  /** Stable identity of this start: a retry returns the same check. */
+  requestId?: string;
 }
 
 export interface ConceptReferenceDto {

@@ -8,6 +8,12 @@ active predictor must give ``P(theta_L > theta_known) >= q``.
 
 Every input a decision reads is a plain value here, so a stored receipt can be
 replayed through :func:`fast_track_verdict` to recompute it (G8).
+
+Independence is the existing rule, not a new one: ``placement.state`` asks
+``attempts.reveal_ledger.production_admissibility`` (and any final coldness
+receipt) for each answer it is about to count and stores the result on the
+answer's facts. An answer whose independence was never evaluated is not clean:
+the rule fails closed.
 """
 from __future__ import annotations
 
@@ -18,7 +24,7 @@ from typing import Any
 
 from learnloop.field.types import RegionEstimate
 
-RULES_VERSION = "placement-rules-v1"
+RULES_VERSION = "placement-rules-v2"
 
 #: A graded answer that can count toward fast-track (or pass a first review):
 #: an ordinary independent answer, a free-text answer, a diagnostic probe
@@ -53,9 +59,19 @@ class AnswerFacts:
     dont_know: bool
     manual_review: bool
     assisted_class: bool
+    #: ``production_admissibility`` (plus any final coldness receipt) over the
+    #: window that ends at this answer. ``None``: not evaluated, never clean.
+    independent: bool | None = None
+    independence_reason: str | None = None
+    reveal_event_id: str | None = None
+    #: Start of the window the independence check scanned (exclusive).
+    independence_since: str | None = None
 
     @property
-    def clean_correct(self) -> bool:
+    def learner_clean(self) -> bool:
+        """Full marks with no help on the learner's side: no hints, priming,
+        "don't know", assistance or manual-review flag, on a graded answer."""
+
         return (
             self.attempt_type in CLEAN_ATTEMPT_TYPES
             and self.correctness is not None
@@ -68,12 +84,18 @@ class AnswerFacts:
             and not self.assisted_class
         )
 
+    @property
+    def clean_correct(self) -> bool:
+        """Learner-clean and independent: what fast-track and a quick check count."""
+
+        return self.learner_clean and self.independent is True
+
     def as_dict(self) -> dict[str, Any]:
         return {**asdict(self), "clean_correct": self.clean_correct}
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> AnswerFacts:
-        return cls(**{key: value[key] for key in cls.__dataclass_fields__})
+        return cls(**{key: value[key] for key in cls.__dataclass_fields__ if key in value})
 
 
 def answer_facts(row: Mapping[str, Any], *, contamination_class: str | None = None) -> AnswerFacts | None:
@@ -142,8 +164,13 @@ def fast_track_verdict(
     """Field §5.2 fast-track on an LO's answers so far, in time order."""
 
     answers = tuple(answers)
-    if any(not answer.clean_correct for answer in answers):
+    if any(not answer.learner_clean for answer in answers):
         return FastTrackVerdict(False, "non_clean_answer", 0, None)
+    if any(answer.independent is not True for answer in answers):
+        # A clean-looking answer the independence rule rejects (a solution was
+        # revealed on the item or its LO in its window) is not evidence of
+        # knowing: it never counts toward fast-track or a quick check.
+        return FastTrackVerdict(False, "not_independent", 0, None)
     if len(answers) < min_correct:
         return FastTrackVerdict(False, "too_few_answers", len(answers), None)
     if tuple(blocking_signal_ids):
@@ -158,11 +185,27 @@ def fast_track_verdict(
     return FastTrackVerdict(True, "fires", len(answers), p)
 
 
-def check_passed(answer: AnswerFacts) -> bool:
-    """The first review is a normal cold item: a pass is a clean full-marks
-    answer, the complement of report 2's miss (``outcome < 1``)."""
+CHECK_PASS = "pass"
+CHECK_FAIL = "fail"
+CHECK_INELIGIBLE = "ineligible"
 
-    return answer.clean_correct
+
+def check_verdict(answer: AnswerFacts) -> str:
+    """The first review is a normal cold item.
+
+    ``pass``: a clean full-marks answer that the independence rule admits (the
+    complement of report 2's miss, ``outcome < 1``). ``fail``: anything the
+    learner did not answer cleanly (partial marks, hints, priming, "don't
+    know", assistance). ``ineligible``: a clean answer the independence rule
+    rejects; it neither passes nor fails, and the check waits for a qualifying
+    answer. ``independence`` must already be evaluated for the check's window.
+    """
+
+    if not answer.learner_clean:
+        return CHECK_FAIL
+    if answer.independent is not True:
+        return CHECK_INELIGIBLE
+    return CHECK_PASS
 
 
 def prerequisite_layers(

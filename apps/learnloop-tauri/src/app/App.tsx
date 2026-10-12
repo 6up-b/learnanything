@@ -540,7 +540,9 @@ export function App() {
       return;
     }
     try {
-      const progress = await api.startQuickCheck({ sessionId: session.sessionId, learningObjectIds });
+      // One identity per start: a retried request returns the same check.
+      const requestId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+      const progress = await api.startQuickCheck({ sessionId: session.sessionId, learningObjectIds, requestId });
       setInspectorId(null);
       openCalibration(progress.calibrationSessionId, { quickCheck: true });
     } catch (error) {

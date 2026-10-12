@@ -1,12 +1,14 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-169. Migration 167 adds the learner-field F1 read model
+170. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the learner-field F2 placement receipts
 (`assumption_decisions`, `assumption_returns`) and the quick check's queue
-state (`placement_quick_checks`). It pins current-head schema coverage while
+state (`placement_quick_checks`); migration 170 adds the quick check's own
+presentations (`placement_quick_check_items`) and its start-request identity
+(`placement_quick_checks.request_id`). It pins current-head schema coverage while
 the original populated fixture and the other vaults remain at historical
 versions for upgrade-path tests.
 

@@ -17,6 +17,8 @@ const base: LearningObjectPlacementDto = {
   quickCheckK: 4,
   quickCheckBudgetMinutes: 8,
   learningObjectId: "lo_diag",
+  intent: null,
+  intentReason: null,
   assumed: false,
   label: null,
   source: null,
@@ -61,8 +63,14 @@ it("offers 'I know this' and the never-prompted quick check on an LO being learn
 });
 
 it("says why an LO is back to learning, and renders nothing while placement is off", () => {
-  section({ ...base, lastOutcome: "failed" });
+  section({ ...base, intent: "learning", intentReason: "check_missed", lastOutcome: "failed" });
   expect(screen.getByText("the first review missed, so this is back to learning")).toBeTruthy();
+  cleanup();
+  section({ ...base, intent: "learning", intentReason: "missed_in_maintenance", lastOutcome: "passed" });
+  expect(screen.getByText("a later review missed, so this is back to learning")).toBeTruthy();
+  cleanup();
+  section({ ...base, intent: "learning", intentReason: "i_dont_know_this", lastOutcome: "passed" });
+  expect(screen.getByText("you said you don't know this yet, so it is being taught")).toBeTruthy();
   cleanup();
   const { container } = render(
     <PlacementSection learningObjectId="lo_diag" placement={{ ...base, active: false }} onChanged={vi.fn()} onError={vi.fn()} />
@@ -73,10 +81,23 @@ it("says why an LO is back to learning, and renders nothing while placement is o
 it("'I know this' on a card reports the card's LO, then moves on", async () => {
   api.placementSelfReport.mockResolvedValue({});
   const onDone = vi.fn();
-  render(<KnowThisAction practiceItemId="pi_diag_mid" onDone={onDone} onError={vi.fn()} />);
+  render(<KnowThisAction practiceItemId="pi_diag_mid" sessionId="s1" onDone={onDone} onError={vi.fn()} />);
   await act(async () => {
     fireEvent.click(screen.getByText("✓ I know this"));
   });
-  expect(api.placementSelfReport).toHaveBeenCalledWith({ report: "know_this", practiceItemId: "pi_diag_mid" });
+  expect(api.placementSelfReport).toHaveBeenCalledWith({
+    report: "know_this", practiceItemId: "pi_diag_mid", sessionId: "s1"
+  });
   expect(onDone).toHaveBeenCalled();
+});
+
+it("labels a checked LO as maintenance and still offers 'I don't know this'", async () => {
+  api.placementSelfReport.mockResolvedValue({});
+  section({ ...base, intent: "maintenance", intentReason: "check_passed", lastOutcome: "passed" });
+  expect(screen.getByText("its first review passed: in maintenance, the rest of its new items are skipped")).toBeTruthy();
+  expect(screen.queryByText("✓ I know this")).toBeNull();
+  await act(async () => {
+    fireEvent.click(screen.getByText("✗ I don't know this"));
+  });
+  expect(api.placementSelfReport).toHaveBeenCalledWith({ report: "dont_know_this", learningObjectIds: ["lo_diag"] });
 });

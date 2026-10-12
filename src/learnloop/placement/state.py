@@ -1,29 +1,55 @@
 """Placement state (learner field §5.2): what is assumed known, and what happened.
 
 Everything here is read from immutable rows: ``assumption_decisions`` and
-``assumption_returns`` (RECEIPT) and ``practice_attempts``. An assumption's
-outcome is never written back; it is the first answer on the LO after the
-decision (a clean full-marks answer passes, anything else fails), or an
-"I don't know this" return, whichever came first.
+``assumption_returns`` (RECEIPT), ``practice_attempts``, ``reveal_events`` and
+``coldness_receipts``. An assumption's outcome is never written back:
+
+- an answer on the LO after the decision that the learner did not answer
+  cleanly (partial marks, hints, priming, "don't know", assistance) fails it,
+  early or on schedule: the LO quietly returns to learning;
+- a clean answer before ``first_review_due`` is early practice (an explicit,
+  learner-requested exception to the review interval): recorded, never the
+  check;
+- from ``first_review_due`` on, the first clean answer that the existing
+  independence rule admits (``production_admissibility`` over the window since
+  the item's previous attempt or the decision, whichever is later, plus any
+  final coldness receipt) passes it; a clean answer the rule rejects is
+  ineligible and the check waits;
+- an "I don't know this" before any of that returns it.
+
+Each LO's current placement intent is derived from its decisions, returns and
+answers in time order (:class:`LearningObjectIntent`): ``assumed`` while an
+assumption is open, ``maintenance`` after a passed check until a later miss or
+"I don't know this", ``learning`` after a miss, a lapse or "I don't know this"
+(with or without an assumption) until a later explicit "I know this".
 """
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import nullcontext
+from dataclasses import asdict, dataclass, field, replace
+import json
 from typing import Any
 
 from learnloop.algorithm_versions import PLACEMENT_VERSIONS
+from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.db.repositories import Repository
 from learnloop.field.types import LearnerPredictor
 from learnloop.placement.rules import (
+    CHECK_PASS,
     AnswerFacts,
     answer_facts,
-    check_passed,
+    check_verdict,
     new_material_key,
     prerequisite_layers,
 )
 from learnloop.vault.models import LoadedVault
+
+#: Placement intents (field §5.2): the routing an LO is under right now.
+INTENT_ASSUMED = "assumed"
+INTENT_MAINTENANCE = "maintenance"
+INTENT_LEARNING = "learning"
 
 PLACEMENT_TABLES = ("assumption_decisions", "assumption_returns", "placement_quick_checks")
 
@@ -68,10 +94,29 @@ class Assumption:
     status: str = "open"  # open | passed | failed | returned
     resolved_at: str | None = None
     resolving_attempt_id: str | None = None
+    #: Clean answers before ``first_review_due`` (explicit practice): never the check.
+    early_answers: int = 0
+    #: Clean answers from the due date on that the independence rule rejected.
+    ineligible_answers: int = 0
 
     @property
     def is_open(self) -> bool:
         return self.status == "open"
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LearningObjectIntent:
+    """An LO's current placement routing, derived in time order (never stored)."""
+
+    learning_object_id: str
+    intent: str  # assumed | maintenance | learning
+    since: str
+    #: assumed | check_passed | check_missed | missed_in_maintenance | i_dont_know_this
+    reason: str
+    assumption_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -83,6 +128,7 @@ class PlacementState:
     assumptions: tuple[Assumption, ...] = ()
     returned_learning_object_ids: frozenset[str] = frozenset()
     answers_by_lo: Mapping[str, tuple[AnswerFacts, ...]] = field(default_factory=dict)
+    intent_by_lo: Mapping[str, LearningObjectIntent] = field(default_factory=dict)
 
     @property
     def open_by_lo(self) -> dict[str, Assumption]:
@@ -99,14 +145,22 @@ class PlacementState:
     def decided_learning_object_ids(self) -> frozenset[str]:
         return frozenset(a.learning_object_id for a in self.assumptions)
 
+    def _with_intent(self, intent: str) -> frozenset[str]:
+        return frozenset(lo for lo, entry in self.intent_by_lo.items() if entry.intent == intent)
+
     @property
     def back_to_learning_learning_object_ids(self) -> frozenset[str]:
-        """LOs whose latest assumption failed its check or that the learner
-        said they don't know: back to learning, new items served again."""
+        """LOs back to learning: a missed check, a miss in maintenance, or "I
+        don't know this" (with or without an assumption). New items are served
+        again until a later explicit "I know this"."""
 
-        return frozenset(
-            lo for lo, a in self.latest_by_lo.items() if a.status in {"failed", "returned"}
-        )
+        return self._with_intent(INTENT_LEARNING)
+
+    @property
+    def maintained_learning_object_ids(self) -> frozenset[str]:
+        """LOs whose check passed: in maintenance, remaining learning items withheld."""
+
+        return self._with_intent(INTENT_MAINTENANCE)
 
     def due_learning_object_ids(self, now_iso: str) -> frozenset[str]:
         return frozenset(lo for lo, a in self.open_by_lo.items() if a.first_review_due <= now_iso)
@@ -183,10 +237,95 @@ def load_answers(
     return {lo: tuple(answers) for lo, answers in grouped.items()}
 
 
+class _BorrowedRepository(Repository):
+    """Repository reads inside the caller's connection and snapshot; never commits."""
+
+    def __init__(self, connection: Any):  # noqa: D107 - no store state beyond the handle
+        self._borrowed = connection
+
+    def connection(self):  # type: ignore[override]
+        return nullcontext(self._borrowed)
+
+
+_COLD_DIMENSIONS = ("unassisted", "answer_leakage")
+
+
+def _final_receipt_ok(connection: Any, attempt_id: str) -> bool | None:
+    """A final coldness receipt's own independence findings, if there is one.
+
+    The cold lane records explicit unassisted and answer-leakage dimensions; any
+    receipt for the attempt that does not pass both makes it non-independent
+    (the field's strict rule). None when no receipt exists."""
+
+    rows = connection.execute(
+        "SELECT dimensions_json FROM coldness_receipts WHERE cold_attempt_id = ? AND stage = 'final' ORDER BY id",
+        (attempt_id,),
+    ).fetchall()
+    if not rows:
+        return None
+    for (raw,) in rows:
+        dimensions = json.loads(raw or "{}")
+        if any((dimensions.get(name) or {}).get("status") != "pass" for name in _COLD_DIMENSIONS):
+            return False
+    return True
+
+
+def evaluate_independence(
+    connection: Any,
+    answers: Iterable[AnswerFacts],
+    *,
+    since_floor: str | None = None,
+) -> tuple[AnswerFacts, ...]:
+    """Each answer with its independence facts from the existing rules.
+
+    The window ends at the answer and starts at the item's previous attempt
+    (any attempt closes a reveal window, as in the field's coldness rule) or at
+    ``since_floor`` (an assumption's decision), whichever is later; with
+    neither, any earlier reveal on the item or its LO counts (fail-closed).
+    ``production_admissibility`` scans ``reveal_events`` over that window, and a
+    final coldness receipt for the attempt must pass its unassisted and
+    answer-leakage dimensions.
+    """
+
+    repository = _BorrowedRepository(connection)
+    evaluated: list[AnswerFacts] = []
+    for answer in answers:
+        prior = connection.execute(
+            "SELECT created_at FROM practice_attempts WHERE practice_item_id = ? "
+            "AND (created_at < ? OR (created_at = ? AND id < ?)) ORDER BY created_at DESC, id DESC LIMIT 1",
+            (answer.practice_item_id, answer.created_at, answer.created_at, answer.attempt_id),
+        ).fetchone()
+        bounds = [value for value in (prior[0] if prior else None, since_floor) if value]
+        since = max(bounds) if bounds else None
+        admissibility = production_admissibility(
+            repository,
+            practice_item_id=answer.practice_item_id,
+            learning_object_id=answer.learning_object_id,
+            produced_at=answer.created_at,
+            since=since,
+        )
+        receipt_ok = _final_receipt_ok(connection, answer.attempt_id)
+        reason = admissibility.reason
+        if reason is None and receipt_ok is False:
+            reason = "coldness_receipt_not_independent"
+        evaluated.append(replace(
+            answer,
+            independent=admissibility.admissible and receipt_ok is not False,
+            independence_reason=reason,
+            reveal_event_id=admissibility.reveal_event_id,
+            independence_since=since,
+        ))
+    return tuple(evaluated)
+
+
+IndependenceCheck = Callable[[AnswerFacts, str], AnswerFacts]
+
+
 def _resolve(
     decision: Mapping[str, Any],
     returns: Sequence[Mapping[str, Any]],
     answers: Sequence[AnswerFacts],
+    independence: IndependenceCheck,
 ) -> Assumption:
     base = Assumption(
         id=str(decision["id"]),
@@ -208,21 +347,76 @@ def _resolve(
         key=lambda r: (str(r["created_at"]), str(r["id"])),
         default=None,
     )
-    answer = next((a for a in answers if a.created_at > base.created_at), None)
-    if returned is not None and (answer is None or str(returned["created_at"]) <= answer.created_at):
-        return _replace(base, status="returned", resolved_at=str(returned["created_at"]))
-    if answer is not None:
-        return _replace(
-            base,
-            status="passed" if check_passed(answer) else "failed",
-            resolved_at=answer.created_at,
-            resolving_attempt_id=answer.attempt_id,
+    returned_at = str(returned["created_at"]) if returned is not None else None
+    early = ineligible = 0
+    for answer in answers:
+        if answer.created_at <= base.created_at:
+            continue
+        if returned_at is not None and returned_at <= answer.created_at:
+            break
+        if not answer.learner_clean:
+            # A miss, early or on schedule, quietly returns the LO to learning.
+            return replace(
+                base, status="failed", resolved_at=answer.created_at, resolving_attempt_id=answer.attempt_id,
+                early_answers=early, ineligible_answers=ineligible,
+            )
+        if answer.created_at < base.first_review_due:
+            # Explicit practice inside the review interval is recorded, but it
+            # is a repetition, not the delayed check.
+            early += 1
+            continue
+        if check_verdict(independence(answer, base.created_at)) == CHECK_PASS:
+            return replace(
+                base, status="passed", resolved_at=answer.created_at, resolving_attempt_id=answer.attempt_id,
+                early_answers=early, ineligible_answers=ineligible,
+            )
+        ineligible += 1
+    if returned_at is not None:
+        return replace(
+            base, status="returned", resolved_at=returned_at, early_answers=early, ineligible_answers=ineligible,
         )
-    return base
+    return replace(base, early_answers=early, ineligible_answers=ineligible)
 
 
-def _replace(assumption: Assumption, **changes: Any) -> Assumption:
-    return Assumption(**{**asdict(assumption), **changes})
+def _intent(
+    learning_object_id: str,
+    decision: Assumption | None,
+    latest_return: Mapping[str, Any] | None,
+    answers: Sequence[AnswerFacts],
+) -> LearningObjectIntent | None:
+    """The LO's current routing from its latest decision and latest return."""
+
+    if latest_return is not None and (decision is None or str(latest_return["created_at"]) >= decision.created_at):
+        linked = latest_return.get("assumption_id")
+        return LearningObjectIntent(
+            learning_object_id, INTENT_LEARNING, str(latest_return["created_at"]), "i_dont_know_this",
+            str(linked) if linked else None,
+        )
+    if decision is None:
+        return None
+    if decision.status == "open":
+        return LearningObjectIntent(learning_object_id, INTENT_ASSUMED, decision.created_at, "assumed", decision.id)
+    if decision.status == "returned":
+        return LearningObjectIntent(
+            learning_object_id, INTENT_LEARNING, str(decision.resolved_at), "i_dont_know_this", decision.id,
+        )
+    if decision.status == "failed":
+        return LearningObjectIntent(
+            learning_object_id, INTENT_LEARNING, str(decision.resolved_at), "check_missed", decision.id,
+        )
+    # Passed: maintenance until a later miss on the LO (a lapse) returns it.
+    resolving = next(
+        (index for index, answer in enumerate(answers) if answer.attempt_id == decision.resolving_attempt_id), None,
+    )
+    later = answers[resolving + 1:] if resolving is not None else ()
+    lapse = next((answer for answer in later if not answer.learner_clean), None)
+    if lapse is not None:
+        return LearningObjectIntent(
+            learning_object_id, INTENT_LEARNING, lapse.created_at, "missed_in_maintenance", decision.id,
+        )
+    return LearningObjectIntent(
+        learning_object_id, INTENT_MAINTENANCE, str(decision.resolved_at), "check_passed", decision.id,
+    )
 
 
 def load_placement_state_from_connection(connection: Any, *, active: bool) -> PlacementState:
@@ -230,17 +424,35 @@ def load_placement_state_from_connection(connection: Any, *, active: bool) -> Pl
         return PlacementState(active=active)
     decisions = _rows(connection, "SELECT * FROM assumption_decisions ORDER BY created_at, id")
     returns = _rows(connection, "SELECT * FROM assumption_returns ORDER BY created_at, id")
-    los = {str(row["learning_object_id"]) for row in decisions}
+    los = {str(row["learning_object_id"]) for row in decisions} | {
+        str(row["learning_object_id"]) for row in returns
+    }
     answers = load_answers(connection, los) if los else {}
+
+    def independence(answer: AnswerFacts, since_floor: str) -> AnswerFacts:
+        return evaluate_independence(connection, (answer,), since_floor=since_floor)[0]
+
     assumptions = tuple(
-        _resolve(decision, returns, answers.get(str(decision["learning_object_id"]), ()))
+        _resolve(decision, returns, answers.get(str(decision["learning_object_id"]), ()), independence)
         for decision in decisions
     )
+    latest_decision: dict[str, Assumption] = {}
+    for assumption in assumptions:  # ordered by (created_at, id)
+        latest_decision[assumption.learning_object_id] = assumption
+    latest_return: dict[str, Mapping[str, Any]] = {}
+    for row in returns:  # ordered by (created_at, id)
+        latest_return[str(row["learning_object_id"])] = row
+    intents = {
+        lo: intent
+        for lo in sorted(los)
+        if (intent := _intent(lo, latest_decision.get(lo), latest_return.get(lo), answers.get(lo, ()))) is not None
+    }
     return PlacementState(
         active=active,
         assumptions=assumptions,
         returned_learning_object_ids=frozenset(str(r["learning_object_id"]) for r in returns),
         answers_by_lo=answers,
+        intent_by_lo=intents,
     )
 
 
@@ -343,5 +555,6 @@ def assumption_summary(state: PlacementState) -> dict[str, Any]:
     return {
         "active": state.active,
         "open": {lo: a.as_dict() for lo, a in sorted(state.open_by_lo.items())},
+        "intents": {lo: entry.as_dict() for lo, entry in sorted(state.intent_by_lo.items())},
         "returned_learning_object_ids": sorted(state.returned_learning_object_ids),
     }

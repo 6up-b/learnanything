@@ -232,7 +232,11 @@ it("offers 'I know this' while placement is on, then leaves the card", async () 
   render(<PracticeScreen {...callbacks} />);
   const action = await screen.findByText("✓ I know this");
   await act(async () => { fireEvent.click(action); });
-  expect(api.placementSelfReport).toHaveBeenCalledWith({ report: "know_this", practiceItemId: "old-item" });
+  // The session travels with the report, which clears this card's durable
+  // draft server-side in the same transaction (a restart cannot reopen it).
+  expect(api.placementSelfReport).toHaveBeenCalledWith({
+    report: "know_this", practiceItemId: "old-item", sessionId: "old-session"
+  });
   expect(callbacks.onBack).toHaveBeenCalled();
   expect(callbacks.onCheckpointCleared).toHaveBeenCalled();
 });

@@ -285,10 +285,13 @@ def test_fast_track_default_threshold_is_not_met_by_two_answers(tmp_path):
 
 
 def _answers(paths, lo):
-    from learnloop.placement.state import load_answers
+    from contextlib import closing
 
-    with sqlite3.connect(paths.sqlite_path) as connection:
-        return load_answers(connection, [lo]).get(lo, ())
+    from learnloop.db.connection import connect
+    from learnloop.placement.state import evaluate_independence, load_answers
+
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        return evaluate_independence(connection, load_answers(connection, [lo]).get(lo, ()))
 
 
 @pytest.mark.parametrize(
@@ -465,3 +468,219 @@ def test_placement_receipts_survive_rebuild_with_zero_model_calls(tmp_path, monk
     assert placement_rows() == before
     with sqlite3.connect(paths.sqlite_path) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+# ── Codex review fixes (slice-a-phase-6): maintenance, interval, coldness ────
+
+CHECK = 14 * 24 * 60 + 5
+
+
+def _lo_items(queue, lo="lo_diag") -> set[str]:
+    return {s.practice_item_id for s in queue if s.learning_object_id == lo}
+
+
+def _intent(vault, repository, lo="lo_diag"):
+    state = load_placement_state(vault, repository)
+    entry = state.intent_by_lo.get(lo)
+    return None if entry is None else entry.intent
+
+
+def test_a_passed_check_keeps_the_remaining_learning_items_withheld(tmp_path):
+    """F1: maintenance after a pass withholds the untouched items until a miss
+    or "I don't know this" returns the LO to learning."""
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    (check,) = [s for s in _queue(vault, repository, CHECK, persist=False) if s.learning_object_id == "lo_diag"]
+    assert check.practice_item_id == "pi_diag_mid"
+    _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK + 1)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "passed"
+    assert _intent(vault, repository) == "maintenance"
+
+    for minutes in (CHECK + 2, CHECK + 3 * 24 * 60, CHECK + 30 * 24 * 60):
+        served = _lo_items(_queue(vault, repository, minutes, persist=False))
+        assert served.isdisjoint({"pi_diag_easy", "pi_diag_hard"}), minutes
+
+    # A later miss on the LO is a lapse: back to learning, untouched items return.
+    _answer(vault, repository, "pi_diag_mid", 1.0, minutes=CHECK + 31 * 24 * 60)
+    assert _intent(vault, repository) == "learning"
+    queue = _queue(vault, repository, CHECK + 31 * 24 * 60 + 1, persist=False)
+    returned = {s.practice_item_id for s in queue if s.components.get("new_material")}
+    assert {"pi_diag_easy", "pi_diag_hard"} <= returned
+
+
+def test_fast_track_check_waits_for_its_review_interval(tmp_path):
+    """F2: nothing routine is served before the check date, and practice before
+    it is recorded as early practice, never as the check."""
+
+    paths, vault, repository = _setup(tmp_path, placement_toml=LOW_Q)
+    _answer(vault, repository, "pi_diag_hard", minutes=1)
+    _answer(vault, repository, "pi_diag_mid", minutes=2)
+    (decision,) = reconcile_fast_track(vault, repository, clock=_at(3))
+    assert decision["first_review_due"] == "2026-06-02T12:03:00Z"
+
+    for minutes in (4, 60, 3 * 24 * 60, 13 * 24 * 60):
+        assert _lo_items(_queue(vault, repository, minutes, persist=False)) == set(), minutes
+
+    # Explicit practice before the check date never passes the check.
+    _answer(vault, repository, "pi_diag_hard", minutes=8)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "open" and assumption.early_answers == 1
+    assert _intent(vault, repository) == "assumed"
+
+    due = 14 * 24 * 60 + 10
+    (check,) = [s for s in _queue(vault, repository, due, persist=False) if s.learning_object_id == "lo_diag"]
+    assert check.components["assumed_check"] == 1.0 and check.practice_item_id == "pi_diag_easy"
+    _answer(vault, repository, check.practice_item_id, minutes=due + 1)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "passed" and assumption.resolved_at >= assumption.first_review_due
+
+
+def test_an_early_miss_still_returns_the_lo_to_learning(tmp_path):
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    _answer(vault, repository, "pi_diag_easy", 1.0, minutes=5)  # learner-requested practice, missed
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "failed"
+    assert _intent(vault, repository) == "learning"
+
+
+def _attempt_created_at(paths, attempt_id):
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        return connection.execute("SELECT created_at FROM practice_attempts WHERE id = ?", (attempt_id,)).fetchone()[0]
+
+
+def test_a_post_reveal_answer_cannot_pass_the_check(tmp_path):
+    """F3: placement reads the existing independence rule; an answer the
+    admissibility check rejects cannot pass the assumed-known check."""
+
+    from learnloop.attempts.reveal_ledger import production_admissibility, record_reveal
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    record_reveal(
+        repository, practice_item_id="pi_diag_easy", learning_object_id="lo_diag",
+        source_kind="tutor_answer", amount=1.0, clock=_at(CHECK),
+    )
+    result = _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK + 1)
+    produced_at = _attempt_created_at(paths, result.attempt_id)
+    admissibility = production_admissibility(
+        repository, practice_item_id="pi_diag_mid", learning_object_id="lo_diag", produced_at=produced_at,
+    )
+    assert admissibility.reason == "post_reveal_not_independent"
+
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "open" and assumption.ineligible_answers == 1
+    # The next answer on that item is independent again (the attempt closed the
+    # reveal window), so the check can still resolve.
+    _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK + 2 * 24 * 60)
+    (assumption,) = load_placement_state(vault, repository).assumptions
+    assert assumption.status == "passed"
+
+
+def test_a_post_reveal_answer_never_counts_toward_fast_track(tmp_path):
+    from learnloop.attempts.reveal_ledger import record_reveal
+
+    paths, vault, repository = _setup(tmp_path, placement_toml=LOW_Q)
+    record_reveal(
+        repository, practice_item_id="pi_diag_easy", learning_object_id="lo_diag",
+        source_kind="repair_display", amount=0.5, clock=_at(0.5),
+    )
+    _answer(vault, repository, "pi_diag_hard", minutes=1)
+    _answer(vault, repository, "pi_diag_mid", minutes=2)
+    assert reconcile_fast_track(vault, repository, clock=_at(3)) == []
+
+    # Without the reveal the same answers fire, and the receipt keeps the
+    # independence facts it read.
+    other_paths, other_vault, other_repo = _setup(tmp_path, placement_toml=LOW_Q, name="clean")
+    _answer(other_vault, other_repo, "pi_diag_hard", minutes=1)
+    _answer(other_vault, other_repo, "pi_diag_mid", minutes=2)
+    (decision,) = reconcile_fast_track(other_vault, other_repo, clock=_at(3))
+    answers = json.loads(decision["inputs_json"])["answers"]
+    assert [a["independent"] for a in answers] == [True, True]
+    assert all(a["independence_reason"] is None for a in answers)
+
+
+def test_i_dont_know_this_after_a_pass_returns_the_lo_to_learning(tmp_path):
+    """F8: a standalone return (no open assumption) still changes routing."""
+
+    paths, vault, repository = _setup(tmp_path)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    _answer(vault, repository, "pi_diag_mid", 4.0, minutes=CHECK)
+    assert _intent(vault, repository) == "maintenance"
+    result = record_self_report(
+        vault, repository, learning_object_ids=["lo_diag"], report="dont_know_this", clock=_at(CHECK + 1),
+    )
+    assert result["results"][0]["status"] == "returned_to_learning"
+    assert result["results"][0]["assumption_id"] is None
+    assert _intent(vault, repository) == "learning"
+    new = {s.practice_item_id for s in _queue(vault, repository, CHECK + 2, persist=False)
+           if s.components.get("new_material")}
+    assert {"pi_diag_easy", "pi_diag_hard"} <= new
+
+    # A later explicit "I know this" supersedes that intent.
+    again = record_self_report(
+        vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(CHECK + 3),
+    )
+    assert again["results"][0]["status"] == "assumed"
+    assert _intent(vault, repository) == "assumed"
+    assert _lo_items(_queue(vault, repository, CHECK + 4, persist=False)) == set()
+
+
+def test_i_dont_know_this_on_a_practised_unassumed_lo_admits_its_new_items(tmp_path):
+    paths, vault, repository = _setup(tmp_path)
+    _answer(vault, repository, "pi_diag_mid", 2.0, minutes=1)
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="dont_know_this", clock=_at(2))
+    assert _intent(vault, repository) == "learning"
+    new = {s.practice_item_id for s in _queue(vault, repository, 3, persist=False) if s.components.get("new_material")}
+    assert {"pi_diag_easy", "pi_diag_hard"} <= new
+
+
+def _ledger(paths):
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        connection.row_factory = sqlite3.Row
+        return [dict(row) for row in connection.execute(
+            "SELECT * FROM judgment_ledger WHERE task = 'placement_override' ORDER BY created_at, id"
+        )]
+
+
+def test_learner_placement_verdicts_append_to_the_judgment_ledger(tmp_path):
+    """F10: every learner placement override is an owner verdict in the ledger,
+    written in the same transaction as its receipt and linked to it."""
+
+    paths, vault, repository = _setup(tmp_path)
+    know = record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    back = record_self_report(
+        vault, repository, learning_object_ids=["lo_diag"], report="dont_know_this", clock=_at(2),
+    )
+    retire_item(paths.root, repository, practice_item_id="pi_eig_easy", reason="too_easy", clock=_at(3))
+
+    rows = _ledger(paths)
+    assert [(r["left_id"], r["verdict"], r["judge"]) for r in rows] == [
+        ("lo_diag", "know_this", "owner"),
+        ("lo_diag", "dont_know_this", "owner"),
+        ("lo_eigen_basics", "too_easy", "owner"),
+    ]
+    first, second, third = (json.loads(r["rationale"]) for r in rows)
+    assert first["receipt"] == {"table": "assumption_decisions", "id": know["results"][0]["assumption_id"]}
+    assert second["receipt"]["table"] == "assumption_returns"
+    assert rows[1]["supersedes_id"] == rows[0]["id"]
+    assert third["trigger_ref"] == "pi_eig_easy"
+    (decision,) = [d for d in _decisions(paths) if d["learning_object_id"] == "lo_eigen_basics"]
+    assert third["receipt"] == {"table": "assumption_decisions", "id": decision["id"]}
+    assert back["results"][0]["status"] == "returned_to_learning"
+
+
+def test_a_failed_ledger_append_rolls_back_the_receipt(tmp_path, monkeypatch):
+    from learnloop.placement import decisions
+
+    paths, vault, repository = _setup(tmp_path)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("ledger unavailable")
+
+    monkeypatch.setattr(decisions, "append_judgment", boom)
+    with pytest.raises(RuntimeError):
+        record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(1))
+    assert _decisions(paths) == [] and _ledger(paths) == []

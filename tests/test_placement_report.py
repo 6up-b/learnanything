@@ -55,10 +55,14 @@ def test_report3_scores_first_reviews_by_source(tmp_path):
     assert report["returns_to_learning"] == {
         "failed_first_reviews": 1, "i_dont_know_this": 1, "i_dont_know_this_on_assumed": 1,
     }
-    # lo_eigen_basics withheld its two other items until the check.
-    assert self_report["items_not_served_as_new_material"] >= 2
+    # lo_eigen_basics withheld its two other items until its check missed, and
+    # lo_spectral was returned: deferred, then back to learning, not saved.
+    assert self_report["items_deferred_then_returned"] == 4
+    assert self_report["items_used_as_checks"] == 1 and fast["items_used_as_checks"] == 1
+    assert self_report["items_avoided"] == fast["items_avoided"] == 0
     minutes = report["learning_minutes"]
     assert minutes["minutes_basis"] == "flat_3_minutes"
+    assert minutes["saved_estimate"] == 0.0
     assert minutes["saved_estimate"] <= minutes["learning_every_new_lo_estimate"]
     assert report["confounds"] and report["manifest"]["placement_version"] is True
 
@@ -87,3 +91,42 @@ def test_placement_status_lists_open_assumptions(tmp_path):
     payload = json.loads(result.output)
     assert payload["active"] is True and list(payload["open"]) == ["lo_diag"]
     assert payload["open"]["lo_diag"]["first_review_due"] == "2026-06-02T12:01:00Z"
+
+
+def test_report3_counts_each_learning_obligation_once(tmp_path):
+    """F9: toggling "I know this" / "I don't know this" defers, it does not
+    save; savings are unique untouched items on LOs still assumed or kept in
+    maintenance, and practised items are never savings."""
+
+    paths, vault, repository = _setup(tmp_path)
+    for round_ in range(3):
+        record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this",
+                           clock=_at(1 + 2 * round_))
+        record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="dont_know_this",
+                           clock=_at(2 + 2 * round_))
+    report = _report(paths, vault)
+    minutes, self_report = report["learning_minutes"], report["sources"]["self_report"]
+    assert self_report["decisions"] == 3 and self_report["returned_by_learner"] == 3
+    assert minutes["saved_estimate"] == 0.0 and minutes["provisional_estimate"] == 0.0
+    assert self_report["items_deferred_then_returned"] == 3
+    assert minutes["saved_estimate"] <= minutes["learning_obligations_estimate"]
+
+    # One more "I know this": three items deferred pending the check, once.
+    record_self_report(vault, repository, learning_object_ids=["lo_diag"], report="know_this", clock=_at(10))
+    report = _report(paths, vault)
+    assert report["sources"]["self_report"]["items_deferred_pending_check"] == 3
+    assert report["learning_minutes"]["provisional_estimate"] == 9.0
+    assert report["learning_minutes"]["saved_estimate"] == 0.0
+
+    # The check passes: the two untouched items are avoided learning.
+    _answer(vault, repository, "pi_diag_mid", minutes=CHECK + 10)
+    report = _report(paths, vault)
+    assert report["sources"]["self_report"]["items_avoided"] == 2
+    assert report["learning_minutes"]["saved_estimate"] == 6.0
+    # Practising one of them later means it was learned after all.
+    _answer(vault, repository, "pi_diag_easy", minutes=CHECK + 40 * 24 * 60)
+    report = _report(paths, vault)
+    assert report["sources"]["self_report"]["items_avoided"] == 1
+    assert report["sources"]["self_report"]["items_deferred_then_learned"] == 1
+    total = report["learning_minutes"]
+    assert total["saved_estimate"] + total["provisional_estimate"] <= total["learning_obligations_estimate"]

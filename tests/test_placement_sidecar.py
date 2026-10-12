@@ -89,3 +89,55 @@ def test_map_labels_assumed_points_without_changing_depth_or_beads(tmp_path):
             assert point["assumed"] is True and point["assumedLearningObjectIds"] == [LO_ID]
     # An assumed, untested facet stays untested: no Ready is claimed for it.
     assert new[INTEG]["untested"] is True and "ready" not in new[INTEG]
+
+
+def test_i_know_this_on_a_card_clears_that_cards_durable_draft(tmp_path):
+    """F6: the self-report clears the matching checkpoint in its own
+    transaction, so a restart cannot reopen the skipped card."""
+
+    ctx = _placement_ctx(tmp_path / "vault")
+    _vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    _call(ctx, "update_session_checkpoint", {
+        "sessionId": session_id, "currentPracticeItemId": "pi_diag_mid", "currentAnswer": "half an answer",
+    })
+    result = _call(ctx, "placement_self_report", {
+        "report": "know_this", "practiceItemId": "pi_diag_mid", "sessionId": session_id,
+    })
+    assert result["results"][0]["status"] == "assumed"
+    assert result["checkpointCleared"] is True
+    assert repository.fetch_session_checkpoint(session_id) is None
+
+
+def test_a_self_report_keeps_a_draft_for_another_card(tmp_path):
+    ctx = _placement_ctx(tmp_path / "vault")
+    _vault, repository = ctx.require_vault()
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    _call(ctx, "update_session_checkpoint", {
+        "sessionId": session_id, "currentPracticeItemId": "pi_eig_mid", "currentAnswer": "keep me",
+    })
+    result = _call(ctx, "placement_self_report", {
+        "report": "know_this", "practiceItemId": "pi_diag_mid", "sessionId": session_id,
+    })
+    assert result["checkpointCleared"] is False
+    assert repository.fetch_session_checkpoint(session_id)["current_answer"] == "keep me"
+
+
+def test_quick_check_rpc_retry_with_the_same_request_id_returns_the_same_check(tmp_path):
+    ctx = _placement_ctx(tmp_path / "vault")
+    session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    params = {"sessionId": session_id, "learningObjectIds": ["lo_diag"], "requestId": "req-1"}
+    first = _call(ctx, "start_quick_check", params)
+    again = _call(ctx, "start_quick_check", params)
+    assert again["calibrationSessionId"] == first["calibrationSessionId"]
+    assert again["nextTarget"] == first["nextTarget"]
+
+
+def test_placement_state_carries_the_current_intent(tmp_path):
+    ctx = _placement_ctx(tmp_path / "vault")
+    know = _call(ctx, "placement_self_report", {"report": "know_this", "learningObjectIds": ["lo_diag"]})
+    (row,) = know["placement"]["learningObjects"]
+    assert (row["intent"], row["intentReason"]) == ("assumed", "assumed")
+    back = _call(ctx, "placement_self_report", {"report": "dont_know_this", "learningObjectIds": ["lo_diag"]})
+    (row,) = back["placement"]["learningObjects"]
+    assert (row["intent"], row["intentReason"]) == ("learning", "i_dont_know_this")

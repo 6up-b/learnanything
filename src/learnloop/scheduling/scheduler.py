@@ -35,13 +35,13 @@ from learnloop.diagnosis.probe_episodes import (
 from learnloop.diagnosis.probes import HypothesisSet
 from learnloop.numeric import clamp
 from learnloop.goals.goal_projection import build_goal_frontier
-from learnloop.goals.exam_pool import reserved_item_ids as reserved_exam_pool_item_ids
 from learnloop.learner.facet_state_reader import facet_states_by_lo as read_facet_states_by_lo
 from learnloop.learner.recall_coverage import (
     familiarity_discount,
     familiarity_discount_from_attempts,
     resolve_coverage,
 )
+from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
 from learnloop.scheduling.selection_rewards import (
     SchedulerIntent,
     ability_vector,
@@ -131,10 +131,13 @@ def build_due_queue(
     )
     item_states = repository.practice_item_states()
     quality_states = repository.practice_item_quality_states()
-    # Items reserved for a goal's held-out exam are quarantined from practice so
-    # the exam stays an honest, uncontaminated test (fetched once per build).
-    reserved_item_ids = reserved_exam_pool_item_ids(repository)
-    rung_variant_hold_ids = repository.rung_variant_pending_source_ids()
+    # The routine-serving exclusions, shared with the quick check
+    # (``serving_exclusions``): items reserved for a goal's held-out exam are
+    # quarantined from practice so the exam stays an honest, uncontaminated
+    # test; pending-variant holds and staged-owned commitments are below.
+    exclusions = routine_serving_exclusions(vault, repository)
+    reserved_item_ids = set(exclusions.reserved_exam_item_ids)
+    rung_variant_hold_ids = set(exclusions.rung_variant_hold_ids)
     # Learner-requested items (tutor promotions + applied rung variants, never
     # attempted). Fetched once: the in-loop eligibility floor and the §4a
     # requested-items reorder floor must see the same set — a fresh sibling has
@@ -146,9 +149,7 @@ def build_due_queue(
     # staged policy owns P2 golden-path commitments. Their practice items are EXCLUDED
     # from the legacy queue so no commitment is scheduled by both controllers. Empty
     # (a no-op, byte-identical legacy queue) when no commitment is staged-owned.
-    from learnloop.scheduling import controller_ownership as _ownership
-
-    staged_owned_item_ids = _ownership.staged_owned_practice_item_ids(vault, repository)
+    staged_owned_item_ids = set(exclusions.staged_owned_item_ids)
     # Learner field F2 (mvp-0.10, kill switch placement.enabled): starting new
     # material without ceremony. Fast-track runs first on the persisting path
     # (the one that always follows an attempt), so an LO it assumes known stops
@@ -304,18 +305,23 @@ def build_due_queue(
         # not swallow it.
         # F2 placement (None when off). New material: a never-attempted item
         # on an LO with no direct evidence (or back to learning after a missed
-        # check or "I don't know this") enters as learning, where the
-        # predecessor opened an initial diagnostic episode for it. An assumed
-        # LO's never-attempted items are withheld, except its due first-review
-        # check.
+        # check, a miss in maintenance or "I don't know this") enters as
+        # learning, where the predecessor opened an initial diagnostic episode
+        # for it. An assumed LO is on its long first interval: nothing of it is
+        # served routinely until its first review falls due, and then only the
+        # check. After a passed check the LO is in maintenance: its practised
+        # items keep their normal reviews, its remaining learning items stay
+        # withheld. Learner-requested cards are the explicit exception.
         new_material = False
         assumed_check = False
         if placement_serving is not None and item.id not in requested_id_set:
             never_attempted = state is None or state.last_attempt_at is None
             if learning_object.id in placement_serving.open_learning_object_ids:
-                if placement_serving.check_items.get(learning_object.id) == item.id:
-                    assumed_check = True
-                elif never_attempted:
+                if placement_serving.check_items.get(learning_object.id) != item.id:
+                    continue
+                assumed_check = True
+            elif learning_object.id in placement_serving.maintained_learning_object_ids:
+                if never_attempted:
                     continue
             elif (
                 never_attempted
@@ -740,6 +746,8 @@ class _PlacementServing:
     """What learner-field F2 placement changes about one queue build."""
 
     open_learning_object_ids: frozenset[str]
+    #: Passed their check: remaining learning items withheld (maintenance).
+    maintained_learning_object_ids: frozenset[str]
     back_to_learning_learning_object_ids: frozenset[str]
     #: One first-review check item per assumed LO whose review is due.
     check_items: dict[str, str]
@@ -802,6 +810,7 @@ def _placement_serving(
     attempted = {item_id for item_id, item_state in item_states.items() if item_state.last_attempt_at is not None}
     return _PlacementServing(
         open_learning_object_ids=frozenset(state.open_by_lo),
+        maintained_learning_object_ids=state.maintained_learning_object_ids,
         back_to_learning_learning_object_ids=state.back_to_learning_learning_object_ids,
         check_items=choose_check_items(predictor, candidates, attempted_item_ids=attempted),
         predictor=predictor,

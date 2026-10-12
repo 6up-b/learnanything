@@ -272,7 +272,8 @@ export function CardControls({
   onChanged,
   onRetired,
   onTeachBack,
-  onKnowThis
+  onKnowThis,
+  sessionId
 }: {
   practiceItemId: string;
   prompt: string;
@@ -290,6 +291,8 @@ export function CardControls({
   /** Learner field F2: when provided (placement on), shows "I know this";
    *  called after the card's LO is marked assumed known (not tested). */
   onKnowThis?: () => void;
+  /** The practice session, so "I know this" clears this card's draft with it. */
+  sessionId?: string;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
@@ -434,7 +437,7 @@ export function CardControls({
           />
         ) : null}
         {!retired && onKnowThis ? (
-          <KnowThisAction practiceItemId={practiceItemId} onDone={onKnowThis} onError={onError} />
+          <KnowThisAction practiceItemId={practiceItemId} sessionId={sessionId} onDone={onKnowThis} onError={onError} />
         ) : null}
         {notice ? <Faint style={{ fontSize: 11 }}>{notice}</Faint> : null}
       </div>

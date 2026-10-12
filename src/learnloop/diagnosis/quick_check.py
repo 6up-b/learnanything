@@ -8,37 +8,55 @@ active predictor's ``conditional_gain`` over the LOs still undecided (with the
 incumbent this is the plain per-LO information; a Phase 4 challenger plugs in
 through the same interface). It stops early once every LO is decided.
 
+Each item the check serves is persisted as a presentation (at most k per
+check). Only the first submission on a presented item, in the check's practice
+session, after the presentation and before the check's stop or budget boundary,
+is the check's answer: practice outside that window, or on items the check
+never presented, stays ordinary practice.
+
 Answers are graded as they are given, but the check withholds every result
 until it ends: the progress payload carries only counts while it runs, and the
 per-answer results (and their feedback) are released at the end. The results
 then feed the same split as fast-track: ``assumed`` LOs get a ``quick_check``
 receipt; the rest start (or stay) as learning.
 
-No diagnostic episode is opened (``open_episodes=False``) and no instrument
-is generated, so no paid call and no opening probe survives the check.
+Candidates are ordinary never-seen items that routine serving could offer: the
+shared exclusions (exam reservations, pending-variant holds, staged-controller
+ownership) apply here exactly as on Today's queue.
+
+The calibration session and the quick-check row are created in one
+transaction; a retried start with the same request id recovers the check it
+created. No diagnostic episode is opened (``open_episodes=False``) and no
+instrument is generated, so no paid call and no opening probe survives the
+check.
 """
 from __future__ import annotations
 
 import json
+import sqlite3
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.placement import insert_quick_check
+from learnloop.db.stores.placement import insert_quick_check, insert_quick_check_item
 from learnloop.diagnosis.calibration_sessions import (
     CalibrationSessionError,
     calibration_session_progress,
     start_calibration_session,
 )
 from learnloop.placement.decisions import (
+    bind_quick_check_answers,
     finish_quick_check_split,
     quick_check_answers,
+    quick_check_presentations,
     quick_check_record,
     quick_check_split,
+    quick_check_window_end,
 )
 from learnloop.placement.predictor import active_predictor
 from learnloop.placement.signals import blocking_signals_by_lo
 from learnloop.placement.state import load_answers, load_placement_state_from_connection, placement_active
+from learnloop.scheduling.serving_exclusions import routine_serving_exclusions
 from learnloop.substrate.instrument_serving import unservable_reason
 from learnloop.vault.lifecycle import practice_item_servable
 from learnloop.vault.models import LoadedVault
@@ -47,11 +65,40 @@ QUICK_CHECK_SELECTION = "conditional_gain"
 #: A quick check serves normal cold items, never single-use diagnostic
 #: surfaces or AI conversations.
 _EXCLUDED_MODES = frozenset({"diagnostic_probe", "diagnostic_microprobe", "teach_back"})
-_DECIDED = frozenset({"assumed", "learning", "already_assumed"})
+_DECIDED = frozenset({"assumed", "learning", "already_assumed", "maintenance"})
 
 
 class QuickCheckError(ValueError):
     pass
+
+
+def _existing_quick_check(
+    repository: Repository, *, session_id: str, scope: list[str], request_id: str | None,
+) -> str | None:
+    """The check a retried start should recover, if any.
+
+    The same request id returns the check it created. Without one, an active
+    quick check over the same scope in the same practice session is the same
+    request (a double submit) and is returned too.
+    """
+
+    with repository.connection() as connection:
+        if request_id:
+            row = connection.execute(
+                "SELECT calibration_session_id, session_id FROM placement_quick_checks WHERE request_id = ?",
+                (request_id,),
+            ).fetchone()
+            if row is not None:
+                if str(row[1]) != session_id:
+                    raise QuickCheckError("this quick-check request id belongs to another practice session")
+                return str(row[0])
+    active = repository.active_probe_calibration_session(session_id)
+    if active is None:
+        return None
+    record = quick_check_record(repository, active.id)
+    if record is not None and sorted(json.loads(record["learning_object_ids_json"])) == scope:
+        return active.id
+    return None
 
 
 def start_quick_check(
@@ -60,6 +107,7 @@ def start_quick_check(
     *,
     session_id: str,
     learning_object_ids: list[str],
+    request_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     if not placement_active(vault):
@@ -70,33 +118,44 @@ def start_quick_check(
     })
     if not scope:
         raise QuickCheckError("the quick check needs at least one active learning object")
+    existing = _existing_quick_check(repository, session_id=session_id, scope=scope, request_id=request_id)
+    if existing is not None:
+        return quick_check_progress(vault, repository, existing, clock=clock)
     placement = vault.config.placement
-    try:
-        progress = start_calibration_session(
-            vault,
-            repository,
-            session_id=session_id,
-            learning_object_ids=scope,
-            time_budget_minutes=placement.quick_check_budget_minutes,
-            generate_missing=False,
-            open_episodes=False,
-            clock=clock,
-        )
-    except CalibrationSessionError as error:
-        raise QuickCheckError(str(error)) from error
     now_iso = utc_now_iso(clock)
     predictor = active_predictor(vault, repository, now_iso=now_iso)
-    with repository.connection() as connection:
-        insert_quick_check(connection, {
-            "calibration_session_id": progress["calibration_session_id"],
-            "session_id": session_id,
-            "learning_object_ids_json": json.dumps(scope),
-            "k": placement.quick_check_k,
-            "budget_minutes": placement.quick_check_budget_minutes,
-            "predictor": predictor.name,
-            "predictor_version": predictor.version_hash,
-            "created_at": now_iso,
-        })
+    try:
+        # One transaction: a calibration session never exists without its
+        # quick-check row (no orphan blocks the practice session's next start).
+        with repository.atomic():
+            progress = start_calibration_session(
+                vault,
+                repository,
+                session_id=session_id,
+                learning_object_ids=scope,
+                time_budget_minutes=placement.quick_check_budget_minutes,
+                generate_missing=False,
+                open_episodes=False,
+                clock=clock,
+            )
+            with repository.connection() as connection:
+                insert_quick_check(connection, {
+                    "calibration_session_id": progress["calibration_session_id"],
+                    "session_id": session_id,
+                    "learning_object_ids_json": json.dumps(scope),
+                    "k": placement.quick_check_k,
+                    "budget_minutes": placement.quick_check_budget_minutes,
+                    "predictor": predictor.name,
+                    "predictor_version": predictor.version_hash,
+                    "created_at": now_iso,
+                    "request_id": request_id,
+                })
+    except (CalibrationSessionError, sqlite3.IntegrityError) as error:
+        # A concurrent start with the same identity won the race: recover it.
+        existing = _existing_quick_check(repository, session_id=session_id, scope=scope, request_id=request_id)
+        if existing is not None:
+            return quick_check_progress(vault, repository, existing, clock=clock)
+        raise QuickCheckError(str(error)) from error
     return quick_check_progress(vault, repository, progress["calibration_session_id"], clock=clock)
 
 
@@ -109,11 +168,18 @@ def _candidate_items(
     repository: Repository,
     undecided: set[str],
     attempted: set[str],
+    excluded: frozenset[str] = frozenset(),
 ) -> list[str]:
+    """Never-seen ordinary items on undecided LOs that routine serving could
+    offer (the shared exclusions apply), minus ``excluded``."""
+
     item_states = repository.practice_item_states()
+    serving_excluded = routine_serving_exclusions(vault, repository).item_ids
     result = []
     for item in vault.practice_items.values():
         if item.learning_object_id not in undecided or item.status != "active" or item.id in attempted:
+            continue
+        if item.id in serving_excluded or item.id in excluded:
             continue
         state = item_states.get(item.id)
         if state is not None and (not state.active or state.last_attempt_at is not None):
@@ -128,20 +194,24 @@ def _candidate_items(
     return sorted(result)
 
 
+def _attempted_item_ids(repository: Repository) -> set[str]:
+    with repository.connection() as connection:
+        return {str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT practice_item_id FROM practice_attempts"
+        ).fetchall()}
+
+
 def next_quick_check_item(
     vault: LoadedVault,
     repository: Repository,
     predictor: Any,
     *,
     undecided: set[str],
+    excluded: frozenset[str] = frozenset(),
 ) -> dict[str, Any] | None:
     """The never-seen item with the largest conditional gain; ties by id (G8)."""
 
-    with repository.connection() as connection:
-        attempted = {str(row[0]) for row in connection.execute(
-            "SELECT DISTINCT practice_item_id FROM practice_attempts"
-        ).fetchall()}
-    candidates = _candidate_items(vault, repository, undecided, attempted)
+    candidates = _candidate_items(vault, repository, undecided, _attempted_item_ids(repository), excluded)
     if not candidates:
         return None
     weights = {lo: 1.0 for lo in undecided}
@@ -157,6 +227,60 @@ def next_quick_check_item(
         "learning_object_id": str(vault.practice_items[item_id].learning_object_id),
         "conditional_gain": predictor.conditional_gain(item_id, [], weights),
     }
+
+
+def _present_next(
+    vault: LoadedVault,
+    repository: Repository,
+    predictor: Any,
+    record: dict[str, Any],
+    presentations: list[dict[str, Any]],
+    *,
+    undecided: set[str],
+    clock: Clock | None,
+) -> dict[str, Any] | None:
+    """The check's current presentation, or a new one while fewer than k exist.
+
+    An unanswered presentation stays the target while its LO is undecided and
+    its item is still a servable never-seen item. Otherwise a new item is
+    presented, persisted with its ordinal, so k holds server-side.
+    """
+
+    calibration_id = str(record["calibration_session_id"])
+    outstanding = [p for p in presentations if p["attempt_id"] is None]
+    if outstanding:
+        current = outstanding[-1]
+        still_valid = current["learning_object_id"] in undecided and current["practice_item_id"] in set(
+            _candidate_items(vault, repository, undecided, _attempted_item_ids(repository))
+        )
+        if still_valid:
+            return {
+                "practice_item_id": current["practice_item_id"],
+                "learning_object_id": current["learning_object_id"],
+            }
+    if len(presentations) >= int(record["k"]):
+        return None
+    presented = frozenset(str(p["practice_item_id"]) for p in presentations)
+    chosen = next_quick_check_item(vault, repository, predictor, undecided=undecided, excluded=presented)
+    if chosen is None:
+        return None
+    with repository.atomic():
+        with repository.connection() as connection:
+            if len(quick_check_presentations(connection, calibration_id)) != len(presentations):
+                # Another reader presented concurrently: serve what it chose.
+                latest = quick_check_presentations(connection, calibration_id)[-1]
+                return {
+                    "practice_item_id": latest["practice_item_id"],
+                    "learning_object_id": latest["learning_object_id"],
+                }
+            insert_quick_check_item(connection, {
+                "calibration_session_id": calibration_id,
+                "ordinal": len(presentations) + 1,
+                "practice_item_id": chosen["practice_item_id"],
+                "learning_object_id": chosen["learning_object_id"],
+                "presented_at": utc_now_iso(clock),
+            })
+    return chosen
 
 
 def quick_check_progress(
@@ -177,20 +301,26 @@ def quick_check_progress(
     outcome = json.loads(record["outcome_json"]) if record["finished_at"] else None
     next_item = None
     if outcome is None:
+        calibration = repository.probe_calibration_session(calibration_session_id)
+        if calibration is not None:
+            with repository.atomic():
+                with repository.connection() as connection:
+                    bind_quick_check_answers(connection, record, window_end=quick_check_window_end(calibration))
         with repository.connection() as connection:
-            answers = quick_check_answers(
-                connection, session_id=record["session_id"], scope=scope, started_at=record["created_at"],
-            )
+            presentations = quick_check_presentations(connection, calibration_session_id)
+            answers = quick_check_answers(connection, calibration_session_id=calibration_session_id, scope=scope)
             state = load_placement_state_from_connection(connection, active=placement_active(vault))
             blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))
         predictor = active_predictor(vault, repository, now_iso=utc_now_iso(clock))
         split = quick_check_split(
             vault, predictor, scope=scope, answers_by_lo=answers, blocking=blocking, state=state,
         )
-        answered = sum(len(rows) for rows in answers.values())
+        answered = sum(1 for presentation in presentations if presentation["attempt_id"] is not None)
         undecided = {lo for lo, verdict in split.items() if verdict["verdict"] not in _DECIDED}
         if progress["status"] == "active" and answered < k and undecided:
-            next_item = next_quick_check_item(vault, repository, predictor, undecided=undecided)
+            next_item = _present_next(
+                vault, repository, predictor, record, presentations, undecided=undecided, clock=clock,
+            )
         if progress["status"] != "active" or answered >= k or not undecided or next_item is None:
             if progress["status"] == "active":
                 repository.end_probe_calibration_session(calibration_session_id, status="completed", clock=clock)

@@ -1,5 +1,14 @@
 # Slice A Phase 6: starting new material without ceremony (learner field F2)
 
+> **Superseded in part by the Codex review fixes** (`slice-a-phase-6-codex-review.md`,
+> 2026-10-12): a passed check keeps the LO in maintenance with its remaining
+> learning items withheld; nothing routine is served before the check date;
+> the check and fast-track use the existing independence rule; quick checks
+> honour the shared serving exclusions, bind only their own presentations and
+> start atomically (migration 170); learner placement verdicts append to
+> `judgment_ledger`; report 3 counts unique learning obligations. Where this
+> record disagrees, the review file is current.
+
 **Branch:** `slice-a/phase-6`, worktree `learnanything-phase-6`, from `main` at
 `974c5647` (Phase 2, Phase 3, the daily-loop bug fixes and follow-ups, and the
 Slice A 2-3 integration and its Codex re-review). Not merged, not pushed.

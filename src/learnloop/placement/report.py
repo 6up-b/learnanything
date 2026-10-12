@@ -16,9 +16,22 @@ from typing import Any
 
 from learnloop.algorithm_versions import PLACEMENT_VERSIONS
 from learnloop.placement.rules import RULES_VERSION
-from learnloop.placement.state import load_placement_state_from_connection, placement_tables_present
+from learnloop.placement.state import (
+    INTENT_ASSUMED,
+    INTENT_MAINTENANCE,
+    load_placement_state_from_connection,
+    placement_tables_present,
+)
 
-REPORT_VERSION = "placement-report-3-v1"
+REPORT_VERSION = "placement-report-3-v2"
+#: How each learning obligation (an untouched item on a decided LO) ended up.
+OBLIGATION_OUTCOMES = (
+    "items_avoided",
+    "items_deferred_pending_check",
+    "items_deferred_then_returned",
+    "items_deferred_then_learned",
+    "items_used_as_checks",
+)
 SOURCES = ("self_report", "fast_track", "predictor", "quick_check")
 #: The daily-loop spec's flat per-item bound when no duration is known.
 DEFAULT_MINUTES_PER_ITEM = 3.0
@@ -26,8 +39,9 @@ DEFAULT_MINUTES_PER_ITEM = 3.0
 CONFOUNDS = (
     "Learning and forgetting between the decision and the first review: a miss can mean the "
     "learner forgot, a pass can mean they learned the topic elsewhere in the meantime.",
-    "Goal-frontier and requested serving in that window can show the LO's items before its "
-    "scheduled check, so some first reviews are early.",
+    "Learner-requested practice and follow-up lanes in that window can show the LO's items "
+    "before its scheduled check: early clean answers are recorded as early practice and never "
+    "pass the check, but an early miss returns the LO to learning (resolved early).",
     "A first review is one answer on one item: the miss rate has wide intervals until many "
     "assumptions have resolved.",
     "Grader error: a grader that accepts a wrong answer can fast-track an LO or pass its check "
@@ -92,6 +106,42 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
         ).fetchall()
     }
 
+    # Learning obligations, each counted once (unique items, never per
+    # decision): an active item on a decided LO that was not practised before
+    # the LO's first decision. Its outcome is read from the LO's CURRENT intent
+    # and the item's attempts, and attributed to the LO's latest decision.
+    first_decision: dict[str, str] = {}
+    latest_source: dict[str, str] = {}
+    for assumption in state.assumptions:  # ordered by (created_at, id)
+        first_decision.setdefault(assumption.learning_object_id, assumption.created_at)
+        latest_source[assumption.learning_object_id] = assumption.source
+    check_attempts = {a.resolving_attempt_id for a in state.assumptions if a.resolving_attempt_id}
+    check_items = {
+        str(row[0]) for row in connection.execute(
+            "SELECT DISTINCT practice_item_id FROM practice_attempts WHERE id IN "
+            f"({','.join('?' for _ in check_attempts)})",
+            tuple(sorted(check_attempts)),
+        ).fetchall()
+    } if check_attempts else set()
+    obligations: dict[str, Counter[str]] = defaultdict(Counter)
+    obligation_items: set[str] = set()
+    for lo, decided_at in first_decision.items():
+        intent = state.intent_by_lo.get(lo)
+        for item_id in active_items.get(lo, ()):
+            first = attempted_items.get((lo, item_id))
+            if first is not None and first <= decided_at:
+                continue  # practised before any assumption: not an obligation
+            obligation_items.add(item_id)
+            if first is not None:
+                outcome = "items_used_as_checks" if item_id in check_items else "items_deferred_then_learned"
+            elif intent is not None and intent.intent == INTENT_MAINTENANCE:
+                outcome = "items_avoided"
+            elif intent is not None and intent.intent == INTENT_ASSUMED:
+                outcome = "items_deferred_pending_check"
+            else:
+                outcome = "items_deferred_then_returned"
+            obligations[latest_source[lo]][outcome] += 1
+
     sources: dict[str, dict[str, Any]] = {}
     for source in SOURCES:
         rows = [a for a in state.assumptions if a.source == source]
@@ -99,16 +149,7 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
         resolved = statuses["passed"] + statuses["failed"]
         on_schedule = [a for a in rows if a.status in ("passed", "failed") and a.resolved_at >= a.first_review_due]
         early = [a for a in rows if a.status in ("passed", "failed") and a.resolved_at < a.first_review_due]
-        skipped = 0
-        for assumption in rows:
-            until = assumption.resolved_at
-            for item_id in active_items.get(assumption.learning_object_id, ()):
-                first = attempted_items.get((assumption.learning_object_id, item_id))
-                if first is not None and first <= assumption.created_at:
-                    continue  # already practised before the assumption
-                if first is not None and (until is None or first <= until):
-                    continue  # served anyway (the check, or early practice)
-                skipped += 1
+        counted = obligations.get(source, Counter())
         sources[source] = {
             "decisions": len(rows),
             "open": statuses["open"],
@@ -123,8 +164,13 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
                 round(sum(a.status == "failed" for a in on_schedule) / len(on_schedule), 6)
                 if on_schedule else None
             ),
-            "items_not_served_as_new_material": skipped,
-            "learning_minutes_saved_estimate": round(skipped * minutes_per_item, 2),
+            "early_practice_answers": sum(a.early_answers for a in rows),
+            "ineligible_check_answers": sum(a.ineligible_answers for a in rows),
+            **{outcome: counted[outcome] for outcome in OBLIGATION_OUTCOMES},
+            "learning_minutes_saved_estimate": round(counted["items_avoided"] * minutes_per_item, 2),
+            "learning_minutes_provisional_estimate": round(
+                counted["items_deferred_pending_check"] * minutes_per_item, 2,
+            ),
         }
 
     # Every LO that started as new material: no answer before placement began.
@@ -148,7 +194,11 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
         and (lo not in first_answer_by_lo or (placement_started is not None and first_answer_by_lo[lo] >= placement_started))
     ]
     new_items = sum(len(active_items.get(lo, ())) for lo in new_los)
-    saved = sum(values["items_not_served_as_new_material"] for values in sources.values())
+    # The baseline every saving is a subset of: each unique item once, whether
+    # it sits on a new LO or is an obligation an assumption deferred.
+    baseline_items = {item_id for lo in new_los for item_id in active_items.get(lo, ())} | obligation_items
+    saved = sum(values["items_avoided"] for values in sources.values())
+    provisional = sum(values["items_deferred_pending_check"] for values in sources.values())
     all_resolved = sum(values["passed"] + values["failed"] for values in sources.values())
     all_failed = sum(values["failed"] for values in sources.values())
     return {
@@ -169,10 +219,17 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
         "learning_minutes": {
             "minutes_per_item": minutes_per_item,
             "minutes_basis": minutes_basis,
+            # Avoided learning: untouched items on LOs whose check passed and
+            # that are still in maintenance.
             "saved_estimate": round(saved * minutes_per_item, 2),
+            # Temporary deferral: untouched items on LOs still assumed, whose
+            # check has not happened yet. Not a saving until it passes.
+            "provisional_estimate": round(provisional * minutes_per_item, 2),
             "learning_every_new_lo_estimate": round(new_items * minutes_per_item, 2),
+            "learning_obligations_estimate": round(len(baseline_items) * minutes_per_item, 2),
             "new_learning_objects": len(new_los),
             "new_material_items": new_items,
+            "learning_obligation_items": len(baseline_items),
             "placement_started_at": placement_started,
         },
         "counts": {
@@ -185,6 +242,15 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             "miss": "That answer is not a clean full-marks answer (the complement of report 2's pass).",
             "returned_by_learner": "\"I don't know this\" before any answer on the LO.",
             "on_schedule": "Resolved at or after the decision's first_review_due.",
+            "early_practice": "A clean answer before first_review_due (explicit practice): recorded, never the check.",
+            "ineligible_check_answer": "A clean answer the independence rule rejected: neither pass nor miss.",
+            "learning_obligation": "An active item on a decided LO not practised before its first decision, "
+                                   "counted once whatever the number of decisions.",
+            "items_avoided": "Obligations never practised on an LO now in maintenance (its check passed).",
+            "items_deferred_pending_check": "Obligations never practised on an LO still assumed (provisional).",
+            "items_deferred_then_returned": "Obligations on an LO back to learning: deferred, not saved.",
+            "items_deferred_then_learned": "Obligations practised after the decision: learned anyway.",
+            "items_used_as_checks": "Items whose answer resolved an assumption's check.",
         },
     }
 
@@ -200,20 +266,24 @@ def write_placement_report(report: dict[str, Any], output_dir: Path) -> dict[str
     lines = [
         "# Report 3: assumed known, checked in the first review", "",
         "Aggregates only. No learner text, no per-LO identities.", "",
-        "| Source | Decisions | Open | Passed | Failed | Returned | Miss rate | 95% Wilson CI | Minutes saved (est.) |",
-        "|---|---:|---:|---:|---:|---:|---:|---|---:|",
+        "| Source | Decisions | Open | Passed | Failed | Returned | Miss rate | 95% Wilson CI "
+        "| Minutes saved (est.) | Minutes deferred, pending check |",
+        "|---|---:|---:|---:|---:|---:|---:|---|---:|---:|",
     ]
     for source, values in report.get("sources", {}).items():
         lines.append(
             f"| {source} | {values['decisions']} | {values['open']} | {values['passed']} | "
             f"{values['failed']} | {values['returned_by_learner']} | {values['first_review_miss_rate']} | "
-            f"{values['first_review_miss_rate_wilson_ci95']} | {values['learning_minutes_saved_estimate']} |"
+            f"{values['first_review_miss_rate_wilson_ci95']} | {values['learning_minutes_saved_estimate']} | "
+            f"{values['learning_minutes_provisional_estimate']} |"
         )
     minutes = report.get("learning_minutes", {})
     lines.extend([
         "",
         f"Learning minutes saved (estimate): {minutes.get('saved_estimate')} of "
-        f"{minutes.get('learning_every_new_lo_estimate')} for learning every new LO "
+        f"{minutes.get('learning_obligations_estimate')} minutes of learning obligations "
+        f"({minutes.get('learning_every_new_lo_estimate')} for learning every new LO); "
+        f"{minutes.get('provisional_estimate')} more deferred pending a check "
         f"({minutes.get('minutes_per_item')} min/item, {minutes.get('minutes_basis')}).",
         "",
         "## Named confounds", "",

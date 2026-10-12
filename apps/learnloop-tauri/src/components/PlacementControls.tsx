@@ -29,10 +29,13 @@ function day(iso: string | null | undefined): string {
 /** "I know this" on a practice card: assumes the card's LO known (not tested). */
 export function KnowThisAction({
   practiceItemId,
+  sessionId,
   onDone,
   onError
 }: {
   practiceItemId: string;
+  /** The practice session: its draft for this card is cleared with the report. */
+  sessionId?: string;
   /** Called once the LO is marked assumed (the caller moves on). */
   onDone: () => void;
   onError: (message: string) => void;
@@ -42,7 +45,7 @@ export function KnowThisAction({
     if (busy) return;
     setBusy(true);
     try {
-      await api.placementSelfReport({ report: "know_this", practiceItemId });
+      await api.placementSelfReport({ report: "know_this", practiceItemId, sessionId });
       onDone();
     } catch (error) {
       onError((error as CommandError).message);
@@ -106,17 +109,21 @@ export function PlacementSection({
               : `first review ${day(placement.firstReviewDue)} is the check`}
           </Faint>
         </div>
+      ) : placement.intent === "maintenance" ? (
+        <Faint>its first review passed: in maintenance, the rest of its new items are skipped</Faint>
       ) : (
         <Faint>
-          {placement.lastOutcome === "failed"
+          {placement.intentReason === "check_missed"
             ? "the first review missed, so this is back to learning"
-            : placement.lastOutcome === "returned" || placement.returnedByLearner
+            : placement.intentReason === "i_dont_know_this"
               ? "you said you don't know this yet, so it is being taught"
-              : "learning: practice is the placement"}
+              : placement.intentReason === "missed_in_maintenance"
+                ? "a later review missed, so this is back to learning"
+                : "learning: practice is the placement"}
         </Faint>
       )}
       <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
-        {placement.assumed ? (
+        {placement.assumed || placement.intent === "maintenance" ? (
           <span
             role="button"
             onClick={() => void report("dont_know_this")}

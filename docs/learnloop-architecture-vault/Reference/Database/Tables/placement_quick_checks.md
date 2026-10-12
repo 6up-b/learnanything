@@ -3,13 +3,13 @@ title: "placement_quick_checks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f2bed45dec6dca4bc6c882b02b980f179aa998b"
-source_commit_timestamp: "2026-10-12T12:25:04-04:00"
+source_commit: "a83ef5ac3d73581f113be556ad1001922bd2b859"
+source_commit_timestamp: "2026-10-12T12:45:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite placement_quick_checks"
   - "table placement_quick_checks"
-schema_head: 169
+schema_head: 170
 table_name: "placement_quick_checks"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/169_placement_assumptions.sql"
   - "src/learnloop/db/stores/placement.py"
+  - "src/learnloop/diagnosis/quick_check.py"
   - "src/learnloop/placement/decisions.py"
   - "src/learnloop/placement/state.py"
 tags:
@@ -36,7 +37,7 @@ tags:
 
 ## Why it exists
 
-Gives placement quick check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `session_id`, `predictor_version`, making the operational relationship explicit. ^table-purpose
+Gives placement quick check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `session_id`, `request_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
 > Queue state of the optional "Check what I already know". The calibration session row keeps the budget and stop/expiry; this keeps the scope, k and the moment its results fed the split.
@@ -48,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/169_placement_assumptions.sql`.
-- **Schema touched by:** `169_placement_assumptions.sql`.
+- **Schema touched by:** `169_placement_assumptions.sql`, `170_placement_quick_check_presentations.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -67,6 +68,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `finished_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `outcome_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `request_id` | `TEXT` | no | — | — | Application-validated soft reference |
 
 ## Relationships and access paths
 
@@ -76,6 +78,7 @@ Declared SQLite foreign keys:
 
 Indexes and uniqueness:
 
+- `placement_quick_checks_request` on `request_id` (unique).
 - `sqlite_autoindex_placement_quick_checks_1` on `calibration_session_id` (unique).
 
 ## Who calls it
@@ -86,6 +89,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/diagnosis/quick_check.py`
 - `src/learnloop/placement/decisions.py`
 
 ### Direct SQL writers
@@ -130,7 +134,7 @@ CREATE TABLE placement_quick_checks (
   created_at TEXT NOT NULL,
   finished_at TEXT,
   outcome_json TEXT
-);
+, request_id TEXT);
 ```
 
 ## Related notes

@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f2bed45dec6dca4bc6c882b02b980f179aa998b"
-source_commit_timestamp: "2026-10-12T12:25:04-04:00"
+source_commit: "a83ef5ac3d73581f113be556ad1001922bd2b859"
+source_commit_timestamp: "2026-10-12T12:45:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 169
-table_count: 269
+schema_head: 170
+table_count: 270
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_169/state.sqlite"
+  - "fixtures/migration_head_170/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-169"
+  - "learnloop/database/schema-head-170"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 269 user tables at migration head 169. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 270 user tables at migration head 170. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -41,14 +41,14 @@ This is the exhaustive map of the 269 user tables at migration head 169. Use [[T
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 131 |
 | [[Table Roles#Derived|`derived`]] | 12 |
 | [[Table Roles#Receipt|`receipt`]] | 56 |
-| [[Table Roles#Workflow|`workflow`]] | 60 |
+| [[Table Roles#Workflow|`workflow`]] | 61 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 256 |
+| `active` | 257 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -400,7 +400,8 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/model_work_checkpoints|model_work_checkpoints]] — `workflow` · `active` · Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `cache_key`, `purpose`, making the operational relationship explicit.
 - [[Reference/Database/Tables/observation_events|observation_events]] — `raw_ledger` · `active` · Stores observations captured through registered observation templates. It supplies replay-stable input rather than a disposable cache. Rows bind `template_id`, `session_id`, `related_learning_object_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/observation_templates|observation_templates]] — `raw_ledger` · `active` · Stores reusable schemas for manually recorded observations. It supplies replay-stable input rather than a disposable cache. Rows bind `domain`, `version`, `title`, making the operational relationship explicit.
-- [[Reference/Database/Tables/placement_quick_checks|placement_quick_checks]] — `workflow` · `active` · Gives placement quick check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `session_id`, `predictor_version`, making the operational relationship explicit.
+- [[Reference/Database/Tables/placement_quick_check_items|placement_quick_check_items]] — `workflow` · `active` · Gives placement quick check item a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `practice_item_id`, `learning_object_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/placement_quick_checks|placement_quick_checks]] — `workflow` · `active` · Gives placement quick check a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `calibration_session_id`, `session_id`, `request_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_item_state|practice_item_state]] — `compat` · `active-historical-seam` · Preserves the still-used historical practice-item scheduling seam while card state remains a partial successor. It keeps an older vault or replay contract readable while new writes use the refactored path. Rows bind `practice_item_id`, `content_hash`, `difficulty`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_pool_events|practice_pool_events]] — `receipt` · `active` · Preserves an append-only chronology of practice pool so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `pool_id`, `surface_slug`, `kind`, making the operational relationship explicit.
 - [[Reference/Database/Tables/practice_pool_surfaces|practice_pool_surfaces]] — `raw_ledger` · `active` · Gives practice pool surface a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `pool_id`, `surface_id`, `admission_status`, making the operational relationship explicit.

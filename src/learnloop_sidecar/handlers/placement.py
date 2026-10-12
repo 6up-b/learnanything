@@ -21,6 +21,9 @@ class PlacementSelfReportInput(ParamsModel):
     report: Literal["know_this", "too_easy", "dont_know_this"]
     learning_object_ids: list[str] | None = None
     practice_item_id: str | None = None
+    #: The practice session whose draft for ``practice_item_id`` the report
+    #: clears atomically when it succeeds (the card was skipped).
+    session_id: str | None = None
 
 
 class PlacementStateInput(ParamsModel):
@@ -30,6 +33,8 @@ class PlacementStateInput(ParamsModel):
 class StartQuickCheckInput(ParamsModel):
     session_id: str
     learning_object_ids: list[str]
+    #: Stable identity of one start request: a retry returns the same check.
+    request_id: str | None = None
 
 
 def placement_lo_state(vault, state, learning_object_id: str, *, now_iso: str) -> dict[str, Any]:
@@ -38,8 +43,13 @@ def placement_lo_state(vault, state, learning_object_id: str, *, now_iso: str) -
 
     open_ = state.open_by_lo.get(learning_object_id)
     latest = state.latest_by_lo.get(learning_object_id)
+    intent = state.intent_by_lo.get(learning_object_id)
     return {
         "learning_object_id": learning_object_id,
+        # assumed | maintenance | learning, or None when placement never acted.
+        "intent": intent.intent if intent is not None else None,
+        # Why: assumed | check_passed | check_missed | missed_in_maintenance | i_dont_know_this.
+        "intent_reason": intent.reason if intent is not None else None,
         "assumed": open_ is not None,
         "label": "assumed (not tested)" if open_ is not None else None,
         "source": open_.source if open_ is not None else None,
@@ -87,6 +97,9 @@ def placement_self_report(ctx: SidecarContext, params: PlacementSelfReportInput)
     vault, repository = ctx.require_vault()
     learning_object_ids = list(params.learning_object_ids or [])
     trigger_ref = None
+    checkpoint = None
+    if params.session_id is not None and params.practice_item_id is not None:
+        checkpoint = (params.session_id, params.practice_item_id)
     if params.practice_item_id is not None:
         item = vault.practice_items.get(params.practice_item_id)
         if item is None or not item.learning_object_id:
@@ -104,6 +117,7 @@ def placement_self_report(ctx: SidecarContext, params: PlacementSelfReportInput)
             learning_object_ids=learning_object_ids,
             report=params.report,
             trigger_ref=trigger_ref,
+            checkpoint=checkpoint,
         )
     except PlacementInactive as error:
         raise SidecarError("placement_inactive", str(error)) from error
@@ -124,6 +138,7 @@ def start_quick_check_handler(ctx: SidecarContext, params: StartQuickCheckInput)
             repository,
             session_id=params.session_id,
             learning_object_ids=params.learning_object_ids,
+            request_id=params.request_id,
         )
     except QuickCheckError as error:
         raise SidecarError("invalid_request", str(error)) from error

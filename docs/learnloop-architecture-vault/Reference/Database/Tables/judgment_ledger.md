@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f2bed45dec6dca4bc6c882b02b980f179aa998b"
-source_commit_timestamp: "2026-10-12T12:25:04-04:00"
+source_commit: "a83ef5ac3d73581f113be556ad1001922bd2b859"
+source_commit_timestamp: "2026-10-12T12:45:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 169
+schema_head: 170
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/ops/family_proposals.py`
+- `src/learnloop/placement/decisions.py`
 - `src/learnloop/substrate/families.py`
 
 ### Direct SQL writers
@@ -121,6 +122,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_activity_families.py`
+- `tests/test_assumed_known.py`
 - `tests/test_diagnose_review.py`
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`

@@ -3,13 +3,13 @@ title: "session_checkpoints"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "1f2bed45dec6dca4bc6c882b02b980f179aa998b"
-source_commit_timestamp: "2026-10-12T12:25:04-04:00"
+source_commit: "a83ef5ac3d73581f113be556ad1001922bd2b859"
+source_commit_timestamp: "2026-10-12T12:45:09-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite session_checkpoints"
   - "table session_checkpoints"
-schema_head: 169
+schema_head: 170
 table_name: "session_checkpoints"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_migration.py"
-  - "src/learnloop_sidecar/context.py"
+  - "src/learnloop/placement/decisions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -78,6 +78,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.acknowledge_practice_checkpoint()`
+- `Repository.clear_practice_checkpoint_for_item()`
 - `Repository.clear_session_checkpoint()`
 - `Repository.deactivate_practice_item_serving()`
 - `Repository.end_open_sessions_except()`
@@ -99,6 +100,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
+- `src/learnloop/placement/decisions.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/practice.py`
@@ -115,6 +117,7 @@ Indexes and uniqueness:
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_item_authoring.py`
+- `tests/test_placement_sidecar.py`
 - `tests/test_repositories.py`
 - `tests/test_show.py`
 - `tests/test_sidecar_contract.py`

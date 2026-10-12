@@ -1,9 +1,10 @@
-"""The only SQL writer for learner-field F2 placement tables (migration 169).
+"""The only SQL writer for learner-field F2 placement tables (migrations 169-170).
 
 ``assumption_decisions`` and ``assumption_returns`` are RECEIPT tables:
 append-only, never cleared by replay, never evidence. ``placement_quick_checks``
-is WORKFLOW queue state for the optional quick check. Callers own the
-transaction (``with repository.connection() as connection``).
+and ``placement_quick_check_items`` are WORKFLOW queue state for the optional
+quick check. Callers own the transaction (``with repository.connection() as
+connection``).
 """
 from __future__ import annotations
 
@@ -43,12 +44,12 @@ def insert_quick_check(connection: sqlite3.Connection, row: Mapping[str, Any]) -
     connection.execute(
         """INSERT INTO placement_quick_checks
         (calibration_session_id, session_id, learning_object_ids_json, k,
-         budget_minutes, predictor, predictor_version, created_at)
-        VALUES (?,?,?,?,?,?,?,?)""",
+         budget_minutes, predictor, predictor_version, created_at, request_id)
+        VALUES (?,?,?,?,?,?,?,?,?)""",
         (
             row["calibration_session_id"], row["session_id"], row["learning_object_ids_json"],
             row["k"], row["budget_minutes"], row["predictor"], row["predictor_version"],
-            row["created_at"],
+            row["created_at"], row.get("request_id"),
         ),
     )
 
@@ -63,5 +64,38 @@ def finish_quick_check(
               SET finished_at = ?, outcome_json = ?
             WHERE calibration_session_id = ? AND finished_at IS NULL""",
         (finished_at, outcome_json, calibration_session_id),
+    )
+    return cursor.rowcount == 1
+
+
+def insert_quick_check_item(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None:
+    """Persist one presentation of the quick check (at most k per check)."""
+
+    connection.execute(
+        """INSERT INTO placement_quick_check_items
+        (calibration_session_id, ordinal, practice_item_id, learning_object_id, presented_at)
+        VALUES (?,?,?,?,?)""",
+        (
+            row["calibration_session_id"], row["ordinal"], row["practice_item_id"],
+            row["learning_object_id"], row["presented_at"],
+        ),
+    )
+
+
+def bind_quick_check_item(
+    connection: sqlite3.Connection,
+    calibration_session_id: str,
+    ordinal: int,
+    *,
+    attempt_id: str,
+    answered_at: str,
+) -> bool:
+    """Associate a submission with its presentation, once."""
+
+    cursor = connection.execute(
+        """UPDATE placement_quick_check_items
+              SET attempt_id = ?, answered_at = ?
+            WHERE calibration_session_id = ? AND ordinal = ? AND attempt_id IS NULL""",
+        (attempt_id, answered_at, calibration_session_id, ordinal),
     )
     return cursor.rowcount == 1

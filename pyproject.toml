@@ -247,6 +247,13 @@ ignore_imports = [
     # cannot form a runtime cycle with the scheduling/substrate consumers.
     "learnloop.placement.* -> learnloop.field.types",
     "learnloop.placement.signals -> learnloop.field.signals",
+    # Learner field F2 review fix (F3): placement reads the existing
+    # independence rule (attempts.reveal_ledger.production_admissibility over
+    # reveal_events) rather than a copy of it. reveal_ledger imports only clock
+    # and db.repositories at module level (its diagnosis.remediation import is
+    # function-local and already exempt), so this cannot cycle at import time;
+    # tutor.tutor_qa reads the same module under the same exemption.
+    "learnloop.placement.state -> learnloop.attempts.reveal_ledger",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",
