@@ -263,3 +263,69 @@ def test_router_tables_survive_rebuild_under_production_pragmas(tmp_path):
         assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 1
         assert connection.execute("SELECT action_status FROM router_outcomes").fetchone()[0] == "taken"
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+
+
+# ── Codex review F8: applicability, finalization, ended sessions ────────────
+
+
+def test_r_next_is_not_applicable_on_a_single_item_learning_object_and_r_cold_finalizes_s(repo):
+    _decision(repo, "d1", created_at=_at(minutes=0))
+    _attempt(repo, "a0", item=A, created_at=_at(minutes=1), correctness=0.5, candidate="c1")
+    _attempt(repo, "a1", item=A, created_at=_at(days=2), correctness=1.0, session="s2")       # cold
+
+    with repo.connection() as connection:
+        outcome = {
+            row["decision_id"]: row
+            for row in derive_router_outcomes(connection, servable_items_by_lo={LO: {A}})
+        }["d1"]
+
+    assert outcome["r_next_status"] == "not_applicable"
+    assert json.loads(outcome["detail_json"])["r_next_not_applicable"] == "no_other_servable_item"
+    assert (outcome["r_cold_status"], outcome["r_cold_value"]) == ("observed", 1.0)
+    assert (outcome["s_status"], outcome["s_value"]) == ("final", 1.0)
+
+
+def test_an_observed_cold_retrieval_finalizes_s_and_closes_r_next(repo):
+    _decision(repo, "d1", created_at=_at(minutes=0))
+    _attempt(repo, "a0", item=A, created_at=_at(minutes=1), correctness=0.5, candidate="c1")
+    _attempt(repo, "a1", item=A, created_at=_at(days=2), correctness=0.0, session="s2")       # cold, same item
+    _attempt(repo, "a2", item=B, created_at=_at(days=3), correctness=1.0, session="s3")       # after the cold one
+
+    with repo.connection() as connection:
+        outcome = {
+            row["decision_id"]: row
+            for row in derive_router_outcomes(connection, servable_items_by_lo={LO: {A, B}})
+        }["d1"]
+
+    # Only R_cold finalizes S; a "next" attempt after the cold retrieval is not
+    # immediate uptake, so S is final at the cold attempt and never moves.
+    assert (outcome["r_cold_status"], outcome["r_cold_attempt_id"]) == ("observed", "a1")
+    assert outcome["r_next_status"] == "not_applicable" and outcome["r_next_value"] is None
+    assert json.loads(outcome["detail_json"])["r_next_not_applicable"] == "closed_by_r_cold"
+    assert (outcome["s_status"], outcome["s_value"]) == ("final", 0.0)
+
+
+def test_an_untaken_offer_of_an_ended_session_is_not_taken(repo):
+    with repo.connection() as connection:
+        connection.execute(
+            "INSERT INTO sessions(id, started_at, ended_at) VALUES ('s9', ?, ?)", (_at(minutes=-5), _at(minutes=30))
+        )
+        connection.execute("INSERT INTO sessions(id, started_at) VALUES ('s8', ?)", (_at(minutes=-5),))
+        connection.commit()
+    _decision(repo, "ended", created_at=_at(minutes=3), candidate="c4", session="s9")
+    _decision(repo, "running", created_at=_at(minutes=3), candidate="c5", session="s8")
+
+    outcomes = _outcomes(repo)
+
+    assert outcomes["ended"]["action_status"] == "not_taken"
+    assert (outcomes["ended"]["r_next_status"], outcomes["ended"]["s_status"]) == ("not_applicable", "not_applicable")
+    assert outcomes["running"]["action_status"] == "open" and outcomes["running"]["s_status"] == "pending"
+
+
+def test_the_replayer_applies_the_vaults_servable_items(tmp_path):
+    from learnloop.router.outcomes import servable_items_by_learning_object
+
+    paths = create_basic_vault(tmp_path / "vault")
+    add_followup_item(paths.root, B)
+    vault = load_vault(paths.root)
+    assert servable_items_by_learning_object(vault)[LO] == {A, B}

@@ -1,8 +1,10 @@
 -- Router R1 (spec_action_router_v1 §9, §11): decision logging on today's
 -- paths. One append-only row per Today offer, staged P2 decision and learner
 -- pick, with the full candidate set, the chosen candidate and its true
--- propensity (or an explicit 'deterministic'). The outcome table is a derived
--- cache with one replayer; nothing here is evidence, mastery or certification.
+-- propensity (or an explicit 'deterministic'). A list the learner picks from
+-- with no system-served head is logged with propensity_kind 'not_served'.
+-- The outcome table is a derived cache with one replayer; nothing here is
+-- evidence, mastery or certification.
 
 CREATE TABLE router_decisions (
   id TEXT PRIMARY KEY,
@@ -25,10 +27,12 @@ CREATE TABLE router_decisions (
   scheduler_slate_id TEXT,
   controller_decision_id TEXT,
   -- Content hash of the decision's inputs (candidates, planner values,
-  -- exclusions and the randomization design).
+  -- exclusions, the randomization design, the session context and the
+  -- configuration that shaped the choice; never the build time).
   snapshot_hash TEXT NOT NULL,
-  -- epsilon_tiebreak when the chosen candidate was drawn; NULL when the
-  -- choice was deterministic.
+  -- The assignment mechanism when the chosen candidate was drawn
+  -- (scheduler_seeded_exploration | epsilon_tiebreak; registered in
+  -- db.stores.router.ROUTER_DESIGNS); NULL when the choice was deterministic.
   design TEXT,
   seed TEXT,
   candidates_json TEXT NOT NULL,
@@ -39,7 +43,7 @@ CREATE TABLE router_decisions (
   chosen_learning_object_id TEXT,
   chosen_scheduler_candidate_id TEXT,
   propensity REAL,
-  propensity_kind TEXT NOT NULL CHECK (propensity_kind IN ('exact', 'deterministic', 'none')),
+  propensity_kind TEXT NOT NULL CHECK (propensity_kind IN ('exact', 'deterministic', 'none', 'not_served')),
   learner_pick INTEGER NOT NULL DEFAULT 0 CHECK (learner_pick IN (0, 1)),
   -- R2 fills these (the Decider and the LLM); NULL while no model chooses.
   fallback TEXT,
@@ -55,13 +59,15 @@ CREATE TABLE router_decisions (
   detail_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
   -- A drawn choice has 0 < p < 1; a deterministic one p = 1; a learner pick
-  -- has no propensity (its choice was not sampled).
+  -- has no propensity (its choice was not sampled); a list that served no
+  -- head (the learner chooses from it) has neither a choice nor a propensity.
   CHECK (
     (propensity_kind = 'exact' AND propensity > 0 AND propensity < 1)
     OR (propensity_kind = 'deterministic' AND propensity = 1)
-    OR (propensity_kind = 'none' AND propensity IS NULL)
+    OR (propensity_kind IN ('none', 'not_served') AND propensity IS NULL)
   ),
-  CHECK ((learner_pick = 1) = (propensity_kind = 'none'))
+  CHECK ((learner_pick = 1) = (propensity_kind = 'none')),
+  CHECK ((chosen_ref IS NULL) = (propensity_kind = 'not_served'))
 );
 CREATE INDEX router_decisions_session ON router_decisions(session_id, created_at, id);
 CREATE INDEX router_decisions_slate ON router_decisions(scheduler_slate_id);
@@ -90,8 +96,9 @@ CREATE TABLE router_outcomes (
   outcome_version TEXT NOT NULL,
   target_practice_item_id TEXT,
   target_learning_object_id TEXT,
+  -- not_taken: the session ended without the chosen candidate attempted.
   action_status TEXT NOT NULL CHECK (
-    action_status IN ('taken', 'open', 'superseded', 'overridden', 'not_applicable')
+    action_status IN ('taken', 'open', 'superseded', 'overridden', 'not_taken', 'not_applicable')
   ),
   action_attempt_id TEXT,
   r_next_status TEXT NOT NULL CHECK (r_next_status IN ('observed', 'pending', 'not_applicable')),

@@ -131,7 +131,11 @@ restores it.
   model chooses (fallback, mixture weights, model distributions, sensor
   answers, question-set version, model ids, card hash, similar decisions,
   latency, cost). CHECKs: `exact` means 0 < p < 1, `deterministic` means
-  p = 1, `none` means NULL, and `none` exactly when `learner_pick = 1`.
+  p = 1, `none` and `not_served` mean NULL, `none` exactly when
+  `learner_pick = 1`, and `not_served` exactly when `chosen_ref` is NULL.
+  The store inserts with `ON CONFLICT(receipt_key) DO NOTHING`, so only a
+  repeated receipt key is ignored; a CHECK or NOT NULL violation, or an
+  unregistered `design`, raises *(Codex review F1, F3, F5)*.
 - **`router_outcomes`** (DERIVED, one replayer `router_outcomes` in
   `substrate/rebuild_orchestrator.py`): R_next, R_cold and S per decision.
 - `db/stores/router.py` is the only SQL writer for both (registered SQL owner).
@@ -171,7 +175,11 @@ restores it.
   `placement_predicted_success`, follow-up lanes; section; considered and
   offered ranks; the pre-composition exploration probability; the head
   probability; the slate candidate id), plus `continue_current` when an item
-  is in progress and `stop_for_today` always. Exclusions are `{named: {reason:
+  is in progress and `stop_for_today` always. The candidates' propensities
+  are one distribution summing to 1: a pinned presentation's mass is on
+  `continue_current` and its item entry carries 0 (`served_as`); a draft's
+  "continue" carries 0, because the queue never resumes a draft itself
+  *(review F9)*. Exclusions are `{named: {reason:
   ids}, counts: {reason: n}}`; bulk reasons (retired, nothing due, ...) are
   counts. Phase 6's placement exclusions are named.
 - **"Continue"**: a committed probe presentation (the pin) or a saved,
@@ -190,6 +198,12 @@ bind's transaction (`collection.bind_submission_offer` →
 `router.record_learner_pick`): parent offer, the picked candidate, no
 propensity, and in `detail_json` the offer policy's probability of the pick.
 Taking the head writes nothing: that is the logged decision being served.
+The pick runs in its own savepoint inside the bind: a logging failure rolls
+back alone with a warning and the bind still succeeds. A teach-back
+conversation's later offer (the item reopened from a refreshed list) is only
+validated, not picked again *(review F7)*. Under an offer that served no head
+(`not_served`, see "Where DL1's plan decisions should log") every bind is a
+pick, the list's first item included *(review F3)*.
 
 ### Staged P2 decisions (`staged_p2`)
 
@@ -202,9 +216,16 @@ legacy comparator's priority, and `stop_for_today`; exclusions grouped by
 constraint key (ownership refusals counted). The served choice is
 `continue_current` when the canonical successor stands, `stop_for_today` on a
 staged veto, the block for a short-circuited explicit choice (logged as a
-learner pick). Nothing on this path is drawn, so the propensity is
-`deterministic`, unless a within-block EVSI tie-break was randomized, whose
-assignment propensity is then logged (`epsilon_tiebreak`).
+learner pick). *(Review F2:)* the chosen candidate is what the bridge served.
+The bridge serves the canonical successor (`continue_current`, deterministic,
+no item: the successor is a run-state transition and serves none of the
+staged block's items) or nothing (a veto, or a run with no successor, which
+defers: `stop_for_today`, `detail.served = staged_veto | no_transition`). A
+randomized within-block EVSI choice is the randomization layer's
+`epsilon_tiebreak` assignment; it stays on the item candidate it drew
+(`within_block_assignment`: design, propensity, seed, assignment id) and is the
+row's propensity only when the staged block itself is what was served (the
+builder without a bridge).
 `staged_policy.ladder_eligibility` reports the rungs; it changes no decision.
 
 ### The serving change: probe near-ties (`mvp-0.12`)
@@ -237,9 +258,14 @@ window share it as alternatives. Nothing else in the queue changed.
   last exposure to it, where an exposure is any attempt on it or any reveal on
   the item or the LO (`reveal_events`), in a different session from that last
   attempt, and unassisted as above.
-- **S** = 0.75 R_cold + 0.25 R_next when both are observed (`final`); one
-  observed is `provisional` (R_next while R_cold is pending); none is
-  `pending`. A pending outcome is right-censored at `observed_through` (the
+- **S** *(review F8)*: R_next makes S provisional and only R_cold finalizes
+  it. An observed R_cold makes S `final`: 0.75 R_cold + 0.25 R_next when
+  R_next was observed at or before the cold attempt, else R_cold alone (the
+  R_next window is closed, `not_applicable`/`closed_by_r_cold`), so a final S
+  never moves. R_next alone is `provisional`; none is `pending`. R_next is
+  `not_applicable` (`no_other_servable_item`) when the learning object has no
+  other active, servable item in the vault. An untaken head whose session
+  ended is `not_taken`. A pending outcome is right-censored at `observed_through` (the
   newest attempt in the ledger), never a failure. Skip reasons are counted in
   `detail_json`.
 
@@ -264,8 +290,10 @@ window share it as alternatives. Nothing else in the queue changed.
 2. **PROBE intent includes teach-backs.** Closing the exclusion as written
    admits every PROBE-intent candidate, which includes teach-back items. On
    the `linear_algebra` copy that is the only effect (open question 1).
-3. **"epsilon_tiebreak" is the Today queue's own seeded exploration**, logged
-   under that design name with its mechanism in `detail_json.exploration`. It
+3. **The Today queue's own seeded exploration is not `epsilon_tiebreak`.**
+   *(Review F5: it was first logged under that name.)* It is logged as design
+   `scheduler_seeded_exploration`, registered beside `epsilon_tiebreak` in
+   `db.stores.router.ROUTER_DESIGNS` (the store refuses any other name). It
    is not rerouted through `randomization_layer.epsilon_tiebreak`: that design
    (uniform over a 5 % relative tie set) would change non-probe serving too.
    The draw is a deterministic hash of (session, UTC date, candidate ids), so
@@ -287,10 +315,11 @@ window share it as alternatives. Nothing else in the queue changed.
    `golden_path.advance` calls `GPR.advance` directly. R1 logs where the
    bridge decides (tests, cutover gates), so rows appear once it is wired;
    wiring it is a serving change and was not made (open question 2).
-7. **Learner picks are binds.** Opening an item from the list does not reach
-   the sidecar until a draft is saved or an answer submitted; the first bind
-   is the pick. A teach-back reopened from a refreshed list rebinds its new
-   candidate, which is logged as a pick from that offer.
+7. **Learner picks are binds.** Opening an item from the list reaches the
+   sidecar (`open_queue_item`) but binds nothing; the first bind (a saved
+   draft, a submitted answer, a teach-back's first offer) is the pick. A
+   teach-back reopened from a refreshed list only validates its new candidate
+   (review F7).
 8. **Staged eligibility on Today** is `not_evaluated_on_legacy_queue`: the
    staged policy does not run on Today's queue (it is shadow there).
 9. **Candidate-set size.** On the `linear_algebra` copy an offer's
@@ -298,8 +327,22 @@ window share it as alternatives. Nothing else in the queue changed.
    candidate rows hold 262 kB. Bulk exclusions are counts; nulls are omitted;
    head probabilities are rounded to 12 decimals in the list (the row keeps
    the chosen one at full precision).
-10. **Teach-back readiness in the head rule** is probed once per offer, only
-    when an outcome's offer contains a teach-back.
+10. **Teach-back readiness** is probed at most once per offer, shared by the
+    served list's filter and the head rule, and only when some outcome's offer
+    contains a teach-back; the list, its DTOs and the head rule share one read
+    of the item states (review F6). The readiness value is a hashed input.
+11. **Not logged** *(review F10)*:
+    - **an offer without a session** (Today before a session starts): it
+      records no slate and no candidate ids, nothing can be bound to it, and
+      the session-start rebuild is the offer that is served and logged;
+    - **practice started outside an offer** (library, knowledge map, a
+      golden-path or follow-up item: a bind with no candidate): the sidecar
+      cannot tell a learner's own choice from a system-directed serve there, so
+      logging it as `learner_pick` would mislabel the system's choices;
+    - **an offer whose recomposed head disagrees with the served head**
+      (`OfferHeadMismatch`): refused with a warning rather than logged with a
+      wrong propensity. With one state read and one readiness probe per offer
+      (F6) only a defect can cause it.
 
 ## Paid calls and spend
 
@@ -369,7 +412,11 @@ teach-back provider is ready; 0 when it is not). The offer trace costs about
 sidecar's own `publish_offer` (no SidecarContext, so no startup maintenance,
 no post-attempt worker; model clients forbidden; the teach-back provider
 treated as unavailable), then a draft bound to the second item. Columns
-(NULL R2 columns omitted):
+(NULL R2 columns omitted). *This sample predates the Codex review fixes: the
+design is now `scheduler_seeded_exploration`, `detail_json` gains
+`head_served`, `session_context` and `inputs`, and the snapshot hash covers
+those instead of `built_at`. The review run's sample is in
+`router-r1-codex-review.md`.*
 
 ```json
 {
@@ -475,8 +522,29 @@ newest attempt, 2026-07-28).
 
 DL1 (`daily-loop/dl1`) builds its pool with `build_due_queue` but publishes
 no offer from it (its review F5), so R1's `today_offer` rows never describe a
-plan block, and the full list Today still shows (L3 picks) keeps logging
-through `get_today_queue`. The plan's own decisions should log at:
+plan block. While the plan serves Today, `get_today_queue` is read only for
+the full list one key away (`l`), and picks from it go through
+`plan_learner_pick`: that list serves no head, so it must not be logged as a
+system choice *(Codex review F3)*.
+
+**DL1 merge checklist (router R1):**
+
+1. `learnloop_sidecar/handlers/queue.py::today_head_served` returns
+   `not plan_active(vault)`. Every list build (`get_today_queue`,
+   `skip_practice_item`) while the plan serves is then logged with surface
+   `full_list`, `propensity_kind = 'not_served'`, no chosen candidate, design
+   and seed NULL, and every bind from it (the first item included) is a
+   `learner_pick` whose `detail_json.offer_served_head` is false. The tripwire
+   `test_router_offer_log.py::test_the_full_list_seam_follows_dl1s_plan_once_it_lands`
+   skips until `learnloop.daily_plan.engine` exists and fails until the seam
+   reads the plan.
+2. Renumber migration 176 with the rest; if the plan logs its block
+   boundaries in this ledger, add the new `decision_kind` to the CHECK in the
+   same migration (the table is append-only, so a later CHECK change is a
+   table rebuild).
+3. The plan's own block decisions log as below.
+
+The plan's own decisions should log at:
 
 - `daily_plan/engine.py::_boundary`, after `decide()` and inside
   `_persist_block`'s transaction: one row per block boundary with a new

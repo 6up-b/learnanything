@@ -155,7 +155,8 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # skeletons and sandbox outputs; never a model call or a generator run.
     DerivedStateReplayer("item_fingerprints", frozenset({"item_fingerprints"})),
     # Router R1: R_next / R_cold / S per logged decision, from router_decisions,
-    # the attempt and reveal ledgers and PF-c states (raw inputs only).
+    # the attempt and reveal ledgers, PF-c states, session ends and the vault's
+    # servable items per learning object (raw inputs and content only).
     DerivedStateReplayer("router_outcomes", frozenset({"router_outcomes"})),
 )
 
@@ -441,7 +442,10 @@ def _run_item_fingerprints(
 def _run_router_outcomes(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
-    from learnloop.router.outcomes import rebuild_router_outcomes
+    from learnloop.router.outcomes import (
+        rebuild_router_outcomes,
+        servable_items_by_learning_object,
+    )
     from learnloop.substrate.canonical_projection import pfc_assessments
 
     # Whole-vault: a decision's outcome can come from any later attempt on its
@@ -454,7 +458,9 @@ def _run_router_outcomes(
             else []
         )
         written = rebuild_router_outcomes(
-            connection, pfc_states=pfc_assessments(connection, attempt_ids)
+            connection,
+            pfc_states=pfc_assessments(connection, attempt_ids),
+            servable_items_by_lo=servable_items_by_learning_object(context.vault),
         )
     return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
 

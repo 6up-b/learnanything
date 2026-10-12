@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 
 from typing import Any
@@ -329,42 +330,80 @@ def offer_trace_for(vault: Any, session_id: str | None) -> OfferTrace | None:
     return OfferTrace()
 
 
+def today_head_served(vault: Any) -> bool:
+    """Whether Today serves the queue's head (router R1's chosen candidate).
+
+    True on this branch: the legacy queue is Today, and Today focuses (and
+    "Next" opens) the first item of its first non-empty section. Daily-loop
+    DL1 merge: return ``not plan_active(vault)``. While the finite plan serves
+    Today, this list is the full list one key away from the plan (picks from it
+    go through ``plan_learner_pick``), so its builds are logged with no chosen
+    candidate (``not_served``) and every bind from it is a learner pick.
+    ``test_the_full_list_seam_follows_dl1s_plan_once_it_lands`` fails until
+    this reads the plan.
+    """
+
+    return True
+
+
+class _TeachBackReadiness:
+    """One teach-back readiness probe per published offer, run only if needed.
+
+    The served list's filter and the head rule's counterfactual offers share
+    it, so they never disagree and the AI clients are resolved once.
+    """
+
+    def __init__(self, ctx: SidecarContext, vault: Any) -> None:
+        self._ctx = ctx
+        self._vault = vault
+        self.value: bool | None = None
+
+    def __call__(self) -> bool:
+        if self.value is None:
+            self.value = teach_back_offerable(
+                self._vault, grading_provider_override=self._ctx.grading_provider_override
+            )
+        return self.value
+
+
 class _OfferHeadRule:
     """Which item an offer shows first, for any composed order of the build.
 
     The same steps that turn a build into the published list: ``limit`` (inside
     the build's composed order), the teach-back readiness filter, the caller's
-    removals (a skipped item), then the sections. One ``now`` for every order.
+    removals (a skipped item), then the sections. One ``now``, one read of the
+    item states and one readiness probe, shared with the published list.
     """
 
     def __init__(
         self,
-        ctx: SidecarContext,
         vault: Any,
-        repository: Any,
         *,
         limit: int | None,
         removed_ids: frozenset[str],
         now: datetime,
+        states: Mapping[str, Any],
+        teach_back_ready: Callable[[], bool],
     ) -> None:
-        self._ctx = ctx
         self._vault = vault
         self._limit = limit
         self._removed = removed_ids
         self._now = now
-        self._states = repository.practice_item_states()
-        self._ready: bool | None = None
+        self._states = states
+        self._teach_back_ready = teach_back_ready
 
     def _is_teach_back(self, scheduled: ScheduledItem) -> bool:
         item = self._vault.practice_items.get(scheduled.practice_item_id)
         return item is not None and item.practice_mode == TEACH_BACK_PRACTICE_MODE
 
-    def _teach_back_ready(self) -> bool:
-        if self._ready is None:
-            self._ready = teach_back_offerable(
-                self._vault, grading_provider_override=self._ctx.grading_provider_override
-            )
-        return self._ready
+    def probe_readiness(self, orders: Any) -> None:
+        """Probe readiness once if any of ``orders`` would show a teach-back."""
+
+        for composed in orders:
+            items = list(composed)[: self._limit] if self._limit is not None else list(composed)
+            if any(self._is_teach_back(item) for item in items):
+                self._teach_back_ready()
+                return
 
     def offered(self, composed: Any) -> list[ScheduledItem]:
         items = list(composed)
@@ -421,38 +460,48 @@ def publish_offer(
     from the offered queue while it is down; ``removed_ids`` are dropped too (a
     skipped item). The resulting list is what ``finalize_scheduler_offer``
     records as offered, and router R1's decision row commits with that receipt.
+    The list, its DTOs and the decision's head rule read the item states once
+    and probe teach-back readiness at most once, so the logged decision
+    describes exactly the list that was published.
     """
 
     slate_id = queue[0].scheduler_slate_id if queue else None
     built = list(queue)
-    queue = filter_unready_teach_back_items(
-        vault, queue, grading_provider_override=ctx.grading_provider_override
-    )
+    teach_back_ready = _TeachBackReadiness(ctx, vault)
+    queue = filter_unready_teach_back_items(vault, queue, offerable=teach_back_ready)
     kept = {item.practice_item_id for item in queue}
     unready = [item.practice_item_id for item in built if item.practice_item_id not in kept]
     if removed_ids:
         queue = [item for item in queue if item.practice_item_id not in removed_ids]
     now = SystemClock().now().astimezone(UTC)
-    dtos = scheduled_item_dtos(vault, repository, queue, now=now)
+    states = repository.practice_item_states()
+    dtos = scheduled_item_dtos(vault, repository, queue, now=now, item_states=states)
     decision = None
     if trace is not None and trace.slate_id is not None:
         try:
+            head_served = today_head_served(vault)
             head_rule = _OfferHeadRule(
-                ctx, vault, repository, limit=trace.limit, removed_ids=removed_ids, now=now
+                vault, limit=trace.limit, removed_ids=removed_ids, now=now, states=states,
+                teach_back_ready=teach_back_ready,
             )
+            # Readiness is a decision input: probe it now if any order the
+            # exploration could compose would show a teach-back.
+            head_rule.probe_readiness([outcome.composed for outcome in trace.outcomes])
             decision = build_today_offer_decision(
                 trace,
                 offered=queue,
                 head_of=head_rule.head,
                 section_of=head_rule.section,
                 served_head=_served_head(dtos),
-                surface=surface,
+                surface=surface if head_served else "full_list",
                 policy=SELECTION_POLICY,
                 in_progress=_in_progress_draft(repository, trace.session_id),
                 removed={
                     "teach_back_provider_unready": unready,
                     "skipped_by_learner": sorted(removed_ids),
                 },
+                inputs={"teach_back_ready": teach_back_ready.value},
+                head_served=head_served,
             )
         except Exception:  # logging never fails the offer
             logging.getLogger(__name__).warning(

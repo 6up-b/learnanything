@@ -135,6 +135,10 @@ class OfferTrace:
     probe_block_reason: str | None = None
     cold_deferrals: tuple[dict[str, Any], ...] = ()
     placement_active: bool = False
+    #: The session the build was composed for (budget, energy, readiness).
+    session_context: dict[str, Any] = field(default_factory=dict)
+    #: The configuration that shaped the build (hashed into the decision).
+    config_snapshot: dict[str, Any] = field(default_factory=dict)
 
 
 @pinned_repository_call
@@ -773,6 +777,22 @@ def build_due_queue(
                             planner = routine_planner_shadow(vault, repository, episode.id)
                             if planner is not None:
                                 extra_components = {"shadow_planner": planner}
+                        if selected.components.get("exploration_selected", 0.0) > 0.0:
+                            # Router R1 (mvp-0.12): the seeded exploration moved
+                            # this probe to the front; it is not the EIG pick
+                            # the presentation's other components describe.
+                            extra_components = {
+                                **(extra_components or {}),
+                                "scheduler_exploration": {
+                                    "mechanism": "scheduler_seeded_exploration",
+                                    "exploration_selected": True,
+                                    "exploration_rate": selected.components.get("exploration_rate"),
+                                    "exploration_propensity": propensity_by_id.get(
+                                        selected.practice_item_id, 0.0
+                                    ),
+                                    "greedy_item_id": greedy_queue[0].practice_item_id,
+                                },
+                            }
                         probe_presentation = presentation_commit_payload(
                             vault,
                             repository,
@@ -851,6 +871,9 @@ def build_due_queue(
             slate_id=traced_slate_id,
             candidate_ids=traced_candidate_ids,
             placement_active=placement_serving is not None,
+            session_context=_session_context(
+                session, short_session=short_session, readiness_factor=readiness_factor
+            ),
         )
     return queue
 
@@ -974,6 +997,7 @@ def _fill_offer_trace(
     slate_id: str | None,
     candidate_ids: dict[str, str],
     placement_active: bool,
+    session_context: dict[str, Any] | None = None,
 ) -> None:
     """Record the build's decision inputs and its exploration's whole support.
 
@@ -997,11 +1021,19 @@ def _fill_offer_trace(
     trace.probe_block_reason = probe_block_reason
     trace.cold_deferrals = tuple(dict(row) for row in cold_deferrals)
     trace.placement_active = placement_active
+    trace.session_context = dict(session_context or {})
+    trace.config_snapshot = {
+        "algorithm_version": config.algorithms.algorithm_version,
+        "scheduler": config.scheduler.model_dump(mode="json"),
+        "teach_back_session_cap": config.teach_back.session_cap,
+        "requested_items_per_session": config.tutor_promotion.requested_items_per_session,
+        "router": config.router.model_dump(mode="json"),
+    }
     rate = clamp(config.scheduler.selection_exploration_rate)
     window = max(config.scheduler.selection_exploration_reward_window, 0.0)
     support = _exploration_support(greedy_queue, session, config)
     exploration: dict[str, Any] = {
-        "mechanism": "scheduler.seeded_exploration",
+        "mechanism": "scheduler_seeded_exploration",
         "rate": rate,
         "reward_window": window,
         "probe_ties_admitted": probe_ties_admitted(config),

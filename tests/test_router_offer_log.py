@@ -113,10 +113,10 @@ def test_today_offer_logs_candidates_the_served_head_and_its_exact_propensity(tm
     # The two items are near-ties: the exploration's support splits 0.9 / 0.1.
     assert row["propensity"] == pytest.approx(items[served[0]]["propensity"])
     assert row["propensity_kind"] == "exact" and 0 < row["propensity"] < 1
-    assert row["design"] == "epsilon_tiebreak" and row["seed"]
+    assert row["design"] == "scheduler_seeded_exploration" and row["seed"]
     stop = next(c for c in row["candidates_json"] if c["ref"] == STOP_REF)
     assert stop["propensity"] == 0.0
-    assert sum(c["propensity"] for c in row["candidates_json"] if c["kind"] in ("item", "stop")) == pytest.approx(1.0)
+    assert sum(c["propensity"] for c in row["candidates_json"]) == pytest.approx(1.0)
     # The decision commits with the published offer and links to its slate.
     slate = repository.latest_scheduler_slate_by_session(session_id)
     assert row["scheduler_slate_id"] == slate["id"] == row["receipt_key"].split(":", 1)[1]
@@ -276,10 +276,11 @@ def test_a_draft_in_progress_is_logged_as_the_continue_candidate(tmp_path):
     offer = _decisions(repository, "today_offer")[-1]
     [cont] = [c for c in offer["candidates_json"] if c["ref"] == CONTINUE_REF]
     assert cont["source"] == "draft" and cont["practice_item_id"] == other["practiceItemId"]
-    # The legacy queue never resumes a draft itself: "continue" carries only the
-    # probability that the draft's item heads the offer anyway.
+    # The legacy queue never resumes a draft itself: the draft's item heads (or
+    # not) as an ordinary item, and "continue" is never served (counted once).
     item = next(c for c in offer["candidates_json"] if c["ref"] == other["practiceItemId"])
-    assert cont["propensity"] == item["propensity"]
+    assert cont["propensity"] == 0.0 and "served_as" not in item
+    assert sum(c["propensity"] for c in offer["candidates_json"]) == pytest.approx(1.0)
     assert offer["chosen_ref"] != CONTINUE_REF
     assert offer["detail_json"]["in_progress"]["source"] == "draft"
 
@@ -439,8 +440,10 @@ def test_a_committed_presentation_is_logged_as_the_continue_choice():
     assert (row["chosen_ref"], row["chosen_practice_item_id"], row["propensity_kind"]) == (
         CONTINUE_REF, "probe", "deterministic",
     )
-    cont = next(c for c in json.loads(row["candidates_json"]) if c["ref"] == CONTINUE_REF)
-    assert (cont["source"], cont["propensity"]) == ("probe_presentation", 1.0)
+    candidates = {c["ref"]: c for c in json.loads(row["candidates_json"])}
+    assert (candidates[CONTINUE_REF]["source"], candidates[CONTINUE_REF]["propensity"]) == ("probe_presentation", 1.0)
+    assert candidates["probe"]["propensity"] == 0.0 and candidates["probe"]["served_as"] == CONTINUE_REF
+    assert sum(c["propensity"] for c in candidates.values()) == pytest.approx(1.0)
 
 
 def test_a_recomposition_that_disagrees_with_the_served_head_is_refused():
@@ -453,3 +456,311 @@ def test_a_recomposition_that_disagrees_with_the_served_head_is_refused():
             trace, offered=[item], head_of=lambda composed: composed[0].practice_item_id,
             section_of=lambda _item: "due", served_head="b", surface="desktop_queue", policy="composed_offer_v2",
         )
+
+
+# ── Codex review fixes (router R1 review) ────────────────────────────────────
+
+
+def _row_for_insert(row: dict, **changes) -> dict:
+    stored = {**row, **changes}
+    for column in ("candidates_json", "exclusions_json", "detail_json"):
+        if not isinstance(stored[column], str):
+            stored[column] = json.dumps(stored[column])
+    return stored
+
+
+def test_a_row_the_ledger_constraints_refuse_raises_instead_of_vanishing(tmp_path):
+    """F1: CHECK and NOT NULL violations raise; only a repeated receipt key is a no-op."""
+
+    import sqlite3
+
+    from learnloop.db.stores.router import insert_router_decision
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    _call(ctx, "get_today_queue", {"sessionId": session_id})
+    [row] = _decisions(repository)
+    with repository.atomic(), repository.connection() as connection:
+        with pytest.raises(sqlite3.IntegrityError):
+            insert_router_decision(
+                connection,
+                _row_for_insert(row, id="bad-p", receipt_key="today_offer:bad-p", propensity=1.0, propensity_kind="exact"),
+            )
+        with pytest.raises(sqlite3.IntegrityError):
+            insert_router_decision(
+                connection, _row_for_insert(row, id="bad-null", receipt_key="today_offer:bad-null", snapshot_hash=None)
+            )
+        # The same receipt key again is the idempotent duplicate it always was.
+        assert insert_router_decision(connection, _row_for_insert(row, id="dup")) is False
+    assert [r["id"] for r in _decisions(repository)] == [row["id"]]
+
+
+def test_an_offer_row_the_ledger_refuses_is_warned_and_the_offer_still_publishes(tmp_path, monkeypatch, caplog):
+    """F1: the offer call site catches the refusal, warns, and keeps the receipt."""
+
+    import logging
+
+    from learnloop_sidecar.handlers import queue as queue_handler
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    original = queue_handler.build_today_offer_decision
+
+    def malformed(*args, **kwargs):
+        return {**original(*args, **kwargs), "propensity": 1.0, "propensity_kind": "exact"}
+
+    monkeypatch.setattr(queue_handler, "build_today_offer_decision", malformed)
+    with caplog.at_level(logging.WARNING):
+        queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+
+    assert len(_served(queue)) == 2 and _decisions(repository) == []
+    slate = repository.latest_scheduler_slate_by_session(session_id)
+    with repository.connection() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM scheduler_offer_receipts WHERE slate_id=?", (slate["id"],)
+        ).fetchone()[0] == 1
+    assert any("router R1" in record.getMessage() and "refused" in record.getMessage() for record in caplog.records)
+
+
+def test_an_unregistered_design_is_refused():
+    """F5: the design column names a registered assignment mechanism only."""
+
+    from learnloop.db.stores.router import ROUTER_DESIGNS, insert_router_decision
+
+    assert {"scheduler_seeded_exploration", "epsilon_tiebreak"} <= set(ROUTER_DESIGNS)
+    with pytest.raises(ValueError, match="design"):
+        insert_router_decision(None, {"design": "made_up_draw"})  # refused before any SQL
+
+
+def test_today_offers_name_the_schedulers_own_exploration_as_their_design(tmp_path):
+    """F5: the Today draw is not randomization_layer's epsilon_tiebreak."""
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    _call(ctx, "get_today_queue", {"sessionId": session_id})
+    [row] = _decisions(repository)
+    assert row["propensity_kind"] == "exact"
+    assert row["design"] == "scheduler_seeded_exploration"
+    assert row["detail_json"]["exploration"]["mechanism"] == "scheduler_seeded_exploration"
+
+
+def test_a_learner_pick_that_cannot_be_logged_never_fails_the_bind(tmp_path, monkeypatch, caplog):
+    """F7: a logging failure inside the bind rolls back alone; the draft saves."""
+
+    import logging
+    import sqlite3
+
+    from learnloop.db.stores import collection
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+    other = [item for section in queue["sections"] for item in section["items"]][1]
+
+    slate = repository.latest_scheduler_slate_by_session(session_id)
+
+    def drifted(connection, **_kwargs):
+        # A partial write, then the kind of error a renumbered schema raises.
+        connection.execute("UPDATE scheduler_slates SET returned_count = returned_count + 100 WHERE id=?", (slate["id"],))
+        raise sqlite3.OperationalError("no such column: drifted")
+
+    monkeypatch.setattr(collection, "record_learner_pick", drifted)
+    with caplog.at_level(logging.WARNING):
+        result = _draft(ctx, session_id, other["practiceItemId"], other["schedulerCandidateId"])
+
+    assert result == {"ok": True}
+    with repository.connection() as connection:
+        intent = connection.execute(
+            "SELECT scheduler_candidate_id FROM submission_intents WHERE submission_id='sub-1'"
+        ).fetchone()
+        returned = connection.execute("SELECT returned_count FROM scheduler_slates WHERE id=?", (slate["id"],)).fetchone()
+    assert intent["scheduler_candidate_id"] == other["schedulerCandidateId"]
+    assert returned[0] == slate["returned_count"]  # the partial write rolled back alone
+    assert _decisions(repository, "learner_pick") == []
+    assert any("learner pick" in record.getMessage() for record in caplog.records)
+
+
+def test_a_teach_back_reopened_from_a_refreshed_list_is_one_pick(tmp_path):
+    """F7: a conversation's later offer is validated, not picked again."""
+
+    from types import SimpleNamespace
+
+    from learnloop_sidecar.handlers.teach_back import _conversation_offer
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    first = [i for s in _call(ctx, "get_today_queue", {"sessionId": session_id})["sections"] for i in s["items"]]
+    second = [i for s in _call(ctx, "get_today_queue", {"sessionId": session_id})["sections"] for i in s["items"]]
+    assert first[0]["practiceItemId"] == second[0]["practiceItemId"]
+    item_id = first[1]["practiceItemId"]
+    assert second[1]["practiceItemId"] == item_id
+    assert first[1]["schedulerCandidateId"] != second[1]["schedulerCandidateId"]
+
+    def params(candidate_id):
+        return SimpleNamespace(session_id=session_id, practice_item_id=item_id, scheduler_candidate_id=candidate_id)
+
+    bound = _conversation_offer(repository, params(first[1]["schedulerCandidateId"]), None)
+    assert bound == first[1]["schedulerCandidateId"]
+    assert _conversation_offer(repository, params(second[1]["schedulerCandidateId"]), bound) == bound
+
+    [pick] = _decisions(repository, "learner_pick")
+    assert pick["chosen_scheduler_candidate_id"] == bound
+
+
+def test_while_the_plan_serves_the_full_list_logs_no_system_choice_and_every_bind_is_a_pick(tmp_path, monkeypatch):
+    """F3: under DL1's plan the list is a learner-choice surface, not a served head."""
+
+    from learnloop_sidecar.handlers import queue as queue_handler
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    monkeypatch.setattr(queue_handler, "today_head_served", lambda _vault: False)
+    queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+
+    [row] = _decisions(repository)
+    assert (row["decision_kind"], row["surface"]) == ("today_offer", "full_list")
+    assert (row["chosen_ref"], row["chosen_practice_item_id"], row["chosen_scheduler_candidate_id"]) == (None, None, None)
+    assert (row["propensity"], row["propensity_kind"], row["design"], row["seed"]) == (None, "not_served", None, None)
+    assert {c["ref"] for c in row["candidates_json"] if c["kind"] == "item"} == set(_served(queue))
+    assert row["detail_json"]["head_served"] is False
+
+    # Opening the list's first item is the learner's choice too.
+    head = queue["sections"][0]["items"][0]
+    _draft(ctx, session_id, head["practiceItemId"], head["schedulerCandidateId"])
+    [pick] = _decisions(repository, "learner_pick")
+    assert pick["parent_decision_id"] == row["id"]
+    assert (pick["chosen_ref"], pick["propensity_kind"], pick["learner_pick"]) == (head["practiceItemId"], "none", 1)
+    assert pick["detail_json"]["overrode_ref"] is None
+
+
+def test_the_full_list_seam_follows_dl1s_plan_once_it_lands(monkeypatch):
+    """F3 tripwire: after the DL1 merge the seam must read ``plan_active``."""
+
+    from types import SimpleNamespace
+
+    from learnloop_sidecar.handlers import queue as queue_handler
+
+    assert queue_handler.today_head_served(SimpleNamespace(config=None)) is True
+    engine = pytest.importorskip("learnloop.daily_plan.engine")
+    monkeypatch.setattr(engine, "plan_active", lambda _vault: True)
+    monkeypatch.setattr(queue_handler, "plan_active", lambda _vault: True, raising=False)
+    assert queue_handler.today_head_served(SimpleNamespace(config=None)) is False
+
+
+def test_the_head_rule_and_the_served_list_read_one_state_snapshot(tmp_path, monkeypatch):
+    """F6: a due date moved between the DTO read and the head rule's own read
+    used to refuse the row (OfferHeadMismatch); one shared read logs it."""
+
+    from learnloop_sidecar.handlers import queue as queue_handler
+
+    paths, repository, ctx, session_id = _two_due_items(tmp_path, toml="[scheduler]\nselection_exploration_rate = 0.0\n")
+    original = queue_handler.scheduled_item_dtos
+
+    def then_the_worker_reschedules(vault, repo, items, **kwargs):
+        dtos = original(vault, repo, items, **kwargs)
+        with repo.connection() as connection:
+            connection.execute(
+                "UPDATE practice_item_state SET due_at='2099-01-01T00:00:00Z' WHERE practice_item_id=?",
+                (items[0].practice_item_id,),
+            )
+            connection.commit()
+        return dtos
+
+    monkeypatch.setattr(queue_handler, "scheduled_item_dtos", then_the_worker_reschedules)
+    queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+
+    [row] = _decisions(repository)
+    assert row["chosen_ref"] == _served(queue)[0]
+
+
+def test_teach_back_readiness_is_probed_once_per_offer(tmp_path, monkeypatch):
+    """F6: the served list's filter and the head rule share one readiness probe."""
+
+    from learnloop.vault.writer import upsert_practice_item
+    from learnloop_sidecar.handlers import queue as queue_handler
+    from learnloop_sidecar.handlers import teach_back as teach_back_handler
+
+    paths, repository, _ctx, session_id = _two_due_items(tmp_path)
+    upsert_practice_item(paths.root, _TEACH_BACK_ITEM, clock=FrozenClock(NOW))
+    ctx = _context(paths.root)
+    calls = []
+
+    def unready(_vault, **_kwargs):
+        calls.append(1)
+        return False
+
+    monkeypatch.setattr(teach_back_handler, "teach_back_offerable", unready)
+    monkeypatch.setattr(queue_handler, "teach_back_offerable", unready, raising=False)
+    queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+
+    assert "pi_svd_teach_back" not in _served(queue)
+    [row] = _decisions(repository)
+    assert row["exclusions_json"]["named"]["teach_back_provider_unready"] == ["pi_svd_teach_back"]
+    assert len(calls) == 1
+
+
+_TEACH_BACK_ITEM = {
+    "id": "pi_svd_teach_back",
+    "learning_object_id": "lo_svd_definition",
+    "subjects": None,
+    "practice_mode": "teach_back",
+    "attempt_types_allowed": ["teach_back"],
+    "evidence_facets": ["recall"],
+    "evidence_weights": {"recall": 1.0},
+    "criterion_facet_weights": {"core_definition": {"recall": 1.0}},
+    "prompt": "Teach the singular value decomposition to a curious student.",
+    "expected_answer": "U, Sigma and V transpose.",
+    "grading_rubric": {
+        "max_points": 1,
+        "criteria": [{"id": "core_definition", "points": 1.0, "tier": "core", "description": "States U, Sigma, V."}],
+        "fatal_errors": [],
+    },
+    "created_at": "2026-05-19T12:00:00Z",
+    "updated_at": "2026-05-19T12:00:00Z",
+}
+
+
+def test_candidate_propensities_are_one_distribution_with_continue_counted_once():
+    """F9: the pinned item's mass is on "continue" only; everything sums to 1."""
+
+    pinned = _scheduled("probe", 0.4)
+    other = _scheduled("other", 0.5)
+    trace = OfferTrace(
+        algorithm_version="mvp-0.12", session_id="s", now_iso="2026-05-19T12:00:00Z", slate_id="slate",
+        candidate_ids={"probe": "c1", "other": "c2"}, greedy_item_ids=("other", "probe"),
+        considered=(pinned, other), base_propensity={"other": 0.9, "probe": 0.1},
+        exploration={"seed": "x"}, pinned_item_id="probe",
+        outcomes=(
+            ExplorationOutcome(None, 0.7, (pinned, other)),
+            ExplorationOutcome("other", 0.3, (other, pinned)),
+        ),
+    )
+    row = build_today_offer_decision(
+        trace, offered=[pinned, other], head_of=lambda composed: composed[0].practice_item_id,
+        section_of=lambda _item: "due", served_head="probe", surface="desktop_queue", policy="composed_offer_v2",
+    )
+    candidates = {c["ref"]: c for c in json.loads(row["candidates_json"])}
+    assert row["chosen_ref"] == CONTINUE_REF and row["propensity"] == pytest.approx(0.7)
+    assert candidates[CONTINUE_REF]["propensity"] == pytest.approx(0.7)
+    assert candidates["probe"]["propensity"] == 0.0 and candidates["probe"]["served_as"] == CONTINUE_REF
+    assert candidates["other"]["propensity"] == pytest.approx(0.3)
+    assert sum(c["propensity"] for c in candidates.values()) == pytest.approx(1.0)
+
+
+def test_the_snapshot_hash_covers_the_decision_inputs_not_the_build_time():
+    """F9: same inputs at another instant hash alike; another session context differs."""
+
+    item = _scheduled("a", 1.0)
+
+    def row(now_iso: str, minutes: int, rate: float = 0.1):
+        trace = OfferTrace(
+            algorithm_version="mvp-0.12", session_id="s", now_iso=now_iso, slate_id="slate",
+            candidate_ids={"a": "c1"}, considered=(item,), outcomes=(ExplorationOutcome(None, 1.0, (item,)),),
+            session_context={"available_minutes": minutes, "energy": None, "short_session": False,
+                             "readiness_factor": None},
+            config_snapshot={"scheduler": {"selection_exploration_rate": rate}},
+        )
+        return build_today_offer_decision(
+            trace, offered=[item], head_of=lambda composed: composed[0].practice_item_id,
+            section_of=lambda _item: "due", served_head="a", surface="desktop_queue", policy="composed_offer_v2",
+            inputs={"teach_back_ready": None},
+        )
+
+    base = row("2026-05-19T12:00:00Z", 20)["snapshot_hash"]
+    assert row("2026-05-19T12:00:07Z", 20)["snapshot_hash"] == base
+    assert row("2026-05-19T12:00:00Z", 45)["snapshot_hash"] != base
+    assert row("2026-05-19T12:00:00Z", 20, rate=0.2)["snapshot_hash"] != base

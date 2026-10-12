@@ -20,14 +20,27 @@ Plan.md``, "Outcome and cost contract"):
 The action is the decision's chosen candidate. A Today offer's head is taken
 when an attempt is bound to its scheduler candidate; a learner pick's when an
 attempt is bound to the picked candidate; a staged decision's when its chosen
-item is attempted at or after the decision in its session. An outcome with no
-eligible attempt yet is ``pending``: right-censored at ``observed_through``
-(the newest attempt in the ledger), never a failure. Values are the attempt's
-``correctness`` in [0, 1].
+item is attempted at or after the decision in its session. An untaken head is
+``overridden`` (a learner pick from the same offer), ``superseded`` (a later
+decision in its session), ``not_taken`` (its session ended) or ``open``. An
+outcome with no eligible attempt yet is ``pending``: right-censored at
+``observed_through`` (the newest attempt in the ledger), never a failure.
+Values are the attempt's ``correctness`` in [0, 1].
 
-Deterministic from ledgers only (``router_decisions``, ``practice_attempts``,
-grading evidence through the caller's PF-c states, ``reveal_events``): no
-clock, no model call. It imports no scheduler or substrate code.
+``S`` follows the plan's rule that R_next makes it provisional and only R_cold
+finalizes it. An observed R_cold makes ``S`` final: with the R_next observed at
+or before the cold attempt, ``S = 0.75 R_cold + 0.25 R_next``; with none, the
+R_next window is closed (``not_applicable``, ``closed_by_r_cold``: a "next"
+attempt after the cold retrieval is not immediate uptake) and ``S = R_cold``.
+So a final ``S`` never moves. R_next is also ``not_applicable`` when the
+learning object has no other servable item (``no_other_servable_item``): it
+could never be observed, so it is not reported as pending forever.
+
+Deterministic from ledgers (``router_decisions``, ``practice_attempts``,
+grading evidence through the caller's PF-c states, ``reveal_events``,
+``sessions.ended_at``) and the caller's map of servable items per learning
+object (vault content): no clock, no model call. It imports no scheduler or
+substrate code.
 """
 from __future__ import annotations
 
@@ -165,10 +178,40 @@ def _action_attempt(decision: Mapping[str, Any], ledger: _Ledger) -> dict[str, A
     return None
 
 
-def _r_next(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str, str]) -> dict[str, Any]:
+def servable_items_by_learning_object(vault: Any) -> dict[str, set[str]]:
+    """Each learning object's active, servable practice items (vault content).
+
+    R_next needs a different item on the action's learning object; where there
+    is none it is ``not_applicable``. Retired items and ephemeral dialogue-turn
+    microprobes are never served.
+    """
+
+    by_lo: dict[str, set[str]] = defaultdict(set)
+    for item in getattr(vault, "practice_items", {}).values():
+        if getattr(item, "status", "active") != "active":
+            continue
+        if getattr(item, "practice_mode", None) == "diagnostic_microprobe":
+            continue
+        learning_object_id = getattr(item, "learning_object_id", None)
+        if learning_object_id:
+            by_lo[learning_object_id].add(item.id)
+    return dict(by_lo)
+
+
+def _r_next(
+    action: Mapping[str, Any],
+    ledger: _Ledger,
+    pfc_states: Mapping[str, str],
+    *,
+    until_position: int | None = None,
+) -> dict[str, Any]:
+    """The first fresh, unassisted, independent attempt after the action, at or
+    before ``until_position`` (the R_cold attempt) when one is given."""
+
     rows = ledger.by_lo[action["learning_object_id"]]
+    end = len(rows) if until_position is None else until_position + 1
     skipped: dict[str, int] = defaultdict(int)
-    for row in rows[ledger.position[action["id"]] + 1:]:
+    for row in rows[ledger.position[action["id"]] + 1:end]:
         if row["practice_item_id"] == action["practice_item_id"]:
             skipped["not_fresh_same_item"] += 1
             continue
@@ -219,9 +262,13 @@ def _r_cold(action: Mapping[str, Any], ledger: _Ledger, pfc_states: Mapping[str,
             "value": float(row["correctness"]),
             "attempt_id": row["id"],
             "gap_seconds": gap,
+            "position": index,
             "skipped": skipped,
         }
-    return {"status": "pending", "value": None, "attempt_id": None, "gap_seconds": None, "skipped": skipped}
+    return {
+        "status": "pending", "value": None, "attempt_id": None, "gap_seconds": None, "position": None,
+        "skipped": skipped,
+    }
 
 
 def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: str | None, *, pending: bool) -> dict[str, Any]:
@@ -251,14 +298,37 @@ def _not_applicable(decision: Mapping[str, Any], status: str, observed_through: 
     }
 
 
+def _ended_sessions(connection: sqlite3.Connection, session_ids: set[str]) -> set[str]:
+    if not session_ids:
+        return set()
+    ended: set[str] = set()
+    ids = sorted(session_ids)
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        ended.update(
+            row[0]
+            for row in connection.execute(
+                f"SELECT id FROM sessions WHERE ended_at IS NOT NULL AND id IN ({','.join('?' for _ in chunk)})",
+                chunk,
+            )
+        )
+    return ended
+
+
 def derive_router_outcomes(
-    connection: sqlite3.Connection, *, pfc_states: Mapping[str, str] | None = None
+    connection: sqlite3.Connection,
+    *,
+    pfc_states: Mapping[str, str] | None = None,
+    servable_items_by_lo: Mapping[str, set[str]] | None = None,
 ) -> list[dict[str, Any]]:
     """One outcome row per logged decision, from the ledgers alone (read-only).
 
     ``pfc_states`` maps attempt id to its PF-c assessment
     (``substrate.canonical_projection.pfc_assessments``); a nothing-assessed
-    answer is never an outcome.
+    answer is never an outcome. ``servable_items_by_lo``
+    (:func:`servable_items_by_learning_object`) lets R_next be
+    ``not_applicable`` where the learning object has no other item; without it
+    an unobserved R_next stays ``pending``.
     """
 
     pfc_states = pfc_states or {}
@@ -278,6 +348,7 @@ def derive_router_outcomes(
     for index, row in enumerate(decisions):
         if row["session_id"]:
             last_in_session[row["session_id"]] = index
+    ended = _ended_sessions(connection, set(last_in_session))
 
     outcomes: list[dict[str, Any]] = []
     for index, decision in enumerate(decisions):
@@ -291,19 +362,39 @@ def derive_router_outcomes(
                 status, pending = "overridden", False
             elif decision["session_id"] and last_in_session.get(decision["session_id"], -1) > index:
                 status, pending = "superseded", False
+            elif decision["session_id"] in ended:
+                status, pending = "not_taken", False
             else:
                 status, pending = "open", True
             outcomes.append(_not_applicable(decision, status, ledger.observed_through, pending=pending))
             continue
-        r_next = _r_next(action, ledger, pfc_states)
         r_cold = _r_cold(action, ledger, pfc_states)
-        if r_next["status"] == "observed" and r_cold["status"] == "observed":
+        # Only R_cold finalizes S: once it is observed, R_next counts only if
+        # it came at or before the cold attempt.
+        r_next = _r_next(action, ledger, pfc_states, until_position=r_cold["position"])
+        r_next_not_applicable = None
+        if r_next["status"] != "observed":
+            others = (
+                set(servable_items_by_lo.get(action["learning_object_id"], set())) - {action["practice_item_id"]}
+                if servable_items_by_lo is not None
+                else None
+            )
+            if others is not None and not others:
+                r_next_not_applicable = "no_other_servable_item"
+            elif r_cold["status"] == "observed":
+                r_next_not_applicable = "closed_by_r_cold"
+            if r_next_not_applicable is not None:
+                r_next = {**r_next, "status": "not_applicable"}
+        if r_cold["status"] == "observed":
             s_status = "final"
-            s_value = S_ALPHA * r_cold["value"] + (1.0 - S_ALPHA) * r_next["value"]
-        elif r_next["status"] == "observed" or r_cold["status"] == "observed":
-            # Provisional: R_next while R_cold is pending (or the reverse).
-            s_status = "provisional"
-            s_value = r_next["value"] if r_next["status"] == "observed" else r_cold["value"]
+            s_value = (
+                S_ALPHA * r_cold["value"] + (1.0 - S_ALPHA) * r_next["value"]
+                if r_next["status"] == "observed"
+                else r_cold["value"]
+            )
+        elif r_next["status"] == "observed":
+            # Provisional: R_next while R_cold is pending.
+            s_status, s_value = "provisional", r_next["value"]
         else:
             s_status, s_value = "pending", None
         outcomes.append(
@@ -334,10 +425,14 @@ def derive_router_outcomes(
                         "cold_min_gap_seconds": RETENTION_MIN_DELAY_SECONDS,
                         "r_next_skip_reasons": dict(sorted(r_next["skipped"].items())),
                         "r_cold_skip_reasons": dict(sorted(r_cold["skipped"].items())),
-                        "s_provisional_from": (
+                        "r_next_not_applicable": r_next_not_applicable,
+                        "s_provisional_from": "r_next" if s_status == "provisional" else None,
+                        "s_from": (
                             None
-                            if s_status != "provisional"
-                            else ("r_next" if r_next["status"] == "observed" else "r_cold")
+                            if s_value is None
+                            else "r_cold_and_r_next"
+                            if s_status == "final" and r_next["status"] == "observed"
+                            else "r_cold" if s_status == "final" else "r_next"
                         ),
                     },
                     sort_keys=True,
@@ -348,11 +443,19 @@ def derive_router_outcomes(
 
 
 def rebuild_router_outcomes(
-    connection: sqlite3.Connection, *, pfc_states: Mapping[str, str] | None = None
+    connection: sqlite3.Connection,
+    *,
+    pfc_states: Mapping[str, str] | None = None,
+    servable_items_by_lo: Mapping[str, set[str]] | None = None,
 ) -> int:
     """Replace the derived cache; the caller owns the transaction."""
 
-    return replace_router_outcomes(connection, derive_router_outcomes(connection, pfc_states=pfc_states))
+    return replace_router_outcomes(
+        connection,
+        derive_router_outcomes(
+            connection, pfc_states=pfc_states, servable_items_by_lo=servable_items_by_lo
+        ),
+    )
 
 
 __all__ = [
@@ -361,4 +464,5 @@ __all__ = [
     "S_ALPHA",
     "derive_router_outcomes",
     "rebuild_router_outcomes",
+    "servable_items_by_learning_object",
 ]

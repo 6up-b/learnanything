@@ -85,7 +85,10 @@ def router_log(
     """The newest logged router decisions, with their R_next / R_cold / S outcomes."""
 
     from learnloop.db.stores.router import router_decision_rows
-    from learnloop.router.outcomes import derive_router_outcomes
+    from learnloop.router.outcomes import (
+        derive_router_outcomes,
+        servable_items_by_learning_object,
+    )
     from learnloop.substrate.canonical_projection import pfc_assessments
 
     try:
@@ -105,7 +108,9 @@ def router_log(
             outcomes = {
                 row["decision_id"]: row
                 for row in derive_router_outcomes(
-                    connection, pfc_states=pfc_assessments(connection, attempt_ids)
+                    connection,
+                    pfc_states=pfc_assessments(connection, attempt_ids),
+                    servable_items_by_lo=servable_items_by_learning_object(loaded),
                 )
             }
             total = connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0]

@@ -208,3 +208,71 @@ def test_a_randomized_within_block_choice_logs_its_assignment_propensity():
     assert (row["propensity"], row["propensity_kind"], row["design"], row["seed"]) == (
         0.5, "exact", "epsilon_tiebreak", "seed-x",
     )
+
+
+# ── Codex review F2: the row describes what the bridge served ────────────────
+
+
+def _randomized_result():
+    from learnloop.scheduling import staged_policy as sp
+
+    return sp.DecisionResult(
+        decision_id="d3", already=False, action="measure_diagnostic", subtype=None,
+        staged_rule="positive_robust_measurement_value", chosen_candidate_ref="pi_2", stop_reason=None,
+        snapshot_hash="h",
+        trace={"attention_block": {}, "feasible_set": ["pi_1", "pi_2"],
+               "ranking_inputs": {"selector": "robust_evsi_per_minute",
+                                  "ranked": [{"candidate_ref": "pi_1", "rank": 1}, {"candidate_ref": "pi_2", "rank": 2}],
+                                  "evsi_assignment": {"randomized": True, "propensity": 0.5, "seed": "seed-x",
+                                                      "variant": "pi_2", "design": "epsilon_tiebreak",
+                                                      "assignment_id": "asg-1"}}},
+        why="",
+    )
+
+
+def test_a_served_successor_is_deterministic_and_the_draw_stays_on_its_item():
+    from learnloop.router.decisions import build_staged_p2_decision
+
+    row = build_staged_p2_decision(
+        _randomized_result(), ladder=[],
+        canonical={"to_state": "assessing", "reason": "baseline done", "terminal": False},
+        authority="staged", veto_reason=None, run_id="r", commitment_id="c", algorithm_version="mvp-0.12",
+        session_id="s", chosen_learning_object_id="lo",
+    )
+    # The bridge serves the run's canonical successor, deterministically; the
+    # staged policy's within-block pick was never served.
+    assert (row["chosen_ref"], row["chosen_practice_item_id"], row["chosen_learning_object_id"]) == (
+        CONTINUE_REF, None, None,
+    )
+    assert (row["propensity"], row["propensity_kind"], row["design"], row["seed"]) == (
+        1.0, "deterministic", None, None,
+    )
+    candidates = {c["ref"]: c for c in json.loads(row["candidates_json"])}
+    assert candidates["pi_2"]["within_block_assignment"] == {
+        "design": "epsilon_tiebreak", "propensity": 0.5, "seed": "seed-x", "assignment_id": "asg-1",
+    }
+    assert "within_block_assignment" not in candidates["pi_1"]
+    assert json.loads(row["detail_json"])["served"] == "canonical_successor"
+
+
+def test_a_run_with_no_successor_logs_the_deferral_it_served():
+    from learnloop.router.decisions import build_staged_p2_decision
+
+    row = build_staged_p2_decision(
+        _randomized_result(), ladder=[],
+        canonical={"to_state": None, "reason": "await owner/learner decision", "terminal": False},
+        authority="staged", veto_reason=None, run_id="r", commitment_id="c", algorithm_version="mvp-0.12",
+        session_id="s", chosen_learning_object_id="lo",
+    )
+    assert (row["chosen_ref"], row["chosen_practice_item_id"]) == (STOP_REF, None)
+    assert (row["propensity"], row["propensity_kind"], row["design"]) == (1.0, "deterministic", None)
+    assert json.loads(row["detail_json"])["served"] == "no_transition"
+
+
+def test_the_live_bridge_logs_no_unserved_item_on_its_continue_row(tmp_path):
+    repo, receipt, vault = _run(tmp_path)
+    cut.staged_next_action(repo, receipt.run_id, vault=vault, session=_session(),
+                           live=True, receipt_key="rk-item", clock=CLOCK)
+    [row] = _rows(repo)
+    assert row["chosen_ref"] == CONTINUE_REF
+    assert (row["chosen_practice_item_id"], row["chosen_learning_object_id"]) == (None, None)

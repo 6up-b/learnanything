@@ -25,7 +25,9 @@ rebuilds `judgment_ledger` so it records the Decider's verdicts as
 `judge = 'decider'`; migration 176 (router R1) adds the append-only
 `router_decisions` ledger (Today offers, staged P2 decisions and learner
 picks with their candidate sets and propensities) and the derived
-`router_outcomes` (R_next, R_cold and S per decision). It pins current-head schema coverage
+`router_outcomes` (R_next, R_cold and S per decision); the database was
+rebuilt from the 175 head when the R1 review added `not_served` and
+`not_taken` to those tables' CHECKs. It pins current-head schema coverage
 while the original populated fixture and the other vaults remain at
 historical versions for upgrade-path tests.
 

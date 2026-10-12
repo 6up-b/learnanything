@@ -4,15 +4,18 @@ Three decisions are logged, each as one append-only ``router_decisions`` row:
 
 * **A Today offer** (``today_offer``): the legacy scheduler's composed offer. Its
   chosen candidate is the item Today focuses first and "Next" opens (the head of
-  the first non-empty section). Its propensity is exact: the seeded epsilon
-  tie-break is the offer's only draw, and the scheduler recomposes the offer
-  under every outcome of that draw (``OfferTrace.outcomes``), so the
-  probability that each candidate heads the offer is a sum over that support.
-  Everything after the draw (goal quota, requested floor, forced follow-ups,
-  contrast-pair order, the committed presentation pin, ``limit``, the
-  teach-back readiness filter) is inside the propensity, not around it. The
-  contrast-pair coin is seeded per session and pair, so it is context the
-  decision is conditioned on, not part of its draw.
+  the first non-empty section). Its propensity is exact: the scheduler's seeded
+  exploration (design ``scheduler_seeded_exploration``) is the offer's only
+  draw, and the scheduler recomposes the offer under every outcome of that draw
+  (``OfferTrace.outcomes``), so the probability that each candidate heads the
+  offer is a sum over that support. Everything after the draw (goal quota,
+  requested floor, forced follow-ups, contrast-pair order, the committed
+  presentation pin, ``limit``, the teach-back readiness filter) is inside the
+  propensity, not around it. The contrast-pair coin is seeded per session and
+  pair, so it is context the decision is conditioned on, not part of its draw.
+  When no head is served (the full list while the daily plan serves Today),
+  the row records the candidates with ``propensity_kind = 'not_served'`` and no
+  chosen candidate, and every bind from it is a learner pick.
 * **A staged P2 decision** (``staged_p2``): the P4 staged policy deciding a
   staged-owned golden-path run's next action.
 * **A learner pick** (``learner_pick``): the learner started an offered
@@ -39,7 +42,12 @@ logger = logging.getLogger(__name__)
 
 CONTINUE_REF = "continue_current"
 STOP_REF = "stop_for_today"
+#: The Today queue's own exploration (see ``db.stores.router.ROUTER_DESIGNS``).
+DESIGN_SCHEDULER_EXPLORATION = "scheduler_seeded_exploration"
+#: ``randomization_layer.epsilon_tiebreak`` (the staged within-block draw).
 DESIGN_EPSILON_TIEBREAK = "epsilon_tiebreak"
+#: An offer that served no head: the learner chooses from the list.
+NOT_SERVED = "not_served"
 MODE_LEGACY_QUEUE = "legacy_queue"
 MODE_STAGED = "staged"
 STAGED_POLICY = "staged_policy_v1"
@@ -174,6 +182,8 @@ def build_today_offer_decision(
     policy: str,
     in_progress: Mapping[str, Any] | None = None,
     removed: Mapping[str, Iterable[str]] | None = None,
+    inputs: Mapping[str, Any] | None = None,
+    head_served: bool = True,
     created_at: str | None = None,
 ) -> dict[str, Any]:
     """The ``router_decisions`` row for one published Today offer.
@@ -185,6 +195,10 @@ def build_today_offer_decision(
     caller dropped after the build (``teach_back_provider_unready``,
     ``skipped_by_learner``). ``in_progress`` describes an item the session
     already has under way (a committed probe presentation or a saved draft).
+    ``inputs`` are the caller's own decision inputs (teach-back readiness),
+    hashed with the trace's. ``head_served=False`` logs a list the learner
+    picks from: candidates and the queue's head distribution, no chosen
+    candidate and no propensity (``not_served``).
     """
 
     if not trace.outcomes:
@@ -259,6 +273,19 @@ def build_today_offer_decision(
         continuation = dict(in_progress)
     if continuation is not None:
         item_id = continuation.get("practice_item_id")
+        # One distribution over the refs, "continue" counted once. The pin is
+        # the legacy queue's only continuation: whenever the pinned item heads
+        # the offer it is served as "continue", so that mass is continue's and
+        # the item's own entry carries 0 (``served_as``). A draft is never
+        # resumed by the queue itself: its item heads as an ordinary item, and
+        # "continue" carries 0.
+        continue_probability = 0.0
+        if pinned is not None:
+            continue_probability = _exact(distribution.get(pinned, 0.0))
+            for entry in candidates:
+                if entry["ref"] == pinned:
+                    entry["propensity"] = 0.0
+                    entry["served_as"] = CONTINUE_REF
         candidates.append(
             {
                 "ref": CONTINUE_REF,
@@ -266,10 +293,7 @@ def build_today_offer_decision(
                 "practice_item_id": item_id,
                 "source": continuation.get("source"),
                 "feasible": True,
-                # The pin is the legacy queue's only continuation: a committed
-                # presentation heads every outcome. A draft is never resumed by
-                # the queue itself; its probability is that it heads anyway.
-                "propensity": _exact(distribution.get(item_id, 0.0)) if item_id else 0.0,
+                "propensity": continue_probability,
             }
         )
     candidates.append(
@@ -292,7 +316,12 @@ def build_today_offer_decision(
         chosen_ref = served_head
         chosen_item = by_id.get(served_head)
     propensity, propensity_kind = _propensity(distribution.get(served_head, 0.0))
-    design = DESIGN_EPSILON_TIEBREAK if propensity_kind == "exact" else None
+    design = DESIGN_SCHEDULER_EXPLORATION if propensity_kind == "exact" else None
+    if not head_served:
+        # The learner chooses from this list: nothing was served, so nothing
+        # was chosen and no propensity applies (every bind is a learner pick).
+        chosen_ref, chosen_item = None, None
+        propensity, propensity_kind, design = None, NOT_SERVED, None
 
     exclusions: dict[str, list[str]] = {
         reason: list(ids) for reason, ids in trace.exclusions.items()
@@ -333,23 +362,34 @@ def build_today_offer_decision(
         "placement_active": trace.placement_active,
         "offered_count": len(offered),
         "built_at": trace.now_iso,
+        "head_served": head_served,
+        "session_context": dict(getattr(trace, "session_context", None) or {}),
+        "inputs": dict(inputs or {}),
         # The staged policy does not run on Today's legacy queue (spec §2): no
         # candidate here has a staged eligibility to log.
         "staged_eligibility": "not_evaluated_on_legacy_queue",
     }
+    # The decision's inputs (P4 §3.3): candidates with their planner values,
+    # exclusions, the draw's design, the session context (budget, energy), the
+    # configuration that shaped the build, and the caller's own inputs. Not the
+    # build time: the same inputs at another instant hash alike.
     snapshot_hash = _canonical_hash(
         {
             "algorithm_version": trace.algorithm_version,
             "session_id": trace.session_id,
-            "built_at": trace.now_iso,
             "candidates": [
-                {key: entry.get(key) for key in ("ref", "kind", "planner", "section", "propensity")}
+                {key: entry.get(key) for key in ("ref", "kind", "planner", "section", "propensity", "served_as")}
                 for entry in candidates
             ],
             "exclusions": exclusion_json,
             "exploration": exploration,
             "limit": trace.limit,
             "pinned_item_id": pinned,
+            "in_progress": continuation,
+            "head_served": head_served,
+            "session_context": getattr(trace, "session_context", None) or {},
+            "config": getattr(trace, "config_snapshot", None) or {},
+            "inputs": dict(inputs or {}),
         }
     )
     return {
@@ -418,6 +458,17 @@ def build_staged_p2_decision(
     rungs with their eligibility (``staged_policy.ladder_eligibility``);
     ``canonical`` the run's pre-cutover successor (the "continue" candidate);
     ``authority``/``veto_reason`` what the bridge served.
+
+    The chosen candidate is what the bridge served, never a pick it did not
+    serve. The bridge (``controller_cutover.advance_live``) serves the run's
+    canonical successor when one stands (``continue_current``, deterministic:
+    no item of the staged policy's block is served), and nothing on a veto or
+    when the run has no successor (``stop_for_today``: the run defers). The
+    staged policy's within-block pick, and its ``epsilon_tiebreak`` assignment
+    when that pick was randomized, stay on the item candidate it concerns
+    (``within_block_assignment``). ``canonical=None`` (no bridge) logs the
+    staged decision itself as served: its block, with the within-block item and
+    that assignment's propensity.
     """
 
     trace = result.trace or {}
@@ -454,19 +505,28 @@ def build_staged_p2_decision(
                 "planner": {key: _round(value) for key, value in (rung.get("planner") or {}).items()},
             }
         )
+    randomized = bool(assignment and assignment.get("randomized"))
     feasible_refs = list(trace.get("feasible_set") or [])
     for ref in feasible_refs:
         comparator = comparator_scores.get(ref) if isinstance(comparator_scores, Mapping) else None
-        candidates.append(
-            {
-                "ref": ref,
-                "kind": "item",
-                "feasible": True,
-                "rank": ranks.get(ref),
-                "selector": ranking.get("selector"),
-                "legacy_priority": _round(comparator.get("priority")) if isinstance(comparator, Mapping) else None,
+        entry: dict[str, Any] = {
+            "ref": ref,
+            "kind": "item",
+            "feasible": True,
+            "rank": ranks.get(ref),
+            "selector": ranking.get("selector"),
+            "legacy_priority": _round(comparator.get("priority")) if isinstance(comparator, Mapping) else None,
+        }
+        if randomized and ref == result.chosen_candidate_ref:
+            # The randomization layer's assignment belongs to the item it drew
+            # inside the block, whatever the bridge then served.
+            entry["within_block_assignment"] = {
+                "design": assignment.get("design") or DESIGN_EPSILON_TIEBREAK,
+                "propensity": float(assignment.get("propensity") or 1.0),
+                "seed": assignment.get("seed"),
+                "assignment_id": assignment.get("assignment_id"),
             }
-        )
+        candidates.append(entry)
     candidates.append({"ref": STOP_REF, "kind": "stop", "feasible": True})
 
     exclusions: dict[str, list[str]] = {}
@@ -478,15 +538,24 @@ def build_staged_p2_decision(
 
     learner_pick = short_circuit == "explicit_learner_choice"
     chosen_item = result.chosen_candidate_ref
+    bridged = canonical is not None
+    # What the bridge served: the canonical successor, or nothing (a veto, or
+    # a run with no successor defers).
     if learner_pick:
         chosen_ref = _block_ref(result.action, result.subtype)
+        served = "learner_choice"
     elif authority == "staged_veto":
-        chosen_ref = STOP_REF
-        chosen_item = None
+        chosen_ref, chosen_item, served = STOP_REF, None, "staged_veto"
+    elif bridged and not canonical.get("to_state"):
+        chosen_ref, chosen_item, served = STOP_REF, None, "no_transition"
+    elif bridged:
+        # The successor is a run-state transition, served deterministically;
+        # it serves none of the staged block's items.
+        chosen_ref, chosen_item, served = CONTINUE_REF, None, "canonical_successor"
     elif continue_available:
-        chosen_ref = CONTINUE_REF
+        chosen_ref, served = CONTINUE_REF, "staged_continuation"
     else:
-        chosen_ref = _block_ref(result.action, result.subtype)
+        chosen_ref, served = _block_ref(result.action, result.subtype), "staged_block"
     for entry in candidates:
         entry["chosen"] = entry["ref"] == chosen_ref
 
@@ -497,12 +566,13 @@ def build_staged_p2_decision(
         propensity_kind = "none"
     else:
         probability = 1.0
-        if assignment and assignment.get("randomized") and chosen_item is not None:
+        if randomized and chosen_item is not None and served == "staged_block":
+            # Only a served staged block's item was drawn by the assignment.
             probability = float(assignment.get("propensity") or 1.0)
             seed = assignment.get("seed")
         propensity, propensity_kind = _propensity(probability)
         if propensity_kind == "exact":
-            design = DESIGN_EPSILON_TIEBREAK
+            design = assignment.get("design") or DESIGN_EPSILON_TIEBREAK
         else:
             seed = None
     chosen_lo = chosen_learning_object_id if chosen_item is not None else None
@@ -511,6 +581,7 @@ def build_staged_p2_decision(
         "commitment_id": commitment_id,
         "authority": authority,
         "veto_reason": veto_reason,
+        "served": served,
         "staged_rule": result.staged_rule,
         "action": result.action,
         "subtype": result.subtype,
@@ -578,8 +649,10 @@ def logging_enabled(config: Any) -> bool:
 __all__ = [
     "CONTINUE_REF",
     "DESIGN_EPSILON_TIEBREAK",
+    "DESIGN_SCHEDULER_EXPLORATION",
     "MODE_LEGACY_QUEUE",
     "MODE_STAGED",
+    "NOT_SERVED",
     "OfferHeadMismatch",
     "STOP_REF",
     "build_staged_p2_decision",

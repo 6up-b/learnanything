@@ -180,7 +180,7 @@ def test_a_probe_near_tie_carries_a_true_propensity_only_at_the_successor(tmp_pa
         pytest.approx(0.2), pytest.approx(0.8),
     ]
     assert sorted(after["detail_json"]["head_distribution"].values()) == [pytest.approx(0.2), pytest.approx(0.8)]
-    assert after["propensity_kind"] == "exact" and after["design"] == "epsilon_tiebreak"
+    assert after["propensity_kind"] == "exact" and after["design"] == "scheduler_seeded_exploration"
     assert after["propensity"] == after["detail_json"]["head_distribution"][after["chosen_practice_item_id"]]
 
 
@@ -224,3 +224,38 @@ def test_without_probe_candidates_the_successor_serves_exactly_as_mvp011(tmp_pat
         assert _serving_fingerprint(succ_vault, succ_repo, session_id) == _serving_fingerprint(
             base_vault, base_repo, session_id
         )
+
+
+# ── Codex review F4: an explored probe's presentation says it was drawn ──────
+
+
+def test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice(tmp_path, monkeypatch):
+    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.12")
+    session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
+    monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))
+    greedy = build_due_queue(vault, repository, clock=FrozenClock(NOW),
+                             session=SchedulerSession(session_id=session_id), persist_explanations=False)
+    monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
+
+    queue = build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
+
+    assert queue[0].practice_item_id != greedy[0].practice_item_id
+    assert queue[0].components.get("exploration_selected") == 1.0
+    presentation = repository.active_probe_presentation_for_session(session_id)
+    assert presentation is not None and presentation.practice_item_id == queue[0].practice_item_id
+    assert presentation.selection_components["scheduler_exploration"] == {
+        "mechanism": "scheduler_seeded_exploration",
+        "exploration_selected": True,
+        "exploration_rate": pytest.approx(0.2),
+        "exploration_propensity": pytest.approx(0.2),
+        "greedy_item_id": greedy[0].practice_item_id,
+    }
+
+
+def test_a_greedy_probe_presentation_carries_no_exploration_mark(tmp_path, monkeypatch):
+    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.11")
+    session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
+    monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (0.0, 0.0))
+    build_due_queue(vault, repository, clock=FrozenClock(NOW), session=SchedulerSession(session_id=session_id))
+    presentation = repository.active_probe_presentation_for_session(session_id)
+    assert presentation is not None and "scheduler_exploration" not in presentation.selection_components

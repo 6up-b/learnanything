@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from collections.abc import Mapping
 from typing import Any
 
 from learnloop.clock import SystemClock, parse_utc
@@ -64,14 +65,17 @@ def scheduled_item_dtos(
     scheduled_items: list[ScheduledItem],
     *,
     now: datetime | None = None,
+    item_states: Mapping[str, PracticeItemState] | None = None,
 ) -> list[dict[str, Any]]:
     """Serialize a queue with two bulk state reads, independent of its size.
 
-    ``now`` pins the due/later split to one instant (router R1 computes the
-    offer's head with the same one); by default it is read per item.
+    ``now`` pins the due/later split to one instant and ``item_states`` to one
+    read of the item states (router R1 computes the offer's head with the same
+    ones); by default each is read here.
     """
 
-    item_states = repository.practice_item_states()
+    if item_states is None:
+        item_states = repository.practice_item_states()
     mastery_states = repository.mastery_states()
     return [
         _scheduled_item_dto(
