@@ -12,8 +12,10 @@ After the shards (or the append reconciliation) return and before the gates:
 2. **Attach (the D2 mint gate with a decision).** Each surviving candidate
    meets the registered facets T5 nominates for it (top-k), plus registered
    facets of its own registry concept and lexical near-duplicates. The same
-   judge decides; a match becomes an alias of (or an absorb into) the
-   registered facet instead of a mint. This replaces T5's shadow-only
+   judge decides; a match becomes an alias of the registered facet (merge),
+   or an alias whose claim joins its examples or preconditions (absorb),
+   instead of a mint; the registered facet's contract otherwise stays as it
+   is (an append-legal, growth-only update). This replaces T5's shadow-only
    comparison for the facets it decides; D2's structural test still runs on
    everything the judge kept distinct.
 

@@ -79,6 +79,7 @@ from learnloop.content.synthesis.source_unit_selection import (
 )
 from learnloop.content.synthesis.source_unit_inventory import profile_satisfies
 from learnloop.content.synthesis.synthesis_gates import (
+    ATTACH_GROWABLE_FIELDS,
     GateContext,
     GateDiagnostic,
     GateItem,
@@ -951,15 +952,20 @@ def _normalize(
             ),
         }
         if target in attach_unions:
-            # Facet identity attach: the judged candidates' conditions, examples
-            # and sources join the registered facet (absorb adds the claim).
+            # Facet identity attach: a registered facet's contract only grows.
+            # A merge is the alias alone; an absorb also adds the special case's
+            # claim as an example (or precondition). Claim, repairs, signatures
+            # and status stay untouched (§10.2 additivity, verified by the gate).
             registered_before[target] = registered_facet.model_dump(mode="json")
             unioned = registered_facet.model_dump(mode="json")
             for attached_payload, attach_action, attach_absorb_as in attach_unions[target]:
-                unioned = union_payload(
-                    unioned, [attached_payload], action=attach_action, absorb_as=attach_absorb_as,
-                )
-            for field_name in (*UNION_LIST_FIELDS, "provenance"):
+                if attach_action != "absorb":
+                    continue
+                field_name = "preconditions" if attach_absorb_as == "precondition" else "positive_examples"
+                claim = str(attached_payload.get("claim") or "").strip()
+                if claim and claim not in (unioned.get(field_name) or []):
+                    unioned[field_name] = [*(unioned.get(field_name) or []), claim]
+            for field_name in ATTACH_GROWABLE_FIELDS:
                 if unioned.get(field_name) != registered_before[target].get(field_name):
                     alias_payload[field_name] = unioned[field_name]
         alias_row = _row(

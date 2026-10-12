@@ -255,3 +255,52 @@ def test_the_desktop_lists_a_runs_merges_and_undoes_one(tmp_path):
     assert replies[3]["result"]["status"] == "undone"
     assert replies[3]["result"]["action"]["status"] == "undone"
     assert replies[4]["error"]["data"]["code"] == "already_undone"
+
+
+def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path):
+    from learnloop.content.proposals.patches import apply_accepted_items
+    from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SynthSpanRef
+    from learnloop.content.synthesis.source_append import append_source
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    restated = "Symmetry of a real square matrix means it coincides with its transpose."
+
+    def builder(context, _n):
+        ext, unit, span = _first_new_span(context)
+        ref = SynthSpanRef(extraction_id=ext, unit_id=unit, span_id=span, relation="primary", role="primary_textbook")
+        # Embeddings are off: the registered facets of the candidate's own
+        # (registered) concept are its neighbourhood.
+        return AppendReconciliation(
+            summary="restated definition",
+            facets=[SynthFacet(client_item_id="f_new", id="facet_symmetry_restated",
+                               concept_id="concept_symmetric_matrix", kind="definition", claim=restated,
+                               positive_examples=["I is symmetric"], provenance=[ref])],
+        )
+
+    # The judge calls the restatement a worked instance of the registered
+    # definition: absorb it as an example (an append-legal, growth-only update).
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, restated]], action="absorb")
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, facet_identity_client=judge)
+    block = result.facet_identity
+    assert block["attached"] == 1 and len(judge.requests) == 1
+    assert judge.requests[0]["context"]["mode"] == "attach"
+    (action,) = block["actions"]
+    assert action["scope"] == "attach" and action["origin"] == "append" and action["status"] == "proposed"
+    assert action["action"] == "absorb"
+    facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+    assert [(row["operation"], row["payload"]["id"]) for row in facet_rows] == [("update", "facet_symmetry_definition")]
+    assert "facet_symmetry_restated" in facet_rows[0]["payload"]["aliases"]
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases", "positive_examples"}
+    assert facet_rows[0]["payload"]["positive_examples"][-1] == restated
+    apply_accepted_items(root, result.proposal_id, item_ids=[row["id"] for row in repo.proposal_items(result.proposal_id)
+                                                             if row["item_type"] in {"facet", "concept"}], clock=_CLOCK)
+    vault = load_vault(root)
+    assert vault.canonical_facet_id("facet_symmetry_restated") == "facet_symmetry_definition"
+    undo_action(root, repo, action["id"], clock=_CLOCK)
+    vault = load_vault(root)
+    assert vault.evidence_facets["facet_symmetry_restated"].claim == restated
+    assert "facet_symmetry_restated" not in vault.evidence_facets["facet_symmetry_definition"].aliases
+    assert restated not in vault.evidence_facets["facet_symmetry_definition"].positive_examples

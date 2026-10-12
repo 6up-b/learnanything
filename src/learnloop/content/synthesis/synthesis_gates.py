@@ -778,6 +778,11 @@ def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[Ga
     return out
 
 
+#: Facet fields a facet-identity absorb may grow on a registered facet (an
+#: append-legal, provably additive update: entries are only appended).
+ATTACH_GROWABLE_FIELDS = ("positive_examples", "negative_examples", "preconditions")
+
+
 def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
     """Is this a D2 alias registration — provably additive, so append-legal?
 
@@ -797,7 +802,7 @@ def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
 
     if item.item_type != "facet" or item.operation != "update":
         return False
-    if set(item.payload) - {"id", "aliases"}:
+    if set(item.payload) - {"id", "aliases", *ATTACH_GROWABLE_FIELDS}:
         return False
     proposed = {str(alias) for alias in (item.payload.get("aliases") or [])}
     if not proposed:
@@ -810,6 +815,15 @@ def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
         if existing_facet is not None
         else set()
     )
+    # Facet identity's absorb (handoff §4) may also grow the examples or
+    # preconditions; each must keep every current entry (growth only).
+    for field_name in ATTACH_GROWABLE_FIELDS:
+        if field_name not in item.payload:
+            continue
+        current = [str(value) for value in (getattr(existing_facet, field_name, None) or [])]
+        grown = [str(value) for value in (item.payload.get(field_name) or [])]
+        if grown[: len(current)] != current or len(grown) <= len(current):
+            return False
     return existing < proposed
 
 
