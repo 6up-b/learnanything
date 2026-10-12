@@ -19,7 +19,9 @@ and the stuck prompt also ship successors, so expect relabelling). Kill switch
 `plan.headline` (display). New vaults stay at `mvp-0.9`; the upgrade is owner-run.
 
 **Paid calls:** none ($0.00). No model or embedding route, no `judgment_ledger` write.
-Rebuild and replay make zero model calls with plan rows populated (tested).
+Rebuild and replay make zero model calls, and construct no embedding client, with plan rows
+populated (tested; the embedding guard was added by the Codex review fixes,
+`daily-loop-dl1-codex-review.md`).
 
 | Commit | What |
 |---|---|
@@ -166,11 +168,14 @@ view, block lines, done screen, keep going and the reading step.
   (or, after re-entry, a `normal` plan for the day's remaining minutes). An open plan from an
   earlier day is `abandoned` on the next day's first read.
 - **Pool.** The scheduler's ranked eligible list (Today's own build in the sidecar: same
-  scheduler call, teach-back filter and offer finalization), classified into lanes in §6.1's
-  order (`lanes.classify_pool`): scheduled checks → maintain (Phase 6's `assumed_check`, and
+  scheduler call and teach-back filter; no offer is finalized, since the learner sees the
+  block, not the list: review F5), classified into lanes in §6.1's order
+  (`lanes.classify_pool`): scheduled checks → maintain (Phase 6's `assumed_check`, and
   project probes from a registered provider, at most `project_probes_max_per_day` a day);
-  repair (follow-ups and recent errors); new (never attempted); maintain (due, or previously
-  attempted requests); push (goal frontier, not due); else "later".
+  repair (follow-ups, and previously attempted items whose `recent_error` is at least
+  e^-2, a full-severity error within 14 days: review F1); new (never attempted, even on an
+  LO with errors); maintain (due, or previously attempted requests); push (goal frontier,
+  not due); else "later".
 - **Requests first (L3).** Up to `tutor_promotion.requested_items_per_session` requests that
   fit go in the first block; their estimates are deducted before the split.
 - **Estimates (§6.4, `estimates.py`).** k = 3 shrinkage from own latencies (winsorized at
@@ -207,7 +212,8 @@ view, block lines, done screen, keep going and the reading step.
   A chip re-plans the rest (a new split from the next block on, tail displaced if smaller,
   a completed plan reopened if larger); on a re-entry plan it sets the remembered value and
   the budget stays capped; keep-going and the post-re-entry plan never change it.
-- **Re-entry (§7, `reentry.py`).** Last real activity (F1) > `reentry_gap_days`, no goal
+- **Re-entry (§7, `reentry.py`).** Last real activity (F1; a session left open from an
+  earlier day counts as activity, review F2) > `reentry_gap_days`, no goal
   needed: min(remembered, 15) minutes, ≤ 8 items, repair and maintain, ordered assumed checks,
   then goal deadlines, then rank. The panel: gap, still solid, slipped below 0.90 (named by
   largest drop, or by blueprint weight under an active goal), and today's re-entry figures.
@@ -234,8 +240,9 @@ view, block lines, done screen, keep going and the reading step.
   `plan_keep_going` (`stop: true` is "Done"), `plan_more_new` (`confirm`),
   `plan_learner_pick`, `get_today_headline`. The plan DTO (`view.py`) carries every figure
   the screens show: the split line and per-lane display minutes (largest remainder, summing to
-  the budget), block estimates, items and states, the projected blocks (the deterministic
-  pair run forward without logging) and "Block N of about M", totals for the plan and the day,
+  the budget), block estimates, items and states, the projected blocks (the policy's source
+  run forward with its deterministic projection chooser, never the live chooser, without
+  logging: review F3) and "Block N of about M", totals for the plan and the day,
   the re-entry panel, the streak.
 - `get_today_queue` drops the DL0 re-entry cap only while the plan serves (the plan carries
   re-entry; L3 picks come from the full list). Its preparation (capture sweep, follow-up
@@ -272,8 +279,10 @@ view, block lines, done screen, keep going and the reading step.
    reads its source and chooser from `PlanEnv.policy` (default: the DL1 pair); the router-on
    rows of §6.8's table are tested with a fake router chooser in that seam. R2 adds the
    switch and selects its policy in the sidecar's `_env`.
-2. **A stop has no block,** so its decision (candidate set, chooser, reason) is logged on the
-   plan row (`split_json.stop`) rather than as a `block_chosen` event.
+2. **A stop has no block,** so its decision (candidate set, chooser, propensity, reason) is
+   a plan-level receipt row: an `attention_blocks` row of the plan with a NULL
+   `plan_ordinal` and its `block_chosen` event, appended per stop (review F6; it was the
+   mutable `split_json.stop` before).
 3. **The plan's universe is fixed at build** (§6.1 "nothing new is added mid-plan"): items
    that become eligible during the day (a capture adopted, an item falling due at 3 pm) wait
    for keep going or tomorrow. Only follow-ups produced by this session's answers join, by
@@ -282,7 +291,8 @@ view, block lines, done screen, keep going and the reading step.
    as learner picks.
 5. **A pick larger than everything still displaceable** is served anyway (L3) and the
    overrun is recorded on its `block_chosen` event; a pick on a plan that is no longer open is
-   served as an open-list pick and does not grow it ("keep going is the only extension").
+   served as an open-list pick and does not grow it ("keep going is the only extension");
+   it is recorded as an open-list pick receipt (review F10).
 6. **Re-entry ordering applies within lanes.** Lane interleaving follows `lane_quota_v1`
    (repair first on ties), so an assumed-known check can follow a first repair block.
 7. **No intent in DL1.** Every LO is uncommitted (target 0.90, `IntentView` defaults);
@@ -335,7 +345,9 @@ tracked fixtures at `0583648d`): `doctor --fix-state`, `upgrade --to mvp-0.9`,
 | Same-version shadow at `mvp-0.12` after a rebuild | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 |
 
 **Served-set diff** (each `mvp-0.12` copy on 2026-10-12, real clock, no session): the open
-queue against today's plan.
+queue against today's plan. *Superseded by the Codex review fixes (F1, F2, N1): all three
+copies are now re-entry plans with no repair lane; see
+`daily-loop-dl1-codex-review.md`, "Manual runs after the fixes".*
 
 | | linear_algebra | probability | arxiv_v2 |
 |---|---|---|---|
@@ -378,7 +390,7 @@ minutes) and `get_start_summary` equal `mvp-0.11`'s on all three, the plan RPCs 
 | `test_daily_plan_rpc.py` (10) | Remembered minutes (40 → keep going 10 → 40 tomorrow; re-entry 15 and its remainder leave 40; a chip on re-entry changes the remembered value, not the cap); serving with the offer that ranked it; skip; more new; headline; validation; **G3** DTO figures equal the persisted plan |
 | `test_daily_plan_reading.py` (7) | Only as-you-read imports; words left shrink with progress; typed reading step; `reading_progress` and completion from the reader; `left_reader` / `skipped` consume the estimate; partial block; interrupted block resumes; the next day continues the section; switch off |
 | `test_today_headline.py` (5) | One of two capabilities → learning; one of two facets → learning; all → demonstrated; a blueprint LO with an integration gap → learning; assumed first and omitted before placement; expected recall labelled |
-| `test_daily_plan_replay.py` (2, durability) | Rebuild with plan rows makes no model call, leaves them untouched and reproduces the same derived state; a plan runs on a fresh WAL vault |
+| `test_daily_plan_replay.py` (2, durability) | Rebuild with plan rows makes no model call and builds no embedding client, leaves them untouched and reproduces the same derived state; a plan runs on a fresh WAL vault (asserts `wal`) |
 | `test_mvp012_upgrade.py` (9) | Successor sets, activation, upgrade from `mvp-0.11` (nothing rewritten), chains from `mvp-0.9`, refusals, CLI default, fingerprint, head-fixture path (FK, doctor, idempotent rebuild) |
 | Vitest `DailyPlanView.test.tsx` (9), `dailyPlan.test.tsx` (4), `FeedbackScreen.plan.test.tsx` (2), `StartScreen.test.tsx` (+3) | Split line and why, headline, block line, items, next block, keys, reading line, re-entry panel, done screen (figures, streak, keep going, done, more new and its trade-off), empty and re-entry variants; step routing, reader target, key-bar labels, the reader banner; feedback's Next serving within the block and handing a new block to the plan; Start's plan, Begin, chips, streak label |
 
