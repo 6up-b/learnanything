@@ -19,6 +19,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import put_vector
 from learnloop.field import zero_data_llm as zero
 from learnloop.field.item_content import load_content_index
+from learnloop.field.success_head import preregistration_hash
 from learnloop.field.types import AttemptRow, ItemFeatures
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES, EmbeddingRecipe
@@ -128,8 +129,29 @@ def test_report_runs_all_arms_read_only_and_aggregate_only(seeded, monkeypatch, 
                          "emb_ridge", "success_head"}
     assert arms["emb_ridge"]["overall"]["n"] == report["counts"]["ability_scored_attempts"] > 0
     t8 = report["analyses"]["t8"]
-    assert t8["primary"]["verdict"]["decision"] == "insufficient_data"  # seven attempts
+    # Seven attempts on three items: no item floor (review F2), so the
+    # three-item interval decides (20 resamples here; the registration is 1000).
+    verdict = t8["primary"]["verdict"]
+    assert (verdict["n"], verdict["item_clusters"]) == (len(ITEMS), 3)
+    lower, upper = verdict["ci95"]
+    assert verdict["decision"] == ("embeddings_add_value" if lower > 0 else "kill" if upper < .005
+                                   else "insufficient_data")
+    # Every interval in the report resamples items, and the manifest says so (review F1).
+    assert report["manifest"]["bootstrap"]["unit"] == "item"
+    intervals, stack = [], [report]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, dict):
+            intervals += [value] if "ci95" in value else []
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+    assert intervals and all("clusters" in interval or "item_clusters" in interval
+                             for interval in intervals)
     assert t8["preregistration"]["deviations"] == ["bootstrap_samples"]
+    assert t8["preregistration"]["version"] == "t8-preregistration-v3"
+    assert t8["preregistration"]["hash"] == report["manifest"]["t8"]["preregistration_hash"] == (
+        preregistration_hash())
     assert t8["gated"]["success_head+difficulty"]["status"] == "unavailable"
     assert t8["descriptive"]["llm_zero_data"]["status"] == "unavailable"
     assert report["manifest"]["embedding_model"] == vault.config.embedding.model
@@ -137,7 +159,9 @@ def test_report_runs_all_arms_read_only_and_aggregate_only(seeded, monkeypatch, 
     files = [output / name.rsplit("/", 1)[-1] for name in runs[0]["reports"].values()]
     assert all(path.name.startswith("t8-success-head-") for path in files)
     markdown = next(path for path in files if path.suffix == ".md").read_text()
-    assert "T8 pre-registered verdict" in markdown and "insufficient_data" in markdown
+    assert "T8 pre-registered verdict" in markdown
+    assert f"**Decision: {verdict['decision']}**" in markdown
+    assert "n = 7 common attempts in 3 item clusters" in markdown and "δ = 0.005" in markdown
     for path in files:
         text = path.read_text()
         assert not any(secret in text for secret in _private_text(vault))

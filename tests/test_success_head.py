@@ -1,11 +1,13 @@
 """T8 success-head arms and the pre-registered analysis: synthetic, store-free."""
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+import itertools
+import json
 
 import numpy as np
 import pytest
 
-from learnloop.field.evaluation import ReplayArrays, evaluate
+from learnloop.field.evaluation import ReplayArrays, _loss, evaluate, paired_bootstrap
 from learnloop.field.predictors import is_calibrated_predictor
 from learnloop.field.success_head import (
     EXPLICIT_ARMS, PREREGISTRATION, AttemptContent, ContentIndex, HeadPriors, LogisticHead,
@@ -201,7 +203,19 @@ def test_priors_are_a_priori_and_recorded():
 
 # -- the pre-registered analysis ------------------------------------------------
 
-def _arrays(n, gains, *, extra=None, samples=200, seed=0, labels=None):
+V2_HASH = "746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee"
+# v3 as first staged, with the six-item cutoff that review F2 removed.
+V3_STAGED_HASH = "e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976"
+ADDS_VALUE, NULL, NOISY_NULL = (.05, .02), (.01, .02), (.01, .2)  # (mean gain, per-attempt sd)
+
+
+def _arrays(n, gains, *, extra=None, samples=200, seed=0, labels=None, per_item=2):
+    """Synthetic scored rows, ``per_item`` attempts per item in attempt order.
+
+    ``gains`` maps an arm to its per-attempt loss reduction from 0.5, either a
+    mean (sd 0.02) or ``(mean, sd)``; the best explicit arm, ``lo_general``,
+    gains exactly 0.01, so an arm's gain over e* is its mean minus 0.01.
+    """
     rng = np.random.default_rng(5)
     y = rng.integers(0, 2, size=n).astype(float)
     base = np.full(n, .5)
@@ -211,27 +225,34 @@ def _arrays(n, gains, *, extra=None, samples=200, seed=0, labels=None):
         return np.where(y == 1, .5 * np.exp(gain), 1 - .5 * np.exp(gain))
 
     predictions = {name: base.copy() for name in EXPLICIT_ARMS}
-    predictions["lo_general"] = improved(.01)  # the best explicit arm
+    predictions["lo_general"] = improved(np.full(n, .01))  # the best explicit arm
     for name, gain in gains.items():
-        predictions[name] = improved(gain)
+        mean, sd = gain if isinstance(gain, tuple) else (gain, .02)
+        predictions[name] = improved(mean + rng.normal(0, sd, n))
     predictions.update(extra or {})
     labels = labels or tuple({"item_position": "first_unseen_item" if i % 3 == 0 else "repeat_item",
                               "attempt_position": "later"} for i in range(n))
-    return ReplayArrays(y, predictions, labels, np.ones(n, dtype=bool), samples, seed)
+    items = np.arange(n) // per_item
+    return ReplayArrays(y, predictions, labels, np.ones(n, dtype=bool), samples, seed, items, "item")
+
+
+def _primary(arrays):
+    return make_t8_analysis()(arrays)["primary"]["verdict"]
 
 
 def test_kill_rule_picks_the_best_explicit_arm_and_kills_without_a_gain():
-    analysis = make_t8_analysis()(_arrays(400, {"emb_ridge": .01, "success_head": .02}))
+    analysis = make_t8_analysis()(_arrays(400, {"emb_ridge": NULL, "success_head": .02}))
     primary = analysis["primary"]
     assert primary["comparison"]["baseline"] == "lo_general"
-    assert primary["comparison"]["log_loss_gain"]["mean"] == pytest.approx(0, abs=1e-12)
+    assert primary["comparison"]["log_loss_gain"]["mean"] == pytest.approx(0, abs=.003)
     assert primary["verdict"]["decision"] == "kill"
+    assert primary["verdict"]["ci95"][1] < PREREGISTRATION["smallest_worthwhile_gain_nats_per_attempt"]
     assert analysis["gated"]["success_head"]["interpretation"] == "not_interpreted"
     assert analysis["activates"] is False
 
 
 def test_embeddings_add_value_opens_the_gate():
-    analysis = make_t8_analysis()(_arrays(400, {"emb_ridge": .05, "success_head": .06}))
+    analysis = make_t8_analysis()(_arrays(400, {"emb_ridge": ADDS_VALUE, "success_head": .06}))
     assert analysis["primary"]["verdict"]["decision"] == "embeddings_add_value"
     gated = analysis["gated"]["success_head"]
     assert gated["interpretation"] == "interpreted" and gated["verdict"] == "embeddings_add_value"
@@ -239,29 +260,214 @@ def test_embeddings_add_value_opens_the_gate():
     assert splits["first_unseen_item"]["n"] + splits["repeat_item"]["n"] == 400
 
 
-def test_a_failed_secondary_closes_the_gate_for_the_next_one():
-    # Primary passes, success_head is killed, success_head+difficulty would win:
-    # the hierarchy stops at the first failure (review F2).
+def test_a_large_effect_is_decided_with_fewer_than_100_attempts():
+    # v2 answered insufficient_data below a fixed 100 attempts; v3 has no floor.
+    verdict = _primary(_arrays(40, {"emb_ridge": .2}, samples=1000))
+    assert verdict["n"] == 40 and verdict["item_clusters"] == 20
+    assert verdict["ci95"][0] > PREREGISTRATION["margin_nats_per_attempt"]
+    assert verdict["decision"] == "embeddings_add_value"
+    assert verdict["reason"].startswith("lower bound ")
+
+
+def test_a_null_effect_is_undecided_until_the_upper_bound_falls_below_delta():
+    delta = PREREGISTRATION["smallest_worthwhile_gain_nats_per_attempt"]
+    # 150 attempts: v2 would kill (n >= 100, lower bound <= 0); v3 cannot rule
+    # out a gain worth building, so it makes no decision.
+    small = _primary(_arrays(150, {"emb_ridge": (.01, .1)}, samples=1000))
+    assert small["ci95"][0] <= 0 and small["ci95"][1] >= delta
+    assert small["decision"] == "insufficient_data"
+    assert small["reason"].startswith("undecided: ")
+    # The same null effect with enough data: the whole interval is below delta.
+    large = _primary(_arrays(8000, {"emb_ridge": (.01, .1)}, samples=1000))
+    assert large["ci95"][1] < delta
+    assert large["decision"] == "kill" and large["reason"].startswith("upper bound ")
+
+
+def test_a_real_gain_below_delta_still_adds_value_and_says_so():
+    verdict = _primary(_arrays(8000, {"emb_ridge": (.0125, .05)}, samples=1000))
+    delta = PREREGISTRATION["smallest_worthwhile_gain_nats_per_attempt"]
+    assert 0 < verdict["ci95"][0] and verdict["ci95"][1] < delta
+    assert verdict["decision"] == "embeddings_add_value"
+    assert "smaller than the smallest worth building" in verdict["reason"]
+
+
+def test_no_interval_is_insufficient_data_with_the_reason():
+    one_item = _primary(_arrays(40, {"emb_ridge": .2}, per_item=40))
+    assert one_item["decision"] == "insufficient_data" and one_item["item_clusters"] == 1
+    assert one_item["ci95"] is None
+    assert one_item["reason"] == "no interval: one cluster: every resample is the same"
+    arrays = _arrays(400, {})
+    same = make_t8_analysis()(_arrays(400, {}, extra={"emb_ridge": arrays.predictions["lo_general"]}))
+    assert same["primary"]["verdict"]["reason"] == "no interval: zero variance across clusters"
+    assert same["primary"]["verdict"]["decision"] == "insufficient_data"
+    assert same["gated"]["success_head"]["status"] == "unavailable"
+    missing = _primary(_arrays(40, {}))
+    assert missing["decision"] == "insufficient_data" and missing["reason"] == "no interval: arm not run"
+
+
+def test_five_items_with_a_clear_gain_are_decided():
+    # Review F2: five items, 100 attempts each, gains 0.10-0.14 nats. All 5**5
+    # item draws give the percentile interval [0.108, 0.132]; there is no item
+    # minimum, so the interval decides.
+    item_gains = np.array([.10, .11, .12, .13, .14])
+    gains = np.repeat(item_gains, 100) + .01  # over lo_general's 0.01
+    verdict = _primary(_arrays(500, {"emb_ridge": (gains, 0.)}, per_item=100, samples=1000))
+    enumerated = np.quantile([np.mean(draw) for draw in itertools.product(item_gains, repeat=5)],
+                             [.025, .975])
+    assert enumerated == pytest.approx([.108, .132])
+    assert (verdict["n"], verdict["item_clusters"]) == (500, 5)
+    assert verdict["ci95"] == pytest.approx(enumerated, abs=.002)
+    assert verdict["decision"] == "embeddings_add_value"
+
+
+@pytest.mark.parametrize("items", [2, 3, 5])
+def test_a_few_items_are_decided_by_their_interval_alone(items):
+    # Every item favours e* by 0.2 nats (sd 0.02 per attempt): the interval is
+    # wholly below delta at any item count, and there is no item floor.
+    verdict = _primary(_arrays(8 * items, {"emb_ridge": -.2}, per_item=8, samples=1000))
+    assert verdict["item_clusters"] == items
+    assert verdict["ci95"][1] < 0
+    assert verdict["decision"] == "kill" and verdict["reason"].startswith("upper bound ")
+
+
+def test_every_interval_in_the_t8_report_resamples_items():
+    # Review F1: 60 attempts on three items. The whole T8 report, not only
+    # analyses.t8, resamples items (report 1 metrics, splits and the incumbent
+    # comparisons included), and the manifest says so.
+    rows, content = _rows_and_content(n=60, n_items=3)
+    captured = {}
+
+    def keep(arrays):
+        captured["arrays"] = arrays
+        return {}
+
+    report = evaluate(rows, arms=("base_rate_lo", "mastery_ekf", "lo_general", *success_head_arms(content)),
+                      bootstrap_samples=50, bootstrap_unit="item",
+                      analyses={"t8": make_t8_analysis(), "keep": keep})
+    arrays = captured["arrays"]
+    assert arrays.bootstrap_unit == "item"
+    assert report["manifest"]["bootstrap"]["unit"] == "item"
+    intervals = []
+    stack = [report]
+    while stack:
+        value = stack.pop()
+        if isinstance(value, dict):
+            intervals += [value] if "ci95" in value else []
+            stack.extend(value.values())
+        elif isinstance(value, list):
+            stack.extend(value)
+    assert len(intervals) > 100
+    # The verdict repeats the primary interval under ``item_clusters``.
+    counts = [interval.get("clusters", interval.get("item_clusters")) for interval in intervals
+              if interval["n"]]
+    assert counts and all(1 <= count <= 3 for count in counts)
+    y, clusters = arrays.outcomes, arrays.item_clusters
+    loss = {name: _loss(y, arrays.predictions[name]) for name in ("mastery_ekf", "emb_ridge")}
+    scored = np.isfinite(loss["emb_ridge"])
+    assert report["report1"]["arms"]["emb_ridge"]["overall"]["log_loss"] == paired_bootstrap(
+        loss["emb_ridge"][scored], samples=50, seed=0, clusters=clusters[scored])
+    difference = loss["mastery_ekf"] - loss["emb_ridge"]
+    finite = np.isfinite(difference)
+    assert report["report1"]["comparisons"]["emb_ridge"]["log_loss_improvement"] == paired_bootstrap(
+        difference[finite], samples=50, seed=0, clusters=clusters[finite])
+    verdict = report["analyses"]["t8"]["primary"]["verdict"]
+    assert verdict["item_clusters"] == 3 and verdict["ci95"] is not None  # no item floor (F2)
+
+
+def test_t8_refuses_a_harness_that_resamples_attempts():
+    rows, content = _rows_and_content(n=40, n_items=10)
+    with pytest.raises(ValueError, match="bootstrap_unit"):
+        evaluate(rows, arms=("base_rate_lo", "mastery_ekf", "lo_general", *success_head_arms(content)),
+                 bootstrap_samples=10, analyses={"t8": make_t8_analysis()})
+
+
+GATE_INPUTS = {"embeddings_add_value": ADDS_VALUE, "kill": NULL, "insufficient_data": NOISY_NULL}
+
+
+@pytest.mark.parametrize("primary", GATE_INPUTS)
+def test_only_embeddings_add_value_opens_the_gate(primary):
     analysis = make_t8_analysis()(_arrays(400, {
-        "emb_ridge": .05, "success_head": .01, "success_head+difficulty": .06}))
+        "emb_ridge": GATE_INPUTS[primary], "success_head": ADDS_VALUE,
+        "success_head+difficulty": ADDS_VALUE}))
+    assert analysis["primary"]["verdict"]["decision"] == primary
+    expected = "interpreted" if primary == "embeddings_add_value" else "not_interpreted"
+    for arm in ("success_head", "success_head+difficulty"):
+        gated = analysis["gated"][arm]
+        assert gated["verdict"] == "embeddings_add_value"  # still computed and printed
+        assert gated["interpretation"] == expected
+
+
+@pytest.mark.parametrize("secondary", GATE_INPUTS)
+def test_each_secondary_verdict_gates_the_next_comparison(secondary):
+    # Primary passes; success_head gets each verdict; success_head+difficulty
+    # would win, but is read only after an embeddings_add_value (review F2).
+    analysis = make_t8_analysis()(_arrays(400, {
+        "emb_ridge": ADDS_VALUE, "success_head": GATE_INPUTS[secondary],
+        "success_head+difficulty": ADDS_VALUE}))
     assert analysis["primary"]["verdict"]["decision"] == "embeddings_add_value"
     first, second = (analysis["gated"][arm] for arm in ("success_head", "success_head+difficulty"))
-    assert first["interpretation"] == "interpreted" and first["verdict"] == "kill"
-    assert second["verdict"] == "embeddings_add_value"  # still computed and printed
-    assert second["interpretation"] == "not_interpreted"
-    passing = make_t8_analysis()(_arrays(400, {
-        "emb_ridge": .05, "success_head": .06, "success_head+difficulty": .07}))
-    assert {result["interpretation"] for result in passing["gated"].values()} == {"interpreted"}
+    assert first["interpretation"] == "interpreted" and first["verdict"] == secondary
+    assert first["verdict_reason"]
+    assert second["verdict"] == "embeddings_add_value"
+    assert second["interpretation"] == ("interpreted" if secondary == "embeddings_add_value"
+                                        else "not_interpreted")
 
 
-def test_too_few_common_attempts_is_no_decision_and_partial_coverage_is_flagged():
-    small = make_t8_analysis()(_arrays(60, {"emb_ridge": .2}))
-    assert small["primary"]["verdict"]["decision"] == "insufficient_data"
-    arrays = _arrays(400, {"emb_ridge": .05})
+def test_the_report_shows_how_far_the_data_is_from_a_decision():
+    analysis = make_t8_analysis()(_arrays(150, {"emb_ridge": NOISY_NULL}))
+    verdict = analysis["primary"]["verdict"]
+    assert {key: verdict[key] for key in ("decision", "n", "item_clusters", "margin_nats_per_attempt",
+                                          "smallest_worthwhile_gain_nats_per_attempt")} == {
+        "decision": "insufficient_data", "n": 150, "item_clusters": 75,
+        "margin_nats_per_attempt": 0.0, "smallest_worthwhile_gain_nats_per_attempt": .005}
+    assert verdict["ci95"] == analysis["primary"]["comparison"]["log_loss_gain"]["ci95"]
+    text = "\n".join(summary_lines(analysis))
+    for expected in ("n = 150 common attempts in 75 item clusters", "95% item-cluster interval [",
+                     "m = 0.0", "δ = 0.005", "**Decision: insufficient_data**: undecided: "):
+        assert expected in text
+
+
+def test_partial_coverage_is_flagged():
+    arrays = _arrays(400, {"emb_ridge": ADDS_VALUE})
     arrays.predictions["emb_ridge"][:150] = np.nan
     flagged = make_t8_analysis()(arrays)
     assert flagged["primary"]["comparison"]["n"] == 250
     assert flagged["primary"]["verdict"]["caveats"] == ["partial_coverage"]
+
+
+def test_preregistration_v3_changes_the_hash_and_every_report_carries_it():
+    from learnloop.field.evaluation import ZERO_SPREAD
+
+    assert PREREGISTRATION["version"] == "t8-preregistration-v3"
+    assert "min_common_attempts" not in PREREGISTRATION
+    assert PREREGISTRATION["margin_nats_per_attempt"] == 0.0
+    assert PREREGISTRATION["smallest_worthwhile_gain_nats_per_attempt"] == .005
+    assert PREREGISTRATION["bootstrap"]["unit"] == "item"
+    assert {k: PREREGISTRATION["bootstrap"][k] for k in ("samples", "seed")} == {"samples": 1000, "seed": 0}
+    assert PREREGISTRATION["bootstrap"]["scope"] == "every bootstrap interval in the T8 report"
+    # Review F2: no minimum item count; only degenerate inputs have no interval.
+    assert PREREGISTRATION["no_interval"]["zero_spread_nats"] == ZERO_SPREAD
+    assert "min_clusters" not in json.dumps(dict(PREREGISTRATION))
+    digest = preregistration_hash()
+    assert digest not in (V2_HASH, V3_STAGED_HASH)
+    analysis = make_t8_analysis()(_arrays(100, {"emb_ridge": ADDS_VALUE}))
+    assert analysis["preregistration"] == {"version": "t8-preregistration-v3", "hash": digest,
+                                           "deviations": ["bootstrap_samples"]}
+    text = "\n".join(summary_lines(analysis))
+    assert f"`t8-preregistration-v3` (hash `{digest[:16]}`)" in text
+
+
+def test_the_harness_hands_item_clusters_and_t8_resamples_items():
+    rows, content = _rows_and_content(n=80, n_items=20)
+    report, arrays = _capture(rows, ("base_rate_lo", "mastery_ekf", "lo_general",
+                                     *success_head_arms(content)), bootstrap_unit="item")
+    items = [row.features.item_id for row in rows]
+    assert len(arrays.item_clusters) == len(arrays.outcomes) == len(rows)
+    # One opaque integer per item, in first-appearance order; never an id.
+    assert arrays.item_clusters.tolist() == [list(dict.fromkeys(items)).index(i) for i in items]
+    verdict = make_t8_analysis()(arrays)["primary"]["verdict"]
+    assert verdict["n"] == len(rows) and verdict["item_clusters"] == len(set(items))
+    assert "item_clusters" not in json.dumps(report)
 
 
 def test_unavailable_arms_and_deviations_are_reported():
@@ -286,7 +492,8 @@ def test_llm_arms_are_descriptive_against_explicit_and_embedding_arms():
     llm = analysis["descriptive"]["llm_zero_data"]
     assert llm["vs_best_explicit"]["baseline"] == "lo_general"
     assert llm["vs_emb_ridge"]["baseline"] == "emb_ridge"
-    assert llm["vs_emb_ridge"]["log_loss_gain"]["mean"] == pytest.approx(.01, abs=1e-9)
+    assert llm["vs_emb_ridge"]["log_loss_gain"]["mean"] == pytest.approx(.01, abs=.004)
+    assert llm["vs_emb_ridge"]["log_loss_gain"]["clusters"] == n // 2  # items, not attempts
 
 
 def test_recency_running_sum_equals_the_full_weighted_sum():

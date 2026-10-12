@@ -118,6 +118,14 @@ Recorded here before any report run. It is also frozen in code as
 manifest. A run that changes the bootstrap settings is flagged as a deviation
 in the report.
 
+**Current version: `t8-preregistration-v3`**, hash
+`a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372`. Two
+revisions were made, both before any run on owner data: v2 (the embedding
+prior) and v3 (the decision rule). Each is recorded below. v3 was amended in
+its Codex review before merge (no item minimum; items resampled in every
+interval of the report), which changed its hash; see
+`docs/reviews/t8-interval-rule-codex-review.md`.
+
 **Question (§11).** For this one learner, does a frozen-embedding predictor of
 success add held-out predictive value over explicit learner-state predictors?
 
@@ -183,6 +191,18 @@ success add held-out predictive value over explicit learner-state predictors?
 - recalibration is a one-parameter logit intercept, MAP under N(0, 1) on past
   predictions only.
 
+*Decision rule (revision v3):*
+
+| Constant | Value |
+|---|---|
+| Margin m (D9) | 0.0 nats per attempt |
+| Smallest worthwhile gain δ | 0.005 nats per attempt |
+| Bootstrap | paired percentile, 95%, B = 1000, seed 0, resampling **items** (each drawn item brings all its attempts) |
+| No interval | only where every resample gives the same mean: no common attempts, one item cluster, or cluster means within 1e-12 nats of each other. There is no minimum item count |
+| Coverage caveat | below 80% of ability-scored attempts |
+
+There is no minimum number of attempts.
+
 **Revision v2 (2026-10-12, before any run on owner data).**
 - **The change:** the embedding block's prior variance per dimension drops
   from 1.0 to 0.25. With unit-norm features, that bounds the block's a-priori
@@ -202,33 +222,95 @@ success add held-out predictive value over explicit learner-state predictors?
 - **What else changed:** nothing else. The version is now
   `t8-preregistration-v2`.
 
-**Primary endpoint and kill rule** (spec §11 `emb_ridge`).
+**Revision v3 (owner decision, 2026-10-12, before any run on owner data).**
+- **No run happened under v2.** The v2 rule ran only on fakes (the synthetic
+  tests and the fake-vector fixtures-local copy below). No owner-data report
+  exists under v2 or v1, so changing the rule now cannot be fitted to a result.
+- **What changed:**
+  - **The fixed minimum is gone.** v2 answered `insufficient_data` below 100
+    common attempts and decided above it. v3 has no floor: the verdict comes
+    from the 95% interval alone.
+  - **A three-way rule.** `embeddings_add_value` if the interval's lower bound
+    is above m = 0.0; `kill` only if its upper bound is below δ = 0.005 nats
+    per attempt; otherwise `insufficient_data`. Under v2, any interval
+    reaching m was a kill.
+  - **An item-cluster bootstrap.** Each resample draws items, and each drawn
+    item brings all its attempts. v2 resampled single attempts.
+  - **No-interval guard.** Where every resample gives the same mean (no
+    common attempts, one item cluster, or numerically equal cluster means),
+    there is no interval; the verdict is `insufficient_data` and the report
+    says why. There is no minimum item count (review F2).
+  - **The report** shows n, the number of item clusters, the interval, m, δ,
+    the verdict and its reason.
+- **Why** (owner, 2026-10-12):
+  - The 100-attempt floor was hand-picked: the spec doesn't set it and nothing
+    derives it.
+  - A floor turns small samples above it into false kills: at 150 attempts a
+    wide interval that merely reaches 0 was a v2 `kill`.
+  - Attempts cluster by item, LO and session, so resampling single attempts
+    understates the uncertainty.
+- **Where the constants come from:**
+  - **δ = 0.005 nats per attempt** is the smallest gain worth building the
+    success head for: T8's own "weak signal" scale (the gain at block variance
+    0.25 in the v2 table above).
+  - **m = 0.0** is unchanged (D9).
+  - **No item minimum.** The stage first added a 6-item cutoff, justified by
+    a sample-range bound for a population *median*. T8's statistic is an
+    attempt-weighted *mean*, so that bound neither forbids an interval below
+    6 items nor guarantees coverage above it. Review F2 removed the cutoff.
+    Percentile intervals still under-cover with few items, so the report
+    shows the item count (see `t8-interval-rule-codex-review.md`).
+  - **1e-12 nats** is numerical resolution: cluster means closer than that are
+    equal, and every resample gives the same mean.
+- **Why items are the cluster unit:** see `docs/reviews/t8-interval-rule.md`.
+  In short, the embedding is a function of the item's text, and the §11
+  question is about new items. LOs give too few clusters (8 on the tracked
+  fixture). Sessions cut across items.
+- **Unchanged:** the verdict names (the learned-router trigger in
+  `spec_action_router_v1.md` §13 reads them), the arms, e*, the priors, B,
+  the seed and the coverage caveat.
+- **Version:** `t8-preregistration-v3`, hash
+  `a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372` (as amended in review; first staged as
+  `e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976`; v2 was
+  `746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee`).
+
+**Primary endpoint and decision rule** (spec §11 `emb_ridge`; v3).
 - **Common rows:** attempts that `emb_ridge` and every arm in E scored.
 - **Baseline:** `e*` is the arm in E with the lowest mean log loss on those
   rows. Choosing it on the same data favours the explicit side, so the
   selection is conservative.
 - **Test statistic:** the per-attempt difference
-  Δᵢ = loss(e*)ᵢ − loss(`emb_ridge`)ᵢ, with a paired percentile bootstrap that
-  resamples attempts (B = 1000, seed 0, the harness's
-  `paired_bootstrap`).
+  Δᵢ = loss(e*)ᵢ − loss(`emb_ridge`)ᵢ and its mean.
+- **Interval:** a paired percentile 95% bootstrap that resamples items (each
+  drawn item brings all its attempts; the statistic is the mean over the drawn
+  attempts). B = 1000, seed 0, the harness's `paired_bootstrap` with
+  `clusters`.
 - **Margin:** m = 0.0 nats per attempt (D9).
+- **Smallest worthwhile gain:** δ = 0.005 nats per attempt.
 - **Verdict:**
-  - `insufficient_data` if there are fewer than 100 common rows. No decision;
-    rerun with more data;
-  - otherwise `embeddings_add_value` if the 95% interval's lower bound is
-    above m;
-  - otherwise `kill`: embeddings add no held-out predictive value, and the GP
-    success head is not pursued.
+  - `embeddings_add_value` if the interval's lower bound is above m. If the
+    whole interval is also below δ, the reason says the gain is real but
+    smaller than the smallest worth building.
+  - `kill` if the interval's upper bound is below δ: any held-out gain is
+    smaller than the smallest worth building, and the GP success head is not
+    pursued.
+  - `insufficient_data` otherwise: the interval reaches both m and δ, so no
+    decision. Rerun with more data.
+  - `insufficient_data` also when there is no interval (no common attempts,
+    one item cluster, or cluster means within 1e-12 nats), with the reason.
   - Coverage below 80% of ability-scored attempts adds a `partial_coverage`
     caveat but does not change the verdict.
 
 **Gated secondary** (hierarchical, so no multiplicity correction is needed).
 These are read only if the primary verdict is `embeddings_add_value`:
-- `success_head` against e*, with the same test;
-- then `success_head+difficulty` against e*, if available.
+- `success_head` against e*, with the same three-way rule;
+- then `success_head+difficulty` against e*, if available, read only if
+  `success_head` was `embeddings_add_value`.
 
-They are always computed and printed, but labelled `not_interpreted` when the
-gate failed.
+Only `embeddings_add_value` opens the gate; `kill`, `insufficient_data` and an
+unavailable arm close it. Gated comparisons are always computed and printed
+with their verdict and reason, but labelled `not_interpreted` once the gate
+is closed.
 
 **Descriptive only (no decision):**
 - `emb_ridge` against `tag_logistic` (the pure embedding increment);
@@ -236,6 +318,15 @@ gate failed.
   item vs a repeat) and by `attempt_position` (first unseen LO vs later);
 - `llm_zero_data`, raw and recalibrated, against e* and against `emb_ridge`;
 - log loss, Brier, AUC and reliability bins for every arm.
+
+Every T8 interval, descriptive ones included, uses the same item-cluster
+bootstrap. That covers the whole T8 report, not only the T8 analysis block:
+the harness runs with `bootstrap_unit="item"`, so report 1's log loss and
+Brier (overall and split), its comparisons against the incumbent and
+report 2's miss rates resample items too. The manifest records it as
+`bootstrap.unit = "item"`, with the resampling method and its scope. The
+Wilson intervals are analytic. A split on a single item, or with equal item
+means, reports no interval.
 
 ## Overlap with router R0 (for the merge)
 
@@ -289,7 +380,8 @@ gate failed.
 ### Pre-registered analysis (`field/success_head_analysis.py`)
 
 - **What it computes:**
-  - the kill rule, with e* chosen from E;
+  - the decision rule (v3: three-way, on the item-cluster interval), with e*
+    chosen from E;
   - the hierarchical gate;
   - the descriptive comparisons, split by `item_position` and
     `attempt_position`;
@@ -378,8 +470,11 @@ gate failed.
    - Replay and dry runs stay environment-free.
    - The loaded settings only add process keys and the Codex checkout path,
      which are not in the cache's settings hash.
-4. **Pre-registration v2:** see "Revision v2" above. It was made before any
-   run on owner data.
+4. **Pre-registration v2 and v3:** see "Revision v2" and "Revision v3"
+   above. Both were made before any run on owner data. v3 departs from the
+   letter of §11's kill rule ("the interval includes 0 at the margin"): an
+   interval that includes 0 is now a kill only if it also lies below δ
+   (owner, 2026-10-12).
 5. **The §11 "GP classifier (or Bayesian logistic)" is built as the Bayesian
    logistic.** `success_head` shares `emb_ridge`'s MAP fit and differs only in
    its moderated predictive variance.
@@ -423,7 +518,7 @@ gate failed.
 | LLM dry run | 53 predictions; subscription billing, `estimated_only`; 319,325 planned tokens |
 | LLM preparation | 53 fake calls, 53 ledger rows |
 | Cache-only replay | Zero calls; the database file is byte-identical before and after |
-| Verdict | `insufficient_data` (53 common attempts < 100), coverage 1.0 |
+| Verdict (under v2) | `insufficient_data` (53 common attempts < 100), coverage 1.0 |
 | `success_head+difficulty` | `unavailable` (no `solver_panel`) |
 
 - **Report:** `fixtures-local/reports/t8-fakes/t8-success-head-5551a02119de7430.{json,md}`.
@@ -433,6 +528,12 @@ gate failed.
 **Do not reuse this copy for real runs.** It now holds fake vectors under the
 real model id and fake ledger rows. It was renamed
 `fixtures-local/t8-linear_algebra-FAKES` after the run.
+
+**Under v3** (stage `t8-interval-rule`, a fresh fake-vector copy): the same
+53 attempts fall in 37 item clusters, and the verdict is `kill`, with interval
+[−0.00586, 0.00017] against `tag_logistic`. Noise vectors barely move
+`emb_ridge` from its nested baseline, so the interval is narrow. The numbers
+still carry no meaning. See `docs/reviews/t8-interval-rule.md`.
 
 ## Real paid calls and cost
 
@@ -493,17 +594,25 @@ uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallbac
 ```
 
 **6. The report.** Replay makes zero calls. Leave out `--llm-cache` to skip the
-LLM arms.
+LLM arms. The dry run and the report both print the pre-registration; check
+that it reads `t8-preregistration-v3` (hash `a2beed27c4ee19db…`). A copy
+prepared under v2 can be reused: the stored vectors and the LLM cache don't
+depend on the decision rule.
 
 ```fish
 uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --llm-cache fixtures-local/t8-llm-cache
 ```
 
-**Reading the report.** The markdown starts with the pre-registered verdict:
-- `kill` means the GP success head is not pursued;
-- `embeddings_add_value` opens the gated heads;
-- `insufficient_data` means rerun once there are at least 100 scored
-  attempts.
+**Reading the report.** The markdown starts with the pre-registered verdict.
+It shows n, the number of item clusters, the 95% item-cluster interval of the
+gain, m = 0.0, δ = 0.005, the verdict and its reason:
+- `embeddings_add_value` (lower bound above m) opens the gated heads;
+- `kill` (upper bound below δ) means the GP success head is not pursued;
+- `insufficient_data` is no decision. Either the interval reaches both m and
+  δ, or there is no interval (one item, or no variation). Rerun the
+  same command when more attempts exist. The distance from the interval's
+  bounds to m and δ shows how far the data is from a decision; there is no
+  fixed attempt count to wait for.
 
 The verdict also feeds condition 3 of the learned-router trigger
 (`spec_action_router_v1.md` §13).
@@ -575,6 +684,9 @@ All run in this worktree at the final code commit.
      with `b` on the ability scale.
 
    Both are wired by name here and untested against the real producers.
-6. **Minimum data.** The rule fixes 100 common attempts as the decision
-   threshold. The tracked fixture has 53. If the live vault is below 100, the
-   honest answer is `insufficient_data`.
+6. **Minimum data.** Resolved by pre-registration v3 (owner, 2026-10-12):
+   there is no attempt floor. The verdict comes from the item-cluster
+   interval, and it is `insufficient_data` only while the interval reaches
+   both m and δ, or where no interval exists (one item, or no variation).
+   There is no item minimum either (review F2). The tracked fixture has 53
+   attempts in 37 items, so it can reach a decision.

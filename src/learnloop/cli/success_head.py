@@ -264,7 +264,7 @@ def success_head_eval(
             bootstrap_samples=bootstrap_samples, seed=seed, fast_track_q=0.9,
             general_means=inputs["general_means"], lo_priors=inputs["lo_priors"], config=config,
             fsrs_weights=inputs["fsrs_weights"], fsrs_fit_id=inputs["fsrs_fit_id"],
-            analyses={"t8": make_t8_analysis(unavailable=unavailable)},
+            analyses={"t8": make_t8_analysis(unavailable=unavailable)}, bootstrap_unit="item",
         )
         report["manifest"]["embedding_model"] = coverage["embedding_model"]
         report["manifest"]["kernel"] = "bayesian_logistic_linear_blocks"
