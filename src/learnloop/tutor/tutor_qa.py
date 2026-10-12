@@ -632,7 +632,7 @@ def build_tutor_opening(
     item = vault.practice_items.get(practice_item_id)
     if item is None:
         return None
-    if _diagnostic_decision_for(repository, item, "practice") is None:
+    if _diagnostic_decision_for(vault, repository, item, "practice") is None:
         return None
     candidates = _candidate_facets(vault, repository, "practice", item=item, note=None)
     ai_context = _build_context(
@@ -1058,7 +1058,7 @@ def _build_context(
         note_title=note_id,
         note_body=note.body if note is not None else None,
         learning_object_summaries=lo_summaries,
-        diagnostic_decision=_diagnostic_decision_for(repository, item, context),
+        diagnostic_decision=_diagnostic_decision_for(vault, repository, item, context),
         source_spans=source_spans,
     )
 
@@ -1178,20 +1178,23 @@ def _reader_source_spans(
 
 
 def _diagnostic_decision_for(
-    repository: Repository, item: PracticeItem | None, context: str
+    vault: LoadedVault, repository: Repository, item: PracticeItem | None, context: str
 ) -> dict[str, Any] | None:
     """The §12.1 typed transition decision steering post-diagnosis tutoring.
 
     Attached only when the item's LO has no open episode (measurement has
     ended — attaching it mid-measurement would lift the no-reveal guardrail
     while a block is still measuring) and the latest closed episode persisted
-    a decision on its way into tutoring.
+    a decision on its way into tutoring. An unanswered opening episode
+    placement ignores is not measuring anything (owner decision 2026-10-12).
     """
 
     if item is None or context not in ("practice", "feedback"):
         return None
     lo_id = item.learning_object_id
-    if repository.open_probe_episode(lo_id) is not None:
+    from learnloop.placement.state import servable_open_episode
+
+    if servable_open_episode(vault, repository, lo_id) is not None:
         return None
     for episode in reversed(repository.probe_episodes_for_learning_object(lo_id)):
         if episode.status in ("complete", "converted_to_tutoring") and episode.target_decision:

@@ -369,6 +369,12 @@ def get_next_probe_item(ctx: SidecarContext, params: NextProbeItemInput) -> dict
     """
 
     vault, repository = ctx.require_vault()
+    from learnloop.placement.state import servable_open_episode
+
+    if servable_open_episode(vault, repository, params.learning_object_id) is None:
+        # No open episode, or an unanswered opening episode placement ignores
+        # (owner decision 2026-10-12): nothing continues a diagnostic block.
+        return versioned({"active": False})
     candidate = next_probe_item(vault, repository, params.learning_object_id)
     if candidate is None:
         return versioned({"active": False})
@@ -624,7 +630,7 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
     # recover this exact route from the receipt instead of minting a new grade.
     _log_attempt_recorded(repository, params.session_id, learner_answer_md, result)
     _log_state_update(vault, repository, "submit_attempt", params.session_id, before, result)
-    payload = _attempt_result(result, repository)
+    payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
 
@@ -678,7 +684,7 @@ def submit_dont_know(ctx: SidecarContext, params: DontKnowInput) -> dict[str, An
     # Client acknowledgment owns checkpoint removal; see submit_attempt.
     _log_attempt_recorded(repository, params.session_id, "", result)
     _log_state_update(vault, repository, "submit_dont_know", params.session_id, before, result)
-    payload = _attempt_result(result, repository)
+    payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
 
@@ -752,7 +758,7 @@ def _resume_saved_completion(
         ai_client=_normalization_client(ctx, vault),
     )
     ctx.resume_post_attempt_jobs()
-    payload = _attempt_result(result, repository)
+    payload = _attempt_result(result, repository, vault)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
 
@@ -859,7 +865,7 @@ def _self_grade(payload: SelfGradeInputDto | None) -> SelfGradeInput | None:
     )
 
 
-def _attempt_result(result, repository=None) -> dict[str, Any]:
+def _attempt_result(result, repository=None, vault=None) -> dict[str, Any]:
     # `probe_block_end` rides along inside as_dict() (camelized to
     # probeBlockEnd): the §5.7 hook payload with released feedback and route.
     payload = versioned(result.as_dict())
@@ -871,7 +877,15 @@ def _attempt_result(result, repository=None) -> dict[str, Any]:
         if work is not None and work["status"] == "completed":
             route = work["route"]
         else:
-            episode = repository.open_probe_episode(result.learning_object_id)
+            # An unanswered opening episode placement ignores holds back no
+            # feedback (owner decision 2026-10-12): the answer is new material.
+            from learnloop.placement.state import servable_open_episode
+
+            episode = (
+                servable_open_episode(vault, repository, result.learning_object_id)
+                if vault is not None
+                else repository.open_probe_episode(result.learning_object_id)
+            )
             route = probe_route(repository, result, episode_id=episode.id if episode is not None else None)
         payload["probeEpisode"] = to_camel(route)
         # Slice 1 §11: a blind-graded attempt's diagnosis runs after the

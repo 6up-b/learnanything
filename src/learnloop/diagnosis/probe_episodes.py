@@ -164,9 +164,21 @@ def enter_episode(
     selection from drift. It is persisted into the dedicated ``origin`` column
     (migration 059) at creation, so it survives target selection — which
     overwrites ``target_decision_json`` and previously erased the origin.
+
+    Under placement an unanswered opening episode an earlier version opened is
+    ignored (owner decision 2026-10-12); a door that opens an episode on its LO
+    adopts it (:func:`adopt_ignored_opening_episode`) instead of returning it
+    unchanged, so the request is served.
     """
 
     existing = repository.open_probe_episode(learning_object_id)
+    if existing is not None and causal_factor_id is None:
+        from learnloop.placement.state import episode_ignored
+
+        if episode_ignored(vault, repository, existing):
+            existing = adopt_ignored_opening_episode(
+                vault, repository, existing, trigger=trigger, origin=origin, goal_id=goal_id, clock=clock,
+            )
     if existing is not None:
         if (
             existing.status == "pending_items"
@@ -338,7 +350,7 @@ def _relock_episode_row(
     episode_id: str,
     *,
     hypothesis_set_id: str,
-    origin: str,
+    origin: str | None,
     target_decision: Mapping[str, Any],
     clock: Clock | None,
 ) -> None:
@@ -460,6 +472,106 @@ def retarget_episode_to_causal_factor(
     return refreshed
 
 
+#: ``target_decision.kind`` of an opening episode a door adopted under placement.
+ADOPTED_OPENING_EPISODE_KIND = "adopted_opening_episode"
+
+
+def adopt_ignored_opening_episode(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    *,
+    trigger: str,
+    origin: str | None,
+    goal_id: str | None = None,
+    clock: Clock | None = None,
+) -> ProbeEpisodeRecord:
+    """Adopt an unanswered opening episode placement ignores (owner decision 2026-10-12).
+
+    At most one episode may be open per LO, so a door that opens one (an
+    error-driven re-probe, the overconfidence list, a calibration, a
+    golden-path baseline) would otherwise get the ignored episode back
+    unchanged and nothing would be served. It is relocked the way the causal
+    quick check relocks an observation-free episode
+    (:func:`retarget_episode_to_causal_factor`): a fresh hypothesis set locked
+    now, any committed presentation invalidated, ``entered_at`` moved with the
+    lock, and the request stamped on ``origin`` and ``target_decision``. That
+    stamp is what stops placement ignoring it. The episode keeps its id, its
+    ``initial`` trigger and its observation budget, as a relock always does;
+    the requested trigger rides on ``target_decision``.
+
+    Nothing changes until the learner or an error acts, so the kill switches
+    stay exact for every episode no door touched.
+    """
+
+    if episode.status not in ("pending_items", "in_progress"):
+        raise ValueError("only an open probe episode can be adopted")
+    if episode_has_observations(repository, episode.id):
+        raise ValueError("an answered opening episode is not ignored, so it is never adopted")
+    learning_object_id = episode.learning_object_id
+    hypothesis_set = build_episode_hypothesis_set(vault, repository, learning_object_id, clock=clock)
+    hypothesis_set_id = repository.insert_hypothesis_set(
+        learning_object_id=learning_object_id,
+        probe_phase_id=episode.id,
+        hypotheses=[hypothesis.as_record() for hypothesis in hypothesis_set.hypotheses],
+        prior=hypothesis_set.prior,
+        algorithm_version=vault.config.algorithms.algorithm_version,
+        clock=clock,
+    )
+    locked = HypothesisSet(
+        learning_object_id=learning_object_id,
+        hypotheses=hypothesis_set.hypotheses,
+        prior=hypothesis_set.prior,
+        id=hypothesis_set_id,
+    )
+    active = repository.active_probe_presentation(episode.id)
+    if active is not None:
+        repository.end_probe_presentation(active.id, end_reason="invalidated", clock=clock)
+    _relock_episode_row(
+        repository,
+        episode.id,
+        hypothesis_set_id=str(hypothesis_set_id),
+        origin=origin,
+        target_decision={
+            "kind": ADOPTED_OPENING_EPISODE_KIND,
+            "requested_trigger": trigger,
+            "requested_origin": origin,
+            "goal_id": goal_id,
+            "relocked_from_hypothesis_set_id": episode.hypothesis_set_id,
+        },
+        clock=clock,
+    )
+    relocked = repository.probe_episode(episode.id)
+    assert relocked is not None
+    instruments = eligible_instruments(vault, repository, relocked, hypothesis_set=locked)
+    repository.update_probe_episode_status(
+        episode.id,
+        status="in_progress" if instruments else "pending_items",
+        clock=clock,
+    )
+    if not instruments and learning_object_servable(vault, learning_object_id):
+        _record_generation_need(vault, repository, relocked, locked, clock=clock)
+    refreshed = repository.probe_episode(episode.id)
+    assert refreshed is not None
+    return refreshed
+
+
+def _open_episode_blocks(vault: LoadedVault, repository: Repository, learning_object_id: str) -> bool:
+    """Whether an open episode already owns the LO for a re-probe trigger.
+
+    An unanswered opening episode placement ignores does not: the re-probe
+    adopts it (owner decision 2026-10-12; field §5.2, a diagnostic episode
+    still opens when a wrong answer leaves a real choice of repair).
+    """
+
+    existing = repository.open_probe_episode(learning_object_id)
+    if existing is None:
+        return False
+    from learnloop.placement.state import episode_ignored
+
+    return not episode_ignored(vault, repository, existing)
+
+
 def maybe_reprobe_for_misconception(
     vault: LoadedVault,
     repository: Repository,
@@ -473,7 +585,7 @@ def maybe_reprobe_for_misconception(
 
     if severity < 0.6:
         return None
-    if repository.open_probe_episode(learning_object_id) is not None:
+    if _open_episode_blocks(vault, repository, learning_object_id):
         return None
     return enter_episode(
         vault, repository, learning_object_id, trigger="misconception", clock=clock
@@ -504,7 +616,7 @@ def maybe_reprobe_for_predictive_failure(
     window = episode_config.reprobe_prediction_error_window
     if needed <= 0 or window <= 0:
         return None
-    if repository.open_probe_episode(learning_object_id) is not None:
+    if _open_episode_blocks(vault, repository, learning_object_id):
         return None
     if not any(
         entry.learning_object_id == learning_object_id

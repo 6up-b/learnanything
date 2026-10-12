@@ -1842,7 +1842,7 @@ def apply_attempt(
     with repository.atomic():
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
-            _save_completion_work(repository, attempt.draft, result, clock=clock)
+            _save_completion_work(vault, repository, attempt.draft, result, clock=clock)
         return result
 
 
@@ -2077,6 +2077,7 @@ def _apply_attempt_in_transaction(
 
 
 def _save_completion_work(
+    vault: LoadedVault,
     repository: Repository,
     draft: AttemptDraft,
     result: AttemptResult,
@@ -2088,11 +2089,14 @@ def _save_completion_work(
     Completion routes the learner by the probe episode recorded here. It is
     read after this attempt's episode accounting, so an attempt that ended its
     episode records none, and a later resume cannot attach it to an episode
-    opened afterwards.
+    opened afterwards. An unanswered opening episode placement ignores is not
+    recorded (owner decision 2026-10-12): the attempt is ordinary new material.
     """
 
     if draft.awaits_completion:
-        episode = repository.open_probe_episode(result.learning_object_id)
+        from learnloop.placement.state import servable_open_episode
+
+        episode = servable_open_episode(vault, repository, result.learning_object_id)
         repository.save_attempt_completion(
             attempt_id=result.attempt_id,
             submission_id=draft.submission_id,

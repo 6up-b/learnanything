@@ -100,18 +100,25 @@ def misspecification(
 
 
 def decision_relevant_robust_value(
-    repository: Repository, snapshot: cs.ControllerSnapshot, commitment_id: str | None
+    repository: Repository,
+    snapshot: cs.ControllerSnapshot,
+    commitment_id: str | None,
+    *,
+    ignored_episode_ids: frozenset[str] = frozenset(),
 ) -> float:
     """Positive when an ``in_progress`` open diagnostic episode on a commitment learning
     object carries unresolved decision-relevant uncertainty (§4.2 rung 3). ``pending_items``
     episodes leave the LO schedulable and do NOT by themselves imply measurement value;
-    only an in-progress episode does."""
+    only an in-progress episode does. ``ignored_episode_ids`` are the unanswered opening
+    episodes placement ignores (owner decision 2026-10-12): never served, so no value."""
 
     los = _commitment_learning_object_ids(repository, snapshot, commitment_id)
     if not los:
         return 0.0
     open_episodes = repository.open_probe_episodes()
     for episode in open_episodes.values():
+        if getattr(episode, "id", None) in ignored_episode_ids:
+            continue
         lo = getattr(episode, "learning_object_id", None)
         status = getattr(episode, "status", None)
         if lo in los and status == "in_progress":
@@ -181,6 +188,7 @@ def derive_signals(
     capability_fragile: bool = False,
     integration_failing: bool = False,
     goal_satisfied: bool = False,
+    ignored_episode_ids: frozenset[str] = frozenset(),
     clock: Clock | None = None,
 ) -> sp.StateSignals:
     """Assemble a live :class:`StateSignals` from real vault state (the five deterministic
@@ -195,7 +203,7 @@ def derive_signals(
         pending_triage_route=pending_triage_route,
         model_misspecified=misspecification(repository, snapshot, commitment_id),
         decision_relevant_robust_value=decision_relevant_robust_value(
-            repository, snapshot, commitment_id
+            repository, snapshot, commitment_id, ignored_episode_ids=ignored_episode_ids
         ),
         target_acquired=target_acquired(snapshot, commitment_id),
         capability_fragile=capability_fragile,

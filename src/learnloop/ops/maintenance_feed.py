@@ -87,6 +87,14 @@ def generate_maintenance_feed(
 
     notices = _collect(vault, repository)
     seen_keys = {(n.notice_type, n.dedup_key) for n in notices}
+    # An empty-pool notice on an LO whose episode placement ignores is held as
+    # it was, not resolved (owner decision 2026-10-12; the kill switch finds it).
+    from learnloop.diagnosis.diagnostic_surface_supply import (
+        PROBE_POOL_EMPTY_NOTICE_TYPE,
+        held_probe_pool_notice_keys,
+    )
+
+    seen_keys |= {(PROBE_POOL_EMPTY_NOTICE_TYPE, lo_id) for lo_id in held_probe_pool_notice_keys(vault, repository)}
 
     for notice in notices:
         spec = NOTICE_TYPES[notice.notice_type]

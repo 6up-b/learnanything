@@ -617,6 +617,7 @@ def evaluate_attempt_intervention_followup(
         repository,
         result,
         probe_state,
+        open_episode,
     )
     error_events = repository.error_events_for_attempt(result.attempt_id)
     max_error_severity = _max_error_severity(debug_payload, error_events)
@@ -1018,12 +1019,16 @@ def _probe_unfamiliar_probability(
     repository: Repository,
     result: Any,
     probe_state: Any,
+    episode: Any,
 ) -> float | None:
+    """``episode`` is the LO's open episode as the caller read it: None for an
+    unanswered opening episode placement ignores (owner decision 2026-10-12),
+    whose untouched prior must not feed the intervention trigger."""
+
     if float(result.correctness or 0.0) >= 1.0:
         return None
     # Probe redesign: live evidence flows through diagnostic episodes; the
     # legacy lo_probe_state branch below serves only frozen pre-redesign phases.
-    episode = repository.open_probe_episode(result.learning_object_id)
     if episode is not None and episode.hypothesis_set_id is not None:
         from learnloop.diagnosis.probe_episodes import episode_posterior
         from learnloop.diagnosis.probe_hypotheses import H_OTHER, H_UNFAMILIAR

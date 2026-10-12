@@ -134,24 +134,33 @@ def opening_probes_ignored(vault: LoadedVault) -> bool:
 
     Under placement with ``placement.initial_probes = false``, an opening
     episode an earlier version opened and the learner never answered is not an
-    open episode for serving or for instrument generation. Nothing rewrites or
-    closes it: ``placement.enabled = false`` restores the predecessor exactly,
-    and ``placement.initial_probes = true`` serves opening probes again.
+    open episode for serving, feedback routing or instrument generation.
+    Nothing rewrites or closes it until the learner or an error acts on its LO
+    (a door that opens an episode adopts it instead:
+    ``probe_episodes.adopt_ignored_opening_episode``), so
+    ``placement.enabled = false`` restores the predecessor exactly, and
+    ``placement.initial_probes = true`` serves opening probes again.
     """
 
     return placement_active(vault) and not bool(vault.config.placement.initial_probes)
 
 
 def unanswered_opening_episode_ids(connection: Any, episode_ids: Iterable[str] | None = None) -> frozenset[str]:
-    """Open ``initial`` episodes with nothing answered under them.
+    """Open opening episodes exactly as state sync left them: nothing answered,
+    nothing adopted.
 
-    "Answered" is ``probe_episodes.episode_has_observations``: a recorded probe
-    observation, or a presentation the learner consumed (``submitted``).
+    Pristine: ``trigger = 'initial'`` with no ``origin`` and no target decision
+    (a door that adopts or relocks the episode stamps them: the causal quick
+    check, a re-probe, the overconfidence list, a calibration or a golden-path
+    baseline), and nothing answered under it ("answered" is
+    ``probe_episodes.episode_has_observations``: a recorded probe observation,
+    or a presentation the learner consumed, ``submitted``).
     """
 
     sql = (
         "SELECT e.id FROM probe_episodes e "
         "WHERE e.trigger = ? AND e.status IN ('pending_items', 'in_progress') "
+        "AND e.origin IS NULL AND e.target_decision_json IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM probe_presentations p "
         "WHERE p.probe_episode_id = e.id AND p.status = 'submitted') "
         "AND NOT EXISTS (SELECT 1 FROM probe_observations o "
@@ -192,8 +201,9 @@ def episode_ignored(vault: LoadedVault, repository: Repository, episode: Any) ->
 def servable_open_episodes(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
     """``repository.open_probe_episodes()`` without the ignored opening episodes.
 
-    The serving and instrument-generation doors read this; error-driven
-    diagnosis and the episode ledger itself still see every open episode.
+    The serving, feedback-routing and instrument-generation doors read this.
+    A door that opens an episode on an LO (``enter_episode``, the re-probe
+    triggers) adopts an ignored one instead of treating it as taken.
     """
 
     episodes = repository.open_probe_episodes()
@@ -201,6 +211,15 @@ def servable_open_episodes(vault: LoadedVault, repository: Repository) -> dict[s
     if not ignored:
         return episodes
     return {lo: episode for lo, episode in episodes.items() if episode.id not in ignored}
+
+
+def servable_open_episode(vault: LoadedVault, repository: Repository, learning_object_id: str) -> Any:
+    """``repository.open_probe_episode(lo)``, or None when placement ignores it."""
+
+    episode = repository.open_probe_episode(learning_object_id)
+    if episode_ignored(vault, repository, episode):
+        return None
+    return episode
 
 
 def placement_tables_present(connection: Any) -> bool:

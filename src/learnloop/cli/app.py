@@ -3189,9 +3189,16 @@ def probe_instances_command(
     summaries = []
     # Under placement an unanswered opening episode is ignored for instrument
     # generation (owner decision 2026-10-12); the kill switch restores it.
+    # Naming the LO with --lo still reaches its episode, as naming it in a
+    # calibration does.
     from learnloop.placement.state import servable_open_episodes
 
-    for lo_id, episode in sorted(servable_open_episodes(loaded, repository).items()):
+    episodes = (
+        repository.open_probe_episodes()
+        if learning_object_id is not None
+        else servable_open_episodes(loaded, repository)
+    )
+    for lo_id, episode in sorted(episodes.items()):
         if episode.status != "pending_items":
             continue
         if learning_object_id is not None and lo_id != learning_object_id:

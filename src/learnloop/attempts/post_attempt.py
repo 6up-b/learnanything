@@ -112,7 +112,7 @@ def run_post_attempt_pipeline(
         work = repository.attempt_completion(result.attempt_id)
         if work is not None and work["status"] == "completed":
             return PostAttemptOutcome(result.attempt_id, None, ("already_completed",))
-        applied_episode_id = _applied_probe_episode_id(repository, result, work)
+        applied_episode_id = _applied_probe_episode_id(vault, repository, result, work)
         with repository.atomic():
             if work is not None:
                 repository.save_attempt_completion(
@@ -166,17 +166,21 @@ def _shadow_diagnosis_enabled(vault: LoadedVault) -> bool:
 
 
 def _applied_probe_episode_id(
-    repository: Repository, result: Any, work: dict[str, Any] | None
+    vault: LoadedVault, repository: Repository, result: Any, work: dict[str, Any] | None
 ) -> str | None:
     """The probe episode the attempt was applied under.
 
     Saved completion work records it at apply time. Attempts without completion
     work are completed in the same call that applied them, so the episode open
-    now is still that episode.
+    now is still that episode. An unanswered opening episode placement ignores
+    is no episode for this purpose (owner decision 2026-10-12): the attempt is
+    ordinary new material, so its feedback is never deferred to that episode.
     """
 
     if work is None:
-        episode = repository.open_probe_episode(result.learning_object_id)
+        from learnloop.placement.state import servable_open_episode
+
+        episode = servable_open_episode(vault, repository, result.learning_object_id)
         return episode.id if episode is not None else None
     if not work["applied_episode_recorded"]:
         raise CompletionRouteUnknown(
