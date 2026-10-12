@@ -206,3 +206,29 @@ def test_cli_compare_dry_run(tmp_path):
     assert report["status"] == "dry_run" and report["suite"] == "b2"
     unknown = CliRunner().invoke(app, ["embeddings", "compare", "--vault", str(paths.root), "--suite", "nope"])
     assert unknown.exit_code == 1 and "Unknown suite" in unknown.stdout
+
+
+@needs_bwrap
+def test_valid_alternative_suite_rejects_a_degenerate_equivalence_check(tmp_path):
+    """Codex review F10: an always-true check confirms nothing, so no trace is verified."""
+    from tests.pf_fakes import ALWAYS_TRUE_CHECK
+
+    vault, repository, _ = seed_pf_vault(tmp_path / "vault")
+    grader = Grader()
+    writer = PFFake("fake-judge")
+    sycophant = PFFake("fake-verifier", always_agree=True, sympy_check=ALWAYS_TRUE_CHECK)
+    report = run_compare(vault, request=CompareRequest(suite="valid_alternative", output_dir=tmp_path / "out"),
+                         caps=CAPS, price_per_million=1.0,
+                         clients={"valid_alternative": writer, "equivalence": sycophant, "grading": grader})
+    assert report["status"] == "complete", report
+    results = report["results"]
+    # The wrong alternative ("999") must not enter the regression suite.
+    assert results["suite_traces"] == 0 and results["excluded_unverified_traces"] == 3
+    assert results["degenerate_checks"] == 1
+    assert not grader.requests
+    suite = json.loads((tmp_path / "out" / "valid_alternative_suite.json").read_text())
+    assert suite["cases"] == []
+    with repository.connection() as connection:
+        verdicts = {row[0] for row in connection.execute(
+            "SELECT verdict FROM judgment_ledger WHERE task='answer_equivalence' AND left_kind='va_trace'")}
+    assert verdicts == {"degenerate_check"}

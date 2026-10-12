@@ -60,7 +60,8 @@ from learnloop.content.authoring import pf_contracts as C
 from learnloop.content.authoring.authoring_gates import build_instrument_gates
 from learnloop.content.authoring.pf_sandbox import (
     GENERATOR_PROTOCOL, SandboxLimits, SandboxUnavailable, check_generator_answers,
-    require_sandbox, run_equivalence_checks, run_generator_tests, sandbox_available,
+    equivalence_confirmations, require_sandbox, run_equivalence_checks, run_generator_tests,
+    sandbox_available,
 )
 from learnloop.content.authoring.practice_leakage import (
     build_cross_source_spans, build_held_out_inventory, screen_practice_payload,
@@ -943,12 +944,8 @@ class _FamilyRun:
             )
             if sandbox.ok:
                 normal_form = ((sandbox.output or {}).get("normal_forms") or {}).get("reference")
-                if (sandbox.output or {}).get("degenerate", {}).get("check"):
-                    # It accepts a wrong answer, so it confirms nothing.
-                    confirmations = [False] * len(solves)
-                    degenerate = True
-                else:
-                    confirmations = list((sandbox.output or {}).get("checks") or confirmations)
+            # A degenerate check (it accepts a wrong answer) confirms nothing.
+            confirmations, degenerate = equivalence_confirmations(sandbox, len(solves))
         agrees = []
         for index, solve in enumerate(solves):
             llm = bool(usable and result.agreements[index])

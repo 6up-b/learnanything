@@ -362,8 +362,27 @@ def run_equivalence_checks(
     return result
 
 
+def equivalence_confirmations(result: SandboxResult, count: int, *,
+                              program: str = "check") -> tuple[list[bool | None], bool]:
+    """Per-pair confirmations of one LLM-written check, and whether it is degenerate.
+
+    A check that accepts a negative control (e.g. always True) confirms
+    nothing: every pair is then ``False``. A failed sandbox run confirms
+    nothing either (``None`` per pair). Every caller of
+    :func:`run_equivalence_checks` decides agreement through this function.
+    """
+    if not result.ok or not isinstance(result.output, dict):
+        return [None] * count, False
+    if (result.output.get("degenerate") or {}).get(program):
+        return [False] * count, True
+    checks = list(result.output.get("checks") or [])
+    if len(checks) != count:
+        return [None] * count, False
+    return [value if isinstance(value, bool) else None for value in checks], False
+
+
 __all__ = [
-    "EQUIVALENCE_PROTOCOL", "GENERATOR_PROTOCOL", "NEGATIVE_CONTROLS", "SandboxLimits",
+    "EQUIVALENCE_PROTOCOL", "equivalence_confirmations", "GENERATOR_PROTOCOL", "NEGATIVE_CONTROLS", "SandboxLimits",
     "SandboxResult", "SandboxUnavailable", "check_generator_answers", "require_sandbox",
     "run_equivalence_checks", "run_sandboxed_python", "sandbox_available",
     "run_generator_tests",

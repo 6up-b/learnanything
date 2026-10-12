@@ -55,7 +55,9 @@ from learnloop.attempts.blind_grading import (
     BLIND_GRADING_PROMPT_VERSION, BlindGradingProposal, blind_grading_context, blind_grading_prompt,
 )
 from learnloop.content.authoring import pf_contracts as C
-from learnloop.content.authoring.pf_sandbox import run_equivalence_checks, sandbox_available
+from learnloop.content.authoring.pf_sandbox import (
+    equivalence_confirmations, run_equivalence_checks, sandbox_available,
+)
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ops.pf_calls import (
@@ -491,7 +493,7 @@ class ValidAlternativeSuite:
         verifier = ctx.role("equivalence")[0]
         grader = ctx.role("grading")[0]
         suite_cases = []
-        excluded = 0
+        excluded = degenerate_checks = 0
         for va in data.items:
             item = ctx.vault.practice_items[va.item_id]
             call = ctx.caller.call(writer, prompt=C.valid_alternative_prompt(
@@ -503,20 +505,23 @@ class ValidAlternativeSuite:
                 stem=item.prompt, reference=va.reference, answers=[t.final_answer for _, t in traces]),
                 prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult, output_tokens=2500)
             agreements = list(eq.result.agreements) if len(eq.result.agreements) == len(traces) else [False] * len(traces)
+            degenerate = False
             if eq.result.answer_kind in {"numeric", "symbolic"}:
                 checks: list[Any] = [None] * len(traces)
                 if eq.result.sympy_check and sandbox_available():
                     sandbox = run_equivalence_checks({"check": eq.result.sympy_check}, [
                         {"program": "check", "reference": va.reference, "answer": t.final_answer} for _, t in traces])
-                    if sandbox.ok:
-                        checks = list((sandbox.output or {}).get("checks") or checks)
+                    # The production rule: a check that accepts a negative
+                    # control (always True) confirms no trace.
+                    checks, degenerate = equivalence_confirmations(sandbox, len(traces))
                 agreements = [a and c is True for a, c in zip(agreements, checks)]
+                degenerate_checks += int(degenerate)
             for index, ((kind, trace), verified) in enumerate(zip(traces, agreements)):
                 trace_id = "va_" + content_key([va.item_id, call.input_hash, index])[:24]
                 ctx.caller.ledger(task="answer_equivalence", left_kind="va_trace", left_id=trace_id,
                                   right_kind="practice_item", right_id=va.item_id, judge="verifier",
                                   prompt_version=C.EQUIVALENCE_PROMPT, input_hash=eq.input_hash,
-                                  verdict="agree" if verified else "disagree",
+                                  verdict="degenerate_check" if degenerate else ("agree" if verified else "disagree"),
                                   rationale={"kind": kind, "answer_kind": eq.result.answer_kind})
                 if not verified:
                     excluded += 1
@@ -553,6 +558,7 @@ class ValidAlternativeSuite:
                     "below_half": round(sum(1 for v in values if v < 0.5) / len(values), 6) if values else None}
 
         return {"items": len(data.items), "suite_traces": len(suite_cases), "excluded_unverified_traces": excluded,
+                "degenerate_checks": degenerate_checks,
                 "suite_file": suite_path.name,
                 "by_grader_model": {f"{model}|{kind}": summary(values) for (model, kind), values in sorted(scores.items())},
                 "by_family": {f"{family}|{kind}": summary(values) for (family, kind), values in sorted(by_family.items())},

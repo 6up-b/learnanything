@@ -707,3 +707,18 @@ def test_publication_recovery_never_erases_scheduling_state(pf, monkeypatch):
     pf_publish.publish_candidate(load_vault(paths.root), repository, second, clock=DAY)
     state = repository.practice_item_state(second_item)
     assert state is not None and state.active and state.stability is None
+
+
+@needs_bwrap
+def test_a_degenerate_equivalence_check_verifies_no_ensemble_candidate(pf):
+    """F10's production twin: the same confirmation rule guards the solve-first agreement."""
+    from tests.pf_fakes import ALWAYS_TRUE_CHECK
+
+    _, repository, paths = pf
+    sycophant = PFFake("fake-verifier", always_agree=True, sympy_check=ALWAYS_TRUE_CHECK)
+    report = run(paths, fakes=clients(equivalence=sycophant))
+    assert report["status"] == "complete" and not report["published_item_ids"]
+    candidates = rows(repository)
+    assert candidates and all(row["verification"] == "unverified" for row in candidates)
+    assert {row["verdict"] for row in ledger(repository, "answer_equivalence") if row["judge"] == "verifier"} \
+        == {"degenerate_check"}

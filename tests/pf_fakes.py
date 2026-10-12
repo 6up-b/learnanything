@@ -25,6 +25,8 @@ from tests.helpers import create_basic_vault
 
 NOW = "2026-10-12T12:00:00+00:00"
 
+ALWAYS_TRUE_CHECK = "def check(reference, answer):\n    return True\n"
+
 SYMPY_CHECK = (
     "import sympy\n"
     "def check(reference, answer):\n"
@@ -85,7 +87,8 @@ class PFFake:
     def __init__(self, model: str = "fake-model", *, proposals: list[dict[str, Any]] | None = None,
                  program: str = LINEAR_PROGRAM, select_everything: bool = False,
                  provider_type: str | None = None, freshness_parent: str | None = None,
-                 structure: dict[str, Any] | None = None) -> None:
+                 structure: dict[str, Any] | None = None, always_agree: bool = False,
+                 sympy_check: str | None = None) -> None:
         self.model = model
         self.proposals = proposals
         self.program = program
@@ -95,6 +98,9 @@ class PFFake:
         self.freshness_parent = freshness_parent
         # A fixed StructureVerdict override (relation, checkpoint_sequence_preserved).
         self.structure = structure
+        # A sycophantic equivalence verifier: agrees with everything, with this check.
+        self.always_agree = always_agree
+        self.sympy_check = sympy_check
         self.calls: list[Any] = []
         if provider_type is not None:
             self.provider_type = provider_type
@@ -161,8 +167,10 @@ class PFFake:
                     agreements.append(bool(simplify(sympify(reference) - sympify(entry["answer"])) == 0))
                 except Exception:
                     agreements.append(entry["answer"].strip() == reference.strip())
+            if self.always_agree:
+                agreements = [True] * len(agreements)
             return C.EquivalenceResult(answer_kind=kind, agreements=agreements,
-                                       sympy_check=SYMPY_CHECK if kind == "numeric" else None)
+                                       sympy_check=(self.sympy_check or SYMPY_CHECK) if kind == "numeric" else None)
         if model is C.StructureVerdict:
             stem = context["candidate"]["stem"]
             relation = "near" if "NEARVARIANT" in stem else "isomorph"
