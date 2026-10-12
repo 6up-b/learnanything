@@ -549,13 +549,29 @@ class IngestRunner:
         subject_id: str | None = None,
         source_set_id: str | None = None,
         priority: int = 0,
+        batch_id: str | None = None,
+    ) -> str:
+        # The batch, jobs and dependency graph form one enqueue receipt. A
+        # stable identity lets interrupted callers recover without a second batch.
+        with self.repo.atomic():
+            if batch_id is not None and self.repo.get_ingest_batch(batch_id) is not None:
+                return batch_id
+            return self._enqueue_batch(
+                workflow_type, jobs, subject_id=subject_id,
+                source_set_id=source_set_id, priority=priority, batch_id=batch_id,
+            )
+
+    def _enqueue_batch(
+        self, workflow_type: str, jobs: Sequence[JobSpec], *,
+        subject_id: str | None, source_set_id: str | None, priority: int,
+        batch_id: str | None,
     ) -> str:
         if not jobs:
             raise IngestRunnerError("a batch needs at least one job.")
         for spec in jobs:
             if not spec.job_type:
                 raise IngestRunnerError("every job needs a job_type.")
-        batch_id = f"batch_{new_ulid()}"
+        batch_id = batch_id or f"batch_{new_ulid()}"
         self.repo.insert_ingest_batch(
             id=batch_id,
             workflow_type=workflow_type,

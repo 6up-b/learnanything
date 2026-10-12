@@ -297,6 +297,7 @@ def ask_question(
     answer_mode: str | None = None,
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    question_event_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
@@ -412,6 +413,7 @@ def ask_question(
         }
     event_id = repository.insert_question_event(
         {
+            "id": question_event_id,
             "context": context,
             "note_id": note_id,
             "practice_item_id": practice_item_id,

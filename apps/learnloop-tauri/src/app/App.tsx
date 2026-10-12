@@ -898,6 +898,8 @@ export function App() {
       }
       return (
         <TodayScreen
+          key={snapshot.vault?.root}
+          subjects={subjectOptions}
           session={session}
           gradingReady={gradingReady}
           gradingProvider={gradingProvider}

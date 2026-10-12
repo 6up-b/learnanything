@@ -3,13 +3,13 @@ title: "synthesis_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite synthesis_runs"
   - "table synthesis_runs"
-schema_head: 170
+schema_head: 171
 table_name: "synthesis_runs"
 table_role: "workflow"
 functionality_status: "active"
@@ -127,6 +127,7 @@ Indexes and uniqueness:
 - `tests/test_model_usage_report.py`
 - `tests/test_source_set_synthesis.py`
 - `tests/test_ingest_ownership.py`
+- `tests/test_mobile_host_coexistence.py`
 - `tests/test_source_append.py`
 - `tests/test_synthesis_runs_repo.py`
 

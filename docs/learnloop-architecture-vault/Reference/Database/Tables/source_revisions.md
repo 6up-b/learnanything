@@ -3,13 +3,13 @@ title: "source_revisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_revisions"
   - "table source_revisions"
-schema_head: 170
+schema_head: 171
 table_name: "source_revisions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/032_source_layer.sql"
+  - "src/learnloop/capture/inbox.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/substrate/dataset.py"
@@ -94,6 +95,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/capture/inbox.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/substrate/dataset.py`
 

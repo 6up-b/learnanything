@@ -27,6 +27,7 @@ import { FacetEvidenceDrawer } from "../components/KnowledgeModel";
 import { QuestionQueuePanel } from "../components/QuestionQueue";
 import { notifyQueueChanged } from "../queueEvents";
 import { WriteCardDialog } from "../components/WriteCardDialog";
+import { InboxStrip } from "../components/InboxStrip";
 import { masteryTone } from "../app/algoConfig";
 import { todayQueueInput } from "../app/autoAdvance";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -124,6 +125,7 @@ const stripActionStyle: CSSProperties = {
 
 export function TodayScreen({
   session,
+  subjects = [],
   gradingReady = true,
   gradingProvider = "codex",
   algorithmVersion,
@@ -141,6 +143,7 @@ export function TodayScreen({
   onError
 }: {
   session: SessionSnapshot | null;
+  subjects?: { id: string; title: string }[];
   gradingReady?: boolean;
   gradingProvider?: string;
   algorithmVersion: string;
@@ -538,11 +541,17 @@ export function TodayScreen({
   }
 
   if (queueLoading && !queue) {
-    return <EmptyPlaceholder title="Loading today's queue" />;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+        <InboxStrip subjects={subjects} onAsk={onAsk} />
+        <EmptyPlaceholder title="Loading today's queue" />
+      </div>
+    );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <InboxStrip subjects={subjects} onAsk={onAsk} />
       {/* F7 welcome-back diff (§4.4): survival-first, BEFORE the hero. */}
       {reentry ? <ReentryPanel summary={reentry} refreshers={reentryRefreshers(reentry, queue)} /> : null}
 

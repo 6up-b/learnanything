@@ -346,6 +346,7 @@ def enqueue_quick_add(
     role_override: str | None = None,
     output_budget_tokens: int | None = None,
     unlimited_token_budget: bool = False,
+    batch_id: str | None = None,
 ) -> dict[str, Any]:
     """Post-confirmation step: create the source set from the plan and enqueue the
     priority [inventory(selected) -> bootstrap_synthesis] build batch (§1)."""
@@ -385,6 +386,7 @@ def enqueue_quick_add(
         mode="auto",
         output_budget_tokens=output_budget_tokens,
         unlimited_token_budget=unlimited_token_budget,
+        **({"batch_id": batch_id} if batch_id is not None else {}),
     )
     return {
         "batch_id": batch_id,

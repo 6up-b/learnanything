@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { api } from "../api/client";
 import type { CommandError } from "../api/dto";
 import { COLOR, Faint, FONT_MONO, Pill, TermSelect } from "./term";
+import { CapturePhoto } from "./CapturePhoto";
 
 const PRACTICE_MODES = [
   { value: "short_answer", label: "short answer" },
@@ -18,17 +19,24 @@ const PRACTICE_MODES = [
 export function WriteCardDialog({
   defaultLearningObjectId,
   defaultLearningObjectTitle,
+  initialPrompt,
+  captureId,
+  photoCaptureId,
   onClose,
   onCreated
 }: {
   defaultLearningObjectId?: string | null;
   defaultLearningObjectTitle?: string | null;
+  initialPrompt?: string;
+  captureId?: string;
+  /** A photo capture to show beside the editor while writing its card by hand. */
+  photoCaptureId?: string;
   onClose: () => void;
   onCreated: (practiceItemId: string) => void;
 }) {
   const [loOptions, setLoOptions] = useState<{ value: string; label: string }[] | null>(null);
   const [learningObjectId, setLearningObjectId] = useState(defaultLearningObjectId ?? "");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [expectedAnswer, setExpectedAnswer] = useState("");
   const [hintsText, setHintsText] = useState("");
   const [practiceMode, setPracticeMode] = useState("short_answer");
@@ -89,6 +97,7 @@ export function WriteCardDialog({
         .map((h) => h.trim())
         .filter(Boolean);
       const res = await api.authorPracticeItem({
+        captureId,
         learningObjectId,
         prompt: prompt.trim(),
         expectedAnswer: expectedAnswer.trim(),
@@ -117,6 +126,8 @@ export function WriteCardDialog({
         </div>
 
         <div className="ll-scroll" style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+          {captureId ? <p>Capture provenance: {captureId}. Saving this card does not start practice.</p> : null}
+          {photoCaptureId ? <CapturePhoto captureId={photoCaptureId} /> : null}
           <Label>learning object</Label>
           <TermSelect
             value={learningObjectId}

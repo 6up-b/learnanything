@@ -3099,6 +3099,7 @@ class DurableIngestJobs:
         output_budget_tokens: int | None = None,
         unlimited_token_budget: bool = False,
         priority: int = QUICK_ADD_PRIORITY,
+        batch_id: str | None = None,
     ) -> str:
         """Enqueue the Quick-add build batch (§1): inventory(selected units) then
         bootstrap_synthesis over the freshly-created source set, as one batch that
@@ -3132,6 +3133,7 @@ class DurableIngestJobs:
             subject_id=subject_id,
             source_set_id=source_set_id,
             priority=priority,
+            **({"batch_id": batch_id} if batch_id is not None else {}),
         )
         self._ensure_worker()
         return batch_id

@@ -1832,6 +1832,8 @@ export type TutorQuestionContext = "library" | "practice" | "feedback" | "reader
 export type AttemptProgress = "no_draft" | "draft_started";
 
 export interface AskTutorQuestionInput {
+  captureId?: string;
+  subjectId?: string;
   context: TutorQuestionContext;
   question: string;
   practiceItemId?: string;
@@ -1852,6 +1854,7 @@ export interface TutorCitationDto {
 }
 
 export interface TutorAnswerDto {
+  noteId?: string | null;
   version: number;
   eventId: string;
   answerMd: string;
@@ -2993,6 +2996,7 @@ export interface PlanQuickAddInput {
 }
 
 export interface ConfirmQuickAddInput {
+  captureId?: string;
   readerEnabled?: boolean | null;
   source: string;
   subjectId: string;

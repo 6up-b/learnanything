@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 170
-table_count: 277
+schema_head: 171
+table_count: 284
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_170/state.sqlite"
+  - "fixtures/migration_head_171/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-170"
+  - "learnloop/database/schema-head-171"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 277 user tables at migration head 170. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 284 user tables at migration head 171. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,17 +38,17 @@ This is the exhaustive map of the 277 user tables at migration head 170. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 134 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 135 |
 | [[Table Roles#Derived|`derived`]] | 12 |
 | [[Table Roles#Receipt|`receipt`]] | 59 |
-| [[Table Roles#Workflow|`workflow`]] | 62 |
+| [[Table Roles#Workflow|`workflow`]] | 68 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 264 |
+| `active` | 271 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -385,6 +385,8 @@ Maintenance, generic observations, and optional generated media. This is a navig
 
 - [[Reference/Database/Tables/ability_transition_events|ability_transition_events]] — `derived` · `active` · Materializes the replayed ability-state transition attributed to each attempt. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `attempt_id`, `learning_object_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/blind_grade_records|blind_grade_records]] — `raw_ledger` · `active` · Gives blind grade record a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `agent_run_id`, `supersedes_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/capture_inbox|capture_inbox]] — `raw_ledger` · `active` · Gives capture inbox a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `client_capture_id`, `device_id`, `kind`, making the operational relationship explicit.
+- [[Reference/Database/Tables/capture_routes|capture_routes]] — `workflow` · `active` · Gives capture route a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `capture_id`, `state`, `route`, making the operational relationship explicit.
 - [[Reference/Database/Tables/concept_animations|concept_animations]] — `raw_ledger` · `active` · Tracks requested and rendered concept-animation artifacts. It supplies replay-stable input rather than a disposable cache. Rows bind `concept_id`, `learning_object_id`, `batch_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/diagnosis_adjudications|diagnosis_adjudications]] — `raw_ledger` · `active` · Gives diagnosis adjudication a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `diagnosis_receipt_id`, `adjudicated_repair_class_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/diagnosis_context_receipts|diagnosis_context_receipts]] — `receipt` · `active` · Freezes the inputs and outcome of each diagnosis context decision so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `diagnosis_id`, `context_as_of_attempt_id`, `context_hash`, making the operational relationship explicit.
@@ -401,6 +403,11 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/item_misconception_discrimination|item_misconception_discrimination]] — `raw_ledger` · `active` · Gives item misconception discrimination a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `practice_item_id`, `misconception_id`, `sensitivity_alpha`, making the operational relationship explicit.
 - [[Reference/Database/Tables/judgment_ledger|judgment_ledger]] — `raw_ledger` · `active` · Gives judgment ledger a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `supersedes_id`, `left_id`, `right_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/maintenance_notices|maintenance_notices]] — `workflow` · `active` · Stores actionable maintenance items surfaced by operational checks. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `entity_id`, `notice_type`, making the operational relationship explicit.
+- [[Reference/Database/Tables/mobile_devices|mobile_devices]] — `workflow` · `active` · Gives mobile device a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `token_hash`, `label`, `scope`, making the operational relationship explicit.
+- [[Reference/Database/Tables/mobile_pairing_attempts|mobile_pairing_attempts]] — `workflow` · `active` · Gives mobile pairing attempt a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `at`, making the operational relationship explicit.
+- [[Reference/Database/Tables/mobile_pairing_guard|mobile_pairing_guard]] — `workflow` · `active` · Gives mobile pairing guard a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `locked`, making the operational relationship explicit.
+- [[Reference/Database/Tables/mobile_pairings|mobile_pairings]] — `workflow` · `active` · Gives mobile pairing a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `secret_hash`, `code_hash`, `label`, making the operational relationship explicit.
+- [[Reference/Database/Tables/mobile_request_log|mobile_request_log]] — `workflow` · `active` · Gives mobile request log a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `device_id`, `endpoint`, `status`, making the operational relationship explicit.
 - [[Reference/Database/Tables/model_call_receipts|model_call_receipts]] — `receipt` · `active` · Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `parent_call_id`, `owner_id`, `provider_response_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/model_work_checkpoints|model_work_checkpoints]] — `workflow` · `active` · Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `cache_key`, `purpose`, making the operational relationship explicit.
 - [[Reference/Database/Tables/observation_events|observation_events]] — `raw_ledger` · `active` · Stores observations captured through registered observation templates. It supplies replay-stable input rather than a disposable cache. Rows bind `template_id`, `session_id`, `related_learning_object_id`, making the operational relationship explicit.

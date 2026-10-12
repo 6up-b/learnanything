@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 170
+schema_head: 171
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -140,6 +140,7 @@ Indexes and uniqueness:
 - `src/learnloop/tutor/question_queue.py`
 - `src/learnloop/tutor/question_signal.py`
 - `src/learnloop/tutor/tutor_qa.py`
+- `src/learnloop_sidecar/handlers/capture.py`
 - `src/learnloop_sidecar/handlers/facets.py`
 - `src/learnloop_sidecar/handlers/tutor_qa.py`
 
@@ -148,6 +149,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_capture_desktop.py`
+- `tests/test_capture_route_recovery.py`
 - `tests/test_coldness_receipt.py`
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_interaction_signals.py`

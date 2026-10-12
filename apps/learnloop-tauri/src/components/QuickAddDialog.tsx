@@ -22,6 +22,7 @@ export function QuickAddDialog({
   subjects,
   defaultSubjectId,
   defaultSource,
+  captureId,
   defaultPageSelection,
   defaultBrief,
   guided = false,
@@ -33,6 +34,7 @@ export function QuickAddDialog({
   // Optional prefilled source (URL / path). The NewVault wizard passes the
   // learner's first source so the bootstrap opens ready to analyze.
   defaultSource?: string | null;
+  captureId?: string;
   defaultPageSelection?: string | null;
   // Optional starting brief (e.g. the NewVault wizard's startingLevel) shown in
   // the brief wizard and sent with the plan/confirm calls until edited.
@@ -215,6 +217,7 @@ export function QuickAddDialog({
     setError(null);
     try {
       const res = await api.confirmQuickAdd({
+        captureId,
         source: source.trim(),
         subjectId,
         brief: effectiveBrief(),

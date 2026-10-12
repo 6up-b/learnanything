@@ -56,6 +56,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/practice_index.py",
         # Slice 1 M2: blind grades, diagnoses, card taps and the job queue.
         "src/learnloop/db/stores/diagnoses.py",
+        # Shared capture domain owns only the M1 mobile/inbox workflow tables.
+        "src/learnloop/capture/devices.py",
+        "src/learnloop/capture/inbox.py",
+        "src/learnloop/capture/maintenance.py",
+        "src/learnloop/capture/routing.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

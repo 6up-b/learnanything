@@ -1288,6 +1288,7 @@ class PlanQuickAddInput(ParamsModel):
 
 
 class ConfirmQuickAddInput(ParamsModel):
+    capture_id: str | None = None
     source: str
     subject_id: str
     brief: dict[str, Any] = {}
@@ -1338,8 +1339,18 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
     priority [inventory(selected) -> bootstrap_synthesis] build batch."""
 
     from learnloop.content.pipeline.quick_add import QuickAddError, enqueue_quick_add, plan_quick_add
+    from learnloop_sidecar.handlers.capture import capture_call, finish_route, route_intent
+    from learnloop.capture.routing import update_route_intent
 
     vault, repository = ctx.require_vault()
+    intent = route_intent(repository, params, "quick_add", create=False, ctx=ctx)
+    batch_id = "batch_capture_" + intent["destination_id"] if intent else None
+    if intent and (intent.get("response") or repository.get_ingest_batch(batch_id) is not None):
+        response = intent.get("response") or intent["prepared_response"]
+        if "batch" not in response:
+            response = {**response, "batch": ctx.ingest_jobs.get_batch(batch_id)}
+        return finish_route(ctx, repository, params.capture_id, "quick_add",
+                            {"batch_id": batch_id}, response, reload=True)
     if not params.unlimited_token_budget:
         _validate_inventory_output_budget(params.inventory_output_tokens)
     if params.subject_id not in vault.subjects:
@@ -1353,6 +1364,22 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
             subject_id=params.subject_id,
             brief_overrides=_validated_brief(params.brief),
         )
+        if intent is None:
+            intent = route_intent(repository, params, "quick_add", ctx=ctx)
+            batch_id = "batch_capture_" + intent["destination_id"] if intent else None
+        if intent:
+            # Persist enough to reconstruct the original confirmation even if
+            # the process dies immediately after the atomic enqueue.
+            prepared = {
+                "quickAdd": {
+                    "batch_id": batch_id, "source_set_id": plan.source_set_id,
+                    "subject_id": plan.subject_id,
+                    "role": params.role_override or plan.suggested_role,
+                    "selected_unit_ids": list(plan.selected_unit_ids),
+                },
+                "confirmation": plan.confirmation(),
+            }
+            capture_call(update_route_intent, repository, params.capture_id, prepared_response=prepared)
         result = enqueue_quick_add(
             vault,
             ctx.ingest_jobs,
@@ -1360,6 +1387,7 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
             role_override=params.role_override,
             output_budget_tokens=params.inventory_output_tokens,
             unlimited_token_budget=params.unlimited_token_budget,
+            **({"batch_id": batch_id} if intent else {}),
         )
         if params.reader_enabled is not None:
             resolved = resolve_source(params.source.strip())
@@ -1373,13 +1401,12 @@ def confirm_quick_add_rpc(ctx: SidecarContext, params: ConfirmQuickAddInput) -> 
             details=exc.details,
             retryable=exc.code == "quick_add_requires_import",
         ) from exc
-    ctx.reload(maintenance=False)
-    return versioned(
-        {
+    return finish_route(
+        ctx, repository, params.capture_id, "quick_add", {"batch_id": result["batch_id"]}, {
             "quickAdd": result,
             "batch": ctx.ingest_jobs.get_batch(result["batch_id"]),
             "confirmation": plan.confirmation(),
-        }
+        }, reload=True,
     )
 
 

@@ -404,6 +404,15 @@ function afterSettingsMutation(promise: Promise<SettingsDto>): Promise<SettingsD
 }
 
 export const api = {
+  getInboxSummary: () => call<import("./capture").InboxSummary>("get_inbox_summary", { input: {} }),
+  listCaptureInbox: (input: { status?: string | null; limit?: number; offset?: number } = {}) =>
+    call<{ captures: import("./capture").CaptureDto[] }>("list_capture_inbox", { input }),
+  dismissCapture: (captureId: string) => call("dismiss_capture", { input: { captureId } }),
+  purgeCapture: (captureId: string) => call<{ capture: import("./capture").CaptureDto }>("purge_capture", { input: { captureId } }),
+  getCaptureMedia: (captureId: string) =>
+    call<import("./capture").CaptureMediaDto>("get_capture_media", { input: { captureId } }),
+  resumeCaptureRoute: (captureId: string) =>
+    call<{ route: string; result: unknown }>("resume_capture_route", { input: { captureId } }),
   selectVault: (path?: string | null) => call<VaultSummary | null>("select_vault", { path }),
   loadVault: () => call<AppSnapshot>("load_vault"),
   getReviewCounts: () => call<ReviewCountsDto>("get_review_counts"),
@@ -850,7 +859,7 @@ export const api = {
     })),
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
-  authorPracticeItem: (input: { learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>
+  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>
     mutating([TAG.queue], call<{ practiceItemId: string }>("author_practice_item", { input })),
   // Learner-initiated re-runging: request an easier/harder sibling variant of
   // an item. Records the evidence package synchronously, authors async.

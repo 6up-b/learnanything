@@ -18,14 +18,17 @@ from learnloop.content.authoring.item_authoring import (
     edit_item,
     retire_item,
     split_item,
+    validate_author_item,
 )
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
+from learnloop_sidecar.handlers.capture import finish_route, route_intent
 from learnloop_sidecar.registry import method
 
 
 class AuthorPracticeItemInput(ParamsModel):
+    capture_id: str | None = None
     learning_object_id: str
     prompt: str
     expected_answer: str
@@ -167,7 +170,17 @@ def remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeIn
 @method("author_practice_item", AuthorPracticeItemInput)
 def author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]:
     root, repository = _root(ctx)
+    intent = route_intent(repository, params, "make_card", create=False, ctx=ctx)
+    if intent and intent.get("response"):
+        response = intent["response"]
+        return finish_route(ctx, repository, params.capture_id, "make_card",
+                            {"practice_item_id": response["practiceItemId"]}, response, reload=True)
     try:
+        if intent is None:
+            vault, _ = ctx.require_vault()
+            validate_author_item(vault, learning_object_id=params.learning_object_id,
+                                 prompt=params.prompt, expected_answer=params.expected_answer)
+            intent = route_intent(repository, params, "make_card", ctx=ctx)
         row = author_item(
             root,
             repository,
@@ -176,11 +189,12 @@ def author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -
             expected_answer=params.expected_answer,
             practice_mode=params.practice_mode,
             hints=params.hints,
+            **({"item_id": "pi_capture_" + intent["destination_id"].lower()} if intent else {}),
         )
     except ItemAuthoringError as exc:
         raise SidecarError("validation_error", str(exc)) from exc
-    ctx.reload(maintenance=False)
-    return versioned({"practiceItemId": row["id"]})
+    return finish_route(ctx, repository, params.capture_id, "make_card",
+                        {"practice_item_id": row["id"]}, {"practiceItemId": row["id"]}, reload=True)
 
 
 @method("edit_practice_item", EditPracticeItemInput)

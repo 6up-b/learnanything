@@ -32,6 +32,7 @@ from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.paths import VaultPaths, find_vault_root
 from learnloop.vault.yaml_io import (
     read_markdown_frontmatter_data,
+    read_markdown_with_frontmatter,
     read_yaml_data,
     write_markdown_with_frontmatter,
     write_yaml,
@@ -487,3 +488,27 @@ def add_note(
         f"# {title}\n\n{body.strip()}\n",
     )
     return note_path
+
+
+def move_note(root: Path, note_id: str, subject_id: str, *, clock: Clock | None = None) -> Path:
+    """Make ``subject_id`` a note's only subject and file it in that subject's folder.
+
+    The atomic rename runs before the frontmatter rewrite, so a crash between
+    them leaves one file (never a copy) that a repeated call finishes.
+    """
+    vault = load_vault(root)
+    paths = VaultPaths(vault.root, vault.config)
+    note = vault.notes[note_id]
+    normalized_subject = kebab_case(subject_id)
+    source = vault.root / note.path
+    target = paths.note_path(normalized_subject, note.id)
+    if source != target:
+        if target.exists():
+            raise FileExistsError(f"{target} already exists")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        source.rename(target)
+    metadata, body = read_markdown_with_frontmatter(target)
+    metadata["subjects"] = [normalized_subject]
+    metadata["updated_at"] = utc_now_iso(clock)
+    write_markdown_with_frontmatter(target, metadata, body.lstrip("\n"))
+    return target

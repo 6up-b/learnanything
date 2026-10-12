@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 21802,
-    "sha256": "9549fce8cca648f839ba334bfa4259a85f894086642acbae9de86553bdcc7bce"
+    "bytes": 21972,
+    "sha256": "59a925112b0664519e4c97db188a19d372c878ddb739ff26d8b7c52a0838cad7"
   },
   "accept": {
     "bytes": 1593,
@@ -426,6 +426,14 @@
   "import": {
     "bytes": 2169,
     "sha256": "5c68ddd77a2cd20c1778c4bd6c72df458c92132af24fb9f66fc942b0aaeda8ab"
+  },
+  "inbox": {
+    "bytes": 1587,
+    "sha256": "ba70885e239e6ad85ca4a20ef8e44b1c74cfccc4d5390c85683fbbdf18141de3"
+  },
+  "inbox list": {
+    "bytes": 1465,
+    "sha256": "3d06b307d2f2c8d95f73e7f9da3b807a3b6ca94254f85e28e6cf0e00c611f054"
   },
   "independence-audit": {
     "bytes": 1782,

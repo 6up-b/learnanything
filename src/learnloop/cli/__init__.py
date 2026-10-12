@@ -26,8 +26,10 @@ from learnloop.cli.field import field_app
 from learnloop.cli.families import families_app
 from learnloop.cli.evaluation import eval_app
 from learnloop.cli.practice_index import practice_index_app
+from learnloop.cli.inbox import inbox_app
 
 app.add_typer(config_app, name="config")
+app.add_typer(inbox_app, name="inbox")
 app.add_typer(claims_app, name="claims")
 app.add_typer(contracts_app, name="contracts")
 app.add_typer(goldenpath_app, name="goldenpath")
