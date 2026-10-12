@@ -27,22 +27,23 @@ phases would have to break; **Low** = latent, cosmetic, or test/process debt.
 No High findings: nothing writes evidence, changes serving, leaks the key, or
 lets replay call a model.
 
-| # | Sev | Finding | Verdict |
-|---|---|---|---|
-| M1 | Medium | Settings health chip turns red for every new vault without an OpenRouter key, even with embeddings disabled | fix |
-| M2 | Medium | The embedding-only profile is accepted, reported "ready", and offered as a generation/grading provider | fix |
-| M3 | Medium | `embedding.enabled` is enforced only inside backfill; the `embedding` route returns a ready paid client while the master switch is off | fix |
-| M4 | Medium | Recipe registry is keyed by record kind only; Phase 5's `item/skeleton` and `facet/dossier_*` cannot be registered without breaking the CLI, report and receipt manifest | fix |
-| L1 | Low | MRL per-consumer truncation in `retrieve()` does not renormalize before centering | fix |
-| L2 | Low | A malformed paid response escapes `backfill_embeddings`; the CLI replaces the report (run id, charged spend) with `status: invalid`; provider failures lose their SDK error class | fix |
-| L3 | Low | A sixth hard-coded `migration_head_166` path (CLAUDE.md lists five) | fix |
-| L4 | Low | Template: `[embedding]` splits the `[ai]` comment from `[ai]`; project jargon ("Phase 1", "PF") in every new vault's `learnloop.toml` | fix |
-| L5 | Low | Every `learnloop` invocation now imports numpy (~55 ms) through the CLI registration | fix |
-| L6 | Low | Replay-makes-no-calls test only patches two factory functions; no Phase 1 test runs in the durability lane | fix |
-| L7 | Low | `get_config` lists the embedding profile's ignored `model` field, not the authoritative `embedding.model` that `get_settings` shows | fix |
-| L8 | Low | "Unknown price" refusal does not say how to supply a price | fix |
-| A1–A9 | — | Spec-naming and deviation decisions | accept (documented below) |
-| N1–N5 | — | Docs churn, migration, security, invariants | not a problem |
+| # | Sev | Finding | Verdict | Fixed in |
+|---|---|---|---|---|
+| M1 | Medium | Settings health chip turns red for every new vault without an OpenRouter key, even with embeddings disabled | fix | `b2c9b3e` |
+| M2 | Medium | The embedding-only profile is accepted, reported "ready", and offered as a generation/grading provider | fix | `b2c9b3e` |
+| M3 | Medium | `embedding.enabled` is enforced only inside backfill; the `embedding` route returns a ready paid client while the master switch is off | fix | `b2c9b3e` |
+| M4 | Medium | Recipe registry is keyed by record kind only; Phase 5's `item/skeleton` and `facet/dossier_*` cannot be registered without breaking the CLI, report and receipt manifest | fix | `eac7e35` |
+| L1 | Low | MRL per-consumer truncation in `retrieve()` does not renormalize before centering | fix | `671eb51` |
+| L2 | Low | A malformed paid response escapes `backfill_embeddings`; the CLI replaces the report (run id, charged spend) with `status: invalid`; provider failures lose their SDK error class | fix | `b6656f0` |
+| L3 | Low | A sixth hard-coded `migration_head_166` path (CLAUDE.md lists five) | fix | `fc87225` |
+| L4 | Low | Template: `[embedding]` splits the `[ai]` comment from `[ai]`; project jargon ("Phase 1", "PF") in every new vault's `learnloop.toml` | fix | `f26bcae` |
+| L5 | Low | Every `learnloop` invocation now imports numpy (~55 ms) through the CLI registration | fix | `eac7e35` |
+| L6 | Low | Replay-makes-no-calls test only patches two factory functions; no Phase 1 test runs in the durability lane | fix | `fc87225` |
+| L7 | Low | `get_config` lists the embedding profile's ignored `model` field, not the authoritative `embedding.model` that `get_settings` shows | fix | `b2c9b3e` |
+| L8 | Low | "Unknown price" refusal does not say how to supply a price | fix | `b6656f0` |
+| L9 | Low | Generated config reference says `ai.routing.embedding` "follows the documented fallback chain" and calls the read-only disclosure configurable (found while regenerating) | fix | `f3361a3` |
+| A1–A9 | — | Spec-naming and deviation decisions | accept (documented below) | — |
+| N1–N5 | — | Docs churn, migration, security, invariants | not a problem | — |
 
 ### M1. Settings chip regression for new vaults (fix)
 
@@ -199,6 +200,17 @@ the backfill idempotence/resume tests `durability`.
 authoritative (`ai/client.py:28-32`). `get_settings` already reports the
 authoritative value. *Fix:* the same substitution in `get_config`.
 
+### L9. Generated reference misdescribes the embedding route (fix)
+
+`db_generate_reference.py` describes every `ai.routing.*` leaf as "an empty
+optional route follows the documented fallback chain". For
+`ai.routing.embedding` that is false: it has no fallback, and an unset route
+means no embeddings. The generator also describes the computed, read-only
+`embedding.privacy_disclosure` as a setting that "controls" something. The
+architecture vault is the owner's reference, so these pages were wrong where
+it matters. *Fix:* entries in the generator's existing
+`CONFIG_FUNCTION_OVERRIDES`, then regenerate.
+
 ### L8. Unknown-price message (fix)
 
 `ai/spend.py:113-114` says "supply an explicit finite owner price estimate"
@@ -323,4 +335,69 @@ but does not say how. *Fix:* the backfill report's reason names
 
 ## Fixes applied
 
-*(filled in after the corrections below)*
+All findings marked "fix" are fixed on `slice-a/phase-1`. Every code fix
+has regression tests, and those tests fail against the pre-fix source. I
+checked this by restoring `src/` from `0b4bc3a`, or from the fix's parent
+commit for the backfill-module tests, whose module imports the new
+`select_recipes`. L3, L6 and L9 are test and docs changes.
+
+| Commit | Findings | Change | Tests |
+|---|---|---|---|
+| `4311782` | — | This audit, written before any fix | — |
+| `b2c9b3e` | M1, M2, M3, L7 | `routing.route_profile_mismatch` guards `runtime_for_provider`, `client_for_provider` and primary/fallback resolution: embedding profiles serve only `embedding`, and `embedding` accepts only embedding profiles. `ready_client_for_task("embedding")` returns no client while `embedding.enabled` is false. `_settings_ready` checks each route under its own task, and the embedding route only once it is enabled. The sidecar refuses and hides embedding profiles for grading/active/use-case selection. `get_config` reports `embedding.model` | new `tests/test_embedding_route_isolation.py` (11 tests); `test_openai_embedding_client.py` now enables the switch where it exercises a ready route, so the env/fallback immunity test is not trivially satisfied by the new switch check; the parity-test fakes accept the `task` keyword |
+| `eac7e35` | M4, L5 | Recipes registered as `kind/field`, and `select_recipes` accepts a kind or a `kind/field`. Reports list `recipes`, and manifests version `kind/field`. The CLI imports the backfill lazily. CLI help snapshot regenerated (one entry) | selection semantics; CLI narrowing to `item/stem`; subprocess check that `import learnloop.cli` does not load the vector store |
+| `b6656f0` | L2, L8 | An invalid (possibly paid) response becomes a non-retried `provider_failed` that keeps `run_id`, `charged` and `remaining`. The client turns shape errors into `ValueError` and exposes the SDK class as `provider_error`. The unknown-price reason names `--price-per-million` | three malformed replies through the real client (one request, a `failed` receipt with usage, nothing saved); the SDK class is reported without its secret-bearing message; the remedy appears in the reason |
+| `671eb51` | L1 | A narrower retrieval view truncates, L2-normalizes, then centers | the view ranks and scores like vectors embedded at that width (fails before the fix); the existing MRL test's expected scores are updated to the normalized view |
+| `f26bcae` | L4 | `[embedding]` moved after `[ai.routing]` with its own privacy comment; commented PF keys removed. The defaults fingerprint is unchanged | template layout/jargon test; `test_defaults_snapshot_is_keyed_by_algorithm_version` still passes |
+| `fc87225` | L3, L6 | The replay test resolves the single `migration_head_*` directory. Replay also forbids embedding-client construction, `embed()` and the OpenAI SDK. Replay preservation and backfill idempotence/resume are marked `durability` | durability lane 59 → 62 |
+| `f3361a3` | L9 | Generator overrides for the embedding route, switches, model, width and disclosure; the reference regenerated at `fc87225` and validated | `db_validate_reference.py`: zero errors |
+
+No fix changes scoring, scheduling, evidence, serving, the schema, migration
+166 or the head fixture. No algorithm successor is needed, and the `mvp-0.9`
+defaults fingerprint is unchanged by the fixes.
+
+### Manual checkpoint run (fake client, no network)
+
+On a backup-API copy of `fixtures/migration_head_166` under
+`fixtures-local/phase1-audit-smoke`, with both switches enabled in the copy and
+`openai.OpenAI` replaced by a constructor that raises:
+
+| Step | Result |
+|---|---|
+| Dry-run | 5 records (`facet/definition`, `item/stem`), 1 call, 1,142 estimated tokens, $0.0000114 |
+| First backfill | `complete`: 5 embedded, 1 call |
+| Second backfill | `complete`: 0 embedded, 5 cached, **0 new calls** |
+| `rebuild_all_derived_state` | `embedding_vectors` and `judgment_ledger` byte-identical before and after; no model constructed |
+| Source fixture | DB hash unchanged; no `-wal`/`-shm` beside it |
+
+### Final verification (branch head after the fixes)
+
+| Command | Result |
+|---|---|
+| `uv run pytest -n auto` | **6,129 passed**, 14 existing deprecation warnings (153 s) |
+| `uv run pytest -m durability` | **62 passed** |
+| Phase 1 modules + route isolation under `--durable-sqlite` | **181 passed** |
+| `uv run lint-imports --no-cache` | **6 kept, 0 broken** |
+| `npm run typecheck` / `npm test` (apps/learnloop-tauri) | exit 0 / **26 passed** (7 files) |
+| `db_generate_reference.py` / `db_validate_reference.py` | regenerated / **zero errors** |
+
+The suite needs the optional `pypdfium2` (`uv pip install pypdfium2`), as the
+implementer noted; it was installed in the worktree's environment only.
+
+### For the owner
+
+- **Nothing to decide for Phase 1.** All defects are fixed; A1–A9 record why
+  the remaining differences from the spec letter are deliberate.
+- **CLAUDE.md wording** (your file, not edited): "LEARNLOOP_AI_PROVIDER
+  overrides every AI route" is now true for every route except
+  `ai.routing.embedding`, which ignores it by design (A7).
+- **Phases 3 and 5 must decide** whether an unset `pf_*` route may fall back to
+  `active_provider` (A3). Phase 5 registers `item/skeleton` and
+  `facet/dossier_*` as new `kind/field` recipes (M4). The `embedding` route now
+  refuses to serve while `embedding.enabled` is false, so a consumer needs no
+  check of its own (M3).
+- **The first paid backfill** still follows `docs/reviews/slice-a-phase-1.md`
+  "Owner-run commands", on a copy. Reports now say `recipes` (not
+  `record_kinds`), and `--record-kind` also accepts `facet/definition` or
+  `item/stem`. A paid run whose response is unusable reports `provider_failed`
+  with its charged usage.
