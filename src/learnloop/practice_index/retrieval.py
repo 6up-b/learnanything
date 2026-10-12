@@ -33,7 +33,7 @@ import numpy as np
 
 from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
 from learnloop.ai.execution import content_key
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded
+from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.connection import connect
@@ -42,6 +42,7 @@ from learnloop.db.stores.embedding_vectors import retrieve
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.practice_index import (
     DossierRow,
+    checkpointed_keys,
     insert_proposal,
     judgments_by_ids,
     latest_evaluation,
@@ -51,8 +52,23 @@ from learnloop.ids import new_ulid
 from learnloop.practice_index.catalog import facet_label, item_facets, registered_facets
 from learnloop.practice_index.contracts import RELEVANCE_SCORE, PracticeRerank
 from learnloop.practice_index.dossiers import select_current_dossiers
-from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
-from learnloop.practice_index.query_vectors import embed_queries, embedding_ready, normalize_query, query_id
+from learnloop.ops.embedding_backfill import estimated_tokens
+from learnloop.practice_index.paid import (
+    PaidCalls,
+    checkpoint_key,
+    estimated_call_tokens,
+    plan_route,
+    resolve_client,
+    transport_problem,
+)
+from learnloop.practice_index.query_vectors import (
+    cached_query_vectors,
+    embed_queries,
+    embedding_ready,
+    normalize_query,
+    query_embedding_price,
+    query_id,
+)
 from learnloop.practice_index.text import BM25, reciprocal_rank_fusion
 from learnloop.practice_index.admission import PracticeAdmission
 from learnloop.vault.embedding_recipes import (
@@ -440,6 +456,42 @@ def _validate_rerank(result: PracticeRerank, refs: Mapping[str, str]) -> Practic
     raise AIInvalidOutput("The rerank did not judge every candidate")
 
 
+def _rerank_prompt(query_text: str, pick_at_most: int, context: list[dict[str, Any]]) -> str:
+    return render_structured_prompt(
+        "Practice-index rerank", RERANK_PROMPT_VERSION,
+        {"instructions": _RERANK_INSTRUCTIONS,
+         "context": {"request": query_text, "pick_at_most": pick_at_most, "candidates": context}},
+    )
+
+
+def _rerank_request(vault: LoadedVault, route, query_text: str, pool: Sequence[str],
+                    pick_at_most: int) -> tuple[str, dict[str, str], str, dict[str, str]]:
+    """The rerank prompt, its candidate refs, input hash and per-item ledger ids."""
+    context = _candidate_context(vault, pool)
+    refs = {entry["ref"]: item_id for entry, item_id in zip(context, pool, strict=True)}
+    prompt = _rerank_prompt(query_text, pick_at_most, context)
+    model_key = route.model or "unspecified"
+    input_hash = content_key({"prompt": prompt, "schema": PracticeRerank.model_json_schema(),
+                              "model": model_key, "output_tokens": RERANK_OUTPUT_TOKENS})
+    ids = {item_id: "prr_" + content_key([input_hash, item_id])[:40] for item_id in pool}
+    return prompt, refs, input_hash, ids
+
+
+def rerank_caps(vault: LoadedVault, pool_size: int) -> SpendCaps:
+    """One rerank request and at most one retry, under the configured dollar cap."""
+    return SpendCaps(max_candidates=pool_size, max_pairs=pool_size, max_retries=1, max_calls=2,
+                     max_total_tokens=400_000,
+                     max_estimated_usd=vault.config.practice_index.rerank_max_cost_usd)
+
+
+def _rerank_skip(route, price: float | None, *, injected: bool) -> str | None:
+    if not injected and not route.available:
+        return "unavailable: no provider routed for practice_rerank"
+    if route.billing == "metered" and price is None:
+        return "skipped: metered rerank route without practice_index.rerank_price_per_million"
+    return None
+
+
 def rerank_pool(
     vault: LoadedVault, repository: Repository, *, query_text: str, pool: Sequence[str],
     pick_at_most: int, owner_id: str, client: Any | None = None,
@@ -449,22 +501,11 @@ def rerank_pool(
     if not pool:
         return RerankOutcome("empty_pool")
     route = plan_route(vault, "practice_rerank", client)
-    if client is None and not route.available:
-        return RerankOutcome("unavailable: no provider routed for practice_rerank")
     price = config.rerank_price_per_million
-    if route.billing == "metered" and price is None:
-        return RerankOutcome("skipped: metered rerank route without practice_index.rerank_price_per_million")
-    context = _candidate_context(vault, pool)
-    refs = {entry["ref"]: item_id for entry, item_id in zip(context, pool, strict=True)}
-    prompt = render_structured_prompt(
-        "Practice-index rerank", RERANK_PROMPT_VERSION,
-        {"instructions": _RERANK_INSTRUCTIONS,
-         "context": {"request": query_text, "pick_at_most": pick_at_most, "candidates": context}},
-    )
-    model_key = route.model or "unspecified"
-    input_hash = content_key({"prompt": prompt, "schema": PracticeRerank.model_json_schema(),
-                              "model": model_key, "output_tokens": RERANK_OUTPUT_TOKENS})
-    ids = {item_id: "prr_" + content_key([input_hash, item_id])[:40] for item_id in pool}
+    skip = _rerank_skip(route, price, injected=client is not None)
+    if skip is not None:
+        return RerankOutcome(skip)
+    prompt, refs, input_hash, ids = _rerank_request(vault, route, query_text, pool, pick_at_most)
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         cached = judgments_by_ids(connection, ids.values())
     if cached and all(ids[item_id] in cached for item_id in pool):
@@ -475,10 +516,9 @@ def rerank_pool(
         reason = transport_problem(route, client)
     if client is None or reason is not None:
         return RerankOutcome(f"unavailable: {reason}")
-    caps = SpendCaps(max_candidates=len(pool), max_pairs=len(pool), max_retries=1, max_calls=2,
-                     max_total_tokens=400_000, max_estimated_usd=config.rerank_max_cost_usd)
-    calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=price,
-                      repository=repository, owner_kind="practice_rerank", owner_id=owner_id)
+    calls = PaidCalls(route=route, budget=SpendBudget(rerank_caps(vault, len(pool))),
+                      price_per_million=price, repository=repository,
+                      owner_kind="practice_rerank", owner_id=owner_id)
     try:
         result = calls.call(
             client, purpose="practice_rerank", prompt=prompt, result_model=PracticeRerank,
@@ -555,6 +595,144 @@ def admissible_corpus(vault: LoadedVault, repository: Repository,
     corpus = [item_id for item_id in admitted if constraints.matches(vault, item_id)]
     counts["constraints"] = len(admitted) - len(corpus)
     return corpus, dict(sorted(counts.items()))
+
+
+def _plan_query_embedding(vault: LoadedVault, repository: Repository, text: str,
+                          needed: bool, reason: str | None) -> tuple[dict[str, Any], Any]:
+    """The live query embedding's plan, and its cached vector if there is one."""
+    if not needed:
+        return {"status": "unused", "reason": reason, "calls": 0, "estimated_tokens": 0,
+                "estimated_usd": 0.0}, None
+    model_id = vault.config.embedding.model
+    cached = cached_query_vectors(repository, model_id, {query_id(text): text}).get(query_id(text))
+    caps = QUERY_EMBEDDING_CAPS.as_dict()
+    if cached is not None:
+        return {"status": "cached", "model_id": model_id, "calls": 0, "estimated_tokens": 0,
+                "estimated_usd": 0.0, "caps": caps}, cached
+    price, source = query_embedding_price(model_id,
+                                          vault.config.practice_index.query_embedding_price_per_million)
+    tokens = estimated_tokens(text)
+    view = {"model_id": model_id, "billing": "metered", "price_per_million": price,
+            "price_source": source, "calls": 1, "estimated_tokens": tokens,
+            "estimated_usd": tokens * price / 1_000_000 if price is not None else None, "caps": caps}
+    if price is None:
+        return {**view, "status": "skipped", "calls": 0,
+                "reason": f"unknown embedding price for {model_id}"}, None
+    try:
+        SpendBudget(QUERY_EMBEDDING_CAPS).check(SpendEstimate(
+            candidates=1, calls=1, total_tokens=tokens, estimated_usd=view["estimated_usd"]))
+    except SpendLimitExceeded as exc:
+        return {**view, "status": f"over_budget: {exc}", "calls": 0}, None
+    return {**view, "status": "would_embed"}, None
+
+
+def _plan_rerank(vault: LoadedVault, repository: Repository, text: str, pool: Sequence[str],
+                 pick_at_most: int, *, enabled: bool, pool_exact: bool,
+                 client: Any | None = None) -> dict[str, Any]:
+    """The live rerank's plan: cache hit, recoverable answer, or one capped call."""
+    zero = {"calls": 0, "estimated_tokens": 0, "estimated_usd": 0.0, "pool": len(pool),
+            "pool_exact": pool_exact}
+    if not enabled:
+        return {**zero, "status": "disabled"}
+    if not pool:
+        return {**zero, "status": "empty_pool"}
+    route = plan_route(vault, "practice_rerank", client)
+    price = vault.config.practice_index.rerank_price_per_million
+    caps = rerank_caps(vault, len(pool))
+    base = {**zero, "route": route.as_dict(), "billing": route.billing,
+            "cost_basis": "estimated_only" if route.billing == "subscription" else "metered_estimate",
+            "price_per_million": price, "caps": caps.as_dict()}
+    skip = _rerank_skip(route, price, injected=client is not None)
+    if skip is not None:
+        return {**base, "status": skip}
+    prompt, _refs, _input_hash, ids = _rerank_request(vault, route, text, pool, pick_at_most)
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        cached = judgments_by_ids(connection, ids.values())
+        if pool_exact and all(ids[item_id] in cached for item_id in pool):
+            return {**base, "status": "cached"}
+        key = checkpoint_key(route, purpose="practice_rerank", prompt=prompt,
+                             result_model=PracticeRerank, output_tokens=RERANK_OUTPUT_TOKENS)
+        if pool_exact and checkpointed_keys(connection, [key]):
+            return {**base, "status": "recoverable"}
+    if not pool_exact:
+        # The pool is not known before the query is embedded: bound the prompt
+        # by a full pool of maximum-length candidates.
+        filler = [{"ref": f"c{index}", "practice_mode": "x" * 24, "learning_object": "x" * 160,
+                   "facets": ["x" * 160] * 4, "prompt": "x" * CANDIDATE_PROMPT_CHARS}
+                  for index in range(1, len(pool) + 1)]
+        prompt = _rerank_prompt(text, pick_at_most, filler)
+    tokens = estimated_call_tokens(prompt, PracticeRerank, RERANK_OUTPUT_TOKENS)
+    calls = PaidCalls(route=route, budget=SpendBudget(caps), price_per_million=price,
+                      repository=None, owner_kind="practice_rerank", owner_id="dry_run")
+    view = calls.plan([tokens], candidates=len(pool), pairs=len(pool))
+    result = {**base, "calls": 1, "estimated_tokens": view["estimated_tokens"],
+              "estimated_usd": view["estimated_usd"], "marginal_usd": view["marginal_usd"],
+              "budget_charge": view["budget_charge"], "max_calls_with_retry": caps.max_calls}
+    try:
+        calls.budget.check(calls.estimate(tokens, candidates=len(pool), pairs=len(pool)))
+    except SpendLimitExceeded as exc:
+        return {**result, "status": f"over_budget: {exc}", "calls": 0}
+    return {**result, "status": "would_call"}
+
+
+def plan_find_practice(
+    vault: LoadedVault,
+    repository: Repository,
+    query: str,
+    constraints: PracticeConstraints | Mapping[str, Any] | None = None,
+    *,
+    embedder: Any | None = None,
+    rerank_client: Any | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """Dry run of ``find_practice``: what it would embed and rerank, at what cost.
+
+    Read-only: no client is constructed, no request is sent and nothing is
+    written (no proposal receipt). Reports cache hits and the effective caps.
+    When the query vector is not cached, the rerank pool is not known yet, so
+    its cost is an upper bound (``pool_exact`` false). Injected clients only
+    name the route a live call would use; they are never called.
+    """
+    config = vault.config.practice_index
+    if not config.enabled:
+        return {"status": "disabled", "reason": "practice_index.enabled is false", "dry_run": True}
+    text = normalize_query(query)
+    if not text:
+        raise ValueError("query must be nonempty")
+    if len(text) > MAX_QUERY_CHARS:
+        raise ValueError(f"query must be at most {MAX_QUERY_CHARS} characters")
+    if not isinstance(constraints, PracticeConstraints):
+        constraints = PracticeConstraints.from_mapping(constraints)
+    limit = constraints.limit or config.proposals
+    corpus, exclusions = admissible_corpus(vault, repository, constraints, clock=clock)
+    snapshot = load_snapshot(vault, repository, embedder=embedder)
+    path, path_reason = choose_path(vault, repository, snapshot)
+    needs_vectors = bool(corpus) and snapshot.uses_vectors and (
+        snapshot.item_recipe is not None or (path == "dossier" and snapshot.dossier_vectors_complete)
+    )
+    embedding, vector = _plan_query_embedding(vault, repository, text, needs_vectors,
+                                              snapshot.embedding_reason)
+    pool_exact = not needs_vectors or vector is not None
+    ranking = (rank_dossier if path == "dossier" else rank_direct)(
+        snapshot, repository, text, vector, corpus,
+    )
+    pool = ranking.order[: config.candidate_pool]
+    use_rerank = config.rerank_enabled if constraints.rerank is None else constraints.rerank
+    rerank = _plan_rerank(vault, repository, text, pool, limit, enabled=use_rerank,
+                          pool_exact=pool_exact, client=rerank_client)
+    usd = [embedding["estimated_usd"], rerank["estimated_usd"]]
+    return {
+        "status": "dry_run", "dry_run": True, "serves": False,
+        "query_id": query_id(text), "path": path, "path_reason": path_reason,
+        "admission": {"admitted": len(corpus), "excluded": exclusions, "pool": len(pool)},
+        "query_embedding": embedding, "rerank": rerank,
+        "estimate": {
+            "calls": embedding["calls"] + rerank["calls"],
+            "estimated_tokens": embedding["estimated_tokens"] + rerank["estimated_tokens"],
+            "estimated_usd": None if any(value is None for value in usd) else sum(usd),
+        },
+        "note": "Dry run: no client constructed, no request sent, nothing written.",
+    }
 
 
 def find_practice(
@@ -664,7 +842,9 @@ __all__ = [
     "dossier_documents",
     "find_practice",
     "load_snapshot",
+    "plan_find_practice",
     "rank_direct",
     "rank_dossier",
+    "rerank_caps",
     "rerank_pool",
 ]

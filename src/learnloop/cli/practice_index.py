@@ -2,7 +2,8 @@
 
 Paid commands (dossiers, eval) estimate first with ``--dry-run`` (no client,
 migration or data changes), then run under explicit caps behind their own
-switches. ``find`` proposes practice and never serves it.
+switches. ``find`` proposes practice and never serves it; its ``--dry-run``
+plans the query embedding and rerank without a client or a receipt.
 """
 from __future__ import annotations
 
@@ -106,25 +107,45 @@ def practice_index_find(
     mode: Annotated[list[str] | None, typer.Option("--mode", help="Practice mode; repeatable.")] = None,
     exclude: Annotated[list[str] | None, typer.Option("--exclude", help="Item id; repeatable.")] = None,
     rerank: Annotated[bool | None, typer.Option("--rerank/--no-rerank", help="Override practice_index.rerank_enabled.")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan the query embedding and rerank (cache hits, calls, tokens, cost, caps); no client, migration, request or receipt.")] = False,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Propose practice items for a request (the find_practice agent tool). Never serves."""
-    from learnloop.practice_index.retrieval import PracticeConstraints, find_practice
+    """Propose practice items for a request (the find_practice agent tool). Never serves.
+
+    A live call may embed the query (metered embedding route) and rerank the
+    candidates (ai.routing.practice_rerank); --dry-run shows both first.
+    """
+    from learnloop.practice_index.paid import planning_repository
+    from learnloop.practice_index.retrieval import PracticeConstraints, find_practice, plan_find_practice
+    from learnloop.vault.paths import VaultPaths
 
     root = _root(vault)
     try:
         loaded = load_vault(root)
-        repository = _repository(root)
         constraints = PracticeConstraints(
             limit=limit, learning_object_ids=tuple(learning_object or ()),
             facet_ids=tuple(facet or ()), practice_modes=tuple(mode or ()),
             exclude_item_ids=tuple(exclude or ()), rerank=rerank,
         )
-        report = find_practice(loaded, repository, query, constraints, origin="cli")
+        if dry_run:
+            repository = planning_repository(VaultPaths(loaded.root, loaded.config).sqlite_path,
+                                             dry_run=True)
+            report = plan_find_practice(loaded, repository, query, constraints)
+        else:
+            report = find_practice(loaded, _repository(root), query, constraints, origin="cli")
     except ValueError as exc:
         report = {"status": "invalid", "reason": str(exc)}
     if json_output:
         _emit(report, True)
+    elif report.get("status") == "dry_run":
+        estimate = report["estimate"]
+        typer.echo(f"{report['path']} path ({report['path_reason']})")
+        for step in ("query_embedding", "rerank"):
+            plan = report[step]
+            typer.echo(f"{step.replace('_', ' ')}: {plan['status']} (calls {plan['calls']}, "
+                       f"~{plan['estimated_tokens']} tokens, usd {plan['estimated_usd']})")
+        typer.echo(f"total: {estimate['calls']} calls, ~{estimate['estimated_tokens']} tokens, "
+                   f"usd {estimate['estimated_usd']} (dry run: nothing sent or written)")
     elif report.get("status") != "ok":
         typer.echo(report.get("reason") or report.get("status"), err=True)
     else:
@@ -133,7 +154,7 @@ def practice_index_find(
             reason = f" - {item['rationale']}" if item.get("rationale") else ""
             typer.echo(f"{item['rank']}. {item['practice_item_id']} [{item['learning_object_title']}]{reason}")
         typer.echo(f"proposal {report['proposal_id']} (proposals only; the scheduler serves)")
-    _exit_for(report, {"ok"})
+    _exit_for(report, {"ok", "dry_run"})
 
 
 @practice_index_app.command("coverage")

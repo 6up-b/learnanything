@@ -336,3 +336,70 @@ def test_an_alternative_embedding_model_takes_an_explicit_price(tmp_path):
                            rerank_client=llm)
     assert priced["signals"]["query_embedding"]["status"] == "embedded"
     assert "item_vector" in priced["signals"]["item"]
+
+
+def test_find_dry_run_plans_embedding_and_rerank_without_clients_or_writes(indexed, monkeypatch):
+    """F7: a read-only plan of find_practice's paid steps, cache hits and effective caps."""
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.practice_index.retrieval import plan_find_practice
+
+    paths, vault, repository, llm, embedder = indexed
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("a dry run never constructs a client")
+
+    monkeypatch.setattr("learnloop.practice_index.paid.ready_client_for_task", refuse)
+    monkeypatch.setattr("learnloop.practice_index.query_vectors.ready_client_for_task", refuse)
+    before = paths.sqlite_path.read_bytes()
+    plan = plan_find_practice(vault, repository, QUERY)
+    assert plan["status"] == "dry_run" and plan["serves"] is False
+    assert plan["query_embedding"]["status"] == "would_embed"
+    assert plan["query_embedding"]["calls"] == 1 and plan["query_embedding"]["estimated_usd"] > 0
+    assert plan["query_embedding"]["caps"]["max_calls"] == 1
+    assert plan["rerank"]["status"] == "would_call"
+    assert plan["rerank"]["billing"] == "subscription"  # the template routes Codex
+    assert plan["rerank"]["estimated_tokens"] > 0 and plan["rerank"]["pool_exact"] is False
+    assert plan["rerank"]["caps"]["max_calls"] == 2
+    runner = CliRunner()
+    result = runner.invoke(app, ["practice-index", "find", QUERY, "--vault", str(paths.root),
+                                 "--dry-run", "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["status"] == "dry_run"
+    text = runner.invoke(app, ["practice-index", "find", QUERY, "--vault", str(paths.root),
+                               "--dry-run", "--no-rerank"])
+    assert text.exit_code == 0, text.output
+    assert "query embedding: would_embed" in text.output and "rerank: disabled" in text.output
+    assert paths.sqlite_path.read_bytes() == before
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM practice_index_proposals").fetchone()[0] == 0
+    # After a real call, the same request is served from caches: nothing to pay.
+    monkeypatch.undo()
+    find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    calls = len(llm.calls)
+    again = plan_find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert len(llm.calls) == calls  # an injected client only names the route
+    assert again["query_embedding"]["status"] == "cached"
+    assert again["rerank"]["status"] == "cached" and again["rerank"]["pool_exact"] is True
+    assert again["estimate"]["calls"] == 0
+
+
+def test_find_dry_run_names_metered_rerank_prices_and_caps(indexed):
+    from learnloop.practice_index.retrieval import plan_find_practice
+
+    _paths, vault, repository, _llm, _embedder = indexed
+    vault.config.ai.routing.practice_rerank = "openrouter_test"
+    from learnloop.config.schema import AIProviderConfig
+
+    vault.config.ai.providers["openrouter_test"] = AIProviderConfig.model_validate(
+        {"type": "openrouter", "model": "vendor/model"})
+    plan = plan_find_practice(vault, repository, QUERY, {"rerank": True})
+    assert plan["rerank"]["status"].startswith("skipped")
+    vault.config.practice_index.rerank_price_per_million = 3.0
+    priced = plan_find_practice(vault, repository, QUERY)
+    assert priced["rerank"]["status"] == "would_call"
+    assert priced["rerank"]["billing"] == "metered" and priced["rerank"]["estimated_usd"] > 0
+    vault.config.practice_index.rerank_max_cost_usd = 0.0
+    capped = plan_find_practice(vault, repository, QUERY)
+    assert capped["rerank"]["status"].startswith("over_budget")

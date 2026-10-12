@@ -178,7 +178,7 @@ def test_batch_dry_runs_never_migrate_an_older_rollback_database(tmp_path):
     evaluation = run_retrieval_evaluation(vault, caps=SpendCaps(), dry_run=True, queries=4)
     assert evaluation["status"] == "dossier_unavailable", evaluation
     runner = CliRunner()
-    for command in (["dossiers"], ["eval", "--queries", "4"]):
+    for command in (["dossiers"], ["eval", "--queries", "4"], ["find", "eigenvalues"]):
         result = runner.invoke(app, ["practice-index", *command, "--vault", str(paths.root),
                                      "--dry-run", "--json"])
         assert _json(result)["status"] in {"dry_run", "dossier_unavailable"}, result.output
