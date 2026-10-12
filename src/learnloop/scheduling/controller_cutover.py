@@ -168,10 +168,15 @@ def staged_next_action(
     owned_refs = _commitment_item_refs(vault, repository, commitment_id)
     hints = _run_signal_hints(run, state)
     snapshot = cs.build_snapshot(vault, repository, session, clock=clock)
+    from learnloop.placement.state import ignored_opening_episode_ids
+
     signals = ss.derive_signals(
         repository, snapshot, commitment_id=commitment_id,
         run_mode=hints["run_mode"], terminal_shown=hints["terminal_shown"],
         milestone_reached=hints["milestone_reached"], goal_satisfied=hints["goal_satisfied"],
+        # Unanswered opening episodes placement ignores carry no measurement
+        # value (owner decision 2026-10-12).
+        ignored_episode_ids=ignored_opening_episode_ids(vault, repository),
         clock=clock,
     )
     result = sp.decide(

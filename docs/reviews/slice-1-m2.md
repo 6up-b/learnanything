@@ -233,7 +233,8 @@ this review.
   of `mvp-0.9` and a P0 successor. `learnloop upgrade --to mvp-0.10` (from
   `mvp-0.9` only) freezes the manifest, activates the P0 projection, refreshes
   the registry and rewrites the config atomically. The template stays at
-  `mvp-0.9` until the S1.5 exit review.
+  `mvp-0.9` until the S1.5 exit review. (Superseded 2026-10-12: new vaults
+  start at `LATEST_ALGORITHM_VERSION`; open question 1.)
 - Grader mode is per attempt (the blind ledger), never read from today's
   config: a vault can hold both shapes and rebuild both.
 - Kill switches: `diagnosis.split_enabled` (off: new attempts grade jointly;
@@ -412,6 +413,12 @@ Kill switch: `[diagnosis] split_enabled = false`.
 
 1. Template default: new vaults start at `mvp-0.9` and need the upgrade
    command until the S1.5 exit review. Move the template to `mvp-0.10` now?
+   **Decided by the owner on 2026-10-12: start at the latest version.** New
+   vaults are written at `LATEST_ALGORITHM_VERSION` (`mvp-0.11` today, the
+   split plus placement); each later successor merge moves that one constant
+   and records its defaults snapshot. Existing vaults keep their version until
+   the owner runs `learnloop upgrade`. Built on `fix/placement-owner-decisions`
+   (`docs/reviews/placement-owner-decisions.md`).
 2. PF-c verifier: M1 requires every relation in a generated derivation to be
    checkable, so on the owner's vaults 1 of 18 generated alternatives
    verified. Relax E1 to "final answer verified", or have the generator write

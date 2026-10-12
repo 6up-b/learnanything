@@ -50,6 +50,13 @@ def placement_lo_state(vault, state, learning_object_id: str, *, now_iso: str) -
         "intent": intent.intent if intent is not None else None,
         # Why: assumed | check_passed | check_missed | missed_in_maintenance | i_dont_know_this.
         "intent_reason": intent.reason if intent is not None else None,
+        # How the diagnosis decided it (owner decision 2026-10-12): clean, slip,
+        # item_contract, interaction_context or unassessed (kept in
+        # maintenance); knowledge_gap, no_gap_attributed, learner_side,
+        # no_diagnosis or i_dont_know_this (learning); None while assumed.
+        "outcome_reason": intent.outcome_reason if intent is not None else None,
+        # A miss whose diagnosis has not landed: the decision waits on it.
+        "awaiting_diagnosis": bool(intent is not None and intent.awaiting_diagnosis_attempt_id),
         "assumed": open_ is not None,
         "label": "assumed (not tested)" if open_ is not None else None,
         "source": open_.source if open_ is not None else None,
@@ -61,8 +68,8 @@ def placement_lo_state(vault, state, learning_object_id: str, *, now_iso: str) -
 
 
 def placement_payload(vault, repository, learning_object_ids: list[str] | None = None) -> dict[str, Any]:
-    state = load_placement_state(vault, repository)
     now_iso = utc_now_iso()
+    state = load_placement_state(vault, repository, now_iso=now_iso)
     wanted = (
         sorted(set(learning_object_ids))
         if learning_object_ids is not None

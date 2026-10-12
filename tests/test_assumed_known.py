@@ -440,16 +440,17 @@ def test_session_queue_runs_fast_track_before_serving(tmp_path):
     assert "pi_diag_easy" not in _served(queue)
 
 
-def test_new_vaults_stay_at_mvp09_until_the_owner_moves_the_template(tmp_path):
-    """Merge decision: new vaults stay at mvp-0.9 (Slice 1 M2 open question 1);
-    placement reaches a vault through ``learnloop upgrade``."""
+def test_new_vaults_start_with_placement_on(tmp_path):
+    """Owner decision 2026-10-12: new vaults start at the latest version, so
+    placement serves from the first sync (no opening probe per new LO)."""
 
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
     from learnloop.vault.loader import init_vault
 
     init_vault(tmp_path / "fresh", clock=FrozenClock(NOW))
     fresh = load_vault(tmp_path / "fresh")
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.9"
-    assert not placement_active(fresh)
+    assert fresh.config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+    assert placement_active(fresh)
 
 
 # ── Durability lane: receipts survive replay under production pragmas ───────

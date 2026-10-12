@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, P0_SUCCESSOR_VERSIONS
 from learnloop.cli import app
 from learnloop.config import (
     DEFAULT_CONFIG_TEXT,
@@ -22,6 +23,7 @@ from learnloop.config import (
     OPENROUTER_TRANSCRIPTION_PROVIDER,
     effective_defaults_fingerprint,
 )
+from learnloop.config.template import default_config_text, defaults_fingerprint_for_version
 from learnloop.vault.loader import init_vault
 from learnloop.vault.loader import load_vault
 from learnloop_sidecar.context import config_dto
@@ -99,8 +101,12 @@ def test_generated_template_is_decision_only_schema_v2() -> None:
 
 
 def test_minimal_template_preserves_non_provider_effective_defaults() -> None:
+    # The legacy before-image is frozen at its own version; compare it with the
+    # decision-only template rendered at that version (new vaults now start at
+    # the latest successor, owner decision 2026-10-12).
+    legacy_version = tomllib.loads(LEGACY_DEFAULT_CONFIG_TEXT)["algorithms"]["algorithm_version"]
     before = _parsed(LEGACY_DEFAULT_CONFIG_TEXT).model_dump(mode="json")
-    after = _parsed(DEFAULT_CONFIG_TEXT).model_dump(mode="json")
+    after = _parsed(default_config_text(legacy_version)).model_dump(mode="json")
 
     before.pop("schema_version")
     after.pop("schema_version")
@@ -109,7 +115,7 @@ def test_minimal_template_preserves_non_provider_effective_defaults() -> None:
     assert after == before
 
     old_ai = _parsed(LEGACY_DEFAULT_CONFIG_TEXT).ai
-    new_ai = _parsed(DEFAULT_CONFIG_TEXT).ai
+    new_ai = _parsed(default_config_text(legacy_version)).ai
     assert new_ai.active_provider == old_ai.active_provider
     assert new_ai.fallback_provider == old_ai.fallback_provider
     assert new_ai.timeout_seconds == old_ai.timeout_seconds
@@ -365,6 +371,51 @@ def test_defaults_snapshot_is_keyed_by_algorithm_version() -> None:
     assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[
         config.algorithms.algorithm_version
     ]
+
+
+def test_new_vaults_start_at_the_latest_algorithm_version(tmp_path) -> None:
+    """Owner decision 2026-10-12 (Slice 1 M2 open question 1): the template
+    writes LATEST_ALGORITHM_VERSION, so a successor merge moves one constant."""
+
+    assert tomllib.loads(DEFAULT_CONFIG_TEXT)["algorithms"]["algorithm_version"] == LATEST_ALGORITHM_VERSION
+    assert DEFAULT_CONFIG_TEXT == default_config_text(LATEST_ALGORITHM_VERSION)
+    init_vault(tmp_path / "fresh")
+    assert load_vault(tmp_path / "fresh").config.algorithms.algorithm_version == LATEST_ALGORITHM_VERSION
+
+
+@pytest.mark.parametrize("version", sorted(DEFAULTS_SNAPSHOT_BY_ALGORITHM))
+def test_every_recorded_version_keeps_its_defaults_snapshot(version) -> None:
+    """Each snapshot is the template rendered at its own version, so it is
+    recomputed the same way whichever version new vaults start at."""
+
+    rendered = default_config_text(version)
+    assert tomllib.loads(rendered)["algorithms"]["algorithm_version"] == version
+    assert len(rendered.splitlines()) == len(DEFAULT_CONFIG_TEXT.splitlines())
+    assert defaults_fingerprint_for_version(version) == DEFAULTS_SNAPSHOT_BY_ALGORITHM[version]
+
+
+def test_the_defaults_snapshot_covers_the_successor_chain() -> None:
+    assert LATEST_ALGORITHM_VERSION in DEFAULTS_SNAPSHOT_BY_ALGORITHM
+    assert P0_SUCCESSOR_VERSIONS <= set(DEFAULTS_SNAPSHOT_BY_ALGORITHM)
+
+
+def test_a_successor_merge_appends_one_tag_and_every_gate_follows(monkeypatch) -> None:
+    """Codex review (placement owner decisions): moving LATEST alone would
+    drop a new vault out of the split and placement. The version sets and
+    LATEST are derived from SUCCESSOR_CHAIN, so a successor appends one tag."""
+
+    from learnloop import algorithm_versions as versions
+
+    chain = versions.SUCCESSOR_CHAIN
+    assert LATEST_ALGORITHM_VERSION == chain[-1]
+    assert P0_SUCCESSOR_VERSIONS == set(chain)
+    assert versions.DIAGNOSIS_SPLIT_VERSIONS == versions.successors_from(versions.DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
+    assert versions.PLACEMENT_VERSIONS == versions.successors_from(versions.PLACEMENT_ALGORITHM_VERSION)
+    assert LATEST_ALGORITHM_VERSION in versions.DIAGNOSIS_SPLIT_VERSIONS & versions.PLACEMENT_VERSIONS
+    # A later successor joins every gate from its predecessors' tags on.
+    monkeypatch.setattr(versions, "SUCCESSOR_CHAIN", (*chain, "mvp-next"))
+    assert "mvp-next" in versions.successors_from(versions.PLACEMENT_ALGORITHM_VERSION)
+    assert "mvp-next" in versions.successors_from(versions.DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
 
 
 def test_config_effective_reports_full_model_and_explicit_overrides(tmp_path) -> None:

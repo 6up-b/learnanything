@@ -170,7 +170,16 @@ def build_due_queue(
     # Probe redesign: open diagnostic episodes replace lo_probe_state (frozen
     # legacy). `pending_items` episodes keep their LO schedulable for ordinary
     # practice; only `in_progress` episodes score probe EIG.
-    open_episodes = repository.open_probe_episodes()
+    if placement_serving is not None:
+        # F2 (owner decision 2026-10-12): an opening episode an earlier version
+        # opened and nobody answered is ignored while placement serves, so its
+        # never-practised LO enters as new material. It is not rewritten or
+        # closed: the kill switch serves it again exactly.
+        from learnloop.placement.state import servable_open_episodes
+
+        open_episodes = servable_open_episodes(vault, repository)
+    else:
+        open_episodes = repository.open_probe_episodes()
     errors_by_lo = _errors_by_learning_object(repository.active_error_events())
     short_session = (
         session.available_minutes is not None
@@ -787,6 +796,7 @@ def _placement_serving(
     from learnloop.placement.predictor import active_predictor
     from learnloop.placement.state import (
         choose_check_items,
+        diagnosis_can_arrive,
         load_placement_state,
         placement_active,
     )
@@ -794,11 +804,20 @@ def _placement_serving(
     if not placement_active(vault):
         return None
     if persist:
+        if not diagnosis_can_arrive(vault):
+            # The split's kill switch is off: a queued diagnosis is held, and
+            # a miss waiting on it is decided by today's rule. Record the hold
+            # on the first serving build that sees it (write-once), so turning
+            # the switch back on does not reopen what this build serves on
+            # (Codex re-review F3).
+            repository.hold_queued_live_diagnoses(clock=clock)
         reconcile_fast_track(vault, repository, clock=clock)
-    state = load_placement_state(vault, repository)
     now_iso = utc_now_iso(clock)
+    state = load_placement_state(vault, repository, now_iso=now_iso)
     predictor = active_predictor(vault, repository, now_iso=now_iso)
-    due = state.due_learning_object_ids(now_iso)
+    # A check answer whose diagnosis has not landed is the check: the decision
+    # waits on it (owner decision 2026-10-12), so no second check item is served.
+    due = state.due_learning_object_ids(now_iso) - state.awaiting_diagnosis_learning_object_ids
     if due:
         from learnloop.attempts.attempts import COLD_FOLLOWUP_TASK_KINDS
         from learnloop.diagnosis.remediation import COLD_RETRIEVAL_DELAY

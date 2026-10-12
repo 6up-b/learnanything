@@ -1,28 +1,60 @@
 """Placement state (learner field §5.2): what is assumed known, and what happened.
 
 Everything here is read from immutable rows: ``assumption_decisions`` and
-``assumption_returns`` (RECEIPT), ``practice_attempts``, ``reveal_events`` and
-``coldness_receipts``. An assumption's outcome is never written back:
+``assumption_returns`` (RECEIPT), ``practice_attempts``, ``reveal_events``,
+``coldness_receipts`` and the Slice 1 M2 diagnosis ledgers
+(``blind_grade_records``, ``attempt_diagnoses``), plus two facts of the live
+diagnose jobs (WORKFLOW rows, never deleted): when the first was queued, and
+the write-once hold stamp the split's kill switch puts on them
+(``payload.split_held_at``).
+An assumption's outcome is never written back; its resolution (the receipt)
+names the answer, the reason and what the diagnosis read:
 
-- an answer on the LO after the decision that the learner did not answer
-  cleanly (partial marks, hints, priming, "don't know", assistance) fails it,
-  early or on schedule: the LO quietly returns to learning;
+- a miss on the LO after the decision (an answer short of clean full marks)
+  is decided by the diagnosis, early or on schedule (owner decision
+  2026-10-12): it is kept only on a positive non-gap reading (a slip, an
+  item-contract or grader-interpretation problem, the interaction rather than
+  knowledge, or an unassessed PF-c criterion): assumed before
+  ``first_review_due``, in maintenance from it on (the check resolves, reason
+  recorded). A knowledge gap (``causal_class = learner_state`` on a
+  ``valid_measurement`` attribution), or a diagnosis that leaves any part of
+  the miss without a non-gap reading (``no_gap_attributed``), returns it to
+  learning;
+- a miss is decided once (:func:`load_miss_verdicts`), by whichever comes
+  first: the first live diagnosis that lands for the grade it read, the kill
+  switch holding its diagnosis (``diagnosis.split_enabled = false``), or the
+  wait deadline. A later regrade, ``diagnose retry``, re-queue, release or
+  switch toggle never reopens or changes it. While none has happened the
+  decision waits (the assumption stays open,
+  ``awaiting_diagnosis_attempt_id``), at most ``rules.DIAGNOSIS_WAIT_DAYS``
+  from the miss's first diagnose job; then, or when no diagnosis can arrive
+  (the switch held it, a joint grade, the diagnoser failed, was
+  budget-skipped or rejected), today's rule applies (back to learning, reason
+  ``no_diagnosis`` with the fallback named). Learner-side help (hints,
+  priming, "don't know", assistance) is not a grading question: today's rule,
+  reason ``learner_side``, at once, even while an earlier miss waits;
 - a clean answer before ``first_review_due`` is early practice (an explicit,
   learner-requested exception to the review interval): recorded, never the
   check;
-- from ``first_review_due`` on, the first clean answer that the existing
-  independence rule admits (``production_admissibility`` over the window since
-  the item's previous attempt or the decision, whichever is later, plus any
-  final coldness receipt) passes it; a clean answer the rule rejects is
-  ineligible and the check waits;
-- an answer whose grade is PF-c unverified (the final answer verified, the
-  grader marked a criterion down without locating an error, and nothing
-  assessed fell short) is unassessed - no failure evidence and no pass: it is
-  ineligible, early or on schedule, and never a lapse;
+- from ``first_review_due`` on, the first clean (or kept) answer that the
+  existing independence rule admits (``production_admissibility`` over the
+  window since the item's previous attempt or the decision, whichever is
+  later, plus any final coldness receipt) resolves it into maintenance; one
+  the rule rejects is ineligible and the check waits;
 - an "I don't know this" before any of that returns it.
 
 Grades are read from the attempt row, where a blind grade lands like a joint
-one and a regrade (which also re-queues the diagnosis) replaces it in place.
+one and a regrade (which also re-queues the diagnosis) replaces it in place;
+``grading_evidence``'s current rows name the unverified criteria. So a regrade
+that changes whether an answer is a miss at all is still read live (Phase 6's
+merged semantics); one that leaves it a miss does not reopen its decision.
+
+Each miss's decision has a time (``MissVerdict.decided_at``): the deciding
+diagnosis row, the hold, the wait deadline, or the answer itself. Learner-side help or
+"I don't know this" recorded before an earlier miss's decision landed decides
+the outcome, however that diagnosis reads when it lands, so a receipt does not
+change after the fact.
+
 PF-c is read from its own records (:func:`pfc_unverified_attempt_ids`):
 ``grading_evidence``'s current rows carry the unverified stamp, and the latest
 blind grade record's ``assessed_shortfall`` says whether anything assessed fell
@@ -30,9 +62,10 @@ short.
 
 Each LO's current placement intent is derived from its decisions, returns and
 answers in time order (:class:`LearningObjectIntent`): ``assumed`` while an
-assumption is open, ``maintenance`` after a passed check until a later miss or
-"I don't know this", ``learning`` after a miss, a lapse or "I don't know this"
-(with or without an assumption) until a later explicit "I know this".
+assumption is open, ``maintenance`` after a passed check until a later miss the
+diagnosis attributes to a knowledge gap (decided as above) or "I don't know
+this", ``learning`` after a missed check, a lapse or "I don't know this" (with
+or without an assumption) until a later explicit "I know this".
 
 "Time order" is the durable ``(created_at, id)`` order across all three
 ledgers (:func:`_order`). ``created_at`` has second precision, and every id is
@@ -45,21 +78,42 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field, replace
+from datetime import timedelta
 import json
 from typing import Any
 
-from learnloop.algorithm_versions import PLACEMENT_VERSIONS
+from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS, PLACEMENT_VERSIONS
 from learnloop.attempts.reveal_ledger import production_admissibility
+from learnloop.clock import FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.field.types import LearnerPredictor
 from learnloop.placement.rules import (
     CHECK_PASS,
     PFC_UNASSESSED_INTERPRETATION,
     PFC_UNASSESSED_INTERPRETATION_KEY,
+    DIAGNOSIS_WAIT_DAYS,
+    FALLBACK_BUDGET_SKIPPED,
+    FALLBACK_DIAGNOSIS_FAILED,
+    FALLBACK_DIAGNOSIS_UNAVAILABLE,
+    FALLBACK_NOT_BLIND_GRADED,
+    FALLBACK_NOT_DIAGNOSED,
+    FALLBACK_NOT_NEEDED,
+    FALLBACK_REJECTED,
+    FALLBACK_SPLIT_DISABLED,
+    KEPT_REASONS,
+    MISS_KEPT,
+    MISS_PENDING,
+    MISS_TO_LEARNING,
     PFC_UNVERIFIED_BLOCK,
+    REASON_DIAGNOSIS_PENDING,
+    REASON_LEARNER_SIDE,
+    REASON_NO_DIAGNOSIS,
     AnswerFacts,
+    MissVerdict,
     answer_facts,
     check_verdict,
+    decide_miss,
+    diagnosis_reason,
     new_material_key,
     prerequisite_layers,
 )
@@ -82,10 +136,127 @@ def placement_active(vault: LoadedVault) -> bool:
     )
 
 
+def diagnosis_can_arrive(vault: LoadedVault) -> bool:
+    """Whether a queued live diagnosis can land now (``split_grading_active``).
+
+    The post-attempt worker runs a live diagnosis only at a split version with
+    ``diagnosis.split_enabled``; otherwise the job is held, so placement falls
+    back to today's rule instead of waiting (owner decision 2026-10-12). The
+    first serving build or worker pass that sees the switch off stamps every
+    queued live diagnosis held (``Repository.hold_queued_live_diagnoses``,
+    write-once), and a held miss stays decided by today's rule when the switch
+    comes back on or its diagnosis lands later (Codex re-review F3). No miss
+    waits longer than ``placement.rules.DIAGNOSIS_WAIT_DAYS``
+    (:func:`load_miss_verdicts`).
+    """
+
+    config = vault.config
+    if config.algorithms.algorithm_version not in DIAGNOSIS_SPLIT_VERSIONS:
+        return False
+    return bool(getattr(getattr(config, "diagnosis", None), "split_enabled", True))
+
+
 def initial_probes_enabled(vault: LoadedVault) -> bool:
     """Whether state sync opens an opening diagnostic episode per new LO."""
 
     return not placement_active(vault) or bool(vault.config.placement.initial_probes)
+
+
+#: ``probe_episodes.trigger`` of the opening episode earlier versions opened per new LO.
+OPENING_EPISODE_TRIGGER = "initial"
+
+
+def opening_probes_ignored(vault: LoadedVault) -> bool:
+    """Whether unanswered opening episodes are ignored (owner decision 2026-10-12).
+
+    Under placement with ``placement.initial_probes = false``, an opening
+    episode an earlier version opened and the learner never answered is not an
+    open episode for serving, feedback routing or instrument generation.
+    Nothing rewrites or closes it until the learner or an error acts on its LO
+    (a door that opens an episode adopts it instead:
+    ``probe_episodes.adopt_ignored_opening_episode``), so
+    ``placement.enabled = false`` restores the predecessor exactly, and
+    ``placement.initial_probes = true`` serves opening probes again.
+    """
+
+    return placement_active(vault) and not bool(vault.config.placement.initial_probes)
+
+
+def unanswered_opening_episode_ids(connection: Any, episode_ids: Iterable[str] | None = None) -> frozenset[str]:
+    """Open opening episodes exactly as state sync left them: nothing answered,
+    nothing adopted.
+
+    Pristine: ``trigger = 'initial'`` with no ``origin`` and no target decision
+    (a door that adopts or relocks the episode stamps them: the causal quick
+    check, a re-probe, the overconfidence list, a calibration or a golden-path
+    baseline), and nothing answered under it ("answered" is
+    ``probe_episodes.episode_has_observations``: a recorded probe observation,
+    or a presentation the learner consumed, ``submitted``).
+    """
+
+    sql = (
+        "SELECT e.id FROM probe_episodes e "
+        "WHERE e.trigger = ? AND e.status IN ('pending_items', 'in_progress') "
+        "AND e.origin IS NULL AND e.target_decision_json IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM probe_presentations p "
+        "WHERE p.probe_episode_id = e.id AND p.status = 'submitted') "
+        "AND NOT EXISTS (SELECT 1 FROM probe_observations o "
+        "JOIN practice_attempts a ON a.id = o.attempt_id "
+        "JOIN probe_presentations p ON p.id = a.probe_presentation_id "
+        "WHERE p.probe_episode_id = e.id)"
+    )
+    params: list[Any] = [OPENING_EPISODE_TRIGGER]
+    if episode_ids is not None:
+        wanted = sorted(set(episode_ids))
+        if not wanted:
+            return frozenset()
+        sql += f" AND e.id IN ({','.join('?' for _ in wanted)})"
+        params.extend(wanted)
+    return frozenset(str(row[0]) for row in connection.execute(sql, params).fetchall())
+
+
+def ignored_opening_episode_ids(vault: LoadedVault, repository: Repository) -> frozenset[str]:
+    """The opening episodes placement ignores right now (empty when it does not)."""
+
+    if not opening_probes_ignored(vault):
+        return frozenset()
+    with repository.connection() as connection:
+        return unanswered_opening_episode_ids(connection)
+
+
+def episode_ignored(vault: LoadedVault, repository: Repository, episode: Any) -> bool:
+    """Whether this open episode is an unanswered opening episode placement ignores."""
+
+    if episode is None or getattr(episode, "trigger", None) != OPENING_EPISODE_TRIGGER:
+        return False
+    if not opening_probes_ignored(vault):
+        return False
+    with repository.connection() as connection:
+        return str(episode.id) in unanswered_opening_episode_ids(connection, [str(episode.id)])
+
+
+def servable_open_episodes(vault: LoadedVault, repository: Repository) -> dict[str, Any]:
+    """``repository.open_probe_episodes()`` without the ignored opening episodes.
+
+    The serving, feedback-routing and instrument-generation doors read this.
+    A door that opens an episode on an LO (``enter_episode``, the re-probe
+    triggers) adopts an ignored one instead of treating it as taken.
+    """
+
+    episodes = repository.open_probe_episodes()
+    ignored = ignored_opening_episode_ids(vault, repository)
+    if not ignored:
+        return episodes
+    return {lo: episode for lo, episode in episodes.items() if episode.id not in ignored}
+
+
+def servable_open_episode(vault: LoadedVault, repository: Repository, learning_object_id: str) -> Any:
+    """``repository.open_probe_episode(lo)``, or None when placement ignores it."""
+
+    episode = repository.open_probe_episode(learning_object_id)
+    if episode_ignored(vault, repository, episode):
+        return None
+    return episode
 
 
 def placement_tables_present(connection: Any) -> bool:
@@ -115,8 +286,20 @@ class Assumption:
     resolving_attempt_id: str | None = None
     #: Clean answers before ``first_review_due`` (explicit practice): never the check.
     early_answers: int = 0
-    #: Clean answers from the due date on that the independence rule rejected.
+    #: Clean (or kept) answers from the due date on that the independence rule rejected.
     ineligible_answers: int = 0
+    #: Why it resolved (owner decision 2026-10-12): ``clean`` (full marks) or a
+    #: kept reason (slip, item_contract, interaction_context, unassessed) for
+    #: ``passed``; knowledge_gap, no_gap_attributed, learner_side or
+    #: no_diagnosis for ``failed``; i_dont_know_this for ``returned``.
+    resolution_reason: str | None = None
+    #: The miss that decided it, as the diagnosis read it (the receipt).
+    resolution: MissVerdict | None = None
+    #: Misses before the due date the diagnosis did not attribute to a knowledge
+    #: gap: the LO stayed assumed. ``(attempt id, reason)`` each.
+    kept_answers: tuple[tuple[str, str], ...] = ()
+    #: A miss whose diagnosis has not landed: the decision waits on it.
+    awaiting_diagnosis_attempt_id: str | None = None
 
     @property
     def is_open(self) -> bool:
@@ -136,6 +319,18 @@ class LearningObjectIntent:
     #: assumed | check_passed | check_missed | missed_in_maintenance | i_dont_know_this
     reason: str
     assumption_id: str | None = None
+    #: Why, in the owner's terms (2026-10-12): for maintenance after the check,
+    #: ``clean`` or the kept reason; for learning, knowledge_gap,
+    #: no_gap_attributed, learner_side, no_diagnosis or i_dont_know_this. None
+    #: while assumed.
+    outcome_reason: str | None = None
+    #: The miss that decided the intent, as the diagnosis read it (the receipt).
+    resolution: MissVerdict | None = None
+    #: Misses in maintenance the diagnosis did not attribute to a knowledge gap:
+    #: the LO stayed in maintenance. ``(attempt id, reason)`` each.
+    kept_misses: tuple[tuple[str, str], ...] = ()
+    #: A miss whose diagnosis has not landed: the intent waits on it.
+    awaiting_diagnosis_attempt_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -183,6 +378,15 @@ class PlacementState:
 
     def due_learning_object_ids(self, now_iso: str) -> frozenset[str]:
         return frozenset(lo for lo, a in self.open_by_lo.items() if a.first_review_due <= now_iso)
+
+    @property
+    def awaiting_diagnosis_learning_object_ids(self) -> frozenset[str]:
+        """LOs whose assumption or maintenance waits on a miss's diagnosis: they
+        stay as they are, and no further check item is served meanwhile."""
+
+        waiting = {a.learning_object_id for a in self.assumptions if a.is_open and a.awaiting_diagnosis_attempt_id}
+        waiting |= {lo for lo, entry in self.intent_by_lo.items() if entry.awaiting_diagnosis_attempt_id}
+        return frozenset(waiting)
 
 
 def _rows(connection: Any, sql: str, params: Sequence[Any] = ()) -> list[dict[str, Any]]:
@@ -422,6 +626,251 @@ def load_answers(
     return {lo: tuple(answers) for lo, answers in grouped.items()}
 
 
+def _table_present(connection: Any, name: str) -> bool:
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
+    ).fetchone() is not None
+
+
+def _json(value: Any, default: Any) -> Any:
+    if value is None:
+        return default
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _wait_deadline(first_job_at: str | None) -> str | None:
+    """The instant a miss stops waiting on its diagnosis (rules.DIAGNOSIS_WAIT_DAYS)."""
+
+    started = parse_utc(first_job_at) if first_job_at else None
+    if started is None:
+        return None
+    return utc_now_iso(FrozenClock(started + timedelta(days=DIAGNOSIS_WAIT_DAYS)))
+
+
+def load_miss_verdicts(
+    connection: Any,
+    answers: Iterable[AnswerFacts],
+    *,
+    diagnosis_live: bool,
+    now_iso: str,
+) -> dict[str, MissVerdict]:
+    """How the diagnosis decides each graded miss (owner decision 2026-10-12).
+
+    A miss is decided once (Codex review F4, re-review F3), by the first of
+    three events, each read from a row that does not change once written:
+
+    - the attempt's FIRST live diagnosis that read the blind grade current
+      when it landed (``Repository._diagnosis_concerns_grade``; a completed
+      one must be in force at landing, ``Repository._diagnosis_in_force``):
+      completed, its reading (:func:`placement.rules.diagnosis_reason`);
+      failed, budget-skipped, rejected or not needed, today's rule saying
+      which. A diagnosis of a grade a regrade had already superseded decides
+      nothing;
+    - the kill switch holding one of the miss's live diagnose jobs (the first
+      ``payload.split_held_at``, write-once): today's rule
+      (``split_disabled``), decided at the hold;
+    - the wait deadline, ``DIAGNOSIS_WAIT_DAYS`` after the miss's first live
+      diagnose job (its ``created_at``), once it has passed: today's rule
+      (``diagnosis_unavailable``), decided at the deadline.
+
+    A later regrade, ``diagnose retry``, re-queue, release (``last_error`` is
+    never read) or switch toggle never reopens or changes a decided miss.
+    Before any of them:
+
+    - not blind-graded (a joint grade): no diagnosis can arrive, today's rule;
+    - a live job still queued with the switch off (``diagnosis_live`` false)
+      and no hold recorded yet: today's rule (``split_disabled``) as of
+      ``now_iso``, so the kill switch applies at once; the next serving build
+      or worker pass records the hold, which then decides it;
+    - a live job queued (switch on) or leased (in flight): pending;
+    - no live job queued: ``not_diagnosed``, with the answer (a blind grade
+      means the split was on when it was graded).
+    """
+
+    wanted = sorted({a.attempt_id for a in answers if a.graded_miss})
+    if not wanted:
+        return {}
+    if not all(_table_present(connection, name) for name in ("blind_grade_records", "attempt_diagnoses", "post_attempt_jobs")):
+        return {
+            attempt_id: MissVerdict(attempt_id, MISS_TO_LEARNING, REASON_NO_DIAGNOSIS, fallback=FALLBACK_NOT_BLIND_GRADED)
+            for attempt_id in wanted
+        }
+    records: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    diagnoses: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    jobs: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for start in range(0, len(wanted), 500):
+        chunk = wanted[start:start + 500]
+        marks = ",".join("?" for _ in chunk)
+        for row in _rows(
+            connection,
+            f"SELECT id, attempt_id, record_json, created_at FROM blind_grade_records WHERE attempt_id IN ({marks}) "
+            "ORDER BY attempt_id, created_at, id",
+            chunk,
+        ):
+            records[str(row["attempt_id"])].append(row)
+        for row in _rows(
+            connection,
+            "SELECT id, attempt_id, blind_grade_record_id, status, proposal_json, error, created_at "
+            f"FROM attempt_diagnoses WHERE mode = 'live' AND attempt_id IN ({marks}) "
+            "ORDER BY attempt_id, created_at, id",
+            chunk,
+        ):
+            diagnoses[str(row["attempt_id"])].append(row)
+        for row in _rows(
+            connection,
+            "SELECT id, attempt_id, state, payload_json, created_at FROM post_attempt_jobs "
+            f"WHERE kind = 'diagnose' AND attempt_id IN ({marks}) ORDER BY attempt_id, created_at, id",
+            chunk,
+        ):
+            if str((_json(row["payload_json"], {}) or {}).get("mode") or "live") == "live":
+                jobs[str(row["attempt_id"])].append(row)
+
+    def grade_at(rows: Sequence[Mapping[str, Any]], order: tuple[str, str]) -> Mapping[str, Any] | None:
+        current = None
+        for row in rows:  # ordered by (created_at, id)
+            if _order(row["created_at"], row["id"]) <= order:
+                current = row
+        return current
+
+    verdicts: dict[str, MissVerdict] = {}
+    for attempt_id in wanted:
+        attempt_records = records.get(attempt_id, [])
+        attempt_jobs = jobs.get(attempt_id, [])
+        open_job = next((job for job in reversed(attempt_jobs) if job["state"] in ("queued", "leased")), None)
+        latest_record = attempt_records[-1] if attempt_records else None
+
+        def fallback(reason: str, *, diagnosis_id: str | None = None, decided_at: str | None = None,
+                     decided_ref: str | None = None, record_id: str | None = None) -> MissVerdict:
+            return MissVerdict(
+                attempt_id, MISS_TO_LEARNING, REASON_NO_DIAGNOSIS, fallback=reason, diagnosis_id=diagnosis_id,
+                blind_grade_record_id=record_id or (str(latest_record["id"]) if latest_record is not None else None),
+                job_state=str(open_job["state"]) if open_job is not None else None,
+                decided_at=decided_at, decided_ref=decided_ref,
+            )
+
+        if latest_record is None:
+            verdicts[attempt_id] = fallback(FALLBACK_NOT_BLIND_GRADED)
+            continue
+        deadline = _wait_deadline(min((str(job["created_at"]) for job in attempt_jobs), default=None))
+        deciding: Mapping[str, Any] | None = None
+        deciding_record: Mapping[str, Any] | None = None
+        for row in diagnoses.get(attempt_id, []):
+            current = grade_at(attempt_records, _order(row["created_at"], row["id"]))
+            current_id = str(current["id"]) if current is not None else None
+            if Repository._diagnosis_concerns_grade(row["blind_grade_record_id"], current_id):
+                deciding = row
+                record_id = row["blind_grade_record_id"]
+                deciding_record = next(
+                    (r for r in attempt_records if str(r["id"]) == str(record_id)), current,
+                ) if record_id is not None else current
+                break
+        # The first hold the switch put on one of the miss's live jobs
+        # (``post_attempt_jobs.payload.split_held_at``, write-once).
+        held = min(
+            (
+                (str(stamp), str(job["id"]))
+                for job in attempt_jobs
+                if (stamp := (_json(job["payload_json"], {}) or {}).get("split_held_at"))
+            ),
+            default=None,
+        )
+        # Whichever came first decides, once (Codex re-review F3): the deciding
+        # diagnosis landing, the switch holding the job, or the wait deadline
+        # (once it has passed).
+        events: list[tuple[tuple[str, str], str]] = []
+        if deciding is not None:
+            events.append((_order(deciding["created_at"], deciding["id"]), "diagnosis"))
+        if held is not None:
+            events.append((held, "held"))
+        if deadline is not None and (now_iso > deadline or any(order > (deadline, "") for order, _kind in events)):
+            events.append(((deadline, ""), "deadline"))
+        first = min(events)[1] if events else None
+        if first == "deadline":
+            # The miss stopped waiting before anything else decided it.
+            verdicts[attempt_id] = fallback(FALLBACK_DIAGNOSIS_UNAVAILABLE, decided_at=deadline)
+            continue
+        if first == "held":
+            # The kill switch held its diagnosis: today's rule, decided at the
+            # hold. Turning the switch back on, a later release or the
+            # diagnosis landing afterwards does not change it.
+            assert held is not None
+            verdicts[attempt_id] = fallback(FALLBACK_SPLIT_DISABLED, decided_at=held[0], decided_ref=held[1])
+            continue
+        if first == "diagnosis":
+            assert deciding is not None
+            decided = {"decided_at": str(deciding["created_at"]), "decided_ref": str(deciding["id"])}
+            record_id = str(deciding_record["id"]) if deciding_record is not None else None
+            current_id = record_id
+            if Repository._diagnosis_in_force(deciding["status"], deciding["blind_grade_record_id"], current_id):
+                proposal = _json(deciding["proposal_json"], {}) or {}
+                grade = (_json(deciding_record["record_json"], {}) or {}) if deciding_record is not None else {}
+                attributions = list(grade.get("error_attributions") or [])
+                scopes = {
+                    int(row.get("index", position)): str(row.get("validity_scope") or "unknown")
+                    for position, row in enumerate(attributions) if isinstance(row, Mapping)
+                }
+                classes = {
+                    int(event.get("event_index", -1)): str(event.get("causal_class") or "unknown")
+                    for event in proposal.get("event_diagnoses") or [] if isinstance(event, Mapping)
+                }
+                # A fatal error no attribution names was never read by the
+                # diagnosis (its events key on the attributions).
+                named = {str(row.get("error_type")) for row in attributions if isinstance(row, Mapping)}
+                unread = sorted({str(error) for error in grade.get("fatal_errors") or []} - named)
+                reason = diagnosis_reason(scopes, classes, unread_fatal_errors=unread)
+                verdicts[attempt_id] = MissVerdict(
+                    attempt_id,
+                    MISS_TO_LEARNING if reason not in KEPT_REASONS else MISS_KEPT,
+                    reason,
+                    diagnosis_id=str(deciding["id"]),
+                    blind_grade_record_id=record_id,
+                    events=tuple(
+                        (index, scopes.get(index, "unknown"), classes.get(index))
+                        for index in sorted(set(scopes) | set(classes))
+                    ),
+                    unread_fatal_errors=tuple(unread),
+                    **decided,
+                )
+                continue
+            status, error = str(deciding["status"]), str(deciding["error"] or "")
+            if status == "skipped" and error == "budget":
+                reason = FALLBACK_BUDGET_SKIPPED
+            elif status == "skipped" and error == "not_needed":
+                reason = FALLBACK_NOT_NEEDED
+            elif status == "validation_rejected":
+                reason = FALLBACK_REJECTED
+            elif status == "failed":
+                reason = FALLBACK_DIAGNOSIS_FAILED
+            else:
+                reason = FALLBACK_NOT_DIAGNOSED
+            verdicts[attempt_id] = fallback(
+                reason, diagnosis_id=str(deciding["id"]), record_id=record_id, **decided,
+            )
+            continue
+        if open_job is not None:
+            if not diagnosis_live and open_job["state"] == "queued":
+                # The switch is off and nothing has recorded the hold yet (the
+                # next serving build or worker pass does): today's rule, as of
+                # now, so the kill switch applies at once.
+                verdicts[attempt_id] = fallback(FALLBACK_SPLIT_DISABLED, decided_at=now_iso)
+            else:
+                # Waiting on the diagnosis (a leased job is in flight: it lands,
+                # or the worker releases it and records the hold).
+                verdicts[attempt_id] = MissVerdict(
+                    attempt_id, MISS_PENDING, REASON_DIAGNOSIS_PENDING,
+                    blind_grade_record_id=str(latest_record["id"]), job_state=str(open_job["state"]),
+                )
+            continue
+        # No live job was queued for it (the grade needed no diagnosis): decided
+        # with the answer. The switch plays no part: a blind grade means the
+        # split was on when it was graded.
+        verdicts[attempt_id] = fallback(FALLBACK_NOT_DIAGNOSED)
+    return verdicts
+
+
 class _BorrowedRepository(Repository):
     """Repository reads inside the caller's connection and snapshot; never commits."""
 
@@ -515,11 +964,46 @@ def _order(created_at: Any, row_id: Any) -> tuple[str, str]:
     return (str(created_at), str(row_id))
 
 
+def _landed(verdict: MissVerdict, answer: AnswerFacts) -> tuple[str, str] | None:
+    """When a miss's decision became known, in the durable order: None while
+    it is pending; the answer itself when it was known at once (learner-side
+    help, an unassessed or joint grade, no diagnosis queued)."""
+
+    if verdict.outcome == MISS_PENDING:
+        return None
+    if verdict.decided_at is None:
+        return _order(answer.created_at, answer.attempt_id)
+    return (str(verdict.decided_at), str(verdict.decided_ref or ""))
+
+
+def _learner_side_before(
+    answers: Sequence[AnswerFacts],
+    *,
+    after: int,
+    landed: tuple[str, str] | None,
+    stop: tuple[str, str] | None = None,
+) -> AnswerFacts | None:
+    """The first answer after ``answers[after]`` with learner-side help that was
+    recorded before the earlier miss's decision ``landed`` (and before ``stop``,
+    a return). Learner-side help is today's rule at once (Codex review F8): it
+    returns the LO without waiting on the earlier miss's diagnosis, and the
+    decision stays with it however that diagnosis reads when it lands."""
+
+    for later in answers[after + 1:]:
+        order = _order(later.created_at, later.attempt_id)
+        if (stop is not None and stop <= order) or (landed is not None and landed <= order):
+            return None
+        if not later.learner_side_clean:
+            return later
+    return None
+
+
 def _resolve(
     decision: Mapping[str, Any],
     returns: Sequence[Mapping[str, Any]],
     answers: Sequence[AnswerFacts],
     independence: IndependenceCheck,
+    graded: Mapping[str, MissVerdict],
 ) -> Assumption:
     base = Assumption(
         id=str(decision["id"]),
@@ -545,39 +1029,76 @@ def _resolve(
     returned_order = _order(returned["created_at"], returned["id"]) if returned is not None else None
     decided_order = _order(base.created_at, base.id)
     early = ineligible = 0
-    for answer in answers:
+    kept: list[tuple[str, str]] = []
+
+    def counts() -> dict[str, Any]:
+        return {"early_answers": early, "ineligible_answers": ineligible, "kept_answers": tuple(kept)}
+
+    for index, answer in enumerate(answers):
         answer_order = _order(answer.created_at, answer.attempt_id)
         if answer_order <= decided_order:
             continue
         if returned_order is not None and returned_order <= answer_order:
             break
-        if answer.unassessed:
-            # PF-c unverified grade: no failure evidence and no pass, early or
-            # on schedule. The check waits for a measured answer.
-            ineligible += 1
-            continue
+        verdict: MissVerdict | None = None
         if not answer.learner_clean:
-            # A miss, early or on schedule, quietly returns the LO to learning.
-            return replace(
-                base, status="failed", resolved_at=answer.created_at, resolving_attempt_id=answer.attempt_id,
-                early_answers=early, ineligible_answers=ineligible,
-            )
+            # A miss, early or on schedule (an unassessed PF-c grade included):
+            # the diagnosis decides it (owner decision 2026-10-12), once.
+            verdict = decide_miss(answer, graded)
+            landed = _landed(verdict, answer)
+            # While its decision had not landed, learner-side help or "I don't
+            # know this" returned the LO without waiting on it.
+            helped = _learner_side_before(answers, after=index, landed=landed, stop=returned_order)
+            if helped is not None:
+                return replace(
+                    base, status="failed", resolved_at=helped.created_at, resolving_attempt_id=helped.attempt_id,
+                    resolution_reason=REASON_LEARNER_SIDE,
+                    resolution=MissVerdict(helped.attempt_id, MISS_TO_LEARNING, REASON_LEARNER_SIDE), **counts(),
+                )
+            if returned_order is not None and (landed is None or returned_order < landed):
+                return replace(
+                    base, status="returned", resolved_at=returned_at, resolution_reason="i_dont_know_this",
+                    **counts(),
+                )
+            if verdict.outcome == MISS_PENDING:
+                # The decision waits on the diagnosis; the LO stays assumed.
+                return replace(base, awaiting_diagnosis_attempt_id=answer.attempt_id, **counts())
+            if verdict.outcome == MISS_TO_LEARNING:
+                # A knowledge gap (or today's rule, said so) quietly returns
+                # the LO to learning, early or on schedule.
+                return replace(
+                    base, status="failed", resolved_at=answer.created_at, resolving_attempt_id=answer.attempt_id,
+                    resolution_reason=verdict.reason, resolution=verdict, **counts(),
+                )
         if answer.created_at < base.first_review_due:
             # Explicit practice inside the review interval is recorded, but it
-            # is a repetition, not the delayed check.
-            early += 1
+            # is a repetition, not the delayed check. A kept miss leaves the LO
+            # assumed.
+            if verdict is None:
+                early += 1
+            else:
+                kept.append((answer.attempt_id, verdict.reason))
             continue
-        if check_verdict(independence(answer, base.created_at)) == CHECK_PASS:
+        checked = independence(answer, base.created_at)
+        if verdict is None and check_verdict(checked) == CHECK_PASS:
             return replace(
                 base, status="passed", resolved_at=answer.created_at, resolving_attempt_id=answer.attempt_id,
-                early_answers=early, ineligible_answers=ineligible,
+                resolution_reason="clean", **counts(),
             )
+        if verdict is not None and checked.independent is True:
+            # The diagnosis keeps the topic in maintenance: the check resolves,
+            # with the reason on the receipt.
+            return replace(
+                base, status="passed", resolved_at=answer.created_at, resolving_attempt_id=answer.attempt_id,
+                resolution_reason=verdict.reason, resolution=verdict, **counts(),
+            )
+        # A clean or kept answer the independence rule rejects: the check waits.
         ineligible += 1
     if returned_at is not None:
         return replace(
-            base, status="returned", resolved_at=returned_at, early_answers=early, ineligible_answers=ineligible,
+            base, status="returned", resolved_at=returned_at, resolution_reason="i_dont_know_this", **counts(),
         )
-    return replace(base, early_answers=early, ineligible_answers=ineligible)
+    return replace(base, **counts())
 
 
 def _intent(
@@ -585,6 +1106,7 @@ def _intent(
     decision: Assumption | None,
     latest_return: Mapping[str, Any] | None,
     answers: Sequence[AnswerFacts],
+    graded: Mapping[str, MissVerdict],
 ) -> LearningObjectIntent | None:
     """The LO's current routing from its latest decision and latest return.
 
@@ -598,36 +1120,82 @@ def _intent(
         linked = latest_return.get("assumption_id")
         return LearningObjectIntent(
             learning_object_id, INTENT_LEARNING, str(latest_return["created_at"]), "i_dont_know_this",
-            str(linked) if linked else None,
+            str(linked) if linked else None, outcome_reason="i_dont_know_this",
         )
     if decision is None:
         return None
     if decision.status == "open":
-        return LearningObjectIntent(learning_object_id, INTENT_ASSUMED, decision.created_at, "assumed", decision.id)
+        return LearningObjectIntent(
+            learning_object_id, INTENT_ASSUMED, decision.created_at, "assumed", decision.id,
+            awaiting_diagnosis_attempt_id=decision.awaiting_diagnosis_attempt_id,
+        )
     if decision.status == "returned":
         return LearningObjectIntent(
             learning_object_id, INTENT_LEARNING, str(decision.resolved_at), "i_dont_know_this", decision.id,
+            outcome_reason="i_dont_know_this",
         )
     if decision.status == "failed":
         return LearningObjectIntent(
             learning_object_id, INTENT_LEARNING, str(decision.resolved_at), "check_missed", decision.id,
+            outcome_reason=decision.resolution_reason, resolution=decision.resolution,
         )
-    # Passed: maintenance until a later miss on the LO (a lapse) returns it.
+    # Passed: maintenance until a later miss the diagnosis attributes to a
+    # knowledge gap (a lapse) returns it (owner decision 2026-10-12).
     resolving = next(
         (index for index, answer in enumerate(answers) if answer.attempt_id == decision.resolving_attempt_id), None,
     )
     later = answers[resolving + 1:] if resolving is not None else ()
-    lapse = next((answer for answer in later if answer.is_miss), None)
-    if lapse is not None:
-        return LearningObjectIntent(
-            learning_object_id, INTENT_LEARNING, lapse.created_at, "missed_in_maintenance", decision.id,
-        )
+    kept: list[tuple[str, str]] = []
+    for index, answer in enumerate(later):
+        if answer.learner_clean:
+            continue
+        verdict = decide_miss(answer, graded)
+        helped = _learner_side_before(later, after=index, landed=_landed(verdict, answer))
+        if helped is not None:
+            # Learner-side help while this miss's diagnosis had not landed: a
+            # lapse at once (Codex review F8).
+            return LearningObjectIntent(
+                learning_object_id, INTENT_LEARNING, helped.created_at, "missed_in_maintenance", decision.id,
+                outcome_reason=REASON_LEARNER_SIDE,
+                resolution=MissVerdict(helped.attempt_id, MISS_TO_LEARNING, REASON_LEARNER_SIDE),
+                kept_misses=tuple(kept),
+            )
+        if verdict.outcome == MISS_PENDING:
+            # The intent waits on the diagnosis: still in maintenance.
+            return LearningObjectIntent(
+                learning_object_id, INTENT_MAINTENANCE, str(decision.resolved_at), "check_passed", decision.id,
+                outcome_reason=decision.resolution_reason, resolution=decision.resolution,
+                kept_misses=tuple(kept), awaiting_diagnosis_attempt_id=answer.attempt_id,
+            )
+        if verdict.outcome == MISS_TO_LEARNING:
+            return LearningObjectIntent(
+                learning_object_id, INTENT_LEARNING, answer.created_at, "missed_in_maintenance", decision.id,
+                outcome_reason=verdict.reason, resolution=verdict, kept_misses=tuple(kept),
+            )
+        kept.append((answer.attempt_id, verdict.reason))
     return LearningObjectIntent(
         learning_object_id, INTENT_MAINTENANCE, str(decision.resolved_at), "check_passed", decision.id,
+        outcome_reason=decision.resolution_reason, resolution=decision.resolution, kept_misses=tuple(kept),
     )
 
 
-def load_placement_state_from_connection(connection: Any, *, active: bool) -> PlacementState:
+def load_placement_state_from_connection(
+    connection: Any,
+    *,
+    active: bool,
+    diagnosis_live: bool,
+    now_iso: str,
+) -> PlacementState:
+    """Placement state over one connection.
+
+    ``diagnosis_live`` (:func:`diagnosis_can_arrive`) says whether a queued
+    diagnosis can land now; when it cannot, a graded miss falls back to
+    today's rule instead of waiting. ``now_iso`` bounds the wait
+    (``rules.DIAGNOSIS_WAIT_DAYS``). Both are required (Codex review F9): a
+    caller that forgot one would silently wait on held jobs, or forever.
+    :func:`load_placement_state` reads both from the vault.
+    """
+
     if not placement_tables_present(connection):
         return PlacementState(active=active)
     decisions = _rows(connection, "SELECT * FROM assumption_decisions ORDER BY created_at, id")
@@ -636,12 +1204,16 @@ def load_placement_state_from_connection(connection: Any, *, active: bool) -> Pl
         str(row["learning_object_id"]) for row in returns
     }
     answers = load_answers(connection, los) if los else {}
+    graded = load_miss_verdicts(
+        connection, (answer for rows in answers.values() for answer in rows),
+        diagnosis_live=diagnosis_live, now_iso=now_iso,
+    )
 
     def independence(answer: AnswerFacts, since_floor: str) -> AnswerFacts:
         return evaluate_independence(connection, (answer,), since_floor=since_floor)[0]
 
     assumptions = tuple(
-        _resolve(decision, returns, answers.get(str(decision["learning_object_id"]), ()), independence)
+        _resolve(decision, returns, answers.get(str(decision["learning_object_id"]), ()), independence, graded)
         for decision in decisions
     )
     latest_decision: dict[str, Assumption] = {}
@@ -653,7 +1225,9 @@ def load_placement_state_from_connection(connection: Any, *, active: bool) -> Pl
     intents = {
         lo: intent
         for lo in sorted(los)
-        if (intent := _intent(lo, latest_decision.get(lo), latest_return.get(lo), answers.get(lo, ()))) is not None
+        if (
+            intent := _intent(lo, latest_decision.get(lo), latest_return.get(lo), answers.get(lo, ()), graded)
+        ) is not None
     }
     return PlacementState(
         active=active,
@@ -664,9 +1238,16 @@ def load_placement_state_from_connection(connection: Any, *, active: bool) -> Pl
     )
 
 
-def load_placement_state(vault: LoadedVault, repository: Repository) -> PlacementState:
+def load_placement_state(
+    vault: LoadedVault, repository: Repository, *, now_iso: str | None = None,
+) -> PlacementState:
+    """Placement state for a vault; ``now_iso`` defaults to the wall clock."""
+
     with repository.connection() as connection:
-        return load_placement_state_from_connection(connection, active=placement_active(vault))
+        return load_placement_state_from_connection(
+            connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+            now_iso=now_iso or utc_now_iso(),
+        )
 
 
 # -- serving helpers ---------------------------------------------------------
@@ -765,4 +1346,6 @@ def assumption_summary(state: PlacementState) -> dict[str, Any]:
         "open": {lo: a.as_dict() for lo, a in sorted(state.open_by_lo.items())},
         "intents": {lo: entry.as_dict() for lo, entry in sorted(state.intent_by_lo.items())},
         "returned_learning_object_ids": sorted(state.returned_learning_object_ids),
+        # Misses whose diagnosis has not landed: these LOs wait as they are.
+        "awaiting_diagnosis_learning_object_ids": sorted(state.awaiting_diagnosis_learning_object_ids),
     }

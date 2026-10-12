@@ -326,6 +326,15 @@ class DiagnosisStoreMixin:
 
         if status != "completed":
             return False
+        return DiagnosisStoreMixin._diagnosis_concerns_grade(record_id, current_record_id)
+
+    @staticmethod
+    def _diagnosis_concerns_grade(record_id: Any, current_record_id: str | None) -> bool:
+        """Whether a diagnosis row read the blind grade ``current_record_id``
+        (the half of :meth:`_diagnosis_in_force` that does not look at status).
+        Placement asks it of a row against the grade current when the row
+        landed, to decide each miss once."""
+
         return record_id is None or current_record_id in (None, str(record_id))
 
     def current_live_diagnosis(self, attempt_id: str) -> dict[str, Any] | None:
@@ -796,6 +805,40 @@ class DiagnosisStoreMixin:
             )
             connection.commit()
             return cursor.rowcount > 0
+
+    def hold_queued_live_diagnoses(self, *, clock: Clock | None = None) -> int:
+        """Stamp each queued LIVE diagnose job ``payload.split_held_at = now``.
+
+        Called when the diagnosis split cannot run (its kill switch is off):
+        the stamp records that the job was held, once. It is write-once (a
+        stamped job is never stamped again, and nothing clears or moves it),
+        it survives every later release, lease, settle and owner requeue (they
+        keep ``payload_json``), and job rows are never deleted. Only ``queued``
+        rows are stamped: a leased row's settle rewrites the payload it leased.
+        Placement decides a held miss at its first stamp
+        (``placement.state.load_miss_verdicts``). Returns the rows stamped.
+        """
+
+        unheld = (
+            "kind = 'diagnose' AND state = 'queued' "
+            "AND COALESCE(json_extract(payload_json, '$.mode'), 'live') = 'live' "
+            "AND json_extract(payload_json, '$.split_held_at') IS NULL"
+        )
+        with self.connection() as connection:
+            if not _has_table(connection, "post_attempt_jobs"):
+                return 0
+            # Read first: the worker's idle poll and every serving build call
+            # this while the switch is off, and most find nothing to stamp.
+            if connection.execute(f"SELECT 1 FROM post_attempt_jobs WHERE {unheld} LIMIT 1").fetchone() is None:
+                return 0
+            cursor = connection.execute(
+                "UPDATE post_attempt_jobs "
+                "SET payload_json = json_set(COALESCE(payload_json, '{}'), '$.split_held_at', ?) "
+                f"WHERE {unheld}",
+                (utc_now_iso(clock),),
+            )
+            connection.commit()
+            return cursor.rowcount
 
     def requeue_post_attempt_job(self, job_id: str, *, clock: Clock | None = None) -> bool:
         """Owner retry: a settled job runs again with a fresh attempt count."""

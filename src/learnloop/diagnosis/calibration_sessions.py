@@ -194,16 +194,26 @@ def start_calibration_session(
             raise CalibrationSessionError(f"unknown goal {goal_id}")
         scope_los = sorted(resolve_goal_scope(vault, goal, repository))
     else:
+        # Every open episode, except an unanswered opening episode placement
+        # ignores (owner decision 2026-10-12): an unscoped calibration would
+        # otherwise commission instruments for it. Naming the LO adopts it.
+        from learnloop.placement.state import servable_open_episodes
+
         scope_los = sorted(
-            episode.learning_object_id for episode in repository.open_probe_episodes().values()
+            episode.learning_object_id for episode in servable_open_episodes(vault, repository).values()
         )
     if not scope_los:
         raise CalibrationSessionError("calibration session scope resolved to zero Learning Objects")
 
     working_vault = vault
     episode_ids: dict[str, str] = {}
+    from learnloop.placement.state import servable_open_episode
+
     for lo_id in scope_los if open_episodes else ():
-        episode = repository.open_probe_episode(lo_id)
+        # A named (or goal-scoped) LO whose only open episode is an unanswered
+        # opening episode placement ignores adopts it through ``enter_episode``,
+        # so the calibration serves it (owner decision 2026-10-12).
+        episode = servable_open_episode(working_vault, repository, lo_id)
         if episode is None:
             trigger = "goal_diagnostic" if goal_id is not None else "manual"
             episode = enter_episode(

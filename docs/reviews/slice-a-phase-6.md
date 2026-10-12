@@ -20,7 +20,10 @@
 >   `--to` targets `mvp-0.11`; `--to mvp-0.10` still reaches the split alone.
 > - **New vaults stay at `mvp-0.9`.** Phase 6's template change to `mvp-0.10`
 >   is undone: moving the template is the owner's Slice 1 M2 open question 1.
->   Placement reaches a vault only through `learnloop upgrade`.
+>   Placement reaches a vault only through `learnloop upgrade`. *Superseded by
+>   the owner's 2026-10-12 decision:* new vaults start at
+>   `LATEST_ALGORITHM_VERSION` (`mvp-0.11`); see
+>   `placement-owner-decisions.md`.
 > - **Defaults fingerprints.** `[placement]` (eight modelled defaults, not in
 >   the 80-line decision-only template) changes the effective config of every
 >   version, so `DEFAULTS_SNAPSHOT_BY_ALGORITHM` was recomputed for `mvp-0.9`
@@ -75,6 +78,15 @@
 > start atomically (migration 170); learner placement verdicts append to
 > `judgment_ledger`; report 3 counts unique learning obligations. Where this
 > record disagrees, the review file is current.
+>
+> **Amended by the owner's decisions of 2026-10-12**
+> (`placement-owner-decisions.md`, branch `fix/placement-owner-decisions`):
+> new vaults start at `LATEST_ALGORITHM_VERSION`; the first-review check and
+> lapses in maintenance are decided by the diagnosis (deviation 5 and the
+> "a miss returns the LO to learning" rule above); unanswered opening
+> episodes are ignored under placement (deviation 3, open question 1); `q`
+> stays 0.8 and is deferred as a learned parameter (deviation 4). Open
+> questions 1-3 below are marked decided.
 
 **Branch:** `slice-a/phase-6`, worktree `learnanything-phase-6`, from `main` at
 `974c5647` (Phase 2, Phase 3, the daily-loop bug fixes and follow-ups, and the
@@ -477,23 +489,34 @@ uv run learnloop eval placement --vault "$COPY" --output-dir fixtures-local/repo
 
 ## Open questions
 
-1. **Close untouched opening episodes?** Existing `initial` episodes with no
-   observation stay open under `mvp-0.10` (all `pending_items` on the tracked
-   fixtures). Option: under placement, treat an unobserved opening episode as
-   not open for serving and generation, without rewriting it (the kill switch
-   stays exact). Not built: it changes serving beyond the spec text.
-2. **D6's q.** 0.8 ships per the handoff prompt. D6 recommends 0.9 if report
-   2 lacked data, and on the tracked `linear_algebra` copy it did (no later
-   attempts under either revision policy). `placement.fast_track_q = 0.9` is
-   a one-line config change (a default change needs a fingerprint decision).
-3. **First-review pass criterion.** Full marks, clean. Should partial credit
-   (say ≥ 0.75) keep an assumed LO in maintenance?
-4. **Quick check on the import result.** Wanted as a button on the ingest
-   batch result once an import knows which LOs it created?
+**Decided by the owner on 2026-10-12** (questions 1-3; built on
+`fix/placement-owner-decisions`, `docs/reviews/placement-owner-decisions.md`,
+amending `mvp-0.11` in place since no vault had reached it):
+
+1. **Close untouched opening episodes?** *Decided: ignore them.* Existing
+   `initial` episodes with no answer are ignored for serving and for
+   instrument generation while placement is on; they are not rewritten or
+   closed, so `placement.enabled = false` (and `placement.initial_probes =
+   true`) restores today's behaviour exactly. On backup copies of the three
+   working fixtures their never-practised LOs now start as learning.
+2. **D6's q.** *Decided: 0.8 for now.* It is to become a learned parameter;
+   `spec_learner_field_v1.md` §11 defers it with a trigger (enough
+   first-review outcomes by source in report 3).
+3. **First-review pass criterion.** *Decided: let the diagnosis decide.* The
+   check and lapses in maintenance return an LO to learning only when the
+   Slice 1 diagnosis attributes the miss to a knowledge gap; a slip, an
+   item-contract or grader-interpretation problem, an unassessed PF-c
+   criterion or no gap attributed keeps the topic, with the reason on the
+   receipt. The decision waits while the diagnosis is pending and falls back
+   to the full-marks rule (said so) when none can arrive. Report 3 counts
+   outcomes by reason.
+4. **Quick check on the import result.** Still open: wanted as a button on the
+   ingest batch result once an import knows which LOs it created?
 5. **Daily-loop DL1** consumes `placement.state` (`open_by_lo`,
    `due_learning_object_ids`) for the maintain lane and the headline's
    "assumed" count; the queue components `new_material`, `assumed_check` and
-   `taught_first` mark the lanes.
+   `taught_first` mark the lanes. (Unchanged by the decisions; the state only
+   gained fields.)
 
 ## Gate
 

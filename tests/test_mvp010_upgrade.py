@@ -16,7 +16,7 @@ from learnloop.algorithm_versions import (
 from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
-from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM, effective_defaults_fingerprint
+from learnloop.config.template import DEFAULTS_SNAPSHOT_BY_ALGORITHM
 from learnloop.db.connection import connect
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -87,14 +87,9 @@ def test_kill_switch_keeps_the_version_but_grades_joint(tmp_path):
 
 
 def test_defaults_fingerprint_is_recorded_for_the_successor():
-    import tomllib
+    from learnloop.config.template import defaults_fingerprint_for_version
 
-    from learnloop.config.schema import LearnLoopConfig
-    from learnloop.config.template import DEFAULT_CONFIG_TEXT
-
-    text = DEFAULT_CONFIG_TEXT.replace('algorithm_version = "mvp-0.9"', 'algorithm_version = "mvp-0.10"')
-    config = LearnLoopConfig.model_validate(tomllib.loads(text))
-    assert effective_defaults_fingerprint(config) == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.10"]
+    assert defaults_fingerprint_for_version("mvp-0.10") == DEFAULTS_SNAPSHOT_BY_ALGORITHM["mvp-0.10"]
 
 
 def test_head_fixture_predecessor_to_successor_path(tmp_path):

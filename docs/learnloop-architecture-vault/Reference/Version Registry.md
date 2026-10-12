@@ -29,7 +29,7 @@ tags:
 |---|---|---|
 | Python package | `0.1.0` | distribution version in `pyproject.toml` |
 | Python runtime | `>=3.12` | supported interpreter floor |
-| algorithm | `mvp-0.9` (new vaults) | persisted reveal-aware learning semantics; linear successors reached by `learnloop upgrade`: `mvp-0.10` adds the Slice 1 blind-grading/diagnosis split (`diagnosis.split_enabled`), `mvp-0.11` (the default upgrade target) adds F2 placement serving on top of it (`placement.enabled`) |
+| algorithm | `mvp-0.11` (new vaults: `LATEST_ALGORITHM_VERSION`, owner decision 2026-10-12) | `mvp-0.9`: persisted reveal-aware learning semantics; linear successors reached by `learnloop upgrade` (existing vaults keep their version until then): `mvp-0.10` adds the Slice 1 blind-grading/diagnosis split (`diagnosis.split_enabled`), `mvp-0.11` (the default upgrade target) adds F2 placement serving on top of it (`placement.enabled`), its first review and maintenance lapses decided by the diagnosis |
 | canonical projection base | `mvp-0.8` semantics | inherited by mvp-0.9, mvp-0.10 and mvp-0.11 |
 | knowledge-model activation | `mvp-0.7` | canonical state/contracts boundary |
 | config schema | `2` | emitted `learnloop.toml`; schema 1 accepted |

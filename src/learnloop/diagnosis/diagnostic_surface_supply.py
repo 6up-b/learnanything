@@ -221,7 +221,12 @@ def probe_pool_empty_conditions(
 
     conditions: dict[str, EmptyPoolCondition] = {}
 
-    for lo_id, episode in sorted(repository.open_probe_episodes().items()):
+    # Under placement an unanswered opening episode is ignored for instrument
+    # generation (owner decision 2026-10-12): it commissions nothing and raises
+    # no empty-pool notice. Every episode is visible again with the switch off.
+    from learnloop.placement.state import servable_open_episodes
+
+    for lo_id, episode in sorted(servable_open_episodes(vault, repository).items()):
         if lo_id not in vault.learning_objects:
             continue
         if fresh_by_lo.get(lo_id, 0) > 0:
@@ -254,6 +259,25 @@ def probe_pool_empty_conditions(
         )
 
     return [conditions[lo_id] for lo_id in sorted(conditions)]
+
+
+def held_probe_pool_notice_keys(vault: LoadedVault, repository: Repository) -> frozenset[str]:
+    """LOs whose empty-pool notice neither the sweep nor the feed raises or resolves.
+
+    Their open episode is an unanswered opening episode placement ignores
+    (owner decision 2026-10-12): it drops out of the conditions, but that is
+    not the condition clearing. A notice the predecessor raised for it is held
+    as it was, so ``placement.enabled = false`` finds it exactly as it left it.
+    """
+
+    from learnloop.placement.state import ignored_opening_episode_ids
+
+    ignored = ignored_opening_episode_ids(vault, repository)
+    if not ignored:
+        return frozenset()
+    return frozenset(
+        lo_id for lo_id, episode in repository.open_probe_episodes().items() if episode.id in ignored
+    )
 
 
 def probe_pool_empty_notice_payload(
@@ -399,6 +423,7 @@ def reconcile_empty_probe_pools(
     # surface (or closed its episode/needs) clears here, mirroring the need
     # sweep — the feed's auto_resolution aging is the second, slower path.
     live_los = {condition.learning_object_id for condition in conditions}
+    live_los |= held_probe_pool_notice_keys(vault, repository)
     resolved_notice_ids: list[str] = []
     for notice in repository.maintenance_notices(include_hidden=True):
         if notice["notice_type"] != PROBE_POOL_EMPTY_NOTICE_TYPE:

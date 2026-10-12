@@ -37,8 +37,10 @@ def placement_status(
 ) -> None:
     """Whether placement serves, and every open assumed-known LO with its check date."""
 
+    from learnloop.clock import utc_now_iso
     from learnloop.placement.state import (
         assumption_summary,
+        diagnosis_can_arrive,
         load_placement_state_from_connection,
         placement_active,
     )
@@ -47,7 +49,10 @@ def placement_status(
         loaded = _load(vault)
         with closing(connect(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)) as connection:
             connection.execute("BEGIN")
-            state = load_placement_state_from_connection(connection, active=placement_active(loaded))
+            state = load_placement_state_from_connection(
+                connection, active=placement_active(loaded), diagnosis_live=diagnosis_can_arrive(loaded),
+                now_iso=utc_now_iso(),
+            )
         payload = {
             "algorithm_version": loaded.config.algorithms.algorithm_version,
             "placement": loaded.config.placement.model_dump(mode="json"),
@@ -55,6 +60,11 @@ def placement_status(
             "resolved": {
                 status: sum(1 for a in state.assumptions if a.status == status)
                 for status in ("passed", "failed", "returned")
+            },
+            # Owner decision 2026-10-12: why each resolved, as the diagnosis read it.
+            "resolved_by_reason": {
+                key: sum(1 for a in state.assumptions if f"{a.status}:{a.resolution_reason}" == key)
+                for key in sorted({f"{a.status}:{a.resolution_reason}" for a in state.assumptions if a.status != "open"})
             },
         }
         _emit(payload, json_output)

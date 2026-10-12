@@ -969,7 +969,9 @@ def _init_version_teach_back_mastery(tmp_path, grading_source: str):
     upsert_practice_item(vault_root, _teach_item_payload(), clock=clock)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
-    client = FakeTeachBackClient(points_by_criterion={"core_definition": 0.5})
+    # A new vault starts at the latest version, where the split grades a
+    # teach-back blind (review F11), so the double serves both contracts.
+    client = BlindTeachBackClient(points_by_criterion={"core_definition": 0.5})
     item = vault.practice_items[TEACH_ITEM_ID]
     state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
     finish_teach_back(vault, repository, state, client, grading_source=grading_source, clock=clock)
