@@ -30,6 +30,7 @@ import type {
 import { BlockBar, COLOR, Dim, DisclosureHeader, Divider, Faint, FONT_MONO, HelpTooltip, Meta, modePillColor, Pill, PlainEnglishPanel, SectionHeader, type PillColor } from "./term";
 import { CapabilityGridView } from "./KnowledgeModel";
 import { RungVariantActions } from "./CardControls";
+import { PlacementSection } from "./PlacementControls";
 import { ConceptAnimationSection } from "./ConceptAnimationSection";
 import { RecipeTreeEditor } from "./recipeedit/RecipeTreeEditor";
 import { MarkdownMath } from "../render/MarkdownMath";
@@ -59,12 +60,15 @@ export function InspectorOverlay({
   entityId,
   onClose,
   onInspect,
-  onError
+  onError,
+  onQuickCheck
 }: {
   entityId: string | null;
   onClose: () => void;
   onInspect: (id: string) => void;
   onError: (message: string) => void;
+  /** Learner field F2: start "Check what I already know" over these LOs. */
+  onQuickCheck?: (learningObjectIds: string[]) => void;
 }) {
   const [query, setQuery] = useState(entityId ?? "");
   const [entity, setEntity] = useState<InspectorEntity | null>(null);
@@ -217,6 +221,7 @@ export function InspectorOverlay({
               onRefresh={() => {
                 if (entityId) void fetchEntity(entityId);
               }}
+              onQuickCheck={onQuickCheck}
             />
           )}
         </div>
@@ -231,7 +236,8 @@ function InspectorEntityView({
   childPracticeItemId,
   onGo,
   onError,
-  onRefresh
+  onRefresh,
+  onQuickCheck
 }: {
   entity: InspectorEntity;
   childPracticeItemId: string | null;
@@ -239,6 +245,7 @@ function InspectorEntityView({
   onError: (message: string) => void;
   /** Re-fetch the currently shown entity (after a mutation like re-runging). */
   onRefresh: () => void;
+  onQuickCheck?: (learningObjectIds: string[]) => void;
 }) {
   if (entity.kind === "not_found") {
     return <NotFoundBody id={entity.id} suggestions={entity.suggestions} onGo={onGo} />;
@@ -272,7 +279,14 @@ function InspectorEntityView({
         {entity.kind === "practice_item" ? (
           <PracticeItemBody detail={entity.detail} onGo={onGo} onError={onError} onRefresh={onRefresh} />
         ) : entity.kind === "learning_object" ? (
-          <LearningObjectBody detail={entity.detail} childPracticeItemId={childPracticeItemId} onGo={onGo} />
+          <LearningObjectBody
+            detail={entity.detail}
+            childPracticeItemId={childPracticeItemId}
+            onGo={onGo}
+            onRefresh={onRefresh}
+            onQuickCheck={onQuickCheck}
+            onError={onError}
+          />
         ) : entity.kind === "concept" ? (
           <ConceptBody detail={entity.detail} onGo={onGo} />
         ) : entity.kind === "error_event" ? (
@@ -515,14 +529,29 @@ function PracticeItemBody({
 function LearningObjectBody({
   detail,
   childPracticeItemId,
-  onGo
+  onGo,
+  onRefresh,
+  onQuickCheck,
+  onError
 }: {
   detail: LearningObjectDetail;
   childPracticeItemId: string | null;
   onGo: (id: string) => void;
+  onRefresh?: () => void;
+  onQuickCheck?: (learningObjectIds: string[]) => void;
+  onError?: (message: string) => void;
 }) {
   return (
     <div>
+      {detail.placement?.active ? (
+        <PlacementSection
+          learningObjectId={detail.id}
+          placement={detail.placement}
+          onChanged={() => onRefresh?.()}
+          onQuickCheck={onQuickCheck}
+          onError={(message) => onError?.(message)}
+        />
+      ) : null}
       <InspectorRow label="concept">
         <IdLink id={detail.concept} onGo={onGo} />
       </InspectorRow>

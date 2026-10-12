@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { CommandError, RetirementReason } from "../api/dto";
 import { RETIREMENT_REASONS } from "../api/dto";
+import { KnowThisAction } from "./PlacementControls";
 import { COLOR, Faint, FONT_MONO, TermSelect } from "./term";
 
 // Learner card controls (Andy: "readers control the prompts they collect"):
@@ -270,7 +271,9 @@ export function CardControls({
   onError,
   onChanged,
   onRetired,
-  onTeachBack
+  onTeachBack,
+  onKnowThis,
+  sessionId
 }: {
   practiceItemId: string;
   prompt: string;
@@ -285,6 +288,11 @@ export function CardControls({
   /** When provided, shows the teach-back opt-in; called with the teach-back
    *  card id to open in practice. */
   onTeachBack?: (teachBackItemId: string) => void;
+  /** Learner field F2: when provided (placement on), shows "I know this";
+   *  called after the card's LO is marked assumed known (not tested). */
+  onKnowThis?: () => void;
+  /** The practice session, so "I know this" clears this card's draft with it. */
+  sessionId?: string;
 }) {
   const [panel, setPanel] = useState<Panel>(null);
   const [busy, setBusy] = useState(false);
@@ -427,6 +435,9 @@ export function CardControls({
             onError={onError}
             onOpen={onTeachBack}
           />
+        ) : null}
+        {!retired && onKnowThis ? (
+          <KnowThisAction practiceItemId={practiceItemId} sessionId={sessionId} onDone={onKnowThis} onError={onError} />
         ) : null}
         {notice ? <Faint style={{ fontSize: 11 }}>{notice}</Faint> : null}
       </div>

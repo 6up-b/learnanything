@@ -3,8 +3,8 @@ title: "Config - field"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml field"
@@ -20,11 +20,14 @@ source_paths:
   - "tests/test_config_refactor.py"
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/cli/field_llm.py"
+  - "src/learnloop/placement/decisions.py"
+  - "src/learnloop/placement/predictor.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/cli/success_head.py"
   - "tests/practice_index_fakes.py"
   - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
+  - "tests/test_assumed_known.py"
   - "tests/test_capability_residual.py"
   - "tests/test_cli_ingest.py"
   - "tests/test_concept_animation_service.py"
@@ -32,7 +35,6 @@ source_paths:
   - "tests/test_daily_loop_reference_adoption.py"
   - "tests/test_diagnosis_isolation.py"
   - "tests/test_embedding_backfill.py"
-  - "tests/test_embedding_route_isolation.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/field"
@@ -54,7 +56,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `field.enabled` | `false` | boolean | modeled default or validator seed | Allows explicitly requested paid field experiments; never changes serving or evidence. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1434`; `src/learnloop/cli/field_classification.py:83`; `src/learnloop/cli/field_llm.py:56` |
-| `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1435` |
+| `field.active_predictor` | `"mastery_ekf"` | string | explicit template decision | Pins the serving interface to mastery_ekf in F1; challengers require a later algorithm successor. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1435`; `src/learnloop/placement/decisions.py:75`; `src/learnloop/placement/predictor.py:177` |
 | `field.legacy_fallback` | `"exclude"` | string | explicit template decision | Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1436`; `src/learnloop/field/outcomes.py:205` |
 | `field.question_classification_enabled` | `false` | boolean | explicit template decision | Additional opt-in for bounded classification of missing question metadata; replay only reads cached output. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1437`; `src/learnloop/cli/field_classification.py:83` |
 | `field.llm_probability_enabled` | `false` | boolean | explicit template decision | Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1438`; `src/learnloop/cli/field_llm.py:56`; `src/learnloop/cli/success_head.py:93` |
@@ -69,6 +71,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/practice_index_fakes.py`
 - `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
+- `tests/test_assumed_known.py`
 - `tests/test_capability_residual.py`
 - `tests/test_cli_ingest.py`
 - `tests/test_concept_animation_service.py`
@@ -77,7 +80,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_diagnosis_isolation.py`
 - `tests/test_embedding_backfill.py`
-- `tests/test_embedding_route_isolation.py`
 
 ## Extension and modification guidance
 

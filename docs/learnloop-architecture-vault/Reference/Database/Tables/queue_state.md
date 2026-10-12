@@ -3,13 +3,13 @@ title: "queue_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite queue_state"
   - "table queue_state"
-schema_head: 171
+schema_head: 173
 table_name: "queue_state"
 table_role: "workflow"
 functionality_status: "active"
@@ -24,7 +24,7 @@ source_paths:
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/diagnosis/probe_remint.py"
-  - "src/learnloop/tutor/promotions.py"
+  - "src/learnloop/placement/decisions.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -93,6 +93,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/diagnosis/probe_remint.py`
+- `src/learnloop/placement/decisions.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop_sidecar/context.py`
 - `src/learnloop_sidecar/handlers/item_authoring.py`

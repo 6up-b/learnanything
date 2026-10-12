@@ -3,13 +3,13 @@ title: "source_exam_profiles"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_exam_profiles"
   - "table source_exam_profiles"
-schema_head: 171
+schema_head: 173
 table_name: "source_exam_profiles"
 table_role: "compat"
 functionality_status: "dormant-owner-gated"

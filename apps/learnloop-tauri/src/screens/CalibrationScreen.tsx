@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { CalibrationSessionProgressDto, CommandError, GuidedRedoDto } from "../api/dto";
+import type {
+  CalibrationSessionProgressDto,
+  CommandError,
+  GuidedRedoDto,
+  QuickCheckProgressDto,
+  QuickCheckResultDto
+} from "../api/dto";
+import { ASSUMED_LABEL } from "../components/PlacementControls";
 import { DialogueProbePanel } from "../components/DialogueProbe";
 import { BlockBar, COLOR, FONT_MONO, Faint, KeyBar } from "../components/term";
 import { Card, Pill, SectionHeader } from "../components/ui";
@@ -34,6 +41,7 @@ function minutes(value: number): string {
 export function CalibrationScreen({
   calibrationSessionId,
   onPractice,
+  onReviewAnswer,
   onOpenRepair,
   onGuidedRedo,
   onExit,
@@ -41,6 +49,8 @@ export function CalibrationScreen({
 }: {
   calibrationSessionId: string;
   onPractice: (practiceItemId: string) => void;
+  /** Quick check (learner field F2): open one answer's feedback once it ends. */
+  onReviewAnswer?: (attemptId: string) => void;
   /** Repair-journey entrances on a dialogue block's released turns
    *  (App's openRepair / openGuidedRedo). */
   onOpenRepair?: (misconceptionId: string) => void;
@@ -87,6 +97,8 @@ export function CalibrationScreen({
     }
   }, [stopping, progress, calibrationSessionId, onError]);
 
+  const quickCheck = progress?.quickCheck ?? null;
+
   useEffect(() => {
     if (dialogueLo != null) return; // the dialogue panel owns the keyboard
     const onKey = (event: KeyboardEvent) => {
@@ -98,7 +110,7 @@ export function CalibrationScreen({
       } else if (event.key === "Enter" && nextTarget) {
         event.preventDefault();
         onPractice(nextTarget.practiceItemId);
-      } else if (event.key.toLowerCase() === "d" && !event.ctrlKey && !event.metaKey && !event.altKey && nextTarget) {
+      } else if (event.key.toLowerCase() === "d" && !event.ctrlKey && !event.metaKey && !event.altKey && nextTarget && !quickCheck) {
         event.preventDefault();
         setDialogueLo(nextTarget.learningObjectId);
       } else if (event.key.toLowerCase() === "s" && !event.ctrlKey && !event.metaKey && !event.altKey) {
@@ -108,7 +120,7 @@ export function CalibrationScreen({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dialogueLo, nextTarget, onExit, onPractice, stop]);
+  }, [dialogueLo, nextTarget, onExit, onPractice, stop, quickCheck]);
 
   if (errorMessage) {
     return (
@@ -169,6 +181,21 @@ export function CalibrationScreen({
     progress.timeBudgetMinutes > 0
       ? Math.min(progress.elapsedMinutes / progress.timeBudgetMinutes, 1)
       : 0;
+
+  if (quickCheck) {
+    return (
+      <QuickCheckView
+        progress={progress}
+        quickCheck={quickCheck}
+        budgetFraction={budgetFraction}
+        stopping={stopping}
+        onPractice={onPractice}
+        onReviewAnswer={onReviewAnswer}
+        onStop={() => void stop()}
+        onExit={onExit}
+      />
+    );
+  }
 
   return (
     <div className="screen">
@@ -295,6 +322,131 @@ export function CalibrationScreen({
           { key: "esc", label: "today" }
         ]}
       />
+    </div>
+  );
+}
+
+const VERDICT: Record<QuickCheckResultDto["verdict"], { tone: string; label: string; note: string }> = {
+  assumed: {
+    tone: "purple",
+    label: ASSUMED_LABEL,
+    note: "skipped for now; its first review in two weeks is the check"
+  },
+  already_assumed: { tone: "purple", label: ASSUMED_LABEL, note: "already assumed known" },
+  learning: { tone: "amber", label: "learning", note: "it starts as learning" },
+  undecided: { tone: "slate", label: "learning", note: "not enough answers to skip it, so it starts as learning" }
+};
+
+// "Check what I already know" (learner field §5.2): up to k questions, results
+// held until the end, then each topic's verdict and the answers given.
+function QuickCheckView({
+  progress,
+  quickCheck,
+  budgetFraction,
+  stopping,
+  onPractice,
+  onReviewAnswer,
+  onStop,
+  onExit
+}: {
+  progress: CalibrationSessionProgressDto;
+  quickCheck: QuickCheckProgressDto;
+  budgetFraction: number;
+  stopping: boolean;
+  onPractice: (practiceItemId: string) => void;
+  onReviewAnswer?: (attemptId: string) => void;
+  onStop: () => void;
+  onExit: () => void;
+}) {
+  const nextTarget = progress.status === "active" ? progress.nextTarget : null;
+  return (
+    <div className="screen">
+      <div className="screen-scroll">
+        <SectionHeader>Check what I already know</SectionHeader>
+        <Card focused>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <Pill tone={SESSION_TONE[progress.status] ?? "slate"}>{progress.status}</Pill>
+            <span style={{ fontFamily: FONT_MONO, color: COLOR.amber }}>
+              {quickCheck.answered}/{quickCheck.k} questions
+            </span>
+            <Faint>optional · results at the end</Faint>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, fontFamily: FONT_MONO, fontSize: 12 }}>
+            <BlockBar value={budgetFraction} width={16} />
+            <span style={{ color: COLOR.textDim }}>
+              {minutes(progress.elapsedMinutes)} of {minutes(progress.timeBudgetMinutes)}
+            </span>
+          </div>
+          {!quickCheck.finished ? (
+            nextTarget ? (
+              <div className="form-row" style={{ marginTop: 16, display: "grid", gap: 4 }}>
+                <button className="queue-row focused" type="button" onClick={() => onPractice(nextTarget.practiceItemId)}>
+                  <span className="queue-hotkey">↵</span>
+                  <span className="queue-title">Answer the next question</span>
+                  <span className="queue-score" />
+                </button>
+              </div>
+            ) : (
+              <div style={{ marginTop: 14 }}>
+                <Faint>finishing the check…</Faint>
+              </div>
+            )
+          ) : null}
+        </Card>
+
+        {quickCheck.finished && quickCheck.results ? (
+          <>
+            <SectionHeader>Results</SectionHeader>
+            <Card>
+              <div style={{ display: "grid", gap: 10 }} data-testid="quick-check-results">
+                {quickCheck.results.map((result) => {
+                  const verdict = VERDICT[result.verdict];
+                  return (
+                    <div key={result.learningObjectId} style={{ borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ color: COLOR.text }}>{result.learningObjectTitle}</span>
+                        <Pill tone={verdict.tone}>{verdict.label}</Pill>
+                        <Faint>{verdict.note}</Faint>
+                      </div>
+                      {result.answers.map((answer) => (
+                        <div key={answer.attemptId} style={{ display: "flex", gap: 10, fontFamily: FONT_MONO, fontSize: 12, marginTop: 3 }}>
+                          <span style={{ color: COLOR.textDim }}>{answer.practiceItemId}</span>
+                          <span style={{ color: (answer.correctness ?? 0) >= 1 ? COLOR.green : COLOR.amber }}>
+                            {answer.correctness == null ? "ungraded" : `${Math.round(answer.correctness * 100)}%`}
+                          </span>
+                          {onReviewAnswer ? (
+                            <button type="button" className="queue-row" style={{ padding: "0 6px" }} onClick={() => onReviewAnswer(answer.attemptId)}>
+                              review answer
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </>
+        ) : (
+          <div style={{ marginTop: 12 }}>
+            <Faint>Answers are graded as you go; results and feedback appear when the check ends.</Faint>
+          </div>
+        )}
+
+        <div className="form-row" style={{ marginTop: 18, display: "flex", gap: 10 }}>
+          {progress.status === "active" && !quickCheck.finished ? (
+            <button className="queue-row" type="button" onClick={onStop} disabled={stopping}>
+              <span className="queue-hotkey">s</span>
+              <span className="queue-title">{stopping ? "Stopping…" : "Stop and see results"}</span>
+            </button>
+          ) : null}
+          <button className="queue-row" type="button" onClick={onExit}>
+            <span className="queue-hotkey">esc</span>
+            <span className="queue-title">Back to today</span>
+          </button>
+        </div>
+      </div>
+      <KeyBar keys={[...(nextTarget && !quickCheck.finished ? [{ key: "↵", label: "next question" }] : []), { key: "esc", label: "today" }]} />
     </div>
   );
 }

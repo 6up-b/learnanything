@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_171/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_173/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_171" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_173" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 171
+SCHEMA_HEAD = 173
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -851,6 +851,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "diagnostic_augmentation": "multi-sample diagnostic augmentation",
     "families": "explicit-command offline family authoring, not live scheduling",
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
+    "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
 }
 
 
@@ -974,6 +975,14 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "field.legacy_fallback": "Excludes missing historical attribution revisions by default; current_content is explicit and labeled reconstructed.",
     "field.question_classification_enabled": "Additional opt-in for bounded classification of missing question metadata; replay only reads cached output.",
     "field.llm_probability_enabled": "Additional opt-in for offline probability preparation; ordinary replay uses a store-free cached arm and never calls a model.",
+    "placement.enabled": "Kill switch for F2 placement at mvp-0.11; off restores the predecessor's opening probes, serving and ordering and ignores recorded assumptions.",
+    "placement.initial_probes": "Opens the predecessor's opening diagnostic episode per new LO while placement stays on (D11 default off).",
+    "placement.assumed_first_interval_days": "Days from an assumed-known decision to its first review, which is the check (D6).",
+    "placement.fast_track_min_correct": "Clean full-marks first answers fast-track needs before the probability test (D6, at least 2).",
+    "placement.fast_track_q": "Probability the active predictor must give that the LO's ability exceeds the known threshold (D6).",
+    "placement.known_probability": "Success probability whose logit is the known threshold theta_known (D6: logit(0.75)).",
+    "placement.quick_check_k": "Most answers one optional quick check serves (D4).",
+    "placement.quick_check_budget_minutes": "Time budget of one optional quick check (D4).",
     "ingest.audio.mode": (
         "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "
         "else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the "
@@ -1691,7 +1700,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_171/state.sqlite",
+                "fixtures/migration_head_173/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

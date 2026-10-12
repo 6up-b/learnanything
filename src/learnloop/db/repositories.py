@@ -9953,6 +9953,22 @@ class Repository(
             connection.commit()
             return cursor.rowcount > 0
 
+    def clear_practice_checkpoint_for_item(self, session_id: str, practice_item_id: str) -> bool:
+        """Clear this session's draft only while it still points at this card.
+
+        A card the learner skipped (learner field F2's "I know this") must not
+        reopen on restart; a draft the session has since moved to another card
+        is left alone. Runs inside the caller's ``atomic()`` when there is one.
+        """
+
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "DELETE FROM session_checkpoints WHERE session_id = ? AND current_practice_item_id = ?",
+                (session_id, practice_item_id),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
     def acknowledge_practice_checkpoint(
         self,
         session_id: str,

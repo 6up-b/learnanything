@@ -987,6 +987,17 @@ _CONFIG_RULES: list[_ConfigRule] = [
         "Slice 1 diagnoser context bounds, sampling and hybrid fusion; hypothesis-only "
         "(S2), reverted by history_mode/limits (spec §5.5, §12 rollback).",
     ),
+    # Learner field F2 (Slice A Phase 6): placement routing. These decide which
+    # new LOs are assumed known (never evidence) and when the check is due.
+    _ConfigRule(_exact(
+        "placement.fast_track_min_correct", "placement.fast_track_q",
+        "placement.known_probability", "placement.assumed_first_interval_days",
+    ), "decision", "threshold",
+        "F2 placement routing threshold (field D6): fast-track admission and the "
+        "assumed LO's first-review interval; a priori, versioned, tuned from report 3."),
+    _ConfigRule(_exact("placement.quick_check_k", "placement.quick_check_budget_minutes"),
+                "structural", "operational",
+                "optional learner-initiated quick-check length and time bound (field D4)."),
     # Dormant ships-dark forward-compat params (subsystem disabled).
     _ConfigRule(_exact(
         "mastery.irt.discrimination_min", "mastery.irt.discrimination_max",

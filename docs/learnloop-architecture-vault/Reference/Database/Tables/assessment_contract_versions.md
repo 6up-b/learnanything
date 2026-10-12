@@ -3,13 +3,13 @@ title: "assessment_contract_versions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite assessment_contract_versions"
   - "table assessment_contract_versions"
-schema_head: 171
+schema_head: 173
 table_name: "assessment_contract_versions"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/placement/state.py"
   - "src/learnloop/substrate/activities.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
   - "src/learnloop/substrate/dataset.py"
@@ -96,6 +97,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
 

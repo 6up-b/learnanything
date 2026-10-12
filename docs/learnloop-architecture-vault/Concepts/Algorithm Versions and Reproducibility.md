@@ -32,6 +32,10 @@ Algorithm versions identify persisted meaning, not package releases.
 | `mvp-0.7` | canonical knowledge-model state and assessment contracts |
 | `mvp-0.8` | authority-propagation projection with robust composition/reliability discounting |
 | `mvp-0.9` | successor retaining mvp-0.8 projection semantics and adding cross-channel reveal accounting |
+| `mvp-0.10` | successor retaining that projection and splitting grading: a learner-blind grader plus an asynchronous history-aware diagnoser (Slice 1 M2; kill switch `diagnosis.split_enabled`) |
+| `mvp-0.11` | successor to `mvp-0.10` keeping its split and changing serving only: no opening probe per new LO, new material as learning, "assumed known (not tested)" checked in the first review (learner field F2; kill switch `placement.enabled`) |
+
+The chain is linear: each successor means its predecessor's semantics plus its own change, so a gate asks "is this version at or after X" through an explicit set (`DIAGNOSIS_SPLIT_VERSIONS` = `mvp-0.10`, `mvp-0.11`; `PLACEMENT_VERSIONS` = `mvp-0.11`), never by equality. New vaults start at `mvp-0.9`; `learnloop upgrade` targets `mvp-0.11` by default (from `mvp-0.10`, or from `mvp-0.9` through `mvp-0.10`).
 
 Successor sets are explicit so a new version does not accidentally fall back to a legacy projection through an equality check.
 

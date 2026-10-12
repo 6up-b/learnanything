@@ -3,8 +3,8 @@ title: "Config - tutor_qa"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml tutor_qa"
@@ -29,13 +29,13 @@ source_paths:
   - "tests/test_daily_loop_reference_adoption.py"
   - "tests/test_integration_daily_loop_field.py"
   - "tests/test_question_signal.py"
+  - "tests/test_quick_check.py"
   - "tests/test_reader_dialogue.py"
   - "tests/test_sidecar_reader.py"
   - "tests/test_sidecar_reader_p3.py"
   - "tests/test_sidecar_reader_p3_slice3.py"
   - "tests/test_sidecar_serializer_snapshot.py"
   - "tests/test_tutor_promotion_w2.py"
-  - "tests/test_tutor_qa.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/tutor-qa"
@@ -81,13 +81,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_integration_daily_loop_field.py`
 - `tests/test_question_signal.py`
+- `tests/test_quick_check.py`
 - `tests/test_reader_dialogue.py`
 - `tests/test_sidecar_reader.py`
 - `tests/test_sidecar_reader_p3.py`
 - `tests/test_sidecar_reader_p3_slice3.py`
 - `tests/test_sidecar_serializer_snapshot.py`
 - `tests/test_tutor_promotion_w2.py`
-- `tests/test_tutor_qa.py`
 
 ## Extension and modification guidance
 

@@ -149,7 +149,13 @@ def sync_vault_state(
         )
         created_mastery += 1
 
-    _enter_initial_probes(vault, repository, clock=clock)
+    # Learner field F2 (mvp-0.11, kill switch placement.enabled): no opening
+    # probe per new LO. New material starts as learning instead; diagnosis
+    # opens only when a wrong answer leaves a real choice of repair.
+    from learnloop.placement.state import initial_probes_enabled
+
+    if initial_probes_enabled(vault):
+        _enter_initial_probes(vault, repository, clock=clock)
 
     # §6.5 periodic re-probe: persistently high uncertainty after a completed
     # episode re-enters probing with trigger `stale_uncertainty`.

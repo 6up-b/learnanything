@@ -35,7 +35,7 @@ Configuration is split by responsibility: `schema.py` owns typed canonical model
 ## Map of content
 
 - [[learnloop.toml]] — exact generated template, explicit decisions, and safe examples.
-- [[Configuration Field Catalog]] — all 584 effective leaf values grouped into 33 top-level sections.
+- [[Configuration Field Catalog]] — all 592 effective leaf values grouped into 34 top-level sections.
 - [[Legacy Configuration Compatibility]] — accepted old spellings, retired keys, and canonicalization rules.
 - [[Environment and Machine Settings]] — precedence, secrets, global settings, and AI defaults inheritance.
 - [[Runtime and Vault Data Files]] — files around the TOML that configure or define a vault.
@@ -92,7 +92,9 @@ The second form reparses the raw TOML and therefore does not include compatibili
 
 The current generated mvp-0.9 effective configuration hashes to:
 
-`9d7298b773fb5d4e5f7226d8ac5b6d24a881f68f632751af77d56ce20d559ca0`
+`f4d980dd6ce089cba25da9e2f41392be048b89503e0f9fd2fc08789982adf786`
+
+The successors' snapshots (`mvp-0.10`, `mvp-0.11`) are the same template with only `algorithm_version` changed; all three are recorded in `config/template.py` (`DEFAULTS_SNAPSHOT_BY_ALGORITHM`).
 
 `tests/test_config_refactor.py` keys this fingerprint by algorithm version. Changing a behavior-affecting omitted default therefore requires an explicit algorithm-version/snapshot decision rather than silently changing every minimal-config vault.
 

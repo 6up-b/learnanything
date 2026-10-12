@@ -399,6 +399,8 @@ export interface KnowledgeMapPoint {
   neighbors: Array<{ id: string; distance: number; similarity?: number }>;
   /** Which ranking chose `neighbors` (Slice 2 T7, display only). */
   neighborBasis: KnowledgeNeighborBasis;
+  /** Learner field F2: the item's LO is assumed known (not tested). A label only. */
+  assumed?: boolean;
 }
 
 export type KnowledgeNeighborBasis = "item_text" | "facet_graph";
@@ -420,6 +422,15 @@ export interface KnowledgeItemTextNeighbors {
   pendingModel: { modelId: string; embedded: number } | null;
 }
 
+/** Learner field F2 (mvp-0.11): LOs assumed known (not tested), each checked
+ *  in its first review. Empty while placement is off. */
+export interface KnowledgeMapPlacement {
+  active: boolean;
+  assumed: Array<{ learningObjectId: string; source: AssumptionSource; firstReviewDue: IsoTimestamp }>;
+}
+
+export type AssumptionSource = "self_report" | "fast_track" | "predictor" | "quick_check";
+
 export interface KnowledgeMapSnapshot {
   version: number;
   points: KnowledgeMapPoint[];
@@ -429,6 +440,7 @@ export interface KnowledgeMapSnapshot {
   /** Facet-native diagnostic field; item points above remain for strata/history. */
   facetField: KnowledgeFacetField;
   itemTextNeighbors: KnowledgeItemTextNeighbors;
+  placement?: KnowledgeMapPlacement;
 }
 
 export type CapabilityArcStatus = "demonstrated" | "required" | "absent";
@@ -465,6 +477,12 @@ interface KnowledgeFacetPointBase {
    *  with no lock ledger are unlocked with an empty source list. */
   locked: boolean;
   lockSources: string[];
+  /**
+   * Learner field F2: an LO on this facet is "assumed known (not tested)". A
+   * separate label, never folded into well depth or the demonstrated beads.
+   */
+  assumed?: boolean;
+  assumedLearningObjectIds?: string[];
 }
 
 export interface KnowledgeFieldEdge {
@@ -808,6 +826,8 @@ export interface ItemPresentationDto {
 
 export interface PracticeItemDetail {
   version: number;
+  /** Learner field F2: "I know this" is offered only while placement is on. */
+  placementActive?: boolean;
   id: string;
   learningObjectId: string;
   learningObjectTitle: string;
@@ -2397,6 +2417,70 @@ export interface LearningObjectDetail {
   // distinct from the readiness *projection* in LoReadinessDto. Absent on legacy
   // LOs that predate blueprints. See LoBlueprintDto (graph-editor section).
   blueprints?: LoBlueprintDto[];
+  /** Learner field F2: placement label and controls for this LO. */
+  placement?: LearningObjectPlacementDto;
+}
+
+/** One LO's placement state (learner field §5.2). `assumed` is an open
+ *  "assumed known (not tested)" decision; nothing here is evidence. */
+export interface PlacementLearningObjectDto {
+  learningObjectId: string;
+  /** Current routing: assumed (check pending), maintenance (check passed:
+   *  remaining learning items withheld) or learning; null when placement never
+   *  acted on this LO. */
+  intent: "assumed" | "maintenance" | "learning" | null;
+  intentReason: "assumed" | "check_passed" | "check_missed" | "missed_in_maintenance" | "i_dont_know_this" | null;
+  assumed: boolean;
+  label: string | null;
+  source: AssumptionSource | null;
+  firstReviewDue: IsoTimestamp | null;
+  firstReviewIsDue: boolean;
+  lastOutcome: "passed" | "failed" | "returned" | null;
+  returnedByLearner: boolean;
+}
+
+export interface PlacementStateDto {
+  version?: number;
+  active: boolean;
+  algorithmVersion: string;
+  quickCheckK: number;
+  quickCheckBudgetMinutes: number;
+  learningObjects: PlacementLearningObjectDto[];
+}
+
+export type LearningObjectPlacementDto = Omit<PlacementStateDto, "learningObjects" | "version"> &
+  Partial<PlacementLearningObjectDto>;
+
+export type PlacementReport = "know_this" | "too_easy" | "dont_know_this";
+
+export interface PlacementSelfReportInput {
+  report: PlacementReport;
+  learningObjectIds?: string[];
+  practiceItemId?: string;
+  /** With practiceItemId: the session whose draft for that card is cleared in
+   *  the same transaction when the report succeeds. */
+  sessionId?: string;
+}
+
+export interface PlacementSelfReportResult {
+  version: number;
+  report: PlacementReport;
+  results: Array<{
+    learningObjectId: string;
+    status: string;
+    assumptionId?: string | null;
+    firstReviewDue?: IsoTimestamp;
+  }>;
+  /** Whether the reporting card's durable draft was cleared. */
+  checkpointCleared: boolean;
+  placement: PlacementStateDto;
+}
+
+export interface StartQuickCheckInput {
+  sessionId: string;
+  learningObjectIds: string[];
+  /** Stable identity of this start: a retry returns the same check. */
+  requestId?: string;
 }
 
 export interface ConceptReferenceDto {
@@ -3929,7 +4013,8 @@ export interface CalibrationEpisodeDto {
 
 /** The adaptively-selected next block target (null once nothing is runnable). */
 export interface CalibrationNextTargetDto {
-  episodeId: string;
+  /** Null for a quick check, which serves ordinary items outside any episode. */
+  episodeId: string | null;
   learningObjectId: string;
   practiceItemId: string;
   selectionObjective: string;
@@ -3957,6 +4042,33 @@ export interface CalibrationSessionProgressDto {
   blocksPlanned: number;
   episodes: CalibrationEpisodeDto[];
   nextTarget: CalibrationNextTargetDto | null;
+  /** Present only for "Check what I already know" (learner field F2). */
+  quickCheck?: QuickCheckProgressDto;
+}
+
+/** The optional quick check: at most `k` answers; results are withheld (null)
+ *  until it ends, then list each LO's verdict and the answers given. */
+export interface QuickCheckProgressDto {
+  learningObjectIds: string[];
+  k: number;
+  answered: number;
+  remaining: number;
+  finished: boolean;
+  results: QuickCheckResultDto[] | null;
+}
+
+export interface QuickCheckResultDto {
+  learningObjectId: string;
+  learningObjectTitle: string;
+  verdict: "assumed" | "learning" | "undecided" | "already_assumed";
+  assumptionId: string | null;
+  answers: Array<{
+    attemptId: string;
+    practiceItemId: string;
+    learningObjectId: string;
+    correctness: number | null;
+    createdAt: IsoTimestamp;
+  }>;
 }
 
 // ── dialogue microprobes (probe redesign §8.1) ───────────────────────────────

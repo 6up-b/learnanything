@@ -815,14 +815,25 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # at the merge and confirmed equal.
     # Slice 2 T4 adds the unset ai.routing.contamination_judge route, consumed
     # only by the owner-run `learnloop contamination report` (shadow flags).
-    "mvp-0.9": "c3e368c6fec135d6c8ea1519f301ac9839a962b0964963caa216cd5c29273be4",
+    "mvp-0.9": "f4d980dd6ce089cba25da9e2f41392be048b89503e0f9fd2fc08789982adf786",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed.
-    "mvp-0.10": "5ab7006a8dcb0c37762a6820b031df9b1b54994c5be695c8bf9a998cb8373db9",
+    "mvp-0.10": "d35af8a463346807fe0520014534ce525a24235db3bbda897f919d2d6d4e8deb",
+    # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
+    # placement (the [placement] section, modelled defaults only, left out of
+    # the decision-only template): no opening probes, assumed-known checked in
+    # the first review, the optional quick check. Kill switch
+    # placement.enabled. Reached by `learnloop upgrade` (default target) from
+    # mvp-0.10, or from mvp-0.9 through mvp-0.10; the template stays at
+    # mvp-0.9 (Slice 1 M2 open question 1). Computed from DEFAULT_CONFIG_TEXT
+    # with only algorithm_version changed. [placement] is dormant below
+    # mvp-0.11, so the mvp-0.9 and mvp-0.10 snapshots were recomputed at the
+    # merge (they move only because the effective config gains the section).
+    "mvp-0.11": "736a92f1618eb64316c4818687071a2514da833390cbf99414636fdd0777e7b2",
 }
 
 

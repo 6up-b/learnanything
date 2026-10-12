@@ -209,6 +209,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("activity_family_membership_events", TableRole.RAW_LEDGER),
     ("family_proposals", TableRole.WORKFLOW),
     ("family_memory_state", TableRole.DERIVED),
+    # Slice A Phase 6 (learner field F2): placement receipts and the quick
+    # check's queue state. Never evidence; never cleared by replay.
+    ("assumption_decisions", TableRole.RECEIPT),
+    ("assumption_returns", TableRole.RECEIPT),
+    ("placement_quick_checks", TableRole.WORKFLOW),
+    ("placement_quick_check_items", TableRole.WORKFLOW),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
     ("learner_state_beliefs", TableRole.COMPAT),

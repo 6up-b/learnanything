@@ -3,8 +3,8 @@ title: "Config - algorithms"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml algorithms"
@@ -25,13 +25,13 @@ source_paths:
   - "tests/test_ai_config.py"
   - "tests/test_answer_calibration_duel.py"
   - "tests/test_assessment_enforcement.py"
+  - "tests/test_assumed_known.py"
   - "tests/test_attempt_completion.py"
   - "tests/test_canonical_projection_rollout.py"
   - "tests/test_causal_activity_policy.py"
   - "tests/test_causal_attribution_p2.py"
   - "tests/test_causal_factor_deferral.py"
   - "tests/test_causal_orchestrator.py"
-  - "tests/test_causal_p2_acceptance.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/algorithms"
@@ -66,13 +66,13 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_ai_config.py`
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_assessment_enforcement.py`
+- `tests/test_assumed_known.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_canonical_projection_rollout.py`
 - `tests/test_causal_activity_policy.py`
 - `tests/test_causal_attribution_p2.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
-- `tests/test_causal_p2_acceptance.py`
 
 ## Extension and modification guidance
 

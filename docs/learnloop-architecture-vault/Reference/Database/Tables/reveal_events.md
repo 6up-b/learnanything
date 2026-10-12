@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "d154f85e84c7a2067d8b10725db5106d8a3cdd65"
-source_commit_timestamp: "2026-10-12T12:51:19-04:00"
+source_commit: "f948926ddc29adb727dc3bfa8f08bbff37aeaaac"
+source_commit_timestamp: "2026-10-12T13:48:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 171
+schema_head: 173
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -124,6 +124,7 @@ Database triggers:
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_practice_index_admission.py`
+- `tests/test_quick_check.py`
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_scheduler.py`
 - `tests/test_sidecar_remediation_surfaces.py`
