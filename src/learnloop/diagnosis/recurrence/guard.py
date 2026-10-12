@@ -21,6 +21,19 @@ learner data) plus every case registered in ``recurrence_guard_cases``: an M1
 review run's planted ``same_answer_different_cause`` cases, registered the
 first time ``learnloop recurrence guard --from-run`` runs them, stay required
 for every later switch check.
+
+**The diagnoser path** (second review F2). Groups also merge through
+validated diagnoser citations, at the judge's authority and without any
+judge call, so the judge's verdicts alone are not "zero false merges".
+``--from-run`` therefore also records, for each planted case, whether the M1
+diagnoser's validated citations linked the planted B answer to its A answer
+(a ``diagnoser`` row on the planted pair: ``same`` = a false merge through
+the citation path), and adds a judge case on the DIAGNOSER's own statement
+for the B answer (when M1's planted-cause judge found it named B), not only
+the authored ones. Only diagnoses in the vault's configured history mode under
+the current diagnosis prompt count. The switch needs at least one such M1
+case checked (S1.0's planted pairs are the standing suite, §3.6) and no false
+merge on either path.
 """
 
 from __future__ import annotations
@@ -43,6 +56,10 @@ from learnloop.vault.models import LoadedVault
 
 GUARD_SUBJECT_KIND = "planted_hypothesis"
 GUARD_SUITE_VERSION = "same-answer-different-cause-v1"
+#: A planted case judged on the M1 diagnoser's own statement for the B answer.
+DIAGNOSER_STATEMENT_SUFFIX = ":dx"
+#: Rationale ``source`` of a recorded M1 diagnoser link outcome.
+DIAGNOSER_LINK_SOURCE = "m1_diagnoser_link"
 
 #: The guard judges with exactly the live kind, prompt and route; only the
 #: ledger subject kind differs so planted rows can never join vault groups.
@@ -143,15 +160,82 @@ BUILTIN_SUITE: tuple[PlantedPair, ...] = (
 )
 
 
-def suite_from_run(run_dir: Path) -> list[PlantedPair]:
-    """Planted cases of an M1 review run (Slice 1 S1.0), as guard pairs."""
+@dataclass(frozen=True)
+class DiagnoserLink:
+    """Whether one M1 diagnosis of a planted B answer linked its A answer."""
+
+    case_id: str
+    run_id: str
+    diagnosis_id: str
+    arm: str
+    mode: str
+    model: str
+    prompt_version: str
+    #: Forbidden attempts (the A answers) among the VALIDATED citations: these
+    #: merge groups. Cited-but-unvalidated links never merge; reported only.
+    validated_forbidden: tuple[str, ...]
+    cited_forbidden: tuple[str, ...]
+
+    @property
+    def false_merge(self) -> bool:
+        return bool(self.validated_forbidden)
+
+
+@dataclass
+class M1Run:
+    run_id: str
+    pairs: list[PlantedPair]
+    links: list[DiagnoserLink]
+
+
+def _primary_learner_statement(proposal: Mapping[str, Any]) -> str | None:
+    best: tuple[float, int, int] | None = None
+    chosen: str | None = None
+    for event_position, event in enumerate(proposal.get("event_diagnoses") or []):
+        if not isinstance(event, Mapping):
+            continue
+        for cause_position, cause in enumerate(event.get("candidate_causes") or []):
+            if not isinstance(cause, Mapping) or str(cause.get("cause_scope") or "learner_state") != "learner_state":
+                continue
+            text = str(cause.get("statement") or "").strip()
+            key = (-float(cause.get("prior_weight") or 0.0), event_position, cause_position)
+            if text and (best is None or key < best):
+                best, chosen = key, text
+    return chosen
+
+
+def read_m1_run(run_dir: Path, *, history_mode: str | None = None) -> M1Run:
+    """An M1 review run's planted same-answer/different-cause cases (Slice 1 S1.0).
+
+    Per case: the authored A/B pair; the diagnoser-statement pair (authored A
+    against the B answer's diagnosis, in ``history_mode`` first, when M1's
+    planted-cause judge said it named the target cause); and every completed
+    diagnosis of the B answer with whether its citations linked an A answer.
+    """
 
     from learnloop.db.stores.diagnosis_review import review_rows
     from learnloop.diagnosis.offline_review.runner import RUN_FILE, SCRATCH_FILE
 
     run_id = str(json.loads((Path(run_dir) / RUN_FILE).read_text(encoding="utf-8"))["run_id"])
     pairs: list[PlantedPair] = []
+    links: list[DiagnoserLink] = []
     with closing(connect(Path(run_dir) / SCRATCH_FILE, read_only=True)) as scratch:
+        targets = {
+            str(row["attempt_id"]): str(row["id"])
+            for row in review_rows(scratch, "review_targets", where={"run_id": run_id})
+            if row.get("kind") == "planted"
+        }
+        diagnoses: dict[str, list[dict[str, Any]]] = {}
+        for row in review_rows(scratch, "review_diagnoses", where={"run_id": run_id}):
+            diagnoses.setdefault(str(row["target_id"]), []).append(row)
+        receipts = {str(row["diagnosis_id"]): row for row in review_rows(scratch, "review_context_receipts")}
+        cause_match: dict[str, str] = {}
+        if scratch.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'judgment_ledger'").fetchone():
+            for left_id, verdict in scratch.execute(
+                "SELECT left_id, verdict FROM judgment_ledger WHERE task = 'planted_cause_match' "
+                "AND left_kind = 'review_diagnosis' ORDER BY created_at, rowid"
+            ):
+                cause_match[str(left_id)] = str(verdict)
         for row in review_rows(scratch, "review_planted_cases", where={"run_id": run_id}):
             record = row.get("history") or {}
             if str(row.get("shape") or record.get("shape") or "") != "same_answer_different_cause":
@@ -165,21 +249,110 @@ def suite_from_run(run_dir: Path) -> list[PlantedPair]:
                 (attempt for attempt in record.get("history") or [] if attempt.get("cause") == "A"),
                 {},
             )
-            pairs.append(
-                PlantedPair(
-                    case_id=f"m1:{run_id}:{row.get('id')}",
-                    expected="different",
-                    topic=str(record.get("learning_object_id") or ""),
-                    problem=str(target.get("practice_item_id") or ""),
-                    shared_answer=target.get("final_answer"),
-                    statement_a=a,
-                    statement_b=b,
-                    quote_a=earlier.get("first_divergence_quote"),
-                    quote_b=target.get("first_divergence_quote"),
-                    source=f"m1:{run_id}",
-                )
+            case_id = f"m1:{run_id}:{row.get('id')}"
+            base = PlantedPair(
+                case_id=case_id,
+                expected="different",
+                topic=str(record.get("learning_object_id") or ""),
+                problem=str(target.get("practice_item_id") or ""),
+                shared_answer=target.get("final_answer"),
+                statement_a=a,
+                statement_b=b,
+                quote_a=earlier.get("first_divergence_quote"),
+                quote_b=target.get("first_divergence_quote"),
+                source=f"m1:{run_id}",
             )
-    return pairs
+            pairs.append(base)
+            truth = row.get("truth") or {}
+            forbidden = {str(value) for value in truth.get("forbidden_link_attempt_ids") or []} or {
+                str(attempt.get("attempt_id")) for attempt in record.get("history") or [] if attempt.get("cause") == "A"
+            }
+            completed = [
+                diagnosis for diagnosis in diagnoses.get(targets.get(str(row.get("target_attempt_id") or ""), ""), [])
+                if diagnosis.get("status") == "completed" and diagnosis.get("mode") != "legacy_view"
+            ]
+            completed.sort(key=lambda diagnosis: (history_mode is not None and diagnosis.get("mode") != history_mode,
+                                                   str(diagnosis.get("arm") or ""), str(diagnosis["id"])))
+            for diagnosis in completed:
+                proposal = diagnosis.get("proposal") or {}
+                validated = {
+                    str(citation.get("attempt_id"))
+                    for citation in (receipts.get(str(diagnosis["id"])) or {}).get("validated_citations") or []
+                }
+                cited = {
+                    str(citation.get("attempt_id"))
+                    for claim in proposal.get("pattern_claims") or []
+                    if isinstance(claim, Mapping) and claim.get("relation") != "disconfirming"
+                    for citation in claim.get("cited") or []
+                    if isinstance(citation, Mapping)
+                }
+                links.append(
+                    DiagnoserLink(
+                        case_id=case_id, run_id=run_id, diagnosis_id=str(diagnosis["id"]),
+                        arm=str(diagnosis.get("arm") or ""), mode=str(diagnosis.get("mode") or ""),
+                        model=str(diagnosis.get("model") or "unknown"),
+                        prompt_version=str(diagnosis.get("prompt_version") or ""),
+                        validated_forbidden=tuple(sorted(validated & forbidden)),
+                        cited_forbidden=tuple(sorted(cited & forbidden)),
+                    )
+                )
+            recovered = next(
+                (diagnosis for diagnosis in completed if cause_match.get(str(diagnosis["id"])) == "target_cause"),
+                None,
+            )
+            statement = _primary_learner_statement(recovered.get("proposal") or {}) if recovered else None
+            if statement and statement != b:
+                pairs.append(
+                    PlantedPair(
+                        case_id=f"{case_id}{DIAGNOSER_STATEMENT_SUFFIX}", expected="different", topic=base.topic,
+                        problem=base.problem, shared_answer=base.shared_answer, statement_a=a, statement_b=statement,
+                        quote_a=base.quote_a, quote_b=base.quote_b, source=base.source,
+                    )
+                )
+    return M1Run(run_id=run_id, pairs=pairs, links=links)
+
+
+def suite_from_run(run_dir: Path, *, history_mode: str | None = None) -> list[PlantedPair]:
+    """Planted cases of an M1 review run (Slice 1 S1.0), as guard pairs."""
+
+    return read_m1_run(run_dir, history_mode=history_mode).pairs
+
+
+def is_link_case(pair: PlantedPair) -> bool:
+    """An M1 case whose diagnoser citations are checked (not a statement pair)."""
+
+    return pair.source.startswith("m1:") and not pair.case_id.endswith(DIAGNOSER_STATEMENT_SUFFIX)
+
+
+def record_diagnoser_links(repository: Repository, links: Sequence[DiagnoserLink]) -> int:
+    """Append each M1 diagnosis's link outcome as a ``diagnoser`` verdict on the planted pair (idempotent)."""
+
+    from learnloop.ai.execution import content_key
+    from learnloop.db.stores.judgments import append_judgment
+
+    written = 0
+    with repository.atomic():
+        connection = repository.connection()
+        for link in links:
+            input_hash = content_key({"source": DIAGNOSER_LINK_SOURCE, "run": link.run_id, "diagnosis": link.diagnosis_id})
+            if connection.execute(
+                "SELECT 1 FROM judgment_ledger WHERE task = ? AND judge = 'diagnoser' AND input_hash = ? LIMIT 1",
+                (GUARD_KIND.task, input_hash),
+            ).fetchone():
+                continue
+            append_judgment(
+                connection, task=GUARD_KIND.task, left_kind=GUARD_SUBJECT_KIND, left_id=f"{link.case_id}:a",
+                right_kind=GUARD_SUBJECT_KIND, right_id=f"{link.case_id}:b", judge="diagnoser",
+                judge_model=link.model or "unknown", prompt_version=link.prompt_version or "unknown",
+                input_hash=input_hash, verdict="same" if link.false_merge else "different",
+                rationale=json.dumps({
+                    "source": DIAGNOSER_LINK_SOURCE, "run_id": link.run_id, "diagnosis_id": link.diagnosis_id,
+                    "arm": link.arm, "mode": link.mode, "validated_forbidden": list(link.validated_forbidden),
+                    "cited_forbidden": list(link.cited_forbidden),
+                }, sort_keys=True),
+            )
+            written += 1
+    return written
 
 
 def _subject(pair: PlantedPair, side: str) -> Subject:
@@ -235,14 +408,15 @@ def register_suite(repository: Repository, cases: Sequence[PlantedPair]) -> int:
         )
 
 
-def guard_suite(*, from_run: Path | None = None, repository: Repository | None = None) -> list[PlantedPair]:
+def guard_suite(*, from_run: Path | None = None, repository: Repository | None = None,
+                history_mode: str | None = None) -> list[PlantedPair]:
     """The built-in suite, the registered cases, and an M1 run's cases (deduplicated)."""
 
     suite = list(BUILTIN_SUITE)
     if repository is not None:
         suite.extend(registered_cases(repository))
     if from_run is not None:
-        suite.extend(suite_from_run(from_run))
+        suite.extend(suite_from_run(from_run, history_mode=history_mode))
     seen: set[str] = set()
     unique = []
     for case in suite:
@@ -258,19 +432,52 @@ def suite_hash(suite: Sequence[PlantedPair]) -> str:
     ).hexdigest()[:16]
 
 
+def _diagnoser_link_rows(repository: Repository, *, history_mode: str | None) -> dict[frozenset[str], list[dict[str, Any]]]:
+    """Recorded M1 diagnoser link outcomes under the CURRENT diagnosis prompt
+    (and, given one, the configured history mode), by planted pair."""
+
+    from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
+
+    rows: dict[frozenset[str], list[dict[str, Any]]] = {}
+    with repository.connection() as connection:
+        for left_id, right_id, verdict, model, rationale in connection.execute(
+            "SELECT j.left_id, j.right_id, j.verdict, j.judge_model, j.rationale FROM judgment_ledger j "
+            "WHERE j.task = ? AND j.judge = 'diagnoser' AND j.left_kind = ? AND j.right_kind = ? AND j.prompt_version = ? "
+            "AND NOT EXISTS (SELECT 1 FROM judgment_ledger later WHERE later.supersedes_id = j.id) "
+            "ORDER BY j.created_at, j.id",
+            (GUARD_KIND.task, GUARD_SUBJECT_KIND, GUARD_SUBJECT_KIND, DIAGNOSIS_PROMPT_VERSION),
+        ):
+            try:
+                detail = json.loads(rationale or "{}")
+            except ValueError:
+                detail = {}
+            if detail.get("source") != DIAGNOSER_LINK_SOURCE:
+                continue
+            if history_mode is not None and detail.get("mode") != history_mode:
+                continue
+            rows.setdefault(frozenset((str(left_id), str(right_id))), []).append(
+                {"verdict": str(verdict), "model": model, **detail}
+            )
+    return rows
+
+
 def guard_status(
     repository: Repository,
     *,
     suite: Sequence[PlantedPair] | None = None,
     judge_model: str | None = None,
+    history_mode: str | None = None,
 ) -> dict[str, Any]:
     """Each planted pair's standing verdicts under the current prompt and input.
 
     ``suite`` defaults to the REQUIRED suite (built-in plus registered cases).
     ``passed`` needs every negative judged by ``judge_model`` and none of its
-    standing (not superseded) verdicts ``same``; without ``judge_model`` any
-    model's verdicts count (a report, never the switch check). Positives only
-    report recall.
+    standing (not superseded) verdicts ``same``, and no M1 diagnoser citation
+    linking a planted B answer to its A answer (the citation merge path);
+    without ``judge_model`` any model's verdicts count (a report, never the
+    switch check). ``switch_ready`` also needs at least one M1 case whose
+    diagnoser link was checked under the current diagnosis prompt (in
+    ``history_mode``, the vault's, when given). Positives only report recall.
     """
 
     suite = list(suite if suite is not None else guard_suite(repository=repository))
@@ -311,6 +518,21 @@ def guard_status(
             if found and found[-1]["verdict"] == "same":
                 recall_hits += 1
     negatives = sum(1 for pair in suite if pair.expected == "different")
+    # The citation merge path (second review F2): M1's diagnoser on the planted B answer.
+    link_rows = _diagnoser_link_rows(repository, history_mode=history_mode)
+    link_cases = [pair for pair in suite if pair.expected == "different" and is_link_case(pair)]
+    diagnoser_false_merges: list[str] = []
+    checked = 0
+    unvalidated_links = 0
+    for pair in link_cases:
+        rows = link_rows.get(frozenset((f"{pair.case_id}:a", f"{pair.case_id}:b")), [])
+        if not rows:
+            continue
+        checked += 1
+        if any(row["verdict"] == "same" for row in rows):
+            diagnoser_false_merges.append(pair.case_id)
+        unvalidated_links += sum(1 for row in rows if row["verdict"] != "same" and row.get("cited_forbidden"))
+    passed = not false_merges and not missing and negatives > 0 and not diagnoser_false_merges
     return {
         "suite_version": GUARD_SUITE_VERSION,
         "suite_hash": suite_hash(suite),
@@ -325,7 +547,17 @@ def guard_status(
         "missing": missing,
         "positives": positives,
         "positives_merged": recall_hits,
-        "passed": not false_merges and not missing and negatives > 0,
+        "diagnoser": {
+            "history_mode": history_mode,
+            "m1_cases": len(link_cases),
+            "m1_cases_checked": checked,
+            "false_merges": diagnoser_false_merges,
+            # Cited the A answer but the citation did not validate: no merge.
+            "unvalidated_links": unvalidated_links,
+        },
+        "diagnoser_false_merges": diagnoser_false_merges,
+        "passed": passed,
+        "switch_ready": passed and checked > 0,
     }
 
 
@@ -360,7 +592,14 @@ def run_guard(
     )
     from learnloop.matching.judge import already_judged, judge_pairs, pair_prompt
 
-    suite = guard_suite(from_run=from_run, repository=repository)
+    from learnloop.diagnosis.split.live import settings_from_config
+
+    history_mode = settings_from_config(vault).history_mode
+    m1 = read_m1_run(from_run, history_mode=history_mode) if from_run is not None else None
+    suite = guard_suite(repository=repository)
+    if m1 is not None:
+        known = {case.case_id for case in suite}
+        suite.extend(case for case in m1.pairs if case.case_id not in known)
     pairs = guard_pairs(suite)
     producer = producer_label(judge_client) if judge_client is not None else configured_judge_model(vault)
     spend = command_spend(vault, caps, price_per_million=price_per_million, cancelled=cancelled, embedding=False)
@@ -396,14 +635,25 @@ def run_guard(
         "admissible": admissible,
         "refusal": refusal,
     }
+    if m1 is not None:
+        report["m1_run"] = {
+            "run_id": m1.run_id,
+            "cases": sum(1 for case in m1.pairs if is_link_case(case)),
+            "diagnoser_statement_cases": sum(1 for case in m1.pairs if not is_link_case(case)),
+            "diagnoses": len(m1.links),
+            "diagnoser_false_merges": sorted({link.case_id for link in m1.links if link.false_merge}),
+        }
     if dry_run:
-        report["current"] = guard_status(repository, suite=suite, judge_model=producer)
+        report["current"] = guard_status(repository, suite=suite, judge_model=producer, history_mode=history_mode)
         return report
     if not admissible:
         report["status"] = "over_budget"
         return report
-    # The run's cases are required from now on, judged or not.
+    # The run's cases are required from now on, judged or not, and its
+    # diagnoser link outcomes are recorded (no call: they are M1's).
     report["registered"] = register_suite(repository, suite)
+    if m1 is not None:
+        report["diagnoser_links_recorded"] = record_diagnoser_links(repository, m1.links)
     results = []
     if todo:
         client = judge_client if judge_client is not None else default_judge_client(vault)
@@ -420,7 +670,7 @@ def run_guard(
     report["not_judged"] = [
         row.as_dict() for row in results if row.status in ("failed", "not_run", "claimed_elsewhere", "fenced")
     ]
-    report["result"] = guard_status(repository, suite=suite, judge_model=report["judge_model"])
+    report["result"] = guard_status(repository, suite=suite, judge_model=report["judge_model"], history_mode=history_mode)
     report["spend"] = spend.summary()
     report["status"] = "complete" if not report["not_judged"] else "incomplete"
     return report
@@ -448,6 +698,8 @@ def configured_judge_model(vault: LoadedVault) -> str | None:
 
 __all__ = [
     "BUILTIN_SUITE",
+    "DiagnoserLink",
+    "M1Run",
     "GUARD_KIND",
     "GUARD_SUBJECT_KIND",
     "GUARD_SUITE_VERSION",
@@ -456,6 +708,9 @@ __all__ = [
     "guard_pairs",
     "guard_status",
     "guard_suite",
+    "is_link_case",
+    "read_m1_run",
+    "record_diagnoser_links",
     "register_suite",
     "registered_cases",
     "run_guard",

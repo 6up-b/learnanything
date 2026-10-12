@@ -8,6 +8,10 @@ The playbook's explicit upgrade, owner-run (implementation_goal.md §1a):
   registered M1 case) judged by the model AND reasoning effort the
   ``same_cause_judge`` route resolves to, under the current prompt and input, and none of its standing
   verdicts ``same`` (§3.6: any false merge blocks the switch);
+* and refuses unless the citation path was checked too (second review F2):
+  at least one registered M1 run case whose diagnoser link was recorded
+  under the current diagnosis prompt in the vault's history mode, and no
+  validated M1 citation linking a planted B answer to its A answer;
 * PREPARES the groups (built from the ledgers already recorded, not yet in
   force) and the P0 projection receipt BEFORE the atomic config rename, and
   puts the groups in force only AFTER it: a failure anywhere before the
@@ -66,9 +70,26 @@ def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResul
                 "set the model on the ai.routing.same_cause_judge profile so the guard can be checked for it"
             ],
         )
-    guard = guard_status(repository, judge_model=expected_model)
-    if not guard["passed"]:
+    from learnloop.diagnosis.split.live import settings_from_config
+
+    history_mode = settings_from_config(vault).history_mode
+    guard = guard_status(repository, judge_model=expected_model, history_mode=history_mode)
+    if not guard["switch_ready"]:
         problems = []
+        if guard["diagnoser_false_merges"]:
+            problems.append(
+                f"the M1 diagnoser's validated citations linked {len(guard['diagnoser_false_merges'])} planted "
+                "same-answer/different-cause B answer(s) to their A answer: citations merge groups at the judge's "
+                "authority, so this is a false merge on the citation path; fix the diagnoser and rerun M1, then "
+                "`learnloop recurrence guard --from-run <run>`"
+            )
+        if guard["passed"] and not guard["diagnoser"]["m1_cases_checked"]:
+            problems.append(
+                "no M1 review run's planted same-answer/different-cause case has been checked for the citation "
+                f"path under the current diagnosis prompt in history mode {history_mode!r} (S1.0's planted pairs "
+                "are the standing suite, §3.6): run `learnloop recurrence guard --from-run <M1 run dir>` "
+                "(`--dry-run` first)"
+            )
         if guard["false_merges"]:
             problems.append(
                 f"the same-answer/different-cause guard has {len(guard['false_merges'])} false merge(s) from "

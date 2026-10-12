@@ -152,4 +152,93 @@ def record_verdict(repository, *, left: str, right: str, verdict: str, judge: st
         )
 
 
-__all__ = ["JudgeFake", "StatementFake", "different", "record_verdict", "shares_word"]
+M1_CAUSE_A = "Believes the factors of an SVD commute, so V and U may swap places."
+M1_CAUSE_B = "Forgets to transpose V because the example matrix happens to be symmetric."
+M1_DIAGNOSER_B = "Leaves V untransposed, trusting that the example's symmetry makes the transpose unnecessary."
+
+
+def write_m1_run(run_dir, *, run_id: str = "run-1", linked: bool = False, cited_only: bool = False,
+                 mode: str = "full", recovered: bool = True, prompt_version: str | None = None) -> str:
+    """A minimal M1 review run directory with ONE planted same-answer/different-cause
+    case and one completed diagnosis of its B answer (Slice 1 S1.0).
+
+    ``linked``: the diagnosis's VALIDATED citations include the A answer (a
+    false merge on the citation path); ``cited_only``: it cites the A answer
+    but the citation did not validate. ``recovered``: M1's planted-cause judge
+    said the diagnosis named the target cause. Returns the guard case id.
+    """
+
+    import json
+    import sqlite3
+    from pathlib import Path
+
+    from learnloop.db.stores.diagnosis_review import ensure_review_schema, insert_review_row
+    from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
+
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "run.json").write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+    a_attempt, b_attempt = f"{run_id}-a", f"{run_id}-b"
+    record = {
+        "case_id": "planted-0", "shape": "same_answer_different_cause", "learning_object_id": "lo_svd_compute",
+        "history": [{"key": "h1", "attempt_id": a_attempt, "practice_item_id": "pi_svd_compute_001",
+                     "learner_answer_md": "U Sigma V", "completed_at": "2026-01-01T00:00:00Z", "failed": True,
+                     "cause": "A", "first_divergence_quote": "V and U swap", "final_answer": "U Sigma V"}],
+        "target": {"key": "t1", "attempt_id": b_attempt, "practice_item_id": "pi_svd_compute_001",
+                   "learner_answer_md": "U Sigma V", "completed_at": "2026-01-03T00:00:00Z", "failed": True,
+                   "cause": "B", "first_divergence_quote": "V is symmetric", "final_answer": "U Sigma V"},
+        "causes": {"A": M1_CAUSE_A, "B": M1_CAUSE_B},
+        "prior_hypothesis_id": None, "source": "manifest",
+    }
+    truth = {"shape": "same_answer_different_cause", "forbidden_link_attempt_ids": [a_attempt],
+             "expected_link_attempt_ids": []}
+    citation = {"attempt_id": a_attempt, "quote": "V and U swap", "claim_index": 0}
+    proposal = {
+        "event_diagnoses": [{"event_index": 0, "candidate_causes": [
+            {"statement": M1_DIAGNOSER_B, "cause_scope": "learner_state", "prior_weight": 2.0},
+            {"statement": "A slip while copying.", "cause_scope": "transient_execution", "prior_weight": 0.5},
+        ]}],
+        "pattern_claims": [{"hypothesis_ref": "cause:0:0", "relation": "same_mechanism", "cited": [citation]}]
+        if (linked or cited_only) else [],
+    }
+    connection = sqlite3.connect(run_dir / "scratch.sqlite")
+    try:
+        ensure_review_schema(connection, run_id=run_id)
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS judgment_ledger (id TEXT PRIMARY KEY, created_at TEXT, task TEXT, "
+            "left_kind TEXT, left_id TEXT, verdict TEXT, rationale TEXT)"
+        )
+        insert_review_row(connection, "review_planted_cases", {
+            "id": "planted-0", "run_id": run_id, "shape": "same_answer_different_cause", "target_attempt_id": b_attempt,
+            "truth_json": truth, "history_json": record, "source": "manifest",
+        })
+        insert_review_row(connection, "review_targets", {
+            "id": "target-0", "run_id": run_id, "kind": "planted", "attempt_id": b_attempt,
+            "practice_item_id": "pi_svd_compute_001", "learning_object_id": "lo_svd_compute",
+            "completed_at": "2026-01-03T00:00:00Z", "planted_case_id": "planted-0", "position": 0,
+        })
+        insert_review_row(connection, "review_diagnoses", {
+            "id": "diagnosis-0", "run_id": run_id, "target_id": "target-0", "arm": "d", "mode": mode,
+            "status": "completed", "provider": "fake", "model": "fake-diagnoser",
+            "prompt_version": prompt_version or DIAGNOSIS_PROMPT_VERSION, "proposal_json": proposal,
+            "validation_report_json": {},
+        })
+        insert_review_row(connection, "review_context_receipts", {
+            "diagnosis_id": "diagnosis-0", "failure_attempt_ids_json": [a_attempt], "success_attempt_ids_json": [],
+            "history_attempt_ids_json": [a_attempt], "hypothesis_ids_json": [], "registry_candidate_ids_json": [],
+            "prerequisite_refs_json": [], "retrieval_json": {},
+            "validated_citations_json": [citation] if linked else [],
+        })
+        if recovered:
+            connection.execute(
+                "INSERT INTO judgment_ledger (id, created_at, task, left_kind, left_id, verdict, rationale) "
+                "VALUES ('pcm-0', '2026-01-04T00:00:00Z', 'planted_cause_match', 'review_diagnosis', 'diagnosis-0', "
+                "'target_cause', '{}')"
+            )
+        connection.commit()
+    finally:
+        connection.close()
+    return f"m1:{run_id}:planted-0"
+
+
+__all__ = ["JudgeFake", "StatementFake", "different", "record_verdict", "shares_word", "write_m1_run"]

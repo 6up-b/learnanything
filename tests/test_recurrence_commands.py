@@ -34,7 +34,15 @@ from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient
 from tests.helpers import set_algorithm_version
-from tests.recurrence_fakes import JudgeFake, StatementFake, shares_word
+from tests.recurrence_fakes import (
+    M1_CAUSE_A,
+    M1_CAUSE_B,
+    M1_DIAGNOSER_B,
+    JudgeFake,
+    StatementFake,
+    shares_word,
+    write_m1_run,
+)
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
 HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_172"
@@ -58,6 +66,8 @@ def _guard_judge(false_merge: str | None = None, *, model: str = "fake-model") -
     except a planted false merge on the named case's statements."""
 
     negatives = {(case.statement_a, case.statement_b) for case in BUILTIN_SUITE if case.expected == "different"}
+    # The planted M1 case (write_m1_run): authored A vs B, and A vs the diagnoser's B.
+    negatives |= {(M1_CAUSE_A, M1_CAUSE_B), (M1_CAUSE_A, M1_DIAGNOSER_B)}
     target = next((case for case in BUILTIN_SUITE if case.case_id == false_merge), None)
 
     def decide(left: str, right: str) -> str:
@@ -67,6 +77,15 @@ def _guard_judge(false_merge: str | None = None, *, model: str = "fake-model") -
         return "different" if pair & negatives else "same"
 
     return JudgeFake(decide, model=model)
+
+
+def _pass_guard(tmp_path, vault, repository, *, judge=None, linked=False, name="m1-run", **kwargs):
+    """The guard on the built-in suite plus one M1 run (the citation path checked)."""
+
+    run_dir = tmp_path / name
+    write_m1_run(run_dir, run_id=name, linked=linked)
+    return run_guard(vault, repository, caps=CAPS, from_run=run_dir,
+                     judge_client=judge or _guard_judge(model=_judge_model(vault)), **kwargs)
 
 
 def test_successor_vocabulary():
@@ -143,7 +162,7 @@ def test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_gu
 
     bad = BUILTIN_SUITE[0].case_id
     model = _judge_model(vault)
-    report = run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(false_merge=bad, model=model))
+    report = _pass_guard(tmp_path, vault, repository, judge=_guard_judge(false_merge=bad, model=model))
     assert report["result"]["false_merges"] == [bad]
     blocked = upgrade_to_mvp011(paths.root, clock=CLOCK)
     assert not blocked.upgraded and "false merge" in blocked.problems[0]
@@ -158,7 +177,7 @@ def test_a_false_merge_blocks_the_switch_and_a_fixed_judge_reruns_through_the_gu
     fixed = _guard_judge(model="deepseek-v4-pro@high")
     # The new route is metered: the owner supplies its price (unknown fails closed).
     rerun = run_guard(vault, repository, caps=CAPS, judge_client=fixed, price_per_million=1.0)
-    assert rerun["judged"] == len(BUILTIN_SUITE) and len(fixed.judged) == len(BUILTIN_SUITE)
+    assert rerun["judged"] == rerun["cases"] == len(BUILTIN_SUITE) + 2 and len(fixed.judged) == rerun["cases"]
     assert guard_status(repository, judge_model="deepseek-v4-pro@high")["passed"] is True
     result = upgrade_to_mvp011(paths.root, clock=CLOCK)
     assert result.upgraded, result.problems
@@ -170,17 +189,17 @@ def test_an_explicit_rerun_supersedes_the_same_models_false_merge(tmp_path):
     paths, vault, repository = _mvp010(tmp_path)
     model = _judge_model(vault)
     bad = BUILTIN_SUITE[0].case_id
-    run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(false_merge=bad, model=model))
+    _pass_guard(tmp_path, vault, repository, judge=_guard_judge(false_merge=bad, model=model))
     plain = _guard_judge(model=model)
     assert run_guard(vault, repository, caps=CAPS, judge_client=plain)["judged"] == 0, "a plain run reuses"
     report = run_guard(vault, repository, caps=CAPS, judge_client=plain, rerun=True)
-    assert report["judged"] == len(BUILTIN_SUITE)
+    assert report["judged"] == report["cases"]
     assert report["result"]["passed"] is True
     with repository.connection() as connection:
         superseding = connection.execute(
             "SELECT COUNT(*) FROM judgment_ledger WHERE left_kind = 'planted_hypothesis' AND supersedes_id IS NOT NULL"
         ).fetchone()[0]
-    assert superseding == len(BUILTIN_SUITE)
+    assert superseding == report["cases"]
     assert upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
 
 
@@ -200,21 +219,100 @@ def test_an_m1_case_from_a_run_is_required_and_its_false_merge_blocks_the_switch
 
     paths, vault, repository = _mvp010(tmp_path)
     model = _judge_model(vault)
-    m1 = _m1_case()
-    monkeypatch.setattr("learnloop.diagnosis.recurrence.guard.suite_from_run", lambda _run: [m1])
+    run_dir = tmp_path / "m1-run"
+    case_id = write_m1_run(run_dir)
 
     def decide(left: str, right: str) -> str:
-        if {left, right} == {m1.statement_a, m1.statement_b}:
+        if {left, right} == {M1_CAUSE_A, M1_CAUSE_B}:
             return "same"  # the planted false merge
         return _guard_judge(model=model).decide(left, right)
 
-    report = run_guard(vault, repository, caps=CAPS, from_run=tmp_path / "m1-run", judge_client=JudgeFake(decide, model=model))
-    assert report["registered"] == 1 and report["result"]["false_merges"] == [m1.case_id]
-    # The built-in suite alone passes, but the registered case is required.
+    report = run_guard(vault, repository, caps=CAPS, from_run=run_dir, judge_client=JudgeFake(decide, model=model))
+    assert report["registered"] == 2 and report["result"]["false_merges"] == [case_id]
+    # The built-in suite alone passes, but the registered cases are required.
     assert guard_status(repository, suite=BUILTIN_SUITE, judge_model=model)["passed"] is True
-    assert [case.case_id for case in repository_cases(repository)] == [m1.case_id]
+    assert [case.case_id for case in repository_cases(repository)] == [case_id, f"{case_id}:dx"]
     blocked = upgrade_to_mvp011(paths.root, clock=CLOCK)
     assert not blocked.upgraded and "false merge" in blocked.problems[0]
+
+
+def test_a_validated_diagnoser_citation_of_the_planted_a_answer_blocks_the_switch(tmp_path):
+    """Second review F2: groups also merge through validated diagnoser
+    citations, which no judge sees. An M1 diagnosis of the planted B answer
+    whose validated citation names the A answer is a false merge, even when
+    the judge keeps every pair apart."""
+
+    paths, vault, repository = _mvp010(tmp_path)
+    report = _pass_guard(tmp_path, vault, repository, linked=True)
+    case_id = "m1:m1-run:planted-0"
+    assert report["result"]["false_merges"] == [], "the judge kept every pair apart"
+    assert report["result"]["diagnoser_false_merges"] == [case_id]
+    assert report["result"]["passed"] is False and report["m1_run"]["diagnoser_false_merges"] == [case_id]
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT judge, verdict, left_kind FROM judgment_ledger WHERE judge = 'diagnoser'"
+        ).fetchall()
+    assert [tuple(row) for row in rows] == [("diagnoser", "same", "planted_hypothesis")]
+    blocked = upgrade_to_mvp011(paths.root, clock=CLOCK)
+    assert not blocked.upgraded and "citation" in blocked.problems[0]
+
+
+def test_a_citation_that_did_not_validate_merges_nothing_and_is_reported(tmp_path):
+    from tests.recurrence_fakes import write_m1_run as write
+
+    paths, vault, repository = _mvp010(tmp_path)
+    write(tmp_path / "cited", run_id="cited", cited_only=True)
+    report = run_guard(vault, repository, caps=CAPS, from_run=tmp_path / "cited",
+                       judge_client=_guard_judge(model=_judge_model(vault)))
+    assert report["result"]["diagnoser_false_merges"] == []
+    assert report["result"]["diagnoser"]["unvalidated_links"] == 1
+    assert upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
+
+
+def test_the_switch_needs_an_m1_case_checked_in_the_live_history_mode(tmp_path):
+    """Second review F2: S1.0's planted pairs are the standing suite (§3.6);
+    the built-in suite alone never opens the switch, nor does an M1 run
+    diagnosed only in another history mode or under another prompt."""
+
+    paths, vault, repository = _mvp010(tmp_path)
+    judge = _guard_judge(model=_judge_model(vault))
+    assert run_guard(vault, repository, caps=CAPS, judge_client=judge)["result"]["passed"] is True
+    refused = upgrade_to_mvp011(paths.root, clock=CLOCK)
+    assert not refused.upgraded and "--from-run" in refused.problems[0]
+    write_m1_run(tmp_path / "other-mode", run_id="other-mode", mode="exact")
+    run_guard(vault, repository, caps=CAPS, from_run=tmp_path / "other-mode", judge_client=judge)
+    write_m1_run(tmp_path / "old-prompt", run_id="old-prompt", prompt_version="diagnosis-v0")
+    run_guard(vault, repository, caps=CAPS, from_run=tmp_path / "old-prompt", judge_client=judge)
+    still = upgrade_to_mvp011(paths.root, clock=CLOCK)
+    assert not still.upgraded and "history mode 'full'" in still.problems[0]
+    _pass_guard(tmp_path, vault, repository, judge=judge)
+    assert upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
+
+
+def test_the_guard_judges_the_diagnosers_own_statement_for_the_b_answer(tmp_path):
+    """Second review F2: besides the authored A/B statements, the judge sees
+    the M1 diagnoser's statement for the B answer (it named the target cause),
+    as live judging would; a false merge on it blocks the switch."""
+
+    paths, vault, repository = _mvp010(tmp_path)
+    model = _judge_model(vault)
+
+    def decide(left: str, right: str) -> str:
+        if {left, right} == {M1_CAUSE_A, M1_DIAGNOSER_B}:
+            return "same"
+        return _guard_judge(model=model).decide(left, right)
+
+    judge = JudgeFake(decide, model=model)
+    report = _pass_guard(tmp_path, vault, repository, judge=judge)
+    assert (M1_CAUSE_A, M1_DIAGNOSER_B) in {tuple(sorted(pair, key=(M1_CAUSE_A, M1_DIAGNOSER_B).index))
+                                            for pair in judge.judged if set(pair) == {M1_CAUSE_A, M1_DIAGNOSER_B}}
+    assert report["result"]["false_merges"] == ["m1:m1-run:planted-0:dx"]
+    assert not upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
+    # Without M1's planted-cause verdict there is no statement pair to judge.
+    write_m1_run(tmp_path / "unknown", run_id="unknown", recovered=False)
+    from learnloop.diagnosis.recurrence.guard import suite_from_run
+
+    assert [case.case_id for case in suite_from_run(tmp_path / "unknown")] == ["m1:unknown:planted-0"]
 
 
 def repository_cases(repository):
@@ -283,8 +381,8 @@ def test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_gua
     low, medium = _codex_judge("low"), _codex_judge("medium")
     assert producer_label(low) != producer_label(medium)
     assert _judge_model(vault) == producer_label(low), "the route resolves to codex_low"
-    report = run_guard(vault, repository, caps=CAPS, judge_client=low)
-    assert report["result"]["passed"] is True and report["judge_model"] == producer_label(low)
+    report = _pass_guard(tmp_path, vault, repository, judge=low)
+    assert report["result"]["switch_ready"] is True and report["judge_model"] == producer_label(low)
     _route_judge(paths.root, "codex_medium")
     vault = load_vault(paths.root)
     assert _judge_model(vault) == producer_label(medium)
@@ -293,7 +391,7 @@ def test_the_judge_producer_is_model_and_effort_so_codex_tiers_never_share_a_gua
     assert not blocked.upgraded and "has not judged" in blocked.problems[0]
     # The medium tier is asked every pair (nothing reused across tiers).
     rerun = run_guard(vault, repository, caps=CAPS, judge_client=medium)
-    assert rerun["judged"] == len(BUILTIN_SUITE)
+    assert rerun["judged"] == rerun["cases"] == len(BUILTIN_SUITE) + 2
     assert upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
 
 
@@ -317,7 +415,7 @@ def test_guard_verdicts_from_another_judge_model_do_not_open_the_switch(tmp_path
 
 def test_the_upgrade_command_takes_the_target(tmp_path):
     paths, vault, repository = _mvp010(tmp_path)
-    run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(model=_judge_model(vault)))
+    _pass_guard(tmp_path, vault, repository)
     result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.11"])
     assert result.exit_code == 0, result.output
     assert "mvp-0.10 -> mvp-0.11" in result.output
@@ -460,7 +558,7 @@ def test_the_head_fixture_predecessor_to_successor_path(tmp_path):
     _set_algorithm_version_at(root, "mvp-0.10")
     vault = load_vault(root)
     repository = Repository(root / "state.sqlite")
-    run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(model=_judge_model(vault)))
+    _pass_guard(tmp_path, vault, repository)
     result = upgrade_to_mvp011(root, clock=CLOCK)
     assert result.upgraded, result.problems
     vault = load_vault(root)
@@ -563,7 +661,7 @@ def test_a_failure_after_preparation_leaves_no_group_in_force(tmp_path, monkeypa
         assert compute_groups(connection).group_count == 1
     exact = _keys(repository)
     assert len(exact) == 3 and repository.recurrence_group_map() == {}
-    run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(model=_judge_model(vault)))
+    _pass_guard(tmp_path, vault, repository)
 
     def boom(*_args, **_kwargs):
         raise RuntimeError("injected failure after preparation")
@@ -585,7 +683,7 @@ def test_a_failure_after_preparation_leaves_no_group_in_force(tmp_path, monkeypa
 
 def test_the_upgrade_activates_its_prepared_groups_after_the_switch(tmp_path):
     paths, vault, repository = _merged_history(tmp_path, version="mvp-0.10")
-    run_guard(vault, repository, caps=CAPS, judge_client=_guard_judge(model=_judge_model(vault)))
+    _pass_guard(tmp_path, vault, repository)
     assert upgrade_to_mvp011(paths.root, clock=CLOCK).upgraded
     assert repository.recurrence_state()["active"] is True
     assert len(_keys(repository)) == 1, "the three reworded classes are one group now"
