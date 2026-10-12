@@ -32,6 +32,13 @@ AITask = Literal[
     "practice_rerank",
     "practice_query_writer",
     "practice_relevance_judge",
+    # Slice 2 T6 source retrieval: the live rewrite of conceptual questions and
+    # the tutor-span verification rerank, and the retrieval evaluation's / B4's
+    # question writer and two-pass relevance judge.
+    "source_query_rewrite",
+    "source_rerank",
+    "source_query_writer",
+    "source_relevance_judge",
     # Slice 2 T4: the owner-run contamination report's leak/reveal judge.
     "contamination_judge",
     "grading",
@@ -105,6 +112,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "practice_rerank": "practice_rerank",
     "practice_query_writer": "practice_query_writer",
     "practice_relevance_judge": "practice_relevance_judge",
+    "source_query_rewrite": "source_query_rewrite",
+    "source_rerank": "source_rerank",
+    "source_query_writer": "source_query_writer",
+    "source_relevance_judge": "source_relevance_judge",
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",

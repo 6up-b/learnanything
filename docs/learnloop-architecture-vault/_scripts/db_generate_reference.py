@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_174/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_175/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,14 +37,14 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_174" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_175" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
 
 from learnloop.config.schema import LearnLoopConfig  # noqa: E402
 from learnloop.config.template import DEFAULT_CONFIG_TEXT  # noqa: E402
-from learnloop.db.table_roles import TABLE_ROLES, TableRole  # noqa: E402
+from learnloop.db.table_roles import TABLE_ROLES, TableRole, user_table_names  # noqa: E402
 from learnloop.substrate.rebuild_orchestrator import (  # noqa: E402
     derived_table_owners,
     validate_replayer_registry,
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 174
+SCHEMA_HEAD = 175
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -106,6 +106,7 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
+    "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not.",
     "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
     "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
     "model_work_checkpoints": "Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work.",
@@ -766,12 +767,8 @@ def generate_table_notes() -> dict[str, list[str]]:
     connection = sqlite3.connect(f"file:{SCHEMA_PATH}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
-        actual = {
-            str(row[0])
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-            )
-        }
+        # FTS5 shadow tables belong to their registered virtual table.
+        actual = set(user_table_names(connection))
         if actual != set(TABLE_ROLES):
             raise SystemExit(
                 f"schema/role mismatch: missing={sorted(set(TABLE_ROLES)-actual)}, extra={sorted(actual-set(TABLE_ROLES))}"
@@ -854,6 +851,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
+    "source_retrieval": "Slice 2 T6 source retrieval (keyword + dense, fused by rank) for the library search, tutor spans, the Quick Add scope and labelled LO suggestions, with the live rewrite and verification spend",
 }
 
 
@@ -1142,6 +1140,53 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "practice_index.evaluation_enabled": (
         "Consent for paid `learnloop eval practice-index` runs (query writing and relevance labels); "
         "dry-run estimates work without it."
+    ),
+    "source_retrieval.enabled": (
+        "Kill switch for Slice 2 T6: false restores the substring library search, the learning "
+        "object's linked tutor spans, the label-keyword Quick Add scope and no LO suggestion. "
+        "Retrieval is context only, so it changes no evidence or serving."
+    ),
+    "source_retrieval.dense": (
+        "Use the stored source_block/text vectors (deep library searches and tutor spans) when every "
+        "block in the searched scope has a current vector for embedding.model; otherwise keyword only, "
+        "labelled as such."
+    ),
+    "source_retrieval.query_rewrite": (
+        "Rewrite a conceptual question (a question word or mark, or five content terms) with the "
+        "source_query_rewrite route before retrieval; keyword searches are never rewritten."
+    ),
+    "source_retrieval.tutor_rerank": (
+        "Verify the tutor's retrieved spans with an LLM listwise rerank (route source_rerank, ledger task "
+        "source_relevance); only verified spans reach the tutor. Off or unavailable, the tutor keeps the "
+        "learning object's linked spans."
+    ),
+    "source_retrieval.suggest_learning_objects": (
+        "Offer a nearest-LO suggestion, labelled as one, for a reader span with no provenance-linked "
+        "learning object; it is never written as a candidate or promotion target."
+    ),
+    "source_retrieval.llm_price_per_million": (
+        "USD per million tokens for metered rewrite and rerank routes; without it those steps are skipped. "
+        "Codex routes run on the subscription and need no price."
+    ),
+    "source_retrieval.rewrite_max_cost_usd": (
+        "Dollar cap for one live query rewrite (one call and one retry), checked before the request is sent."
+    ),
+    "source_retrieval.rerank_max_cost_usd": (
+        "Dollar cap for one live tutor-span verification (one call and one retry), checked before sending."
+    ),
+    "source_retrieval.query_embedding_price_per_million": (
+        "USD per million input tokens for query embeddings when embedding.model has no published "
+        "estimate; without it dense retrieval is skipped."
+    ),
+    "source_retrieval.rrf_k": (
+        "Reciprocal-rank-fusion constant for combining the keyword, meaning and rewrite rankings; ranks "
+        "are fused, so no score threshold is set by hand."
+    ),
+    "source_retrieval.tutor_candidate_pool": (
+        "How many fused candidate spans the tutor's verification rerank judges."
+    ),
+    "source_retrieval.tutor_spans": (
+        "At most this many verified spans reach the tutor as citable context."
     ),
 }
 
@@ -1702,7 +1747,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_174/state.sqlite",
+                "fixtures/migration_head_175/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

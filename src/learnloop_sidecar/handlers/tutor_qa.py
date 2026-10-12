@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from learnloop.ai.errors import CodexUnavailable
+from learnloop.source_retrieval.tutor import TutorSpanProvider
 from learnloop.tutor import question_queue as QQ
 from learnloop.tutor.question_queue import QuestionQueueError
 from learnloop.tutor.teach_back import TEACH_BACK_PRACTICE_MODE
@@ -229,6 +230,9 @@ def ask_tutor_question(ctx: SidecarContext, params: AskTutorQuestionInput) -> di
                 "direct_explanation_request": params.direct_explanation_request,
                 "attempt_progress": params.attempt_progress,
             },
+            # Slice 2 T6: question-dependent, verified source spans (kill switch
+            # source_retrieval.enabled; any failure keeps the linked spans).
+            source_span_provider=TutorSpanProvider(),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(

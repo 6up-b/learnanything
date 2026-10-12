@@ -78,6 +78,9 @@ class QuickAddPlan:
     brief: dict[str, Any]
     token_estimate: dict[str, Any]
     external_ai_consent: list[dict[str, Any]] = field(default_factory=list)
+    # How the selected scope was chosen (Slice 2 T6): whole_source,
+    # unit_text_bm25+label_keywords, or label_keywords (retrieval switched off).
+    scope_basis: str = "label_keywords"
 
     @property
     def source_set_id(self) -> str:
@@ -125,6 +128,7 @@ class QuickAddPlan:
             "selected_tokens": self.selected_tokens,
             "outline_tokens": self.outline_tokens,
             "whole_source": self.whole_source,
+            "scope_basis": self.scope_basis,
             "brief": dict(self.brief),
             "token_estimate": self.token_estimate,
             "external_ai_consent": list(self.external_ai_consent),
@@ -152,14 +156,18 @@ def _keywords(brief: dict[str, Any], vault, subject_id: str | None) -> set[str]:
     return tokens
 
 
-def select_relevant_units(outline, *, keywords: set[str], cap_tokens: int) -> tuple[list[str], list[str], int, bool]:
+def select_relevant_units(
+    outline, *, keywords: set[str], cap_tokens: int, ranked_unit_ids: list[str] | None = None,
+) -> tuple[list[str], list[str], int, bool]:
     """Deterministic ToC-guided relevant-scope selection (§1).
 
-    Whole source when it fits under ``cap_tokens``; otherwise the brief/subject
-    keyword-matching chapters in outline order up to the cap (falling back to the
-    leading chapters when nothing matches). Returns
-    ``(unit_ids, labels, tokens, whole_source)``. Always non-empty when the
-    outline has units."""
+    Whole source when it fits under ``cap_tokens``; otherwise the most relevant
+    units up to the cap (falling back to the leading chapters when nothing
+    matches). Relevance is ``ranked_unit_ids`` when given (Slice 2 T6: BM25 over
+    each unit's text fused with the label match, best first), else the
+    brief/subject keyword matches on unit labels in outline order. Picked units
+    are returned in outline order. Returns ``(unit_ids, labels, tokens,
+    whole_source)``. Always non-empty when the outline has units."""
 
     units = list(outline.units)
     if not units:
@@ -177,18 +185,77 @@ def select_relevant_units(outline, *, keywords: set[str], cap_tokens: int) -> tu
         label = unit.label.lower()
         return any(keyword in label for keyword in keywords)
 
-    matched = [unit for unit in units if _matches(unit)]
+    if ranked_unit_ids is not None:
+        by_id = {unit.unit_id: unit for unit in units}
+        matched = [by_id[unit_id] for unit_id in ranked_unit_ids if unit_id in by_id]
+    else:
+        matched = [unit for unit in units if _matches(unit)]
     ordered = matched or units  # fall back to leading chapters when nothing matches
-    picked_ids: list[str] = []
-    picked_labels: list[str] = []
+    picked: list = []
     accumulated = 0
     for unit in ordered:
-        if picked_ids and accumulated + unit.approx_tokens > cap_tokens:
+        if picked and accumulated + unit.approx_tokens > cap_tokens:
             continue
-        picked_ids.append(unit.unit_id)
-        picked_labels.append(unit.label)
+        picked.append(unit)
         accumulated += unit.approx_tokens
-    return picked_ids, picked_labels, accumulated, False
+    position = {unit.unit_id: index for index, unit in enumerate(units)}
+    picked.sort(key=lambda unit: position[unit.unit_id])
+    return [unit.unit_id for unit in picked], [unit.label for unit in picked], accumulated, False
+
+
+def rank_units_by_text(repo, outline, extraction_id: str, *, query_text: str,
+                       keywords: set[str], rrf_k: int = 60) -> list[str]:
+    """Slice 2 T6: units ranked by relevance to the brief, best first; unmatched omitted.
+
+    Two ranked lists fused by reciprocal rank (ranks only, no score cutoff):
+    each unit's summed FTS5 BM25 over its own blocks (``source_block_fts``,
+    stemmed, so "symmetric" finds "symmetry") and today's label keyword match in
+    outline order. Pure: a local index read, no model, no write.
+    """
+
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.db.stores.source_block_fts import search_blocks
+    from learnloop.practice_index.text import reciprocal_rank_fusion
+
+    ir = repo.load_document_ir(extraction_id)
+    span_units: dict[str, list[str]] = {}
+    for unit in (ir.units if ir is not None else []):
+        for span_id in unit.span_ids:
+            span_units.setdefault(str(span_id), []).append(unit.unit_id)
+    totals: dict[str, float] = {}
+    if query_text.strip() and span_units:
+        with closing(connect(repo.sqlite_path, read_only=True)) as connection:
+            for match in search_blocks(connection, query_text, extraction_ids=[extraction_id], limit=2000):
+                for unit_id in span_units.get(match.span_id, ()):
+                    totals[unit_id] = totals.get(unit_id, 0.0) - match.score
+    lists: dict[str, list[str]] = {}
+    position = {unit.unit_id: index for index, unit in enumerate(outline.units)}
+    if totals:
+        lists["text"] = sorted(totals, key=lambda unit_id: (-totals[unit_id], position.get(unit_id, 0), unit_id))
+    labels = [unit.unit_id for unit in outline.units
+              if any(keyword in unit.label.lower() for keyword in keywords)]
+    if labels:
+        lists["label"] = labels
+    _order, ranks = reciprocal_rank_fusion(lists, k=rrf_k)
+    # Phase 5b's fusion; equal fused scores keep outline order, not id order.
+    scores = {unit_id: sum(1.0 / (rrf_k + rank) for rank in per_list.values())
+              for unit_id, per_list in ranks.items()}
+    return sorted(scores, key=lambda unit_id: (-scores[unit_id], position.get(unit_id, 0), unit_id))
+
+
+def _query_text(brief: dict[str, Any], vault, subject_id: str | None) -> str:
+    parts: list[str] = []
+    for key in ("subject", "topic", "goal_title", "intent_sentence"):
+        if brief.get(key):
+            parts.append(str(brief[key]))
+    parts.extend(str(topic) for topic in brief.get("include_topics") or [])
+    if subject_id and vault is not None:
+        subject = getattr(vault, "subjects", {}).get(subject_id)
+        metadata = getattr(subject, "metadata", None)
+        parts.append(str(getattr(metadata, "title", None) or subject_id))
+    return " ".join(parts)
 
 
 def _resolve_extraction(repo, source_id: str) -> tuple[str, str] | None:
@@ -282,7 +349,18 @@ def plan_quick_add(
     brief = _default_brief(brief_overrides, outline.title, subject_id, vault=vault)
     keywords = _keywords(brief, vault, subject_id)
     cap = config.ingest.budgets.quick_add_scope_input_tokens
-    unit_ids, labels, tokens, whole = select_relevant_units(outline, keywords=keywords, cap_tokens=cap)
+    retrieval = getattr(config, "source_retrieval", None)
+    ranked: list[str] | None = None
+    scope_basis = "label_keywords"
+    if retrieval is not None and retrieval.enabled:
+        ranked = rank_units_by_text(repo, outline, extraction_id,
+                                    query_text=_query_text(brief, vault, subject_id),
+                                    keywords=keywords, rrf_k=retrieval.rrf_k)
+        scope_basis = "unit_text_bm25+label_keywords"
+    unit_ids, labels, tokens, whole = select_relevant_units(
+        outline, keywords=keywords, cap_tokens=cap, ranked_unit_ids=ranked)
+    if whole:
+        scope_basis = "whole_source"
 
     category = item.category
     if brief.get("authoring_preset") == "narrow_adjunct":
@@ -335,6 +413,7 @@ def plan_quick_add(
         brief=brief,
         token_estimate=plan_estimate,
         external_ai_consent=consent,
+        scope_basis=scope_basis,
     )
 
 

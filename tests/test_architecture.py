@@ -65,6 +65,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/placement.py",
         # Slice A Phase 5a (PF-b): candidates, skeletons and DERIVED fingerprints.
         "src/learnloop/db/stores/pf.py",
+        # Slice 2 T6: the DERIVED source_block_fts rebuild (its replayer body).
+        "src/learnloop/db/stores/source_block_fts.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

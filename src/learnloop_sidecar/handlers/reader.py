@@ -28,6 +28,7 @@ from typing import Any
 from learnloop.ai.errors import CodexUnavailable
 from learnloop.reader import reader_dialogue as RD
 from learnloop.reader import reader_guidance as RG
+from learnloop.source_retrieval.suggest import suggested_learning_objects
 from learnloop.tutor.tutor_qa import QuestionLimitReached, TutorQAError
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -120,6 +121,8 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             selection_quote_md=params.selection_quote,
             cold_active=params.cold_active,
             cold_attempt_id=params.cold_attempt_id,
+            # Slice 2 T6: a labelled nearest-LO suggestion for an unmapped span.
+            learning_object_suggester=suggested_learning_objects,
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -147,6 +150,7 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             "burned_surface_ids": result["burned_surface_ids"],
             "hint_equivalent": result["hint_equivalent"],
             "remaining": result["remaining"],
+            "suggested_learning_objects": result.get("suggested_learning_objects", []),
         }
     )
 
@@ -1592,12 +1596,35 @@ from learnloop.reader import source_search as SS  # noqa: E402
 class ReaderSearchSourcesInput(ParamsModel):
     query: str
     limit: int = SS.MAX_HITS
+    # Slice 2 T6: the learner pressed Enter. Also search by meaning (stored
+    # source-block vectors, one cached query embedding) and rewrite a
+    # conceptual question with the source_query_rewrite route.
+    deep: bool = False
 
 
 @method("reader.search_sources", ReaderSearchSourcesInput)
 def reader_search_sources(ctx: SidecarContext, params: ReaderSearchSourcesInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
-    return versioned(SS.search_sources(repository, query=params.query, limit=params.limit))
+    vault, repository = _require_reader(ctx)
+    from learnloop.source_retrieval.library import search_library
+
+    return versioned(search_library(vault, repository, query=params.query, limit=params.limit,
+                                    deep=params.deep))
+
+
+class ReaderSpanLearningObjectsInput(ParamsModel):
+    extraction_id: str
+    span_id: str
+
+
+@method("reader.span_learning_objects", ReaderSpanLearningObjectsInput)
+def reader_span_learning_objects(ctx: SidecarContext, params: ReaderSpanLearningObjectsInput) -> dict[str, Any]:
+    """Provenance-linked LOs for a span, else labelled nearest-LO suggestions (T6)."""
+
+    vault, repository = _require_reader(ctx)
+    from learnloop.source_retrieval.suggest import suggest_learning_objects
+
+    return versioned(suggest_learning_objects(vault, repository, extraction_id=params.extraction_id,
+                                              span_id=params.span_id))
 
 
 class ReaderManualAnchorInput(ParamsModel):

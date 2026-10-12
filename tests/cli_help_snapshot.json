@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 22652,
-    "sha256": "d8fd335912eaa6311f4175a03e20e84c854597b5da638db208d5dd098089f411"
+    "bytes": 22822,
+    "sha256": "d53e4c936e61e267d083c87ba9d9ed2f545802a7948480665139ce59875edc8b"
   },
   "accept": {
     "bytes": 1593,
@@ -304,12 +304,12 @@
     "sha256": "ad234a3c4be747506c733f5380419d95dfddc634f0f5186d295722b793c5a03a"
   },
   "embeddings backfill": {
-    "bytes": 5343,
-    "sha256": "58fe9d718ce9897904bfd1f8f67a064a20b731cb8a8f733d03d06b9ff4848e35"
+    "bytes": 5768,
+    "sha256": "2b4806fd4c81d12006fa27ccb43a359d3ec4fa21396c18989959b6eabf567fa5"
   },
   "embeddings compare": {
-    "bytes": 7490,
-    "sha256": "19892e6b9dfcc317a49ddcd406bb889cda2cabfdb69f69d2d85ce1a51ac57da6"
+    "bytes": 8935,
+    "sha256": "a93b3ee712aaa9e37641b2c49b51713b4754013c9bb81687968f1fa472ec966f"
   },
   "embeddings nomination-report": {
     "bytes": 3651,
@@ -878,6 +878,18 @@
   "source-set update": {
     "bytes": 1755,
     "sha256": "f79086ca4300ae8c3f1919f1ccd95498a043eedbf08584936087260a2c2b9e1e"
+  },
+  "sources": {
+    "bytes": 1757,
+    "sha256": "5fde63e9e7eb11dea9c1199d35ca407589fc1d120bfb11700715e52fd6fc5cf1"
+  },
+  "sources search": {
+    "bytes": 2520,
+    "sha256": "e09b66ec338bdfbc957f403c9a006bc8dc92afaf8cc5dc5f5469b6b7dbd20059"
+  },
+  "sources suggest-lo": {
+    "bytes": 1376,
+    "sha256": "c5a1c51f5e3d2e1d47e963b5b14f96cc72f0ae704070e29442601a5c80eebdc0"
   },
   "surfaces": {
     "bytes": 1844,

@@ -364,14 +364,18 @@ class PFCaller:
         self.calls_by_model[model][role] += 1
         return CallResult(result, model, input_hash, prompt_version, False, record)
 
-    def embed(self, client: Any, texts: list[str], *, task_prefix: str,
-              price_per_million: float | None) -> list[list[float]]:
+    def embed(self, client: Any, texts: list[Any], *, task_prefix: str,
+              price_per_million: float | None,
+              estimated_tokens: int | None = None) -> list[list[float]]:
         """One metered embedding request, admitted under the shared caps first.
 
         Embedding routes are always metered (never Codex) and never fall back.
         Unknown prices fail closed. ``client`` follows ``ai.embedding.EmbeddingClient``.
+        ``estimated_tokens`` is the caller's upper bound for non-text inputs
+        (Slice 2 T6's B4 page images); text inputs are bounded by their bytes.
         """
-        tokens = sum(len(text.encode("utf-8")) + 128 for text in texts)
+        tokens = (estimated_tokens if estimated_tokens is not None
+                  else sum(len(text.encode("utf-8")) + 128 for text in texts))
         usd = tokens * price_per_million / 1_000_000 if price_per_million is not None else None
         usage: dict[str, Any] = {}
         attempts = 0

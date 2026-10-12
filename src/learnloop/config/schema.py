@@ -998,6 +998,13 @@ class AIRoutingConfig(BaseModel):
     practice_rerank: str | None = None
     practice_query_writer: str | None = None
     practice_relevance_judge: str | None = None
+    # Slice 2 T6 source retrieval: the live rewrite of conceptual questions,
+    # the tutor-span verification rerank, and the retrieval evaluation's / B4's
+    # question writer and relevance judge. Empty = ai.active_provider.
+    source_query_rewrite: str | None = None
+    source_rerank: str | None = None
+    source_query_writer: str | None = None
+    source_relevance_judge: str | None = None
 
     # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
     # (shadow flags only). Empty = ai.active_provider.
@@ -1542,6 +1549,47 @@ class PracticeIndexConfig(BaseModel):
     evaluation_enabled: bool = False
 
 
+class SourceRetrievalConfig(BaseModel):
+    """Slice 2 T6: source retrieval (spec_embedding_consumers_v1 §9).
+
+    Four consumers: the library search, the tutor's source spans, the Quick Add
+    scope and a nearest-LO suggestion for spans without provenance. Keyword
+    search (FTS5 BM25 over ``source_block_fts``) and dense search over the
+    stored ``source_block/text`` vectors are fused by reciprocal rank. Retrieval
+    is context: nothing here scores, schedules, projects or serves, so it is
+    not an algorithm successor. ``enabled = false`` is the kill switch that
+    restores every consumer's previous behaviour exactly.
+    """
+
+    enabled: bool = True
+    # Dense retrieval over stored source_block/text vectors, used only when every
+    # block in the searched scope has a current vector for embedding.model (the
+    # query embedding also needs embedding.enabled). Otherwise keyword only.
+    dense: bool = True
+    # LLM rewrite of conceptual questions before retrieval (route
+    # source_query_rewrite): tutor questions and deep library searches.
+    query_rewrite: bool = True
+    # Tutor spans: an LLM listwise rerank verifies every retrieved candidate
+    # (route source_rerank) and only verified spans reach the tutor. Off or
+    # unavailable, the tutor keeps the learning object's linked spans.
+    tutor_rerank: bool = True
+    # A labelled nearest-LO suggestion for reader spans without provenance.
+    suggest_learning_objects: bool = True
+    # Metered rewrite / rerank routes need a USD-per-million-token estimate, or
+    # the step is skipped; Codex (subscription) routes have no marginal cost.
+    llm_price_per_million: float | None = Field(default=None, gt=0)
+    rewrite_max_cost_usd: float = Field(default=0.01, ge=0)
+    rerank_max_cost_usd: float = Field(default=0.05, ge=0)
+    # USD per million input tokens for query embeddings when embedding.model has
+    # no published estimate; unknown prices skip dense retrieval.
+    query_embedding_price_per_million: float | None = Field(default=None, gt=0)
+    # Reciprocal-rank-fusion constant (Cormack et al. 2009); ranks, not scores.
+    rrf_k: int = Field(default=60, ge=1)
+    # Candidates the tutor's verification rerank judges, and spans it keeps.
+    tutor_candidate_pool: int = Field(default=12, ge=1, le=40)
+    tutor_spans: int = Field(default=4, ge=1, le=8)
+
+
 class PlacementConfig(BaseModel):
     """Learner field F2: starting new material without ceremony (spec §5.2).
 
@@ -1592,6 +1640,7 @@ class LearnLoopConfig(BaseModel):
     ai: AIConfig = Field(default_factory=AIConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     graph_nomination: GraphNominationConfig = Field(default_factory=GraphNominationConfig)
+    source_retrieval: SourceRetrievalConfig = Field(default_factory=SourceRetrievalConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)

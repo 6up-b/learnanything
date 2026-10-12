@@ -168,3 +168,24 @@ def test_phase_5a_item_skeleton_recipe_hashes_are_pinned():
     )
     assert tuple(recipe.content_hash(text) for text in TEXTS) == pins
     assert recipe.record("pi_1", TEXTS[0]).content_hash == pins[0]
+
+
+def test_slice_2_t6_source_block_recipe_hashes_are_pinned():
+    # First pinned at Slice 2 T6, from T6's own composition: sha256 of
+    # ["source_block", "text", 1, text], where text is "Section: <header text
+    # path>\n<whitespace-collapsed block text>" (header refs resolved).
+    from learnloop.db.stores.source_block_fts import BlockRow
+    from learnloop.source_retrieval.recipes import SOURCE_RETRIEVAL_RECIPES, source_block_text
+
+    recipe = SOURCE_RETRIEVAL_RECIPES["source_block/text"]
+    assert tuple(recipe.content_hash(text) for text in TEXTS) == (
+        "c2850b583a37b3f67b00bf1b428ad1163d7742a84c07293b0cb29f40d0a88900",
+        "a8192054db2629be071b0dd31202ce416c06133cb5c985aa82ccdfcb383ef146",
+    )
+    block = BlockRow("ext_1", "s2", "Text", "  Eigenvalues are   the roots\nof det(A - tI).  ", 3,
+                     '["/page/3/SectionHeader/1", "anchor"]', 2, None)
+    text = source_block_text(block, {"/page/3/SectionHeader/1": "Chapter 5 Eigenvalues"})
+    assert text == "Section: Chapter 5 Eigenvalues > anchor\nEigenvalues are the roots of det(A - tI)."
+    assert recipe.record("ext_1/s2", text).content_hash == (
+        "9b438f0f183b8b5811c61a760e8d1d0aaaf1891533602a1abae462a79cddd5e4"
+    )

@@ -154,6 +154,9 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # PF-b symbolic fingerprints of family members: vault content plus persisted
     # skeletons and sandbox outputs; never a model call or a generator run.
     DerivedStateReplayer("item_fingerprints", frozenset({"item_fingerprints"})),
+    # Slice 2 T6: the FTS5 keyword index over source blocks, recomputed from the
+    # block ledger alone (no model, no embedding, no learner state).
+    DerivedStateReplayer("source_block_fts", frozenset({"source_block_fts"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -435,6 +438,18 @@ def _run_item_fingerprints(
                           rows_processed=report["written"], details=report)
 
 
+def _run_source_block_fts(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.db.stores.source_block_fts import rebuild_source_block_fts
+
+    # Whole-vault: the index covers every extraction, whatever LO subset was asked.
+    with context.repository.connection() as connection:
+        report = rebuild_source_block_fts(connection)
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)),
+                          rows_processed=report["written"], details=report)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "learning_state": _run_learning_state,
@@ -443,6 +458,7 @@ _RUNNERS = {
     "field_outcomes": _run_field_outcomes,
     "family_memory": _run_family_memory,
     "item_fingerprints": _run_item_fingerprints,
+    "source_block_fts": _run_source_block_fts,
 }
 
 

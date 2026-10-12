@@ -127,6 +127,26 @@ def _reader_anchor(event: dict[str, Any]) -> tuple[str, str] | None:
     return (extraction_id, span_id) if extraction_id and span_id else None
 
 
+def _suggestion_note(vault: LoadedVault, event: dict[str, Any]) -> str:
+    """Name a recorded nearest-LO suggestion (Slice 2 T6), labelled as one.
+
+    A suggestion is never a target: the learner must choose the LO explicitly.
+    """
+
+    source_context = event.get("source_context")
+    entries = source_context.get("suggested_learning_objects") if isinstance(source_context, dict) else None
+    titles = []
+    for entry in entries or []:
+        lo_id = str((entry or {}).get("learning_object_id") or "")
+        learning_object = vault.learning_objects.get(lo_id)
+        if learning_object is not None:
+            titles.append(f"{learning_object.title} ({lo_id})")
+    if not titles:
+        return ""
+    return (" Nearest learning object, a suggestion and not a provenance link: "
+            + "; ".join(titles[:3]) + ". Choose one explicitly to file the practice there.")
+
+
 def _reader_target_ids(
     vault: LoadedVault, repository: Repository, event: dict[str, Any]
 ) -> list[str]:
@@ -245,7 +265,7 @@ def promote_tutor_question(
             reader_target_error = (
                 "This reader span is not mapped to a learning object yet, so it "
                 "cannot be grounded as practice."
-            )
+            ) + _suggestion_note(vault, event)
         elif reader_target_ids and origin_lo.id not in reader_target_ids:
             raise PromotionError(
                 f"Learning object {origin_lo.id!r} is not grounded in this reader span."

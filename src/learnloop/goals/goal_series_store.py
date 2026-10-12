@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.db.table_roles import role_for_table
+from learnloop.db.table_roles import role_for_table, user_table_names
 
 _MAX_PRUNE_DEPTH = 8
 _PRUNE_CHUNK = 400
@@ -24,12 +24,8 @@ def _referencing_columns(
     """Return child references as ``(table, column, parent, on_delete)``."""
 
     refs: list[tuple[str, str, str, str]] = []
-    child_tables = [
-        row[0]
-        for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
-        )
-    ]
+    # FTS5 shadow tables (Slice 2 T6) belong to their registered virtual table.
+    child_tables = sorted(user_table_names(connection))
     for child in child_tables:
         role_for_table(str(child))
         for fk in connection.execute(f'PRAGMA foreign_key_list("{child}")'):

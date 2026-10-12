@@ -1189,7 +1189,9 @@ export const api = {
     mutatingReader(call<Record<string, unknown>>("reader_link_relation", { input })),
   readerProposalInbox: (input?: { status?: string; sourceObjectId?: string | null }) =>
     call<{ proposals: unknown[] }>("reader_proposal_inbox", { input: input ?? {} }),
-  readerSearchSources: (input: { query: string; limit?: number }) =>
+  // deep (Slice 2 T6): the learner pressed Enter; also search by meaning and
+  // rewrite a conceptual question. Typing runs the local keyword search only.
+  readerSearchSources: (input: { query: string; limit?: number; deep?: boolean }) =>
     call<ReaderSourceSearchDto>("reader_search_sources", { input }),
   readerManualAnchor: (input: { annotationId: string; extractionId: string; rawSelection: Record<string, unknown>; renderViewId?: string | null }) =>
     mutatingReader(call<{ annotationId: string; status: string }>("reader_manual_anchor", { input })),

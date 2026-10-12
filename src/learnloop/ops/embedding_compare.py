@@ -786,7 +786,11 @@ def _markdown(report: dict[str, Any]) -> str:
     lines = [f"# `learnloop embeddings compare` — {report['suite']}", "",
              f"Status: {report['status']}; harness {report['harness_version']}.", ""]
     results = report.get("results") or {}
-    if report["suite"] == "b2":
+    render = getattr(SUITES.get(report["suite"]), "markdown_lines", None)
+    if render is not None:
+        # A registered consumer suite renders its own aggregate body.
+        lines += list(render(results))
+    elif report["suite"] == "b2":
         lines += ["| View | Model | Dims | AUC |", "|---|---|---|---|"]
         for entry in results.get("views", {}).values():
             if "auc" in entry:

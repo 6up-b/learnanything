@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import sqlite3
 
-from learnloop.db.table_roles import role_for_table
+from learnloop.db.table_roles import role_for_table, user_table_names
 
 
 def existing_timestamp_fields(
     connection: sqlite3.Connection,
 ) -> dict[str, set[str]]:
-    tables = connection.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table'"
-    ).fetchall()
+    # FTS5 shadow tables (Slice 2 T6) are storage of their registered virtual
+    # table, not tables with their own role.
     existing: dict[str, set[str]] = {}
-    for row in tables:
-        table = str(row[0])
+    for table in sorted(user_table_names(connection)):
         role_for_table(table)
         columns = connection.execute(
             f"PRAGMA table_info({_quote_identifier(table)})"

@@ -45,7 +45,7 @@ import logging
 import re
 from dataclasses import asdict, dataclass
 from datetime import timedelta
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.ai.transport import OperationClient, execute_structured_operation
@@ -66,6 +66,12 @@ from learnloop.vault.models import LoadedVault, PracticeItem
 logger = logging.getLogger(__name__)
 
 QUESTION_CONTEXTS = ("library", "practice", "feedback", "reader")
+
+# Slice 2 T6 injection seams (the adapter supplies learnloop.source_retrieval's).
+# A span provider returns (spans or None to keep the linked spans, a manifest or
+# None); a suggester returns labelled LO suggestions for a reader span.
+SourceSpanProvider = Callable[..., tuple[list[dict[str, Any]] | None, dict[str, Any] | None]]
+LearningObjectSuggester = Callable[..., list[dict[str, Any]]]
 
 # U-033 (§7.6): per-ask reader answer modes. answer_directly is the launch default.
 READER_ANSWER_MODES = ("answer_directly", "help_me_reason", "ask_me_first")
@@ -298,13 +304,22 @@ def ask_question(
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
     question_event_id: str | None = None,
+    source_span_provider: SourceSpanProvider | None = None,
+    learning_object_suggester: LearningObjectSuggester | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """``question_context`` carries the §13.4 generating-process fields
     (preceding_tutor_move, scaffold_level, warning_state, learner_mode,
     question_opportunity, hints_used_before, direct_explanation_request,
     attempt_progress). They are persisted verbatim for later contextual
-    likelihood calibration; unknown keys are ignored."""
+    likelihood calibration; unknown keys are ignored.
+
+    Slice 2 T6, injected by the adapter (this package never imports the
+    retrieval package): ``source_span_provider`` chooses the practice, feedback
+    and library contexts' source spans from the question (None keeps the
+    learning object's linked spans), and ``learning_object_suggester`` records a
+    labelled nearest-LO suggestion for a reader span without provenance. Neither
+    changes the facet -> LO mapping, the candidate LOs or any evidence."""
 
     if context not in QUESTION_CONTEXTS:
         raise TutorQAError(f"Unknown question context {context!r}")
@@ -373,6 +388,14 @@ def ask_question(
         note_id=note_id,
         session_id=session_id,
     )
+    provided_spans: list[dict[str, Any]] | None = None
+    retrieval_manifest: dict[str, Any] | None = None
+    if source_span_provider is not None and context != "reader":
+        provided_spans, retrieval_manifest = _provided_source_spans(
+            vault, repository, source_span_provider, context=context,
+            question_md=question_md, learning_object_ids=_context_learning_objects(item, note),
+            item=item,
+        )
     ai_context = _build_context(
         vault,
         repository,
@@ -389,6 +412,7 @@ def ask_question(
         answer_mode=answer_mode,
         selection_span_ids=selection_span_ids,
         selection_quote_md=selection_quote_md,
+        provided_source_spans=provided_spans,
     )
 
     # Two-phase write: the question row lands BEFORE the provider call. The
@@ -411,6 +435,17 @@ def ask_question(
             ),
             "source_spans": list(ai_context.source_spans),
         }
+        if not source_context["candidate_learning_object_ids"] and learning_object_suggester is not None:
+            suggestions = _suggested_learning_objects(
+                vault, repository, learning_object_suggester,
+                extraction_id=extraction_id, span_id=span_id,
+            )
+            if suggestions:
+                # Labelled suggestions, never candidates: promotion, the learner
+                # field and filing read only candidate_learning_object_ids.
+                source_context["suggested_learning_objects"] = suggestions
+    elif retrieval_manifest is not None:
+        source_context = {"source_retrieval": retrieval_manifest}
     event_id = repository.insert_question_event(
         {
             "id": question_event_id,
@@ -580,6 +615,8 @@ def ask_question(
         "remediation_episode_id": episode,
         "citations": citations,
         "remaining": max(0, limit - used - 1),
+        # Slice 2 T6: labelled suggestions for a reader span without provenance.
+        "suggested_learning_objects": list((source_context or {}).get("suggested_learning_objects") or []),
     }
 
 
@@ -980,6 +1017,7 @@ def _build_context(
     answer_mode: str | None = None,
     selection_span_ids: Sequence[str] = (),
     selection_quote_md: str | None = None,
+    provided_source_spans: list[dict[str, Any]] | None = None,
 ) -> TutorQAContext:
     if context == "reader":
         # The reader_context_manifest_v1 (design A.2): the exact span(s) in view
@@ -1014,7 +1052,10 @@ def _build_context(
         if lo is not None:
             lo_summaries.append({"id": lo.id, "title": lo.title, "summary": lo.summary})
 
-    source_spans = _source_spans(vault, repository, lo_ids)
+    source_spans = (
+        provided_source_spans if provided_source_spans is not None
+        else _source_spans(vault, repository, lo_ids)
+    )
 
     rubric = vault.rubric_for_item(item) if item is not None else None
     expected = None
@@ -1061,6 +1102,57 @@ def _build_context(
         diagnostic_decision=_diagnostic_decision_for(repository, item, context),
         source_spans=source_spans,
     )
+
+
+def _context_learning_objects(item: PracticeItem | None, note: Any) -> list[str]:
+    """The LOs a non-reader question is about: its item's, or its note's related LOs."""
+
+    if item is not None:
+        return [item.learning_object_id]
+    if note is not None:
+        return list(note.related_los)
+    return []
+
+
+def _provided_source_spans(
+    vault: LoadedVault,
+    repository: Repository,
+    provider: SourceSpanProvider,
+    *,
+    context: str,
+    question_md: str,
+    learning_object_ids: list[str],
+    item: PracticeItem | None,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+    """The injected span provider's choice; any failure keeps the linked spans."""
+
+    try:
+        spans, manifest = provider(
+            vault, repository, context=context, question_md=question_md,
+            learning_object_ids=learning_object_ids, item=item,
+        )
+    except Exception as exc:  # noqa: BLE001 - retrieval is context; never lose the question
+        logger.warning("tutor source retrieval failed: %s", type(exc).__name__)
+        return None, {"basis": "lo_provenance", "reason": f"retrieval failed ({type(exc).__name__})"}
+    if spans is not None:
+        spans = [dict(span) for span in spans]
+    return spans, (dict(manifest) if manifest is not None else None)
+
+
+def _suggested_learning_objects(
+    vault: LoadedVault,
+    repository: Repository,
+    suggester: LearningObjectSuggester,
+    *,
+    extraction_id: str,
+    span_id: str,
+) -> list[dict[str, Any]]:
+    try:
+        return [dict(entry) for entry in suggester(vault, repository, extraction_id=extraction_id,
+                                                   span_id=span_id)]
+    except Exception as exc:  # noqa: BLE001 - a suggestion is optional
+        logger.warning("learning-object suggestion failed: %s", type(exc).__name__)
+        return []
 
 
 def _source_spans(

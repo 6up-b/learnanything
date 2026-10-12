@@ -828,7 +828,14 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # lines equal to modelled defaults were left out to keep the 80-line cap
     # (the bare [ingest] header, the embedding profile's max_input_tokens and
     # animation's enabled = true); the effective config is unchanged by that.
-    "mvp-0.9": "a52240e82b673fcd1b0f935840343fa3ae32bf07f0c66fc15e08fb87aa078bfd",
+    # Slice 2 T6 adds [source_retrieval] (modelled defaults only, left out of
+    # the decision-only template) and four unset source_* routes: retrieval is
+    # context for the library search, tutor spans, the Quick Add preview and
+    # labelled LO suggestions. No scoring, scheduling, projection or serving
+    # change, so no successor; enabled = false is its kill switch. All three
+    # snapshots were recomputed for it (each moves only because the effective
+    # config gains the section and routes).
+    "mvp-0.9": "ff05de852f79cb36718d10cb2abfe89eb29fe2ca23c590e91547e94db65bc11b",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -837,7 +844,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
     # Phase 5a's [pf] section and routes move it too (no serving change).
-    "mvp-0.10": "173f457c70d3cb6ee5ffb6a90b94904aad191a17aeace03732c82e02d687e1d3",
+    "mvp-0.10": "2ec471fb8c170bbe07516201d6a1ce688e852c1b55cb4d3aaf334a45d028dc14",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -850,7 +857,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # merge (they move only because the effective config gains the section).
     # All three were recomputed again at the Phase 5a merge for [pf] and the
     # two PF routes (content generation behind pf.generation_enabled, off).
-    "mvp-0.11": "e828bc611890ea06caa425f089d2c0de59641345910ed7ae8af9f118713833b3",
+    "mvp-0.11": "802f1ec175e116040deb73b7ed08968bba2850d7c94777f36bb114c3b1fe34e3",
 }
 
 

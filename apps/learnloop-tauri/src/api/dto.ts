@@ -5910,6 +5910,11 @@ export interface ReaderSourceSearchDto {
   query: string;
   hits: ReaderSourceSearchHitDto[];
   searchedSources: number;
+  /** Slice 2 T6: which evidence ranked the hits, e.g. "keyword",
+   *  "keyword+meaning", "keyword+meaning+rewrite"; absent when retrieval is off
+   *  (plain substring search). */
+  basis?: string;
+  deep?: boolean;
 }
 
 // Durable per-section reading progress (reader-first seeding).
