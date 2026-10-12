@@ -383,7 +383,7 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 | D6 | Privacy | Learner text goes to Perplexity (via OpenRouter) and to the LLM route's provider. The owner accepts text leaving the machine, and checks retention terms before R2 |
 | D7 | Label when a model chose | "LearnLoop's model picked this among N close options" (Decider), or the labelled rationale (LLM) |
 | D8 | Card budget | 16K tokens; revisit after the harness V3 results |
-| D9 | Which LLM for `router_llm` | The configured frontier route (bounded transport). Pin the model id per receipt |
+| D9 | Which LLM for `router_llm` | The configured frontier route; Codex on the owner's subscription is allowed (owner, 2026-10-12). Pin the model id per receipt |
 
 ---
 

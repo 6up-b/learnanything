@@ -38,7 +38,7 @@ Revision 3's other decisions stand: iOS only, no LearnLoop-specific tailnet poli
 - Learner text going to model providers is acceptable. The LearnLoop server itself must be reachable **only inside the tailnet**.
 - Phone capture comes first. It then grows into a small mobile LearnLoop: sessions, practice Q&A with feedback, and tutor Q&A. **No reader in this version.**
 
-**Depends on, and does not decide:** the daily-loop open questions Q0–Q18 listed in chat on 2026-10-11. They are unanswered. Every place this spec leans on one names it (§6.7, §12). The relevant ones are:
+**Depends on, and does not decide:** the daily-loop questions Q0–Q18. They are now decided or defaulted in `docs/specs/daily_loop_frictionless_defaults.md` and `docs/specs/spec_daily_loop_v1.md` (2026-10-12); where this spec leans on one, the daily-loop spec wins. Every place this spec leans on one names it (§6.7, §12). The relevant ones are:
 - Q1 capture semantics;
 - Q2 topic choice at capture;
 - Q3 who writes the answer;
