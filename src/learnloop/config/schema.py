@@ -548,6 +548,11 @@ class TutorQAConfig(BaseModel):
     # is preserved by tests that disable it explicitly; the spine never imports
     # the reader module regardless of this flag.
     reader_enabled: bool = True
+    # Kill switch for the reader's reference-question adoption sweep (daily-loop
+    # follow-up, review F8): a question kept as a reference becomes practice
+    # once an active LO cites its passage. false restores the previous
+    # behaviour (references stay references); adopted cards are never removed.
+    adopt_reference_questions: bool = True
     apply_uncertainty_effect: bool = True
     uncertainty_evidence_mass: float = Field(default=0.15, ge=0.0, le=1.0)
     # Write-path question evidence (decision-time, read-side): substantive

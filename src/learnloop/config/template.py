@@ -360,12 +360,15 @@ default_learner_confidence = 3
 # Tutor Q&A ("ask"): question limits per context (practice: per item+session,
 # feedback: per attempt, library: per note per day) and the read-side
 # uncertainty bump applied for recent unresolved questions about a facet.
+# adopt_reference_questions: a reader question kept as a reference becomes
+# practice once an active LO cites its passage (false: kill switch).
 [tutor_qa]
 max_questions_practice = 3
 max_questions_feedback = 5
 max_questions_library = 8
 max_questions_reader = 8
 reader_enabled = true
+adopt_reference_questions = true
 apply_uncertainty_effect = true
 uncertainty_evidence_mass = 0.15
 
@@ -787,7 +790,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A F1 adds offline field analysis and disabled paid routes; Phase 3
     # (PF-a) adds explicit-command family proposal blocking defaults. No live
     # scoring, scheduling, evidence projection or serving change (no Phase 3b).
-    "mvp-0.9": "ec9f1d5972f1fbff85281911d42a2daf79fa35e25d03aaf133a74bb199924168",
+    # The Slice A 2-3 review adds tutor_qa.adopt_reference_questions = true,
+    # the kill switch over the daily-loop reference-question adoption sweep;
+    # its default keeps the merged behaviour.
+    "mvp-0.9": "a1b6b127c2ea56c90a8f4bf1021602318a6e837e8baae34e3e3147131121e30f",
 }
 
 

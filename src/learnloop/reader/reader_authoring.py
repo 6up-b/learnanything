@@ -196,6 +196,11 @@ def _practice_learning_object(
     return candidates[0] if candidates else None
 
 
+# Versioned provenance of cards the sweep adopts (vs. "reader_author_qa", the
+# write-time adoption), so they can be told apart and audited later.
+REFERENCE_ADOPTION_MECHANISM = "reader_reference_adoption_v1"
+
+
 def reader_practice_item_id(commitment_id: str) -> str:
     """The stable practice-item id of a reader question's card (its commitment's)."""
 
@@ -214,6 +219,7 @@ def _adopt_into_practice(
     source_id: str | None,
     learning_object_id: str | None,
     clock: Clock | None,
+    mechanism: str = "reader_author_qa",
 ) -> dict[str, Any]:
     vault = load_vault(root)
     # Idempotent retry: this commitment already adopted a card with these words.
@@ -266,7 +272,7 @@ def _adopt_into_practice(
     payload = author_item(
         root, repository, learning_object_id=lo_id, prompt=question, expected_answer=answer,
         source_refs=source_refs,
-        event_detail={"mechanism": "reader_author_qa", "commitment_id": commitment_id},
+        event_detail={"mechanism": mechanism, "commitment_id": commitment_id},
         item_id=item_id, clock=clock,
     )
     # The commitment records which card it adopted; a learner-held commitment's
@@ -290,8 +296,14 @@ def adopt_reference_questions(
     passage, the question becomes practice exactly as if the LO had existed when
     it was written -- the learner takes no step. Idempotent: an adopted
     commitment carries its card as a target and is never swept again; a retired
-    commitment is never adopted. Returns one row per newly adopted question."""
+    commitment is never adopted. Returns one row per newly adopted question.
 
+    Behind the kill switch ``tutor_qa.adopt_reference_questions`` (default on):
+    off, nothing is adopted and cards adopted earlier are kept. Each adopted
+    card's provenance event names ``REFERENCE_ADOPTION_MECHANISM``."""
+
+    if not vault.config.tutor_qa.adopt_reference_questions:
+        return []
     with repository.connection() as connection:
         rows = connection.execute(
             """
@@ -328,7 +340,7 @@ def adopt_reference_questions(
         practice = _adopt_into_practice(
             vault.root, repository, commitment_id=row["id"], question=head.intent_text,
             answer=head.interpretation_text, subject_id=subject_id, source_id=None,
-            learning_object_id=None, clock=clock,
+            learning_object_id=None, clock=clock, mechanism=REFERENCE_ADOPTION_MECHANISM,
         )
         if practice["practice_item_id"] is not None:
             adopted.append({"commitment_id": row["id"], **practice})

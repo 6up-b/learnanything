@@ -66,6 +66,7 @@ class SidecarContext:
         # when it was written) becomes practice once one does. Every study-map
         # apply ends in this (re)load, right after state sync, so this is where a
         # newly added or linked LO first becomes visible (daily-loop follow-up).
+        # Kill switch: tutor_qa.adopt_reference_questions (checked by the sweep).
         if _adopt_reference_questions(self.vault, self.repository):
             self.vault = load_vault(self.vault_root)
             sync_vault_state(self.vault, self.repository)
