@@ -83,7 +83,7 @@ Other tracks continue alongside Slice 2 where they don't compete for the critica
 | Step | Who | Output |
 |---|---|---|
 | **1. Implement** | A Claude agent, in its own worktree, on the branch its handoff prompt names | Commits plus `docs/reviews/<stage>.md`, with all §0 checks passing |
-| **2. Adversarial review** | A **Codex** agent (`codex` agent type: ChatGPT-subscription billing, `gpt-6-astra`, `effort: high`, `sandbox: read-only`) in the same worktree | A ranked findings list (prompt below) |
+| **2. Adversarial review** | A **Codex** agent (`codex` agent type: ChatGPT-subscription billing, `gpt-6-astra`, `effort: high`, `sandbox: read-only`) in the same worktree. **Fallback (owner, 2026-10-12):** when Codex fails or its usage runs out, a separate Opus 5.5 agent runs the same review prompt read-only, and later reviews in that stage skip Codex. The stage result records which reviewer ran | A ranked findings list (prompt below) |
 | **3. Fix** | A Claude agent, in the same worktree | For each finding: reproduce it with a failing test, then fix it, or reject it with a reason. Written to `docs/reviews/<stage>-codex-review.md` and committed |
 | **4. Re-review** | Codex, only if a High finding was fixed, over the fix commits only | Confirms or reopens the fix |
 | **5. Gate** | The fixer | Full suite, durability lane, `lint-imports`, frontend checks, DB reference validate, and a shadow rebuild on a `fixtures-local/` copy for any serving change |
