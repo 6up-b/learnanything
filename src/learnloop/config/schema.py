@@ -999,6 +999,10 @@ class AIRoutingConfig(BaseModel):
     # (Settings materializes it as openrouter_video). Empty = the video
     # renderer is unavailable; manim rendering is unaffected.
     video_generation: str | None = None
+    # Project understanding (spec_project_understanding_v1 §7): delayed-probe
+    # authoring and the closed-book check. Empty = follow the grading route,
+    # then ai.active_provider. Probe grading itself uses the grading route.
+    project: str | None = None
 
 
 class AIConfig(BaseModel):
@@ -1282,6 +1286,34 @@ class DiagnosticAugmentationConfig(BaseModel):
     history_limit: int = Field(default=4, ge=0, le=20)
 
 
+class ProjectConfig(BaseModel):
+    """Project understanding M1 (spec_project_understanding_v1): delayed probes.
+
+    Enrollment (`learnloop project enroll`) is the opt-in; nothing here sends
+    code anywhere until a repo is enrolled. ``auto_sweep`` is the kill switch
+    for the automatic capture at app start and at plan build. Capture only
+    runs git; generation (the paid step) runs in `learnloop project sweep` and
+    before `learnloop project probes` serves a due diff that has none.
+    """
+
+    auto_sweep: bool = True
+    # Probes stay sealed (never rendered) until captured_at + this many days (D4).
+    probe_delay_days: int = Field(default=7, ge=0, le=365)
+    probes_per_diff: int = Field(default=2, ge=1, le=6)
+    candidates_per_diff: int = Field(default=6, ge=1, le=12)
+    # Diffs with fewer changed lines in probe-able files are captured but not probed.
+    min_diff_lines: int = Field(default=5, ge=0)
+    # Lines of head-side context sent around each hunk (D7).
+    context_lines: int = Field(default=40, ge=0, le=400)
+    # Upper bound on the estimated tokens of one diff's bundle sent to a model.
+    context_token_budget: int = Field(default=12_000, ge=500)
+    # Agent-trailer commits from this many days before enrollment are captured too.
+    enroll_backfill_days: int = Field(default=7, ge=0, le=365)
+    # Plan-build sweeps run at most this often (app start always sweeps).
+    plan_sweep_min_interval_minutes: int = Field(default=15, ge=0)
+    generate_before_serving: bool = True
+
+
 class EmbeddingConfig(BaseModel):
     enabled: bool = False
     backfill_enabled: bool = False
@@ -1326,6 +1358,7 @@ class LearnLoopConfig(BaseModel):
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
+    project: ProjectConfig = Field(default_factory=ProjectConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

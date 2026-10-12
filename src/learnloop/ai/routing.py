@@ -34,6 +34,7 @@ AITask = Literal[
     "animation",
     "transcription",
     "video_generation",
+    "project",
 ]
 
 # Every structured operation explicitly inherits one configured task route.
@@ -68,6 +69,11 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "vault_epigraphs": "canonical_ingest",
     "media_transcription": "transcription",
     "media_markdown": "canonical_ingest",
+    # Project understanding M1 (spec_project_understanding_v1 §7). Probe
+    # grading deliberately uses the grading route, not the project route.
+    "project_probe_authoring": "project",
+    "project_closed_book_check": "project",
+    "project_probe_grading": "grading",
 }
 
 
@@ -126,6 +132,10 @@ def provider_for_task(
     routed = getattr(config.ai.routing, task, None)
     if task == "canonical_ingest_retry" and not routed:
         return AIProviderSelection(provider_name="")
+    if task == "project" and not routed:
+        # spec_project_understanding_v1 §7: the project route defaults to the
+        # grading provider before the active provider.
+        routed = config.ai.routing.grading
     return AIProviderSelection(provider_name=routed or config.ai.active_provider)
 
 

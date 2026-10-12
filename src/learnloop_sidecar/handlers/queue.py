@@ -8,6 +8,7 @@ from learnloop.substrate.instrument_serving import (
     unservable_refusal,
 )
 from learnloop.content.proposals.proposals import queue_accepted_diagnostic_followups
+from learnloop.projects.capture import auto_sweep
 from learnloop.scheduling.reentry_summary import reentry_session_cap
 from learnloop.scheduling.scheduler import (
     SchedulerSession,
@@ -79,6 +80,15 @@ def get_queue_revision(ctx: SidecarContext, _params: ParamsModel) -> dict[str, A
 @method("get_today_queue", QueueInput)
 def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    # Project understanding M1 (spec §3.2): the plan-build capture sweep. Git
+    # only, throttled, never raises, and a no-op when no repo is enrolled.
+    auto_sweep(
+        vault.root,
+        vault.config,
+        trigger="plan_build",
+        min_interval_minutes=vault.config.project.plan_sweep_min_interval_minutes,
+        busy_timeout_ms=250,
+    )
     # One connection for the whole backfill: it makes two small repository
     # calls per proposal batch, and opening a connection per call dominated
     # the Today refresh.

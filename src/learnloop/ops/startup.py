@@ -9,6 +9,7 @@ from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.config import CODEX_PROVIDER_NAMES
 from learnloop.db.repositories import Repository
 from learnloop.attempts.regrade import DeferredRegradeResult, run_deferred_ai_regrades, run_deferred_regrades
+from learnloop.projects.capture import auto_sweep
 from learnloop.vault.models import LoadedVault
 
 
@@ -52,6 +53,11 @@ def run_startup_maintenance(
     from learnloop.attempts.clarification import expire_clarifications
 
     expired = tuple(expire_clarifications(repository, clock=clock))
+    # Project understanding M1 (spec §3.2): capture new agent-trailer commits in
+    # enrolled repos. Git only, never a model call; it writes only the
+    # standalone project store and returns at once when nothing is enrolled.
+    # It cannot raise, so it can never break startup (gate G1).
+    auto_sweep(vault.root, vault.config, clock=clock, trigger="app_start")
     codex_runtime = runtime_for_provider(vault.root, vault.config, "codex")
     resolved = ready_client_for_task(vault.root, vault.config, "grading")
     provider_name, runtime, client = (
