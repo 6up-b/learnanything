@@ -61,6 +61,8 @@ ROLE_TASKS: dict[str, str] = {
     "valid_alternative": "pf_generator",
     "source": "pf_generator",
     "closed_book": "pf_closed_book",
+    # The independent check that a cited span supports a source-anchored key.
+    "span_support": "pf_reference_verifier",
     "proposer": "pf_proposers",
     "panel": "pf_solver_panel",
     "equivalence": "pf_reference_verifier",

@@ -88,7 +88,8 @@ class PFFake:
                  program: str = LINEAR_PROGRAM, select_everything: bool = False,
                  provider_type: str | None = None, freshness_parent: str | None = None,
                  structure: dict[str, Any] | None = None, always_agree: bool = False,
-                 sympy_check: str | None = None) -> None:
+                 sympy_check: str | None = None,
+                 source_candidates: list[dict[str, Any]] | None = None) -> None:
         self.model = model
         self.proposals = proposals
         self.program = program
@@ -101,6 +102,8 @@ class PFFake:
         # A sycophantic equivalence verifier: agrees with everything, with this check.
         self.always_agree = always_agree
         self.sympy_check = sympy_check
+        # Fixed source-anchored candidates (SourceAnchoredCandidate fields).
+        self.source_candidates = source_candidates
         self.calls: list[Any] = []
         if provider_type is not None:
             self.provider_type = provider_type
@@ -127,25 +130,41 @@ class PFFake:
             return C.ProposalBatch(candidates=[C.ProposedCandidate(**item) for item in items[:count]])
         if model is C.PanelSolve and "question" in context:  # closed-book answer
             generic = "GENERIC" in context["question"]
-            return C.PanelSolve(final_answer="the generic answer" if generic else "UNKNOWN",
+            return C.PanelSolve(final_answer="the directrix" if generic else "UNKNOWN",
                                 answer_kind="text", work_summary="closed book")
         if model is C.SourceAnchoredBatch:
+            if self.source_candidates is not None:
+                return C.SourceAnchoredBatch(candidates=[
+                    C.SourceAnchoredCandidate(**{"cited_ref": "s0", "solution": "Read the cited span.",
+                                                 "source_specific": False, "counterexample": None, **item})
+                    for item in self.source_candidates][:context["count"]])
             text = context["passages"][0]["text"]
-            quote = " ".join(text.split()[:7])
+            quote = " ".join(text.split()[:30])
             items = [
-                ("what", f"According to the source, what defines the focus? (variant {i})", quote, True, None)
-                for i in range(2)
+                ("what", f"According to the source, what defines the focus? (variant {i})", quote, True, None,
+                 answer)
+                for i, answer in enumerate(("the fixed point", "the fixed point used with the directrix"))
             ] + [
-                ("why", "Why did the authors choose a directrix?", "the authors preferred elegance above all", True, None),
-                ("what", "GENERIC: what is a parabola?", quote, True, None),
-                ("method_does_not_apply", "When does the focus construction fail?", quote, True, None),
+                ("why", "Why did the authors choose a directrix?", "the authors preferred elegance above all",
+                 True, None, "elegance"),
+                ("what", "GENERIC: what is a parabola?", quote, True, None, "the directrix"),
+                ("method_does_not_apply", "When does the focus construction fail?", quote, True, None,
+                 "the fixed point"),
             ]
             return C.SourceAnchoredBatch(candidates=[
                 C.SourceAnchoredCandidate(
                     cited_ref="s0", cited_quote=cited, stem=stem, solution="Read the cited span.",
-                    answer="the generic answer" if "GENERIC" in stem else f"answer {index}",
-                    item_kind=kind, source_specific=specific, counterexample=counter)
-                for index, (kind, stem, cited, specific, counter) in enumerate(items)][:context["count"]])
+                    answer=answer, item_kind=kind, source_specific=specific, counterexample=counter)
+                for kind, stem, cited, specific, counter, answer in items][:context["count"]])
+        if model is C.SpanSupportVerdict:
+            # Supported only when every word of the answer is in the cited span.
+            span = set(re.findall(r"\w+", context["cited_span"].casefold()))
+            words = set(re.findall(r"\w+", context["reference_answer"].casefold()))
+            supported = bool(words) and words <= span
+            executable = context["item_kind"] == "what_if" and "EXECUTABLE" in context["question"]
+            return C.SpanSupportVerdict(span_answer=context["cited_span"][:200], answer_supported=supported,
+                                        rationale_supported=supported, executable_consequence=executable,
+                                        rationale="word check")
         if model is C.PanelSolve:
             stem = context["problem"]
             answer = solve_linear(stem) or "UNSOLVABLE"
@@ -283,6 +302,7 @@ def clients(proposer_models=("fake-a", "fake-b"), **overrides: Any) -> dict[str,
     base = PFFake("fake-judge")
     result: dict[str, Any] = {
         "skeleton": base, "program": base, "single_shot": base, "source": base, "closed_book": base,
+        "span_support": base,
         "proposer": [PFFake(model) for model in proposer_models],
         "panel": [PFFake("fake-panel-1"), PFFake("fake-panel-2")],
         "equivalence": base, "structure": base, "freshness": base, "selection": base,

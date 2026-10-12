@@ -30,6 +30,7 @@ PAIRWISE_PROMPT = "pf-blind-pairwise-v1"
 VALID_ALTERNATIVE_PROMPT = "pf-valid-alternative-v1"
 SOURCE_ANCHORED_PROMPT = "pf-source-anchored-v2"
 CLOSED_BOOK_PROMPT = "pf-closed-book-v1"
+SPAN_SUPPORT_PROMPT = "pf-span-support-v1"
 
 AnswerKind = Literal["numeric", "symbolic", "text"]
 _SEED_INSTRUCTION = (
@@ -134,6 +135,20 @@ class SourceAnchoredCandidate(WireModel):
 
 class SourceAnchoredBatch(WireModel):
     candidates: list[SourceAnchoredCandidate] = Field(min_length=1, max_length=30)
+
+
+class SpanSupportVerdict(WireModel):
+    """The reference verifier's check that a cited span supports the item's key.
+
+    ``span_answer`` comes first: what the span itself answers, written from the
+    span alone before the reference is judged.
+    """
+
+    span_answer: str = Field(min_length=1, max_length=2000)
+    answer_supported: bool
+    rationale_supported: bool
+    executable_consequence: bool
+    rationale: str = Field(max_length=1200)
 
 
 class ValidAlternativeTraces(WireModel):
@@ -355,6 +370,24 @@ def source_anchored_prompt(*, passages: list[Mapping[str, Any]], parent: Mapping
     )
 
 
+def span_support_prompt(*, question: str, cited_span: str, reference_answer: str,
+                        explanation: str, item_kind: str) -> str:
+    return _prompt(
+        "Source-span support check", SPAN_SUPPORT_PROMPT,
+        "You verify the reference of a source-anchored practice item against the exact span it "
+        "cites. Use only the cited span, never outside knowledge. First write span_answer: what "
+        "the cited span itself says in answer to the question (NOT_IN_SPAN if it does not answer "
+        "it). Then answer_supported is true only when the span states or directly entails the "
+        "reference answer; it is false when the span is about something else, only mentions the "
+        "topic, or contradicts the answer. rationale_supported is true only when the span supports "
+        "the explanation's claims. executable_consequence is true for a what_if item whose "
+        "consequence could be established by running something (a calculation, code, a short "
+        "training run, a shape check) rather than read from the source, else false.",
+        {"question": question, "cited_span": cited_span, "reference_answer": reference_answer,
+         "explanation": explanation, "item_kind": item_kind},
+    )
+
+
 def closed_book_prompt(*, stem: str) -> str:
     return _prompt(
         "Closed-book answer", CLOSED_BOOK_PROMPT,
@@ -380,7 +413,8 @@ __all__ = [
     "EQUIVALENCE_PROMPT", "FRESHNESS_PROMPT", "GENERATOR_PROGRAM_PROMPT", "PAIRWISE_PROMPT",
     "PANEL_SOLVE_PROMPT", "PROPOSER_PROMPT", "SELECTION_PROMPT", "SINGLE_SHOT_PROMPT",
     "CLOSED_BOOK_PROMPT", "SKELETON_PROMPT", "SOURCE_ANCHORED_PROMPT", "STRUCTURE_PROMPT",
-    "VALID_ALTERNATIVE_PROMPT", "SourceAnchoredBatch", "SourceAnchoredCandidate",
+    "VALID_ALTERNATIVE_PROMPT", "SPAN_SUPPORT_PROMPT", "SourceAnchoredBatch", "SourceAnchoredCandidate",
+    "SpanSupportVerdict", "span_support_prompt",
     "EquivalenceResult", "FreshnessComparison", "FreshnessVerdict", "GeneratorProgramResult",
     "PairwiseVerdict", "PanelSolve", "ProposalBatch", "ProposedCandidate", "SelectionVerdict",
     "SkeletonResult", "StructureVerdict", "TraceVariant", "ValidAlternativeTraces",

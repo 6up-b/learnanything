@@ -23,11 +23,14 @@ Paths:
 * ``source_anchored``: papers, textbooks, repos. Answer first from a cited
   span of the LO's teaching sources; the reference is verified only when the
   quoted span appears verbatim in that source (and a "method does not apply"
-  item carries its counterexample). Why-items without a verified span are
-  relabelled ``inferred`` and never published (provenance filter); items whose
-  target is source-specific are rejected when a closed-book model answers them
-  correctly (closed-book filter). No figure items exist yet (figure-only is not
-  applicable) and executable what-if perturbations are not built.
+  item carries its counterexample) and the reference verifier, reading only
+  that span, confirms it states the answer and supports the explanation.
+  Why-items without such a span are relabelled ``inferred`` and never
+  published (provenance filter); items whose target is source-specific are
+  rejected when a closed-book model answers them correctly (closed-book
+  filter). No figure items exist yet (figure-only is not applicable).
+  Executable what-if perturbations are not built, so a what-if whose
+  consequence is executable stays unverified.
 * ``single_shot``: the pilot baseline arm. One call, measured by the same
   verification and filters, never published.
 
@@ -103,9 +106,11 @@ NOT_APPLICABLE_FILTERS = ("closed_book", "figure_only", "provenance")
 OUTPUT_TOKENS = {
     "skeleton": 1200, "program": 6000, "proposer": 8000, "single_shot": 8000, "panel": 1500,
     "equivalence": 2500, "structure": 800, "freshness": 2500, "selection": 1500,
-    "source": 8000, "closed_book": 1500,
+    "source": 8000, "closed_book": 1500, "span_support": 1200,
 }
 MIN_QUOTE_WORDS = 4
+PLAN_ROLES = ("skeleton", "program", "single_shot", "source", "proposer", "panel", "equivalence",
+              "span_support", "closed_book", "structure", "freshness", "selection")
 LEASE_SECONDS = 3600
 DIFFICULTY_BOUNDS = (0.02, 0.98)
 
@@ -753,40 +758,83 @@ class _FamilyRun:
 
         return len(quote.split()) >= MIN_QUOTE_WORDS and normalized(quote) in normalized(text)
 
+    def _span_support(self, candidate: Candidate) -> dict[str, Any]:
+        """The reference verifier's independent check that the cited span supports the key."""
+        payload = candidate.payload
+        entry = self.ctx.role("span_support")[0]
+        call = self._call(
+            entry, attribute=[candidate], prompt=C.span_support_prompt(
+                question=payload["stem"], cited_span=payload["cited_quote"], reference_answer=payload["answer"],
+                explanation=payload["solution"], item_kind=payload["item_kind"]),
+            prompt_version=C.SPAN_SUPPORT_PROMPT, result_model=C.SpanSupportVerdict,
+            output_tokens=OUTPUT_TOKENS["span_support"],
+        )
+        result = call.result
+        executable = payload["item_kind"] == "what_if" and result.executable_consequence
+        supported = result.answer_supported and result.rationale_supported and not executable
+        self.ctx.caller.ledger(
+            task="reference_verified", left_kind="pf_candidate", left_id=candidate.id,
+            judge="llm", judge_model=call.model, prompt_version=C.SPAN_SUPPORT_PROMPT,
+            input_hash=call.input_hash, verdict="pass" if supported else "fail",
+            rationale={"check": "span_supports_answer", "answer_supported": result.answer_supported,
+                       "rationale_supported": result.rationale_supported,
+                       "executable_consequence": result.executable_consequence,
+                       "item_kind": payload["item_kind"]},
+        )
+        return {"supported": supported, "answer_supported": result.answer_supported,
+                "rationale_supported": result.rationale_supported,
+                # An executable what-if needs the execution check, which is not
+                # built: its reference stays unverified (§5.3).
+                "execution_check_required": executable, "model": call.model}
+
     def _verify_source_anchored(self) -> None:
-        """Quote-verified span (exact key), provenance relabel, then the closed-book filter."""
+        """Quote-verified span (exact key) that supports the answer, provenance, then closed-book.
+
+        A reference is verified only when the quoted span appears verbatim in
+        its passage (and a "method does not apply" item carries its
+        counterexample) AND the reference verifier, reading only that span,
+        confirms that it states the answer and supports the explanation. A
+        verbatim but unrelated or contradicting quote never verifies a key.
+        """
         passages = getattr(self, "passages", {})
         for candidate in [c for c in self.candidates if c.alive]:
             payload = candidate.payload
             passage = passages.get(payload["cited_ref"])
             quoted = passage is not None and self._quote_in(payload["cited_quote"], passage["text"])
             complete = payload["item_kind"] != "method_does_not_apply" or bool((payload.get("counterexample") or "").strip())
-            verified = quoted and complete
+            span_ok = quoted and complete
             self.ctx.caller.ledger(
                 task="reference_verified", left_kind="pf_candidate", left_id=candidate.id,
                 judge="exact_key", prompt_version="pf-quote-span-v1", input_hash=candidate.content_hash,
-                verdict="pass" if verified else "fail",
+                verdict="pass" if span_ok else "fail",
                 rationale={"check": "quote_verified_span", "quote_found": quoted,
                            "counterexample_required": payload["item_kind"] == "method_does_not_apply",
                            "item_kind": payload["item_kind"]},
             )
+            support = self._span_support(candidate) if span_ok else None
+            verified = span_ok and bool(support and support["supported"])
             if not verified:
-                if payload["item_kind"] == "why" and not quoted:
-                    # Uncited rationale is a plausible interpretation, never the key.
+                detail = {"quote_found": quoted, "complete": complete}
+                if support is not None:
+                    detail.update({key: support[key] for key in (
+                        "answer_supported", "rationale_supported", "execution_check_required")})
+                if payload["item_kind"] == "why":
+                    # Rationale the cited span does not state is a plausible
+                    # interpretation, never the key.
                     payload["provenance_label"] = "inferred"
                     self.ctx.caller.ledger(
                         task="provenance", left_kind="pf_candidate", left_id=candidate.id,
                         judge="verifier", prompt_version="pf-quote-span-v1",
                         input_hash=candidate.content_hash, verdict="inferred",
-                        rationale={"reason": "no verified span"},
+                        rationale={"reason": "no verified span" if not quoted else "cited span does not state it"},
                     )
-                    self._reject(candidate, "provenance", "relabelled_inferred_unverified")
+                    self._reject(candidate, "provenance", {"relabelled": "inferred_unverified", **detail})
                 else:
-                    self._reject(candidate, "quote_verified_span", {"quote_found": quoted, "complete": complete})
+                    self._reject(candidate, "quote_verified_span", detail)
                 continue
             candidate.verification = "verified"
-            candidate.verification_check = "quote_verified_span"
-            self._pass(candidate, "quote_verified_span")
+            candidate.verification_check = "quote_verified_span+support"
+            self._pass(candidate, "quote_verified_span", {"support_model": support["model"]})
             self._pass(candidate, "provenance", "cited")
             if not payload.get("source_specific"):
                 self._pass(candidate, "closed_book", "not_source_specific")
@@ -1399,11 +1447,15 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
                                            parent=context, family=_family_context(family), count=n,
                                            generation_seed="0" * 16),
         "closed_book": C.closed_book_prompt(stem=stem_proxy),
+        "span_support": C.span_support_prompt(question=stem_proxy, cited_span=stem_proxy * 4,
+                                              reference_answer=stem_proxy, explanation=stem_proxy * 2,
+                                              item_kind="what"),
     }
     models = {"skeleton": C.SkeletonResult, "program": C.GeneratorProgramResult, "proposer": C.ProposalBatch,
               "panel": C.PanelSolve, "equivalence": C.EquivalenceResult, "structure": C.StructureVerdict,
               "freshness": C.FreshnessVerdict, "selection": C.SelectionVerdict,
-              "source": C.SourceAnchoredBatch, "closed_book": C.PanelSolve}
+              "source": C.SourceAnchoredBatch, "closed_book": C.PanelSolve,
+              "span_support": C.SpanSupportVerdict}
     calls = {"skeleton": 1, "panel": (n + 1) * panel * k, "structure": 1 if path == "generator" else n,
              "freshness": n}
     if path == "generator":
@@ -1411,7 +1463,7 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
         calls["equivalence"] = 1
     elif path == "source_anchored":
         calls.pop("panel")
-        calls.update(source=1, closed_book=n, equivalence=n)
+        calls.update(source=1, span_support=n, closed_book=n, equivalence=n)
     else:
         role = "single_shot" if path == "single_shot" else "proposer"
         calls[role] = 1 if path == "single_shot" else len(roles["proposer"])
@@ -1526,7 +1578,8 @@ def generate_practice(
             "prompt_versions": sorted({C.SKELETON_PROMPT, C.GENERATOR_PROGRAM_PROMPT, C.PROPOSER_PROMPT,
                                        C.SINGLE_SHOT_PROMPT, C.PANEL_SOLVE_PROMPT, C.EQUIVALENCE_PROMPT,
                                        C.STRUCTURE_PROMPT, C.FRESHNESS_PROMPT, C.SELECTION_PROMPT,
-                                       C.SOURCE_ANCHORED_PROMPT, C.CLOSED_BOOK_PROMPT}),
+                                       C.SOURCE_ANCHORED_PROMPT, C.CLOSED_BOOK_PROMPT,
+                                       C.SPAN_SUPPORT_PROMPT}),
             "gate_policy_version": GATE_POLICY_VERSION, "diversity_basis": DIVERSITY_BASIS,
             "panel_solves_per_model": vault.config.pf.panel_solves_per_model,
             "min_agreeing_solves": vault.config.pf.min_agreeing_solves,
@@ -1562,18 +1615,16 @@ def generate_practice(
     if "single_shot" in paths.values():
         used_roles |= {"single_shot", "equivalence"}
     if "source_anchored" in paths.values():
-        used_roles |= {"source", "closed_book", "equivalence"}
+        used_roles |= {"source", "span_support", "closed_book", "equivalence"}
     try:
         if dry_run:
             roles = {role: (resolve_role_clients(vault, role, injected=clients[role])
                             if clients and role in clients
                             else planned_role_clients(vault, role, tier_routes=tier_routes))
-                     for role in ("skeleton", "program", "single_shot", "source", "proposer", "panel",
-                                  "equivalence", "closed_book", "structure", "freshness", "selection")}
+                     for role in PLAN_ROLES}
         else:
             roles = {}
-            for role in ("skeleton", "program", "single_shot", "source", "proposer", "panel", "equivalence",
-                         "closed_book", "structure", "freshness", "selection"):
+            for role in PLAN_ROLES:
                 if role in used_roles:
                     roles[role] = resolve_role_clients(vault, role, injected=(clients or {}).get(role),
                                                        tier_routes=tier_routes)

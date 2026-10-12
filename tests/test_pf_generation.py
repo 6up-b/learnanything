@@ -461,7 +461,7 @@ def test_source_anchored_items_need_a_quote_verified_span_and_must_not_be_closed
     assert by_stem["GENERIC: what is a parabola?"]["rejection_filter"] == "closed_book"
     assert by_stem["When does the focus construction fail?"]["rejection_filter"] == "quote_verified_span"
     verified = [row for row in by_stem.values() if row["verification"] == "verified"]
-    assert {row["verification_check"] for row in verified} == {"quote_verified_span"}
+    assert {row["verification_check"] for row in verified} == {"quote_verified_span+support"}
     published = load_vault(paths.root)
     for item_id in report["published_item_ids"]:
         item = published.practice_items[item_id]
@@ -748,3 +748,51 @@ def test_a_new_round_asks_the_proposers_again_with_its_own_generation_seed(pf):
     resumed = run(paths, round="r2", fakes=again)
     assert resumed["families"][0]["status"].startswith("already_")
     assert all_calls(again) == 0
+
+
+# -- Codex review F2: a quote must support the answer, not merely appear in the source -----
+
+
+def _with_parent_quote(paths, quote):
+    from learnloop.vault.writer import upsert_practice_item
+
+    parent = load_vault(paths.root).practice_items["pi_linear_001"].model_dump(mode="json")
+    parent["provenance"] = {"origin": "human", "source_refs": [
+        {"ref_type": "manual_context", "ref_id": "ctx1", "quote": quote}]}
+    upsert_practice_item(paths.root, parent)
+
+
+@needs_bwrap
+def test_an_unrelated_or_contradicted_quote_never_verifies_a_reference(pf):
+    _, repository, paths = pf
+    _with_parent_quote(paths, "We chose A for accuracy over the alternatives.")
+    sentence = "We chose A for accuracy"
+    writer = PFFake("fake-judge", source_candidates=[
+        {"stem": "What did the authors optimise when choosing A?", "cited_quote": sentence,
+         "answer": "For speed", "item_kind": "what"},
+        {"stem": "Why did the authors choose A?", "cited_quote": sentence, "answer": "For speed",
+         "item_kind": "why"},
+        {"stem": "EXECUTABLE: what if A ran on twice the data?", "cited_quote": sentence,
+         "answer": "accuracy", "item_kind": "what_if"},
+        {"stem": "What did the authors optimise with A?", "cited_quote": sentence,
+         "answer": "accuracy", "item_kind": "what"},
+    ])
+    report = run(paths, path="source_anchored", fakes=clients(source=writer), count=4, select=4)
+    assert report["status"] == "complete", report
+    by_stem = {json.loads(row["payload_json"])["stem"]: row for row in rows(repository)}
+    contradicted = by_stem["What did the authors optimise when choosing A?"]
+    assert contradicted["verification"] == "unverified"
+    assert contradicted["rejection_filter"] == "quote_verified_span"
+    assert json.loads(contradicted["filters_json"])["quote_verified_span"]["detail"]["answer_supported"] is False
+    why = by_stem["Why did the authors choose A?"]
+    assert why["verification"] == "unverified" and why["rejection_filter"] == "provenance"
+    executable = by_stem["EXECUTABLE: what if A ran on twice the data?"]
+    assert executable["verification"] == "unverified"
+    supported = by_stem["What did the authors optimise with A?"]
+    assert supported["verification"] == "verified" and supported["verification_check"] == "quote_verified_span+support"
+    published = load_vault(paths.root)
+    assert all("For speed" not in published.practice_items[item_id].expected_answer
+               for item_id in report["published_item_ids"])
+    support = [row for row in ledger(repository, "reference_verified") if row["judge"] == "llm"]
+    assert {row["left_id"] for row in support} == {contradicted["id"], executable["id"], supported["id"], why["id"]}
+    assert all(row["judge_model"] and row["prompt_version"] == C.SPAN_SUPPORT_PROMPT for row in support)
