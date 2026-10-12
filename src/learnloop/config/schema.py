@@ -1487,10 +1487,13 @@ class FacetIdentityConfig(BaseModel):
     # within rank 4) and registry nominations per candidate (T5, top-4).
     shortlist_top_k: int = Field(default=4, ge=1, le=20)
     attach_top_k: int = Field(default=4, ge=1, le=20)
-    # Owner option c (2026-10-12): judge decisions apply live with undo, also
-    # on facets whose identity is locked (knowledge model §3.4). False keeps
-    # the strict lock policy: a locked facet is reported and never merged.
-    merge_locked_facets: bool = True
+    # Knowledge model §3.4/§12.1 is the single lock policy: a facet whose
+    # identity is locked (independent surface groups, lock mass, an active
+    # goal's certified scope) is never merged by the judge; the dedupe result
+    # lists such a set as a proposal, and attach only adds an alias to a locked
+    # facet (no contract growth). True is the owner's override (open question
+    # 1): judge decisions apply live with undo on locked facets too.
+    merge_locked_facets: bool = False
     # Per ingest run (and the dedupe command's defaults). Codex runs on the
     # subscription: tokens and dollars are estimated only, never enforced.
     max_calls: int = Field(default=24, ge=0)

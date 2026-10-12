@@ -886,7 +886,7 @@ def _normalize(
 
     # Facet identity: a retired candidate's references point at its survivor
     # (as D2's alias does) and its id becomes the survivor's alias.
-    attach_unions: dict[str, list[tuple[dict[str, Any], str, str | None]]] = {}
+    attach_unions: dict[str, list[tuple[dict[str, Any], Any]]] = {}
     alias_canonical: dict[str, str] = {}
     retired_targets: dict[str, tuple[str, str, Any, dict[str, Any]]] = {}
     for fkey, candidate in retired_candidates.items():
@@ -898,9 +898,7 @@ def _normalize(
                 continue
         else:
             target = str(retirement.survivor_facet)
-            attach_unions.setdefault(target, []).append(
-                (candidate["payload"], retirement.action, retirement.absorb_as)
-            )
+            attach_unions.setdefault(target, []).append((candidate["payload"], retirement))
         if target in vault.evidence_facets:
             # A registered survivor gains the alias through its update row, so
             # whatever references the alias depends on that row.
@@ -925,6 +923,9 @@ def _normalize(
     # Register the aliases. An in-batch target is edited in place (its create row
     # holds this very dict); an already-registered target earns an `update` row.
     registered_before: dict[str, dict[str, Any]] = {}
+    # Why an attach kept a registered facet's contract as it was (review F2).
+    contract_notes: dict[str, list[str]] = {}
+    merge_locked = bool(vault.config.facet_identity.merge_locked_facets)
     for target in sorted(set(alias_additions) | set(attach_unions)):
         new_aliases = [
             alias
@@ -954,17 +955,29 @@ def _normalize(
         if target in attach_unions:
             # Facet identity attach: a registered facet's contract only grows.
             # A merge is the alias alone; an absorb also adds the special case's
-            # claim as an example (or precondition). Claim, repairs, signatures
+            # claim as a worked example. Claim, conditions, repairs, signatures
             # and status stay untouched (§10.2 additivity, verified by the gate).
+            # A precondition narrows the contract, and a locked facet's
+            # contract does not change without the owner's override (knowledge
+            # model §3.4): both stay an alias only, and the action says so.
             registered_before[target] = registered_facet.model_dump(mode="json")
             unioned = registered_facet.model_dump(mode="json")
-            for attached_payload, attach_action, attach_absorb_as in attach_unions[target]:
-                if attach_action != "absorb":
+            for attached_payload, attach_retirement in attach_unions[target]:
+                if attach_retirement.action != "absorb":
                     continue
-                field_name = "preconditions" if attach_absorb_as == "precondition" else "positive_examples"
                 claim = str(attached_payload.get("claim") or "").strip()
-                if claim and claim not in (unioned.get(field_name) or []):
-                    unioned[field_name] = [*(unioned.get(field_name) or []), claim]
+                if attach_retirement.absorb_as == "precondition":
+                    contract_notes.setdefault(target, []).append(
+                        "kept as an alias only: a precondition would change the registered facet's contract"
+                    )
+                    continue
+                if attach_retirement.survivor_lock_reasons and not merge_locked:
+                    contract_notes.setdefault(target, []).append(
+                        "kept as an alias only: the facet's identity is locked, so its examples stay as they are"
+                    )
+                    continue
+                if claim and claim not in (unioned.get("positive_examples") or []):
+                    unioned["positive_examples"] = [*(unioned.get("positive_examples") or []), claim]
             for field_name in ATTACH_GROWABLE_FIELDS:
                 if unioned.get(field_name) != registered_before[target].get(field_name):
                     alias_payload[field_name] = unioned[field_name]
@@ -999,6 +1012,7 @@ def _normalize(
     facet_identity_actions = _facet_identity_actions(
         retired_targets, pre_union=pre_union, minted_payload_by_id=minted_payload_by_id,
         registered_before=registered_before, rows=rows, vault=vault, aliased=set(alias_canonical),
+        contract_notes=contract_notes,
     )
 
     # learning objects
@@ -1516,6 +1530,7 @@ def _facet_identity_actions(
     rows: Sequence[Mapping[str, Any]],
     vault: LoadedVault,
     aliased: set[str] | None = None,
+    contract_notes: Mapping[str, Sequence[str]] | None = None,
 ) -> list[dict[str, Any]]:
     """One undoable action per judged set the proposal carries (facet identity).
 
@@ -1543,6 +1558,12 @@ def _facet_identity_actions(
             "group_id": group_id, "absorb_as": first.absorb_as,
             "rationale": first.rationale, "retired_clients": [fkey for fkey, *_rest in members],
         }
+        if scope == "attach":
+            if first.survivor_lock_reasons:
+                detail["lock_reasons"] = {target: list(first.survivor_lock_reasons)}
+            notes = list(dict.fromkeys((contract_notes or {}).get(target, [])))
+            if notes:
+                detail["contract_note"] = "; ".join(notes)
         after_entry: dict[str, Any] | None = None
         before_entry: dict[str, Any] | None = None
         if scope == "in_run":

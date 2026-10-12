@@ -343,6 +343,8 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
         "retired": [{"id": facet_id, "claim": claim(facet_id)} for facet_id in record.get("retired_facet_ids") or []],
         "rationale": detail.get("rationale") or "",
         "locked": bool(detail.get("lock_reasons")),
+        # Why an attach left a registered facet's contract as it was.
+        "contract_note": detail.get("contract_note"),
         "judge": record["judge"],
         "judge_model": record.get("judge_model"),
         "status": status,

@@ -779,8 +779,10 @@ def _gate_append_vocabulary(proposal: GateProposal, ctx: GateContext) -> list[Ga
 
 
 #: Facet fields a facet-identity absorb may grow on a registered facet (an
-#: append-legal, provably additive update: entries are only appended).
-ATTACH_GROWABLE_FIELDS = ("positive_examples", "negative_examples", "preconditions")
+#: append-legal, provably additive update: entries are only appended). Only
+#: worked examples: a precondition narrows the facet's contract, so it is never
+#: added through this alias-only path (review F2).
+ATTACH_GROWABLE_FIELDS = ("positive_examples",)
 
 
 def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
@@ -815,8 +817,8 @@ def _is_alias_only_facet_append(item: GateItem, ctx: GateContext) -> bool:
         if existing_facet is not None
         else set()
     )
-    # Facet identity's absorb (handoff §4) may also grow the examples or
-    # preconditions; each must keep every current entry (growth only).
+    # Facet identity's absorb (handoff §4) may also grow the worked examples;
+    # every current entry must stay, in order (growth only).
     for field_name in ATTACH_GROWABLE_FIELDS:
         if field_name not in item.payload:
             continue

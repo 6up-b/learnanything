@@ -265,6 +265,9 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
 
     root, repo = _bootstrap_and_add(tmp_path)
+    # The bootstrap's probe episodes lock the registered facet; growing its
+    # examples is the owner's override (review F2; the default adds the alias only).
+    append_config_toml(root, "[facet_identity]\nmerge_locked_facets = true")
     restated = "Symmetry of a real square matrix means it coincides with its transpose."
 
     def builder(context, _n):
@@ -304,3 +307,86 @@ def test_append_attaches_a_new_facet_to_the_registered_one_it_restates(tmp_path)
     assert vault.evidence_facets["facet_symmetry_restated"].claim == restated
     assert "facet_symmetry_restated" not in vault.evidence_facets["facet_symmetry_definition"].aliases
     assert restated not in vault.evidence_facets["facet_symmetry_definition"].positive_examples
+
+
+# --- review F2: attach never grows a locked contract, never adds a precondition -------
+
+
+def _attach_absorb(tmp_path, *, absorb_as, monkeypatch=None):
+    from learnloop.content.synthesis.ai_contracts import AppendReconciliation, SynthSpanRef
+    from learnloop.content.synthesis.source_append import append_source
+
+    from tests.test_source_append import FakeAppendClient, _bootstrap_and_add, _first_new_span
+
+    root, repo = _bootstrap_and_add(tmp_path)
+    if monkeypatch is not None:
+        # The registered facet's identity is locked (as by two independent
+        # surface groups); can_apply is what the plan consults.
+        import learnloop.content.facet_identity.actions as actions_module
+
+        def locked(vault, repository, facet_ids):
+            return {facet_id: [{"source": "attempts", "entity_type": "facet", "entity_id": facet_id,
+                                "detail": "two independent surface groups"}] for facet_id in facet_ids}
+
+        monkeypatch.setattr(actions_module, "lock_reasons", locked)
+    restated = "Symmetry of a real square matrix means it coincides with its transpose."
+
+    def builder(context, _n):
+        ext, unit, span = _first_new_span(context)
+        ref = SynthSpanRef(extraction_id=ext, unit_id=unit, span_id=span, relation="primary", role="primary_textbook")
+        return AppendReconciliation(
+            summary="restated definition",
+            facets=[SynthFacet(client_item_id="f_new", id="facet_symmetry_restated",
+                               concept_id="concept_symmetric_matrix", kind="definition", claim=restated,
+                               provenance=[ref])],
+        )
+
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, restated]], action="absorb")
+    if absorb_as == "precondition":
+        original = judge.complete
+
+        def as_precondition(request):
+            verdict = original(request)
+            for decided in verdict.sets:
+                decided.absorb_as = "precondition"
+            return verdict
+
+        judge.complete = as_precondition  # type: ignore[method-assign]
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=builder), new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, facet_identity_client=judge)
+    return root, repo, result, restated
+
+
+def test_an_absorbed_precondition_never_grows_a_registered_facet(tmp_path):
+    root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="precondition")
+    (action,) = result.facet_identity["actions"]
+    assert action["action"] == "absorb" and "precondition" in (action["contract_note"] or "")
+    facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases"}  # alias only: append-legal
+    assert "facet_symmetry_restated" in facet_rows[0]["payload"]["aliases"]
+
+
+def test_an_absorb_into_a_locked_facet_adds_only_the_alias(tmp_path, monkeypatch):
+    root, repo, result, restated = _attach_absorb(tmp_path, absorb_as="example", monkeypatch=monkeypatch)
+    (action,) = result.facet_identity["actions"]
+    assert action["locked"] and "locked" in (action["contract_note"] or "")
+    facet_rows = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+    assert set(facet_rows[0]["payload"]) == {"id", "aliases"}
+
+
+def test_the_alias_only_append_gate_refuses_a_precondition_growth():
+    from types import SimpleNamespace
+
+    from learnloop.content.synthesis.synthesis_gates import GateItem, _is_alias_only_facet_append
+
+    facet = SimpleNamespace(aliases=[], positive_examples=["e1"], preconditions=["p1"])
+    ctx = SimpleNamespace(vault=SimpleNamespace(evidence_facets={"f": facet}))
+
+    def item(payload):
+        return GateItem(client_item_id="c", item_type="facet", operation="update", entity_id="f",
+                        payload={"id": "f", "aliases": ["g"], **payload})
+
+    assert _is_alias_only_facet_append(item({}), ctx)
+    assert _is_alias_only_facet_append(item({"positive_examples": ["e1", "e2"]}), ctx)
+    assert not _is_alias_only_facet_append(item({"preconditions": ["p1", "p2"]}), ctx)
+    assert not _is_alias_only_facet_append(item({"positive_examples": ["e2"]}), ctx)

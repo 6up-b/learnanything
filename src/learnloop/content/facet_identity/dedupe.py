@@ -158,6 +158,11 @@ def run_dedupe(
         "locked_facets": sorted(locked),
         "lock_policy": "merge_locked_facets" if settings.merge_locked_facets else "refuse_locked",
         "actions": [],
+        # Sets the judge decided that touch a locked facet, under the strict
+        # lock policy (knowledge model §3.4): proposed to the owner, never
+        # applied. A rerun with merge_locked_facets = true applies them from the
+        # reused verdicts (no new call).
+        "locked_proposals": [],
         "refused": [],
     }
     budget = SpendBudget(caps, cancelled=cancelled, subscription=route.subscription)
@@ -204,6 +209,8 @@ def run_dedupe(
                     "lock_reasons": result.get("lock_reasons") or {},
                     "undo": f"learnloop facets undo {result['action_id']}",
                 })
+            elif result.get("reason") == "identity_locked":
+                report["locked_proposals"].append(_locked_proposal(vault, decided, outcome, result))
             else:
                 report["refused"].append({"survivor": decided.survivor, "retired": decided.retired, **result})
     report["charged"] = judge.charged()
@@ -217,6 +224,29 @@ def run_dedupe(
     else:
         report["status"] = "partial"
     return report
+
+
+def _locked_proposal(vault: LoadedVault, decided: Any, outcome: Any, result: dict[str, Any]) -> dict[str, Any]:
+    def facet(facet_id: str) -> dict[str, str]:
+        entry = vault.evidence_facets.get(facet_id)
+        return {"id": facet_id, "claim": str(getattr(entry, "claim", "") or facet_id)}
+
+    return {
+        "status": "proposed_locked",
+        "action": decided.action,
+        "absorb_as": decided.absorb_as,
+        "survivor": facet(decided.survivor),
+        "retired": [facet(facet_id) for facet_id in decided.retired],
+        "rationale": decided.rationale,
+        "lock_reasons": result.get("lock_reasons") or {},
+        "judge": outcome.judge,
+        "judge_model": outcome.judge_model,
+        "judgment_ids": outcome.judgments_for([decided.survivor, *decided.retired]),
+        "apply": (
+            "not applied: a locked facet's identity changes only with the owner's override "
+            "([facet_identity] merge_locked_facets = true, then rerun dedupe; judged groups are reused)"
+        ),
+    }
 
 
 __all__ = ["facets_in_scope", "plan_dedupe", "run_dedupe"]

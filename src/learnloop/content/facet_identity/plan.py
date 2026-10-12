@@ -65,6 +65,9 @@ class Retirement:
     judge: str = "llm"
     judge_model: str | None = None
     prompt_version: str = ""
+    #: attach: why the registered survivor's identity is locked (``can_apply``,
+    #: knowledge model §3.4), so the alias never grows a locked contract.
+    survivor_lock_reasons: list[dict[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -294,6 +297,7 @@ def build_plan(
         outcomes = [*outcomes, *attach_outcomes]
 
     _resolve_chains(plan)
+    _record_attach_locks(plan, vault, repository)
     plan.charged = judge.charged()
     statuses = {outcome.status for outcome in outcomes}
     if not outcomes:
@@ -395,6 +399,30 @@ def _attach_requests(
         if any(not m.existing for m in members) and any(m.existing for m in members):
             requests.append(build_request(members, mode="attach"))
     return requests
+
+
+def _record_attach_locks(plan: FacetIdentityPlan, vault: Any, repository: Any) -> None:
+    """``can_apply`` on every registered facet a candidate attaches to (review F2).
+
+    An alias is a sanctioned rename on any facet; growing a locked facet's
+    contract (an absorbed example) is not, unless the owner set
+    ``merge_locked_facets``. ``_normalize`` reads these reasons.
+    """
+
+    targets = {str(r.survivor_facet) for r in plan.retirements.values() if r.scope == "attach" and r.survivor_facet}
+    if not targets:
+        return
+    from learnloop.content.facet_identity.actions import lock_reasons
+
+    try:
+        locks = lock_reasons(vault, repository, targets)
+    except Exception as exc:  # noqa: BLE001 - an unknown lock state counts as locked
+        plan.notes.append(f"attach_lock_check_failed:{type(exc).__name__}")
+        locks = {facet_id: [{"source": "lock_check_failed", "entity_type": "facet", "entity_id": facet_id,
+                             "detail": type(exc).__name__}] for facet_id in targets}
+    for retirement in plan.retirements.values():
+        if retirement.scope == "attach":
+            retirement.survivor_lock_reasons = list(locks.get(str(retirement.survivor_facet), []))
 
 
 def _resolve_chains(plan: FacetIdentityPlan) -> None:

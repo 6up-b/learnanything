@@ -826,8 +826,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # code-default codex_luna and openrouter_haiku profiles. It changes which
     # facets ingest mints (a judge merges duplicates, each with an undo), not
     # scoring, scheduling, projection or serving; enabled = false is its kill
-    # switch.
-    "mvp-0.9": "8dde2718ceb89e45bb8f1a1088afef8bc88b187524d8bf66507a068b577a736b",
+    # switch. Its review (F2) defaults merge_locked_facets to false: the
+    # knowledge model's single lock policy (§3.4) until the owner overrides it.
+    "mvp-0.9": "684d541108fb834040c82a19c1c04b47682f5d84daa41cd59f546be7787818a3",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -836,7 +837,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
     # Facet identity's [facet_identity], route and profiles move it too.
-    "mvp-0.10": "bef656970b57210caa43198d87eb450be88ae5cc97bc4627fe207d05ef02a77b",
+    "mvp-0.10": "4adecebecebc3f1b38480a0ff78a7cd25a2238d2ce497e70e2c31eaf6816c0c4",
 }
 
 
