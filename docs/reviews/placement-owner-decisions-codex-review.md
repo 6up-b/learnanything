@@ -234,3 +234,186 @@ only these review records.
    ignore it?
 6. **Phase 6 open question 4** (the quick check on the import result) is
    still open.
+
+## Re-review (2026-10-12)
+
+**Input.** The re-review confirmed the first round's F1, F2, F6, F7, F9, F10
+and F12, and reopened the stage with four findings (2 Medium, 2 Low). Its
+F1 and F2 are new defects in the adoption path. Its F3 says the earlier F4
+fix does not hold for the split switch. Its F4 says the earlier F5 fix still
+keeps a topic when attributions are mixed. The reviewer's scratch tests
+(`rev2/*.py`) were not in the worktree, so each finding was reproduced with a
+new test in the suite. All of them failed on the pre-fix source
+(`3718eb91`): 11 failures across the two test files. The
+positive controls passed on both sides: the overconfidence list keeps the
+placement minimum, and a slip plus a grader-interpretation reading is still
+kept. Codex is exhausted until 2026-10-18, so no Codex call was made and
+every test uses fakes.
+
+**Owner decisions in force.** As above. The owner's Phase 6 answers are
+implemented, not re-litigated: OQ1 ignore unanswered opening probes, OQ2 `q`
+stays 0.8, OQ3 let the diagnosis decide, and M2 OQ1 start at the latest
+version.
+
+### Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| R1 (re-review F1) | Medium | An adopted episode keeps the opening episode's one-observation minimum, so error-driven re-probes conclude on one observation | Fixed | `01719230` | `test_placement_opening_probes.py::test_an_adopted_reprobe_is_held_to_the_reprobe_contract` (minimum 2, algorithm `mvp-0.11`, a freshly persisted channel pin replacing a stale one, and the whole open-time contract equal to a fresh misconception re-probe's). Also new assertions in `test_a_named_calibration_adopts_an_ignored_episode` (manual: 2) and `test_the_overconfidence_list_adopts_an_ignored_episode` (goal_diagnostic: the placement minimum, a positive control) |
+| R2 (re-review F2) | Low | An adopted episode that completes with no gap leaks `{"kind": "adopted_opening_episode"}` to the tutor as a typed transition decision | Fixed | `01719230` | `test_an_adopted_episode_that_completes_without_a_gap_opens_no_tutor` (`_diagnostic_decision_for` is None, and `build_tutor_opening` returns None without touching the client; a typed decision written afterwards is returned) |
+| R3 (re-review F3) | Medium | The split switch: a provider-not-ready release reopens a held miss, and the diagnosis that lands later flips it | Fixed (one part rejected, below) | `18d1d1cb` | `test_placement_diagnosis_decides.py::test_turning_the_split_back_on_does_not_reopen_held_misses` (now drains after re-enabling: off and released `split_disabled`, then on, then a `provider_not_ready` release, then a slip landing; failed `split_disabled` at the hold throughout). `test_the_first_serving_build_with_the_split_off_records_the_hold` (the toggle with no worker run in between: two misses, head of the line and behind it). `test_a_miss_decided_before_the_hold_keeps_its_diagnosis` |
+| R4 (re-review F4) | Low | One non-gap reading outweighs an abstention or a fatal error | Fixed | `18d1d1cb` | `test_the_diagnosis_reading_is_the_m2_vocabulary` (new cases). `test_a_mixed_reading_keeps_the_topic_only_when_every_part_reads_non_gap[abstain-plus-grader-interpretation, slip-plus-abstain, slip-plus-grader-interpretation]`. `test_a_fatal_error_the_diagnosis_never_read_returns_the_topic[unread-fatal-error, fatal-error-named-by-an-attribution]` (real grading door, rubric fatal error) |
+
+Rejected part (the rest of R3 is fixed):
+
+- **R3, "`test_the_check_follows_a_regrade_that_requeues_the_diagnosis`
+  still pins a reopen".** Kept, for the reason recorded in the first round
+  (F4 residual). That test is a regrade that turns a clean answer into a
+  miss, which changes whether the answer is a miss at all. The grade is read
+  from the attempt row, which a regrade rewrites in place (Phase 6's merged
+  semantics). Latching it would mean rebuilding every answer's grade as of
+  its decision time from the blind-grade ledger, and joint grades have no
+  such ledger. That is a redesign, not a fix. It stays open question 5. A
+  regrade that leaves the answer a miss does not reopen its decision, and the
+  re-review confirmed that part.
+
+### How each fix works
+
+**R1, the adopted episode's contract.** `enter_episode`'s open-time fields
+are now one function, `episode_open_contract(vault, repository, lo, trigger,
+goal_id)`: the observation budget by trigger, the maximum, required facets,
+the terminal-contract pin, the calibration channel pin and the algorithm
+version. `enter_episode` stamps it on insert, with unchanged behaviour.
+`adopt_ignored_opening_episode` re-stamps it for the *requested* trigger in
+the same `UPDATE` that relocks the row (`_relock_episode_row(contract=...)`).
+So a misconception, predictive-failure or named-calibration adoption keeps
+the two-observation breadth contract. The overconfidence list
+(`goal_diagnostic`) keeps the placement minimum, as a fresh episode would.
+Every adoption resolves and pins the calibration channel and the version of
+now. The causal relock still keeps the episode's budget, as before, and the
+`trigger` column stays `initial` (the requested trigger rides on
+`target_decision`). The ignored-episode definition is unchanged, so on the
+owner's data nothing moves until a door acts.
+
+**R2, typed decisions only.** `_diagnostic_decision_for` returns a closed
+episode's `target_decision` only when it carries no `kind`. Typed
+transitions (`build_typed_transition_decision`) have none. Provenance
+stamps have one: an adopted opening episode, and the causal relock's
+`causal_repair_class_divergence`. That second one is the same defect,
+present before this stage, and the one rule covers both. The adoption stamp
+stays on the row, so the episode stays un-ignored and keeps its provenance.
+A stamp is skipped like an episode with no decision. The F6 test's fake
+decision now has a typed shape.
+
+**R3, the hold is recorded once.**
+- **The hold stamp.** `Repository.hold_queued_live_diagnoses` stamps
+  `payload.split_held_at = now` on every queued live diagnose job that has
+  none. It is write-once and never cleared or moved. Releases, leases,
+  settles and owner requeues all keep `payload_json`, and job rows are never
+  deleted. Leased rows are skipped, because a settle rewrites the payload it
+  leased. The method reads first, so an idle poll with nothing to stamp
+  takes no write lock.
+- **Who calls it.** It runs only while the switch is off. Callers are the
+  worker's `process_next_job` (every pass, so the jobs behind a head of line
+  that will not be leased are stamped too), its `split_disabled` release, and
+  the scheduler's persisting (serving) build. The persisting build is the
+  first serving read, and it runs before fast-track reconciliation.
+  Read-only builds (`persist_explanations=False`), the knowledge map and the
+  reports record nothing.
+- **Deciding.** `load_miss_verdicts` decides a miss by whichever of three
+  events came first: its deciding diagnosis landing, the first hold on any of
+  its live jobs, or the wait deadline once it has passed. A held miss is
+  today's rule (`split_disabled`), with `decided_at` and `decided_ref` set to
+  the hold time and job id. It no longer reads `last_error`, so a
+  `provider_not_ready` release, the switch coming back on, or the diagnosis
+  landing later changes nothing. A miss whose diagnosis landed before the hold
+  keeps its reading.
+- **Before the hold is recorded.** With the switch off and a queued job not
+  yet stamped, today's rule applies at once as of the read, so the kill
+  switch stays immediate. A leased job is in flight, so it is pending: it
+  lands, or the worker releases it and stamps it.
+- **No live job.** A blind-graded miss with no live job is `not_diagnosed`,
+  decided with the answer. It no longer reads the switch, because a blind
+  grade means the split was on at grading.
+- **The docstring.** The "decided once from append-only rows" wording now
+  names exactly which job facts are read: the first job's `created_at`, and
+  the write-once stamp.
+
+**R4, every part reads non-gap.** `diagnosis_reason(scopes, classes,
+unread_fatal_errors=...)` still returns `knowledge_gap` on any gap. Otherwise
+it keeps the topic only when every attribution has a positive non-gap
+reading (item contract or grader interpretation, a slip on a valid
+measurement, the interaction context). The kept topic is labelled by its
+strongest reading: item contract, then slip, then interaction context. An
+abstention on any valid measurement, a validity left unknown, no attribution
+at all, or a fatal error no attribution names gives `no_gap_attributed`, and
+the LO returns to learning. The diagnoser's events key on the attributions,
+so an unnamed fatal error was never read.
+
+A fatal error that an attribution names in its `error_type` (the grader
+prompt allows rubric fatal-error ids there) is read through that
+attribution. This narrows the reviewer's "any fatal error". The reason is
+the owner's OQ3 example, a miss that only shows the learner did not know
+what had to be stated explicitly. That can be a rubric fatal error which
+the grader attributes to the item contract. "Let the diagnosis decide" keeps
+it. `MissVerdict.unread_fatal_errors` puts the unread ones on the receipt.
+`RULES_VERSION` stays `placement-rules-v3`, which this unmerged stage
+introduced. Report 3's miss definition, field spec §5.2 and the DTO comment
+say the same.
+
+### Spec conformance after the re-review fixes
+
+| Item | Status |
+|---|---|
+| P6 OQ1: ignore unanswered opening probes | Unchanged definition. An adopted episode is now held to its request's contract and never reaches tutoring as a decision |
+| P6 OQ3: the diagnosis decides | Decided once by the first of diagnosis, hold or deadline. A topic is kept only on an all-non-gap reading |
+| Kill switches | `diagnosis.split_enabled = false` still applies at once. The first serving build or worker pass records it, and switching back on no longer reopens anything recorded. `placement.enabled` and `placement.initial_probes` are unchanged (the fixture-copy test reran in the full suite) |
+| DL1 interface | Stable: `load_placement_state(vault, repository)`, `PlacementState` and the queue components are unchanged. `MissVerdict` gains `unread_fatal_errors` (additive) |
+| Successor merges | Unchanged: one line in `SUCCESSOR_CHAIN` |
+| Migrations, spend | No migration (head 173). The stamp lives in the existing `post_attempt_jobs.payload_json`. No paid path, no Codex or OpenRouter call: $0.00 |
+
+### Residual found while fixing R3 (open question 7)
+
+A probe-block attempt's diagnose job is queued at the block's end
+(`probe_blocks.end_diagnostic_block`), not at the answer. A miss inside a
+block of two or more observations, on an assumed or maintained LO,
+therefore has no live job until the block ends. In that window it is
+`not_diagnosed` (back to learning). When the block ends and the job is
+queued, it waits on the diagnosis again. This was true before this stage's
+fixes and was not reported. Fixing it needs placement to know that a block
+is still open, or a shared "needs diagnosis" rule. Placement cannot import
+`diagnosis` (frozen-cycle contract), and F10 asked not to copy that rule. It
+also needs a wait base other than the first job. It arises only when a
+multi-observation episode (a named calibration, an error-driven re-probe)
+runs on an LO that is still assumed or in maintenance. It is left for the
+owner or the next review.
+
+### Re-review gate
+
+The gate ran on source and tests as of `3ca612d5`. The commit after it adds
+only this section.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | OK (pypdfium2 5.14.0 reinstalled after the sync) |
+| `uv run lint-imports --no-cache` | **12 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,826 passed**, 0 failed, 46 warnings (the existing Python 3.12 fork and SQLite datetime-adapter deprecations); 161.5 s. That is 9 more than round one's 7,817, one per new test case (R1 1, R2 1, R3 2, R4 5). Run with `-q -p no:cacheprovider` added (output and cache only) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **84 passed**, 7,742 deselected, 1 warning; 61.8 s |
+| `npm install` (apps/learnloop-tauri) | OK (the existing notice that esbuild's postinstall is blocked by allowScripts); lockfile unchanged |
+| `npm run typecheck` | **0 errors** (exit 0) |
+| `npm test` (vitest) | **103 passed** in 23 files (only a `dto.ts` comment changed) |
+| DB reference (`db_generate_reference.py`, `db_validate_reference.py`) | No schema change. Regenerated for the moved source anchors (`3ca612d5`): schema head **173**, **288** table notes, **599** config leaves in **35** sections, **0 errors**. `validate_vault.py`: passed (1,056 notes) |
+| `cargo check` | Not run: no Rust change |
+| Fail-first | On the pre-fix source (`3718eb91`) the new and extended tests failed: **11 failed**, 40 passed across `test_placement_opening_probes.py` and `test_placement_diagnosis_decides.py`. The positive controls passed on both sides |
+| Tracked working vaults | Untouched (`git status` clean for `fixtures/linear_algebra`, `probability`, `arxiv_v2`). No manual run was needed: nothing here changes what the owner's data reads until a door acts or the split switch is turned off |
+| Paid calls | None; $0.00 |
+
+### Open questions added by the re-review
+
+7. **Probe-block misses on an assumed LO** (the residual above). Should a
+   miss inside a multi-observation probe block wait for the block's end
+   before it is decided?
+8. **Fatal errors an attribution names** (R4). They are read through that
+   attribution, so an item-contract reading of a rubric fatal error keeps the
+   topic. The alternative is that any fatal error returns it. Which does the
+   owner want?
