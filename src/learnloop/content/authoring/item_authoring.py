@@ -96,9 +96,14 @@ def author_item(
     practice_mode: str = "short_answer",
     hints: Sequence[str] | None = None,
     evidence_facets: Sequence[str] | None = None,
+    source_refs: Sequence[Mapping[str, Any]] | None = None,
+    event_detail: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
-    """Create a learner-authored card under an existing Learning Object."""
+    """Create a learner-authored card under an existing Learning Object.
+
+    ``source_refs`` ground the card in what the learner was reading (the reader's
+    "write my own question"); ``event_detail`` adds to the provenance event."""
 
     vault = load_vault(root)
     learning_object = vault.learning_objects.get(learning_object_id)
@@ -132,12 +137,14 @@ def author_item(
         "created_at": now,
         "updated_at": now,
     }
+    if source_refs:
+        payload["provenance"]["source_refs"] = [dict(ref) for ref in source_refs]
     upsert_practice_item(root, payload, clock=clock)
     _record(
         repository,
         kind="learner_item_authored",
         practice_item_id=item_id,
-        detail={"learning_object_id": learning_object_id},
+        detail={**dict(event_detail or {}), "learning_object_id": learning_object_id},
         clock=clock,
     )
     return payload

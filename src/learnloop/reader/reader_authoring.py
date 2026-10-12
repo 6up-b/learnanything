@@ -12,6 +12,15 @@ The formulation coach (§9.2) is a NON-BLOCKING scale (novice/middle/expert). It
 lint NEVER prevents acceptance; it records the learner's accept/edit/dismiss for
 future corpus analysis, not a live learned policy. It runs AFTER the Q+A is durable.
 
+Adoption into practice (daily-loop audit 2026-10-11): writing the question IS the
+learner adopting it into practice, so the same call also files it as a
+learner-authored Practice Item -- the store the scheduler actually reads --
+under the Learning Object whose provenance cites the passage being read, and
+links that item to the commitment as a ``legacy_practice_item`` target (which
+the scheduler reads as a learner-requested item). When no active Learning
+Object fits, nothing is invented: the result says ``reference_only`` so the
+reader never promises practice that will not happen.
+
 Fluid maintenance (§9.3) dispatches to P1 lineage classification: already-administered
 versions stay immutable; split/merge never blindly transfers scheduling/certification;
 a cosmetic edit retains card state ONLY through the P1 classifier. An AI sibling never
@@ -20,10 +29,18 @@ impersonates learner/source authorship.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Mapping
 
 from learnloop.clock import Clock
+from learnloop.content.authoring.item_authoring import author_item
+from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.repositories import Repository
+from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span, parse_block_span
+from learnloop.reader.reader_progression import learning_objects_for_span
+from learnloop.vault.lifecycle import learning_object_servable
+from learnloop.vault.loader import load_vault
+from learnloop.vault.models import LoadedVault
 from learnloop.substrate import card_lineage as CL
 from learnloop.curriculum import commitments as C
 from learnloop.substrate.activities import canonical_hash, canonical_json
@@ -72,6 +89,8 @@ def author_qa(
     depth_preset: str = "remember_key_ideas",
     client_idempotency_key: str | None = None,
     family_title: str | None = None,
+    root: Path | None = None,
+    learning_object_id: str | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Persist a learner-authored Q+A card + pinned surface under an explicit
@@ -79,7 +98,12 @@ def author_qa(
 
     The Q+A is written to the durable card contract and the commitment BEFORE any
     coach/model work runs -- the caller may lint afterwards without risking the
-    learner's content. Idempotent on ``client_idempotency_key`` via the commitment."""
+    learner's content. Idempotent on ``client_idempotency_key`` via the commitment.
+
+    With the vault ``root`` the card is also adopted into practice (see the module
+    docstring): ``practice_status`` is ``scheduled`` with the new
+    ``practice_item_id``, or ``reference_only`` when no active Learning Object fits
+    (an explicit ``learning_object_id`` wins over the passage's provenance)."""
 
     if not question.strip() or not answer.strip():
         raise AuthoringError("both a question and an answer are required (§9.1)")
@@ -117,7 +141,19 @@ def author_qa(
         card_id=card_id, clock=clock,
     )
 
+    # 3. Adopt into practice: the scheduler serves Practice Items, not card versions.
+    practice = (
+        _adopt_into_practice(
+            root, repository, commitment_id=commitment.id, question=question, answer=answer,
+            subject_id=subject_id, source_id=source_id, learning_object_id=learning_object_id,
+            clock=clock,
+        )
+        if root is not None
+        else {"practice_item_id": None, "learning_object_id": None, "practice_status": "reference_only"}
+    )
+
     return {
+        **practice,
         "commitment_id": commitment.id,
         "family_id": family_id,
         "card_id": card_id,
@@ -128,6 +164,89 @@ def author_qa(
         "authored_before_ai": True,
         "contract": contract,
     }
+
+
+def _span_anchor(repository: Repository, subject_id: str | None) -> tuple[str, str] | None:
+    """``span:<extraction>/<span>`` (the reader's subject for a passage) -> ids."""
+
+    parsed = parse_block_span(subject_id or "")
+    if parsed is None:
+        return None
+    extraction_id, span_id = parsed
+    return resolve_extraction_id(repository, extraction_id) or extraction_id, span_id
+
+
+def _practice_learning_object(
+    vault: LoadedVault, repository: Repository, *, learning_object_id: str | None,
+    anchor: tuple[str, str] | None,
+) -> str | None:
+    """The active Learning Object a written question is filed under: the learner's
+    explicit choice, else the first (sorted) active LO whose provenance cites the
+    passage's section -- the same span->LO resolution tutor promotions use."""
+
+    if learning_object_id is not None:
+        return learning_object_id if learning_object_servable(vault, learning_object_id) else None
+    if anchor is None:
+        return None
+    extraction_id, span_id = anchor
+    candidates = learning_objects_for_span(vault, repository, extraction_id=extraction_id, span_id=span_id)
+    return candidates[0] if candidates else None
+
+
+def _adopt_into_practice(
+    root: Path,
+    repository: Repository,
+    *,
+    commitment_id: str,
+    question: str,
+    answer: str,
+    subject_id: str | None,
+    source_id: str | None,
+    learning_object_id: str | None,
+    clock: Clock | None,
+) -> dict[str, Any]:
+    vault = load_vault(root)
+    # Idempotent retry: this commitment already adopted a card with these words.
+    for target in C.resolve_head(repository, commitment_id).targets:
+        if target.target_kind != "legacy_practice_item":
+            continue
+        existing = vault.practice_items.get(target.target_ref)
+        if existing is not None and existing.prompt == question.strip() and existing.expected_answer == answer.strip():
+            return {
+                "practice_item_id": existing.id,
+                "learning_object_id": existing.learning_object_id,
+                "practice_status": "scheduled",
+            }
+
+    anchor = _span_anchor(repository, subject_id)
+    lo_id = _practice_learning_object(vault, repository, learning_object_id=learning_object_id, anchor=anchor)
+    if lo_id is None:
+        return {"practice_item_id": None, "learning_object_id": None, "practice_status": "reference_only"}
+
+    source_refs = (
+        [{
+            "ref_type": "canonical_source",
+            "ref_id": source_id or anchor[0],
+            "locator": format_block_span(anchor[0], anchor[1]),
+            "locator_scheme": BLOCK_SPAN_V1,
+        }]
+        if anchor is not None
+        else None
+    )
+    payload = author_item(
+        root, repository, learning_object_id=lo_id, prompt=question, expected_answer=answer,
+        source_refs=source_refs,
+        event_detail={"mechanism": "reader_author_qa", "commitment_id": commitment_id},
+        clock=clock,
+    )
+    # The commitment records which card it adopted; a learner-held commitment's
+    # legacy_practice_item target is what the scheduler reads as "requested".
+    C.add_target(
+        repository, commitment_id=commitment_id,
+        target={"target_kind": "legacy_practice_item", "target_ref": payload["id"], "role": "required"},
+        change_reason="adopted_into_practice", clock=clock,
+    )
+    return {"practice_item_id": payload["id"], "learning_object_id": lo_id, "practice_status": "scheduled"}
 
 
 def mint_ai_sibling(

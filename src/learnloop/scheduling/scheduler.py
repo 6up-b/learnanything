@@ -284,8 +284,16 @@ def build_due_queue(
         # frontier's widened semantics put unexamined facets at risk precisely
         # so the goal's untouched material gets scheduled before the due date;
         # skipping those items here would leave "practice at-risk facets"
-        # re-serving the goal's only attempted item.
-        if (mastery is None or mastery.last_evidence_at is None) and episode is None and frontier_entry is None:
+        # re-serving the goal's only attempted item. A learner-requested card
+        # (promotion, rung variant, a question written while reading) is also
+        # exempt: the learner explicitly adopted it, so a never-practised LO must
+        # not swallow it.
+        if (
+            (mastery is None or mastery.last_evidence_at is None)
+            and episode is None
+            and frontier_entry is None
+            and item.id not in requested_id_set
+        ):
             continue
 
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)

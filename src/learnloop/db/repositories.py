@@ -4578,7 +4578,12 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         ``question_promotions`` row (``created_practice_item_id`` or
         ``existing_practice_item_id``) whose request has no attempt at or after
         that request time, oldest unconsumed request first. This deliberately
-        permits "practice this again" after an earlier attempt."""
+        permits "practice this again" after an earlier attempt.
+
+        A card the learner adopted through a ``help_me_remember`` commitment (the
+        reader's "write my own question") is requested too, from the moment the
+        commitment first named it as a ``legacy_practice_item`` target, unless
+        the commitment was retired."""
 
         with self.connection() as connection:
             rows = connection.execute(
@@ -4597,6 +4602,20 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                   SELECT created_practice_item_id AS item_id, created_at AS requested_at
                   FROM rung_variant_requests
                   WHERE status = 'applied' AND created_practice_item_id IS NOT NULL
+                  UNION
+                  -- Learner-adopted cards (reader "write my own question"): the
+                  -- commitment's first version naming the card is the request.
+                  SELECT target.target_ref AS item_id, MIN(target.created_at) AS requested_at
+                  FROM commitment_target_versions target
+                  JOIN commitment_versions version ON version.id = target.commitment_version_id
+                  JOIN commitments commitment ON commitment.id = version.commitment_id
+                  WHERE target.target_kind = 'legacy_practice_item'
+                    AND commitment.created_action = 'help_me_remember'
+                    AND NOT EXISTS (
+                      SELECT 1 FROM commitment_events event
+                      WHERE event.commitment_id = commitment.id AND event.kind = 'retired'
+                    )
+                  GROUP BY commitment.id, target.target_ref
                 ),
                 unconsumed AS (
                   SELECT request.item_id, request.requested_at

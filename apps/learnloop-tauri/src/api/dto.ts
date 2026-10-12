@@ -5934,6 +5934,8 @@ export interface ReaderAuthorQAInput {
   subjectId?: string | null;
   depthPreset?: string;
   clientIdempotencyKey?: string | null;
+  /** File the card under this Learning Object instead of the passage's provenance. */
+  learningObjectId?: string | null;
 }
 export interface ReaderAuthoredCardDto {
   version?: number;
@@ -5946,6 +5948,11 @@ export interface ReaderAuthoredCardDto {
   pinned: boolean;
   authoredBeforeAi: boolean;
   contract: Record<string, unknown>;
+  /** `scheduled`: a Practice Item the scheduler serves; `reference_only`: no
+   *  active Learning Object covers the passage, so it is kept as a reference. */
+  practiceStatus: "scheduled" | "reference_only";
+  practiceItemId: string | null;
+  learningObjectId: string | null;
 }
 export interface ReaderCoachSuggestion {
   kind: string;
