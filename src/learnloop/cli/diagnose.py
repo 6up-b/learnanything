@@ -147,7 +147,7 @@ def diagnose_run(
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 2500,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 500,
     max_pairs: Annotated[int, typer.Option("--max-pairs", min=0)] = 0,
-    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 2,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Metered routes: every transport retry and JSON repair is one (Codex physical requests are not bounded).")] = 50,
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help="Metered routes only; not enforced on the Codex subscription.")] = 5_000_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help="Metered routes only; Codex cost is estimated_only.")] = 5.0,
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Owner USD/million-token bound for metered chat routes with an unknown price.")] = None,
@@ -218,7 +218,10 @@ def diagnose_run(
         profiles = route_profiles(loaded)
         for route, profile in profiles.items():
             if profile["enabled"]:
-                spend.register_profile(route, provider=profile["provider"], model=profile["model"], subscription=profile["subscription"])
+                spend.register_profile(
+                    route, provider=profile["provider"], model=profile["model"],
+                    subscription=profile["subscription"], max_tokens=profile.get("max_tokens"),
+                )
         skip = unavailable_arms(
             embedding_ready=profiles["embedding"]["enabled"],
             workspace_ready=profiles["diagnosis"]["profile_type"] == "codex_sdk",

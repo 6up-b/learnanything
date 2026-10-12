@@ -207,6 +207,7 @@ def route_profiles(vault: LoadedVault) -> dict[str, dict[str, Any]]:
         profiles[route] = {
             "provider": name or None,
             "model": model,
+            "max_tokens": getattr(profile, "max_tokens", None) if profile is not None else None,
             "profile_type": profile_type,
             "subscription": profile_type in _SUBSCRIPTION_PROFILE_TYPES,
             "enabled": bool(name) and (route != "embedding" or config.embedding.enabled),
@@ -483,6 +484,9 @@ def estimate_spend(plan: Mapping[str, Any], spend: ReviewSpend) -> dict[str, Any
             continue
         info = spend.routes[route]
         tokens = int(plan["estimated_tokens"][route])
+        # The plan prices each call's output at the route allowance; a metered
+        # route admits (and lets the transport produce) its larger limit.
+        tokens += calls * max(0, info.output_limit - OUTPUT_ALLOWANCE.get(route, 0))
         estimate = spend.estimate(route, calls=calls, input_tokens=tokens, output_tokens=0)
         cost = None if info.price_per_million is None else tokens * info.price_per_million / 1_000_000
         per_route[route] = {
@@ -770,7 +774,7 @@ class ReviewRun:
                 status = "failed"
                 raise
             finally:
-                output_estimate = OUTPUT_ALLOWANCE.get(route, 2_000)
+                output_estimate = self.spend.output_limit(route) * call.physical_requests
                 usage = call.usage
                 with self._write() as connection:
                     insert_review_row(
@@ -787,11 +791,11 @@ class ReviewRun:
                             "model": info.model,
                             "billing": info.billing,
                             "cost_basis": "estimated_only" if info.billing == "subscription" else "reported",
-                            "input_tokens": usage.input_tokens or input_tokens,
+                            "input_tokens": usage.input_tokens or input_tokens * call.physical_requests,
                             "output_tokens": usage.output_tokens or None,
                             "cached_input_tokens": usage.cached_input_tokens or None,
                             "reasoning_tokens": usage.reasoning_tokens or None,
-                            "estimated_usd": self.spend.call_cost(route, usage, input_tokens, output_estimate),
+                            "estimated_usd": self.spend.call_cost(route, usage, input_tokens * call.physical_requests, output_estimate),
                             "latency_seconds": round(time.monotonic() - started, 3),
                             "status": status,
                         },
