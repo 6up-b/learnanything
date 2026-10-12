@@ -328,9 +328,11 @@ def scan_tutor_answer_leak(loaded: LoadedVault, repository: Repository, vectors:
     for event in events:
         item = loaded.practice_items[event["practice_item_id"]]
         answer = str(event["answer_md"])
-        overlap = event.get("leak_overlap")
-        if overlap is None:
-            overlap = answer_leak_overlap(answer, item.expected_answer)
+        # A turn from before the reveal ledger (migration 154) has no persisted
+        # overlap and was never debited: its live floor was the 0.8 flag alone.
+        debited = event.get("leak_overlap")
+        overlap = debited if debited is not None else answer_leak_overlap(answer, item.expected_answer)
+        debited = float(debited or 0.0)
         hit = Candidate(
             "tutor_answer_leak", "question_event", str(event["id"]), "practice_item", item.id,
             context={
@@ -341,14 +343,16 @@ def scan_tutor_answer_leak(loaded: LoadedVault, repository: Repository, vectors:
             # The live floor protects cold evidence two ways: the 0.8 leak flag,
             # and the reveal-ledger debit, which alone primes the next attempt
             # at AUTO_PRIME_REVEAL_THRESHOLD. Either counts as caught.
-            floor=bool(event.get("leak_suspected")) or float(overlap) >= AUTO_PRIME_REVEAL_THRESHOLD,
+            floor=bool(event.get("leak_suspected")) or debited >= AUTO_PRIME_REVEAL_THRESHOLD,
             floor_score=float(overlap),
             extra={"context": event.get("context"), "asked_at": event.get("created_at"),
                    "leak_suspected": bool(event.get("leak_suspected")),
-                   "live_reveal_amount": float(overlap)},
+                   "live_reveal_amount": debited},
         )
         floor_subjects += hit.floor
-        if hit.floor:
+        # Today's lexical rule shortlists even a pre-ledger turn it would flag;
+        # ``floor`` alone says whether the live path actually protected it.
+        if hit.floor or overlap >= AUTO_PRIME_REVEAL_THRESHOLD:
             hit.reasons.add("lexical")
         hit.symbolic = symbolic_check(answer, item.expected_answer)
         if hit.symbolic.status != "not_math":

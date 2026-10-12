@@ -304,6 +304,21 @@ def test_a_live_debit_that_alone_primes_the_next_attempt_counts_as_the_floor(tmp
     assert sample["signals"]["leak_suspected"] is False and sample["signals"]["live_reveal_amount"] == 0.5
 
 
+def test_a_turn_from_before_the_reveal_ledger_was_never_debited(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    legacy = repository.insert_question_event({
+        "context": "practice", "practice_item_id": BASIC_ITEM, "question_md": LEARNER_QUESTION,
+        "answer_md": "A factorization into U, Sigma and V.", "answer_status": "answered",
+    })
+    tutor = run(load_vault(paths.root), Judge(), detectors=("tutor_answer_leak",))["detectors"]["tutor_answer_leak"]
+    assert tutor["lexical_floor"]["flagged_subjects"] == 0
+    [proposal] = tutor["proposals"]
+    assert proposal["question_event_id"] == legacy and proposal["live_reveal_amount"] == 0.0
+    [sample] = tutor["samples"]["shadow_only"]
+    assert sample["signals"]["floor_score"] > 0.35  # recomputed for display only
+
+
 def test_a_subject_without_its_vector_is_counted_and_falls_back(tutor_vault):
     _paths, loaded, repository, _event = tutor_vault
     _answer(repository, "pi_trace", "Add up the main diagonal.")
