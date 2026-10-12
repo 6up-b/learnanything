@@ -297,3 +297,16 @@ def test_offline_hidden_retry_stopped_before_second_physical_call(tmp_path):
     arm, summary = offline(tmp_path, [attempt(1)], predict=retry)
     assert bodies == [0]
     assert arm is None and summary["status"] == "over_budget"
+
+
+def test_offline_cache_loader_zero_calls_and_settings_invalidate(tmp_path):
+    from learnloop.field.offline_llm import load_cached_probability_arm
+    rows, settings = [attempt(1)], {"endpoint": "https://example.invalid", "effort": "low"}
+    offline(tmp_path, rows, settings=settings)
+    arm = load_cached_probability_arm(rows, cache_dir=tmp_path / "cache",
+                                      model="fake/model", settings=settings)
+    assert arm.predict(rows[0].features) == pytest.approx(.7)
+    arm.rebuild(rows)  # numerical replay, no callback or repository exists
+    with pytest.raises(ValueError, match="incomplete"):
+        load_cached_probability_arm(rows, cache_dir=tmp_path / "cache",
+                                    model="fake/model", settings={**settings, "effort": "high"})

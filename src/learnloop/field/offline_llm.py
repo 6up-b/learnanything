@@ -17,7 +17,7 @@ from learnloop.ai.execution import model_call, observe_model_calls
 from learnloop.ai.spend import SpendBudget, SpendEstimate, SpendLimitExceeded
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.field.evaluation import _eligible, _groups, _hash
-from learnloop.field.types import AttemptRow, FacetRow, ItemFeatures, SignalRow
+from learnloop.field.types import FacetRow, ItemFeatures, SignalRow
 
 
 PROMPT_VERSION = "field-llm-probability-v1"
@@ -49,10 +49,11 @@ class CachedProbabilityArm:
     granularity = "attempt"
     calibrated_uncertainty = False
 
-    def __init__(self, probabilities, *, model):
+    def __init__(self, probabilities, *, model, settings=None):
         self._probabilities = dict(probabilities)
         self.model = model
         self.version_hash = _hash({"prompt": PROMPT_VERSION, "model": model,
+                                   "settings": settings or {},
                                    "recalibration": "intercept-sgd-0.1-v1",
                                    "probabilities": probabilities})
         self._history = []
@@ -81,9 +82,51 @@ class CachedProbabilityArm:
             self.observe(row)
 
 
+def _requests(rows):
+    history, requests = [], {}
+    for row, _ in _groups(tuple(rows)):
+        if isinstance(row, SignalRow) or not _eligible(row):
+            continue
+        request = _request(row.features, history)
+        requests[_hash(request)] = request
+        history.append(_past(row))
+    return requests
+
+
+def _read_cache(requests, directory, model, settings):
+    probabilities, pending = {}, {}
+    settings_hash = _hash(settings or {})
+    for digest, request in requests.items():
+        path = directory / f"{_hash([model, PROMPT_VERSION, settings_hash, digest])}.json"
+        if path.is_file():
+            cached = json.loads(path.read_text(encoding="utf-8"))
+            if (cached.get("model") != model or cached.get("input_hash") != digest
+                    or cached.get("settings_hash") != settings_hash
+                    or cached.get("prompt_version") != PROMPT_VERSION
+                    or not cached.get("judgment_id")):
+                raise ValueError("Invalid offline probability checkpoint")
+            probabilities[digest] = _probability(cached)
+        else:
+            pending[digest] = (request, path)
+    return probabilities, pending
+
+
+def load_cached_probability_arm(rows, *, cache_dir, model, settings=None):
+    """Load a complete offline arm without clients, receipts, credentials or calls.
+
+    Missing checkpoints fail closed. ``settings`` is the non-secret effective
+    model route (endpoint, effort and output limits included), as for preparation.
+    """
+    probabilities, pending = _read_cache(_requests(rows), Path(cache_dir), model, settings)
+    if pending:
+        raise ValueError(f"Offline probability cache incomplete: {len(pending)} predictions missing")
+    return CachedProbabilityArm(probabilities, model=model, settings=settings)
+
+
 def prepare_llm_probability(
     rows, *, repository, cache_dir, vault_path, model, predict,
     estimate_per_prediction, caps, enabled=False, dry_run=False, cancelled=None,
+    settings=None,
 ):
     """Return ``(pure_arm_or_None, aggregate_spend_report)``.
 
@@ -104,23 +147,8 @@ def prepare_llm_probability(
     if directory == vault or vault in directory.parents:
         raise ValueError("Offline probability cache must be outside the vault")
     budget = SpendBudget(caps, cancelled=cancelled)
-    history, requests = [], {}
-    for row, _ in _groups(tuple(rows)):
-        if isinstance(row, SignalRow) or not _eligible(row):
-            continue
-        request = _request(row.features, history)
-        requests[_hash(request)] = request
-        history.append(_past(row))
-    probabilities, pending = {}, {}
-    for digest, request in requests.items():
-        path = directory / f"{_hash([model, PROMPT_VERSION, digest])}.json"
-        if path.is_file():
-            cached = json.loads(path.read_text(encoding="utf-8"))
-            if cached.get("model") != model or cached.get("input_hash") != digest or not cached.get("judgment_id"):
-                raise ValueError("Invalid offline probability checkpoint")
-            probabilities[digest] = _probability(cached)
-        else:
-            pending[digest] = (request, path)
+    requests = _requests(rows)
+    probabilities, pending = _read_cache(requests, directory, model, settings)
     count = len(pending)
     estimate = SpendEstimate(
         candidates=count, calls=count, total_tokens=count * estimate_per_prediction.total_tokens,
@@ -128,7 +156,8 @@ def prepare_llm_probability(
         if estimate_per_prediction.estimated_usd is not None else (None if count else 0.),
     )
     summary.update(status="dry_run" if dry_run else "complete", predictions=len(requests),
-                   cached=len(probabilities), estimate=asdict(estimate), charged=asdict(budget.used))
+                   cached=len(probabilities), settings_hash=_hash(settings or {}),
+                   estimate=asdict(estimate), charged=asdict(budget.used))
     try:
         budget.check(estimate)
         if dry_run:
@@ -180,6 +209,7 @@ def prepare_llm_probability(
                 summary["invalid"] += 1
                 continue
             checkpoint = {"model": model, "input_hash": digest, "prompt_version": PROMPT_VERSION,
+                          "settings_hash": _hash(settings or {}),
                           "p_success": probability, "judgment_id": judgment_id}
             # One completed prediction per checkpoint; interruptions never corrupt
             # a previously completed cache entry.
@@ -197,4 +227,4 @@ def prepare_llm_probability(
         if summary["status"] == "complete":
             summary["status"] = "incomplete"
         return None, summary
-    return CachedProbabilityArm(probabilities, model=model), summary
+    return CachedProbabilityArm(probabilities, model=model, settings=settings), summary
