@@ -118,3 +118,45 @@ def test_function_answers_without_numerals_are_checked(answer, expected):
 def test_function_runs_are_candidates():
     assert math_runs("We get cos(x) here, or log(y).") == ["cos(x)", "log(y)"]
     assert symbolic_check("Then cos(x) follows.", "tan(x)").status == "no_match"
+
+
+# --- Codex re-review fixes ---------------------------------------------------
+
+
+@pytest.mark.parametrize(("answer", "expected", "prompt"), [
+    # F8: a different equation shares a fragment with the item. ``x + 1`` is
+    # the item's expression, but it is not equal to the answer, so ``x + 1 = 2``
+    # works some other equation, not this item.
+    ("For comparison, x + 1 = 2 would give x = 1. Now solve your own equation.", "2", "Solve x + 1 = 3"),
+    ("If it were 2*x + 4 = 3 instead, you would get a fraction.", "3", "Solve 2*x + 4 = 10."),
+    ("Suppose x^2 - 4 = 2; that is a different problem.", "2", "Find the positive root of x^2 - 4 = 0."),
+    # A wrong relation that holds the item's expression is not a verified one.
+    ("A common slip is 12 * 12 = 124, not 144.", "144", "Compute 12 * 12."),
+])
+def test_a_relation_that_does_not_hold_for_the_item_never_decides(answer, expected, prompt):
+    result = symbolic_check(answer, expected, prompt=prompt)
+    assert result.status == "match", result
+    assert result.linked is False and result.decides is False
+
+
+@pytest.mark.parametrize(("answer", "expected", "prompt"), [
+    # F9: an earlier occurrence of the answer must not hide the worked equation.
+    ("Read page 144. Then 12 * 12 = 144.", "144", "Compute 12 * 12."),
+    ("Not 2/3 yet. Add them: 1/3 + 1/3 = 2/3.", "2/3", "Compute 1/3 + 1/3."),
+    # The item's expression seen earlier, alone, still links in the later equation.
+    ("Look at 12 * 12 first. Indeed 12 * 12 = 144.", "144", "Compute 12 * 12."),
+])
+def test_an_earlier_occurrence_does_not_hide_a_later_worked_equation(answer, expected, prompt):
+    result = symbolic_check(answer, expected, prompt=prompt)
+    assert result.status == "match" and result.linked and result.decides, result
+
+
+def test_repeated_sides_are_compared_once(monkeypatch):
+    from learnloop.ops.contamination import symbolic
+
+    calls = []
+    original = symbolic._equal
+    monkeypatch.setattr(symbolic, "_equal", lambda side, target: calls.append(side) or original(side, target))
+    result = symbolic_check("Read page 144. Then 12 * 12 = 144, and 144 again.", "144", prompt="Compute 12 * 12.")
+    assert result.decides
+    assert sorted(calls) == ["12 * 12", "144"] and result.checked == 2

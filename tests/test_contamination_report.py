@@ -358,7 +358,7 @@ def test_symbolic_verifier_decides_math_reveals_and_outranks_the_llm(tmp_path):
     with repository.connection() as connection:
         rows = connection.execute("SELECT judge, verdict, prompt_version FROM judgment_ledger ORDER BY judge").fetchall()
     assert [tuple(r) for r in rows] == [
-        ("llm", "clean", "contamination-reveal-v1"), ("verifier", "reveal", "contamination-symbolic-v2"),
+        ("llm", "clean", "contamination-reveal-v1"), ("verifier", "reveal", "contamination-symbolic-v3"),
     ]
     assert event
 

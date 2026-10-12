@@ -14,12 +14,17 @@ it. A match decides a reveal (``judge='verifier'``) only when its link to the
 item is established: one equation holds the item's own expression, as written
 in the item (up to spacing, brackets and notation), on one side and the
 answer in its own form on another, so the text works the item to its answer
-(``12 * 12 = 144`` for "Compute 12 * 12"). Equality alone cannot link, since
-every expression of a "compute" item equals its answer and a restatement
-(``(x+1)^2 = (x+1)(x+1)`` for "Expand (x+1)^2") is not a reveal. The answer's
-own form is its normalized text, or for a numeric answer any plain number
-equal to it (a rounding). An item whose prompt already states its answer
-never links.
+(``12 * 12 = 144`` for "Compute 12 * 12"). The relation must hold for the
+item: the item's expression is itself verified equal to the answer, so a
+different equation sharing a fragment with the item (``x + 1 = 2`` for "Solve
+x + 1 = 3") or a wrong one (``12 * 12 = 124``) only shortlists. Equality alone
+cannot link, since every expression of a "compute" item equals its answer and
+a restatement (``(x+1)^2 = (x+1)(x+1)`` for "Expand (x+1)^2") is not a reveal.
+The answer's own form is its normalized text, or for a numeric answer any
+plain number equal to it (a rounding). An item whose prompt already states its
+answer never links. Each distinct run is compared once, and every equation
+reuses that result, so an earlier occurrence ("page 144") never hides a later
+worked equation.
 """
 from __future__ import annotations
 
@@ -29,7 +34,7 @@ from typing import Any, Literal
 
 from learnloop.diagnosis.offline_review.probes import answers_differ, answers_equal, safe_math_text
 
-SYMBOLIC_VERSION = "contamination-symbolic-v2"
+SYMBOLIC_VERSION = "contamination-symbolic-v3"
 #: Bounded work per answer: the first runs in reading order are checked.
 MAX_CANDIDATES = 48
 #: Bounded item expressions a match may link to.
@@ -268,18 +273,14 @@ def symbolic_check(
         return SymbolicResult("not_math")
     links: set[str] | None = None
     first: SymbolicResult | None = None
-    checked = 0
-    seen: set[str] = set()
+    # Each distinct side is compared once, but every equation sees every
+    # result: an earlier "page 144" must not hide a later "12 * 12 = 144".
+    results: dict[str, tuple[bool, str | None]] = {}
     for sides in math_equations(answer_text):
-        matched = []
         for side in sides:
-            if side in seen:
-                continue
-            seen.add(side)
-            checked += 1
-            equal, method = _equal(side, target)
-            if equal:
-                matched.append((side, method))
+            if side not in results:
+                results[side] = _equal(side, target)
+        matched = [(side, results[side][1]) for side in sides if results[side][0]]
         if not matched:
             continue
         if first is None:
@@ -292,19 +293,23 @@ def symbolic_check(
             links = _item_expressions(prompt, target)
         if not links:
             continue
+        equal_sides = {side for side, _method in matched}
         for side, method in matched:
             if not _answer_form(side, target):
                 continue
+            # The relation must hold for the item: the item's expression is
+            # itself verified equal to the answer. A shared fragment of a
+            # different equation (``x + 1 = 2`` for "Solve x + 1 = 3") is not.
             link = next((canonical(other) for other in sides
-                         if other != side and canonical(other) in links), None)
+                         if other != side and other in equal_sides and canonical(other) in links), None)
             if link is not None:
                 return SymbolicResult(
                     "match", expected=target, matched=side, method=method,
-                    distinctive=distinctive(target) and distinctive(side), checked=checked, link=link,
+                    distinctive=distinctive(target) and distinctive(side), checked=len(results), link=link,
                 )
     if first is not None:
         return SymbolicResult(
             "match", expected=first.expected, matched=first.matched, method=first.method,
-            distinctive=first.distinctive, checked=checked,
+            distinctive=first.distinctive, checked=len(results),
         )
-    return SymbolicResult("no_match", expected=target, checked=checked)
+    return SymbolicResult("no_match", expected=target, checked=len(results))
