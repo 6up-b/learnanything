@@ -139,26 +139,31 @@ def _generate(
     store: ProjectStore,
     diffs: list[dict[str, Any]],
     *,
-    caps,
-    price_per_million: float | None,
+    paid: PaidCalls,
     dry_run: bool,
     clock: Clock,
 ) -> dict[str, Any]:
+    """Generate for ``diffs`` under the command's one budget (``paid``)."""
+
     if not diffs:
         return {"status": "nothing_to_generate", "diffs": []}
     routes = describe_routes(config)
-    with _cancellation() as stop:
-        paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
-        planned = plan_generation(store, root, config, diffs)
-        try:
-            estimate = paid.plan(planned, routes)
-        except SpendLimitExceeded as exc:
-            return {"status": "over_budget", "reason": str(exc), "diffs": len(diffs), "routes": routes}
-        if dry_run:
-            return {"status": "dry_run", "diffs": len(diffs), "estimate": estimate, "routes": routes}
-        with _routes(root, config, store, ("authoring", "closed_book", "grading")) as resolved:
-            report = generate_probes(store, root, config, paid, resolved, diffs, clock=clock)
+    planned = plan_generation(store, root, config, diffs)
+    try:
+        estimate = paid.plan(planned, routes)
+    except SpendLimitExceeded as exc:
+        return {"status": "over_budget", "reason": str(exc), "diffs": len(diffs), "routes": routes}
+    if dry_run:
+        return {"status": "dry_run", "diffs": len(diffs), "estimate": estimate, "routes": routes}
+    with _routes(root, config, store, ("authoring", "closed_book", "grading")) as resolved:
+        report = generate_probes(store, root, config, paid, resolved, diffs, clock=clock)
     return {**report.as_dict(), "estimate": estimate}
+
+
+def _serving_grade_plan(questions: int) -> list[PlannedCall]:
+    """One grading call per question an answering session may serve."""
+
+    return [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, grading_output_tokens(1))] * questions
 
 
 def _grading_plan(store: ProjectStore, responses: list[dict[str, Any]]) -> list[PlannedCall]:
@@ -369,9 +374,11 @@ def project_sweep(
             diff for diff in diffs_awaiting_generation(store)
             if repo_ids is None or diff["repo_id"] in repo_ids
         ][:max_diffs]
-        generation = None if capture_only else _generate(
-            root, config, store, awaiting, caps=caps, price_per_million=price_per_million, dry_run=dry_run, clock=clock,
-        )
+        generation = None
+        if not capture_only:
+            with _cancellation() as stop:
+                paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
+                generation = _generate(root, config, store, awaiting, paid=paid, dry_run=dry_run, clock=clock)
         payload = {
             "status": "dry_run" if dry_run else (swept.status if swept else "ok"),
             "sweep": swept.as_dict() if swept else None,
@@ -628,27 +635,59 @@ def project_probes(
         max_candidates=max_candidates, max_calls=max_calls, max_retries=max_retries,
         max_tokens=max_tokens, max_cost_usd=max_cost_usd,
     )
+    with _cancellation() as stop:
+        # One budget for the whole command: generating due diffs' questions
+        # and grading the answers given to them both spend from it.
+        paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
+        _serve_probes(
+            root, config, store, paid, clock=clock, repo_id=repo_id, limit=limit, list_only=list_only,
+            generate=config.project.generate_before_serving and not no_generate, dry_run=dry_run,
+            json_output=json_output,
+        )
+
+
+def _serve_probes(
+    root: Path,
+    config: LearnLoopConfig,
+    store: ProjectStore,
+    paid: PaidCalls,
+    *,
+    clock: Clock,
+    repo_id: str | None,
+    limit: int,
+    list_only: bool,
+    generate: bool,
+    dry_run: bool,
+    json_output: bool,
+) -> None:
     generation = None
-    if config.project.generate_before_serving and not no_generate:
+    awaiting: list[dict[str, Any]] = []
+    if generate:
         awaiting = [
             diff for diff in diffs_awaiting_generation(store, due_by=utc_now_iso(clock), config=config)
             if repo_id is None or diff["repo_id"] == repo_id
         ]
-        if awaiting and not dry_run and not json_output and not list_only:
-            typer.echo(f"Preparing questions for {len(awaiting)} captured change(s)...")
-        generation = _generate(
-            root, config, store, awaiting, caps=caps, price_per_million=price_per_million, dry_run=dry_run, clock=clock,
-        ) if awaiting else None
-    due = due_probes(store, clock=clock, repo_id=repo_id)
     if dry_run:
-        grading = _paid(store, config, caps, price_per_million, run_id="dry-run")
-        planned = [PlannedCall("grading", PROMPT_OVERHEAD_TOKENS + GRADING_ITEM_TOKENS_ESTIMATE, grading_output_tokens(1))] * min(limit, len(due))
+        # Generation for due diffs, then a grade for every question this
+        # session could serve, including the ones that generation would add.
+        due = due_probes(store, clock=clock, repo_id=repo_id)
+        to_serve = min(limit, len(due) + config.project.probes_per_diff * len(awaiting))
+        planned = (plan_generation(store, root, config, awaiting) if awaiting else []) + _serving_grade_plan(to_serve)
         try:
-            grading_estimate = grading.plan(planned, describe_routes(config))
+            estimate = paid.plan(planned, describe_routes(config))
         except SpendLimitExceeded as exc:
-            grading_estimate = {"status": "over_budget", "reason": str(exc)}
-        _emit({"status": "dry_run", "due": len(due), "generation": generation, "grading_estimate": grading_estimate}, json_output)
+            estimate = {"status": "over_budget", "reason": str(exc)}
+        _emit(
+            {"status": "dry_run", "due": len(due), "awaiting_generation": len(awaiting),
+             "questions_to_serve": to_serve, "estimate": estimate},
+            json_output,
+        )
         return
+    if awaiting:
+        if not json_output and not list_only:
+            typer.echo(f"Preparing questions for {len(awaiting)} captured change(s)...")
+        generation = _generate(root, config, store, awaiting, paid=paid, dry_run=False, clock=clock)
+    due = due_probes(store, clock=clock, repo_id=repo_id)
     if list_only:
         questions = [open_probe(store, probe["id"], clock=clock) for probe in due[:limit]]
         text = "\n\n".join(
@@ -663,35 +702,33 @@ def project_probes(
         if generation and generation.get("status") not in {"complete", "nothing_to_generate"}:
             typer.echo(f"Question generation: {generation.get('status')} {generation.get('reason') or ''}".rstrip())
         return
-    with _cancellation() as stop:
-        paid = _paid(store, config, caps, price_per_million, cancelled=stop.is_set)
-        with _routes(root, config, store, ("grading",)) as routes:
-            grader = routes["grading"]
-            for index, probe in enumerate(due[:limit], start=1):
-                opened = open_probe(store, probe["id"], clock=clock)
-                served_at = utc_now_iso(clock)
-                typer.echo(
-                    f"\n[{index}/{min(limit, len(due))}] {opened['repo']} · {', '.join(opened['files'][:4])}"
-                    + (f" · committed {opened['committed_at'][:10]}" if opened.get("committed_at") else "")
-                )
-                typer.echo(opened["question"])
-                typer.echo(_HELP_LINE)
-                answer, kind, declaration = _read_answer()
-                if kind == "quit":
-                    typer.echo("Stopped; unanswered questions stay due.")
-                    break
-                response = record_response(
-                    store, probe["id"], kind=kind, answer=answer, declaration=declaration,
-                    served_at=served_at, clock=clock,
-                )
-                if kind == "answer" and grader.ready:
-                    try:
-                        grade_responses(store, paid, grader, response_ids=[response["id"]], clock=clock)
-                    except SpendLimitExceeded as exc:
-                        typer.echo(f"Grading deferred: {exc}")
-                elif kind == "answer":
-                    typer.echo(f"Grading provider unavailable: {grader.message}")
-                typer.echo(_render_reveal(reveal(store, store.response(response["id"]) or response)))
+    with _routes(root, config, store, ("grading",)) as routes:
+        grader = routes["grading"]
+        for index, probe in enumerate(due[:limit], start=1):
+            opened = open_probe(store, probe["id"], clock=clock)
+            served_at = utc_now_iso(clock)
+            typer.echo(
+                f"\n[{index}/{min(limit, len(due))}] {opened['repo']} · {', '.join(opened['files'][:4])}"
+                + (f" · committed {opened['committed_at'][:10]}" if opened.get("committed_at") else "")
+            )
+            typer.echo(opened["question"])
+            typer.echo(_HELP_LINE)
+            answer, kind, declaration = _read_answer()
+            if kind == "quit":
+                typer.echo("Stopped; unanswered questions stay due.")
+                break
+            response = record_response(
+                store, probe["id"], kind=kind, answer=answer, declaration=declaration,
+                served_at=served_at, clock=clock,
+            )
+            if kind == "answer" and grader.ready:
+                try:
+                    grade_responses(store, paid, grader, response_ids=[response["id"]], clock=clock)
+                except SpendLimitExceeded as exc:
+                    typer.echo(f"Grading deferred (saved; `learnloop project grade` grades it later): {exc}")
+            elif kind == "answer":
+                typer.echo(f"Grading provider unavailable: {grader.message}")
+            typer.echo(_render_reveal(reveal(store, store.response(response["id"]) or response)))
 
 
 @project_app.command("answer")

@@ -398,3 +398,29 @@ def test_grading_effort_leaves_chat_profiles_without_an_effort_alone():
     assert config_for_role(config, "grading").ai.providers["deepseek_pro"].reasoning_effort == "medium"
     assert config.ai.providers["deepseek_pro"].reasoning_effort == "high"  # the shared profile is untouched
     assert describe_routes(config)["grading"]["reasoning_effort"] == "medium"
+
+
+def test_probes_spends_one_budget_across_generation_and_grading(isolated_git, project_fake, cli, tmp_path):
+    repo = make_model_repo(tmp_path / "repo")
+    cli(["enroll", str(repo.path)])
+    cli(["sweep", "--capture-only"])
+    output = cli(["probes", "--max-calls", "3"], day=8, input_text="It applies relu.\n\nIt scales x.\n\n")
+    # Generation needs all three calls (authoring, closed-book, its grading);
+    # the two answers are saved and their grading is deferred, not re-budgeted.
+    assert project_fake.calls == {"authoring": 1, "closed_book": 1, "grading": 1}
+    assert "Grading deferred" in output
+    store = ProjectStore.existing(cli.vault)
+    assert [row["grade_status"] for row in store.responses()] == ["pending", "pending"]
+
+
+def test_probes_dry_run_estimates_generation_and_the_grading_it_enables(isolated_git, project_fake, cli, tmp_path):
+    repo = make_model_repo(tmp_path / "repo")
+    cli(["enroll", str(repo.path)])
+    cli(["sweep", "--capture-only"])
+    payload = json.loads(cli(["probes", "--dry-run", "--json"], day=8))
+    # 3 generation calls, then one grading call for each of the 2 questions it will serve.
+    assert payload["estimate"]["calls"] == 5
+    assert payload["questions_to_serve"] == 2
+    assert project_fake.requests == []
+    capped = json.loads(cli(["probes", "--dry-run", "--json", "--max-calls", "4"], day=8))
+    assert capped["estimate"]["status"] == "over_budget"
