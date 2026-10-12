@@ -226,7 +226,16 @@ reports are kept as best-effort "files opened".
 
 ## Test results
 
-Recorded on the final commit (see "Gates" below).
+### Gates (run on commit `377af92e`; the commit after it only records these numbers)
+
+| Gate | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | 6 contracts kept, 0 broken |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **6212 passed**, 0 failed (14 warnings, pre-existing), 2 m 27 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **63 passed**, 6149 deselected, 0 failed |
+| Frontend (`npm run typecheck`, `npm test`) | not run: no frontend change |
+| DB reference generate/validate | not run: no schema change |
 
 New test files: `test_blind_grading_contract.py` (10),
 `test_diagnosis_contract.py` (12), `test_diagnosis_context.py` (8),
