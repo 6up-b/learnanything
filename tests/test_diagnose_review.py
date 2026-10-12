@@ -635,6 +635,42 @@ def test_failed_probes_are_retried_on_resume_without_regenerating_paid_inputs(tm
     assert report["grader"]["probes"]["real_vs_synthetic"]["synthetic_n"] == 1
 
 
+def test_a_probe_draft_survives_an_interruption_while_it_is_graded(tmp_path):
+    """F12 (re-review): a draft is checkpointed BEFORE it is graded, so a
+    cancellation (or spend refusal) mid-grading never re-pays its generation."""
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    run = tmp_path / "run"
+    state = {"cancel": False}
+
+    def cancel_after_the_first_draft(purpose, _prompt):
+        if purpose == "diagnosis_valid_alternative":
+            state["cancel"] = True  # the next admission, grading this draft, is refused
+        return False
+
+    first_client = ReviewFakeClient(fail_when=cancel_after_the_first_draft)
+    _client, first = _run(paths, vault, run, client=first_client, options=PROBE_OPTIONS, cancelled=lambda: state["cancel"])
+    assert first["status"] == "cancelled"
+    assert first_client.calls.count("diagnosis_valid_alternative") == 1
+    ((item_id, status, detail_json),) = _scratch_rows(
+        run, "SELECT practice_item_id, status, detail_json FROM review_probes WHERE probe = 'valid_alternative'"
+    )
+    detail = json.loads(detail_json)
+    assert status == "drafted" and detail["draft"] and detail["probe_attempt_id"]
+    client = ReviewFakeClient()
+    _client, resumed = _run(paths, vault, run, client=client, options=PROBE_OPTIONS)
+    assert resumed["status"] == "complete"
+    rows = {
+        row[0]: (row[1], json.loads(row[2]))
+        for row in _scratch_rows(run, "SELECT practice_item_id, status, detail_json FROM review_probes WHERE probe = 'valid_alternative'")
+    }
+    assert rows[item_id][0] == "graded"
+    assert rows[item_id][1]["probe_attempt_id"] == detail["probe_attempt_id"]
+    # Only the items never drafted were generated on resume.
+    assert client.calls.count("diagnosis_valid_alternative") == len(rows) - 1
+
+
 def test_an_owner_verdict_never_lands_on_a_receipt_the_owner_did_not_see(tmp_path):
     """F13: the displayed receipt identity is bound to the adjudication and checked atomically."""
 
