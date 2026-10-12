@@ -239,6 +239,21 @@ def test_embeddings_add_value_opens_the_gate():
     assert splits["first_unseen_item"]["n"] + splits["repeat_item"]["n"] == 400
 
 
+def test_a_failed_secondary_closes_the_gate_for_the_next_one():
+    # Primary passes, success_head is killed, success_head+difficulty would win:
+    # the hierarchy stops at the first failure (review F2).
+    analysis = make_t8_analysis()(_arrays(400, {
+        "emb_ridge": .05, "success_head": .01, "success_head+difficulty": .06}))
+    assert analysis["primary"]["verdict"]["decision"] == "embeddings_add_value"
+    first, second = (analysis["gated"][arm] for arm in ("success_head", "success_head+difficulty"))
+    assert first["interpretation"] == "interpreted" and first["verdict"] == "kill"
+    assert second["verdict"] == "embeddings_add_value"  # still computed and printed
+    assert second["interpretation"] == "not_interpreted"
+    passing = make_t8_analysis()(_arrays(400, {
+        "emb_ridge": .05, "success_head": .06, "success_head+difficulty": .07}))
+    assert {result["interpretation"] for result in passing["gated"].values()} == {"interpreted"}
+
+
 def test_too_few_common_attempts_is_no_decision_and_partial_coverage_is_flagged():
     small = make_t8_analysis()(_arrays(60, {"emb_ridge": .2}))
     assert small["primary"]["verdict"]["decision"] == "insufficient_data"

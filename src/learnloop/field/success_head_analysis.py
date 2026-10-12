@@ -81,16 +81,20 @@ def make_t8_analysis(*, unavailable: Mapping[str, str] | None = None) -> Callabl
         ability_scored = int(arrays.ability.sum())
         primary = _comparison(arrays, PRIMARY_ARM, EXPLICIT_ARMS)
         verdict = _verdict(primary, ability_scored)
-        interpreted = verdict["decision"] == "embeddings_add_value"
+        # Hierarchical: each gated comparison is read only if every earlier
+        # one (the primary first) passed; any other outcome closes the gate.
+        gate_open = verdict["decision"] == "embeddings_add_value"
         gated = {}
         for arm in GATED_ARMS:
             if arm in unavailable:
                 gated[arm] = {"status": "unavailable", "reason": unavailable[arm]}
+                gate_open = False
                 continue
             comparison = _comparison(arrays, arm, EXPLICIT_ARMS)
             if comparison["status"] == "computed":
                 comparison["verdict"] = _verdict(comparison, ability_scored)["decision"]
-            comparison["interpretation"] = "interpreted" if interpreted else "not_interpreted"
+            comparison["interpretation"] = "interpreted" if gate_open else "not_interpreted"
+            gate_open = gate_open and comparison.get("verdict") == "embeddings_add_value"
             gated[arm] = comparison
         descriptive = {"emb_ridge_vs_tag_logistic": _comparison(arrays, PRIMARY_ARM, ["tag_logistic"])}
         for arm in LLM_ARMS:
