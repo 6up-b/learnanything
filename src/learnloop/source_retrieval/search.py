@@ -5,7 +5,8 @@ Lists, each restricted to the scope before fusion:
 * ``keyword``: FTS5 BM25 over ``source_block_fts`` for the query (and context);
 * ``substring``: today's library match (``instr``) in document order, when asked;
 * ``meaning``: dense ranking of the query vector over the scope's stored
-  ``source_block/text`` vectors (deep searches with a complete index);
+  ``source_block/text`` vectors (deep searches; the extractions whose every
+  block is embedded, labelled ``partial`` when that is not all of them);
 * ``rewrite_keyword`` / ``rewrite_meaning``: the same two for the LLM-rewritten
   query, when a conceptual question was rewritten;
 * caller lists (the tutor adds its learning objects' linked spans).
@@ -20,10 +21,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
+import time
 from typing import Any
 
 import numpy as np
 
+from learnloop.ai.spend import SpendBudget
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import (
@@ -138,12 +141,17 @@ def search_spans(
     query_vectors: Mapping[str, np.ndarray] | None = None,
     rewritten: Rewrite | None = None,
     owner_id: str = "",
+    deadline: float | None = None,
+    budget: SpendBudget | None = None,
 ) -> SpanSearch:
     """Hybrid retrieval over ``scope``; never raises for a paid step's failure.
 
     ``rewrite`` None follows the config and the conceptual-question gate.
     ``query_vectors`` (``{"query": v, "rewrite": v}``) and ``rewritten`` let a
-    benchmark reuse vectors and rewrites it already paid for.
+    benchmark reuse vectors and rewrites it already paid for. ``deadline``
+    (``time.monotonic()``) time-boxes the paid steps: the rewrite's request
+    carries the remaining time and no query embedding starts after it.
+    ``budget`` puts both paid steps under one caller's caps.
     """
 
     config = vault.config.source_retrieval
@@ -175,7 +183,8 @@ def search_spans(
         rewrite_result = rewritten
         if wants_rewrite and rewrite_result is None:
             rewrite_result = rewrite_query(vault, repository, text, context=context_text,
-                                           client=rewrite_client, owner_id=owner_id)
+                                           client=rewrite_client, owner_id=owner_id,
+                                           deadline=deadline, budget=budget)
         if rewrite_result is not None:
             result.rewrite = rewrite_result.describe()
         elif rewrite is None and not config.query_rewrite:
@@ -195,16 +204,21 @@ def search_spans(
         else:
             index = load_dense_index(vault, repository, scope)
         result.dense = index.describe()
-        if index.ready:
+        if index.usable:
+            if index.status == "partial" and index.reason:
+                result.notes.append(index.reason)
             texts = {"query": retrieval_text}
             if rewrite_result is not None and rewrite_result.ok:
                 texts["rewrite"] = rewritten_text(rewrite_result)
             if query_vectors is not None:
                 vectors = {key: value for key, value in query_vectors.items() if key in texts}
                 result.query_embedding = {"status": "provided"}
+            elif deadline is not None and time.monotonic() >= deadline:
+                vectors = {}
+                result.query_embedding = {"status": "timed_out", "reason": "the retrieval time box ran out"}
             else:
                 vectors, result.query_embedding = embed_query_texts(
-                    vault, repository, texts, embedder=embedder, owner_id=owner_id)
+                    vault, repository, texts, embedder=embedder, owner_id=owner_id, budget=budget)
 
             def permit(record_id: str) -> bool:
                 return scope.allows(*split_record_id(record_id))

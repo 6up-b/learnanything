@@ -120,3 +120,40 @@ def test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_
     result = rebuild_all_derived_state(load_vault(paths.root), repository)
     fts = next(r for r in result.replayers if r.name == "source_block_fts")
     assert fts.rows_processed == len(before) and _rows(repository.sqlite_path) == before
+
+
+def test_a_delete_never_removes_another_blocks_index_row(tmp_path):
+    """Review F14: rowids renumbered under the index (a table rebuild) must not
+    make a delete remove the wrong row; doctor reports the drift and the
+    replayer repairs it."""
+
+    from learnloop.db.stores.source_block_fts import fts_drift
+    from learnloop.ops.doctor import _check_source_block_fts
+
+    repository = Repository(tmp_path / "s.sqlite")
+    seed_source(repository, source_id="src", revision_id="rev", extraction_id="ext", title="Notes", units=BOOK)
+    with repository.connection() as connection:
+        (first, first_span), (second, second_span) = connection.execute(
+            "SELECT rowid, span_id FROM source_document_blocks WHERE block_type = 'Text' "
+            "ORDER BY rowid LIMIT 2").fetchall()
+        text = connection.execute("SELECT text FROM source_document_blocks WHERE rowid = ?", (second,)).fetchone()[0]
+        # Simulate renumbering: the second block's index row now sits at the first block's rowid.
+        connection.execute("DELETE FROM source_block_fts WHERE rowid IN (?, ?)", (first, second))
+        connection.execute("INSERT INTO source_block_fts(rowid, text, extraction_id, span_id) VALUES (?,?,?,?)",
+                           (first, text, "ext", second_span))
+        connection.execute("DELETE FROM source_document_blocks WHERE rowid = ?", (first,))
+        connection.commit()
+    assert ("ext", second_span) in {(row[2], row[3]) for row in _rows(repository.sqlite_path)}
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        assert fts_drift(connection) == {"stale": 1, "missing": 1}
+    issues = []
+    _check_source_block_fts(repository, issues)
+    assert [issue.code for issue in issues] == ["sql:source_block_fts_drift"]
+    assert "rebuild-derived-state" in issues[0].message
+    with repository.connection() as connection:
+        rebuild_source_block_fts(connection)
+        connection.commit()
+        assert fts_drift(connection) == {"stale": 0, "missing": 0}
+    issues = []
+    _check_source_block_fts(repository, issues)
+    assert issues == []

@@ -588,7 +588,7 @@ def ask(
             clock=clock,
         )
 
-    return {
+    response = {
         "event_id": result["event_id"],
         "reader_answer_event_id": submitted_event_id,
         "answer_md": result["answer_md"],
@@ -600,8 +600,11 @@ def ask(
         "hint_equivalent": bool(cold_active),
         "cold_hint_event_id": cold_hint_event_id,
         "remaining": result["remaining"],
-        "suggested_learning_objects": result.get("suggested_learning_objects", []),
     }
+    if result.get("suggested_learning_objects"):
+        # Slice 2 T6: labelled nearest-LO suggestions (absent when there are none).
+        response["suggested_learning_objects"] = result["suggested_learning_objects"]
+    return response
 
 
 def ask_history(repository: Repository, *, extraction_id: str) -> list[dict[str, Any]]:

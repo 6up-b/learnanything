@@ -138,21 +138,23 @@ def reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]:
             f"{provider_label(provider_name)} is unavailable for reader Ask.",
             retryable=True,
         ) from exc
-    return versioned(
-        {
-            "event_id": result["event_id"],
-            "reader_answer_event_id": result["reader_answer_event_id"],
-            "answer_md": result["answer_md"],
-            "answer_mode": result["answer_mode"],
-            "citations": result["citations"],
-            "manifest": result["manifest"],
-            "warmed_surface_ids": result["warmed_surface_ids"],
-            "burned_surface_ids": result["burned_surface_ids"],
-            "hint_equivalent": result["hint_equivalent"],
-            "remaining": result["remaining"],
-            "suggested_learning_objects": result.get("suggested_learning_objects", []),
-        }
-    )
+    response = {
+        "event_id": result["event_id"],
+        "reader_answer_event_id": result["reader_answer_event_id"],
+        "answer_md": result["answer_md"],
+        "answer_mode": result["answer_mode"],
+        "citations": result["citations"],
+        "manifest": result["manifest"],
+        "warmed_surface_ids": result["warmed_surface_ids"],
+        "burned_surface_ids": result["burned_surface_ids"],
+        "hint_equivalent": result["hint_equivalent"],
+        "remaining": result["remaining"],
+    }
+    if result.get("suggested_learning_objects"):
+        # Slice 2 T6: labelled nearest-LO suggestions, shown in the Ask overlay
+        # (absent when there are none, so the kill switch changes nothing).
+        response["suggested_learning_objects"] = result["suggested_learning_objects"]
+    return versioned(response)
 
 
 class ReaderAskHistoryInput(ParamsModel):

@@ -1,17 +1,29 @@
 """Dense retrieval over stored ``source_block/text`` vectors (no provider call).
 
-The Phase 1 rules hold: a scope is searched densely only when every embeddable
-block in it has a vector for ``embedding.model`` (by its own identity or by an
-identical recipe text stored under another record), so a partially backfilled
-or half-switched index never ranks silently. Scores are the Phase 1
-mean-centred cosine (``db.stores.embedding_vectors.retrieve``): the centroid is
-the whole scope's, exclusions are applied after centring like
-``candidate_ids``, ties go to the smaller record id. A test pins the ranking and
-scores to ``retrieve()``.
+Coverage is decided per extraction. An extraction is searched densely only when
+every embeddable block in it has a vector for ``embedding.model`` (by its own
+identity or by an identical recipe text stored under another record): a
+half-embedded source never ranks by meaning. The index covers the complete
+extractions of the scope:
 
-The centred, row-normalized matrix of a scope is cached per process (keyed by
-database, model and the scope's manifest digest), so a long-lived sidecar
-reads the vectors once per index state rather than per query.
+* ``ready``: every extraction in scope is complete;
+* ``partial``: some are; the others are left to keyword search, and the status
+  says how many blocks and sources are not covered (a new import or a
+  re-extraction never switches meaning search off for the whole library);
+* ``incomplete``: none is (run the source-block backfill);
+* ``disabled`` / ``empty`` / ``unavailable``: switched off, nothing to embed,
+  or mixed vector widths.
+
+Scores are the Phase 1 mean-centred cosine (``db.stores.embedding_vectors.
+retrieve``) over the covered blocks: the centroid is theirs, exclusions are
+applied after centring like ``candidate_ids``, ties go to the smaller record
+id. A test pins a complete scope's ranking and scores to ``retrieve()``.
+
+Coverage (no vector bytes read) and the centred, row-normalized matrix are
+cached per process, keyed by database, model, the scope's manifest digest and a
+fingerprint of the stored vectors, so a long-lived sidecar reads the vectors
+once per index state and the typing search can say cheaply whether a meaning
+search is available.
 """
 from __future__ import annotations
 
@@ -33,10 +45,14 @@ from learnloop.source_retrieval.recipes import (
     DOC_TASK_PREFIX,
     SOURCE_BLOCK_FIELD,
     SOURCE_BLOCK_KIND,
-    scope_manifest,
+    extraction_manifest,
     split_record_id,
 )
 from learnloop.vault.models import LoadedVault
+
+#: Statuses under which the index ranks (``partial`` ranks its complete extractions).
+USABLE = frozenset({"ready", "partial"})
+BACKFILL_HINT = "run `learnloop embeddings backfill --record-kind source_block`"
 
 
 @dataclass
@@ -46,23 +62,32 @@ class DenseIndex:
     model_id: str | None = None
     expected: int = 0
     covered: int = 0
+    sources: int = 0
+    sources_covered: int = 0
     ids: list[str] = field(default_factory=list)
     mean: np.ndarray | None = None
     unit: np.ndarray | None = None
 
     @property
     def ready(self) -> bool:
+        """Every block in scope has a vector (the Phase 1 complete-index rule)."""
+
         return self.status == "ready"
+
+    @property
+    def usable(self) -> bool:
+        return self.status in USABLE
 
     def describe(self) -> dict[str, Any]:
         return {"status": self.status, "reason": self.reason, "model_id": self.model_id,
-                "expected": self.expected, "covered": self.covered}
+                "expected": self.expected, "covered": self.covered,
+                "sources": self.sources, "sources_covered": self.sources_covered}
 
     def rank(self, query: np.ndarray, *, limit: int,
              allow: Callable[[str], bool] | None = None) -> list[tuple[str, float]]:
         """``(record_id, score)`` best first; ``allow`` filters after centring."""
 
-        if not self.ready or self.unit is None or self.mean is None or limit <= 0:
+        if not self.usable or self.unit is None or self.mean is None or limit <= 0:
             return []
         q = np.asarray(query, dtype=np.float64)
         if q.ndim != 1 or q.size != self.mean.size:
@@ -85,36 +110,59 @@ class DenseIndex:
         return ranked
 
 
-_CACHE: OrderedDict[tuple[str, str, str], DenseIndex] = OrderedDict()
+@dataclass(frozen=True)
+class _Coverage:
+    model_id: str
+    expected: int
+    sources: int
+    #: record id -> ``embedding_vectors.id`` of its current vector, complete extractions only.
+    rows: Mapping[str, str]
+    complete: tuple[str, ...]
+    uncovered_blocks: int
+
+
+_CACHE: OrderedDict[tuple[Any, ...], DenseIndex] = OrderedDict()
+_COVERAGE: OrderedDict[tuple[Any, ...], _Coverage] = OrderedDict()
 _CACHE_LOCK = Lock()
 _CACHE_SIZE = 4
+_COVERAGE_SIZE = 16
 
 
 def clear_cache() -> None:
     with _CACHE_LOCK:
         _CACHE.clear()
+        _COVERAGE.clear()
 
 
-def _stored(connection, *, model_id: str, extraction_ids: list[str],
-            manifest: Mapping[str, str]) -> dict[str, bytes]:
-    """The current vector blob per manifest record: by identity, else by content."""
+def _vectors_fingerprint(connection, model_id: str) -> tuple[int, int]:
+    """Changes whenever a source-block vector for the model is added or removed."""
 
-    found: dict[str, bytes] = {}
     if not connection.execute(
         "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'embedding_vectors'"
     ).fetchone():
-        return found
-    for extraction_id in extraction_ids:
-        for record_id, content_hash, blob in connection.execute(
-            "SELECT record_id, content_hash, vector FROM embedding_vectors "
-            "WHERE record_kind = ? AND field = ? AND model_id = ? AND task_prefix = ? "
-            "AND record_id >= ? AND record_id < ? ORDER BY created_at, id",
-            (SOURCE_BLOCK_KIND, SOURCE_BLOCK_FIELD, model_id, DOC_TASK_PREFIX,
-             f"{extraction_id}/", f"{extraction_id}0"),
-        ):
-            key = str(record_id)
-            if manifest.get(key) == content_hash and key not in found:
-                found[key] = blob
+        return (0, 0)
+    row = connection.execute(
+        "SELECT COUNT(*), COALESCE(MAX(rowid), 0) FROM embedding_vectors "
+        "WHERE model_id = ? AND record_kind = ?", (model_id, SOURCE_BLOCK_KIND),
+    ).fetchone()
+    return int(row[0]), int(row[1])
+
+
+def _covering_rows(connection, *, model_id: str, extraction_id: str,
+                   manifest: Mapping[str, str]) -> dict[str, str]:
+    """The current vector row per manifest record: by identity, else by content."""
+
+    found: dict[str, str] = {}
+    for row_id, record_id, content_hash in connection.execute(
+        "SELECT id, record_id, content_hash FROM embedding_vectors "
+        "WHERE record_kind = ? AND field = ? AND model_id = ? AND task_prefix = ? "
+        "AND record_id >= ? AND record_id < ? ORDER BY created_at, id",
+        (SOURCE_BLOCK_KIND, SOURCE_BLOCK_FIELD, model_id, DOC_TASK_PREFIX,
+         f"{extraction_id}/", f"{extraction_id}0"),
+    ):
+        key = str(record_id)
+        if manifest.get(key) == content_hash and key not in found:
+            found[key] = str(row_id)
     missing: dict[str, list[str]] = {}
     for key, content_hash in manifest.items():
         if key not in found:
@@ -122,55 +170,120 @@ def _stored(connection, *, model_id: str, extraction_ids: list[str],
     hashes = sorted(missing)
     for start in range(0, len(hashes), 500):
         chunk = hashes[start:start + 500]
-        for content_hash, blob in connection.execute(
-            "SELECT content_hash, vector FROM embedding_vectors WHERE record_kind = ? AND field = ? "
+        for row_id, content_hash in connection.execute(
+            "SELECT id, content_hash FROM embedding_vectors WHERE record_kind = ? AND field = ? "
             "AND model_id = ? AND task_prefix = ? AND content_hash IN "
             f"({', '.join('?' for _ in chunk)}) ORDER BY created_at, id",
             (SOURCE_BLOCK_KIND, SOURCE_BLOCK_FIELD, model_id, DOC_TASK_PREFIX, *chunk),
         ):
             for key in missing.get(str(content_hash), ()):
-                found.setdefault(key, blob)
+                found.setdefault(key, str(row_id))
     return found
 
 
-def load_dense_index(vault: LoadedVault, repository: Repository, scope: Scope) -> DenseIndex:
-    """The scope's dense index, or a labelled reason it cannot be used."""
+def _coverage(connection, sqlite_path: Path, model_id: str, extraction_ids: list[str],
+              ) -> tuple[_Coverage | None, tuple[Any, ...]]:
+    manifests = {extraction_id: extraction_manifest(connection, sqlite_path, extraction_id)
+                 for extraction_id in extraction_ids}
+    manifests = {key: value for key, value in manifests.items() if value}
+    if not manifests:
+        return None, ()
+    digest = content_key(sorted((key, sorted(value.items())) for key, value in manifests.items()))
+    key = (str(sqlite_path), model_id, digest, _vectors_fingerprint(connection, model_id))
+    with _CACHE_LOCK:
+        cached = _COVERAGE.get(key)
+        if cached is not None:
+            _COVERAGE.move_to_end(key)
+            return cached, key
+    rows: dict[str, str] = {}
+    complete: list[str] = []
+    uncovered = 0
+    for extraction_id, manifest in sorted(manifests.items()):
+        found = _covering_rows(connection, model_id=model_id, extraction_id=extraction_id, manifest=manifest)
+        if len(found) == len(manifest):
+            complete.append(extraction_id)
+            rows.update(found)
+        else:
+            uncovered += len(manifest) - len(found)
+    coverage = _Coverage(model_id, sum(len(manifest) for manifest in manifests.values()), len(manifests),
+                         rows, tuple(complete), uncovered)
+    with _CACHE_LOCK:
+        _COVERAGE[key] = coverage
+        while len(_COVERAGE) > _COVERAGE_SIZE:
+            _COVERAGE.popitem(last=False)
+    return coverage, key
 
-    config = vault.config
-    if not config.source_retrieval.dense:
+
+def _label(coverage: _Coverage) -> tuple[str, str | None]:
+    if len(coverage.complete) == coverage.sources:
+        return "ready", None
+    missing_sources = coverage.sources - len(coverage.complete)
+    detail = (f"{coverage.uncovered_blocks} of {coverage.expected} blocks in scope "
+              f"({missing_sources} of {coverage.sources} sources) have no {coverage.model_id} vector")
+    if not coverage.complete:
+        return "incomplete", f"{detail}; {BACKFILL_HINT}"
+    return "partial", f"meaning search covers {len(coverage.complete)} of {coverage.sources} sources: {detail}; {BACKFILL_HINT}"
+
+
+def dense_coverage(vault: LoadedVault, repository: Repository, scope: Scope) -> DenseIndex:
+    """The scope's dense status and counts without reading any vector bytes."""
+
+    if not vault.config.source_retrieval.dense:
         return DenseIndex("disabled", "source_retrieval.dense is false")
-    model_id = config.embedding.model
+    model_id = vault.config.embedding.model
     sqlite_path = Path(repository.sqlite_path)
-    extraction_ids = sorted(scope.extractions)
     with closing(connect(sqlite_path, read_only=True)) as connection:
-        manifest = scope_manifest(connection, sqlite_path, extraction_ids)
-        if not manifest:
+        coverage, _key = _coverage(connection, sqlite_path, model_id, sorted(scope.extractions))
+    if coverage is None:
+        return DenseIndex("empty", "no embeddable block in scope", model_id)
+    status, reason = _label(coverage)
+    return DenseIndex(status, reason, model_id, expected=coverage.expected, covered=len(coverage.rows),
+                      sources=coverage.sources, sources_covered=len(coverage.complete))
+
+
+def load_dense_index(vault: LoadedVault, repository: Repository, scope: Scope) -> DenseIndex:
+    """The scope's dense index over its complete extractions, or a labelled reason."""
+
+    if not vault.config.source_retrieval.dense:
+        return DenseIndex("disabled", "source_retrieval.dense is false")
+    model_id = vault.config.embedding.model
+    sqlite_path = Path(repository.sqlite_path)
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        coverage, key = _coverage(connection, sqlite_path, model_id, sorted(scope.extractions))
+        if coverage is None:
             return DenseIndex("empty", "no embeddable block in scope", model_id)
-        key = (str(sqlite_path), model_id, content_key(sorted(manifest.items())))
+        status, reason = _label(coverage)
+        counts = {"expected": coverage.expected, "covered": len(coverage.rows),
+                  "sources": coverage.sources, "sources_covered": len(coverage.complete)}
+        if status not in USABLE:
+            return DenseIndex(status, reason, model_id, **counts)
         with _CACHE_LOCK:
             cached = _CACHE.get(key)
             if cached is not None:
                 _CACHE.move_to_end(key)
                 return cached
-        found = _stored(connection, model_id=model_id, extraction_ids=extraction_ids, manifest=manifest)
-    if len(found) < len(manifest):
-        return DenseIndex(
-            "incomplete",
-            f"{len(manifest) - len(found)} of {len(manifest)} blocks in scope have no "
-            f"{model_id} vector; run `learnloop embeddings backfill --record-kind source_block`",
-            model_id, expected=len(manifest), covered=len(found))
-    ids = sorted(manifest)
-    widths = {len(found[key]) for key in ids}
+        ids = sorted(coverage.rows)
+        blobs: dict[str, bytes] = {}
+        row_ids = sorted(set(coverage.rows.values()))
+        for start in range(0, len(row_ids), 500):
+            chunk = row_ids[start:start + 500]
+            for row_id, blob in connection.execute(
+                f"SELECT id, vector FROM embedding_vectors WHERE id IN ({', '.join('?' for _ in chunk)})",
+                chunk,
+            ):
+                blobs[str(row_id)] = blob
+    if any(coverage.rows[record_id] not in blobs for record_id in ids):
+        return DenseIndex("unavailable", "stored vectors changed while reading; retry", model_id, **counts)
+    widths = {len(blobs[coverage.rows[record_id]]) for record_id in ids}
     if len(widths) != 1:
-        return DenseIndex("unavailable", "stored vectors have mixed widths", model_id,
-                          expected=len(manifest), covered=len(found))
-    matrix = np.stack([np.frombuffer(found[key], dtype="<f2").astype(np.float64) for key in ids])
+        return DenseIndex("unavailable", "stored vectors have mixed widths", model_id, **counts)
+    matrix = np.stack([np.frombuffer(blobs[coverage.rows[record_id]], dtype="<f2").astype(np.float64)
+                       for record_id in ids])
     mean = matrix.mean(axis=0)
     centered = matrix - mean
     norms = np.linalg.norm(centered, axis=1, keepdims=True)
     unit = np.divide(centered, norms, out=np.zeros_like(centered), where=norms != 0).astype(np.float32)
-    index = DenseIndex("ready", None, model_id, expected=len(manifest), covered=len(found),
-                       ids=ids, mean=mean, unit=unit)
+    index = DenseIndex(status, reason, model_id, ids=ids, mean=mean, unit=unit, **counts)
     with _CACHE_LOCK:
         _CACHE[key] = index
         while len(_CACHE) > _CACHE_SIZE:
@@ -182,4 +295,5 @@ def record_keys(record_id: str) -> tuple[str, str]:
     return split_record_id(record_id)
 
 
-__all__ = ["DenseIndex", "clear_cache", "load_dense_index", "record_keys"]
+__all__ = ["BACKFILL_HINT", "USABLE", "DenseIndex", "clear_cache", "dense_coverage", "load_dense_index",
+           "record_keys"]

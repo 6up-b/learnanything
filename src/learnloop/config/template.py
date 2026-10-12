@@ -834,8 +834,9 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # labelled LO suggestions. No scoring, scheduling, projection or serving
     # change, so no successor; enabled = false is its kill switch. All three
     # snapshots were recomputed for it (each moves only because the effective
-    # config gains the section and routes).
-    "mvp-0.9": "ff05de852f79cb36718d10cb2abfe89eb29fe2ca23c590e91547e94db65bc11b",
+    # config gains the section and routes), and again for the T6 review fixes
+    # (tutor_query_rewrite, retrieval_timeout_seconds, tutor_spans at most 4).
+    "mvp-0.9": "663dd2dd475f6e1fd03f24188d92a32974e54b5ff798ebc280984f99b1325ed5",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -844,7 +845,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # algorithm_version changed. Slice 2 T5's [graph_nomination] moves it
     # too (modelled defaults, nominations only; no serving change).
     # Phase 5a's [pf] section and routes move it too (no serving change).
-    "mvp-0.10": "2ec471fb8c170bbe07516201d6a1ce688e852c1b55cb4d3aaf334a45d028dc14",
+    "mvp-0.10": "27836badc44cd9251f712debb06fe4b0d3c59f2a03b26ce4b3a3952c5582704c",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -857,7 +858,7 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # merge (they move only because the effective config gains the section).
     # All three were recomputed again at the Phase 5a merge for [pf] and the
     # two PF routes (content generation behind pf.generation_enabled, off).
-    "mvp-0.11": "802f1ec175e116040deb73b7ed08968bba2850d7c94777f36bb114c3b1fe34e3",
+    "mvp-0.11": "28bcff65208dfaae4aac12dc4704c18c08ac50ab033b39f1a2f99b53f0062ba1",
 }
 
 

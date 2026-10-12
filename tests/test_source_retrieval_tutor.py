@@ -243,3 +243,92 @@ def test_the_same_question_over_the_same_pool_is_verified_from_the_ledger(tmp_pa
                  for r in (first, second)]
     assert [m["verification"]["status"] for m in manifests] == ["verified", "cached"]
     assert manifests[0]["verification"]["verdicts"] == manifests[1]["verification"]["verdicts"]
+
+
+# --- review F4: the question row lands first, retrieval is time-boxed, no rewrite by default ---
+
+
+def test_the_question_row_is_written_before_retrieval(tmp_path):
+    paths, repository = setup(tmp_path, embed=False)
+    seen = []
+
+    def provider(_vault, repo, **_kwargs):
+        seen.extend((row["answer_status"], row["question_md"]) for row in repo.question_events(context="practice"))
+        return None, {"basis": "lo_provenance", "reason": "probe"}
+
+    result = ask(paths, repository, CitingTutor(), span_provider=provider)
+    assert seen == [("pending", QUESTION)]
+    event = repository.question_event(result["event_id"])
+    assert event["answer_status"] == "answered"
+    assert event["source_context"]["source_retrieval"] == {"basis": "lo_provenance", "reason": "probe"}
+
+
+def test_an_interrupted_retrieval_keeps_the_question(tmp_path):
+    paths, repository = setup(tmp_path, embed=False)
+
+    def provider(*_args, **_kwargs):
+        raise SystemExit("the app closed during retrieval")
+
+    with pytest.raises(SystemExit):
+        ask(paths, repository, CitingTutor(), span_provider=provider)
+    rows = repository.question_events(context="practice")
+    assert [(row["question_md"], row["answer_status"]) for row in rows] == [(QUESTION, "pending")]
+
+
+class DeadlineHonouringLLM(FakeSourceLLM):
+    """Takes ``latency`` seconds; a request whose timeout is shorter times out."""
+
+    def __init__(self, latency: float, **kwargs):
+        super().__init__(**kwargs)
+        self.latency = latency
+        self.timeouts: list[float | None] = []
+
+    def complete(self, request):
+        self.timeouts.append(request.timeout_seconds)
+        if request.timeout_seconds is not None and request.timeout_seconds < self.latency:
+            from learnloop.ai.errors import AITurnTimeout
+
+            raise AITurnTimeout(f"{request.purpose} timed out")
+        return super().complete(request)
+
+
+def test_a_slow_verification_runs_out_of_time_and_the_tutor_keeps_its_linked_spans(tmp_path):
+    paths, repository = setup(tmp_path)
+    append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 5\n")
+    slow = DeadlineHonouringLLM(latency=30)
+    tutor, linked = CitingTutor(), CitingTutor()
+    ask(paths, repository, linked, session="s0")
+    result = ask(paths, repository, tutor, span_provider=TutorSpanProvider(
+        embedder=HashingEmbedder(), rewrite_client=slow, rerank_client=slow, clock=CLOCK))
+    assert slow.timeouts and all(timeout is not None and timeout <= 5 for timeout in slow.timeouts)
+    assert tutor.contexts[0].source_spans == linked.contexts[0].source_spans
+    event = repository.question_event(result["event_id"])
+    manifest = event["source_context"]["source_retrieval"]
+    assert manifest["basis"] == "lo_provenance" and manifest["reason"] == "verification timed_out"
+    assert manifest["time_box_seconds"] == 5 and event["answer_status"] == "answered"
+
+
+def test_no_paid_step_starts_after_the_time_box(tmp_path):
+    paths, repository = setup(tmp_path)
+    append_config_toml(paths.root, "[source_retrieval]\nretrieval_timeout_seconds = 0.000001\n"
+                                   "tutor_query_rewrite = true\n")
+    llm = FakeSourceLLM()
+    embedder = HashingEmbedder()
+    result = ask(paths, repository, CitingTutor(), span_provider=TutorSpanProvider(
+        embedder=embedder, rewrite_client=llm, rerank_client=llm, clock=CLOCK))
+    assert llm.calls == [] and embedder.calls == []
+    manifest = repository.question_event(result["event_id"])["source_context"]["source_retrieval"]
+    assert manifest["search"]["rewrite"]["status"] == "timed_out"
+    assert manifest["search"]["query_embedding"]["status"] == "timed_out"
+    assert manifest["verification"]["status"] == "timed_out" and manifest["basis"] == "lo_provenance"
+
+
+def test_the_tutor_does_not_rewrite_questions_by_default(tmp_path):
+    paths, repository = setup(tmp_path)
+    span_provider, llm = provider()
+    result = ask(paths, repository, CitingTutor(), span_provider=span_provider)
+    assert [purpose for purpose, _ in llm.calls] == ["source_rerank"]
+    manifest = repository.question_event(result["event_id"])["source_context"]["source_retrieval"]
+    assert manifest["search"]["rewrite"] == {"status": "disabled",
+                                             "reason": "source_retrieval.tutor_query_rewrite is false"}
+    assert manifest["elapsed_ms"] >= 0

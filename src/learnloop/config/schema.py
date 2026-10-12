@@ -1567,12 +1567,21 @@ class SourceRetrievalConfig(BaseModel):
     # query embedding also needs embedding.enabled). Otherwise keyword only.
     dense: bool = True
     # LLM rewrite of conceptual questions before retrieval (route
-    # source_query_rewrite): tutor questions and deep library searches.
+    # source_query_rewrite) for deep library searches (Enter).
     query_rewrite: bool = True
+    # The same rewrite for tutor questions. Off by default: the tutor already
+    # waits for verification, which decides the spans, and an unset route runs
+    # on Codex, so a rewrite would add a slow call to every conceptual question.
+    tutor_query_rewrite: bool = False
     # Tutor spans: an LLM listwise rerank verifies every retrieved candidate
     # (route source_rerank) and only verified spans reach the tutor. Off or
     # unavailable, the tutor keeps the learning object's linked spans.
     tutor_rerank: bool = True
+    # Time box, in seconds, for a tutor question's retrieval and verification
+    # and for a deep library search's rewrite and query embedding. Each paid
+    # request carries the time left as its timeout; when it runs out the tutor
+    # keeps the linked spans and the search keeps what it has.
+    retrieval_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
     # A labelled nearest-LO suggestion for reader spans without provenance.
     suggest_learning_objects: bool = True
     # Metered rewrite / rerank routes need a USD-per-million-token estimate, or
@@ -1585,9 +1594,10 @@ class SourceRetrievalConfig(BaseModel):
     query_embedding_price_per_million: float | None = Field(default=None, gt=0)
     # Reciprocal-rank-fusion constant (Cormack et al. 2009); ranks, not scores.
     rrf_k: int = Field(default=60, ge=1)
-    # Candidates the tutor's verification rerank judges, and spans it keeps.
+    # Candidates the tutor's verification rerank judges, and spans it keeps
+    # (at most 4: the ING M8 §9.2 bound on source spans offered to one turn).
     tutor_candidate_pool: int = Field(default=12, ge=1, le=40)
-    tutor_spans: int = Field(default=4, ge=1, le=8)
+    tutor_spans: int = Field(default=4, ge=1, le=4)
 
 
 class PlacementConfig(BaseModel):

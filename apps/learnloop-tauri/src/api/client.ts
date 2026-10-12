@@ -220,6 +220,7 @@ import type {
   ReaderAuthorSectionQuestionDto,
   ReaderAuthoredQuestionDto,
   ReaderSourceSearchDto,
+  ReaderSpanLearningObjectsDto,
   ReaderAnswerMode,
   ReaderDisposition,
   ReaderDispositionResultDto,
@@ -1193,6 +1194,9 @@ export const api = {
   // rewrite a conceptual question. Typing runs the local keyword search only.
   readerSearchSources: (input: { query: string; limit?: number; deep?: boolean }) =>
     call<ReaderSourceSearchDto>("reader_search_sources", { input }),
+  // Slice 2 T6: a span's provenance-linked LOs, else labelled nearest-LO suggestions.
+  readerSpanLearningObjects: (input: { extractionId: string; spanId: string }) =>
+    call<ReaderSpanLearningObjectsDto>("reader_span_learning_objects", { input }),
   readerManualAnchor: (input: { annotationId: string; extractionId: string; rawSelection: Record<string, unknown>; renderViewId?: string | null }) =>
     mutatingReader(call<{ annotationId: string; status: string }>("reader_manual_anchor", { input })),
   readerAcceptProposal: (proposalId: string) =>

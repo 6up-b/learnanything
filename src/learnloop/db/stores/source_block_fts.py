@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
+import json
 import re
 import sqlite3
 import unicodedata
@@ -200,18 +201,143 @@ def extraction_fingerprint(connection: sqlite3.Connection, extraction_id: str) -
     return int(row[0]), int(row[1])
 
 
-def assessment_link_locators(connection: sqlite3.Connection) -> list[tuple[str | None, str]]:
-    """``(extraction_id, locator)`` of every current assessment-lane provenance link.
+@dataclass(frozen=True)
+class AssessmentLink:
+    extraction_id: str | None
+    locator: str
+    source_id: str | None
+    revision_id: str | None
 
-    ``exercise`` and ``assessment_alignment`` links point at assessment material,
-    which never enters a teaching context (ING M8 §9.1).
+
+def assessment_link_locators(connection: sqlite3.Connection) -> list[AssessmentLink]:
+    """Every current assessment-lane provenance link (``exercise`` and
+    ``assessment_alignment``), which never enters a teaching context (ING M8 §9.1).
     """
 
-    return [(None if row[0] is None else str(row[0]), str(row[1])) for row in connection.execute(
-        "SELECT extraction_id, locator FROM entity_source_links "
+    return [AssessmentLink(None if row[0] is None else str(row[0]), str(row[1] or ""),
+                           None if row[2] is None else str(row[2]),
+                           None if row[3] is None else str(row[3]))
+            for row in connection.execute(
+        "SELECT extraction_id, locator, source_id, revision_id FROM entity_source_links "
         "WHERE relation IN ('exercise', 'assessment_alignment') "
         "AND (status IS NULL OR status = 'current') ORDER BY id",
     )]
+
+
+def source_extraction_ids(connection: sqlite3.Connection, *, source_id: str | None = None,
+                          revision_id: str | None = None) -> list[str]:
+    """Every extraction run of a source (all its revisions), or of one revision."""
+
+    if source_id:
+        rows = connection.execute(
+            "SELECT run.id FROM source_extraction_runs AS run "
+            "JOIN source_revisions AS revision ON revision.id = run.revision_id "
+            "WHERE revision.source_id = ? ORDER BY run.created_at, run.id", (source_id,))
+    elif revision_id:
+        rows = connection.execute(
+            "SELECT id FROM source_extraction_runs WHERE revision_id = ? ORDER BY created_at, id",
+            (revision_id,))
+    else:
+        return []
+    return [str(row[0]) for row in rows]
+
+
+@dataclass(frozen=True)
+class UnitRow:
+    unit_id: str
+    label: str
+    parent_unit_id: str | None
+    span_ids: tuple[str, ...]
+
+
+def extraction_units(connection: sqlite3.Connection, extraction_id: str) -> list[UnitRow]:
+    """One extraction's units in outline order (no block or asset read)."""
+
+    units: list[UnitRow] = []
+    for row in connection.execute(
+        "SELECT unit_id, label, parent_unit_id, span_ids_json FROM source_document_units "
+        "WHERE extraction_id = ? ORDER BY ordinal, unit_id", (extraction_id,),
+    ):
+        try:
+            span_ids = json.loads(row[3] or "[]")
+        except (TypeError, ValueError):
+            span_ids = []
+        units.append(UnitRow(str(row[0]), " ".join(str(row[1] or "").split()),
+                             None if row[2] is None else str(row[2]),
+                             tuple(str(span) for span in span_ids or [] if span is not None)))
+    return units
+
+
+#: Role hints that continue a solution's region (its body follows a short lead
+#: block such as "Solution:"). Any other hint, or a section header, ends it.
+_REGION_BODY_HINTS = frozenset({None, "", "ordinary_prose", "equation", "table", "figure"})
+#: A region never runs past this many blocks after its lead.
+MAX_REGION_BLOCKS = 20
+
+
+def role_hint_spans(connection: sqlite3.Connection, extraction_ids: Iterable[str],
+                    hints: Collection[str], *, region_hints: Collection[str] = ()) -> set[tuple[str, str]]:
+    """Blocks whose ``role_hint`` is in ``hints``, within the given extractions.
+
+    A block whose hint is in ``region_hints`` also takes the blocks after it,
+    up to the next section header or structural hint (definition, theorem,
+    another exercise, ...) and at most ``MAX_REGION_BLOCKS``: Marker gives the
+    lead line ("Solution:") the hint and leaves the body that follows unhinted.
+    """
+
+    wanted = sorted({str(hint) for hint in hints if hint})
+    ids = sorted({str(value) for value in extraction_ids if value})
+    if not wanted or not ids:
+        return set()
+    marks = ", ".join("?" for _ in wanted)
+    regions = {str(hint) for hint in region_hints}
+    found: set[tuple[str, str]] = set()
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        hinted = connection.execute(
+            f"SELECT DISTINCT extraction_id FROM source_document_blocks WHERE role_hint IN ({marks}) "
+            f"AND extraction_id IN ({', '.join('?' for _ in chunk)}) ORDER BY extraction_id",
+            (*wanted, *chunk),
+        ).fetchall()
+        for (extraction_id,) in hinted:
+            open_region = 0
+            for span_id, block_type, role_hint in connection.execute(
+                "SELECT span_id, block_type, role_hint FROM source_document_blocks "
+                "WHERE extraction_id = ? ORDER BY ordinal, span_id", (extraction_id,),
+            ):
+                if role_hint in wanted:
+                    found.add((str(extraction_id), str(span_id)))
+                    open_region = MAX_REGION_BLOCKS if role_hint in regions else 0
+                elif open_region and block_type != "SectionHeader" and role_hint in _REGION_BODY_HINTS:
+                    found.add((str(extraction_id), str(span_id)))
+                    open_region -= 1
+                else:
+                    open_region = 0
+    return found
+
+
+def fts_drift(connection: sqlite3.Connection) -> dict[str, int]:
+    """How far ``source_block_fts`` has drifted from ``source_document_blocks``.
+
+    ``stale``: index rows whose rowid no longer names the same block (a block
+    deleted while the triggers were missing, or rowids renumbered by a table
+    rebuild); ``missing``: indexable blocks without their own index row. Both
+    are zero for an index the triggers (or the replayer) maintain.
+    """
+
+    marks = ", ".join("?" for _ in EXCLUDED_BLOCK_TYPES)
+    stale = connection.execute(
+        "SELECT COUNT(*) FROM source_block_fts AS f LEFT JOIN source_document_blocks AS b "
+        "ON b.rowid = f.rowid AND b.extraction_id = f.extraction_id AND b.span_id = f.span_id "
+        "WHERE b.rowid IS NULL",
+    ).fetchone()[0]
+    missing = connection.execute(
+        "SELECT COUNT(*) FROM source_document_blocks AS b LEFT JOIN source_block_fts AS f "
+        "ON f.rowid = b.rowid AND f.extraction_id = b.extraction_id AND f.span_id = b.span_id "
+        f"WHERE b.block_type NOT IN ({marks}) AND f.rowid IS NULL",
+        EXCLUDED_BLOCK_TYPES,
+    ).fetchone()[0]
+    return {"stale": int(stale), "missing": int(missing)}
 
 
 def indexed_block_count(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> int:
@@ -225,15 +351,22 @@ def indexed_block_count(connection: sqlite3.Connection, extraction_ids: Iterable
 
 
 __all__ = [
+    "AssessmentLink",
     "BlockMatch",
     "BlockRow",
+    "MAX_REGION_BLOCKS",
+    "UnitRow",
     "assessment_link_locators",
     "blocks_by_key",
     "extraction_blocks",
     "extraction_fingerprint",
+    "extraction_units",
     "EXCLUDED_BLOCK_TYPES",
     "MAX_QUERY_TERMS",
+    "fts_drift",
     "indexed_block_count",
+    "role_hint_spans",
+    "source_extraction_ids",
     "section_header_titles",
     "match_expression",
     "query_terms",

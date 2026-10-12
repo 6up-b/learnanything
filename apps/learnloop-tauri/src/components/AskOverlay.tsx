@@ -7,6 +7,7 @@ import type {
   PromotionIntent,
   QuestionPromotionDto,
   QuestionPromotionRequestDto,
+  SuggestedLearningObjectDto,
   TutorCitationDto,
   TutorQuestionContext,
   TutorQuestionEventDto
@@ -15,6 +16,7 @@ import { COLOR, Faint, FONT_MONO, Pill, type PillColor } from "./term";
 import { MarkdownMath } from "../render/MarkdownMath";
 import { OpenInSource } from "./OpenInSource";
 import { notifyQueueChanged } from "../queueEvents";
+import { suggestionLine } from "./askSuggestions";
 
 export interface AskTarget {
   initialQuestion?: string;
@@ -63,6 +65,9 @@ interface ThreadEntry {
   /** ING M8 (§9.2): source-span citations on the live answer; chips open the
    *  Open-in-source viewer. Ephemeral — absent on transcript-reloaded turns. */
   citations?: TutorCitationDto[];
+  /** Slice 2 T6: labelled nearest-LO suggestions for a reader span without
+   *  provenance. Ephemeral, like citations. */
+  suggestions?: SuggestedLearningObjectDto[];
 }
 
 interface SaveNotice {
@@ -322,6 +327,7 @@ export function AskOverlay({
         questionType: string | null;
         hintEquivalent: boolean;
         citations: TutorCitationDto[];
+        suggestions?: SuggestedLearningObjectDto[];
         remaining: number;
       };
       if (target.context === "reader") {
@@ -339,6 +345,7 @@ export function AskOverlay({
           questionType: null,
           hintEquivalent: readerAnswer.hintEquivalent,
           citations: readerAnswer.citations,
+          suggestions: readerAnswer.suggestedLearningObjects,
           remaining: readerAnswer.remaining ?? 0
         };
       } else {
@@ -385,7 +392,8 @@ export function AskOverlay({
                 savedNoteId: null,
                 promotion: null,
                 promotionRequest: null,
-                citations: answer.citations
+                citations: answer.citations,
+                suggestions: answer.suggestions
               }
             : entry
         )
@@ -549,6 +557,11 @@ export function AskOverlay({
                           ❯ {citation.label ?? citation.spanId}
                         </span>
                       ))}
+                    </div>
+                  ) : null}
+                  {suggestionLine(entry.suggestions) ? (
+                    <div style={{ marginTop: 6, fontSize: 11, color: COLOR.textFaint, fontFamily: FONT_MONO }}>
+                      {suggestionLine(entry.suggestions)}
                     </div>
                   ) : null}
                   {entry.eventId ? (

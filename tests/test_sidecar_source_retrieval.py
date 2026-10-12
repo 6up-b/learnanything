@@ -34,6 +34,9 @@ def test_library_search_rpc_ranks_by_keyword_and_says_so(tmp_path):
     # Deep, but no source-block vectors and no rewrite route: honestly keyword only.
     assert deep["deep"] is True and deep["basis"] == "keyword"
     assert deep["hits"][0]["spanId"] == "s7"
+    # Review F3: the typing response says Enter would not search by meaning here.
+    assert typed["meaningSearch"]["status"] == "incomplete"
+    assert set(typed["meaningSearch"]) >= {"sources", "sourcesCovered", "blocks", "blocksCovered"}
 
 
 def test_span_learning_objects_rpc_labels_suggestions(tmp_path):

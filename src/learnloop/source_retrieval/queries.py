@@ -25,12 +25,13 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable
+from learnloop.ai.errors import AIInterrupted, AIInvalidOutput, AIProviderUnavailable, AITurnTimeout
 from learnloop.ai.execution import content_key
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import query_terms
+from learnloop.practice_index.listwise import route_skip as listwise_route_skip
 from learnloop.practice_index.paid import PaidCalls, plan_route, resolve_client, transport_problem
 from learnloop.practice_index.query_vectors import embed_queries, normalize_query
 from learnloop.source_retrieval.contracts import QueryRewrite
@@ -99,13 +100,11 @@ def rewrite_caps(vault: LoadedVault) -> SpendCaps:
 
 
 def route_skip(route: Any, price: float | None, *, injected: bool) -> str | None:
-    """Why a live paid step is skipped before any client is built, or None."""
+    """Why a live paid step is skipped before any client is built, or None
+    (Phase 5b's skip check, naming T6's price setting)."""
 
-    if not injected and not route.available:
-        return f"unavailable: no provider routed for {route.task}"
-    if route.billing == "metered" and price is None:
-        return "skipped: metered route without source_retrieval.llm_price_per_million"
-    return None
+    return listwise_route_skip(route, price, injected=injected,
+                               price_setting="source_retrieval.llm_price_per_million")
 
 
 def rewrite_prompt(question: str, context: str | None) -> str:
@@ -128,8 +127,13 @@ def rewrite_query(
     vault: LoadedVault, repository: Repository, question: str, *,
     context: str | None = None, client: Any | None = None,
     owner_kind: str = "source_query_rewrite", owner_id: str = "",
+    deadline: float | None = None, budget: SpendBudget | None = None,
 ) -> Rewrite:
-    """The live rewrite of one conceptual question (never raises)."""
+    """The live rewrite of one conceptual question (never raises).
+
+    ``deadline`` (``time.monotonic()``) time-boxes it; ``budget`` replaces the
+    rewrite's own caps with a caller's (``learnloop sources search``'s flags).
+    """
 
     config = vault.config.source_retrieval
     route = plan_route(vault, "source_query_rewrite", client)
@@ -146,19 +150,21 @@ def rewrite_query(
     prompt = rewrite_prompt(question, context)
     input_hash = content_key({"prompt": prompt, "schema": QueryRewrite.model_json_schema(),
                               "model": route.model, "output_tokens": REWRITE_OUTPUT_TOKENS})
-    calls = PaidCalls(route=route, budget=SpendBudget(rewrite_caps(vault)), price_per_million=price,
+    calls = PaidCalls(route=route, budget=budget or SpendBudget(rewrite_caps(vault)), price_per_million=price,
                       repository=repository, owner_kind=owner_kind, owner_id=owner_id)
     try:
         result = calls.call(
             client, purpose="source_query_rewrite", prompt=prompt, result_model=QueryRewrite,
             output_tokens=REWRITE_OUTPUT_TOKENS, candidates=1,
             metadata={"prompt_version": REWRITE_PROMPT_VERSION, "input_hash": input_hash},
-            validate=_validate,
+            validate=_validate, deadline=deadline,
         )
     except AIInterrupted:
         return Rewrite("cancelled", usage=calls.report())
     except SpendLimitExceeded as exc:
         return Rewrite("over_budget", reason=str(exc), usage=calls.report())
+    except AITurnTimeout:
+        return Rewrite("timed_out", reason="the retrieval time box ran out", usage=calls.report())
     except (AIProviderUnavailable, AIInvalidOutput) as exc:
         return Rewrite("failed", reason=type(exc).__name__, usage=calls.report())
     keywords = list(dict.fromkeys(" ".join(term.split()) for term in result.keywords if term.strip()))
@@ -175,15 +181,18 @@ def rewritten_text(rewrite: Rewrite) -> str:
 
 def embed_query_texts(
     vault: LoadedVault, repository: Repository, texts: Mapping[str, str], *,
-    embedder: Any | None = None, owner_id: str = "",
+    embedder: Any | None = None, owner_id: str = "", budget: SpendBudget | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    """Query vectors by key (cached by text; one capped request for the rest)."""
+    """Query vectors by key (cached by text; one capped request for the rest).
+
+    ``budget`` replaces the default caps (``QUERY_EMBEDDING_CAPS``) with a caller's.
+    """
 
     queries = {query_id(text): normalize_query(text)[:MAX_QUERY_CHARS] for text in texts.values() if text.strip()}
     if not queries:
         return {}, {"status": "unused"}
     result = embed_queries(
-        vault, repository, queries, budget=SpendBudget(QUERY_EMBEDDING_CAPS), embedder=embedder,
+        vault, repository, queries, budget=budget or SpendBudget(QUERY_EMBEDDING_CAPS), embedder=embedder,
         price_per_million=vault.config.source_retrieval.query_embedding_price_per_million,
         owner_kind="source_query_embedding", owner_id=owner_id, record_kind=QUERY_RECORD_KIND,
     )

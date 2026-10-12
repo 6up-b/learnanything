@@ -1,8 +1,9 @@
 """`learnloop sources`: Slice 2 T6 source retrieval from the command line.
 
 ``search`` is the library search the reader runs (keyword while typing; with
-``--deep`` also meaning and, for a conceptual question, the LLM rewrite, each a
-capped live call). ``suggest-lo`` shows a span's provenance-linked learning
+``--deep`` also meaning and, for a conceptual question, the LLM rewrite: paid
+calls under one budget, ``--max-calls`` / ``--max-tokens`` / ``--max-cost-usd``,
+planned without any call by ``--dry-run``). ``suggest-lo`` shows a span's provenance-linked learning
 objects or, when it has none, the labelled nearest-LO suggestions. Neither
 writes anything except receipts, cached query vectors and checkpoints of the
 calls a deep search makes.
@@ -20,30 +21,60 @@ from learnloop.vault.loader import load_vault
 sources_app = typer.Typer(no_args_is_help=True, help="Slice 2 T6 source retrieval: search and span -> LO suggestions.")
 
 
-def _open(vault: Path):
-    from learnloop.db.repositories import Repository
+def _open(vault: Path, *, migrate: bool = True):
+    from learnloop.practice_index.paid import planning_repository
     from learnloop.vault.paths import VaultPaths
 
     if not (vault / "learnloop.toml").is_file():
         raise typer.BadParameter("--vault must name a vault containing learnloop.toml")
     loaded = load_vault(vault)
-    return loaded, Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    try:
+        # A dry run attaches read-only and never migrates.
+        return loaded, planning_repository(sqlite_path, dry_run=not migrate)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 @sources_app.command("search")
 def sources_search(
     query: Annotated[str, typer.Argument(help="What to find in the source library.")],
     vault: Annotated[Path, typer.Option("--vault", help="Vault root; use a fixtures-local copy for experiments.")],
-    deep: Annotated[bool, typer.Option("--deep", help="Also search by meaning (stored source-block vectors; one cached, capped query embedding) and rewrite a conceptual question (route source_query_rewrite).")] = False,
+    deep: Annotated[bool, typer.Option("--deep", help="Also search by meaning (stored source-block vectors; one cached, capped query embedding) and rewrite a conceptual question (route source_query_rewrite). Paid: dry-run first.")] = False,
     limit: Annotated[int, typer.Option("--limit", min=1, max=200)] = 20,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the planned paid calls and their estimated cost; call and write nothing.")] = False,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0, help="Cap on the deep search's paid requests (rewrite, its retry, query embedding).")] = 3,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help="Cap on the deep search's estimated tokens.")] = 60_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0.0, help="Cap on the deep search's estimated metered cost (USD).")] = 0.02,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Search every reader-enabled source, as the reader's library search does."""
 
-    from learnloop.source_retrieval.library import search_library
+    from learnloop.ai.spend import SpendBudget
+    from learnloop.source_retrieval.library import deep_search_caps, plan_library_search, search_library
 
-    loaded, repository = _open(vault)
-    report = search_library(loaded, repository, query=query, limit=limit, deep=deep)
+    loaded, repository = _open(vault, migrate=not dry_run)
+    caps = deep_search_caps(max_calls=max_calls, max_tokens=max_tokens, max_cost_usd=max_cost_usd)
+    if dry_run:
+        plan = plan_library_search(loaded, repository, query=query, deep=deep, caps=caps)
+        if json_output:
+            typer.echo(json.dumps(plan, sort_keys=True, default=str))
+            return
+        typer.echo(f"dry run: {plan['status']}; {plan['calls']} paid call(s) at most; "
+                   f"estimated ${plan['estimated_usd']}" if plan.get("estimated_usd") is not None
+                   else f"dry run: {plan['status']}; {plan['calls']} paid call(s) at most; cost unknown")
+        for step in ("rewrite", "query_embedding"):
+            if step in plan:
+                entry = plan[step]
+                typer.echo(f"  {step}: {entry.get('status')} ({entry.get('calls', 0)} call(s))"
+                           + (f": {entry['reason']}" if entry.get("reason") else ""))
+        meaning = plan.get("meaning_search") or {}
+        if meaning:
+            typer.echo(f"  meaning search: {meaning.get('status')}"
+                       + (f" ({meaning['reason']})" if meaning.get("reason") else ""))
+        return
+    report = search_library(loaded, repository, query=query, limit=limit, deep=deep,
+                            budget=SpendBudget(caps) if deep else None)
     if json_output:
         typer.echo(json.dumps(report, sort_keys=True, default=str))
         return

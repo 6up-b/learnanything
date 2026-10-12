@@ -22,6 +22,11 @@ compare`` harness on the owner's math-heavy PDFs (a fixtures-local copy of
 * **Decision.** ``page_image_default`` is true only when ``hybrid_image`` beats
   ``hybrid_text`` (nDCG@10 interval above zero, Recall@10 not worse, at least
   ten scored questions). Anything else, including "can't tell", keeps text.
+  The decision is **provisional**: questions are written from, and both label
+  passes read, Marker's page text, so a page whose math Marker garbled can be
+  neither a seed nor labelled relevant, which favours text by construction.
+  P4 closes only after a pass that seeds questions from and labels the
+  rendered page image on math-heavy pages.
 
 Vectors live in the output directory's cache, never in the vault. Pages are
 rendered with pypdfium2 (fails closed when it is not installed) at a longest
@@ -79,6 +84,13 @@ IMAGE_BATCH = 8
 IMAGE_TOKENS = 1100
 RENDER_MAX_PX = 1024
 RENDER_VERSION = "pdfium-png-1024-v1"
+PROVISIONAL_BIAS = (
+    "questions are written from, and both label passes read, Marker's page text, so a page whose "
+    "relevant math Marker garbled can be neither a seed nor labelled relevant; the comparison "
+    "favours text by construction")
+CLOSE_CONDITION = (
+    "a pass that seeds questions from the rendered page image and labels (question, page image) "
+    "pairs with a multimodal judge, on the math-heavy pages, agrees with this decision")
 
 
 @dataclass
@@ -320,11 +332,14 @@ class B4Suite:
             "label_agreement": bench.label_agreement(all_labels), "label_models": label_models,
             "decision": {
                 "page_image_default": page_image_default,
+                "status": "provisional",
                 "rule": ("page images become a PDF default only if hybrid_image beats hybrid_text: nDCG@10 "
                          "95% bootstrap interval above 0, Recall@10 not worse, at least "
                          f"{bench.MIN_SCORED_QUESTIONS} scored questions (P4)"),
                 "reason": ("hybrid_image beats hybrid_text" if page_image_default else
                            "no demonstrated gain over text chunks; text stays the default"),
+                "bias": PROVISIONAL_BIAS,
+                "close_condition": CLOSE_CONDITION,
             },
         }
 
@@ -345,7 +360,10 @@ class B4Suite:
                          f"{_fmt((entry.get('recall@10') or {}).get('mean'))} |")
         decision = results.get("decision") or {}
         agreement = results.get("label_agreement") or {}
-        lines += ["", f"Decision: page_image_default = {decision.get('page_image_default')} ({decision.get('reason')}).",
+        lines += ["", f"Decision ({decision.get('status', 'provisional')}): page_image_default = "
+                      f"{decision.get('page_image_default')} ({decision.get('reason')}).",
+                  f"Bias: {decision.get('bias', PROVISIONAL_BIAS)}",
+                  f"Closes when: {decision.get('close_condition', CLOSE_CONDITION)}",
                   f"Label agreement: {agreement.get('pairs')} pairs, kappa {_fmt(agreement.get('cohen_kappa'))}."]
         return lines
 

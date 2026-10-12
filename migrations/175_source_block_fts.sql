@@ -8,6 +8,14 @@
 -- replaces a run's blocks in one transaction). Page furniture is not indexed,
 -- matching the library search's exclusions. extraction_id and span_id are
 -- UNINDEXED identity columns: queries filter on them and never match them.
+--
+-- HAZARD: source_document_blocks has a composite primary key, so its rowid is
+-- implicit. A migration that rebuilds that table (create, copy, drop, rename)
+-- drops these triggers and may renumber rowids; it must recreate the triggers
+-- and rebuild this index (the source_block_fts replayer, run by
+-- `learnloop rebuild-derived-state`). The delete paths match the block's
+-- identity as well as its rowid, so a renumbered rowid never deletes another
+-- block's row, and `learnloop doctor` reports any drift (stale or missing rows).
 CREATE VIRTUAL TABLE source_block_fts USING fts5(
   text,
   extraction_id UNINDEXED,
@@ -26,13 +34,15 @@ END;
 CREATE TRIGGER source_block_fts_after_delete
 AFTER DELETE ON source_document_blocks
 BEGIN
-  DELETE FROM source_block_fts WHERE rowid = OLD.rowid;
+  DELETE FROM source_block_fts
+   WHERE rowid = OLD.rowid AND extraction_id = OLD.extraction_id AND span_id = OLD.span_id;
 END;
 
 CREATE TRIGGER source_block_fts_after_update
 AFTER UPDATE OF extraction_id, span_id, block_type, text ON source_document_blocks
 BEGIN
-  DELETE FROM source_block_fts WHERE rowid = OLD.rowid;
+  DELETE FROM source_block_fts
+   WHERE rowid = OLD.rowid AND extraction_id = OLD.extraction_id AND span_id = OLD.span_id;
   INSERT OR REPLACE INTO source_block_fts(rowid, text, extraction_id, span_id)
   SELECT NEW.rowid, NEW.text, NEW.extraction_id, NEW.span_id
   WHERE NEW.block_type NOT IN ('PageHeader', 'PageFooter', 'TableOfContents');

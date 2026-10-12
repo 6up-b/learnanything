@@ -78,9 +78,10 @@ class QuickAddPlan:
     brief: dict[str, Any]
     token_estimate: dict[str, Any]
     external_ai_consent: list[dict[str, Any]] = field(default_factory=list)
-    # How the selected scope was chosen (Slice 2 T6): whole_source,
-    # unit_text_bm25+label_keywords, or label_keywords (retrieval switched off).
-    scope_basis: str = "label_keywords"
+    # How the selected scope was chosen (Slice 2 T6): whole_source or
+    # unit_text_bm25+label_keywords. None (and absent from the plan) when
+    # source_retrieval is switched off, which selects exactly as before.
+    scope_basis: str | None = None
 
     @property
     def source_set_id(self) -> str:
@@ -128,7 +129,7 @@ class QuickAddPlan:
             "selected_tokens": self.selected_tokens,
             "outline_tokens": self.outline_tokens,
             "whole_source": self.whole_source,
-            "scope_basis": self.scope_basis,
+            **({"scope_basis": self.scope_basis} if self.scope_basis is not None else {}),
             "brief": dict(self.brief),
             "token_estimate": self.token_estimate,
             "external_ai_consent": list(self.external_ai_consent),
@@ -351,7 +352,7 @@ def plan_quick_add(
     cap = config.ingest.budgets.quick_add_scope_input_tokens
     retrieval = getattr(config, "source_retrieval", None)
     ranked: list[str] | None = None
-    scope_basis = "label_keywords"
+    scope_basis: str | None = None
     if retrieval is not None and retrieval.enabled:
         ranked = rank_units_by_text(repo, outline, extraction_id,
                                     query_text=_query_text(brief, vault, subject_id),
@@ -359,7 +360,7 @@ def plan_quick_add(
         scope_basis = "unit_text_bm25+label_keywords"
     unit_ids, labels, tokens, whole = select_relevant_units(
         outline, keywords=keywords, cap_tokens=cap, ranked_unit_ids=ranked)
-    if whole:
+    if whole and scope_basis is not None:
         scope_basis = "whole_source"
 
     category = item.category

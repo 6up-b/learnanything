@@ -203,6 +203,10 @@ def test_b4_compares_page_images_with_text_chunks_and_decides_conservatively(tmp
     assert {f"text:{QWEN}", f"text:{GEMINI}", f"image:{GEMINI}", "keyword", "hybrid_text",
             "hybrid_image"} == set(results["systems"])
     assert results["decision"]["page_image_default"] is False  # four questions can never clear the bar
+    # Review F5: text-seeded, text-labelled questions favour text by construction,
+    # so the decision is provisional until an image-labelled pass agrees.
+    assert results["decision"]["status"] == "provisional"
+    assert "Marker" in results["decision"]["bias"] and "page image" in results["decision"]["close_condition"]
     assert "hybrid_image - hybrid_text" in results["summary"]["differences"]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         kinds = {row[0] for row in connection.execute(

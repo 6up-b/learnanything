@@ -23,13 +23,17 @@ Design decisions (agreed spec):
   that is non-zero, debited to the cross-channel ``reveal_events`` ledger
   (migration 154). The submit path sums the ledger since the last attempt and
   auto-primes an attempt whose answer was substantially given away, so a
-  revealed item cannot be re-recorded as clean unassisted evidence.
+  revealed item cannot be re-recorded as clean unassisted evidence. Source
+  spans chosen by retrieval (Slice 2 T6) are a second channel: the learner can
+  open a cited span, so a cited span's overlap with the expected answer
+  (``span_answer_overlap``, which also measures short answers) is debited too.
 - **Guardrails.** The practice prompt forbids stating the answer, completing
   the derivation, or confirming/denying the learner's approach; verification
   questions are deflected with a guiding question. A post-hoc leak check flags
   (never blocks) answers that overlap the expected answer.
 - **Two-phase persistence.** The question row is inserted with
-  ``answer_status='pending'`` before the provider call and updated to
+  ``answer_status='pending'`` before the provider call (and, outside the
+  reader, before any source retrieval) and updated to
   ``answered`` (with classification) or ``failed`` after. Asking is
   elicitation evidence about the learner's knowledge state, so a tutor outage
   must not erase the question. Only ``answered`` turns consume the Q&A budget
@@ -388,90 +392,113 @@ def ask_question(
         note_id=note_id,
         session_id=session_id,
     )
-    provided_spans: list[dict[str, Any]] | None = None
-    retrieval_manifest: dict[str, Any] | None = None
-    if source_span_provider is not None and context != "reader":
-        provided_spans, retrieval_manifest = _provided_source_spans(
-            vault, repository, source_span_provider, context=context,
-            question_md=question_md, learning_object_ids=_context_learning_objects(item, note),
-            item=item,
-        )
-    ai_context = _build_context(
-        vault,
-        repository,
-        context=context,
-        question_md=question_md,
-        candidates=candidates,
-        thread=thread,
-        item=item,
-        attempt=attempt,
-        note=note,
-        note_id=note_id,
-        extraction_id=extraction_id,
-        span_id=span_id,
-        answer_mode=answer_mode,
-        selection_span_ids=selection_span_ids,
-        selection_quote_md=selection_quote_md,
-        provided_source_spans=provided_spans,
-    )
-
     # Two-phase write: the question row lands BEFORE the provider call. The
     # learner asking is elicitation evidence about their knowledge state
     # regardless of whether the tutor manages to answer, so a provider failure
     # must not erase it (classification arrives with the answer, or never).
+    # Outside the reader the row also lands before source retrieval (Slice 2
+    # T6), so a slow or interrupted retrieval cannot lose the question either.
     qc = dict(question_context or {})
+    question_row = {
+        "id": question_event_id,
+        "context": context,
+        "note_id": note_id,
+        "practice_item_id": practice_item_id,
+        "attempt_id": attempt_id,
+        "session_id": session_id,
+        "question_md": question_md,
+        "answer_status": "pending",
+        "seconds_into_attempt": seconds_into_attempt,
+        "provider": getattr(client, "provider_name", None),
+        # §13.4 generating-process context, persisted for later contextual
+        # likelihood calibration.
+        "preceding_tutor_move": qc.get("preceding_tutor_move"),
+        "scaffold_level": qc.get("scaffold_level"),
+        "warning_state": qc.get("warning_state"),
+        "learner_mode": qc.get("learner_mode"),
+        "question_opportunity": qc.get("question_opportunity"),
+        "hints_used_before": qc.get("hints_used_before"),
+        "direct_explanation_request": bool(qc.get("direct_explanation_request")),
+        "attempt_progress": qc.get("attempt_progress"),
+    }
     source_context: dict[str, Any] | None = None
-    if context == "reader" and extraction_id and span_id:
-        from learnloop.reader.reader_progression import learning_objects_for_span
+    provided_spans: list[dict[str, Any]] | None = None
 
-        source_context = {
-            "extraction_id": extraction_id,
-            "span_id": span_id,
-            "candidate_learning_object_ids": learning_objects_for_span(
-                vault,
-                repository,
-                extraction_id=extraction_id,
-                span_id=span_id,
-            ),
-            "source_spans": list(ai_context.source_spans),
-        }
-        if not source_context["candidate_learning_object_ids"] and learning_object_suggester is not None:
-            suggestions = _suggested_learning_objects(
-                vault, repository, learning_object_suggester,
-                extraction_id=extraction_id, span_id=span_id,
+    def build_context() -> TutorQAContext:
+        return _build_context(
+            vault,
+            repository,
+            context=context,
+            question_md=question_md,
+            candidates=candidates,
+            thread=thread,
+            item=item,
+            attempt=attempt,
+            note=note,
+            note_id=note_id,
+            extraction_id=extraction_id,
+            span_id=span_id,
+            answer_mode=answer_mode,
+            selection_span_ids=selection_span_ids,
+            selection_quote_md=selection_quote_md,
+            provided_source_spans=provided_spans,
+        )
+
+    if context == "reader":
+        ai_context = build_context()
+        if extraction_id and span_id:
+            from learnloop.reader.reader_progression import learning_objects_for_span
+
+            source_context = {
+                "extraction_id": extraction_id,
+                "span_id": span_id,
+                "candidate_learning_object_ids": learning_objects_for_span(
+                    vault,
+                    repository,
+                    extraction_id=extraction_id,
+                    span_id=span_id,
+                ),
+                "source_spans": list(ai_context.source_spans),
+            }
+            if not source_context["candidate_learning_object_ids"] and learning_object_suggester is not None:
+                suggestions = _suggested_learning_objects(
+                    vault, repository, learning_object_suggester,
+                    extraction_id=extraction_id, span_id=span_id,
+                )
+                if suggestions:
+                    # Labelled suggestions, never candidates: promotion, the learner
+                    # field and filing read only candidate_learning_object_ids.
+                    source_context["suggested_learning_objects"] = suggestions
+        event_id = repository.insert_question_event(
+            {**question_row, "source_context": source_context}, clock=clock,
+        )
+    else:
+        event_id = repository.insert_question_event(
+            {**question_row, "source_context": None}, clock=clock,
+        )
+        try:
+            if source_span_provider is not None:
+                provided_spans, retrieval_manifest = _provided_source_spans(
+                    vault, repository, source_span_provider, context=context,
+                    question_md=question_md, learning_object_ids=_context_learning_objects(item, note),
+                    item=item,
+                )
+                if retrieval_manifest is not None:
+                    source_context = {"source_retrieval": retrieval_manifest}
+            ai_context = build_context()
+        except Exception as exc:
+            repository.update_question_event_answer(
+                event_id,
+                answer_md=None,
+                question_type=None,
+                facets=None,
+                hint_equivalent=False,
+                leak_suspected=False,
+                answer_status="failed",
+                source_context=source_context,
             )
-            if suggestions:
-                # Labelled suggestions, never candidates: promotion, the learner
-                # field and filing read only candidate_learning_object_ids.
-                source_context["suggested_learning_objects"] = suggestions
-    elif retrieval_manifest is not None:
-        source_context = {"source_retrieval": retrieval_manifest}
-    event_id = repository.insert_question_event(
-        {
-            "id": question_event_id,
-            "context": context,
-            "note_id": note_id,
-            "practice_item_id": practice_item_id,
-            "attempt_id": attempt_id,
-            "session_id": session_id,
-            "question_md": question_md,
-            "answer_status": "pending",
-            "seconds_into_attempt": seconds_into_attempt,
-            "provider": getattr(client, "provider_name", None),
-            # §13.4 generating-process context, persisted for later contextual
-            # likelihood calibration.
-            "preceding_tutor_move": qc.get("preceding_tutor_move"),
-            "scaffold_level": qc.get("scaffold_level"),
-            "warning_state": qc.get("warning_state"),
-            "learner_mode": qc.get("learner_mode"),
-            "question_opportunity": qc.get("question_opportunity"),
-            "hints_used_before": qc.get("hints_used_before"),
-            "direct_explanation_request": bool(qc.get("direct_explanation_request")),
-            "attempt_progress": qc.get("attempt_progress"),
-            "source_context": source_context,
-        },
-        clock=clock,
-    )
+            logger.warning("tutor context failed before the provider call: %s", type(exc).__name__)
+            raise
     agent_run_id = repository.insert_agent_run(
         {
             "id": new_ulid(),
@@ -502,6 +529,7 @@ def ask_question(
             hint_equivalent=False,
             leak_suspected=False,
             answer_status="failed",
+            source_context=source_context,
         )
         raise
     finish_agent_run(repository, agent_run_id, client, clock=clock)
@@ -578,6 +606,24 @@ def ask_question(
             attempt_id=attempt_id,
             clock=clock,
         )
+        if provided_spans is not None and citations:
+            # Slice 2 T6: a cited retrieved span opens in the Ask overlay, so
+            # what it exposes of the expected answer is a reveal of its own
+            # (the tutor's prose is scored above). Spans that reproduce the
+            # answer never reach the tutor; partial overlap is debited here.
+            span_overlap = _cited_span_overlap(citations, ai_context.source_spans, item.expected_answer)
+            record_reveal(
+                repository,
+                practice_item_id=item.id,
+                learning_object_id=item.learning_object_id,
+                remediation_episode_id=episode,
+                source_kind="source_review",
+                amount=span_overlap,
+                basis=f"tutor_qa:{context}:cited_source_span",
+                question_event_id=event_id,
+                attempt_id=attempt_id,
+                clock=clock,
+            )
 
     # The question join. A question asked INSIDE a repair episode is causal
     # evidence in its own right, and until now it was only ever a hint debit.
@@ -603,7 +649,7 @@ def ask_question(
         if need is not None and need.get("status") == "pending":
             repository.append_intervention_need_target_facets(need["id"], facets, clock=clock)
 
-    return {
+    result = {
         "event_id": event_id,
         "answer_md": answer.answer_md,
         "question_type": answer.question_type,
@@ -615,9 +661,13 @@ def ask_question(
         "remediation_episode_id": episode,
         "citations": citations,
         "remaining": max(0, limit - used - 1),
-        # Slice 2 T6: labelled suggestions for a reader span without provenance.
-        "suggested_learning_objects": list((source_context or {}).get("suggested_learning_objects") or []),
     }
+    suggested = (source_context or {}).get("suggested_learning_objects")
+    if suggested:
+        # Slice 2 T6: labelled suggestions for a reader span without provenance
+        # (absent when there are none, so the kill switch changes nothing).
+        result["suggested_learning_objects"] = list(suggested)
+    return result
 
 
 def _validated_citations(answer: Any, source_spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -770,6 +820,69 @@ def answer_leaks_expected(answer_md: str, expected_answer: str | dict[str, Any])
     before). Flags, never blocks."""
 
     return answer_leak_overlap(answer_md, expected_answer) >= _LEAK_OVERLAP_THRESHOLD
+
+
+#: A short expected answer (fewer than ``_LEAK_MIN_TOKENS`` content tokens) is
+#: matched as a token sequence in a source span when it has at most this many
+#: tokens. A lone token must contain a digit and be at least two characters
+#: ("154"), since a single short word or digit appears in passages by accident.
+_SHORT_ANSWER_MAX_TOKENS = 8
+
+
+def span_answer_overlap(text: str, expected_answer: str | dict[str, Any]) -> float:
+    """How much of the expected answer a source span exposes (0..1).
+
+    ``answer_leak_overlap`` measures long answers. A short answer, which it
+    cannot measure (``2/13``, ``0.154``, ``2 and 3``), counts as fully exposed
+    when its normalized tokens appear in order and adjacent in the span: a
+    passage that states the number is the solution as far as the learner is
+    concerned. Used to withhold retrieved spans before the tutor sees them and
+    to debit cited ones, so it errs towards exposure."""
+
+    overlap = answer_leak_overlap(text, expected_answer)
+    if overlap >= 1.0:
+        return overlap
+    expected_text = (
+        expected_answer if isinstance(expected_answer, str) else json.dumps(expected_answer, sort_keys=True)
+    )
+    expected_tokens = _normalize(expected_text).split()
+    content = [token for token in expected_tokens if len(token) > 2]
+    if not expected_tokens or len(expected_tokens) > _SHORT_ANSWER_MAX_TOKENS or len(content) >= _LEAK_MIN_TOKENS:
+        return overlap
+    if len(expected_tokens) == 1:
+        token = expected_tokens[0]
+        if len(token) < 2 or not any(character.isdigit() for character in token):
+            return overlap
+    span_tokens = _normalize(text).split()
+    width = len(expected_tokens)
+    for start in range(len(span_tokens) - width + 1):
+        if span_tokens[start:start + width] == expected_tokens:
+            return 1.0
+    return overlap
+
+
+def span_leaks_expected(text: str, expected_answer: str | dict[str, Any]) -> bool:
+    """A source span that gives the expected answer away (withheld from the tutor)."""
+
+    return span_answer_overlap(text, expected_answer) >= _LEAK_OVERLAP_THRESHOLD
+
+
+def _cited_span_overlap(
+    citations: Sequence[Mapping[str, Any]],
+    source_spans: Sequence[Mapping[str, Any]],
+    expected_answer: str | dict[str, Any],
+) -> float:
+    """The largest expected-answer overlap among the cited source spans."""
+
+    texts = {
+        (str(span.get("extraction_id")), str(span.get("span_id"))): str(span.get("text") or "")
+        for span in source_spans
+    }
+    return max(
+        (span_answer_overlap(texts.get((str(c.get("extraction_id")), str(c.get("span_id"))), ""), expected_answer)
+         for c in citations),
+        default=0.0,
+    )
 
 
 def tutor_qa_note_title(question_md: str) -> str:
@@ -1052,8 +1165,9 @@ def _build_context(
         if lo is not None:
             lo_summaries.append({"id": lo.id, "title": lo.title, "summary": lo.summary})
 
+    # ING M8 §9.2: provided spans obey the same total bound as linked ones.
     source_spans = (
-        provided_source_spans if provided_source_spans is not None
+        list(provided_source_spans)[:_MAX_CITATION_SPANS] if provided_source_spans is not None
         else _source_spans(vault, repository, lo_ids)
     )
 
