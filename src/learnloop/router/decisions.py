@@ -202,11 +202,18 @@ def build_today_offer_decision(
     }
 
     # Every candidate any outcome composes (membership can differ only by the
-    # teach-back cap), realized order first.
+    # teach-back cap), realized order first. Planner values come from the
+    # realized offer, else from the greedy order (never from a counterfactual
+    # draw's marks).
     by_id: dict[str, Any] = {}
-    for outcome in (trace.outcomes[trace.realized], *trace.outcomes):
-        for item in outcome.composed:
+    sources = (trace.outcomes[trace.realized].composed, getattr(trace, "greedy", ()), *(
+        outcome.composed for outcome in trace.outcomes
+    ))
+    for composed in sources:
+        for item in composed:
             by_id.setdefault(item.practice_item_id, item)
+    composed_ids = {item.practice_item_id for outcome in trace.outcomes for item in outcome.composed}
+    by_id = {item_id: item for item_id, item in by_id.items() if item_id in composed_ids}
     ordered_ids = sorted(by_id, key=lambda item_id: (realized_rank.get(item_id, 10**9), item_id))
 
     candidates: list[dict[str, Any]] = []

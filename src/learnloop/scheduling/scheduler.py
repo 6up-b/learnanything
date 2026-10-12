@@ -123,6 +123,9 @@ class OfferTrace:
     slate_id: str | None = None
     candidate_ids: dict[str, str] = field(default_factory=dict)
     greedy_item_ids: tuple[str, ...] = ()
+    #: The greedy order before the draw: each candidate's planner values with
+    #: no outcome-specific mark (an explored item's ``exploration_selected``).
+    greedy: tuple[ScheduledItem, ...] = ()
     considered: tuple[ScheduledItem, ...] = ()
     base_propensity: dict[str, float] = field(default_factory=dict)
     exploration: dict[str, Any] = field(default_factory=dict)
@@ -987,6 +990,7 @@ def _fill_offer_trace(
     trace.slate_id = slate_id
     trace.candidate_ids = dict(candidate_ids)
     trace.greedy_item_ids = tuple(item.practice_item_id for item in greedy_queue)
+    trace.greedy = tuple(greedy_queue)
     trace.considered = tuple(considered)
     trace.base_propensity = dict(base_propensity)
     trace.pinned_item_id = pinned_item_id
