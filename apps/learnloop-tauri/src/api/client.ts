@@ -481,8 +481,10 @@ export const api = {
   triggerRegrade: (attemptId: string) => mutating(ATTEMPT_TAGS, call<FeedbackBundle>("trigger_regrade", { input: { attemptId } })),
   addErrorEvent: (attemptId: string, errorType: string, severity = 0.5) =>
     mutating([TAG.review, TAG.maintenance], call<FeedbackBundle>("add_error_event", { input: { attemptId, errorType, severity } })),
+  // A forced follow-up queues a diagnostic item ahead of the rest, so Today's
+  // queue (and feedback's auto-advance, which reads the same entry) is stale.
   triggerFollowup: (attemptId: string) =>
-    call<FeedbackBundle>("trigger_followup", { input: { attemptId } }),
+    mutating([TAG.queue], call<FeedbackBundle>("trigger_followup", { input: { attemptId } })),
   rateFollowup: (attemptId: string, useful: boolean) =>
     call<FeedbackBundle>("rate_followup", { input: { attemptId, useful } }),
   reportUnresolvedCause: (input: {

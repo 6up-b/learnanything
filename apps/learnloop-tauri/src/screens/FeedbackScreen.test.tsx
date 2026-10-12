@@ -193,6 +193,26 @@ it("never opens a head the queue had before an invalidation: it waits for the re
   expect(callbacks.onOpenNext).toHaveBeenCalledOnce();
 });
 
+it("never opens a head from a queue invalidated while it was being read", async () => {
+  const prefetch = deferred<QueueSnapshot>();
+  api.getTodayQueue
+    .mockReturnValueOnce(prefetch.promise)
+    .mockResolvedValue(queue([item("pi_fresh", "cand_fresh", "Fresh")]));
+  const callbacks = props();
+  render(<FeedbackScreen {...callbacks} />);
+  await waitFor(() => expect(api.getTodayQueue).toHaveBeenCalledOnce());
+  // The invalidation lands while the prefetch is still in flight, and Next is
+  // pressed before its (now stale) response arrives.
+  await act(async () => invalidate({ tags: [TAG.queue] }));
+  await press("n");
+  expect(screen.getByText("opening next…")).toBeTruthy();
+  await act(async () => prefetch.resolve(queue([item("pi_stale", "cand_stale", "Stale")])));
+  await waitFor(() => expect(callbacks.onOpenNext).toHaveBeenCalledWith("pi_fresh", "cand_fresh"));
+  expect(callbacks.onOpenNext).toHaveBeenCalledOnce();
+  expect(callbacks.onOpenNext).not.toHaveBeenCalledWith("pi_stale", "cand_stale");
+  expect(api.getTodayQueue).toHaveBeenCalledTimes(2);
+});
+
 it("falls back to the list when the queue is empty or cannot be read", async () => {
   api.getTodayQueue.mockResolvedValue(queue([]));
   const empty = props();

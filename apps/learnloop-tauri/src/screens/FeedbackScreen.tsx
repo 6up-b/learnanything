@@ -1455,6 +1455,17 @@ export function FeedbackScreen({
   const advanceGeneration = useRef(0);
   const advancingRef = useRef(false);
   useEffect(() => () => { advanceGeneration.current += 1; }, []);
+  // Writes made here that change the queue (a regrade, a forced follow-up, a
+  // clarification answer, an eliciting response, a cause report). Their
+  // wrappers invalidate the queue only once they settle, so Next waits for
+  // any still in flight: it opens the head of the queue they leave behind.
+  const pendingQueueWrites = useRef(new Set<Promise<void>>());
+  const trackQueueWrite = useCallback(<T,>(write: Promise<T>): Promise<T> => {
+    const settledWrite: Promise<void> = write.then(() => undefined, () => undefined);
+    pendingQueueWrites.current.add(settledWrite);
+    void settledWrite.then(() => { pendingQueueWrites.current.delete(settledWrite); });
+    return write;
+  }, []);
   const resolveNext = nextItem.resolve;
   const advance = useCallback(async () => {
     if (!autoAdvance || !onOpenNext) {
@@ -1467,6 +1478,8 @@ export function FeedbackScreen({
     setAdvancing(true);
     let head: ScheduledItemDto | null = null;
     try {
+      await Promise.all([...pendingQueueWrites.current]);
+      if (generation !== advanceGeneration.current) return;
       head = await resolveNext();
     } catch {
       head = null; // the list surfaces the queue error itself
@@ -1575,7 +1588,7 @@ export function FeedbackScreen({
     if (!feedback || answeringClarification || !answer) return;
     setAnsweringClarification(true);
     try {
-      const result = await api.answerGradingClarification(feedback.attemptId, answer);
+      const result = await trackQueueWrite(api.answerGradingClarification(feedback.attemptId, answer));
       setFeedback(result.feedback);
       setClarification(null);
       setClarificationNote(clarificationOutcomeCopy(result));
@@ -1702,7 +1715,7 @@ export function FeedbackScreen({
     setRegrading(true);
     const before = { score: feedback.rubricScore, max: feedback.maxPoints };
     try {
-      const updated = await api.triggerRegrade(feedback.attemptId);
+      const updated = await trackQueueWrite(api.triggerRegrade(feedback.attemptId));
       setFeedback(updated);
       setRegradeReceipt({ before, after: { score: updated.rubricScore, max: updated.maxPoints } });
     } catch (error) {
@@ -1721,7 +1734,7 @@ export function FeedbackScreen({
     if (!feedback || triggeringFollowup) return;
     setTriggeringFollowup(true);
     try {
-      const updated = await api.triggerFollowup(feedback.attemptId);
+      const updated = await trackQueueWrite(api.triggerFollowup(feedback.attemptId));
       setFeedback(updated);
     } catch (error) {
       onError(errorMessage(error));
@@ -1795,11 +1808,11 @@ export function FeedbackScreen({
     if (!feedback || elicitingSubmitting) return;
     setElicitingSubmitting(true);
     try {
-      const result = await api.submitElicitingResponse({
+      const result = await trackQueueWrite(api.submitElicitingResponse({
         attemptId: feedback.attemptId,
         suggestionIndex,
         responseMd,
-      });
+      }));
       setElicitingOutcome(result);
       // Re-render from the bundle the call returned rather than refetching:
       // it is the state the server just wrote, and a second read could race a
@@ -1844,7 +1857,7 @@ export function FeedbackScreen({
     if (!feedback || reportingFactorId) return;
     setReportingFactorId(factorId);
     try {
-      await api.reportUnresolvedCause({ factorId, response, candidateIndex });
+      await trackQueueWrite(api.reportUnresolvedCause({ factorId, response, candidateIndex }));
       setFeedback(await api.getFeedback(feedback.attemptId));
     } catch (error) {
       onError(errorMessage(error));

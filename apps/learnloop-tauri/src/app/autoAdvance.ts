@@ -9,9 +9,12 @@
 import { useCallback, useMemo } from "react";
 import { api } from "../api/client";
 import type { QueueInput, QueueSnapshot, ScheduledItemDto, SessionSnapshot } from "../api/dto";
-import { getOrFetch, hashKey, type QueryKey } from "../api/queryCache";
+import { getOrFetch, hashKey, isStale, peek, type QueryKey } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
 import { useCachedQuery } from "../api/useCachedQuery";
+
+/** Reads `resolve` makes before giving up on a queue that keeps being invalidated. */
+const MAX_HEAD_READS = 4;
 
 /** The exact get_today_queue input Today sends for a session. Sharing it shares the cache key. */
 export function todayQueueInput(session: SessionSnapshot | null): QueueInput {
@@ -41,7 +44,9 @@ export interface NextQueueItem {
   readonly empty: boolean;
   /**
    * The head of a queue built after the latest queue invalidation (an attempt,
-   * a regrade, a forced follow-up). Shares a request already in flight.
+   * a regrade, a forced follow-up, a vault change). Shares a request already
+   * in flight, but never returns its result if an invalidation landed while it
+   * was out; null when the queue is empty or keeps being invalidated.
    */
   readonly resolve: () => Promise<ScheduledItemDto | null>;
 }
@@ -70,12 +75,21 @@ export function useNextQueueItem(input: QueueInput | null, prefetch: boolean): N
     if (!key || !input) return null;
     // Infinity: cached data counts as current unless an invalidation landed
     // after the fetch that produced it, which is exactly Today's rule for
-    // making rows actionable.
-    const snapshot = await getOrFetch<QueueSnapshot>(key, () => api.getTodayQueue(input), {
-      tags: [TAG.queue],
-      staleAfterMs: Infinity
-    });
-    return queueHead(snapshot);
+    // making rows actionable. A request already in flight is shared, and it
+    // may have been invalidated before it answered (a write or a vault change
+    // landing mid-read), so its result is checked against the latest
+    // invalidation once it arrives, and read again when it predates one.
+    for (let read = 0; read < MAX_HEAD_READS; read += 1) {
+      const snapshot = await getOrFetch<QueueSnapshot>(key, () => api.getTodayQueue(input), {
+        tags: [TAG.queue],
+        staleAfterMs: Infinity
+      });
+      const state = peek<QueueSnapshot>(key);
+      if (!isStale(state, Infinity)) return queueHead(state.data ?? snapshot);
+    }
+    // Still invalidated faster than it can be read: open nothing, and let the
+    // list show the queue once it settles.
+    return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

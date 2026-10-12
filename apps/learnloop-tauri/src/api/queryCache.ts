@@ -55,6 +55,8 @@ interface Entry {
   readonly listeners: Set<() => void>;
   state: QueryState<unknown>;
   promise: Promise<unknown> | null;
+  /** The `updatedAt` the in-flight request will record (meaningful while `promise` is set). */
+  promiseStartedAt: number;
   lastTouched: number;
 }
 
@@ -108,6 +110,7 @@ function ensure(key: QueryKey): Entry {
     listeners: new Set(),
     state: EMPTY_STATE,
     promise: null,
+    promiseStartedAt: 0,
     lastTouched: Date.now()
   };
   entries.set(hash, entry);
@@ -144,9 +147,15 @@ function toCommandError(error: unknown): CommandError {
   return getCommandError(error) ?? { code: "internal", message: errorMessage(error), retryable: false };
 }
 
-/** A timestamp strictly after `updatedAt`, so a same-millisecond invalidation still counts. */
-function staleStamp(state: QueryState<unknown>, now: number): number {
-  return Math.max(now, state.updatedAt + 1, state.invalidatedAt + 1);
+/**
+ * A timestamp strictly after `updatedAt` and after the start of any request in
+ * flight, so a same-millisecond invalidation still counts: the in-flight
+ * result will record its start as `updatedAt` and must land already stale.
+ */
+function staleStamp(entry: Entry, now: number): number {
+  const { state } = entry;
+  const inFlight = entry.promise !== null ? entry.promiseStartedAt + 1 : 0;
+  return Math.max(now, state.updatedAt + 1, state.invalidatedAt + 1, inFlight);
 }
 
 /** Current state for a key without triggering a fetch (stable reference until it changes). */
@@ -167,7 +176,9 @@ export function getOrFetch<T>(key: QueryKey, fetcher: () => Promise<T>, options:
   if (!options.force && !isStale(state, options.staleAfterMs)) {
     return Promise.resolve(state.data as T);
   }
-  const startedAt = Date.now();
+  // A request starting now reads every write whose invalidation has already
+  // been stamped, including a stamp bumped past the clock by staleStamp.
+  const startedAt = Math.max(Date.now(), state.invalidatedAt);
   const startedIn = generation;
   setState(entry, { ...state, fetching: true });
   const promise: Promise<T> = fetcher()
@@ -182,17 +193,21 @@ export function getOrFetch<T>(key: QueryKey, fetcher: () => Promise<T>, options:
         const keepReference =
           entry.listeners.size > 0 && current.data !== undefined && sameJson(current.data, result);
         const data = keepReference ? (current.data as T) : result;
+        // Invalidated while this request was in flight (a mutation resolved
+        // off the primary pipe): the result is already stale, so it stays
+        // "fetching" and is followed up once. This request must stop being
+        // the shared in-flight one first, or the follow-up would just return
+        // it. The follow-up starts at or after the stamp, so it cannot loop.
+        const followUp = current.invalidatedAt > startedAt;
         setState(entry, {
           data,
           error: null,
           updatedAt: startedAt,
           invalidatedAt: current.invalidatedAt,
-          fetching: false
+          fetching: followUp
         });
-        if (current.invalidatedAt > startedAt) {
-          // Invalidated while this request was in flight (a mutation resolved
-          // off the primary pipe): the result is already stale, so follow up
-          // once. The follow-up starts after the stamp, so it cannot loop.
+        if (followUp) {
+          if (entry.promise === promise) entry.promise = null;
           void getOrFetch(key, fetcher, { ...options, force: true }).catch(() => undefined);
         }
         return data;
@@ -208,6 +223,7 @@ export function getOrFetch<T>(key: QueryKey, fetcher: () => Promise<T>, options:
       if (entry.promise === promise) entry.promise = null;
     });
   entry.promise = promise;
+  entry.promiseStartedAt = startedAt;
   return promise;
 }
 
@@ -228,7 +244,7 @@ function markStale(entry: Entry, now: number): void {
   // Nothing to refresh: never fetched and not fetching. An entry whose fetch
   // FAILED is included, so an invalidation gives it another try.
   if (entry.state.data === undefined && entry.state.error === null && entry.promise === null) return;
-  setState(entry, { ...entry.state, invalidatedAt: staleStamp(entry.state, now) });
+  setState(entry, { ...entry.state, invalidatedAt: staleStamp(entry, now) });
 }
 
 /** Mark matching entries stale; their data stays available for an instant paint. */
@@ -266,7 +282,7 @@ export function clear(): void {
       continue;
     }
     // A fresh stamp makes subscribers' fetch effects re-run for the new vault.
-    setState(entry, { ...EMPTY_STATE, invalidatedAt: staleStamp(entry.state, now) });
+    setState(entry, { ...EMPTY_STATE, invalidatedAt: staleStamp(entry, now) });
   }
 }
 
