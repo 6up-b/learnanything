@@ -5,7 +5,7 @@
 Use `uv` for everything Python.
 
 ```bash
-uv sync --extra dev                      # install (add --extra pdf for Marker; manim is a core dependency)
+uv sync --extra dev --extra mobile       # install; without --extra mobile ~40 phone-host tests skip silently (add --extra pdf for Marker; manim is a core dependency)
 uv run pytest                            # full suite, serial (~17 min); add -n auto to parallelize (pytest-xdist)
 uv run pytest -m durability              # production SQLite pragmas + WAL + fresh vaults (or add --durable-sqlite to any selection)
 uv run pytest tests/test_scheduler.py::test_name -x   # single test
