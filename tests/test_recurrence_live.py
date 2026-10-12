@@ -496,3 +496,106 @@ def test_a_hidden_escalation_card_plans_no_escalated_repair(tmp_path):
     caps = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=50, max_total_tokens=1_000_000, max_estimated_usd=1.0)
     plan = plan_diagnosis_jobs(vault, repository, spend=command_spend(vault, caps))
     assert plan["recurrence"]["by_part"]["escalation_repair"]["calls"] == 0
+
+
+# -- second review F7: T1 work never outlives the diagnose job's lease --------------------
+
+
+class _MovingClock:
+    def __init__(self, start):
+        self.value = start
+
+    def now(self):
+        return self.value
+
+
+class _SlowJudge(StatementFake):
+    """Each judge call takes ``seconds`` on ``clock``; ``on_escalation`` runs
+    when the escalated repair is requested (what another worker would see)."""
+
+    def __init__(self, *args, clock, seconds, on_judge=None, on_escalation=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clock, self.seconds = clock, seconds
+        self.on_judge, self.on_escalation = on_judge, on_escalation
+
+    def _same_cause_judgment(self, request, context):
+        from datetime import timedelta
+
+        self.clock.value += timedelta(seconds=self.seconds)
+        if self.on_judge is not None:
+            self.on_judge()
+        return super()._same_cause_judgment(request, context)
+
+    def _recurrence_escalation_repair(self, request, context):
+        if self.on_escalation is not None:
+            self.on_escalation()
+        return super()._recurrence_escalation_repair(request, context)
+
+
+def _third_with_slow_judge(tmp_path, *, seconds, on_judge=None, on_escalation=None):
+    _paths, vault, repository = _vault(tmp_path)
+    clock = _MovingClock(at(15))
+    client = _SlowJudge(STATEMENTS, decide=shares_word("transpos"), escalation_operator="worked_contrast",
+                        clock=clock, seconds=0)
+    embedder = FakeEmbeddingClient()
+    _run(vault, repository, client, embedder, ANSWERS[:2])
+    third = submit(vault, repository, client, item_id=ANSWERS[2][0], answer=ANSWERS[2][1], when=at(14))
+    client.seconds, client.on_judge, client.on_escalation = seconds, on_judge, on_escalation
+    return vault, repository, client, embedder, third, clock
+
+
+def test_slow_judging_renews_the_lease_so_no_second_worker_repeats_the_paid_repair(tmp_path):
+    """Two judge calls of 700 s each outlast the 1,200 s lease taken before the
+    diagnosis. The lease is renewed before every paid call, so when the
+    escalated repair is requested no other worker can take the job."""
+
+    from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, DIAGNOSE_LEASE_SECONDS
+
+    seen: dict[str, object] = {}
+    holder: dict[str, object] = {}
+
+    def other_worker_tries():
+        seen["stolen"] = holder["repository"].lease_next_post_attempt_job(
+            kind=DIAGNOSE_KIND, owner="sidecar", lease_seconds=DIAGNOSE_LEASE_SECONDS, clock=holder["clock"],
+        )
+
+    vault, repository, client, embedder, third, clock = _third_with_slow_judge(
+        tmp_path, seconds=700, on_escalation=other_worker_tries,
+    )
+    holder.update(repository=repository, clock=clock)
+    judged_before = len(client.judged)
+    outcomes = drain_jobs(vault, repository, client, embedding=embedder, judge_factory=lambda: client, clock=clock)
+    assert len(client.judged) - judged_before >= 2, "the slow judge ran twice (1,400 s)"
+    assert len(client.escalation_requests) == 1
+    assert seen["stolen"] is None, "the job's lease was still held when the repair was requested"
+    assert [outcome.state for outcome in outcomes if outcome.kind == DIAGNOSE_KIND] == ["done"]
+
+
+def test_a_lost_lease_stops_the_t1_calls_of_the_old_worker(tmp_path):
+    """Another worker took the job while the first was judging: the first
+    makes no further paid call (its judge stops, no escalated repair)."""
+
+    from datetime import timedelta
+
+    from learnloop.diagnosis.split.jobs import DIAGNOSE_KIND, DIAGNOSE_LEASE_SECONDS
+
+    holder: dict[str, object] = {}
+
+    def steal():
+        if holder.get("stolen") is None:
+            clock = holder["clock"]
+            clock.value += timedelta(seconds=DIAGNOSE_LEASE_SECONDS + 1)
+            holder["stolen"] = holder["repository"].lease_next_post_attempt_job(
+                kind=DIAGNOSE_KIND, owner="sidecar", lease_seconds=DIAGNOSE_LEASE_SECONDS, clock=clock,
+            )
+
+    vault, repository, client, embedder, third, clock = _third_with_slow_judge(tmp_path, seconds=0, on_judge=steal)
+    holder.update(repository=repository, clock=clock)
+    judged_before = len(client.judged)
+    outcomes = drain_jobs(vault, repository, client, embedding=embedder, judge_factory=lambda: client, clock=clock)
+    assert holder["stolen"] is not None, "the other worker took the expired lease"
+    assert len(client.judged) - judged_before == 1, "no judge call after the lease was lost"
+    assert client.escalation_requests == [], "no escalated repair paid by a worker that lost its lease"
+    assert [outcome.state for outcome in outcomes if outcome.kind == DIAGNOSE_KIND] == ["lease_lost"]
+    diagnosis = repository.current_live_diagnosis(third.attempt_id)
+    assert repository.recurrence_escalation(diagnosis["id"]) is None, "the new lease holder writes the receipt"

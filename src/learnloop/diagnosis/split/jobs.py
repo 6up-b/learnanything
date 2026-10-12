@@ -378,6 +378,23 @@ def _finish(repository: Repository, job: Mapping[str, Any], state: str, *, error
     )
 
 
+def _lease_heartbeat(repository: Repository, job: Mapping[str, Any], clock: Clock | None) -> Callable[[], bool]:
+    """Renew this worker's diagnose lease for another full term; False once lost.
+
+    Slice 2 T1's work after the diagnosis (embedding requests, up to
+    ``judge_max_pairs_per_attempt`` judge calls, the escalated repair) can
+    outlast one lease; each paid request renews it first, so no other worker
+    re-leases the job and repeats paid work meanwhile (second review F7).
+    """
+
+    def heartbeat() -> bool:
+        return repository.renew_post_attempt_lease(
+            str(job["id"]), epoch=int(job["lease_epoch"]), lease_seconds=DIAGNOSE_LEASE_SECONDS, clock=clock,
+        )
+
+    return heartbeat
+
+
 def _release(repository: Repository, job: Mapping[str, Any], *, not_before: str, error: str | None,
              refund: bool, clock: Clock | None) -> bool:
     return repository.release_post_attempt_job(
@@ -690,6 +707,7 @@ def run_diagnose_job(
                 vault, repository, attempt=attempt, diagnosis=existing, session_id=session_id, clock=clock,
                 judge_factory=judge_factory, embedding_factory=embedding_factory, writer_factory=client_factory,
                 spend=spend, scope_attempt_id=scope_attempt_id, cancelled=cancelled,
+                heartbeat=_lease_heartbeat(repository, job, clock),
             )
             if vault.config.embedding.enabled:
                 enqueue_embed_job(
@@ -703,8 +721,11 @@ def run_diagnose_job(
             "completed": "done",
             "skipped": "skipped",
         }.get(str(existing["status"]), "failed")
-        _finish(repository, job, final_state, error=existing.get("error"),
-                payload={**payload, "diagnosis_id": existing["id"]}, clock=clock)
+        if not _finish(repository, job, final_state, error=existing.get("error"),
+                       payload={**payload, "diagnosis_id": existing["id"]}, clock=clock):
+            # Another worker re-leased the job meanwhile: it settles it.
+            outcome.state, outcome.error = "lease_lost", "lease_lost"
+            return outcome
         outcome.state = final_state
         outcome.error = outcome.error or existing.get("error")
         return outcome
@@ -925,8 +946,12 @@ def apply_diagnosis(
     spend: ReviewSpend | None = None,
     scope_attempt_id: str | None = None,
     cancelled: Cancelled | None = None,
+    heartbeat: Callable[[], bool] | None = None,
 ) -> None:
     """The diagnosis-dependent pipeline steps (§7.2 worker half). Idempotent.
+
+    ``heartbeat`` (inside a leased diagnose job) renews the job's lease before
+    each of T1's paid requests and stops them once another worker holds it.
 
     ``spend``: the enclosing command's budget (``drain``/``retry``). Its caps,
     cancellation and spend summary then cover T1's judge calls, embedding
@@ -969,6 +994,7 @@ def apply_diagnosis(
     recurrence_step(
         vault, repository, attempt_id=attempt_id, judge_factory=judge_factory,
         embedding_factory=embedding_factory, spend=spend, reserve=reserve, cancelled=cancelled, clock=clock,
+        heartbeat=heartbeat,
     )
     normalize_and_resolve_attempt(
         vault,
@@ -990,7 +1016,7 @@ def apply_diagnosis(
     try:
         record_escalation(
             vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, writer_factory=writer_factory,
-            spend=spend, reserve=reserve, cancelled=cancelled, clock=clock,
+            spend=spend, reserve=reserve, cancelled=cancelled, clock=clock, heartbeat=heartbeat,
         )
     except Exception:  # noqa: BLE001 - the escalation display never fails the diagnosis
         LOG.warning("escalation receipt failed for attempt %s", attempt_id, exc_info=True)

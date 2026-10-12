@@ -49,6 +49,8 @@ from learnloop.diagnosis.misconceptions import materialize_attempt_episode
 from learnloop.diagnosis.offline_review.spend import ReviewSpend
 from learnloop.diagnosis.recurrence.escalation import per_job_spend, repair_key, request_different_repair
 from learnloop.diagnosis.recurrence.judging import (
+    Heartbeat,
+    LeaseLost,
     Reserve,
     default_judge_client,
     embed_on_spend,
@@ -117,9 +119,12 @@ def recurrence_step(
     reserve: Reserve | None = None,
     cancelled: Cancelled | None = None,
     clock: Clock | None = None,
+    heartbeat: Heartbeat | None = None,
 ) -> dict[str, Any]:
     """``spend``/``reserve``: the enclosing command's budget and what it keeps
-    for its remaining diagnoses; None outside a budgeted command."""
+    for its remaining diagnoses; None outside a budgeted command.
+    ``heartbeat`` renews the diagnose job's lease before every paid request
+    and stops the step once another worker holds it."""
 
     if not recurrence_active(vault):
         return {"status": "inactive"}
@@ -145,6 +150,7 @@ def recurrence_step(
             report["judge"] = _judge_attempt(
                 vault, repository, attempt_id=attempt_id, judge_factory=judge_factory,
                 embedding_factory=embedding_factory, spend=job_spend, reserve=reserve if spend is not None else None,
+                heartbeat=heartbeat,
             )
         if report["judge"].get("judged"):
             report["groups"] = refresh_recurrence_groups(vault, repository)
@@ -164,6 +170,7 @@ def _judge_attempt(
     embedding_factory: ClientFactory,
     spend: ReviewSpend,
     reserve: Reserve | None,
+    heartbeat: Heartbeat | None = None,
 ) -> dict[str, Any]:
     try:
         embedder = embedding_factory()
@@ -174,12 +181,15 @@ def _judge_attempt(
     model_id = str(getattr(embedder, "model_id", "") or vault.config.embedding.model)
     missing = pending_records(repository, hypothesis_records(repository, attempt_ids=[attempt_id]), model_id)
     try:
-        embedded = embed_on_spend(spend, embedder, repository, missing, reserve=reserve)
+        embedded = embed_on_spend(spend, embedder, repository, missing, reserve=reserve, heartbeat=heartbeat)
     except (SpendLimitExceeded, AIInterrupted) as exc:
-        # Refused (caps, or the command was cancelled) before sending: this
-        # attempt's hypotheses wait for the embed job / backlog; nothing can
-        # be shortlisted for them now.
-        status = "cancelled" if isinstance(exc, AIInterrupted) else "embedding_refused"
+        # Refused (caps, the command was cancelled, or the job's lease went
+        # to another worker) before sending: this attempt's hypotheses wait
+        # for the embed job / backlog; nothing can be shortlisted for them now.
+        status = (
+            "lease_lost" if isinstance(exc, LeaseLost)
+            else "cancelled" if isinstance(exc, AIInterrupted) else "embedding_refused"
+        )
         return {"status": status, "reason": str(exc), "spend": spend.summary()}
     population = hypothesis_subjects(vault, repository)
     queries = [subject for subject in learner_state(population) if subject.scope["hypothesis"].attempt_id == attempt_id]
@@ -204,7 +214,9 @@ def _judge_attempt(
     if client is None:
         outcome["status"] = "judge_not_ready"
         return outcome
-    results = judge_pairs(repository, SAME_CAUSE, chosen, execute=judge_executor(spend, client, reserve=reserve))
+    results = judge_pairs(
+        repository, SAME_CAUSE, chosen, execute=judge_executor(spend, client, reserve=reserve, heartbeat=heartbeat)
+    )
     outcome["judged"] = sum(1 for row in results if row.status == "judged")
     outcome["verdicts"] = {
         verdict: sum(1 for row in results if row.verdict == verdict) for verdict in ("same", "different", "unsure")
@@ -291,6 +303,7 @@ def record_escalation(
     reserve: Reserve | None = None,
     cancelled: Cancelled | None = None,
     clock: Clock | None = None,
+    heartbeat: Heartbeat | None = None,
 ) -> dict[str, Any] | None:
     """Write the escalation receipt when this attempt's cause recurs K times.
 
@@ -354,8 +367,12 @@ def record_escalation(
         generated, generation = _request_repair(
             vault, statement=statement, classes=classes, count=count, earlier_repairs=earlier_repairs,
             current_repairs=repairs, writer_factory=writer_factory, spend=spend, reserve=reserve,
-            cancelled=cancelled, repository=repository, attempt_id=attempt_id,
+            cancelled=cancelled, repository=repository, attempt_id=attempt_id, heartbeat=heartbeat,
         )
+        if generation.get("status") == "lease_lost":
+            # Another worker holds the job now and writes the receipt (with
+            # its own request); this one writes nothing (second review F7).
+            return None
     different = chosen is not None or generated is not None
     if generated is not None:
         source = "generated"
@@ -399,6 +416,7 @@ def _request_repair(
     cancelled: Cancelled | None,
     repository: Repository,
     attempt_id: str,
+    heartbeat: Heartbeat | None = None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     """Ask the diagnosis route for a repair with a new operator (§3.7), once."""
 
@@ -406,6 +424,9 @@ def _request_repair(
         return None, {"requested": False, "status": "disabled"}
     if writer_factory is None:
         return None, {"requested": False, "status": "no_client"}
+    if heartbeat is not None and not heartbeat():
+        # The paid request is made only while this worker still holds the job.
+        return None, {"requested": False, "status": "lease_lost"}
     try:
         client = writer_factory()
     except Exception:  # noqa: BLE001

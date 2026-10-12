@@ -26,6 +26,7 @@ from collections.abc import Callable, Sequence
 from contextlib import closing
 from typing import Any
 
+from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.spend import SpendEstimate
 from learnloop.ai.transport import execute_structured_operation
 from learnloop.db.connection import connect
@@ -52,6 +53,20 @@ EMBEDDING_ROUTE = "embedding"
 EMBED_BATCH = 32
 #: () -> what the enclosing command must keep for its remaining work.
 Reserve = Callable[[], SpendEstimate]
+#: () -> renew the enclosing diagnose job's lease; False once another worker
+#: holds it (second review F7). Called before every paid request.
+Heartbeat = Callable[[], bool]
+
+
+class LeaseLost(AIInterrupted):
+    """The enclosing job's lease is held by another worker: no further paid call."""
+
+
+def beat(heartbeat: Heartbeat | None) -> None:
+    """Renew the job lease before a paid request, or stop (``LeaseLost``)."""
+
+    if heartbeat is not None and not heartbeat():
+        raise LeaseLost("the diagnose job's lease is held by another worker")
 
 #: Judges whose verdict settles a pair (the learner's card tap does not: the
 #: judge may still be asked, and authority decides).
@@ -210,14 +225,19 @@ class JudgeExecutor:
     claims are per producer.
     """
 
-    def __init__(self, spend: ReviewSpend, client: Any, *, reserve: Reserve | None = None) -> None:
+    def __init__(self, spend: ReviewSpend, client: Any, *, reserve: Reserve | None = None,
+                 heartbeat: Heartbeat | None = None) -> None:
         self.spend = spend
         self.client = client
         self.reserve = reserve
+        self.heartbeat = heartbeat
         self.producer = producer_label(client)
         spend.register(SAME_CAUSE_ROUTE, client)
 
     def __call__(self, prompt: str, result_model: type[SameOrDifferent], purpose: str) -> tuple[SameOrDifferent, str]:
+        # Inside a diagnose job: renew its lease first, so the job is never
+        # re-leased (and its paid work repeated) while this call runs.
+        beat(self.heartbeat)
         tokens = estimate_tokens(prompt)
         admit_beside(self.spend, SAME_CAUSE_ROUTE, input_tokens=tokens, reserve=self.reserve)
         with self.spend.collector.observing():
@@ -228,8 +248,9 @@ class JudgeExecutor:
         return result, self.producer
 
 
-def judge_executor(spend: ReviewSpend, client: Any, *, reserve: Reserve | None = None) -> JudgeExecutor:
-    return JudgeExecutor(spend, client, reserve=reserve)
+def judge_executor(spend: ReviewSpend, client: Any, *, reserve: Reserve | None = None,
+                   heartbeat: Heartbeat | None = None) -> JudgeExecutor:
+    return JudgeExecutor(spend, client, reserve=reserve, heartbeat=heartbeat)
 
 
 def embed_on_spend(
@@ -239,6 +260,7 @@ def embed_on_spend(
     records: Sequence[Any],
     *,
     reserve: Reserve | None = None,
+    heartbeat: Heartbeat | None = None,
 ) -> int:
     """Embed records in admitted batches on ``spend``; returns how many were stored.
 
@@ -258,6 +280,7 @@ def embed_on_spend(
     for offset in range(0, len(records), EMBED_BATCH):
         batch = list(records[offset:offset + EMBED_BATCH])
         tokens = sum(estimate_tokens(record.text) + 32 for record in batch)
+        beat(heartbeat)
         admit_beside(spend, EMBEDDING_ROUTE, input_tokens=tokens, reserve=reserve)
         with spend.collector.observing():
             with spend.request(EMBEDDING_ROUTE, "embedding", input_tokens=tokens, output_tokens=0):
@@ -280,10 +303,13 @@ def receipt_sink(repository: Repository, *, owner_kind: str, owner_id: str) -> C
 
 __all__ = [
     "EMBEDDING_ROUTE",
+    "Heartbeat",
     "JudgeExecutor",
+    "LeaseLost",
     "Reserve",
     "SETTLING_JUDGES",
     "admit_beside",
+    "beat",
     "blocking_cutoff",
     "default_judge_client",
     "embed_on_spend",
