@@ -3,8 +3,8 @@ title: "facet_identity_actions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "86acbe31a63c8794824ff8d16351783dd768695c"
-source_commit_timestamp: "2026-10-12T15:36:04-04:00"
+source_commit: "125a83ccdd63d8ad8e233fbdbf49d8d5f6d8b659"
+source_commit_timestamp: "2026-10-12T16:52:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_identity_actions"
@@ -22,6 +22,8 @@ source_paths:
   - "src/learnloop/content/synthesis/source_append.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/facet_identity.py"
+  - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/substrate/dataset.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -39,7 +41,7 @@ tags:
 Gives facet identity action a stable database identity so learner-facing mastery and capability decisions use a reproducible evidence projection. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `run_id`, `proposal_id`, `survivor_facet_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> Facet identity (handoff §4): every merge or absorb a judge applied, with the facets.yaml entries before and after it, so a one-tap undo restores them exactly. Lifecycle state (proposed -> applied -> undone), never cleared by replay; the verdicts themselves live in judgment_ledger (task same_facet).
+> Facet identity (handoff §4): every merge or absorb a judge applied, with the facets.yaml entries before and after it, so a one-tap undo restores them exactly. Lifecycle state, never cleared by replay: proposed (an ingest action riding on its proposal), applying and undoing (write-ahead intents committed before facets.yaml is written; recovery finishes them), applied, undone, and abandoned (an intent withdrawn before its file write). The verdicts live in judgment_ledger (task same_facet), including the owner's on undo.
 
 It belongs to the **learner state** navigation family. The family context lives in [[Database Catalog#Learner State]]. Its persistence behavior follows [[Table Roles#Workflow]].
 
@@ -112,7 +114,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_facet_identity_actions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -153,7 +155,9 @@ CREATE TABLE facet_identity_actions (
     judge_model TEXT,
     prompt_version TEXT,
     detail_json TEXT NOT NULL DEFAULT '{}',
-    status TEXT NOT NULL CHECK (status IN ('proposed', 'applied', 'undone')),
+    status TEXT NOT NULL CHECK (
+        status IN ('proposed', 'applying', 'applied', 'undoing', 'undone', 'abandoned')
+    ),
     applied_at TEXT,
     undone_at TEXT,
     undo_detail_json TEXT

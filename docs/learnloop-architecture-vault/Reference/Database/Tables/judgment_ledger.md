@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "86acbe31a63c8794824ff8d16351783dd768695c"
-source_commit_timestamp: "2026-10-12T15:36:04-04:00"
+source_commit: "125a83ccdd63d8ad8e233fbdbf49d8d5f6d8b659"
+source_commit_timestamp: "2026-10-12T16:52:41-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/cli/facets.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
+  - "src/learnloop/content/facet_identity/actions.py"
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/families.py"
-  - "src/learnloop/db/stores/judgments.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -101,6 +101,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/cli/families.py`
+- `src/learnloop/content/facet_identity/actions.py`
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/practice_index.py`
