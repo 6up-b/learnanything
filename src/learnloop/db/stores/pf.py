@@ -176,10 +176,31 @@ def candidate_verdicts(connection: sqlite3.Connection,
     return result
 
 
-def verdict_verified(verdicts: Mapping[str, Any]) -> bool:
-    """Every current reference check passed (and there is at least one)."""
+# The reference checks each generation path must pass before its key counts as
+# verified, by the ledger rationale's ``check`` (a ``+sympy`` suffix extends a
+# check). Source-anchored keys need both the exact-quote check and the span
+# support verdict: the quote check is ledgered first, so a run interrupted
+# between the two holds a passing quote check and no support verdict.
+REQUIRED_REFERENCE_CHECKS: dict[str, frozenset[str]] = {
+    "ensemble": frozenset({"panel_agreement"}),
+    "single_shot": frozenset({"panel_agreement"}),
+    "generator": frozenset({"execution_cas"}),
+    "source_anchored": frozenset({"quote_verified_span", "span_supports_answer"}),
+}
+
+
+def verdict_verified(verdicts: Mapping[str, Any], generation_path: str) -> bool:
+    """The path's complete reference contract passed and no current check failed.
+
+    An unknown path, or a missing required check (an interrupted or failed
+    verification), is never verified.
+    """
+    required = REQUIRED_REFERENCE_CHECKS.get(generation_path)
     references = verdicts.get("references") or {}
-    return bool(references) and all(verdict == "pass" for verdict, _ in references.values())
+    if not required or any(verdict != "pass" for verdict, _ in references.values()):
+        return False
+    passed = {str((rationale or {}).get("check") or "").split("+", 1)[0] for _, rationale in references.values()}
+    return required <= passed
 
 
 def verdict_survived(verdicts: Mapping[str, Any]) -> bool:

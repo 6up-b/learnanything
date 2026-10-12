@@ -306,7 +306,7 @@ def _check_ledger(row: dict[str, Any], verdicts: dict[str, Any]) -> None:
     parent's trace contract, a structure check that confirmed the checkpoint
     sequence.
     """
-    if not verdict_verified(verdicts):
+    if not verdict_verified(verdicts, row["generation_path"]):
         raise PublishRefused("The ledger holds no verified reference for this candidate")
     if not verdict_survived(verdicts) or verdicts["filters"].get("structure_check") != "pass":
         raise PublishRefused("The ledger does not show every filter passed")

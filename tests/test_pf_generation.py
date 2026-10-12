@@ -798,6 +798,63 @@ def test_an_unrelated_or_contradicted_quote_never_verifies_a_reference(pf):
     assert all(row["judge_model"] and row["prompt_version"] == C.SPAN_SUPPORT_PROMPT for row in support)
 
 
+@needs_bwrap
+@pytest.mark.parametrize("failure", ["interrupted", "provider_failed"])
+def test_a_quote_check_without_its_span_support_verdict_is_never_verified(pf, tmp_path, failure):
+    """Codex re-review F15: the exact-quote pass alone never reports a verified reference."""
+    from learnloop.ai.errors import AIProviderUnavailable
+    from learnloop.ops.pf_reports import pilot_report
+
+    _, repository, paths = pf
+    _with_parent_quote(paths, "We chose A for accuracy over the alternatives.")
+    writer = PFFake("fake-judge", source_candidates=[
+        {"stem": "What did the authors optimise with A?", "cited_quote": "We chose A for accuracy",
+         "answer": "accuracy", "item_kind": "what"}])
+
+    class SpanCheckFails(PFFake):
+        def complete(self, request):
+            if request.result_model is C.SpanSupportVerdict:
+                raise AIInterrupted("stop") if failure == "interrupted" else AIProviderUnavailable("down")
+            return super().complete(request)
+
+    first = run(paths, path="source_anchored", fakes=clients(source=writer, span_support=SpanCheckFails("fake-judge")),
+                count=1, select=1)
+    if failure == "interrupted":
+        assert first["status"] == "cancelled", first
+    else:
+        assert [family["status"] for family in first["families"]] == ["failed"], first
+    (candidate,) = rows(repository)
+    assert candidate["verification"] == "unverified"
+    quote = [row for row in ledger(repository, "reference_verified") if row["judge"] == "exact_key"]
+    assert [row["verdict"] for row in quote] == ["pass"]
+    assert not [row for row in ledger(repository, "reference_verified") if row["judge"] == "llm"]
+    pilot = pilot_report(load_vault(paths.root), round_id="r1", output_dir=tmp_path / "reports")
+    assert pilot["arms"]["source_anchored"]["verified"]["successes"] == 0
+    # The resumed round completes the contract, and only then is it verified.
+    resumed = run(paths, path="source_anchored", fakes=clients(source=writer), count=1, select=1)
+    assert resumed["status"] == "complete", resumed
+    pilot = pilot_report(load_vault(paths.root), round_id="r1", output_dir=tmp_path / "reports")
+    assert pilot["arms"]["source_anchored"]["verified"]["successes"] == 1
+
+
+def test_each_path_is_verified_only_by_its_complete_reference_contract():
+    """Codex re-review F15: every required check, all passing; an unknown path never verifies."""
+    def verdicts(*checks, failing=()):
+        return {"references": {(check, "v1"): ("fail" if check in failing else "pass", {"check": check})
+                               for check in checks}}
+
+    assert store.verdict_verified(verdicts("panel_agreement+sympy"), "ensemble")
+    assert store.verdict_verified(verdicts("execution_cas"), "generator")
+    assert store.verdict_verified(verdicts("quote_verified_span", "span_supports_answer"), "source_anchored")
+    assert not store.verdict_verified(verdicts("quote_verified_span"), "source_anchored")
+    assert not store.verdict_verified(verdicts("span_supports_answer"), "source_anchored")
+    assert not store.verdict_verified(
+        verdicts("quote_verified_span", "span_supports_answer", failing={"span_supports_answer"}), "source_anchored")
+    assert not store.verdict_verified(verdicts("execution_cas"), "ensemble")
+    assert not store.verdict_verified(verdicts(), "generator")
+    assert not store.verdict_verified(verdicts("panel_agreement"), "unknown_path")
+
+
 # -- Codex review F14: every filter and deterministic selection verdict is ledgered --------
 
 

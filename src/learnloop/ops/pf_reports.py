@@ -304,7 +304,8 @@ def _arm_summary(repository: Repository, vault: LoadedVault, rows: list[dict[str
     return {
         "candidates": len(rows),
         "by_status": dict(Counter(row["status"] for row in rows)),
-        "verified": _rate(sum(1 for row in rows if store.verdict_verified(verdicts[row["id"]])), len(rows)),
+        "verified": _rate(sum(1 for row in rows
+                              if store.verdict_verified(verdicts[row["id"]], row["generation_path"])), len(rows)),
         "survival_by_filter": _survival(rows, verdicts),
         "survived_all_filters": _rate(sum(1 for row in rows if store.verdict_survived(verdicts[row["id"]])),
                                       len(rows)),
@@ -446,12 +447,12 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
         summary = _arm_summary(repository, vault, tier_rows, verdicts)
         summary["judge_agreement"] = _judge_agreement(repository, vault, tier_rows)
         summary["by_path"] = {path: _rate(sum(1 for row in tier_rows if row["generation_path"] == path
-                                              and store.verdict_verified(verdicts[row["id"]])),
+                                              and store.verdict_verified(verdicts[row["id"]], path)),
                                           sum(1 for row in tier_rows if row["generation_path"] == path))
                               for path in sorted({row["generation_path"] for row in tier_rows})}
         report["tiers"][tier] = summary
     survivors = {tier: [row for row in tier_rows if store.verdict_survived(verdicts[row["id"]])
-                        and store.verdict_verified(verdicts[row["id"]])]
+                        and store.verdict_verified(verdicts[row["id"]], row["generation_path"])]
                  for tier, tier_rows in tiers.items()}
     # Identical inputs: the same family, frozen parent/family inputs and path.
     pairs = _pair_rows(survivors["frontier"], survivors["cheap"], SCALING_PAIRS,
