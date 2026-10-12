@@ -69,26 +69,33 @@ def _rows(repository: Repository, round_id: str) -> list[dict[str, Any]]:
         return store.candidates(connection, where="round=?", params=(round_id,))
 
 
-def _survival(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _verdicts(repository: Repository, rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Ledgered verdicts per candidate: the authority for every report metric (§5.8)."""
+    with repository.connection() as connection:
+        return store.candidate_verdicts(connection, [row["id"] for row in rows])
+
+
+def _survival(rows: list[dict[str, Any]], verdicts: Mapping[str, dict[str, Any]]) -> dict[str, Any]:
     funnel = {}
     for name in FILTER_ORDER:
         evaluated = rejected = 0
         for row in rows:
-            filters = json.loads(row["filters_json"] or "{}")
-            if name in filters:
+            verdict = verdicts[row["id"]]["filters"].get(name)
+            if verdict is not None:
                 evaluated += 1
-                rejected += int(not filters[name].get("passed", False))
+                rejected += int(verdict == "fail")
         funnel[name] = {"evaluated": evaluated, "rejected": rejected,
                         "survival": round(1 - rejected / evaluated, 4) if evaluated else None}
     return funnel
 
 
-def _panel_disagreement(rows: list[dict[str, Any]], minimum: int) -> dict[str, Any]:
+def _panel_disagreement(rows: list[dict[str, Any]], verdicts: Mapping[str, dict[str, Any]],
+                        minimum: int) -> dict[str, Any]:
     per_family: dict[str, list[bool]] = defaultdict(list)
     for row in rows:
-        panel = json.loads(row["panel_json"] or "{}")
-        if panel.get("total"):
-            per_family[row["family_id"]].append(panel.get("agree", 0) < minimum)
+        panel = store.verdict_panel(verdicts[row["id"]])
+        if panel is not None:
+            per_family[row["family_id"]].append(panel[0] < minimum)
     return {family: _rate(sum(values), len(values)) for family, values in sorted(per_family.items())}
 
 
@@ -225,7 +232,8 @@ def _repository(vault: LoadedVault, writable: bool) -> Repository:
     return Repository(path) if writable else Repository.attach(path, read_only=True)
 
 
-def _arm_summary(repository: Repository, vault: LoadedVault, rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _arm_summary(repository: Repository, vault: LoadedVault, rows: list[dict[str, Any]],
+                 verdicts: Mapping[str, dict[str, Any]]) -> dict[str, Any]:
     minimum = vault.config.pf.min_agreeing_solves
     published = [row["published_item_id"] for row in rows if row["status"] == "published"]
     cost = _receipts_cost(repository, {row["run_id"] for row in rows})
@@ -233,10 +241,12 @@ def _arm_summary(repository: Repository, vault: LoadedVault, rows: list[dict[str
     return {
         "candidates": len(rows),
         "by_status": dict(Counter(row["status"] for row in rows)),
-        "verified": _rate(sum(1 for row in rows if row["verification"] == "verified"), len(rows)),
-        "survival_by_filter": _survival(rows),
-        "survived_all_filters": _rate(sum(1 for row in rows if row["rejection_filter"] is None), len(rows)),
-        "panel_disagreement_by_family": _panel_disagreement(rows, minimum),
+        "verified": _rate(sum(1 for row in rows if store.verdict_verified(verdicts[row["id"]])), len(rows)),
+        "survival_by_filter": _survival(rows, verdicts),
+        "survived_all_filters": _rate(sum(1 for row in rows if store.verdict_survived(verdicts[row["id"]])),
+                                      len(rows)),
+        "panel_disagreement_by_family": _panel_disagreement(rows, verdicts, minimum),
+        "verdict_source": "judgment_ledger",
         "by_proposer_model": {model: dict(Counter(row["status"] for row in rows if row["proposer_model"] == model))
                               for model in sorted({row["proposer_model"] or "unknown" for row in rows})},
         "cost": cost,
@@ -253,13 +263,15 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
     caps = caps or SpendCaps()
     repository = _repository(vault, writable=judge and not dry_run)
     rows = [row for row in _rows(repository, round_id) if row["tier"] is None]
+    verdicts = _verdicts(repository, rows)
     by_arm = {arm: [row for row in rows if row["generation_path"] == arm] for arm in ARMS}
     report: dict[str, Any] = {"status": "dry_run" if dry_run else "complete", "kind": "pf_pilot",
                               "version": REPORT_VERSION, "round": round_id,
-                              "arms": {arm: _arm_summary(repository, vault, arm_rows)
+                              "arms": {arm: _arm_summary(repository, vault, arm_rows, verdicts)
                                        for arm, arm_rows in by_arm.items() if arm_rows}}
     single = by_arm["single_shot"]
-    comparisons = {arm: _pair_rows([row for row in by_arm[arm] if row["rejection_filter"] is None], single, PILOT_PAIRS)
+    comparisons = {arm: _pair_rows([row for row in by_arm[arm] if store.verdict_survived(verdicts[row["id"]])],
+                                   single, PILOT_PAIRS)
                    for arm in ("generator", "ensemble") if by_arm[arm] and single}
     report["blind_comparison_plan"] = {arm: len(pairs) for arm, pairs in comparisons.items()}
     if judge:
@@ -331,6 +343,7 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
     caps = caps or SpendCaps()
     repository = _repository(vault, writable=judge and not dry_run)
     rows = _rows(repository, round_id)
+    verdicts = _verdicts(repository, rows)
     tiers = {tier: [row for row in rows if row["tier"] == tier] for tier in ("cheap", "frontier")}
     report: dict[str, Any] = {"status": "dry_run" if dry_run else "complete", "kind": "pf_scaling",
                               "version": REPORT_VERSION, "round": round_id,
@@ -338,14 +351,15 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
                                          "frontier": list(vault.config.pf.scaling.frontier)},
                               "tiers": {}}
     for tier, tier_rows in tiers.items():
-        summary = _arm_summary(repository, vault, tier_rows)
+        summary = _arm_summary(repository, vault, tier_rows, verdicts)
         summary["judge_agreement"] = _judge_agreement(repository, vault, tier_rows)
         summary["by_path"] = {path: _rate(sum(1 for row in tier_rows if row["generation_path"] == path
-                                              and row["verification"] == "verified"),
+                                              and store.verdict_verified(verdicts[row["id"]])),
                                           sum(1 for row in tier_rows if row["generation_path"] == path))
                               for path in sorted({row["generation_path"] for row in tier_rows})}
         report["tiers"][tier] = summary
-    survivors = {tier: [row for row in tier_rows if row["rejection_filter"] is None and row["verification"] == "verified"]
+    survivors = {tier: [row for row in tier_rows if store.verdict_survived(verdicts[row["id"]])
+                        and store.verdict_verified(verdicts[row["id"]])]
                  for tier, tier_rows in tiers.items()}
     pairs = _pair_rows(survivors["frontier"], survivors["cheap"], SCALING_PAIRS)
     report["blind_comparison_plan"] = {"pairs": len(pairs)}

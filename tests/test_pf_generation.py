@@ -796,3 +796,83 @@ def test_an_unrelated_or_contradicted_quote_never_verifies_a_reference(pf):
     support = [row for row in ledger(repository, "reference_verified") if row["judge"] == "llm"]
     assert {row["left_id"] for row in support} == {contradicted["id"], executable["id"], supported["id"], why["id"]}
     assert all(row["judge_model"] and row["prompt_version"] == C.SPAN_SUPPORT_PROMPT for row in support)
+
+
+# -- Codex review F14: every filter and deterministic selection verdict is ledgered --------
+
+
+@needs_bwrap
+@pytest.mark.parametrize("path", ["ensemble", "generator"])
+def test_every_filter_and_selection_decision_is_ledgered(pf, path):
+    from learnloop.ops.pf_generation import GATE_POLICY_VERSION
+
+    _, repository, paths = pf
+    first = [proposal("Solve 2x + 4 = 10 for x.", "3"), proposal("A crate holds 5x + 2 = 22 kg; solve for x.")]
+    fakes = clients(proposer=[PFFake("fake-a", proposals=first), PFFake("fake-b")]) if path == "ensemble" else clients()
+    report = run(paths, path=path, fakes=fakes, count=4, select=1)
+    assert report["status"] == "complete"
+    filters = ledger(repository, "pf_filter")
+    by_candidate: dict = {}
+    for row in filters:
+        assert row["judge"] == "verifier" and row["prompt_version"] == GATE_POLICY_VERSION and row["input_hash"]
+        assert row["right_kind"] == "pf_filter"
+        by_candidate.setdefault(row["left_id"], {})[row["right_id"]] = row["verdict"]
+    candidates = rows(repository)
+    assert candidates
+    for candidate in candidates:
+        recorded = {name: ("not_applicable" if entry.get("detail") == "not_applicable"
+                           else "pass" if entry["passed"] else "fail")
+                    for name, entry in json.loads(candidate["filters_json"]).items()}
+        assert by_candidate[candidate["id"]] == recorded
+    if path == "ensemble":
+        assert any(verdict == "fail" for verdicts in by_candidate.values() for verdict in verdicts.values())
+    else:
+        selection = ledger(repository, "selection")
+        assert selection and all(row["judge"] == "verifier" and row["prompt_version"] for row in selection)
+        assert {row["verdict"] for row in selection} == {"selected", "not_selected"}
+
+
+@needs_bwrap
+def test_pilot_report_verdicts_come_from_the_ledger_not_workflow_json(pf, tmp_path):
+    from learnloop.ops.pf_reports import pilot_report
+
+    _, repository, paths = pf
+    first = [proposal("AMBIGUOUS 3x + 1 = 10 jars; solve for x."), proposal("Solve 2x + 4 = 10 for x.", "3")]
+    run(paths, fakes=clients(proposer=[PFFake("fake-a", proposals=first), PFFake("fake-b")]), count=4)
+    before = pilot_report(load_vault(paths.root), round_id="r1", output_dir=tmp_path / "a")
+    # Rewrite the mutable workflow JSON as if every filter had passed.
+    with repository.connection() as connection:
+        for row in rows(repository):
+            forged = {name: {"passed": True} for name in json.loads(row["filters_json"])}
+            store.update_candidate(connection, row["id"], filters_json=json.dumps(forged), rejection_filter=None,
+                                   verification="verified" if row["status"] != "published" else row["verification"])
+    after = pilot_report(load_vault(paths.root), round_id="r1", output_dir=tmp_path / "b")
+    arm = after["arms"]["ensemble"]
+    assert arm["survival_by_filter"] == before["arms"]["ensemble"]["survival_by_filter"]
+    assert arm["survival_by_filter"]["solve_first_agreement"]["rejected"] >= 1
+    assert arm["survival_by_filter"]["exact_duplicate"]["rejected"] >= 1
+    assert arm["verified"] == before["arms"]["ensemble"]["verified"]
+    assert arm["survived_all_filters"] == before["arms"]["ensemble"]["survived_all_filters"]
+    assert arm["survived_all_filters"]["successes"] < arm["candidates"]
+
+
+@needs_bwrap
+def test_publication_reads_the_ledger_so_forged_workflow_state_cannot_publish(pf):
+    from learnloop.ops.pf_publish import PublishRefused, publish_candidate
+
+    _, repository, paths = pf
+    first = [proposal("NEARVARIANT 4x + 3 = 19 coins; solve for x."), proposal("Solve 2x + 4 = 10, for x", "3")]
+    run(paths, fakes=clients(proposer=[PFFake("fake-a", proposals=first), PFFake("fake-b")]), count=4,
+        publish=False, select=5)
+    by_stem = {json.loads(row["payload_json"])["stem"]: row for row in rows(repository)}
+    stale = by_stem["Solve 2x + 4 = 10, for x"]  # rejected by the freshness judge
+    near = by_stem["NEARVARIANT 4x + 3 = 19 coins; solve for x."]
+    assert stale["rejection_filter"] == "freshness" and near["final_relation"] == "near"
+    with repository.connection() as connection:
+        store.update_candidate(connection, stale["id"], status="selected", verification="verified",
+                               rejection_filter=None, filters_json="{}")
+        store.update_candidate(connection, near["id"], status="selected", final_relation="isomorph")
+    with pytest.raises(PublishRefused, match="every filter"):
+        publish_candidate(load_vault(paths.root), repository, stale["id"], clock=DAY)
+    with pytest.raises(PublishRefused, match="checkpoint-preservation"):
+        publish_candidate(load_vault(paths.root), repository, near["id"], clock=DAY)

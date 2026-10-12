@@ -76,7 +76,7 @@ from learnloop.ops.pf_calls import (
     PFCaller, PFUnavailable, RoleClient, distinct_models, estimate_tokens, planned_role_clients,
     resolve_role_clients,
 )
-from learnloop.ops.pf_publish import publish_selected, remaining_publish_slots
+from learnloop.ops.pf_publish import TRACE_RELATIONS, publish_selected, remaining_publish_slots
 from learnloop.ops.pf_selection import DIVERSITY_BASIS, mmr_order, similarity, vendi_contributions, vendi_score
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.substrate.families import apply_family, family_operation_lock, sync_authored_families
@@ -91,12 +91,13 @@ from learnloop.vault.writer import upsert_activity_family
 
 PATHS = ("generator", "ensemble", "source_anchored", "single_shot")
 RELATIONS = ("same_target", "isomorph", "near", "far")
-# Relations that keep the parent's trace contract: each needs a passing
-# checkpoint-preservation (structure) check.
-TRACE_RELATIONS = frozenset({"same_target", "isomorph"})
 GENERATOR_VERSIONS = {"generator": "pf_generator_v1", "ensemble": "pf_ensemble_v1",
                       "source_anchored": "pf_source_anchored_v1", "single_shot": "pf_single_shot_v1"}
-GATE_POLICY_VERSION = "pf_gate_v1"
+# v2 (Codex review): span-support verification, a final isomorph needs a
+# passing checkpoint-preservation check, and every filter verdict is ledgered.
+GATE_POLICY_VERSION = "pf_gate_v2"
+# Deterministic MMR selection (generator and source-anchored families).
+MMR_SELECTION_POLICY = "pf-mmr-select-v1"
 FILTER_ORDER = (
     "authoring_gates", "held_out_leakage", "exact_duplicate", "execution_cas",
     "solve_first_agreement", "quote_verified_span", "provenance", "closed_book",
@@ -393,8 +394,24 @@ class _FamilyRun:
                 updated_at=now,
             )
 
+    def _record_filter(self, candidate: Candidate, filter_name: str, verdict: str, detail: Any) -> None:
+        """The authoritative filter verdict (§5.8): ledgered, idempotent, superseding.
+
+        ``pf_candidates.filters_json`` mirrors it as pipeline state only; every
+        report reads filter verdicts from ``judgment_ledger`` (task ``pf_filter``).
+        """
+        self.ctx.caller.ledger(
+            task="pf_filter", left_kind="pf_candidate", left_id=candidate.id,
+            right_kind="pf_filter", right_id=filter_name, judge="verifier",
+            prompt_version=GATE_POLICY_VERSION,
+            input_hash=content_key([candidate.content_hash, filter_name, verdict, detail]),
+            verdict=verdict, supersede=True,
+            rationale={"filter": filter_name, "path": candidate.path, "detail": detail},
+        )
+
     def _reject(self, candidate: Candidate, filter_name: str, detail: Any = None) -> None:
         candidate.filters[filter_name] = {"passed": False, **({"detail": detail} if detail is not None else {})}
+        self._record_filter(candidate, filter_name, "fail", detail)
         if candidate.path == "single_shot":
             # The baseline arm is measured, never published; record where it fell.
             candidate.rejection_filter = candidate.rejection_filter or filter_name
@@ -405,6 +422,8 @@ class _FamilyRun:
 
     def _pass(self, candidate: Candidate, filter_name: str, detail: Any = None) -> None:
         candidate.filters[filter_name] = {"passed": True, **({"detail": detail} if detail is not None else {})}
+        self._record_filter(candidate, filter_name, "not_applicable" if detail == "not_applicable" else "pass",
+                            detail)
 
     def _call(self, entry: RoleClient, *, attribute: list[Candidate] | None = None, **kwargs: Any):
         """One paid call; its usage is shared equally across ``attribute`` (cost_json)."""
@@ -476,7 +495,8 @@ class _FamilyRun:
             for candidate in self.candidates:
                 if candidate.alive:
                     for name in NOT_APPLICABLE_FILTERS:
-                        candidate.filters.setdefault(name, {"passed": True, "detail": "not_applicable"})
+                        if name not in candidate.filters:
+                            self._pass(candidate, name, "not_applicable")
                     if candidate.path != "single_shot":
                         candidate.status = "survivor"
                     self._persist(candidate)
@@ -1363,6 +1383,16 @@ class _FamilyRun:
                 by_id[cid].selection["judge_model"] = call.model
         else:
             chosen = [entry["ref"] for entry in order[:self.slots]]
+            # Deterministic selection is a verdict too (§5.8): ledgered with its policy and input.
+            selection_input = content_key([MMR_SELECTION_POLICY, DIVERSITY_BASIS, self.slots,
+                                           [[entry["ref"], entry.get("mmr_score")] for entry in order]])
+            for rank, entry in enumerate(order):
+                self.ctx.caller.ledger(
+                    task="selection", left_kind="pf_candidate", left_id=entry["ref"], judge="verifier",
+                    prompt_version=MMR_SELECTION_POLICY, input_hash=selection_input,
+                    verdict="selected" if entry["ref"] in chosen else "not_selected", score=float(rank),
+                    rationale={"slots": self.slots, "offered": len(order), "basis": DIVERSITY_BASIS},
+                )
         self.selected_order = chosen
         for candidate in survivors:
             candidate.status = "selected" if candidate.id in chosen else "not_selected"
@@ -1753,7 +1783,8 @@ def pf_status(vault: LoadedVault, *, clock: Clock | None = None) -> dict[str, An
 
 
 __all__ = [
-    "FILTER_ORDER", "GATE_POLICY_VERSION", "GENERATOR_VERSIONS", "GenerationOptions", "PATHS",
+    "FILTER_ORDER", "GATE_POLICY_VERSION", "GENERATOR_VERSIONS", "GenerationOptions",
+    "MMR_SELECTION_POLICY", "PATHS",
     "PFRefused", "family_targets", "generate_practice", "panel_difficulty", "pf_run_lock",
     "pf_status", "publish_backlog",
 ]

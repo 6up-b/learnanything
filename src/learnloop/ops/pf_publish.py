@@ -29,7 +29,9 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.families import append_membership
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.db.stores.pf import candidate as load_candidate
-from learnloop.db.stores.pf import published_count_between, update_candidate
+from learnloop.db.stores.pf import (
+    candidate_verdicts, published_count_between, update_candidate, verdict_survived, verdict_verified,
+)
 from learnloop.substrate.activities import resolve_legacy_item
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.substrate.item_fingerprints import render_expected_answer
@@ -40,8 +42,11 @@ from learnloop.vault.writer import upsert_practice_item
 
 _LOGGER = logging.getLogger(__name__)
 
-PUBLISH_POLICY_VERSION = "pf-publish-v1"
+PUBLISH_POLICY_VERSION = "pf-publish-v2"
 PF_TAG = "pf_generated"
+# Relations that keep the parent's trace contract: each needs a passing
+# checkpoint-preservation (structure) check.
+TRACE_RELATIONS = frozenset({"same_target", "isomorph"})
 
 
 class PublishRefused(ValueError):
@@ -142,6 +147,9 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
         raise PublishRefused("An unverified reference is never published")
     if row["generation_path"] == "single_shot" or row["status"] != "selected":
         raise PublishRefused(f"Candidate is {row['status']} on the {row['generation_path']} path")
+    with repository.connection() as connection:
+        verdicts = candidate_verdicts(connection, [candidate_id])[candidate_id]
+    _check_ledger(row, verdicts)
     parent = vault.practice_items.get(row["parent_item_id"])
     family = vault.activity_families.get(row["family_id"])
     if parent is None or family is None:
@@ -161,7 +169,8 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
                 rationale=json.dumps({
                     "verification": row["verification"],
                     "verification_check": row["verification_check"],
-                    "filters": json.loads(row["filters_json"] or "{}"),
+                    "filters": dict(sorted(verdicts["filters"].items())),
+                    "verdict_source": "judgment_ledger",
                     "family_id": row["family_id"],
                     "variant_relation": payload["variant_relation"],
                 }, sort_keys=True),
@@ -188,6 +197,25 @@ def publish_candidate(vault: LoadedVault, repository: Repository, candidate_id: 
     except Exception:  # noqa: BLE001 - queue nudging never blocks publication
         _LOGGER.warning("failed to bump queue revision after PF publication", exc_info=True)
     return vault, item_id
+
+
+def _check_ledger(row: dict[str, Any], verdicts: dict[str, Any]) -> None:
+    """Publication reads the authoritative verdicts (§5.8), never workflow JSON.
+
+    The ledger must show a verified reference, no failing filter, a passing
+    freshness gate and structure check, and, for a relation that keeps the
+    parent's trace contract, a structure check that confirmed the checkpoint
+    sequence.
+    """
+    if not verdict_verified(verdicts):
+        raise PublishRefused("The ledger holds no verified reference for this candidate")
+    if not verdict_survived(verdicts) or verdicts["filters"].get("structure_check") != "pass":
+        raise PublishRefused("The ledger does not show every filter passed")
+    relation = row["final_relation"] or row["declared_relation"]
+    if relation in TRACE_RELATIONS:
+        detail = verdicts["filter_details"].get("structure_check") or {}
+        if detail.get("checkpoint_sequence_preserved") is not True or detail.get("judged_relation") not in TRACE_RELATIONS:
+            raise PublishRefused(f"A final {relation} needs a passing checkpoint-preservation check")
 
 
 def _initialize_scheduling(repository: Repository, item: PracticeItem, clock: Clock | None) -> None:
@@ -219,7 +247,7 @@ def publish_selected(vault: LoadedVault, repository: Repository, candidate_ids: 
 
 
 __all__ = [
-    "PF_TAG", "PUBLISH_POLICY_VERSION", "PublishRefused", "build_item_payload",
+    "PF_TAG", "PUBLISH_POLICY_VERSION", "TRACE_RELATIONS", "PublishRefused", "build_item_payload",
     "publish_candidate", "publish_selected", "published_item_id", "remaining_publish_slots",
     "utc_day_bounds",
 ]

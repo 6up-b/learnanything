@@ -415,19 +415,31 @@ class PFCaller:
     def ledger(self, *, task: str, left_kind: str, left_id: str, judge: str, input_hash: str,
                verdict: str, right_kind: str | None = None, right_id: str | None = None,
                judge_model: str | None = None, prompt_version: str | None = None,
-               score: float | None = None, rationale: Mapping[str, Any] | str = "") -> str:
-        """Append once per (task, subjects, judge, input); resumes never duplicate."""
+               score: float | None = None, rationale: Mapping[str, Any] | str = "",
+               supersede: bool = False) -> str:
+        """Append once per (task, subjects, judge, input); resumes never duplicate.
+
+        ``supersede``: the question (task, left, right) has one current answer,
+        so a new verdict names the latest earlier one as ``supersedes_id``.
+        """
         judgment_id = "pfv_" + content_key([task, left_kind, left_id, right_kind, right_id,
                                             judge, judge_model, prompt_version, input_hash])
         text = rationale if isinstance(rationale, str) else json.dumps(rationale, sort_keys=True)
         with self.repository.connection() as connection:
             if connection.execute("SELECT 1 FROM judgment_ledger WHERE id=?", (judgment_id,)).fetchone():
                 return judgment_id
+            previous = None
+            if supersede:
+                previous = connection.execute(
+                    "SELECT id FROM judgment_ledger WHERE task=? AND left_kind=? AND left_id=? "
+                    "AND right_kind IS ? AND right_id IS ? ORDER BY rowid DESC LIMIT 1",
+                    (task, left_kind, left_id, right_kind, right_id),
+                ).fetchone()
             append_judgment(
                 connection, id=judgment_id, task=task, left_kind=left_kind, left_id=left_id,
                 right_kind=right_kind, right_id=right_id, judge=judge, judge_model=judge_model,
                 prompt_version=prompt_version, input_hash=input_hash, verdict=verdict,
-                score=score, rationale=text,
+                score=score, rationale=text, supersedes_id=previous["id"] if previous else None,
             )
         return judgment_id
 

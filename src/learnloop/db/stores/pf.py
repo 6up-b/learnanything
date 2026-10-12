@@ -11,6 +11,9 @@ import json
 import sqlite3
 from typing import Any, Iterable, Mapping
 
+# Ledger tasks whose latest verdict per question decides a candidate's state in reports.
+_VERDICT_TASKS = ("pf_filter", "reference_verified", "selection")
+
 _CANDIDATE_COLUMNS = (
     "id", "run_id", "mint_request_id", "round", "tier", "family_id", "parent_item_id",
     "learning_object_id", "generation_path", "declared_relation", "final_relation",
@@ -136,3 +139,58 @@ def item_fingerprints(connection: sqlite3.Connection,
             chunk,
         ))
     return result
+
+
+def candidate_verdicts(connection: sqlite3.Connection,
+                       candidate_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """The latest ledgered verdicts per PF candidate (Slice 2 §5.8: reports read the ledger).
+
+    Per candidate: ``filters`` (filter name -> pass/fail/not_applicable),
+    ``filter_details`` (filter name -> the verdict's detail), ``references``
+    ((judge, prompt version) -> (verdict, rationale)) and ``selection`` (the
+    latest selection verdict). A later verdict on the same question wins.
+    """
+    ids = sorted(set(candidate_ids))
+    result: dict[str, dict[str, Any]] = {
+        cid: {"filters": {}, "filter_details": {}, "references": {}, "selection": None} for cid in ids}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        rows = connection.execute(
+            f"SELECT task, left_id, right_id, judge, prompt_version, verdict, rationale FROM judgment_ledger "
+            f"WHERE left_kind='pf_candidate' AND task IN ({','.join('?' for _ in _VERDICT_TASKS)}) "
+            f"AND left_id IN ({','.join('?' for _ in chunk)}) ORDER BY rowid",
+            (*_VERDICT_TASKS, *chunk),
+        ).fetchall()
+        for row in rows:
+            entry = result[row["left_id"]]
+            rationale = json.loads(row["rationale"] or "{}") if (row["rationale"] or "").startswith("{") else {}
+            if row["task"] == "pf_filter":
+                entry["filters"][row["right_id"]] = row["verdict"]
+                entry["filter_details"][row["right_id"]] = rationale.get("detail")
+            elif row["task"] == "reference_verified":
+                entry["references"][(row["judge"], row["prompt_version"])] = (row["verdict"], rationale)
+            else:
+                entry["selection"] = row["verdict"]
+    return result
+
+
+def verdict_verified(verdicts: Mapping[str, Any]) -> bool:
+    """Every current reference check passed (and there is at least one)."""
+    references = verdicts.get("references") or {}
+    return bool(references) and all(verdict == "pass" for verdict, _ in references.values())
+
+
+def verdict_survived(verdicts: Mapping[str, Any]) -> bool:
+    """No filter failed and the last filter (freshness) passed."""
+    filters = verdicts.get("filters") or {}
+    return filters.get("freshness") == "pass" and "fail" not in filters.values()
+
+
+def verdict_panel(verdicts: Mapping[str, Any]) -> tuple[int, int] | None:
+    """(agreeing, total) panel solves recorded with the panel filter verdicts."""
+    details = verdicts.get("filter_details") or {}
+    for name in ("solve_first_agreement", "solver_panel_outlier"):
+        detail = details.get(name)
+        if isinstance(detail, Mapping) and detail.get("total"):
+            return int(detail.get("agree") or 0), int(detail["total"])
+    return None
