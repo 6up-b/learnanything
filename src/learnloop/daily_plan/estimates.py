@@ -189,14 +189,20 @@ def load_duration_evidence(
 
 
 def _feedback_dwell(connection: Any) -> list[float]:
-    """item_done -> the next item_served in the same plan, capped at five minutes."""
+    """item_done -> the next item_served in the same plan, capped at five minutes.
+
+    Only the plan's numbered blocks count: a pick served after the plan closed
+    is an open-list pick receipt (no ordinal), and the time before it is spent
+    on the done screen, not on feedback (re-review F12).
+    """
 
     import json
 
     rows = connection.execute(
         "SELECT b.daily_plan_id AS plan_id, e.kind AS kind, e.detail_json AS detail, e.created_at AS created_at "
         "FROM attention_block_events e JOIN attention_blocks b ON b.id = e.block_id "
-        "WHERE b.daily_plan_id IS NOT NULL AND e.kind IN ('item_done', 'item_served') "
+        "WHERE b.daily_plan_id IS NOT NULL AND b.plan_ordinal IS NOT NULL "
+        "AND e.kind IN ('item_done', 'item_served') "
         "ORDER BY b.daily_plan_id, e.created_at, e.id"
     ).fetchall()
     dwell: list[float] = []

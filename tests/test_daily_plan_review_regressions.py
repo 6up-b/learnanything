@@ -908,3 +908,25 @@ def test_f11_simulated_blocks_plan_a_forced_request_once(tmp_path):
     simulated = simulate_blocks(draft, context, env.policy, forced=prepared.requests)
     ids = [item.practice_item_id for _decision, block in simulated for item in block.items]
     assert ids[0] == "pi_q0" and len(ids) == len(set(ids)), ids
+
+
+# -- Re-review F12: a pick after the plan closed is not feedback time --
+
+
+def test_f12_a_pick_after_the_plan_closed_adds_no_feedback_dwell(tmp_path):
+    from learnloop.daily_plan.engine import learner_pick
+    from learnloop.daily_plan.estimates import load_duration_evidence
+
+    env, clock, _state = _due_request_env(tmp_path, count=3, requested=())
+    record = get_or_create_today(env)
+    record, served = _answer_through(env, clock)
+    assert record.status == "complete" and len(served) == 3
+    before = load_duration_evidence(env.repository, latency_cap_minutes=10.0).feedback_dwell
+    assert before and all(minutes == 1.0 for minutes in before)  # one minute between answer and next item
+    # Three minutes on the done screen, then a pick from the full list: served
+    # as an open-list pick receipt, not as the plan's next item.
+    clock.advance(3)
+    _record, step = learner_pick(env, "pi_q0")
+    assert step["origin"] == "open_list"
+    after = load_duration_evidence(env.repository, latency_cap_minutes=10.0).feedback_dwell
+    assert after == before
