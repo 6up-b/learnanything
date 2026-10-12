@@ -241,6 +241,14 @@ def _summarize(
     proposals, flagged_subjects = [], set()
     categories: dict[str, list[tuple[str, Candidate, Decision]]] = defaultdict(list)
     judged = 0
+
+    def repeat_verdict(candidate: Candidate) -> str | None:
+        """Pass 2's verdict on a sampled pair: shows whether pass 1 was stable."""
+
+        repeat = repeats.get(candidate.question)
+        row = rows.get(repeat.judgment_id) if repeat is not None else None
+        return row["verdict"] if row is not None else None
+
     for candidate in scan.candidates:
         decision = decisions[candidate.question]
         request = requests.get(candidate.question)
@@ -256,7 +264,7 @@ def _summarize(
             flagged_subjects.add(candidate.left_id)
             proposal = _proposal(candidate, decision)
             if proposal is not None:
-                proposals.append(proposal)
+                proposals.append({**proposal, "repeat_verdict": repeat_verdict(candidate)})
         if candidate.embedding_score is not None and decision.verdict in {"clean", *POSITIVE_VERDICT.values()}:
             scores["flag" if decision.positive else "clean"].append(candidate.embedding_score)
         if candidate.floor and decision.positive:
@@ -280,6 +288,7 @@ def _summarize(
             "question": dict(zip(("task", "left_kind", "left_id", "right_kind", "right_id"), candidate.question)),
             "signals": candidate.signals(),
             "decision": asdict(decision),
+            "repeat_verdict": repeat_verdict(candidate),
             "subject_excerpt": _excerpt(candidate.subject_text),
             "target_excerpt": _excerpt(candidate.target_text),
         } for _, candidate, decision in chosen]

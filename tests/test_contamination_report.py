@@ -525,7 +525,7 @@ def test_reader_reveal_proposes_a_burn_and_never_executes_it(tmp_path):
     assert proposal == {
         "action": "burn_reserve", "surface_id": surfaces[BASIC_ITEM], "question_event_id": event,
         "asked_at": proposal["asked_at"], "reserved_at": proposal["reserved_at"],
-        "decided_by": "llm", "judgment_id": proposal["judgment_id"],
+        "decided_by": "llm", "judgment_id": proposal["judgment_id"], "repeat_verdict": None,
     }
     with repository.connection() as connection:
         statuses = {row[0] for row in connection.execute(
@@ -805,8 +805,10 @@ def test_the_report_carries_a_repeated_judgment_noise_floor_and_owner_audits(tut
     floor = tutor["noise_floor"]
     assert floor["repeat_pairs"] == 1 and floor["compared"] == 1
     assert floor["disagree"] == 1 and floor["disagreement_rate"] == 1.0
-    # The repeat never decides: decisions come from the first pass.
+    # The repeat never decides: decisions come from the first pass, and the
+    # unstable proposal carries the second pass's verdict for the owner.
     assert tutor["decided"]["flags"] == 2
+    assert sorted(str(p["repeat_verdict"]) for p in tutor["proposals"]) == ["None", "clean"]
     with repository.connection() as connection:
         rows = connection.execute(
             "SELECT id, left_id, input_hash, rationale FROM judgment_ledger WHERE judge='llm'"
