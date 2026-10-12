@@ -142,3 +142,29 @@ def test_a_version_1_store_gains_the_pending_queue(tmp_path):
     assert reopened.pending_commits() == []
     with closing(sqlite3.connect(store.path)) as connection:
         assert connection.execute("PRAGMA user_version").fetchone()[0] == 2
+
+
+def test_a_read_only_open_neither_upgrades_nor_writes_an_older_store(tmp_path):
+    store = ProjectStore.for_vault(tmp_path)
+    store.set_meta("pending_offset", "7")
+    with closing(sqlite3.connect(store.path)) as connection:
+        connection.execute("DROP TABLE pending_commits")
+        connection.execute("PRAGMA user_version = 1")
+        connection.commit()
+    before = store.path.read_bytes()
+    reader = ProjectStore.existing(tmp_path, read_only=True)
+    assert reader.schema_version == 1
+    assert reader.pending_commits() == [] and reader.meta("pending_offset") == "7"
+    with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        reader.set_meta("pending_offset", "8")
+    assert store.path.read_bytes() == before
+    assert ProjectStore.existing(tmp_path / "elsewhere", read_only=True) is None
+
+
+def test_a_read_only_open_still_refuses_a_newer_store(tmp_path):
+    store = ProjectStore.for_vault(tmp_path)
+    with closing(sqlite3.connect(store.path)) as connection:
+        connection.execute(f"PRAGMA user_version = {STORE_SCHEMA_VERSION + 1}")
+        connection.commit()
+    with pytest.raises(StoreSchemaError):
+        ProjectStore.existing(tmp_path, read_only=True)

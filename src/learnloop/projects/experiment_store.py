@@ -322,26 +322,43 @@ def _insert_judgment(connection: sqlite3.Connection, judgment: dict[str, Any]) -
 
 
 class ProjectStore:
-    """Short transactions over the standalone store; owns every SQL write."""
+    """Short transactions over the standalone store; owns every SQL write.
 
-    def __init__(self, path: Path, *, busy_timeout_ms: int | None = None) -> None:
+    ``read_only`` opens the store for a dry run: connections use SQLite's
+    read-only mode, so any write fails at the database boundary, and an older
+    store is read as it is instead of being upgraded (a version-1 store has no
+    post-commit queue, which reads as empty). A writing open upgrades it.
+    """
+
+    def __init__(self, path: Path, *, busy_timeout_ms: int | None = None, read_only: bool = False) -> None:
         self.path = Path(path)
         self._busy_timeout_ms = busy_timeout_ms
-        self._ensure_schema()
+        self.read_only = read_only
+        self.schema_version = STORE_SCHEMA_VERSION
+        if read_only:
+            self._check_schema()
+        else:
+            self._ensure_schema()
 
     @classmethod
     def for_vault(cls, vault_root: Path, *, busy_timeout_ms: int | None = None) -> "ProjectStore":
         return cls(store_path(vault_root), busy_timeout_ms=busy_timeout_ms)
 
     @classmethod
-    def existing(cls, vault_root: Path, *, busy_timeout_ms: int | None = None) -> "ProjectStore | None":
-        """Open the store only if it exists; never create it."""
+    def existing(
+        cls,
+        vault_root: Path,
+        *,
+        busy_timeout_ms: int | None = None,
+        read_only: bool = False,
+    ) -> "ProjectStore | None":
+        """Open the store only if it exists; never create it (``read_only``: never write it)."""
 
         path = store_path(vault_root)
-        return cls(path, busy_timeout_ms=busy_timeout_ms) if path.is_file() else None
+        return cls(path, busy_timeout_ms=busy_timeout_ms, read_only=read_only) if path.is_file() else None
 
     def _connect(self) -> sqlite3.Connection:
-        connection = connect(self.path)
+        connection = connect(self.path, read_only=self.read_only)
         if self._busy_timeout_ms is not None:
             connection.execute(f"PRAGMA busy_timeout = {int(self._busy_timeout_ms)}")
         return connection
@@ -356,13 +373,23 @@ class ProjectStore:
                 connection.rollback()
                 raise
 
+    def _schema_of(self, connection: sqlite3.Connection) -> int:
+        version = int(connection.execute("PRAGMA user_version").fetchone()[0])
+        if version > STORE_SCHEMA_VERSION:
+            raise StoreSchemaError(
+                f"{self.path} has store schema {version}; this LearnLoop knows {STORE_SCHEMA_VERSION}"
+            )
+        return version
+
+    def _check_schema(self) -> None:
+        """A read-only open: refuse a newer store, read an older one as it is."""
+
+        with closing(self._connect()) as connection:
+            self.schema_version = self._schema_of(connection)
+
     def _ensure_schema(self) -> None:
         with closing(self._connect()) as connection:
-            version = int(connection.execute("PRAGMA user_version").fetchone()[0])
-            if version > STORE_SCHEMA_VERSION:
-                raise StoreSchemaError(
-                    f"{self.path} has store schema {version}; this LearnLoop knows {STORE_SCHEMA_VERSION}"
-                )
+            version = self._schema_of(connection)
             if version < STORE_SCHEMA_VERSION:
                 connection.executescript(_SCHEMA)
                 connection.execute(f"PRAGMA user_version = {STORE_SCHEMA_VERSION}")
@@ -800,6 +827,8 @@ class ProjectStore:
         return added
 
     def pending_commits(self, repo_id: str | None = None) -> list[dict[str, Any]]:
+        if self.schema_version < 2:
+            return []  # a version-1 store opened read-only: it has no queue yet
         query = "SELECT * FROM pending_commits"
         params: tuple[Any, ...] = ()
         if repo_id is not None:

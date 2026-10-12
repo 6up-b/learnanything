@@ -1160,7 +1160,7 @@ def discover_captures(
     pending file). Returns the prepared captures and per-repo errors.
     """
 
-    store = ProjectStore.existing(vault_root)
+    store = ProjectStore.existing(vault_root, read_only=True)
     if store is None:
         return [], []
     repos = [repo for repo in store.repos(enabled_only=True) if repo_ids is None or repo["id"] in repo_ids]

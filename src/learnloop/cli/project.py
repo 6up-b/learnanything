@@ -99,8 +99,10 @@ def _config(root: Path) -> LearnLoopConfig:
     return load_config(root / "learnloop.toml")
 
 
-def _store(root: Path) -> ProjectStore:
-    store = ProjectStore.existing(root)
+def _store(root: Path, *, read_only: bool = False) -> ProjectStore:
+    """The vault's project store; a dry run opens it ``read_only`` (no write, no upgrade)."""
+
+    store = ProjectStore.existing(root, read_only=read_only)
     if store is None:
         raise ValueError("No repo is enrolled in this vault yet: run `learnloop project enroll <repo>`.")
     return store
@@ -387,7 +389,7 @@ def project_sweep(
     try:
         root = _vault_root(vault)
         config = _config(root)
-        store = ProjectStore.existing(root)
+        store = ProjectStore.existing(root, read_only=dry_run)
         if store is None:
             _emit({"status": "not_enrolled"}, json_output, "No repo is enrolled in this vault yet: run `learnloop project enroll <repo>`.")
             return
@@ -663,7 +665,7 @@ def project_probes(
     try:
         root = _vault_root(vault)
         config = _config(root)
-        store = _store(root)
+        store = _store(root, read_only=dry_run)
         repo_id = None
         if repo is not None:
             row = find_repo(store, repo)
@@ -805,7 +807,7 @@ def project_answer(
             raise ValueError("give at most one of --looked and --used-ai")
         root = _vault_root(vault)
         config = _config(root)
-        store = _store(root)
+        store = _store(root, read_only=dry_run)
         caps = caps_from_options(max_candidates=0, max_calls=max_calls, max_retries=max_retries, max_tokens=max_tokens, max_cost_usd=max_cost_usd)
         if dry_run:
             open_probe(store, probe_id, clock=clock)  # refuses sealed probes without rendering them
@@ -847,7 +849,7 @@ def project_grade(
     try:
         root = _vault_root(vault)
         config = _config(root)
-        store = _store(root)
+        store = _store(root, read_only=dry_run)
         caps = caps_from_options(max_candidates=0, max_calls=max_calls, max_retries=max_retries, max_tokens=max_tokens, max_cost_usd=max_cost_usd)
         result = _grade(root, config, store, None, caps=caps, price_per_million=price_per_million, clock=clock,
                         dry_run=dry_run, retry_failed=retry_failed)

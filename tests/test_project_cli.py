@@ -507,3 +507,56 @@ def test_sweep_dry_run_includes_queued_hook_entries(isolated_git, project_fake, 
     payload = json.loads(cli(["sweep", "--dry-run", "--json"]))
     assert payload["generation"]["prospective_captures"] == 1 and payload["generation"]["estimate"]["calls"] == 3
     assert store.diffs() == [] and store.pending_commits() == []
+
+
+# --- dry runs never write, not even a store migration (F17) -------------------------------
+
+
+def _as_first_build(store_file: Path) -> None:
+    """Turn the store back into what the first M1 build wrote: schema 1, no post-commit queue."""
+
+    import sqlite3
+    from contextlib import closing
+
+    with closing(sqlite3.connect(store_file)) as connection:
+        connection.execute("DROP TABLE pending_commits")
+        connection.execute("PRAGMA user_version = 1")
+        connection.commit()
+
+
+def _schema(store_file: Path) -> tuple[int, bool, list[str]]:
+    import sqlite3
+    from contextlib import closing
+
+    with closing(sqlite3.connect(f"{store_file.resolve().as_uri()}?mode=ro", uri=True)) as connection:
+        version = connection.execute("PRAGMA user_version").fetchone()[0]
+        queue = connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'pending_commits'").fetchone() is not None
+        due = [row[0] for row in connection.execute("SELECT id FROM probes WHERE selected = 1 ORDER BY id")]
+    return version, queue, due
+
+
+@pytest.mark.parametrize("command", ["sweep", "probes", "grade", "answer"])
+def test_dry_runs_leave_an_older_store_unmigrated(isolated_git, project_fake, cli, tmp_path, command):
+    repo = make_model_repo(tmp_path / "repo")
+    cli(["enroll", str(repo.path)])
+    cli(["sweep"])
+    store_file = cli.vault / "projects" / "project_store.sqlite"
+    _version, _queue, due = _schema(store_file)
+    cli(["answer", due[0], "--text", "It applies relu.", "--no-grade"], day=30)  # one answer awaits grading
+    _as_first_build(store_file)
+    rescale = "".join(f"y = y * {factor}\n        " for factor in range(2, 8))
+    repo.write("model.py", MODEL_PY_RELU.replace("return torch.relu(y)", rescale + "return torch.relu(y)"))
+    repo.commit("Rescale before the relu\n\nSo the GRU sees a centred input.")  # a capture the sweep would find
+    before = store_file.read_bytes()
+    args = {
+        "sweep": ["sweep", "--dry-run", "--json"],
+        "probes": ["probes", "--dry-run"],
+        "grade": ["grade", "--dry-run", "--json"],
+        "answer": ["answer", due[1], "--text", "It clamps negatives.", "--dry-run", "--json"],
+    }[command]
+    payload = json.loads(cli(args, day=30))
+    assert payload["status"] == "dry_run"
+    assert _schema(store_file)[:2] == (1, False)  # no table created, no version change
+    assert store_file.read_bytes() == before
+    cli(["sweep"], day=30)  # a real (writing) command migrates
+    assert _schema(store_file)[:2] == (2, True)
