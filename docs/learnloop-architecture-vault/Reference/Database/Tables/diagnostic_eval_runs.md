@@ -3,13 +3,13 @@ title: "diagnostic_eval_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_eval_runs"
   - "table diagnostic_eval_runs"
-schema_head: 168
+schema_head: 169
 table_name: "diagnostic_eval_runs"
 table_role: "receipt"
 functionality_status: "active"

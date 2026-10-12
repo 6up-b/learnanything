@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 168
+schema_head: 169
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/160_model_call_receipts.sql"
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/db/stores/model_calls.py"
+  - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/model_usage.py"
@@ -109,6 +110,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
@@ -137,6 +139,9 @@ None found by exact static reference scan.
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
+- `tests/test_practice_index_dossiers.py`
+- `tests/test_practice_index_find.py`
+- `tests/test_practice_index_paid.py`
 - `tests/test_spend_controls.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

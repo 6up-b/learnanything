@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 168
+schema_head: 169
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/diagnosis/remediation.py"
   - "src/learnloop/tutor/tutor_qa.py"
   - "src/learnloop/scheduling/scheduler.py"
@@ -96,6 +97,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/practice_index.py`
 
 ### Direct SQL writers
 
@@ -118,6 +120,7 @@ Database triggers:
 - `tests/test_reveal_ledger.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_family_memory_projection.py`
+- `tests/test_practice_index_admission.py`
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_scheduler.py`
 - `tests/test_sidecar_remediation_surfaces.py`

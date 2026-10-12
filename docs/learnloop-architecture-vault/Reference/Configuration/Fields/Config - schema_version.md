@@ -3,8 +3,8 @@ title: "Config - schema_version"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml schema_version"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop_sidecar/context.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
+  - "tests/practice_index_fakes.py"
   - "tests/test_activity_contract_extensions.py"
   - "tests/test_administration_adapters.py"
   - "tests/test_ai_runtime.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_causal_factor_deferral.py"
   - "tests/test_causal_probe_commissioning.py"
   - "tests/test_causal_shadow_selection.py"
-  - "tests/test_causal_trace_consistency_p2.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/schema-version"
@@ -52,7 +52,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1387`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop_sidecar/context.py:315` |
+| `schema_version` | `2` | integer | explicit template decision | Selects the accepted learnloop.toml schema and activates one-way normalization for older schema-1 input. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1432`; `src/learnloop/ai/providers/codex_http.py:63`; `src/learnloop_sidecar/context.py:315` |
 
 ## Compatibility-only inputs
 
@@ -73,6 +73,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
+- `tests/practice_index_fakes.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_ai_runtime.py`
@@ -82,7 +83,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_causal_shadow_selection.py`
-- `tests/test_causal_trace_consistency_p2.py`
 
 ## Extension and modification guidance
 

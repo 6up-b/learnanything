@@ -3,13 +3,13 @@ title: "exam_pool_items"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite exam_pool_items"
   - "table exam_pool_items"
-schema_head: 168
+schema_head: 169
 table_name: "exam_pool_items"
 table_role: "workflow"
 functionality_status: "active"
@@ -111,6 +111,8 @@ Indexes and uniqueness:
 - `tests/test_characterization_assessment_exam.py`
 - `tests/test_exam_pool.py`
 - `tests/test_goal_scope_material.py`
+- `tests/test_practice_index_admission.py`
+- `tests/test_practice_index_dossiers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

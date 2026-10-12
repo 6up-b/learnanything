@@ -3,13 +3,13 @@ title: "source_document_units"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_document_units"
   - "table source_document_units"
-schema_head: 168
+schema_head: 169
 table_name: "source_document_units"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/source_unit_inventory.py`
 - `src/learnloop/content/synthesis/source_unit_selection.py`
+- `src/learnloop/practice_index/dossiers.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
@@ -117,7 +118,6 @@ Indexes and uniqueness:
 - `src/learnloop/reader/source_review.py`
 - `src/learnloop/reader/span_view.py`
 - `src/learnloop_sidecar/handlers/ingest.py`
-- `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

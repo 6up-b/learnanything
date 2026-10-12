@@ -5,16 +5,29 @@ Adding a record kind or field means declaring its text here, not guessing in a
 caller. A recipe is named ``record_kind/field`` (Slice 2 R3/§12: ``item/stem``,
 ``item/skeleton``, ``facet/dossier_scope`` ...), so one kind can carry several
 independently versioned fields.
+
+Most recipes read authored vault content. The four ``facet/dossier_*`` recipes
+read persisted paid dossiers (``facet_dossiers``, Slice 2 §5.9) for each
+facet's CURRENT content; they never call a model and yield nothing until a
+dossier has been generated. They yield the text of EVERY dossier revision
+written for the facet's current content (one record id, several content
+hashes), because which revision serves depends on the facet's current sources,
+which only the practice index can compute. Retrieval then reads exactly the
+selected revision's vector by its content hash.
 """
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import closing
 from dataclasses import dataclass
 import hashlib
 import json
 from types import MappingProxyType
 
-from learnloop.vault.models import LoadedVault
+from learnloop.db.connection import connect
+from learnloop.db.stores.practice_index import dossier_candidates
+from learnloop.vault.models import EvidenceFacet, LoadedVault
+from learnloop.vault.paths import VaultPaths
 
 
 @dataclass(frozen=True)
@@ -38,19 +51,21 @@ class EmbeddingRecipe:
     def name(self) -> str:
         return f"{self.record_kind}/{self.field}"
 
+    def content_hash(self, text: str) -> str:
+        # Version the composition, not just the authored text: a future
+        # recipe change must not silently reuse the former representation.
+        payload = json.dumps(
+            [self.record_kind, self.field, self.version, text],
+            ensure_ascii=False, separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
     def records(self, loaded: LoadedVault) -> Iterator[EmbeddingRecord]:
         for record_id, text in self.texts(loaded):
             if not text.strip():
                 continue
-            # Version the composition, not just the authored text: a future
-            # recipe change must not silently reuse the former representation.
-            payload = json.dumps(
-                [self.record_kind, self.field, self.version, text],
-                ensure_ascii=False, separators=(",", ":"),
-            )
             yield EmbeddingRecord(
-                self.record_kind, record_id, self.field, text,
-                hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+                self.record_kind, record_id, self.field, text, self.content_hash(text),
             )
 
 
@@ -83,6 +98,46 @@ def _item_stems(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
             yield item_id, item.prompt
 
 
+def facet_content_hash(facet: EvidenceFacet) -> str:
+    """Content address of a facet's authored meaning, excluding its provenance.
+
+    Sources are hashed separately by the dossier writer, so a source change and a
+    facet change are distinguishable. The derived semantic fingerprint is omitted.
+    """
+    payload = facet.model_dump(mode="json", exclude={"provenance", "semantic_fingerprint"})
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+DOSSIER_FIELDS = ("scope", "moves", "errors", "contrast")
+
+
+def facet_dossier_candidates(loaded: LoadedVault) -> dict[str, list[object]]:
+    """Every persisted dossier per non-retired facet's current revision, oldest first."""
+    hashes = {
+        facet_id: facet_content_hash(facet)
+        for facet_id, facet in loaded.evidence_facets.items() if facet.status != "retired"
+    }
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    if not hashes or not sqlite_path.exists():
+        return {}
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        return dict(dossier_candidates(connection, hashes))
+
+
+def _dossier_field(field: str) -> Callable[[LoadedVault], Iterator[tuple[str, str]]]:
+    def texts(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+        for facet_id, rows in sorted(facet_dossier_candidates(loaded).items()):
+            seen: set[str] = set()
+            for dossier in rows:
+                text = dossier.field(field)  # type: ignore[attr-defined]
+                if text not in seen:
+                    seen.add(text)
+                    yield facet_id, text
+
+    return texts
+
+
 def _registry(*recipes: EmbeddingRecipe) -> Mapping[str, EmbeddingRecipe]:
     registry = {recipe.name: recipe for recipe in recipes}
     if len(registry) != len(recipes):
@@ -96,6 +151,16 @@ EMBEDDING_RECIPES: Mapping[str, EmbeddingRecipe] = _registry(
         "Authored title, claim, description, pre/postconditions, applicability, "
         "positive/negative examples and non-goals; excludes retired facets.",
         _facet_definitions,
+    ),
+    *(
+        EmbeddingRecipe(
+            "facet", f"dossier_{field}", 1,
+            f"The {field} field of the facet's LLM-written dossiers (facet_dossiers, "
+            "every revision written for the facet's current content; retrieval reads "
+            "the selected one); rendered dossier text only, no learner data.",
+            _dossier_field(field),
+        )
+        for field in DOSSIER_FIELDS
     ),
     EmbeddingRecipe(
         "item", "stem", 1,

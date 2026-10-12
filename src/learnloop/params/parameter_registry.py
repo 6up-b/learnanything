@@ -841,6 +841,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_prefix("families."), "structural", "operational",
                 "Explicit-command authoring candidate bounds; judges decide identity, "
                 "with no live measurement or scheduling authority."),
+    _ConfigRule(_prefix("practice_index."), "structural", "operational",
+                "find_practice retrieval/proposal sizes, rank-fusion constant, coverage "
+                "threshold and rerank spend; it proposes and never serves, so no "
+                "measurement or serving authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

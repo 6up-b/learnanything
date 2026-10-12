@@ -3,8 +3,8 @@ title: "Config - mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml mastery"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/curriculum/depth_rungs.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/attempts/attempts.py"
+  - "tests/practice_index_fakes.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
   - "tests/test_cli_ingest.py"
@@ -34,7 +35,6 @@ source_paths:
   - "tests/test_embedding_backfill.py"
   - "tests/test_embedding_route_isolation.py"
   - "tests/test_eval_harness.py"
-  - "tests/test_facet_outcome_view.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/mastery"
@@ -87,6 +87,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/practice_index_fakes.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
 - `tests/test_cli_ingest.py`
@@ -98,7 +99,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_embedding_backfill.py`
 - `tests/test_embedding_route_isolation.py`
 - `tests/test_eval_harness.py`
-- `tests/test_facet_outcome_view.py`
 
 ## Extension and modification guidance
 

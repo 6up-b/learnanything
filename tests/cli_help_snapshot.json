@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 21547,
-    "sha256": "0e50944357d337d3d74087284ffb611af2138f59c228021a3bb1411283417485"
+    "bytes": 21802,
+    "sha256": "8e60c114a3778258cba665819a62306a5c67210b3ef4ef3dc765b0c3c4a3efd8"
   },
   "accept": {
     "bytes": 1593,
@@ -269,19 +269,23 @@
   },
   "embeddings": {
     "bytes": 1587,
-    "sha256": "06c65cc5fd4fa58de73a7538dba27ec25e0c9987651a60fcd34a04f71e4070e7"
+    "sha256": "faed068841889e0a4f17944034582df848dbd8d6b23b29e0ccb1dc459e30c625"
   },
   "embeddings backfill": {
-    "bytes": 3744,
-    "sha256": "323d1d1b749967326456178b1bdb65bf25bec2cddaaec47f36a8ecdf1d135892"
+    "bytes": 3995,
+    "sha256": "8b90782226a2bc39f77df91e72a31c01fad706f02f752721ef62ae4c2b27dc8a"
   },
   "eval": {
-    "bytes": 7454,
-    "sha256": "2910cafb51c5033778ad15e8e3d3123db1fe5ad93bc3a888f1ba83e3bdb8a8ed"
+    "bytes": 7705,
+    "sha256": "0f99e0358f1ab054d9ac6089ac8b6e371610fe26b789bc7590acfd63b4965ef8"
   },
   "eval families": {
     "bytes": 3491,
     "sha256": "5f262a093a607c08e55fdf64b56d9e19856049638acf8fce37424e74f297d569"
+  },
+  "eval practice-index": {
+    "bytes": 5703,
+    "sha256": "dca3883aa3bde23b21beea51471830290ac0ab66361c89818ccabf6985a1d313"
   },
   "exam": {
     "bytes": 1842,
@@ -494,6 +498,38 @@
   "populate-goal": {
     "bytes": 3856,
     "sha256": "0e49f9bf747895897fe48bb80db5748a8a1ced2ae622d5cc3e3e865a0f3e6681"
+  },
+  "practice-index": {
+    "bytes": 2603,
+    "sha256": "657090208a0478ddfbc98ff04d1492d5147bce32300a5a9df61c965a78f94dd0"
+  },
+  "practice-index coverage": {
+    "bytes": 1297,
+    "sha256": "e8c52ed52503ce35884a3edb3e7d55e65388a8f598da0d65e88b3235ac6ec04f"
+  },
+  "practice-index dossiers": {
+    "bytes": 3663,
+    "sha256": "517ba0c15c6526466dcdb447ff1aab14735ab9d9d189d8e61f900b040c545ac1"
+  },
+  "practice-index eval": {
+    "bytes": 5379,
+    "sha256": "fdd1cb42b1a13951d890f3469f9d8f3ce55e78ff6994f3e35db41c46367fd554"
+  },
+  "practice-index find": {
+    "bytes": 3441,
+    "sha256": "27ad507a5c55b7b53eb5cb6b389cfaeed83964f14f25a4c09d75395b9155b39c"
+  },
+  "practice-index status": {
+    "bytes": 1125,
+    "sha256": "12e619b758d38448cf5e8392efe9d4f3f05c4c14293f8458fbbef249fb64f816"
+  },
+  "practice-index tool-spec": {
+    "bytes": 955,
+    "sha256": "db4395981281127ce6b5b3a4574fc7d72196512f9a6690d410638b629ec771a1"
+  },
+  "practice-index usage": {
+    "bytes": 1465,
+    "sha256": "1a5df599adf948c007b5923b39fef8698f46fee45bc59aa96917562f3e4ed10b"
   },
   "probe-audit": {
     "bytes": 1454,

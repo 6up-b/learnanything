@@ -26,6 +26,10 @@ AITask = Literal[
     "pf_closed_book",
     "pf_reference_verifier",
     "pf_solver_panel",
+    "practice_dossier",
+    "practice_rerank",
+    "practice_query_writer",
+    "practice_relevance_judge",
     "grading",
     # Slice 1: the history-aware diagnoser (unset -> the resolved grading
     # route, so a vault that never configures it diagnoses with its grader),
@@ -93,6 +97,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "project_probe_authoring": "project",
     "project_closed_book_check": "project",
     "project_probe_grading": "grading",
+    "practice_dossier": "practice_dossier",
+    "practice_rerank": "practice_rerank",
+    "practice_query_writer": "practice_query_writer",
+    "practice_relevance_judge": "practice_relevance_judge",
 }
 
 

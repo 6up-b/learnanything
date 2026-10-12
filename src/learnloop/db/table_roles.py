@@ -151,6 +151,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("exam_predictions", TableRole.RECEIPT),
     ("exam_sessions", TableRole.WORKFLOW),
     ("facet_capability_evidence", TableRole.DERIVED),
+    # Paid practice-index dossiers (Slice 2 §5.9): persisted inputs keyed by
+    # facet/source revision, model and prompt; never regenerated on rebuild.
+    ("facet_dossiers", TableRole.WORKFLOW),
     ("facet_merges", TableRole.RAW_LEDGER),
     ("facet_outcome_observations", TableRole.DERIVED),
     ("facet_recall_state", TableRole.DERIVED),
@@ -228,6 +231,13 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("persona_realism_runs", TableRole.RECEIPT),
     ("policy_experiment_assignments", TableRole.RECEIPT),
     ("practice_attempts", TableRole.RAW_LEDGER),
+    # The persisted held-out retrieval query set (paid LLM output plus logged
+    # real queries); evaluation inputs, never regenerated.
+    ("practice_eval_queries", TableRole.WORKFLOW),
+    # Aggregate retrieval-evaluation results and the find_practice path each chose.
+    ("practice_index_evaluations", TableRole.RECEIPT),
+    # What each find_practice call proposed (it never serves); usage-signal join key.
+    ("practice_index_proposals", TableRole.RECEIPT),
     ("practice_item_quality_state", TableRole.DERIVED),
     # Content-addressed copy of each practice-item revision the scheduler
     # scored; selection decision features join to it by content hash.

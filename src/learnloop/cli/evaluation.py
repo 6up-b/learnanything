@@ -4,6 +4,13 @@ The group callback keeps `learnloop eval --vault ...` as the legacy decision
 calibration report; `--section field` adds learner-field reports 1-2. The
 `families` subcommand is the PF-a arm set over the same harness. None of these
 initialize or migrate a vault, and replay never calls a model.
+
+`practice-index` is Phase 5b's retrieval evaluation (dossier two-level search
+vs direct item search). Unlike the replays above it is paid batch work that
+persists its query set and result in the vault: `--dry-run` estimates with no
+client, migration or data change, and a run needs explicit caps and
+`practice_index.evaluation_enabled`. `learnloop practice-index eval` remains
+as an alias.
 """
 from __future__ import annotations
 
@@ -13,11 +20,12 @@ from typing import Annotated
 import typer
 
 from learnloop.cli.field import _LEGACY_FALLBACK_HELP, families_eval, field_eval
+from learnloop.cli.practice_index import practice_index_eval
 from learnloop.cli.runtime import _root
 
 eval_app = typer.Typer(
     invoke_without_command=True,
-    help="Read-only calibration report and the offline predictor harness.",
+    help="Read-only calibration report, the offline predictor harness and the practice-index retrieval evaluation.",
 )
 
 
@@ -59,3 +67,4 @@ def evaluate_existing(
 
 
 eval_app.command("families")(families_eval)
+eval_app.command("practice-index")(practice_index_eval)

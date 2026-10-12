@@ -25,6 +25,7 @@ from learnloop.cli.diagnose import diagnose_app
 from learnloop.cli.field import field_app
 from learnloop.cli.families import families_app
 from learnloop.cli.evaluation import eval_app
+from learnloop.cli.practice_index import practice_index_app
 
 app.add_typer(config_app, name="config")
 app.add_typer(claims_app, name="claims")
@@ -51,6 +52,7 @@ app.add_typer(diagnose_app, name="diagnose")
 app.add_typer(field_app, name="field")
 app.add_typer(families_app, name="families")
 app.add_typer(eval_app, name="eval")
+app.add_typer(practice_index_app, name="practice-index")
 
 # Preserve the package-level compatibility hooks that callers and tests imported
 # from the former monolithic ``learnloop.cli`` module.  Import these last so the

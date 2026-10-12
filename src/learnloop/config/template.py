@@ -802,7 +802,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # its default keeps the merged behaviour.
     # Slice 2 T7 adds embedding.map_neighbors_enabled, a display-only kill
     # switch for the knowledge map's item neighbours (no learner-state effect).
-    "mvp-0.9": "91e0a25c5f15cab169c84868bbe1770c2c35273151256dd04c46c06c56898978",
+    # Phase 5b adds the practice index ([practice_index], modelled defaults
+    # only, with its paid dossier/evaluation switches off, and four
+    # practice_* routes), which proposes and never serves, plus its query
+    # embedding price override. No scoring, scheduling, projection or serving
+    # change.
+    "mvp-0.9": "6d28f3a02c3f2ef485ad7d08b1390ca8b20174c67bcdf1d24e01997fdbc37aa3",
 }
 
 

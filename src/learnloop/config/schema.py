@@ -986,6 +986,13 @@ class AIRoutingConfig(BaseModel):
     pf_closed_book: str | None = None
     pf_reference_verifier: str | None = None
     pf_solver_panel: str | None = None
+    # Practice index (Slice 2 §5.9): facet dossier writer, find_practice's LLM
+    # rerank, and the retrieval evaluation's query writer and relevance judge.
+    # Empty = follow ai.active_provider like any generation route.
+    practice_dossier: str | None = None
+    practice_rerank: str | None = None
+    practice_query_writer: str | None = None
+    practice_relevance_judge: str | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None
@@ -1381,6 +1388,44 @@ class FieldConfig(BaseModel):
     llm_probability_enabled: bool = False
 
 
+class PracticeIndexConfig(BaseModel):
+    """The practice index: facet dossiers and ``find_practice`` (Slice 2 §5.9).
+
+    ``find_practice`` proposes items and never serves them, so nothing here is an
+    algorithm successor. Dossier generation and the retrieval evaluation are
+    paid batch work with their own switches, off in the template.
+    """
+
+    # Kill switch for find_practice (RPC, CLI and agent tool).
+    enabled: bool = True
+    # auto: the two-level dossier path only when the latest retrieval evaluation
+    # on the current index manifest found that it beats direct item search.
+    retrieval_path: Literal["auto", "direct", "dossier"] = "auto"
+    # The LLM rerank of find_practice's candidate pool (route practice_rerank).
+    rerank_enabled: bool = True
+    # Metered rerank routes need a price estimate (USD per million tokens) or the
+    # rerank is skipped; subscription (Codex) routes have no marginal cost.
+    rerank_price_per_million: float | None = Field(default=None, gt=0)
+    rerank_max_cost_usd: float = Field(default=0.05, ge=0)
+    # USD per million input tokens for find_practice's query embedding when
+    # embedding.model has no published estimate; unknown prices skip it.
+    query_embedding_price_per_million: float | None = Field(default=None, gt=0)
+    # The two-level path keeps at least this many facets, then more in rank
+    # order until their admissible items fill candidate_pool.
+    facet_top_k: int = Field(default=5, ge=1, le=50)
+    candidate_pool: int = Field(default=20, ge=1, le=60)
+    proposals: int = Field(default=5, ge=1, le=20)
+    # Reciprocal-rank-fusion constant (Cormack et al. 2009); ranks, not scores.
+    rrf_k: int = Field(default=60, ge=1)
+    # Facets with fewer admissible items than this are generation targets.
+    coverage_min_eligible: int = Field(default=3, ge=0)
+    # A proposed item attempted within this window counts as "practised".
+    usage_window_hours: int = Field(default=72, ge=1)
+    # Paid batch work: off until the owner enables it.
+    dossiers_enabled: bool = False
+    evaluation_enabled: bool = False
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1409,6 +1454,7 @@ class LearnLoopConfig(BaseModel):
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
+    practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

@@ -3,13 +3,13 @@ title: "controller_ownership"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
-source_commit_timestamp: "2026-10-12T11:26:57-04:00"
+source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
+source_commit_timestamp: "2026-10-12T11:28:31-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite controller_ownership"
   - "table controller_ownership"
-schema_head: 168
+schema_head: 169
 table_name: "controller_ownership"
 table_role: "workflow"
 functionality_status: "active"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/goals/exam_pool.py"
   - "src/learnloop/params/parameter_registry.py"
+  - "src/learnloop/practice_index/admission.py"
   - "src/learnloop/scheduling/controller_cutover.py"
   - "src/learnloop/scheduling/controller_ownership.py"
   - "src/learnloop/scheduling/scheduler.py"
-  - "src/learnloop/scheduling/staged_policy.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
