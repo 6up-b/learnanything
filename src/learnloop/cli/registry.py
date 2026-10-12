@@ -140,20 +140,22 @@ def registry_certify(
         raise typer.Exit(code=1)
 
     covered_value = pr._resolve_config_value(path, loaded.config)
-    work_dir = Path(tempfile.mkdtemp(prefix="learnloop-certify-"))
-    certificate = sc.certify(
-        path=path,
-        covered_value=covered_value,
-        low=low,
-        high=high,
-        vault_root=root,
-        profile=student_profile,
-        work_dir=work_dir,
-        grid_points=steps,
-        days=days,
-        items_per_day=items_per_day,
-        seed=seed,
-    )
+    # The sweep's simulated vault copies are scratch: the certificate keeps only
+    # its metrics, so the directory is removed even when the sweep raises.
+    with tempfile.TemporaryDirectory(prefix="learnloop-certify-") as scratch:
+        certificate = sc.certify(
+            path=path,
+            covered_value=covered_value,
+            low=low,
+            high=high,
+            vault_root=root,
+            profile=student_profile,
+            work_dir=Path(scratch),
+            grid_points=steps,
+            days=days,
+            items_per_day=items_per_day,
+            seed=seed,
+        )
     sc.store_certificate(repository, certificate)
     outcome = sc.link_coverage_certificate(repository, certificate)
     resolved = repository.parameter_registry_entry(path)
@@ -223,20 +225,22 @@ def registry_promote(
         raise typer.Exit(code=1)
 
     covered_value = pr._resolve_config_value(path, loaded.config)
-    work_dir = Path(tempfile.mkdtemp(prefix="learnloop-promote-"))
-    certificate = sc.certify(
-        path=path,
-        covered_value=covered_value,
-        low=low,
-        high=high,
-        vault_root=root,
-        profile=student_profile,
-        work_dir=work_dir,
-        grid_points=steps,
-        days=days,
-        items_per_day=items_per_day,
-        seed=seed,
-    )
+    # The sweep's simulated vault copies are scratch: the certificate keeps only
+    # its metrics, so the directory is removed even when the sweep raises.
+    with tempfile.TemporaryDirectory(prefix="learnloop-promote-") as scratch:
+        certificate = sc.certify(
+            path=path,
+            covered_value=covered_value,
+            low=low,
+            high=high,
+            vault_root=root,
+            profile=student_profile,
+            work_dir=Path(scratch),
+            grid_points=steps,
+            days=days,
+            items_per_day=items_per_day,
+            seed=seed,
+        )
     evidence = sc.promotion_evidence_from_certificate(certificate)
     outcome = sc.promote(repository, evidence)
     resolved = repository.parameter_registry_entry(path)

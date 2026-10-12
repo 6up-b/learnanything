@@ -8,6 +8,9 @@ edits a projection table directly.
 from __future__ import annotations
 
 import json
+import tempfile
+
+import pytest
 
 from typer.testing import CliRunner
 
@@ -228,6 +231,27 @@ def test_registry_promote_advances_status_via_promotion_evidence(tmp_path):
         app, ["registry", "show", path, "--vault", str(paths.root), "--json"]
     )
     assert json.loads(show.output)["status"] == payload["status"]
+
+
+@pytest.mark.parametrize("command", ["certify", "promote"])
+def test_registry_sweep_scratch_is_removed(tmp_path, monkeypatch, command):
+    # Each run used to leave a learnloop-certify-/learnloop-promote- directory of
+    # simulated vault copies in /tmp (a RAM-backed tmpfs on the owner's machine).
+    paths, _vault, _repo = _p0_vault(tmp_path)
+    scratch_root = tmp_path / "tmp-root"
+    scratch_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(scratch_root))
+    out = runner.invoke(
+        app,
+        [
+            "registry", command, "scheduler.short_session_minutes",
+            "--low", "10", "--high", "40", "--steps", "2",
+            "--days", "3", "--items-per-day", "3", "--seed", "42",
+            "--vault", str(paths.root), "--json",
+        ],
+    )
+    assert out.exit_code == 0, out.output
+    assert not [entry.name for entry in scratch_root.iterdir() if entry.name.startswith(f"learnloop-{command}-")]
 
 
 def test_registry_certify_refuses_module_constants(tmp_path):
