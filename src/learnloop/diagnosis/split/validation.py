@@ -406,14 +406,19 @@ def validate_diagnosis_proposal(
         ref = str(claim.get("hypothesis_ref") or "")
         targets: set[str] = set()
         if ref.startswith(CAUSE_REF_PREFIX):
+            # Exactly ``cause:<event>:<cause>`` with two nonnegative decimal
+            # indices; a negative index would silently select from the end.
             parts = ref[len(CAUSE_REF_PREFIX):].split(":")
-            try:
-                event_index, cause_index = int(parts[0]), int(parts[1])
-            except (IndexError, ValueError):
+            if len(parts) != 2 or not all(part.isascii() and part.isdigit() for part in parts):
                 report.issue("pattern_ref_malformed", claim_index=claim_index, hypothesis_ref=ref)
                 continue
+            event_index, cause_index = int(parts[0]), int(parts[1])
             event = next((value for value in events if value["event_index"] == event_index), None)
-            if event is None or cause_index >= len(event.get("candidate_causes") or []):
+            if (
+                event is None
+                or not 0 <= event_index < len(attributions)
+                or not 0 <= cause_index < len(event.get("candidate_causes") or [])
+            ):
                 report.issue("pattern_ref_unknown_cause", claim_index=claim_index, hypothesis_ref=ref)
                 continue
             facet = _facet_of(event["candidate_causes"][cause_index].get("target_ref"))

@@ -288,3 +288,25 @@ def test_prompt_rules_by_mode(world):
         assert "never replace evidence in this trace" in prompt
         assert ("RECITE FIRST" in prompt) is (mode != "exact")
         assert "READ-ONLY WORKSPACE" not in prompt
+
+
+# -- Codex review fixes (2026-10-12) ----------------------------------------------
+
+
+@pytest.mark.parametrize("ref", ["cause:0:-2", "cause:0:-1", "cause:-1:0", "cause:0:0:0", "cause:0", "cause:0:x", "cause: 0:0"])
+def test_malformed_cause_refs_are_recorded_never_raised_or_wrapped(world, ref):
+    """F9: exactly two nonnegative indices, both bounds checked, before indexing."""
+
+    vault, store = world
+    result = _validate(vault, store, {
+        "analysis_md": "a",
+        "evidence_attempt_ids": ["att_02_svd_fail"],
+        "event_diagnoses": [_event()],
+        "pattern_claims": [
+            {"hypothesis_ref": ref, "relation": "same_mechanism",
+             "cited": [{"attempt_id": "att_02_svd_fail", "quote": "U Sigma V"}]},
+        ],
+    })
+    assert result.proposal["pattern_claims"] == []
+    assert result.validated_citations == ()
+    assert {"pattern_ref_malformed", "pattern_ref_unknown_cause"} & set(_rules(result))
