@@ -3,13 +3,13 @@ title: "facet_recall_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_recall_state"
   - "table facet_recall_state"
-schema_head: 169
+schema_head: 170
 table_name: "facet_recall_state"
 table_role: "derived"
 functionality_status: "active"
@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_km2_canonical.py`
 - `tests/test_migrations.py`
+- `tests/test_post_attempt_worker.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recall_coverage_interventions.py`
 - `tests/test_replay.py`
@@ -149,7 +150,6 @@ Indexes and uniqueness:
 - `tests/test_map_untested.py`
 - `tests/test_measurement_corrections.py`
 - `tests/test_projection_evidence_polarity.py`
-- `tests/test_receipt_derivation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -3,13 +3,13 @@ title: "facet_capability_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite facet_capability_evidence"
   - "table facet_capability_evidence"
-schema_head: 169
+schema_head: 170
 table_name: "facet_capability_evidence"
 table_role: "derived"
 functionality_status: "active"
@@ -127,10 +127,12 @@ Indexes and uniqueness:
 
 - `tests/test_anti_double_count.py`
 - `tests/test_coverage_rollup.py`
+- `tests/test_diagnosis_pipeline.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_km2_sim_gates.py`
 - `tests/test_km2_write_path.py`
 - `tests/test_migrations.py`
+- `tests/test_post_attempt_worker.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_scoreboard.py`
 - `tests/test_characterization_certification_ledger.py`
@@ -140,11 +142,9 @@ Indexes and uniqueness:
 - `tests/test_error_hunt_items.py`
 - `tests/test_exam_session.py`
 - `tests/test_grading_cli.py`
+- `tests/test_grading_support.py`
 - `tests/test_km2_activation.py`
 - `tests/test_km2_canonical.py`
-- `tests/test_observation_ledger_bulk.py`
-- `tests/test_p0_cutover_mvp08.py`
-- `tests/test_p0_projection_cutover.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

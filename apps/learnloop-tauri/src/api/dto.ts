@@ -1154,6 +1154,63 @@ export interface AttemptResultDto {
   probeEpisode?: { episodeId: string; status: string; feedbackDeferred: boolean } | null;
   /** Present when this submission closed a diagnostic block (§5.7). */
   probeBlockEnd?: ProbeBlockEndDto | null;
+  /** Slice 1 §11: present when the attempt queued an asynchronous diagnosis
+   *  (blind-graded vaults); poll `diagnosisStatus` while it is "pending". */
+  diagnosisStatus?: DiagnosisStatusValue;
+}
+
+/** Slice 1 M2 (§11): where an attempt's asynchronous diagnosis stands. */
+export type DiagnosisStatusValue = "pending" | "not_needed" | "done" | "failed";
+
+/** The card's one optional tap (§12.2), in its fixed neutral order. */
+export type DiagnosisCardResponse =
+  | "believed_candidate"
+  | "partly"
+  | "slipped"
+  | "diagnosis_wrong"
+  | "unsure";
+
+export interface DiagnosisCitationDto {
+  attemptId: string;
+  practiceItemId: string | null;
+  date: IsoTimestamp | null;
+  quote: string | null;
+  rubricScore: number | null;
+  correctness: number | null;
+}
+
+export interface DiagnosisPrerequisiteGapDto {
+  prerequisiteRef: string;
+  title: string;
+  suggestedCheckMd: string | null;
+  /** Always "possible cause - not yet checked". */
+  label: string;
+}
+
+/** `diagnosis_status`: the status, and the card's content once done. */
+export interface DiagnosisCardDto {
+  version: number;
+  attemptId: string;
+  status: DiagnosisStatusValue;
+  cardEnabled: boolean;
+  responses: { response: DiagnosisCardResponse; label: string }[];
+  diagnosisId?: string | null;
+  createdAt?: IsoTimestamp | null;
+  historyMode?: string | null;
+  summaryMd?: string;
+  repairSuggestions?: RepairSuggestionDto[];
+  /** Validated citations only (S4); empty when none validated. */
+  madeBefore?: DiagnosisCitationDto[];
+  prerequisiteGap?: DiagnosisPrerequisiteGapDto | null;
+  recordedResponse?: DiagnosisCardResponse | null;
+  notSameMistakeAttemptIds?: string[];
+}
+
+export interface DiagnosisFeedbackResultDto {
+  version: number;
+  feedbackId: string;
+  forwardedFactorId: string | null;
+  forwarding: string;
 }
 
 export interface PracticeSubmissionRecoveryDto {
@@ -1171,6 +1228,8 @@ export interface PracticeSubmissionAcknowledgementDto {
 export interface FeedbackBundle {
   version: number;
   attemptId: string;
+  /** Slice 1 §11: present when the attempt queued an asynchronous diagnosis. */
+  diagnosisStatus?: DiagnosisStatusValue;
   practiceItemId: string;
   learningObjectId: string;
   learningObjectTitle: string;

@@ -37,6 +37,8 @@ class SettingsStoreError(ValueError):
 # [ai.routing] task keys consumed by provider_for_task.
 USE_CASE_ROUTES: dict[str, tuple[str, ...]] = {
     "grading": ("grading",),
+    # Slice 1 M2: the history-aware diagnoser (unset: the grading route).
+    "diagnosis": ("diagnosis",),
     "ingest": ("canonical_ingest", "canonical_ingest_retry", "authoring"),
     "tutor": ("tutor_qa", "teach_back", "rung_variant"),
     "animation": ("animation",),

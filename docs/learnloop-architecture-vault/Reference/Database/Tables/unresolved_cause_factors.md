@@ -3,13 +3,13 @@ title: "unresolved_cause_factors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite unresolved_cause_factors"
   - "table unresolved_cause_factors"
-schema_head: 169
+schema_head: 170
 table_name: "unresolved_cause_factors"
 table_role: "workflow"
 functionality_status: "active"
@@ -89,6 +89,7 @@ Indexes and uniqueness:
 - `Repository.insert_unresolved_cause_factor()`
 - `Repository.open_unresolved_cause_factors()`
 - `Repository.open_unresolved_cause_observation_ids()`
+- `Repository.refresh_open_unresolved_cause_candidates()`
 - `Repository.resolve_unresolved_cause_factor()`
 - `Repository.retire_unresolved_cause_factor()`
 - `Repository.set_unresolved_cause_hypothesis_refs()`
@@ -121,6 +122,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
+- `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/substrate/canonical_projection.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
@@ -134,6 +136,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_causal_factor_deferral.py`
+- `tests/test_diagnosis_replay.py`
 - `tests/test_anti_double_count.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_causal_attribution_p1.py`
@@ -145,13 +148,13 @@ Indexes and uniqueness:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_conjunctive_instruments.py`
+- `tests/test_diagnosis_async_router.py`
+- `tests/test_diagnosis_card.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_durable_promotion_arms.py`
+- `tests/test_grading_support.py`
 - `tests/test_km2_write_path.py`
 - `tests/test_km4_taxonomy.py`
-- `tests/test_probe_block_end.py`
-- `tests/test_projection_evidence_polarity.py`
-- `tests/test_unresolved_cause_gate.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

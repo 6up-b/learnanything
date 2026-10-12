@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 169
+schema_head: 170
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
   - "src/learnloop/attempts/grade_resolution.py"
+  - "src/learnloop/attempts/grading_support.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/cli/runtime.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
-  - "src/learnloop/diagnosis/offline_review/report.py"
   - "src/learnloop/attempts/attempt_trace.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/clarification.py"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/diagnosis/split/reports.py`
 
 ### Direct SQL writers
 
@@ -141,13 +142,13 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/tui/screens/feedback.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
-- `src/learnloop_sidecar/handlers/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -162,6 +163,7 @@ Indexes and uniqueness:
 - `tests/test_facet_outcome_view.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_field_signal_production_paths.py`
+- `tests/test_field_split_outcomes.py`
 - `tests/test_migrations.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_projection_evidence_polarity.py`
@@ -173,7 +175,6 @@ Indexes and uniqueness:
 - `tests/test_attempts.py`
 - `tests/test_causal_attribution_p0.py`
 - `tests/test_characterization_probe_regrade.py`
-- `tests/test_codex_attempt_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

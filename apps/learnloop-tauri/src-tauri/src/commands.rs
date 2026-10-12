@@ -266,9 +266,17 @@ sidecar_passthrough!(skip_practice_item, "skip_practice_item");
 #[tauri::command]
 pub async fn get_feedback(
     attempt_id: String,
+    record_open: Option<bool>,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
-    blocking_sidecar_call(sidecar, "get_feedback", json!({"attemptId": attempt_id})).await
+    // `record_open = false`: a refresh after the asynchronous diagnosis lands
+    // (Slice 1 §11) re-reads the bundle without counting another open.
+    blocking_sidecar_call(
+        sidecar,
+        "get_feedback",
+        json!({"attemptId": attempt_id, "recordOpen": record_open.unwrap_or(true)}),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -631,6 +639,14 @@ sidecar_passthrough!(report_unresolved_cause, "report_unresolved_cause");
 sidecar_passthrough!(submit_eliciting_response, "submit_eliciting_response");
 
 sidecar_passthrough!(contest_causal_diagnosis, "contest_causal_diagnosis");
+
+// ── Slice 1 M2: the asynchronous diagnosis and its card (§11, §12.2) ──
+// `diagnosis_status` is polled while a diagnosis is pending; the card's one
+// optional tap goes through `record_diagnosis_feedback`.
+
+sidecar_passthrough!(diagnosis_status, "diagnosis_status");
+
+sidecar_passthrough!(record_diagnosis_feedback, "record_diagnosis_feedback");
 
 // ── P2 causal repair orchestration (spec_causal_attribution_v1 §6) ──
 // One orchestration service, four learner-facing RPCs: read the typed repair

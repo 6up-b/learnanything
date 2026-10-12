@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from typing import Any
 
 from learnloop.clock import utc_now_iso
@@ -97,6 +99,7 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
     # Owner decision P6: after a break the session is the welcome-back panel's
     # "N refreshers" -- the scheduler's top N picks, never more (a smaller
     # requested limit still wins). The panel reads the cap back from this reply.
+    _wait_for_session_diagnoses(ctx, vault, repository, params.session_id)
     reentry_cap = reentry_session_cap(vault, repository, _nearest_active_goal(vault))
     limit = params.limit
     if reentry_cap is not None:
@@ -170,6 +173,59 @@ def get_today_queue(ctx: SidecarContext, params: QueueInput) -> dict[str, Any]:
             "reentry_refresher_cap": reentry_cap,
         }
     )
+
+
+def _wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> None:
+    """Slice 1 §11: a bounded wait so a fast click still gets the diagnosis.
+
+    When this session has a live diagnosis queued or running, the next-item
+    queue build waits up to ``diagnosis.next_item_wait_seconds`` for the
+    worker to settle it, then proceeds regardless. The wait is remembered
+    for the session; whether the diagnosis was there is recorded when an
+    item is actually SERVED (:func:`record_diagnosis_serve`), because a queue
+    refresh serves nothing (review F10).
+    """
+
+    if not session_id:
+        return
+    pending = repository.pending_live_diagnoses_for_session(session_id)
+    if not pending:
+        return
+    timeout = float(getattr(getattr(vault.config, "diagnosis", None), "next_item_wait_seconds", 10.0))
+    ctx.resume_post_attempt_jobs()
+    _remaining, waited = ctx.post_attempt_worker.wait_for(
+        lambda: repository.pending_live_diagnoses_for_session(session_id), timeout
+    )
+    ctx.post_attempt_worker.note_wait(session_id, waited)
+
+
+def record_diagnosis_serve(ctx: SidecarContext, repository: Any, session_id: str) -> None:
+    """E7: one receipt per serve that follows a diagnosis-bearing answer.
+
+    The population is every item served in a session after an attempt whose
+    live diagnosis is required, so a serve whose diagnosis already landed (no
+    wait at all) counts as served WITH it. ``served_without_diagnosis`` is
+    set, and those attempts named, when any required diagnosis is not in
+    force at the serve: still queued or running, failed, or skipped for
+    budget (review F13). An attempt a regrade left with nothing to explain
+    (``not_needed``) is outside the population. Telemetry: a failure here
+    never fails the serve.
+    """
+
+    try:
+        from learnloop.diagnosis.split.jobs import session_diagnosis_availability
+
+        required, unavailable = session_diagnosis_availability(repository, session_id)
+        if not required:
+            return
+        repository.insert_diagnosis_wait_receipt(
+            session_id=session_id,
+            pending_attempt_ids=unavailable,
+            waited_seconds=ctx.post_attempt_worker.take_wait(session_id),
+            served_without_diagnosis=bool(unavailable),
+        )
+    except Exception:  # pragma: no cover - telemetry boundary
+        logging.getLogger(__name__).warning("failed to record the E7 serve receipt", exc_info=True)
 
 
 @method("explain_practice_item", PracticeItemInput)

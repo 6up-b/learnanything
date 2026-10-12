@@ -183,8 +183,8 @@ def _stored_joint_analysis(repository: Repository, attempt_id: str) -> str | Non
 def stored_legacy_view(repository: Repository, attempt_id: str) -> dict[str, Any] | None:
     """Arm (a): the joint diagnosis exactly as stored, or ``None`` if none exists."""
 
-    events = repository.error_events_for_attempt(attempt_id)
-    metadata = repository.fetch_attempt_feedback_metadata(attempt_id) or {}
+    events = repository.raw_error_events_for_attempt(attempt_id)
+    metadata = repository.raw_attempt_feedback_metadata(attempt_id) or {}
     suggestions = metadata.get("repair_suggestions")
     if suggestions is None:
         suggestions = _decode(metadata.get("repair_suggestions_json"), [])

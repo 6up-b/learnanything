@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Collection, Mapping, Sequence
 
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -59,6 +59,13 @@ FAILURE_THRESHOLD = 0.40
 # fresh independent evidence (§6): its inference mass is discounted and it adds
 # no new independent-surface group. Overridable via [evidence.correlation].
 DEFAULT_REPEAT_SURFACE_DISCOUNT = 0.25
+
+# PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
+# UNVERIFIED (the final answer verified against the reference, and no error
+# was located in the learner's words). Its ``attribution_json`` carries this
+# block reason: the failure is neither negative facet evidence nor an
+# observed unresolved failure, whatever the criterion's target count.
+UNVERIFIED_CRITERION_BLOCK = "valid_alternative_unverified"
 
 # Assistance channels that certify nothing (§5.4/§6).
 #
@@ -550,7 +557,11 @@ def configured_repeat_discount(vault: LoadedVault) -> float:
 
 
 def project_canonical_facet_state(
-    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    clock: Clock | None = None,
+    refresh_factor_candidates_for: Collection[str] | None = None,
 ) -> None:
     """Recompute and persist the canonical belief cache.
 
@@ -794,7 +805,12 @@ def project_canonical_facet_state(
             observed_fraction = (
                 adjudicated_fraction if adjudicated_fraction is not None else raw_fraction
             )
-            unresolved_negative = observed_unresolved_failure(
+            unverified_failure = (
+                isinstance(raw_attribution, Mapping)
+                and raw_attribution.get("negative_evidence_blocked")
+                == UNVERIFIED_CRITERION_BLOCK
+            )
+            unresolved_negative = not unverified_failure and observed_unresolved_failure(
                 observed_fraction, targets, attribution
             )
             if unresolved_negative:
@@ -865,7 +881,7 @@ def project_canonical_facet_state(
                     acc.raw_mass += alloc.pseudo_mass
                     acc.last_observed_at = created_at
 
-            if negative_fraction <= 0 or unresolved_negative:
+            if negative_fraction <= 0 or unresolved_negative or unverified_failure:
                 continue
             if (
                 not attribution
@@ -984,7 +1000,12 @@ def project_canonical_facet_state(
         algorithm_version=algorithm_version,
         clock=clock,
     )
-    _sync_unresolved_cause_factors(repository, unresolved, clock=clock)
+    _sync_unresolved_cause_factors(
+        repository,
+        unresolved,
+        clock=clock,
+        refresh_attempt_ids=refresh_factor_candidates_for,
+    )
     # KM5 §4.2: lazy capability-residual activation is derived from the same
     # just-written ledgers (a no-op unless [capabilities].residual_activation_enabled),
     # so it runs on every path that recomputes canonical state — live attempts and
@@ -1118,7 +1139,11 @@ def project_capability_residuals(
 
 
 def _sync_unresolved_cause_factors(
-    repository: Repository, unresolved: list[dict[str, object]], *, clock: Clock | None
+    repository: Repository,
+    unresolved: list[dict[str, object]],
+    *,
+    clock: Clock | None,
+    refresh_attempt_ids: Collection[str] | None = None,
 ) -> None:
     """Idempotently reconcile open unresolved-cause factors with the projection.
 
@@ -1150,3 +1175,16 @@ def _sync_unresolved_cause_factors(
             )
     for observation_id in existing_open - set(wanted):
         repository.retire_unresolved_cause_factor(observation_id, clock=clock)
+    # Slice 1 §7.1: a blind attempt's factor opens at grade time with only the
+    # synthesized facet arms, because its candidate causes arrive later with the
+    # asynchronous diagnosis. When that diagnosis lands, the worker re-projects
+    # with ``refresh_attempt_ids`` so the still-OPEN factor carries exactly the
+    # candidate set the projection now derives from the diagnosis overlay --
+    # the set a rebuild would open it with. Joint vaults never pass it.
+    if refresh_attempt_ids:
+        refresh = {str(value) for value in refresh_attempt_ids}
+        for observation_id, record in wanted.items():
+            if str(record["attempt_id"]) in refresh and observation_id in existing_open:
+                repository.refresh_open_unresolved_cause_candidates(
+                    observation_id, record["candidate_causes"], clock=clock
+                )

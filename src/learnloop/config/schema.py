@@ -1307,6 +1307,52 @@ class DiagnosticAugmentationConfig(BaseModel):
     history_limit: int = Field(default=4, ge=0, le=20)
 
 
+class DiagnosisConfig(BaseModel):
+    """Slice 1 M2: the live blind grader + asynchronous history-aware diagnoser.
+
+    Dormant below ``mvp-0.10``: the algorithm version, not this section, decides
+    whether a vault grades split (spec §6.2). ``split_enabled`` is the kill
+    switch: off, an ``mvp-0.10`` vault grades NEW attempts jointly exactly as
+    ``mvp-0.9`` did; already-blind attempts keep their records and replay from
+    them (an attempt's grader mode is persisted, never read from this switch).
+    ``history_mode`` defaults to ``full`` (O16) and is changed by config once the
+    M1 report is reviewed.
+    """
+
+    split_enabled: bool = True
+    history_mode: Literal["exact", "full", "snapshot", "hybrid"] = "full"
+    full_history_token_budget: int = Field(default=100_000, ge=1_000)
+    exact_history_token_budget: int = Field(default=12_000, ge=1_000)
+    history_error_limit: int = Field(default=6, ge=0, le=50)
+    history_success_limit: int = Field(default=4, ge=0, le=50)
+    # Diagnoser k-sampling (cause disagreement, §4.4) is not built in M2: one
+    # diagnosis per attempt, so only 1 is accepted rather than ignored.
+    sample_count: int = Field(default=1, ge=1, le=1)
+    correct_answer_sample_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+    # Joint vaults only: run the diagnoser in shadow next to the joint grader.
+    shadow: bool = False
+    next_item_wait_seconds: float = Field(default=10.0, ge=0.0, le=120.0)
+    max_attempts: int = Field(default=5, ge=1, le=20)
+    # Per-turn deadline for a Codex diagnoser turn. The diagnosis is async (no
+    # learner waits on it beyond next_item_wait_seconds), so it need not share
+    # the interactive ai.timeout_seconds; it stays under the job lease (1200 s).
+    timeout_seconds: int = Field(default=300, ge=30, le=1_000)
+    # Diagnoser calls per UTC day; past it a job is skipped ("budget"), never the grade.
+    max_calls_per_day: int = Field(default=500, ge=0)
+    # The diagnosis card (§12.2) and whether its taps reach an open
+    # unresolved-cause factor's self-report channel (O14).
+    card_enabled: bool = True
+    forward_card_taps: bool = True
+    # PF-c (spec_embedding_consumers_v1 §5.5): reference policy, valid-
+    # alternative path and solve-first in the blind prompt. Off restores the
+    # mvp-2.0 blind prompt exactly.
+    grading_support: bool = True
+    # Hybrid kNN (S1.4b): shortlist size, fused top-N, reciprocal-rank k.
+    knn_limit: int = Field(default=8, ge=1, le=64)
+    hybrid_keep: int = Field(default=6, ge=1, le=64)
+    rrf_k: int = Field(default=60, ge=1)
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1463,6 +1509,7 @@ class LearnLoopConfig(BaseModel):
     diagnostic_augmentation: DiagnosticAugmentationConfig = Field(
         default_factory=DiagnosticAugmentationConfig
     )
+    diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
 
     @model_validator(mode="before")
     @classmethod

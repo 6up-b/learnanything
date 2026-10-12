@@ -278,6 +278,8 @@ fn main() {
             report_unresolved_cause,
             submit_eliciting_response,
             contest_causal_diagnosis,
+            diagnosis_status,
+            record_diagnosis_feedback,
             causal_repair_status,
             causal_probe_offer_action,
             causal_probe_defer,

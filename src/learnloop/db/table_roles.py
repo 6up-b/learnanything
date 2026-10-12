@@ -62,6 +62,9 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("angle_inventories", TableRole.RAW_LEDGER),
     ("apply_intents", TableRole.WORKFLOW),
     ("assessment_contract_versions", TableRole.RAW_LEDGER),
+    # Slice 1 M2: the validated diagnosis ledger (append-only; re-diagnosis
+    # supersedes). Replay reads it and never calls the diagnoser (S7).
+    ("attempt_diagnoses", TableRole.RAW_LEDGER),
     ("attempt_completion_work", TableRole.WORKFLOW),
     # Carries immutable diagnosis/firewall receipts and recorded priming inputs
     # alongside the replay trace.  There is no external lossless source for the
@@ -72,6 +75,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("attempt_surprise", TableRole.DERIVED),
     ("attention_block_events", TableRole.RECEIPT),
     ("attention_blocks", TableRole.WORKFLOW),
+    # Slice 1 M2: the validated learner-blind grade a diagnosis reads.
+    ("blind_grade_records", TableRole.RAW_LEDGER),
     ("calibration_stream_samples", TableRole.RAW_LEDGER),
     ("canonical_mapping_proposals", TableRole.WORKFLOW),
     ("capability_aliases", TableRole.RAW_LEDGER),
@@ -129,6 +134,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("depth_policy_versions", TableRole.RAW_LEDGER),
     ("derived_state_rebuilds", TableRole.RECEIPT),
     ("diagnosis_adjudications", TableRole.RAW_LEDGER),
+    ("diagnosis_context_receipts", TableRole.RECEIPT),
+    # M2 diagnosis-card taps: eval-only learner reports, never evidence.
+    ("diagnosis_feedback", TableRole.RAW_LEDGER),
+    ("diagnosis_wait_receipts", TableRole.RECEIPT),
+    ("diagnosis_would_merge_log", TableRole.RECEIPT),
     ("diagnostic_augmentation_receipts", TableRole.RECEIPT),
     ("diagnostic_eval_cases", TableRole.RAW_LEDGER),
     ("diagnostic_eval_runs", TableRole.RECEIPT),
@@ -230,6 +240,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("parameter_sensitivity_certificates", TableRole.RECEIPT),
     ("persona_realism_runs", TableRole.RECEIPT),
     ("policy_experiment_assignments", TableRole.RECEIPT),
+    # Slice 1 M2: the lease-fenced diagnose/embed queue (§11).
+    ("post_attempt_jobs", TableRole.WORKFLOW),
     ("practice_attempts", TableRole.RAW_LEDGER),
     # The persisted held-out retrieval query set (paid LLM output plus logged
     # real queries); evaluation inputs, never regenerated.

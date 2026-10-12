@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 169
+schema_head: 170
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -127,6 +127,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
@@ -149,6 +150,7 @@ Database triggers:
 - `src/learnloop/diagnosis/guided_redo.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/tutor/durable_promotion.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
@@ -166,6 +168,7 @@ Database triggers:
 - `tests/test_causal_repair_mapping_p2.py`
 - `tests/test_causal_trace_consistency_p2.py`
 - `tests/test_diagnosis_history_modes.py`
+- `tests/test_diagnosis_replay.py`
 - `tests/test_failure_triage_causal_gate.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
@@ -177,8 +180,7 @@ Database triggers:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_codex_attempt_flow.py`
 - `tests/test_common_repair_delivery.py`
-- `tests/test_dialogue_causal_join.py`
-- `tests/test_durable_promotion_arms.py`
+- `tests/test_diagnosis_async_router.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

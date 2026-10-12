@@ -59,6 +59,10 @@ from typing import Any, Mapping
 
 from learnloop.clock import Clock, SystemClock, parse_utc
 from learnloop.db.repositories import Repository
+# Slice 1 §7.6: the one grouping function every exact-statement site uses.
+# Re-exported here, where the spec names it; it lives below the domains
+# because the repository's candidate projection calls it too.
+from learnloop.recurrence import RECURRENCE_KEY_VERSION, recurrence_key
 
 #: §10.3 deferral escalation: this many further recurrences of the same error
 #: signature after the case's first factor opened — with no learner engagement
@@ -267,7 +271,11 @@ def apply_cold_verification_to_factors(
 def _factor_signature(
     repository: Repository, factor: Mapping[str, Any]
 ) -> tuple[set[str], str | None]:
-    """(normalized statements, learning_object_id) for a factor's concrete refs."""
+    """(recurrence keys, learning_object_id) for a factor's concrete refs.
+
+    The keys come from the Slice 1 §7.6 seam (:func:`recurrence_key`), so the
+    K=3 recurrence count below follows whatever grouping T1 installs.
+    """
 
     statements: set[str] = set()
     learning_object_id: str | None = None
@@ -275,7 +283,7 @@ def _factor_signature(
         hypothesis = repository.causal_hypothesis(str(ref["hypothesis_id"]))
         if hypothesis is None:
             continue
-        statements.add(str(hypothesis["statement_normalized"]))
+        statements.add(recurrence_key(hypothesis))
         learning_object_id = learning_object_id or str(
             hypothesis["learning_object_id"]
         )

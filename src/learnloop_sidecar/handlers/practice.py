@@ -185,6 +185,11 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         # opens (feedback, inspector) still render it.
         refuse_unservable_item(vault, item)
     detail = practice_item_detail(vault, repository, params.practice_item_id)
+    if params.session_id is not None:
+        # Slice 1 E7: a session serve is the decision the lag rate counts.
+        from learnloop_sidecar.handlers.queue import record_diagnosis_serve
+
+        record_diagnosis_serve(ctx, repository, params.session_id)
     detail["elicitation"] = (
         None
         if params.session_id is None
@@ -605,6 +610,8 @@ def submit_attempt(ctx: SidecarContext, params: SubmitAttemptInput) -> dict[str,
         self_grade=self_grade,
         ai_client=client if runtime.ready else None,
     )
+    # Slice 1 §11: the diagnosis (if one was queued) runs on the worker.
+    ctx.resume_post_attempt_jobs()
     # Keep the checkpoint (including its stable submission id) until the client
     # explicitly acknowledges this full result with clear_session_checkpoint.
     # If the response is lost, a restarted client can resend the durable key and
@@ -738,6 +745,7 @@ def _resume_saved_completion(
         session_id=_open_session_id(repository, work["session_id"]),
         ai_client=_normalization_client(ctx, vault),
     )
+    ctx.resume_post_attempt_jobs()
     payload = _attempt_result(result, repository)
     _store_submission_receipt(repository, submission_id, result.attempt_id, result.practice_item_id, payload)
     return payload
@@ -860,6 +868,14 @@ def _attempt_result(result, repository=None) -> dict[str, Any]:
             episode = repository.open_probe_episode(result.learning_object_id)
             route = probe_route(repository, result, episode_id=episode.id if episode is not None else None)
         payload["probeEpisode"] = to_camel(route)
+        # Slice 1 §11: a blind-graded attempt's diagnosis runs after the
+        # response; the feedback view polls ``diagnosis_status`` while pending.
+        # Absent (not_needed) for attempts that queued no diagnosis.
+        from learnloop.diagnosis.split.jobs import NOT_NEEDED, diagnosis_status
+
+        status = diagnosis_status(repository, result.attempt_id)["status"]
+        if status != NOT_NEEDED:
+            payload["diagnosisStatus"] = status
     return payload
 
 

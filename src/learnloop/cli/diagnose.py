@@ -18,13 +18,17 @@ from typing import Annotated, Iterator
 import typer
 
 from learnloop.ai.spend import SpendCaps
+from learnloop.cli.receipts import bind_command_repository, bind_command_vault
 from learnloop.vault.loader import load_vault
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.repository import open_vault_repository
 
 diagnose_app = typer.Typer(
     no_args_is_help=True,
-    help="Slice 1 M1: offline review of blind grading and history-aware diagnosis (scratch copy only).",
+    help=(
+        "Slice 1: the M1 offline review (scratch copy only) and the M2 live split's "
+        "diagnosis queue, status and reports."
+    ),
 )
 
 
@@ -52,6 +56,9 @@ def _load(vault: Path):
     if not (vault / "learnloop.toml").is_file():
         raise typer.BadParameter("--vault must name a vault containing learnloop.toml")
     loaded = load_vault(vault)
+    # Model calls not wrapped in an owner of their own (e.g. embed-on-write)
+    # are receipted by the command; they go to this vault, not the cwd's.
+    bind_command_vault(loaded.root)
     if loaded.issues:
         typer.echo(
             f"warning: the vault has {len(loaded.issues)} validation issue(s); attempts on items "
@@ -411,3 +418,366 @@ def diagnose_import_links(
 
 
 __all__ = ["diagnose_app"]
+
+
+# -- Slice 1 M2: the live split's queue, status and reports -------------------------
+
+
+def _live_repository(vault: Path):
+    """The vault and its migration-applied repository (M2 commands write)."""
+
+    loaded = _load(vault)
+    repository = open_vault_repository(loaded.root, VaultPaths(loaded.root, loaded.config).sqlite_path)
+    bind_command_repository(repository)
+    return loaded, repository
+
+
+def _drain_caps(max_calls: int, max_retries: int, max_tokens: int, max_cost_usd: float) -> SpendCaps:
+    return SpendCaps(
+        max_candidates=max(max_calls, 1),
+        max_pairs=0,
+        max_retries=max_retries,
+        max_calls=max_calls,
+        max_total_tokens=max_tokens,
+        max_estimated_usd=max_cost_usd,
+    )
+
+
+def _plan_repository(vault: Path, dry_run: bool):
+    """A dry run only reads; a real run opens the vault for writing."""
+
+    if not dry_run:
+        return _live_repository(vault)
+    from learnloop.db.repositories import Repository
+
+    loaded = _load(vault)
+    return loaded, Repository.attach(VaultPaths(loaded.root, loaded.config).sqlite_path, read_only=True)
+
+
+def _outcome_rows(outcomes) -> list[dict]:
+    return [
+        {
+            "job_id": outcome.job_id,
+            "attempt_id": outcome.attempt_id,
+            "kind": outcome.kind,
+            "state": outcome.state,
+            "diagnosis_id": outcome.diagnosis_id,
+            "status": outcome.status,
+            "error": outcome.error,
+        }
+        for outcome in outcomes
+    ]
+
+
+_MAX_CALLS_HELP = (
+    "Calls this command may admit: one per logical diagnosis call and one per retrieval embedding request "
+    "(metered retries also count as calls)."
+)
+_MAX_RETRIES_HELP = "Metered routes: physical retries and JSON repairs this command may admit."
+_MAX_TOKENS_HELP = (
+    "Metered routes (retrieval embeddings, a metered diagnoser): total tokens this command may admit "
+    "(subscription routes are not token-capped)."
+)
+_MAX_COST_HELP = "Metered routes (retrieval embeddings, a metered diagnoser): estimated USD this command may admit."
+_PRICE_HELP = "USD per million tokens for a metered route whose price is unknown (an unknown price fails closed)."
+
+
+@diagnose_app.command("drain")
+def diagnose_drain(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    attempt: Annotated[str | None, typer.Option("--attempt", help="Only this attempt's diagnosis (still in attempt order).")] = None,
+    kind: Annotated[list[str] | None, typer.Option("--kind", help="diagnose and/or embed; repeatable. Default: both.")] = None,
+    max_jobs: Annotated[int, typer.Option("--max-jobs", min=1)] = 1_000,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan and estimate only: no client, no call, no write.")] = False,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0, help=_MAX_CALLS_HELP)] = 500,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help=_MAX_RETRIES_HELP)] = 50,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help=_MAX_TOKENS_HELP)] = 5_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help=_MAX_COST_HELP)] = 5.0,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help=_PRICE_HELP)] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Run queued post-attempt jobs (diagnoses in attempt order, then embeddings).
+
+    The CLI has no daemon: this is how queued diagnoses run outside the app.
+    Uses ``ai.routing.diagnosis`` (unset: the grading route) and, for
+    embeddings, ``ai.routing.embedding`` when ``embedding.enabled``. Run
+    ``--dry-run`` first: it plans the jobs and estimates their spend against
+    the caps. Every diagnosis request, and every retrieval embedding request
+    a diagnosis makes, is admitted against the caps before it is sent;
+    retrieval only while the queued diagnoses still fit (otherwise that
+    diagnosis uses the exact set). Embed jobs keep their own per-job caps
+    (the plan's ``embed`` block). Ctrl-C stops before the next job (an
+    interrupted one is released unspent).
+    """
+
+    from learnloop.diagnosis.split.jobs import (
+        DIAGNOSE_KIND,
+        EMBED_KIND,
+        command_spend,
+        drain,
+        plan_diagnosis_jobs,
+        plan_embed_jobs,
+    )
+
+    kinds = tuple(kind or (DIAGNOSE_KIND, EMBED_KIND))
+    unknown = sorted(set(kinds) - {DIAGNOSE_KIND, EMBED_KIND})
+    if unknown:
+        raise typer.BadParameter(f"unknown job kind(s): {', '.join(unknown)}")
+    caps = _drain_caps(max_calls, max_retries, max_tokens, max_cost_usd)
+    loaded, repository = _plan_repository(vault, dry_run)
+    with _cancellation() as stop:
+        spend = command_spend(loaded, caps, price_per_million=price_per_million, cancelled=stop.is_set)
+        plan = {
+            "caps": caps.as_dict(),
+            "diagnose": plan_diagnosis_jobs(loaded, repository, spend=spend, attempt_id=attempt, max_jobs=max_jobs)
+            if DIAGNOSE_KIND in kinds
+            else None,
+            "embed": plan_embed_jobs(loaded, repository, attempt_id=attempt) if EMBED_KIND in kinds else None,
+        }
+        admissible = plan["diagnose"] is None or bool(plan["diagnose"]["admissible"])
+        if dry_run:
+            _echo({"status": "dry_run", **plan}, json_output)
+            if not admissible:
+                raise typer.Exit(code=1)
+            return
+        if not admissible:
+            _echo({"status": "over_budget", **plan}, json_output)
+            raise typer.Exit(code=1)
+        outcomes = drain(
+            loaded, repository, owner="cli", kinds=kinds, attempt_id=attempt, max_jobs=max_jobs,
+            spend=spend, cancelled=stop.is_set,
+        )
+        cancelled = stop.is_set()
+    payload = {
+        "status": "cancelled" if cancelled else "done",
+        "jobs": _outcome_rows(outcomes),
+        "remaining": repository.post_attempt_job_counts(),
+        "spend": spend.summary(),
+    }
+    _echo(payload, json_output)
+
+
+@diagnose_app.command("retry")
+def diagnose_retry(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    attempt: Annotated[str, typer.Option("--attempt", help="Attempt whose diagnosis runs again.")],
+    run_now: Annotated[bool, typer.Option("--run/--queue-only", help="Run it now (default) or only queue it.")] = True,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan and estimate only: nothing is queued or called.")] = False,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0, help=_MAX_CALLS_HELP)] = 5,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help=_MAX_RETRIES_HELP)] = 4,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0, help=_MAX_TOKENS_HELP)] = 1_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0, help=_MAX_COST_HELP)] = 2.0,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help=_PRICE_HELP)] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Retry a failed or skipped diagnosis, or re-diagnose (appends, supersedes).
+
+    ``--dry-run`` estimates the one diagnosis call (and its retrieval
+    embedding requests) against the caps and changes nothing.
+    """
+
+    from learnloop.diagnosis.split.jobs import (
+        DIAGNOSE_KIND,
+        command_spend,
+        diagnosis_status,
+        drain,
+        enqueue_diagnosis,
+        plan_diagnosis_jobs,
+        plan_unqueued_diagnosis,
+    )
+    from learnloop.diagnosis.split.live import needs_diagnosis
+
+    caps = _drain_caps(max_calls, max_retries, max_tokens, max_cost_usd)
+    loaded, repository = _plan_repository(vault, dry_run)
+    jobs = repository.post_attempt_jobs(attempt_id=attempt, kind=DIAGNOSE_KIND)
+    retried = next((job for job in reversed(jobs) if job["state"] in ("failed", "skipped")), None)
+    with _cancellation() as stop:
+        spend = command_spend(loaded, caps, price_per_million=price_per_million, cancelled=stop.is_set)
+        if dry_run:
+            record = repository.latest_blind_grade_record(attempt)
+            applies = retried is not None or (record is not None and needs_diagnosis(record.get("record") or {}))
+            plan = plan_diagnosis_jobs(loaded, repository, spend=spend, attempt_id=attempt)
+            if applies and not any(row["attempt_id"] == attempt for row in plan["jobs"]):
+                # Not queued yet: estimate the call the retry would queue.
+                plan = plan_unqueued_diagnosis(loaded, repository, attempt_id=attempt, spend=spend)
+            _echo({"status": "dry_run", "attempt_id": attempt, "applies": applies, "caps": caps.as_dict(), "diagnose": plan}, json_output)
+            if not plan["admissible"]:
+                raise typer.Exit(code=1)
+            return
+        if run_now:
+            # Admission first: an over-budget retry changes nothing.
+            plan = plan_unqueued_diagnosis(loaded, repository, attempt_id=attempt, spend=spend)
+            if not plan["admissible"]:
+                _echo({"attempt_id": attempt, "queued": False, "status": "over_budget", "diagnose": plan}, json_output)
+                raise typer.Exit(code=1)
+        if retried is not None:
+            repository.requeue_post_attempt_job(str(retried["id"]))
+            queued = str(retried["id"])
+        else:
+            queued = enqueue_diagnosis(loaded, repository, attempt_id=attempt, rediagnose=bool(jobs))
+        if queued is None:
+            _echo({"attempt_id": attempt, "queued": False, "reason": "no diagnosis applies (not blind-graded or nothing failed)"}, json_output)
+            raise typer.Exit(code=1)
+        outcomes = []
+        if run_now:
+            outcomes = drain(
+                loaded, repository, owner="cli", kinds=(DIAGNOSE_KIND,), attempt_id=attempt,
+                spend=spend, cancelled=stop.is_set,
+            )
+    _echo(
+        {
+            "attempt_id": attempt,
+            "queued": queued,
+            "ran": [outcome.state for outcome in outcomes],
+            "status": diagnosis_status(repository, attempt),
+            "spend": spend.summary(),
+        },
+        json_output,
+    )
+
+
+@diagnose_app.command("status")
+def diagnose_status(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
+    attempt: Annotated[str | None, typer.Option("--attempt", help="One attempt (default: queue counts).")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """An attempt's diagnosis status, or the queue's job counts."""
+
+    from learnloop.diagnosis.split.jobs import diagnosis_status
+
+    _loaded, repository = _live_repository(vault)
+    if attempt is None:
+        _echo({"jobs": repository.post_attempt_job_counts()}, json_output)
+        return
+    _echo({"attempt_id": attempt, **diagnosis_status(repository, attempt)}, json_output)
+
+
+@diagnose_app.command("m2-report")
+def diagnose_m2_report(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root (read only).")],
+    out: Annotated[Path | None, typer.Option("--out", help="Markdown path, e.g. docs/reviews/slice-1-m2-report.md.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """End-of-M2 report: E5 (shadow recurrence), E7 (operations), card signals.
+
+    Reads receipts and ledgers only; no model or embedding call.
+    """
+
+    from learnloop.diagnosis.split.reports import m2_report, render_markdown
+
+    loaded, repository = _live_repository(vault)
+    report = m2_report(loaded, repository)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_markdown(report), encoding="utf-8")
+    if json_output or out is None:
+        _echo(report, json_output)
+    else:
+        typer.echo(f"Wrote {out}.")
+
+
+@diagnose_app.command("pfc-report")
+def diagnose_pfc_report(
+    vault: Annotated[Path, typer.Option("--vault", help="Vault root; use a fixtures-local copy for trials.")],
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan and estimate only: no client, no call, no write.")] = False,
+    max_items: Annotated[int, typer.Option("--max-items", min=0)] = 40,
+    max_real: Annotated[int, typer.Option("--max-real", min=0)] = 40,
+    seed: Annotated[int, typer.Option("--seed")] = 0,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 400,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 4,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 2_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 5.0,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens for an unknown metered price.")] = None,
+    no_ledger: Annotated[bool, typer.Option("--no-ledger", help="Do not append verdicts to judgment_ledger.")] = False,
+    out: Annotated[Path | None, typer.Option("--out", help="Markdown path for the report.")] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """PF-c before/after (E1-style): mvp-2.0 vs mvp-2.1 blind grading prompt.
+
+    Measures valid-alternative false rejection and anchor accuracy on
+    owner-adjudicated answers.
+
+    Routes: ``ai.routing.diagnosis_generator`` writes the alternatives,
+    ``ai.routing.grading`` grades them. Caps are checked before any request.
+    """
+
+    from learnloop.ai.routing import ready_client_for_task
+    from learnloop.diagnosis.offline_review.runner import route_profiles
+    from learnloop.diagnosis.offline_review.spend import ReviewSpend
+    from learnloop.diagnosis.split.pfc_report import (
+        estimate_pfc,
+        plan_pfc,
+        render_pfc_markdown,
+        run_pfc,
+    )
+
+    caps = SpendCaps(
+        max_candidates=max(max_items, 1) * 2,
+        max_pairs=0,
+        max_retries=max_retries,
+        max_calls=max_calls,
+        max_total_tokens=max_tokens,
+        max_estimated_usd=max_cost_usd,
+    )
+    loaded = _load(vault)
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    from learnloop.db.repositories import Repository
+
+    repository = Repository.attach(sqlite_path, read_only=dry_run) if dry_run else open_vault_repository(loaded.root, sqlite_path)
+    plan = plan_pfc(loaded, repository, max_items=max_items, max_real=max_real, seed=seed)
+    spend = ReviewSpend(caps, price_per_million=price_per_million)
+    profiles = route_profiles(loaded)
+    for route in ("diagnosis_generator", "grading"):
+        profile = profiles[route]
+        spend.register_profile(
+            route,
+            provider=profile["provider"],
+            model=profile["model"],
+            subscription=bool(profile["subscription"]),
+            max_tokens=profile["max_tokens"],
+        )
+    estimate = estimate_pfc(loaded, repository, plan, spend)
+    from learnloop.ai.spend import SpendEstimate, SpendLimitExceeded
+
+    try:
+        spend.check(
+            SpendEstimate(
+                candidates=estimate["items"],
+                calls=sum(estimate["calls"].values()),
+                total_tokens=estimate["metered_tokens"],
+                estimated_usd=estimate["estimated_usd"],
+            )
+        )
+        admissible, reason = True, None
+    except SpendLimitExceeded as exc:
+        admissible, reason = False, str(exc)
+    if dry_run:
+        _echo({"status": "dry_run", "admissible": admissible, "reason": reason, "estimate": estimate, "caps": caps.as_dict()}, json_output)
+        if not admissible:
+            raise typer.Exit(code=1)
+        return
+    if not admissible:
+        _echo({"status": "over_budget", "reason": reason, "estimate": estimate}, json_output)
+        raise typer.Exit(code=1)
+    generator = ready_client_for_task(loaded.root, loaded.config, "diagnosis_generator")
+    grading = ready_client_for_task(loaded.root, loaded.config, "grading")
+    if not generator.ready or not grading.ready:
+        _echo({"status": "unavailable", "generator": generator.runtime.message, "grading": grading.runtime.message}, json_output)
+        raise typer.Exit(code=1)
+    with _cancellation() as stop:
+        report = run_pfc(
+            loaded,
+            repository,
+            plan=plan,
+            generator_client=generator.client,
+            grading_client=grading.client,
+            caps=caps,
+            price_per_million=price_per_million,
+            cancelled=stop.is_set,
+            record_judgments=not no_ledger,
+        )
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(render_pfc_markdown(report), encoding="utf-8")
+    _echo(report, json_output)

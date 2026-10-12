@@ -1121,6 +1121,160 @@ def test_regrade_teach_back_attempt_without_evidence_falls_back_to_core(tmp_path
     assert regrade_rubric_ids == ["core_definition", "core_geometry", "core_uniqueness"]
 
 
+# ── split vaults: the blind grade's calibration identity (review F11) ─────────
+
+BLIND_CALIBRATION = ("grading_prompt_v2_blind", "blind_grading_proposal_v1")
+JOINT_CALIBRATION = ("grading_prompt_v1", "grading_proposal_v1")
+
+
+class BlindTeachBackClient(FakeTeachBackClient):
+    """Grades a transcript through the learner-blind contract too (split vaults)."""
+
+    def run_blind_grading_proposal(self, context):
+        from learnloop.attempts.blind_grading import BlindGradingContext, BlindGradingProposal
+
+        assert isinstance(context, BlindGradingContext)
+        self.grading_contexts.append(context)
+        evidence = [
+            {
+                "criterion_id": criterion["id"],
+                "points_awarded": self.points_by_criterion.get(criterion["id"], float(criterion["points"])),
+                "evidence": f"Transcript covers {criterion['id']}.",
+            }
+            for criterion in context.rubric["criteria"]
+        ]
+        return BlindGradingProposal.model_validate(
+            {
+                "local_analysis_md": "The transcript explains the asked criteria.",
+                "attempt_id": context.attempt_id,
+                "practice_item_id": context.practice_item_id,
+                "criterion_evidence": evidence,
+                "rubric_score": max(0, min(4, int(round(sum(row["points_awarded"] for row in evidence))))),
+                "grader_confidence": 0.9,
+            }
+        )
+
+
+def _teach_back_vault_at(tmp_path, version: str):
+    from tests.helpers import set_algorithm_version
+
+    vault_root = tmp_path / "vault"
+    paths = create_basic_vault(vault_root)
+    set_algorithm_version(paths, version)
+    upsert_practice_item(vault_root, _teach_item_payload(), clock=FrozenClock(NOW))
+    return paths, load_vault(vault_root), Repository(paths.sqlite_path)
+
+
+def _calibration_lookups(monkeypatch) -> list[tuple[str, str]]:
+    """The calibration identity each mastery soft-score lookup selects."""
+
+    from learnloop.attempts import grade_resolution
+
+    seen: list[tuple[str, str]] = []
+    original = grade_resolution.response_soft_score
+
+    def spy(*args, **kwargs):
+        seen.append(
+            (
+                kwargs.get("grading_prompt_version") or JOINT_CALIBRATION[0],
+                kwargs.get("grader_output_schema_version") or JOINT_CALIBRATION[1],
+            )
+        )
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(grade_resolution, "response_soft_score", spy)
+    return seen
+
+
+def _stamped_identities(repository, attempt_id: str) -> list[tuple[str, str]]:
+    """The calibration identity of every raw grade event of the attempt, in order."""
+
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT grading_prompt_version, grader_output_schema_version FROM raw_grade_events "
+            "WHERE attempt_id = ? ORDER BY rowid",
+            (attempt_id,),
+        ).fetchall()
+    return [tuple(row) for row in rows]
+
+
+@pytest.mark.parametrize(
+    ("version", "identity"),
+    [("mvp-0.10", BLIND_CALIBRATION), ("mvp-0.9", JOINT_CALIBRATION)],
+)
+def test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identity(
+    tmp_path, monkeypatch, version, identity
+):
+    """Review F11: a split vault grades teach-back blind, so its raw grade and
+    its calibration lookups use the blind identity, live and on replay
+    (teach-back writes no blind record). A joint vault keeps the joint one."""
+
+    _paths, vault, repository = _teach_back_vault_at(tmp_path, version)
+    lookups = _calibration_lookups(monkeypatch)
+    clock = FrozenClock(NOW)
+    client = BlindTeachBackClient(points_by_criterion={"core_geometry": 0.25})
+    item = vault.practice_items[TEACH_ITEM_ID]
+    state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
+
+    result = finish_teach_back(vault, repository, state, client, clock=clock)
+
+    attempt_id = result.attempt.attempt_id
+    assert repository.latest_blind_grade_record(attempt_id) is None
+    assert _stamped_identities(repository, attempt_id) == [identity]
+    assert lookups and set(lookups) == {identity}
+    before = repository.mastery_state(LO_ID)
+    lookups.clear()
+
+    rebuild_derived_state(vault, repository, learning_object_ids=[LO_ID])
+
+    assert lookups and set(lookups) == {identity}
+    assert set(_stamped_identities(repository, attempt_id)) == {identity}
+    after = repository.mastery_state(LO_ID)
+    assert after.logit_mean == pytest.approx(before.logit_mean)
+    assert after.logit_variance == pytest.approx(before.logit_variance)
+
+
+def test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds(tmp_path, monkeypatch):
+    """Review F11: a teach-back graded jointly and regraded after the split is
+    blind-graded from then on; the regrade's replay and every later rebuild
+    select the blind calibration identity."""
+
+    from learnloop.attempts.regrade import regrade_attempt
+    from tests.helpers import set_algorithm_version
+
+    paths, vault, repository = _teach_back_vault_at(tmp_path, "mvp-0.9")
+    clock = FrozenClock(NOW)
+    client = BlindTeachBackClient()
+    item = vault.practice_items[TEACH_ITEM_ID]
+    state = _run_conversation(vault, repository, item, client, answers=["ans 1", "ans 2"], clock=clock)
+    attempt_id = finish_teach_back(vault, repository, state, client, clock=clock).attempt.attempt_id
+    assert _stamped_identities(repository, attempt_id) == [JOINT_CALIBRATION]
+
+    set_algorithm_version(paths, "mvp-0.10")
+    vault = load_vault(paths.root)
+    lookups = _calibration_lookups(monkeypatch)
+    regrade_client = BlindTeachBackClient(points_by_criterion={"core_geometry": 0.0})
+    regrade_attempt(
+        vault,
+        repository,
+        repository.fetch_practice_attempt(attempt_id),
+        runtime=_regrade_runtime(),
+        client=regrade_client,
+        grading_source="ai",
+        clock=clock,
+    )
+
+    assert len(regrade_client.grading_contexts) == 1  # the blind contract graded it
+    assert lookups and set(lookups) == {BLIND_CALIBRATION}
+    assert _stamped_identities(repository, attempt_id)[-1] == BLIND_CALIBRATION
+    lookups.clear()
+
+    rebuild_derived_state(vault, repository, learning_object_ids=[LO_ID])
+
+    assert lookups and set(lookups) == {BLIND_CALIBRATION}
+    assert _stamped_identities(repository, attempt_id)[-1] == BLIND_CALIBRATION
+
+
 # ── replay survives item edits away from teach_back mode ─────────────────────
 
 

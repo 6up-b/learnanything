@@ -459,8 +459,12 @@ def record_error_hunt_outcome(
         report = hunt.false_positives[0]
         statement = _candidate_statement(report)
         normalized = normalize_answer(statement)
+        # Slice 1 §7.6: the holding-pen lookup groups by the recurrence key.
+        from learnloop.recurrence import recurrence_key
+
         existing = repository.misconception_candidate_by_normalized(
-            learning_object_id=learning_object_id, statement_normalized=normalized
+            learning_object_id=learning_object_id,
+            statement_normalized=recurrence_key({"statement_normalized": normalized}),
         )
         if existing is not None:
             candidate_id = str(existing["id"])

@@ -17,6 +17,13 @@ class AttemptInput(ParamsModel):
     attempt_id: str
 
 
+class FeedbackInput(ParamsModel):
+    attempt_id: str
+    # Slice 1 M2: the feedback view re-reads the bundle when an asynchronous
+    # diagnosis lands; that refresh is not another open of the screen.
+    record_open: bool = True
+
+
 class AnswerClarificationInput(ParamsModel):
     attempt_id: str
     answer_md: str
@@ -110,12 +117,25 @@ def _debit_repair_display_reveals(
     try:
         practice_item_id = str(attempt.get("practice_item_id") or "") or None
         item = vault.practice_items.get(practice_item_id) if practice_item_id else None
+        suggestions = list(stored_feedback.get("repair_suggestions") or [])
+        diagnosis_ids = {
+            str(value.get("id")).split(":")[1]
+            for value in suggestions
+            if isinstance(value, dict) and str(value.get("id") or "").startswith("diagnosis:")
+        }
+        if diagnosis_ids:
+            # Slice 1 M2: a diagnosis's repairs are charged once, by whichever
+            # surface displays them first (the card may already have).
+            from learnloop.diagnosis.split.card import diagnosis_repairs_debited
+
+            if any(diagnosis_repairs_debited(repository, str(attempt["id"]), value) for value in diagnosis_ids):
+                return
         record_repair_display_reveals(
             repository,
             attempt_id=str(attempt["id"]),
             practice_item_id=practice_item_id,
             learning_object_id=item.learning_object_id if item is not None else None,
-            repair_suggestions=stored_feedback.get("repair_suggestions") or [],
+            repair_suggestions=suggestions,
         )
     except Exception:  # pragma: no cover - defensive
         logging.getLogger(__name__).warning(
@@ -125,8 +145,8 @@ def _debit_repair_display_reveals(
         )
 
 
-@method("get_feedback", AttemptInput)
-def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
+@method("get_feedback", FeedbackInput)
+def get_feedback(ctx: SidecarContext, params: FeedbackInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     attempt = repository.fetch_practice_attempt(params.attempt_id)
     session_id = attempt.get("session_id") if attempt is not None else None
@@ -135,8 +155,9 @@ def get_feedback(ctx: SidecarContext, params: AttemptInput) -> dict[str, Any]:
     # from a reopen.
     stored_feedback = repository.fetch_attempt_feedback_metadata(params.attempt_id) or {}
     first_show = not stored_feedback.get("first_shown_at")
-    repository.record_feedback_shown(params.attempt_id, session_id=session_id)
-    if first_show and attempt is not None:
+    if params.record_open:
+        repository.record_feedback_shown(params.attempt_id, session_id=session_id)
+    if params.record_open and first_show and attempt is not None:
         _debit_repair_display_reveals(vault, repository, attempt, stored_feedback)
     bundle = feedback_bundle(vault, repository, params.attempt_id)
     _attach_common_repair(repository, params.attempt_id, bundle)

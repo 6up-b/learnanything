@@ -305,6 +305,14 @@ def end_diagnostic_block(
     # the per-attempt path (§5.7), idempotent per error event.
     normalized_misconception_ids: list[str] = []
     for row in rows:
+        if repository.latest_blind_grade_record(str(row["attempt_id"])) is not None:
+            # Slice 1 M2: a blind-graded block attempt is normalized by the
+            # diagnosis worker once its diagnosis lands; its job is queued here,
+            # at the point a joint attempt would have been normalized.
+            from learnloop.diagnosis.split.jobs import enqueue_diagnosis
+
+            enqueue_diagnosis(vault, repository, attempt_id=str(row["attempt_id"]), clock=clock)
+            continue
         normalized_misconception_ids.extend(
             normalize_and_resolve_attempt(
                 vault,

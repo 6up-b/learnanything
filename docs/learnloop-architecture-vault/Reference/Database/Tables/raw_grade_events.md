@@ -3,13 +3,13 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
   - "table raw_grade_events"
-schema_head: 169
+schema_head: 170
 table_name: "raw_grade_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/066_grader_channel.sql"
   - "src/learnloop/ai/schemas.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/blind_grading.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/db/repositories.py"
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.insert_raw_grade_event()`
+- `Repository.latest_raw_grade_identity()`
 - `Repository.raw_grade_event()`
 - `Repository.raw_grade_events_by_ids()`
 - `Repository.raw_grade_events_for_observation()`
@@ -124,6 +126,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/effective_observation.py`
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
@@ -135,8 +138,11 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_attempt_completion.py`
+- `tests/test_exam_session.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grading_cli.py`
+- `tests/test_grading_support.py`
+- `tests/test_teach_back.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`

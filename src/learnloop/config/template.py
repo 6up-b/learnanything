@@ -807,7 +807,17 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # practice_* routes), which proposes and never serves, plus its query
     # embedding price override. No scoring, scheduling, projection or serving
     # change.
-    "mvp-0.9": "6d28f3a02c3f2ef485ad7d08b1390ca8b20174c67bcdf1d24e01997fdbc37aa3",
+    # Slice 1 M2 adds the [diagnosis] section (modelled defaults only, left
+    # out of the decision-only template). It is dormant below mvp-0.10 (the
+    # algorithm version gates the split), so mvp-0.9 serving is unchanged.
+    "mvp-0.9": "bf4c9f5ce520f43a500d98583bfbbcffb858aa90eecc32551752a91b6729ed81",
+    # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
+    # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
+    # the diagnosis card and PF-c grading support. Reached by
+    # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
+    # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
+    # algorithm_version changed.
+    "mvp-0.10": "72058bd3349d2fc330e10388fe64ff193a86675ddd79a7cd17bd26e6955fafa4",
 }
 
 

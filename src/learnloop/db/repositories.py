@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
+from learnloop.recurrence import recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
 from learnloop.causal_activity_policy import (
     CAUSAL_ACTIVITY_POLICY_VERSION,
@@ -23,6 +24,11 @@ from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.stores.completion import AttemptCompletionStoreMixin
+from learnloop.db.stores.diagnoses import (
+    DiagnosisStoreMixin,
+    merge_causal_view_into_events,
+    merge_causal_view_into_feedback,
+)
 from learnloop.db.stores.model_calls import ModelCallStoreMixin
 from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
@@ -769,7 +775,13 @@ class _PinnedConnection:
             self._connection.isolation_level = ""
 
 
-class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin):
+class Repository(
+    IngestQueueStoreMixin,
+    AttemptCompletionStoreMixin,
+    ModelCallStoreMixin,
+    CollectionStoreMixin,
+    DiagnosisStoreMixin,
+):
     def __init__(self, sqlite_path: Path):
         self._initialize(sqlite_path, read_only=False)
         apply_migrations(sqlite_path)
@@ -1159,6 +1171,24 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             connection.commit()
 
     def fetch_attempt_feedback_metadata(self, attempt_id: str) -> dict[str, Any] | None:
+        """The attempt's feedback metadata, as the causal consumers read it.
+
+        Slice 1 M2: for a blind-graded attempt with a completed live diagnosis
+        the instructional repair suggestions are the diagnosis's (its stored
+        causal view); the persisted row keeps only what the grader wrote.
+        """
+
+        metadata = self.raw_attempt_feedback_metadata(attempt_id)
+        if metadata is None:
+            return None
+        view = self.live_causal_view(attempt_id)
+        if view is None:
+            return metadata
+        return merge_causal_view_into_feedback(metadata, view[1])
+
+    def raw_attempt_feedback_metadata(self, attempt_id: str) -> dict[str, Any] | None:
+        """The persisted feedback row exactly as written (no diagnosis overlay)."""
+
         with self.connection() as connection:
             row = connection.execute(
                 "SELECT * FROM attempt_feedback_metadata WHERE attempt_id = ?",
@@ -1914,6 +1944,28 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         return [_active_error(row) for row in rows]
 
     def error_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]:
+        """The attempt's error events, as the causal consumers read them.
+
+        Slice 1 M2 (spec §6.3): a blind-graded attempt's events carry only the
+        grader's localization; once its live diagnosis completes, the causal
+        fields (candidate causes, misconception statement, operation,
+        postdictive claims, registry match) are laid over them from the
+        diagnosis's stored causal view. Joint-graded events are returned as
+        stored. Replay snapshots :meth:`raw_error_events_for_attempt` instead,
+        so a rebuild rewrites exactly what was recorded.
+        """
+
+        events = self.raw_error_events_for_attempt(attempt_id)
+        if not events:
+            return events
+        view = self.live_causal_view(attempt_id)
+        if view is None:
+            return events
+        return merge_causal_view_into_events(events, view[1], diagnosis_id=view[0])
+
+    def raw_error_events_for_attempt(self, attempt_id: str) -> list[dict[str, Any]]:
+        """The persisted error-event rows exactly as written (no overlay)."""
+
         with self.connection() as connection:
             rows = connection.execute(
                 """
@@ -1931,7 +1983,8 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         Whole-vault projections already replay every attempt, so issuing one
         indexed lookup from inside that fold turns a rebuild into an N+1 query
         path. This bulk shape preserves the per-attempt ordering of
-        :meth:`error_events_for_attempt` while making the read cost constant.
+        :meth:`error_events_for_attempt` while making the read cost constant,
+        and applies the same diagnosis overlay.
         """
 
         with self.connection() as connection:
@@ -1944,6 +1997,12 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for row in rows:
             grouped[str(row["attempt_id"])].append(_decode_error_event(row))
+        views = self.live_causal_views()
+        for attempt_id, (diagnosis_id, view) in views.items():
+            if attempt_id in grouped:
+                grouped[attempt_id] = merge_causal_view_into_events(
+                    grouped[attempt_id], view, diagnosis_id=diagnosis_id
+                )
         return dict(grouped)
 
     def attempt_ids_for_misconception(
@@ -2334,8 +2393,9 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             statuses=("candidate", "validated"),
             statement_normalized=statement_normalized,
         )
+        # Slice 1 §7.6: every grouping goes through the recurrence-key seam.
         validated_statements = {
-            str(row["statement_normalized"])
+            recurrence_key(row)
             for row in heads
             if row["status"] == "validated"
         }
@@ -2357,7 +2417,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                     learning_object_id,
                 )
                 continue
-            normalized = str(row["statement_normalized"])
+            normalized = recurrence_key(row)
             if normalized in validated_statements:
                 continue
             grouped.setdefault(normalized, []).append(row)
@@ -2497,7 +2557,7 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                     learning_object_id,
                     statement_normalized=statement_normalized,
                 )
-                if row["statement_normalized"] == statement_normalized
+                if recurrence_key(row) == statement_normalized
             ),
             None,
         )
@@ -2537,15 +2597,13 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             if "candidate" in status_list
             else []
         )
-        projected_normalized = {
-            str(row["statement_normalized"]) for row in projected
-        }
+        projected_normalized = {recurrence_key(row) for row in projected}
         return [
             *projected,
             *[
                 row
                 for row in legacy
-                if str(row["statement_normalized"]) not in projected_normalized
+                if recurrence_key(row) not in projected_normalized
             ],
         ]
 
@@ -2672,11 +2730,12 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                 )
             if status == "promoted":
                 normalized = str(causal["statement_normalized"])
+                group = recurrence_key(causal)
                 for member in self.causal_hypotheses_for_learning_object(
                     str(causal["learning_object_id"]),
                     statuses=("candidate",),
                 ):
-                    if member["statement_normalized"] != normalized:
+                    if recurrence_key(member) != group:
                         continue
                     evidence = dict(member.get("evidence") or {})
                     evidence["promoted_misconception_id"] = promoted_misconception_id
@@ -13516,6 +13575,17 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def latest_raw_grade_identity(self, attempt_id: str) -> tuple[str | None, str | None] | None:
+        """(prompt, output schema) calibration identity of the attempt's newest primary raw grade."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT grading_prompt_version, grader_output_schema_version FROM raw_grade_events "
+                "WHERE attempt_id = ? AND role = 'primary' ORDER BY rowid DESC LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+        return (row[0], row[1]) if row is not None else None
+
     def raw_grade_event(self, event_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
             row = connection.execute(
@@ -14284,15 +14354,17 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
         latest_only: bool = True,
         statement_normalized: str | None = None,
     ) -> list[dict[str, Any]]:
+        """Hypothesis heads on an LO; ``statement_normalized`` is a recurrence key.
+
+        The key filter runs through :func:`learnloop.recurrence.recurrence_key`
+        (Slice 1 §7.6) rather than SQL equality, so Slice 2 T1 can change what
+        a key is without touching this query.
+        """
+
         status_list = [str(value) for value in statuses]
         if not status_list:
             return []
         placeholders = ",".join("?" for _ in status_list)
-        statement_clause = (
-            "AND h.statement_normalized = ?"
-            if statement_normalized is not None
-            else ""
-        )
         latest_clause = (
             """
             AND h.version = (
@@ -14310,21 +14382,15 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                 SELECT h.* FROM causal_hypotheses h
                  WHERE h.learning_object_id = ?
                    AND h.status IN ({placeholders})
-                   {statement_clause}
                    {latest_clause}
                  ORDER BY h.created_at, h.id
                 """,
-                (
-                    learning_object_id,
-                    *status_list,
-                    *(
-                        (statement_normalized,)
-                        if statement_normalized is not None
-                        else ()
-                    ),
-                ),
+                (learning_object_id, *status_list),
             ).fetchall()
-        return [_decode_causal_hypothesis(row) for row in rows]
+        decoded = [_decode_causal_hypothesis(row) for row in rows]
+        if statement_normalized is None:
+            return decoded
+        return [row for row in decoded if recurrence_key(row) == statement_normalized]
 
     def causal_hypotheses_with_operations(
         self, *, latest_only: bool = True, require_operation: bool = True
@@ -16026,6 +16092,33 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
             )
             connection.commit()
         return factor_id
+
+    def refresh_open_unresolved_cause_candidates(
+        self,
+        observation_id: str,
+        candidate_causes: Any,
+        *,
+        clock: Clock | None = None,
+    ) -> bool:
+        """Replace an OPEN factor's candidate set when it differs (Slice 1 M2).
+
+        Only the canonical projection calls this, after a blind attempt's
+        diagnosis lands; closed factors keep their history.
+        """
+
+        encoded = _json(candidate_causes)
+        with self.connection() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE unresolved_cause_factors
+                SET candidate_causes_json = ?, updated_at = ?
+                WHERE observation_id = ? AND status = 'open'
+                  AND candidate_causes_json IS NOT ?
+                """,
+                (encoded, utc_now_iso(clock), observation_id, encoded),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
 
     def open_unresolved_cause_observation_ids(self) -> set[str]:
         with self.connection() as connection:
@@ -24438,8 +24531,8 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                   c2_verifier_observations_json, c3_sample_count,
                   c3_agreement_support, c3_disagreement_causes_json,
                   c4_history_attempt_ids_json, hypotheses_json,
-                  revert_criteria_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  revert_criteria_json, created_at, grader_mode
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     row_id,
@@ -24456,6 +24549,8 @@ class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallSt
                     _json(values.get("hypotheses") or {}),
                     _json(values.get("revert_criteria") or {}),
                     values.get("created_at") or utc_now_iso(clock),
+                    # §10: null reads as joint; only the blind grader writes it.
+                    values.get("grader_mode"),
                 ),
             )
             connection.commit()

@@ -1,7 +1,7 @@
 {
   "<root>": {
     "bytes": 21802,
-    "sha256": "8e60c114a3778258cba665819a62306a5c67210b3ef4ef3dc765b0c3c4a3efd8"
+    "sha256": "9549fce8cca648f839ba334bfa4259a85f894086642acbae9de86553bdcc7bce"
   },
   "accept": {
     "bytes": 1593,
@@ -20,8 +20,8 @@
     "sha256": "c97cd1cde73816b804436cde72e340fa6b72b06c42ba35a757aba07e0ef2a576"
   },
   "attempt": {
-    "bytes": 3378,
-    "sha256": "c694cc00b7341a34704552684fe6a6fd201b506726bae262e9ee537fd5fa828f"
+    "bytes": 3803,
+    "sha256": "6b2349c5f333fbad545db4a3e534ee07c548a245682df871aee1a24adaa914b1"
   },
   "backfill-originals": {
     "bytes": 1364,
@@ -212,20 +212,36 @@
     "sha256": "d796174adb28901f77b93fad1362a91c5649163427bf100e02a125e1dd45bf8f"
   },
   "diagnose": {
-    "bytes": 2348,
-    "sha256": "8f6fe5e3396348dbc24836d337d698a8f2a48e014e259ff3b01b433507bf1a7c"
+    "bytes": 3113,
+    "sha256": "dd80886b19273231bd80ee256ace952db04b59dfd5b3611297569c40ae070363"
   },
   "diagnose data-check": {
     "bytes": 1206,
     "sha256": "00689fa483289dc3772af53bde1c716ff4f3f5f2f3ce3f1e1971f529e465de6f"
   },
+  "diagnose drain": {
+    "bytes": 5501,
+    "sha256": "4e9d9518af2aa00151f0d422910a89f736433ff7d435c11901dedac11c695355"
+  },
   "diagnose import-links": {
     "bytes": 1546,
     "sha256": "32b46abdf9d0b480d552bdf30b473295c43dda6a6847f1926fa58f97e688c402"
   },
+  "diagnose m2-report": {
+    "bytes": 1457,
+    "sha256": "78eb7122656759386b5a3d4d438ef9acf90d390d4ede179c025f835d51ab5462"
+  },
+  "diagnose pfc-report": {
+    "bytes": 3396,
+    "sha256": "5257a820b6d6ec76face4d2a65afb330d7ece3640decff74d37f69e9bc3ec209"
+  },
   "diagnose report": {
     "bytes": 1465,
     "sha256": "e970f2bac7efc734be4230d40238937988665f9f5a4b84c350d989810ce32e40"
+  },
+  "diagnose retry": {
+    "bytes": 6300,
+    "sha256": "74bd19357061e70f4dd567eb6700516256e315fd80b7aa40de025701221d18f1"
   },
   "diagnose review": {
     "bytes": 2299,
@@ -234,6 +250,10 @@
   "diagnose run": {
     "bytes": 7988,
     "sha256": "e5418631f3c95657198e38e10e07f0993b0e6dcc5aa4a83d850ea5792545fad5"
+  },
+  "diagnose status": {
+    "bytes": 1210,
+    "sha256": "65a2cdd72e5b330b6822cdbc18b5ab378cd086e16d799989956aa5a252cefb4d"
   },
   "diagnosis": {
     "bytes": 1758,
@@ -272,8 +292,8 @@
     "sha256": "faed068841889e0a4f17944034582df848dbd8d6b23b29e0ccb1dc459e30c625"
   },
   "embeddings backfill": {
-    "bytes": 3995,
-    "sha256": "8b90782226a2bc39f77df91e72a31c01fad706f02f752721ef62ae4c2b27dc8a"
+    "bytes": 4760,
+    "sha256": "e0ac2a6595010c98ac36341afc89e6cb56b7f04b6e5be0a2dca1d0e04ce5b360"
   },
   "eval": {
     "bytes": 7705,
@@ -828,8 +848,8 @@
     "sha256": "a07b81bb87d512abc37e080c985c0d5087e51241f04a64d1462f20116e169976"
   },
   "upgrade": {
-    "bytes": 1701,
-    "sha256": "93fd6b357e9201632e4b6277eaf4475c3d2f91aacf19c3f7ac1a34b6a22dcfb9"
+    "bytes": 1863,
+    "sha256": "2ac868d811180cd5f437b3197cd038e34beaeb6d4c7ac9b7bcd9219eeb33fc38"
   },
   "usage": {
     "bytes": 1546,

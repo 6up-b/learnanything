@@ -26,6 +26,7 @@ from learnloop.vault.repository import open_vault_repository
 from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.exam_grading import ExamGradingManager
+from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
 from learnloop.content.pipeline.jobs import IngestJobManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -44,6 +45,11 @@ class SidecarContext:
     ingest_jobs: IngestJobManager = field(default_factory=IngestJobManager, repr=False)
     exam_grading: ExamGradingManager = field(
         default_factory=ExamGradingManager, repr=False
+    )
+    # Slice 1 M2 (§11): drains the durable diagnose/embed queue off the request
+    # path. Starts lazily when a submit queues a job (joint vaults never start it).
+    post_attempt_worker: PostAttemptWorker = field(
+        default_factory=PostAttemptWorker, repr=False
     )
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
@@ -71,6 +77,7 @@ class SidecarContext:
             self.vault = load_vault(self.vault_root)
             sync_vault_state(self.vault, self.repository)
             self.repository.bump_queue_revision()
+        self.post_attempt_worker.bind(self._worker_target)
         # Canonical facet state is a deterministic cache over the immutable
         # attempt ledger. Re-project on app load so vaults activated by the old
         # mvp-0.7 upgrader (which only flipped the config field) self-heal and
@@ -91,6 +98,21 @@ class SidecarContext:
         # refreshes that only need fresh vault/DB state, not a runtime health pass.
         if maintenance:
             run_startup_maintenance(self.vault, self.repository)
+            # A previous process may have left queued or leased jobs; resume.
+            self.resume_post_attempt_jobs()
+
+    def _worker_target(self) -> tuple[LoadedVault, Path] | None:
+        if self.vault is None or self.repository is None:
+            return None
+        return self.vault, self.repository.sqlite_path
+
+    def resume_post_attempt_jobs(self) -> None:
+        """Wake the worker when the durable queue holds unfinished jobs."""
+
+        if self.repository is None:
+            return
+        if self.repository.post_attempt_jobs(states=("queued", "leased")):
+            self.post_attempt_worker.notify()
 
     def reload(self, *, maintenance: bool = True) -> None:
         if self.vault_root is None:

@@ -41,7 +41,7 @@ from learnloop.learner.recall_coverage import (
     resolve_reliability,
     scale_coverage_for_graded_criteria,
 )
-from learnloop.substrate.canonical_projection import surface_group_id
+from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK, surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 OUTCOME_VIEW_VERSION = "facet-outcomes-v1"
@@ -208,6 +208,14 @@ def resolve_legacy_fallback(vault, legacy_fallback=None) -> str:
     return fallback
 
 
+def _unverified(record) -> bool:
+    """A criterion the PF-c valid-alternative gate recorded as unverified."""
+    attribution = record.get("attribution_json")
+    return isinstance(attribution, dict) and (
+        attribution.get("negative_evidence_blocked") == UNVERIFIED_CRITERION_BLOCK
+    )
+
+
 def _grader_models(connection) -> dict[str, str]:
     """Latest raw grade event of each attempt's latest observation (no text)."""
     rows = connection.execute(
@@ -297,6 +305,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
     recent_by_lo = defaultdict(list)
     prior_item_attempt: dict[str, str] = {}
     ungraded = Counter()
+    unverified_attempts: set[str] = set()
     for raw_attempt in connection.execute("SELECT * FROM practice_attempts ORDER BY created_at,id"):
         attempt = dict(raw_attempt)
         if as_of is not None and attempt["created_at"] > as_of:
@@ -315,6 +324,18 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             r["criterion_id"]: r
             for r in sorted(evidence, key=lambda r: r["grading_revision"] or -1)
         }.values())
+        # PF-c (Slice 1 M2): a criterion the valid-alternative gate recorded as
+        # unverified (the final answer verifies; the grader marked it down
+        # without locating an error) is not a measurement until it is reviewed.
+        # The projection banks no negative mass for it; here it is unassessed,
+        # like a criterion the grader never scored, so its shortfall is never a
+        # failure outcome and its kept points are not credited either.
+        unverified = {r["criterion_id"] for r in evidence if _unverified(r)}
+        if unverified:
+            unverified_attempts.add(attempt["id"])
+            if all(r["criterion_id"] in unverified for r in evidence):
+                ungraded[UNVERIFIED_CRITERION_BLOCK] += 1
+                continue
         origin, propensity, candidate_id = _serving(connection, attempt)
         item, rubric, digest, status = _revision(
             connection, vault, attempt, evidence, candidate_id, fallback,
@@ -326,7 +347,10 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             recorded=activity_by_attempt.get(attempt["id"]),
         )
         lo_id = attempt["learning_object_id"]
-        points = {r["criterion_id"]: float(r["points_awarded"]) for r in evidence}
+        points = {
+            r["criterion_id"]: float(r["points_awarded"])
+            for r in evidence if r["criterion_id"] not in unverified
+        }
         dont_know = attempt["attempt_type"] == "dont_know" or bool(attempt.get("declared_dont_know"))
         outcome = 0.0
         covered = {}
@@ -502,6 +526,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             })
     if diagnostics is not None:
         diagnostics["attempts_without_outcome_row"] = dict(sorted(ungraded.items()))
+        diagnostics["unverified_criterion_attempts"] = unverified_attempts
     return tuple(attempts), tuple(facets)
 
 
@@ -586,7 +611,12 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
         except (ValueError, AttributeError):
             invalid_debug += 1
     compared = mismatched = 0
+    unverified_attempts = load_diagnostics["unverified_criterion_attempts"]
     for row in facets:
+        # The live debug outcome scores a PF-c unverified criterion; the field
+        # leaves it unassessed (above), so the two are not comparable there.
+        if row.attempt_id in unverified_attempts:
+            continue
         recorded = debug_by_attempt.get(row.attempt_id, {}).get(row.facet_id)
         if row.revision_status == "exact" and isinstance(recorded, (float, int)):
             compared += 1
@@ -598,6 +628,7 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
         "graded_attempts": len(attempts),
         "eligible_attempts": sum(r.effective_mass > 0 for r in attempts),
         "attempts_without_outcome_row": load_diagnostics["attempts_without_outcome_row"],
+        "pf_c_unverified_attempts": len(unverified_attempts),
         "memory": {
             "graded_cold_retrievals": sum(r.memory_scored for r in attempts),
             "memory_training_rows": sum(r.memory_eligible for r in attempts),
@@ -641,5 +672,7 @@ def data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[
             "legacy-unverified and unavailable_composed_offer numbers are unusable.",
             "Requested origin is unavailable: current immutable receipts have no machine-readable request marker.",
             "Current fitted item parameters and FSRS heads are not used: they would leak future outcomes.",
+            "PF-c unverified criteria are unassessed until reviewed (no failure outcome, no credit); "
+            "the memory arm's FSRS rating still reads the persisted grade, as the live scheduler does.",
         ],
     }

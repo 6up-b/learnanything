@@ -3,13 +3,13 @@ title: "diagnosis_adjudications"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_adjudications"
   - "table diagnosis_adjudications"
-schema_head: 169
+schema_head: 170
 table_name: "diagnosis_adjudications"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/diagnosis/offline_review/spot_check.py"
   - "src/learnloop/tutor/durable_promotion.py"
   - "src/learnloop/diagnosis/diagnosis_adjudication.py"
+  - "src/learnloop/diagnosis/split/pfc_report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -125,6 +126,7 @@ Database triggers:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/diagnosis_adjudication.py`
+- `src/learnloop/diagnosis/split/pfc_report.py`
 - `src/learnloop/tutor/durable_promotion.py`
 
 > [!note] Static-reference boundary

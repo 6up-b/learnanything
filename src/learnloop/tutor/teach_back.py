@@ -52,11 +52,9 @@ from learnloop.tutor.ai_contracts import (
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
-# GRADING_PROMPT_VERSION comes through attempts.attempts: the frozen
-# cross-package import contract admits only the attempts.attempts and
-# attempts.grading edges from this module.
+# The frozen cross-package import contract admits only the attempts.attempts
+# and attempts.grading edges from this module.
 from learnloop.attempts.attempts import (
-    GRADING_PROMPT_VERSION,
     ApplyAttemptInput,
     AttemptDraft,
     AttemptResult,
@@ -70,10 +68,11 @@ from learnloop.learner.facet_diagnostics import mastery_diagnostic_view
 from learnloop.attempts.grading import (
     GradingValidationError,
     build_grading_context,
-    grading_context_hash,
     resolved_rubric,
-    request_grading_proposal,
+    request_vault_grading_proposal,
     validate_codex_grading_proposal,
+    vault_grading_calibration_identity,
+    vault_grading_run_identity,
 )
 from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric, RubricCriterion
@@ -572,9 +571,8 @@ def finish_teach_back(
             "purpose": "grading",
             **agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
-            "prompt_version": GRADING_PROMPT_VERSION,
-            "input_context_hash": grading_context_hash(context),
-            "output_schema": "GradingProposal",
+            # Slice 1 §4.1: blind and isolated in a split vault.
+            **vault_grading_run_identity(vault, context),
             "started_at": utc_now_iso(clock),
             "status": "running",
         }
@@ -645,7 +643,7 @@ def _grade_and_apply_transcript(
     graded (the asked criteria the grader returned evidence for).
     """
 
-    proposal = request_grading_proposal(client, context)
+    proposal = request_vault_grading_proposal(vault, client, context)
     try:
         validated = validate_codex_grading_proposal(
             proposal,
@@ -710,6 +708,10 @@ def _grade_and_apply_transcript(
             grade=grade,
             grading_source=grading_source,
             grading_agent_run_id=grading_run_id,
+            # Review F11: a split vault graded this transcript blind, so its
+            # raw grade and calibration lookups take the blind identity
+            # (replay reads it back from the raw grade; no blind record).
+            grader_identity=vault_grading_calibration_identity(vault),
         ),
         clock=clock,
     )

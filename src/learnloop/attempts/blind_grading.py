@@ -27,6 +27,7 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from learnloop.ai.schemas import AttributionTargetRef, WireModel
+from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_VERSIONS
 from learnloop.ai.transport import (
     OperationClient,
     execute_structured_operation,
@@ -65,6 +66,22 @@ BLIND_CALIBRATION_PROMPT_VERSION = "grading_prompt_v2_blind"
 BLIND_GRADER_OUTPUT_SCHEMA_VERSION = "blind_grading_proposal_v1"
 #: §10: the grader-mode label a blind grade's receipts carry.
 GRADER_MODE_BLIND = "blind"
+
+def split_grading_active(vault: LoadedVault) -> bool:
+    """Does this vault grade NEW practice attempts blind (spec §6.2)?
+
+    The algorithm version gates the split; ``diagnosis.split_enabled`` is its
+    kill switch. Both are read only when an attempt is graded: replay and
+    every later read go by the attempt's persisted grader mode (a blind grade
+    record exists or it does not), never by today's config.
+    """
+
+    config = vault.config
+    if config.algorithms.algorithm_version not in DIAGNOSIS_SPLIT_VERSIONS:
+        return False
+    diagnosis = getattr(config, "diagnosis", None)
+    return bool(getattr(diagnosis, "split_enabled", True))
+
 
 ValidityScope = Literal[
     "valid_measurement",
@@ -118,6 +135,20 @@ class BlindGradingContext:
     clarification_exchange: dict[str, str] | None = None
     error_hunt_solution: str | None = None
     verifier_observations: list[dict[str, Any]] = field(default_factory=list)
+    #: PF-c (spec_embedding_consumers_v1 §5.5): the reference policy for this
+    #: answer - whether a reference exists and what the deterministic
+    #: final-answer check found. Item-side plus this answer only. ``None`` is
+    #: the mvp-2.0 blind prompt, rendered and hashed exactly as M1 did.
+    reference_policy: dict[str, Any] | None = None
+
+
+def blind_context_payload(context: "BlindGradingContext") -> dict[str, Any]:
+    """The context as rendered and hashed; an absent policy is omitted."""
+
+    payload = asdict(context)
+    if payload.get("reference_policy") is None:
+        payload.pop("reference_policy", None)
+    return payload
 
 
 class BlindRepairedTrace(WireModel):
@@ -224,6 +255,7 @@ def blind_context_from_grading_context(
     *,
     verifier_observations: list[dict[str, Any]] | None = None,
     clarification_exchange: dict[str, str] | None = None,
+    reference_policy: dict[str, Any] | None = None,
 ) -> BlindGradingContext:
     """Copy every item-side field; ``diagnostic_history`` has nowhere to go."""
 
@@ -254,13 +286,14 @@ def blind_context_from_grading_context(
             if verifier_observations is not None
             else context.verifier_observations
         ),
+        reference_policy=dict(reference_policy) if reference_policy is not None else None,
     )
 
 
 def blind_grading_context_hash(context: BlindGradingContext) -> str:
     """Content address of exactly what the blind grader was shown."""
 
-    payload = {"grader_mode": GRADER_MODE_BLIND, **asdict(context)}
+    payload = {"grader_mode": GRADER_MODE_BLIND, **blind_context_payload(context)}
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     ).hexdigest()
@@ -363,13 +396,28 @@ _BLIND_TASK = (
 )
 
 
-def blind_grading_prompt(context: BlindGradingContext) -> str:
-    """Render the blind grading request (§4.3)."""
+def blind_prompt_version(context: BlindGradingContext) -> str:
+    """mvp-2.0 without a reference policy; mvp-2.1 (PF-c) with one."""
 
+    if context.reference_policy is None:
+        return BLIND_GRADING_PROMPT_VERSION
+    from learnloop.attempts.grading_support import REFERENCE_POLICY_PROMPT_VERSION
+
+    return REFERENCE_POLICY_PROMPT_VERSION
+
+
+def blind_grading_prompt(context: BlindGradingContext) -> str:
+    """Render the blind grading request (§4.3; PF-c rules when a policy is set)."""
+
+    task = _BLIND_TASK
+    if context.reference_policy is not None:
+        from learnloop.attempts.grading_support import REFERENCE_POLICY_RULES
+
+        task = f"{_BLIND_TASK} {REFERENCE_POLICY_RULES}"
     return render_structured_prompt(
         "learnloop blind grading proposal",
-        BLIND_GRADING_PROMPT_VERSION,
-        {"task": _BLIND_TASK, "context": asdict(context)},
+        blind_prompt_version(context),
+        {"task": task, "context": blind_context_payload(context)},
     )
 
 
@@ -381,9 +429,25 @@ def request_blind_grading_proposal(
 
     Always an isolated turn: structural blindness is meaningless if the
     grader can read prior grades and diagnoses from the vault, so a
-    transport that cannot isolate the turn refuses it.
+    transport that cannot isolate the turn refuses it. With a PF-c
+    reference policy the wire model adds the solve-first answer, the route
+    check and the unverified criteria; :func:`request_blind_grading_run`
+    keeps them, this returns the shared blind shape.
     """
 
+    if context.reference_policy is not None:
+        from learnloop.attempts.grading_support import (
+            ReferencePolicyBlindGradingProposal,
+        )
+
+        result = execute_structured_operation(
+            client,
+            purpose="blind_grading",
+            prompt=blind_grading_prompt(context),
+            result_model=ReferencePolicyBlindGradingProposal,
+            isolated=True,
+        )
+        return result.as_blind_proposal()
     return execute_structured_operation(
         client,
         purpose="blind_grading",
@@ -652,8 +716,11 @@ __all__ = [
     "blind_context_from_grading_context",
     "blind_grading_context",
     "blind_grading_context_hash",
+    "blind_context_payload",
     "blind_grading_prompt",
+    "blind_prompt_version",
     "request_blind_grading_proposal",
+    "split_grading_active",
     "taxonomy_misconception_prior",
     "to_grading_proposal",
     "validate_blind_grading_proposal",

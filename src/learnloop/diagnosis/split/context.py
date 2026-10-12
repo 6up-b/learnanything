@@ -16,6 +16,12 @@ records of :mod:`.history` and the closed-world id set the validators check:
 * ``hybrid``: ``exact`` failures fused with kNN over the same filtered
   population by reciprocal rank (§9.4).
 
+From S1.4a (``embedding.enabled``), every mode's registry block also takes a
+kNN shortlist over the WHOLE vault registry as of the cutoff (§5.2, §9.4),
+next to the exact neighbourhood set, with its provenance in the receipt; a
+failing or incomplete index falls back to the exact set. The shortlist only
+offers candidates: the diagnoser still decides identity (``registry_match``).
+
 Layout for caching: the stable blocks come first in a fixed order, the
 chronological history last among them, and the current attempt at the very
 end. Two consecutive diagnoses on one LO therefore share a byte-identical
@@ -243,6 +249,40 @@ class RetrievalResult:
     model_id: str | None = None
     matches: tuple[RetrievalMatch, ...] = ()
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class RegistryNeighbor:
+    key: str  # ``<kind>:<id>`` (the ``misconception/statement`` record id)
+    score: float
+    rank: int
+
+
+@dataclass(frozen=True)
+class RegistryShortlist:
+    method: str  # knn | exact_fallback
+    model_id: str | None = None
+    matches: tuple[RegistryNeighbor, ...] = ()
+    error: str | None = None
+
+
+def registry_key(record: RegistryRecord) -> str:
+    """A registry record's id in the ``misconception/statement`` index."""
+
+    return f"{record.kind}:{record.id}"
+
+
+class RegistryRetriever(Protocol):
+    """kNN over the whole vault registry (S1.4a shortlist, §5.2)."""
+
+    def registry_knn(
+        self,
+        current: "CurrentAttempt",
+        records: Sequence[RegistryRecord],
+        *,
+        limit: int,
+    ) -> RegistryShortlist:
+        ...
 
 
 class HistoryRetriever(Protocol):
@@ -493,6 +533,62 @@ def _truncate_oldest(
     return kept, drop
 
 
+def _registry_shortlist(
+    retriever: RegistryRetriever,
+    store: HistoryStore,
+    current: "CurrentAttempt",
+    before: AttemptRef,
+    exact: list[RegistryRecord],
+    *,
+    limit: int,
+) -> tuple[list[RegistryRecord], dict[str, Any]]:
+    """The exact set plus up to ``limit`` kNN-only registry records.
+
+    The universe is every registry record visible as of the cutoff, vault
+    wide (the as-of view of :meth:`HistoryStore.registry_before`); ranking
+    covers it all, and the records the exact filter already offers are kept
+    in place. Provenance per match goes to the receipt.
+    """
+
+    universe = sorted(store.registry_before(before, None), key=lambda record: (record.kind, record.id))
+    exact_keys = {registry_key(record) for record in exact}
+    by_key = {registry_key(record): record for record in universe}
+    if universe:
+        shortlist = retriever.registry_knn(current, universe, limit=limit + len(exact_keys))
+    else:
+        shortlist = RegistryShortlist(method="knn", model_id=getattr(retriever, "model_id", None))
+    added: list[RegistryRecord] = []
+    rows: list[dict[str, Any]] = []
+    for match in shortlist.matches:
+        record = by_key.get(match.key)
+        if record is None:
+            continue
+        in_exact = match.key in exact_keys
+        keep = not in_exact and len(added) < limit
+        if keep:
+            added.append(record)
+        rows.append(
+            {
+                "registry_id": record.id,
+                "kind": record.kind,
+                "rank": match.rank,
+                "score": round(match.score, 6),
+                "source": "both" if in_exact else "knn",
+                "added": keep,
+            }
+        )
+    receipt = {
+        "method": shortlist.method,
+        "model_id": shortlist.model_id,
+        "error": shortlist.error,
+        "universe": len(universe),
+        "exact_registry_ids": sorted(exact_keys),
+        "matches": rows,
+        "knn_only_registry_ids": [registry_key(record) for record in added],
+    }
+    return [*exact, *added], receipt
+
+
 def assemble_diagnosis_context(
     vault: LoadedVault,
     store: HistoryStore,
@@ -503,8 +599,13 @@ def assemble_diagnosis_context(
     retriever: HistoryRetriever | None = None,
     snapshot_manifest: Mapping[str, Any] | None = None,
     token_budget: int | None = None,
+    registry_retriever: RegistryRetriever | None = None,
 ) -> AssembledContext:
-    """Assemble one context deterministically. ``mode`` overrides the setting."""
+    """Assemble one context deterministically. ``mode`` overrides the setting.
+
+    ``registry_retriever`` (S1.4a) adds the whole-vault registry shortlist;
+    without one the registry block is exactly the neighbourhood set.
+    """
 
     mode = mode or settings.history_mode
     before = current.ref()
@@ -527,6 +628,11 @@ def assemble_diagnosis_context(
         store.registry_before(before, registry_scope),
         key=lambda record: (record.kind, record.id),
     )
+    registry_receipt: dict[str, Any] | None = None
+    if registry_retriever is not None:
+        registry, registry_receipt = _registry_shortlist(
+            registry_retriever, store, current, before, registry, limit=settings.knn_limit
+        )
     repair_facets = set(targets) | set(current.item_facets)
     repairs = store.repairs_before(before, repair_facets)
 
@@ -540,6 +646,8 @@ def assemble_diagnosis_context(
         "prerequisite_refs": [entry["learning_object_id"] for entry in prerequisites],
         "method": mode,
     }
+    if registry_receipt is not None:
+        receipt["registry_retrieval"] = registry_receipt
 
     blocks: dict[str, Any] = {"neighborhood": neighborhood_block}
     failure_rows: list[HistoryAttempt] = []
@@ -738,6 +846,9 @@ __all__ = [
     "CurrentAttempt",
     "HistoryRetriever",
     "KnownIds",
+    "RegistryNeighbor",
+    "RegistryRetriever",
+    "RegistryShortlist",
     "RetrievalMatch",
     "RetrievalResult",
     "STABLE_BLOCKS",
@@ -748,6 +859,7 @@ __all__ = [
     "estimate_tokens",
     "facets_overlap",
     "history_attempt_tokens",
+    "registry_key",
     "render_context",
     "stable_prefix",
 ]

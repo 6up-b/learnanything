@@ -92,7 +92,7 @@ Only metric structure is claimed for the embedding space: distances, neighborhoo
 
 Standing invariants (violating any of these is a bug, not a tradeoff):
 
-1. **Blind grader stays blind** — hypotheses and retrieved memory enter the diagnostician/tutor/generator roles, never the grading role (self-confirming-loop firewall).
+1. **Blind grader stays blind** — the grading role is learner-blind: no prior traces, grades, diagnoses, hypotheses, or retrieved learner memory. Hypotheses and retrieved memory enter the diagnostician, tutor, and generator roles (self-confirming-loop firewall). *Reworded 2026-10-12 for the Slice 1 split (`spec_blind_grading_diagnosis_split_v1.md` §15; shipped as `mvp-0.10`).*
 2. **Vector arithmetic never creates evidence** — the manifold informs retrieval, priors, readiness, and candidates; only observed learner events certify. Semantic recurrence can regroup existing observations, but it cannot manufacture another observation or double-count the source event. Same authority level as graph propagation.
 3. **The router's authority stays a deterministic state machine with a fixed observation vector** (Hey-Chat lesson). Learned components are sensors; stochastic selectors may act only inside a deterministic certified near-tie set, never define feasibility or route authority.
 4. **Outcome is immediate-use plus durable-use, with cold evidence primary** — the first eligible independent next attempt supplies a provisional outcome; the delayed cold attempt finalizes it. Guided redos, near-duplicate surfaces, and same-item correctness do not count as next-attempt success, and missing cold outcomes stay pending rather than becoming failures. Durable learner-state promotion still requires cold evidence.

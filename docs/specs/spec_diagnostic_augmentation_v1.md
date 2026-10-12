@@ -508,6 +508,13 @@ anchor, repair class).
 
 ### C4. Learner history in the diagnosis context
 
+> **Disposition (2026-10-12, Slice 1):** relocated. Because grading and
+> diagnosis were one call, C4 landed in the grader. Under the split
+> (`spec_blind_grading_diagnosis_split_v1.md`, `mvp-0.10`) the grader is
+> learner-blind and history moves to the asynchronous diagnoser, together with
+> this rung's revert criterion (the changed-cause planted learner). Joint
+> (`mvp-0.9`) vaults keep C4 as described here.
+
 Supply the last N traces on the same facet and surface family. Turns a
 single-attempt provisional belief into a founded one and gives the §5.6
 trace-consistency veto more than one attempt to check against.

@@ -8,6 +8,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     calibration,
     claims,
     cli,
+    diagnosis_card,
     diagnostic,
     epigraphs,
     exams,

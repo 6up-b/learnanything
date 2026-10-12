@@ -1,7 +1,7 @@
 """Explicit, bounded embedding work. Never called by sync or rebuild."""
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import closing, contextmanager
 from dataclasses import asdict
 import json
@@ -113,6 +113,8 @@ def backfill_embeddings(
     price_per_million: float | None = None,
     cancelled: Callable[[], bool] | None = None,
     client_factory: Callable[[], EmbeddingClient] | None = None,
+    extra_records: Sequence[EmbeddingRecord] = (),
+    extra_recipes: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Plan without data changes, or checkpoint successful batches before continuing.
 
@@ -133,15 +135,23 @@ def backfill_embeddings(
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     model_id = config.model
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
-    selected = select_recipes(recipes)
+    # Slice 1 S1.4a: hypothesis/misconception (and, for hybrid, attempt
+    # divergence) records live in the database, not the vault files; the
+    # diagnosis domain builds them and passes them in as ``extra_records``
+    # (named ``extra_recipes``). An explicitly empty ``recipes`` selects no
+    # vault recipe, so the default backfill is unchanged.
+    selected = select_recipes(recipes) if recipes is None or len(recipes) else ()
     records = [record for recipe in selected for record in recipe.records(loaded)]
+    records.extend(extra_records)
+    db_selectors = list(extra_recipes)
     pending = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)
     estimate = _estimate(pending, math.ceil(len(pending) / batch_size), price)
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "model_id": model_id, "dimensions": config.dimensions,
-        "task_prefix": TASK_PREFIX, "recipes": [recipe.name for recipe in selected],
+        "task_prefix": TASK_PREFIX,
+        "recipes": [*(recipe.name for recipe in selected), *db_selectors],
         "records": len(records), "cached": len(records) - len(pending),
         "pending": len(pending), "embedded": 0, "caps": caps.as_dict(),
         "estimate": asdict(estimate), "charged": asdict(budget.used),
@@ -155,7 +165,10 @@ def backfill_embeddings(
         "manifest": {
             "algorithm_version": loaded.config.algorithms.algorithm_version,
             "config_hash": content_key(loaded.config.model_dump(mode="json")),
-            "recipe_versions": {recipe.name: recipe.version for recipe in selected},
+            "recipe_versions": {
+                **{recipe.name: recipe.version for recipe in selected},
+                **{selector: "db-v1" for selector in db_selectors},
+            },
         },
     }
     try:

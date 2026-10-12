@@ -56,6 +56,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from learnloop.recurrence import recurrence_key
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
@@ -180,7 +181,7 @@ def _asserted_hypotheses(
         # A chain may have advanced past the version the receipt named; the
         # normalized statement is stable across versions of one episode, so it
         # is the join key rather than the id.
-        key = str(hypothesis.get("statement_normalized") or "")
+        key = recurrence_key(hypothesis)
         if not key or key in seen:
             continue
         seen.add(key)
@@ -211,7 +212,7 @@ def _promote_hypothesis(
     if learning_object is None:
         return None, f"learning_object_absent:{learning_object_id}"
 
-    normalized = str(hypothesis.get("statement_normalized") or "") or normalize_text(
+    normalized = recurrence_key(hypothesis) or normalize_text(
         str(hypothesis.get("statement") or "")
     )
     if not normalized:
@@ -291,7 +292,7 @@ def _withdraw_hypothesis(
     from learnloop.learner.surfaced_beliefs import record_belief_withdrawal
 
     learning_object_id = str(hypothesis.get("learning_object_id") or "")
-    normalized = str(hypothesis.get("statement_normalized") or "")
+    normalized = recurrence_key(hypothesis)
     if not normalized:
         return None, "statement_empty"
     for record in repository.misconceptions_for_learning_object(
@@ -505,7 +506,7 @@ def _confirmed_hypotheses(
             continue
         if str(confirmation.get("response") or "") != "believed_candidate":
             continue
-        key = str(hypothesis.get("statement_normalized") or "")
+        key = recurrence_key(hypothesis)
         if not key or key in seen:
             continue
         seen.add(key)

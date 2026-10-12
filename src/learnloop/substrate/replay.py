@@ -108,6 +108,7 @@ def replay_learning_object(
     learning_object_id: str,
     *,
     error_attribution_overrides: dict[str, list[GradeAttribution]] | None = None,
+    grader_identity_overrides: dict[str, tuple[str, str] | None] | None = None,
     project_canonical_state: bool = True,
 ) -> ReplayResult:
     """Rebuild attempt-derived state for one learning object from persisted grades.
@@ -116,11 +117,15 @@ def replay_learning_object(
     `practice_attempts` plus current non-superseded `grading_evidence` as the raw
     log, clears derived state for the learning object, then runs each attempt
     through the same computation path used by live attempts.
+
+    ``grader_identity_overrides`` maps an attempt a regrade just re-graded to
+    the calibration identity of its new grade; every other attempt replays
+    under the identity its ledgers record.
     """
 
     attempts = repository.list_attempts_by_learning_object(learning_object_id)
     existing_error_events = {
-        attempt["id"]: repository.error_events_for_attempt(attempt["id"])
+        attempt["id"]: repository.raw_error_events_for_attempt(attempt["id"])
         for attempt in attempts
     }
     existing_debug_payloads = {
@@ -142,6 +147,11 @@ def replay_learning_object(
             error_event_ids=None if override_attributions is not None else [event["id"] for event in event_snapshot],
             error_events=event_snapshot,
             error_attributions=override_attributions,
+            **(
+                {"grader_identity": grader_identity_overrides[attempt["id"]]}
+                if grader_identity_overrides and attempt["id"] in grader_identity_overrides
+                else {}
+            ),
         )
         _restore_debug_audit_events(
             repository,

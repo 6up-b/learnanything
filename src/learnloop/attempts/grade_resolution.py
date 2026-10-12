@@ -103,10 +103,20 @@ def resolve_grade(
     observation_id: str | None = None,
     surface_id: str | None = None,
     feedback_condition: str | None = None,
+    grading_prompt_version: str | None = None,
+    grader_output_schema_version: str | None = None,
     clock: Clock | None = None,
 ) -> GradeResolution:
     """The §4.1 pipeline for one graded response. May raise; callers that dual-write
-    from a legacy path use :func:`record_grade_dual_write` (guarded)."""
+    from a legacy path use :func:`record_grade_dual_write` (guarded).
+
+    ``grading_prompt_version`` / ``grader_output_schema_version`` are the
+    calibration identity (Slice 1 §4.3). They default to the joint grader's, so
+    every existing caller stamps exactly what it did; the blind grader passes
+    its own pair so calibration never pools joint and blind graders."""
+
+    prompt_identity = grading_prompt_version or gc.GRADING_PROMPT_VERSION
+    schema_identity = grader_output_schema_version or gc.GRADER_OUTPUT_SCHEMA_VERSION
 
     # Step 1-2: resolve (or reuse) an administration + observation for this response.
     if administration_id is None or observation_id is None or surface_id is None:
@@ -156,8 +166,8 @@ def resolve_grade(
     gih = gc.grader_identity_hash(
         provider=grading_source,
         model_revision=grader_model_revision,
-        prompt_version=gc.GRADING_PROMPT_VERSION,
-        output_schema_version=gc.GRADER_OUTPUT_SCHEMA_VERSION,
+        prompt_version=prompt_identity,
+        output_schema_version=schema_identity,
     )
     context_features = {
         "grader_identity_hash": gih,
@@ -184,8 +194,8 @@ def resolve_grade(
             "role": role,
             "grader_provider": grading_source,
             "grader_model_revision": grader_model_revision,
-            "grading_prompt_version": gc.GRADING_PROMPT_VERSION,
-            "grader_output_schema_version": gc.GRADER_OUTPUT_SCHEMA_VERSION,
+            "grading_prompt_version": prompt_identity,
+            "grader_output_schema_version": schema_identity,
             "grader_identity_hash": gih,
             "agent_run_id": agent_run_id,
             "raw_output_json": canonical_json(raw_output_payload),
@@ -338,6 +348,8 @@ def response_certainty_lcb(
     domain: str | None = None,
     grader_model_revision: str | None = None,
     outcome_schema_slug: str = COARSE_RESPONSE_SLUG,
+    grading_prompt_version: str | None = None,
+    grader_output_schema_version: str | None = None,
     clock: Clock | None = None,
 ) -> float:
     """The certainty LCB of this response's calibrated interpretation, computed
@@ -365,8 +377,8 @@ def response_certainty_lcb(
     gih = gc.grader_identity_hash(
         provider=grading_source,
         model_revision=grader_model_revision,
-        prompt_version=gc.GRADING_PROMPT_VERSION,
-        output_schema_version=gc.GRADER_OUTPUT_SCHEMA_VERSION,
+        prompt_version=grading_prompt_version or gc.GRADING_PROMPT_VERSION,
+        output_schema_version=grader_output_schema_version or gc.GRADER_OUTPUT_SCHEMA_VERSION,
     )
     resolved = gc.resolve_calibration_model(
         repository,
@@ -406,6 +418,8 @@ def response_soft_score(
     domain: str | None = None,
     grader_model_revision: str | None = None,
     outcome_schema_slug: str = COARSE_RESPONSE_SLUG,
+    grading_prompt_version: str | None = None,
+    grader_output_schema_version: str | None = None,
     clock: Clock | None = None,
 ) -> tuple[float, float]:
     """(E[s(Z)|E], Var[s(Z)|E]) of the calibrated true-score, without persisting.
@@ -449,8 +463,8 @@ def response_soft_score(
     gih = gc.grader_identity_hash(
         provider=grading_source,
         model_revision=grader_model_revision,
-        prompt_version=gc.GRADING_PROMPT_VERSION,
-        output_schema_version=gc.GRADER_OUTPUT_SCHEMA_VERSION,
+        prompt_version=grading_prompt_version or gc.GRADING_PROMPT_VERSION,
+        output_schema_version=grader_output_schema_version or gc.GRADER_OUTPUT_SCHEMA_VERSION,
     )
     resolved = gc.resolve_calibration_model(
         repository,

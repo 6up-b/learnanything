@@ -37,7 +37,11 @@ def embeddings_backfill(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate calls, tokens and cost; no client, migration or data changes.")] = False,
     record_kind: Annotated[list[str] | None, typer.Option(
         "--record-kind",
-        help="A record kind (facet, item) or one recipe (facet/definition, facet/dossier_scope, item/stem, ...); repeatable. Default: all.",
+        help=(
+            "A record kind (facet, item) or one recipe (facet/definition, facet/dossier_scope, item/stem, ...); "
+            "repeatable. Default: all vault recipes. Slice 1 adds hypothesis, misconception and attempt "
+            "(attempt/divergence, for history_mode=hybrid), embedded only when named."
+        ),
     )] = None,
     batch_size: Annotated[int, typer.Option("--batch-size", min=1, max=256)] = 32,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,
@@ -59,7 +63,7 @@ def embeddings_backfill(
     Reports contain only counts, limits and model metadata, never vault text.
     """
     # Imported here: the vector store needs numpy, which no other command loads.
-    from learnloop.ops.embedding_backfill import backfill_embeddings
+    from learnloop.diagnosis.split.embeddings import backfill_with_db_recipes
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -75,7 +79,7 @@ def embeddings_backfill(
                 f"Vault has {len(loaded.issues)} validation issues; run doctor before embedding."
             )
         with _cancellation() as stop:
-            report = backfill_embeddings(
+            report = backfill_with_db_recipes(
                 loaded, caps=caps, dry_run=dry_run,
                 recipes=tuple(record_kind) if record_kind else None,
                 batch_size=batch_size, price_per_million=price_per_million,

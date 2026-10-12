@@ -112,8 +112,9 @@ def exam_answer_command(
     from learnloop.attempts.grading import (
         GradingValidationError,
         build_grading_context,
-        request_grading_proposal,
+        request_vault_grading_proposal,
         validate_codex_grading_proposal,
+        vault_grading_calibration_identity,
     )
 
     grading_attempt_id = new_ulid()
@@ -122,7 +123,7 @@ def exam_answer_command(
     )
     try:
         validated = validate_codex_grading_proposal(
-            request_grading_proposal(client, context),
+            request_vault_grading_proposal(loaded, client, context),
             attempt_id=grading_attempt_id,
             item=item,
             vault=loaded,
@@ -148,6 +149,7 @@ def exam_answer_command(
             resolved_grade=resolved_codex_grade(
                 validated, agent_run_id=None, clock=None
             ),
+            grader_identity=vault_grading_calibration_identity(loaded),
         )
     except (ExamSessionError, ValueError) as exc:
         if json_output:

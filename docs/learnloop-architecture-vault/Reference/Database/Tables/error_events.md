@@ -3,13 +3,13 @@ title: "error_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite error_events"
   - "table error_events"
-schema_head: 169
+schema_head: 170
 table_name: "error_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -27,7 +27,6 @@ source_paths:
   - "src/learnloop/diagnosis/causal_migration.py"
   - "src/learnloop/diagnosis/diagnostic_gate.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/content/proposals/proposals.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -93,8 +92,8 @@ Indexes and uniqueness:
 - `Repository.active_errors_by_learning_object()`
 - `Repository.all_error_events_by_attempt()`
 - `Repository.attempt_ids_for_misconception()`
-- `Repository.error_events_for_attempt()`
 - `Repository.find_record()`
+- `Repository.raw_error_events_for_attempt()`
 - `Repository.record_attempt_outcome()`
 - `Repository.replace_attempt_derived_outcome()`
 - `Repository.reset_learning_object_derived_state()`
@@ -118,24 +117,24 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/cli/app.py`
-- `src/learnloop/cli/runtime.py`
-- `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_migration.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
-- `src/learnloop/diagnosis/followups.py`
-- `src/learnloop/diagnosis/guided_redo.py`
 - `src/learnloop/diagnosis/misconceptions.py`
-- `src/learnloop/diagnosis/missing_vocabulary.py`
-- `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probes.py`
 - `src/learnloop/diagnosis/remediation.py`
+- `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
-- `src/learnloop/diagnosis/taxonomy_regrade.py`
+- `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop/goals/exam_session.py`
-- `src/learnloop/learner/recall_calibration.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/reader/reader_guidance.py`
+- `src/learnloop/scheduling/scheduler.py`
+- `src/learnloop/substrate/canonical_projection.py`
+- `src/learnloop/substrate/replay.py`
+- `src/learnloop/tui/screens/feedback.py`
+- `src/learnloop_sidecar/handlers/graph.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -143,6 +142,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_causal_attribution_p1.py`
+- `tests/test_diagnosis_replay.py`
 - `tests/test_migrations.py`
 - `tests/test_replay.py`
 - `tests/test_simulation.py`
@@ -150,18 +150,17 @@ Indexes and uniqueness:
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
 - `tests/test_attempts.py`
-- `tests/test_causal_attribution_exhibit.py`
-- `tests/test_causal_attribution_p0.py`
 - `tests/test_cli_attempt.py`
 - `tests/test_codex_attempt_flow.py`
-- `tests/test_deferred_regrade.py`
-- `tests/test_diagnostic_augmentation.py`
+- `tests/test_diagnosis_embeddings.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_reports.py`
 - `tests/test_diagnostic_gate.py`
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_e2e_local.py`
 - `tests/test_guided_redo.py`
 - `tests/test_item_parameters.py`
-- `tests/test_misconception_registry.py`
+- `tests/test_misconception_resolution.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

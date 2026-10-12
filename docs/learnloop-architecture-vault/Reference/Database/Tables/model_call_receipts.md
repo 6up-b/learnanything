@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 169
+schema_head: 170
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
+  - "src/learnloop/diagnosis/split/reports.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/model_usage.py"
 tags:
@@ -112,6 +113,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/practice_index.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
+- `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
 
@@ -129,6 +131,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnose_review.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_family_proposals.py`
 - `tests/test_field_llm_cli.py`
@@ -139,6 +143,7 @@ None found by exact static reference scan.
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
+- `tests/test_post_attempt_worker.py`
 - `tests/test_practice_index_dossiers.py`
 - `tests/test_practice_index_find.py`
 - `tests/test_practice_index_paid.py`

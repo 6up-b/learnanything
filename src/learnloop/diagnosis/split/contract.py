@@ -68,7 +68,13 @@ class EventDiagnosis(WireModel):
     candidate_causes: list[CandidateCause] = Field(default_factory=list)
     misconception_statement: str | None = None
     misconception_consistent_answer: str | None = None
-    operation: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]*$")
+    operation: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_]*$",
+        # Live M2 runs: without this the model wrote a phrase here and every
+        # diagnosis paid a JSON-repair turn.
+        description="A snake_case identifier for the failed operation (e.g. apply_basis_coordinates), never a phrase; null if none.",
+    )
     causal_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     postdictive_claims: list[PostdictiveClaim] = Field(default_factory=list)
     soft_postdictive_claims: list[str] = Field(default_factory=list)

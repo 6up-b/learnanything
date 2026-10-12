@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "a1cca263e6c89af4ccad8591127e0ef6488da04b"
-source_commit_timestamp: "2026-10-12T11:28:31-04:00"
+source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
+source_commit_timestamp: "2026-10-12T11:43:33-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 169
+schema_head: 170
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -105,6 +105,8 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/offline_review/links.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
+- `src/learnloop/diagnosis/split/jobs.py`
+- `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/ops/family_proposals.py`
 - `src/learnloop/substrate/families.py`
 
@@ -123,6 +125,8 @@ None found by exact static reference scan.
 
 - `tests/test_activity_families.py`
 - `tests/test_diagnose_review.py`
+- `tests/test_diagnosis_card.py`
+- `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_store.py`
 - `tests/test_eval_harness.py`
 - `tests/test_family_proposals.py`
