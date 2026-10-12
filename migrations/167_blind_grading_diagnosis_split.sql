@@ -98,7 +98,9 @@ CREATE TABLE diagnosis_would_merge_log (
 );
 
 -- E7: one row per item served after a diagnosis-bearing answer in its
--- session; served_without_diagnosis marks a serve while one was pending.
+-- session; served_without_diagnosis marks a serve while a required diagnosis
+-- was not in force (queued, running, failed or budget-skipped), and
+-- pending_attempt_ids_json names those attempts.
 CREATE TABLE diagnosis_wait_receipts (
   id TEXT PRIMARY KEY,
   session_id TEXT,

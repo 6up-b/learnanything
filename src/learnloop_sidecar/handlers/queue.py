@@ -202,23 +202,27 @@ def _wait_for_session_diagnoses(ctx: SidecarContext, vault: Any, repository: Any
 def record_diagnosis_serve(ctx: SidecarContext, repository: Any, session_id: str) -> None:
     """E7: one receipt per serve that follows a diagnosis-bearing answer.
 
-    The population is every item served in a session after an attempt that
-    has a live diagnosis job, so a serve whose diagnosis already landed (no
-    wait at all) counts as served WITH it; ``served_without_diagnosis`` is
-    set when any of the session's live diagnoses is still queued or running
-    at the serve. Telemetry: a failure here never fails the serve.
+    The population is every item served in a session after an attempt whose
+    live diagnosis is required, so a serve whose diagnosis already landed (no
+    wait at all) counts as served WITH it. ``served_without_diagnosis`` is
+    set, and those attempts named, when any required diagnosis is not in
+    force at the serve: still queued or running, failed, or skipped for
+    budget (review F13). An attempt a regrade left with nothing to explain
+    (``not_needed``) is outside the population. Telemetry: a failure here
+    never fails the serve.
     """
 
     try:
-        jobs = repository.live_diagnosis_jobs_for_session(session_id)
-        if not jobs:
+        from learnloop.diagnosis.split.jobs import session_diagnosis_availability
+
+        required, unavailable = session_diagnosis_availability(repository, session_id)
+        if not required:
             return
-        pending = [job["attempt_id"] for job in jobs if job["state"] in ("queued", "leased")]
         repository.insert_diagnosis_wait_receipt(
             session_id=session_id,
-            pending_attempt_ids=pending,
+            pending_attempt_ids=unavailable,
             waited_seconds=ctx.post_attempt_worker.take_wait(session_id),
-            served_without_diagnosis=bool(pending),
+            served_without_diagnosis=bool(unavailable),
         )
     except Exception:  # pragma: no cover - telemetry boundary
         logging.getLogger(__name__).warning("failed to record the E7 serve receipt", exc_info=True)

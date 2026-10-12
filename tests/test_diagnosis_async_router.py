@@ -128,6 +128,76 @@ def test_the_lag_rate_is_over_every_serve_that_followed_a_diagnosed_answer(tmp_p
     assert (e7["k"], e7["n"]) == (1, 3)
 
 
+class _Wait:
+    def take_wait(self, _session_id):
+        return 0.0
+
+
+class _FlipToCorrect(ReviewFakeClient):
+    """Wrong blind grades until ``correct`` is set, then full marks."""
+
+    correct = False
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        if not self.correct:
+            return result
+        points = {c["id"]: c["points"] for c in context["rubric"]["criteria"]}
+        evidence = [row.model_copy(update={"points_awarded": points[row.criterion_id]}) for row in result.criterion_evidence]
+        return result.model_copy(
+            update={
+                "criterion_evidence": evidence,
+                "rubric_score": int(sum(row.points_awarded for row in evidence)),
+                "error_attributions": [],
+            }
+        )
+
+
+def test_a_failed_or_budget_skipped_diagnosis_is_unavailable_at_the_serve(tmp_path):
+    """Review F13: availability is the diagnosis in force, not the job's
+    state. A required diagnosis that failed or was skipped for budget leaves
+    the serve without one; a not-needed one takes the serve out of E7."""
+
+    from types import SimpleNamespace
+
+    from learnloop.attempts.regrade import regrade_attempt
+    from learnloop_sidecar.handlers.queue import record_diagnosis_serve
+
+    _paths, vault, repository = split_vault(
+        tmp_path, config="[diagnosis]\nmax_attempts = 1\nmax_calls_per_day = 1"
+    )
+    ctx = SimpleNamespace(post_attempt_worker=_Wait())
+    failing = ReviewFakeClient(fail_purposes=("diagnosis",))
+
+    failed_session = repository.create_session()
+    failed = submit(vault, repository, failing, session_id=failed_session, when=at(20))
+    assert [(o.state, o.error) for o in drain_jobs(vault, repository, failing)] == [("failed", "AIProviderUnavailable")]
+
+    budget_session = repository.create_session()
+    skipped = submit(vault, repository, ReviewFakeClient(), session_id=budget_session, when=at(21))
+    assert [(o.state, o.error) for o in drain_jobs(vault, repository, ReviewFakeClient())] == [("skipped", "budget")]
+
+    retired_session = repository.create_session()
+    flipping = _FlipToCorrect()
+    retired = submit(vault, repository, flipping, session_id=retired_session, when=at(22))
+    drain_jobs(vault, repository, flipping)  # over the daily cap: a budget skip
+    flipping.correct = True
+    regrade_attempt(
+        vault, repository, repository.fetch_practice_attempt(retired.attempt_id),
+        runtime=ReadyRuntime(), client=flipping, grading_source="ai", clock=None,
+    )
+    assert [(o.state, o.error) for o in drain_jobs(vault, repository, flipping)] == [("skipped", "not_needed")]
+
+    for session_id in (failed_session, budget_session, retired_session):
+        record_diagnosis_serve(ctx, repository, session_id)
+
+    receipts = repository.diagnosis_wait_receipts()
+    assert [(row["session_id"], row["served_without_diagnosis"], row["pending_attempt_ids"]) for row in receipts] == [
+        (failed_session, True, [failed.attempt_id]),
+        (budget_session, True, [skipped.attempt_id]),
+    ]
+
+
 def test_the_open_factor_takes_the_diagnosis_causes_when_it_lands(tmp_path):
     """§7.1: a blind attempt's factor opens at grade time with only the
     synthesized facet arms; when the diagnosis lands, the still-open factor

@@ -207,6 +207,30 @@ def diagnosis_status(repository: Repository, attempt_id: str) -> dict[str, Any]:
     return {"status": NOT_NEEDED, "diagnosis_id": None, "job_state": None}
 
 
+def session_diagnosis_availability(repository: Repository, session_id: str) -> tuple[list[str], list[str]]:
+    """E7 at one serve: (attempts whose live diagnosis is required, those without it).
+
+    Availability is the attempt's :func:`diagnosis_status`, which reads the
+    diagnosis in force, never a job state alone (review F13): ``done`` is
+    available; ``pending`` (queued or running) and ``failed`` (failed,
+    budget-skipped, rejected, or written for a superseded grade) are not. A
+    ``not_needed`` attempt (a regrade left nothing to explain) requires no
+    diagnosis and is outside the population.
+    """
+
+    jobs = repository.live_diagnosis_jobs_for_session(session_id)
+    required: list[str] = []
+    unavailable: list[str] = []
+    for attempt_id in dict.fromkeys(job["attempt_id"] for job in jobs):
+        status = diagnosis_status(repository, attempt_id)["status"]
+        if status == NOT_NEEDED:
+            continue
+        required.append(attempt_id)
+        if status != DONE:
+            unavailable.append(attempt_id)
+    return required, unavailable
+
+
 def pending_diagnosis_attempts(repository: Repository, attempt_ids: list[str]) -> list[str]:
     wanted = set(attempt_ids)
     return [
