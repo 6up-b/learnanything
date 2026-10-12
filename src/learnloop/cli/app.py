@@ -3011,6 +3011,7 @@ def attempt(
         max_estimated_usd=max_cost_usd,
     )
     spend = ReviewSpend(caps, price_per_million=price_per_million)
+    admitted = False
     try:
         resolved_attempt_type = attempt_type or (
             stuck_attempt_type(item.attempt_types_allowed, hints_used=hints_used)
@@ -3100,8 +3101,15 @@ def attempt(
                     codex_client=client if runtime.ready else None,
                 )
     except SpendLimitExceeded as exc:
-        # Raised before the request it refuses: nothing was sent for it.
-        _echo_attempt_plan({"version": 1, "status": "over_budget", "message": str(exc)}, json_output)
+        # Raised before the request it refuses, so that request was never
+        # sent. It can come mid-grade (re-review F7): a metered retry, or a
+        # later sample after the first used more than its estimate. The grade
+        # door then records nothing (no self-grade either) and closes its run;
+        # the calls already sent are in ``spend``.
+        refusal: dict[str, Any] = {"version": 1, "status": "over_budget", "message": str(exc)}
+        if admitted:
+            refusal["spend"] = spend.summary()
+        _echo_attempt_plan(refusal, json_output)
         raise typer.Exit(code=1)
     except (AttemptValidationError, ValueError) as exc:
         if json_output:
@@ -3247,6 +3255,12 @@ def _echo_attempt_plan(payload: dict[str, Any], json_output: bool) -> None:
             f"(~{grading.get('estimated_input_tokens_per_call')} input tokens each), "
             f"metered tokens {estimate.get('metered_total_tokens')}, est. USD {estimate.get('estimated_usd')}, "
             f"admissible={grading.get('admissible')}" + (f" ({grading['reason']})" if grading.get("reason") else "")
+        )
+    charged = (payload.get("spend") or {}).get("charged") or {}
+    if charged:
+        typer.echo(
+            f"Already sent: {charged.get('calls')} call(s), metered tokens {charged.get('metered_total_tokens')}, "
+            f"est. USD {charged.get('metered_estimated_usd')}. Nothing was recorded."
         )
 
 @app.command()

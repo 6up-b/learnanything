@@ -13,6 +13,7 @@ from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport, legacy_codex_status
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION, GradingProposal
 from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import (
@@ -625,6 +626,14 @@ def _complete_attempt_with_agent_fallback(
             )
     except sqlite3.IntegrityError as exc:
         _finish_superseded_grading_run(repository, agent_run_id, ai_client, exc, clock=clock)
+        raise
+    except SpendLimitExceeded as exc:
+        # A command's caps refused a retry or a later sample (re-review F7).
+        # That is the command's over-budget answer, never a grading failure to
+        # cover with the self-grade: close the run (its tokens are recorded)
+        # and let the command report it. It subclasses ValueError, so it is
+        # caught before the fallback below.
+        _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock)
         raise
     except (CodexUnavailable, TimeoutError, GradingValidationError, AttemptValidationError, ValueError) as exc:
         if _finish_run_after_grading_error(repository, agent_run_id, ai_client, attempt_id, exc, clock=clock):

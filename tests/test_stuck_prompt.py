@@ -1038,3 +1038,84 @@ def test_cli_subscription_grading_counts_calls_without_a_token_bound(tmp_path, m
     )
     assert capped.exit_code == 1 and json.loads(capped.output)["status"] == "over_budget"
     assert _attempt_ids(repository) == before
+
+
+# -- re-review F7: a spend refusal mid-grade is over budget, never a self-grade -------
+
+
+class MeteredTurnsFake(StuckFake):
+    """A metered grader whose calls take ``turns`` physical requests each.
+
+    A turn after the first is what a transport retry or a JSON repair looks
+    like to the spend collector; ``input_tokens`` is the usage each request
+    reports (so a first sample can use more than its estimate).
+    """
+
+    def __init__(self, *, turns: int = 1, input_tokens: int = 500, **kwargs) -> None:
+        super().__init__(provider_type="openai_compatible", model="fake-metered", **kwargs)
+        self.turns = turns
+        self.input_tokens = input_tokens
+
+    def complete(self, request):
+        from learnloop.ai.execution import model_call, report_call_usage
+
+        from tests.diagnosis_fakes import prompt_payload
+
+        self.calls.append(request.purpose)
+        self.prompts.append(request.prompt)
+        self.isolated.append(request.isolated)
+        for _turn in range(self.turns):
+            with model_call(self, purpose=f"{request.purpose}:fake_turn", prompt=request.prompt):
+                report_call_usage({"input_tokens": self.input_tokens, "output_tokens": 200})
+        context = prompt_payload(request.prompt).get("context") or {}
+        return getattr(self, f"_{request.purpose}")(request, context)
+
+
+def _grading_runs(repository):
+    with connect(repository.sqlite_path, read_only=True) as connection:
+        return [
+            dict(row)
+            for row in connection.execute(
+                "SELECT status, error_message FROM agent_runs WHERE purpose = 'grading' ORDER BY started_at, id"
+            ).fetchall()
+        ]
+
+
+def _assert_over_budget_and_nothing_recorded(result, repository, before):
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.output)
+    assert payload["status"] == "over_budget", payload
+    # Not the self-grade: no attempt at all, and the grading run is closed failed.
+    assert _attempt_ids(repository) == before
+    runs = _grading_runs(repository)
+    assert runs and runs[-1]["status"] == "failed", runs
+    assert "exceeds max_" in (runs[-1]["error_message"] or ""), runs
+    assert "exceeds max_" in payload["message"]
+    return payload
+
+
+def test_cli_a_retry_refused_by_the_caps_is_over_budget_not_a_self_grade(tmp_path, monkeypatch):
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    before = _attempt_ids(repository)
+    client = MeteredTurnsFake(turns=2)  # the second physical request is a retry
+    result, _built = _cli_attempt(
+        monkeypatch, paths.root, client, "--stuck", "--answer", "Why is V transposed?",
+        "--price-per-million", "2.0", "--max-retries", "0",
+    )
+    payload = _assert_over_budget_and_nothing_recorded(result, repository, before)
+    # The first request of the sample was sent and is charged in the summary.
+    assert payload["spend"]["charged"]["calls"] == 1
+
+
+def test_cli_a_later_sample_refused_by_the_caps_is_over_budget_not_a_self_grade(tmp_path, monkeypatch):
+    paths, _vault, repository = _stuck_vault(tmp_path, config="[diagnostic_augmentation]\nsample_count = 2\n")
+    before = _attempt_ids(repository)
+    # The first sample reports far more input than its estimate, so the
+    # second sample no longer fits the token cap the plan was admitted on.
+    client = MeteredTurnsFake(input_tokens=400_000)
+    result, _built = _cli_attempt(
+        monkeypatch, paths.root, client, "--stuck", "--answer", "Why is V transposed?", "--price-per-million", "2.0",
+    )
+    payload = _assert_over_budget_and_nothing_recorded(result, repository, before)
+    assert client.calls == ["blind_grading"]  # the refused sample was never sent
+    assert payload["spend"]["charged"]["metered_total_tokens"] >= 400_000
