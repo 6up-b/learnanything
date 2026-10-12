@@ -4,7 +4,9 @@
   the last word matched as a prefix, fused (RRF) with today's substring match,
   so every block the old search found can still rank. Local, no model. The
   response says whether pressing Enter would also search by meaning
-  (``meaning_search``: the stored index's coverage, read without any call).
+  (``meaning_search``: the stored index's coverage, cached until the library
+  or its vectors change, and the embedding route's readiness, read without
+  any call).
 * **Deep** (the learner presses Enter): also dense retrieval over the stored
   source-block vectors of every fully embedded source (one cached query
   embedding), and for a conceptual question the LLM-rewritten query, inside
@@ -21,6 +23,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from learnloop.ai.routing import MANUAL_PROVIDER, provider_for_task, runtime_for_provider
 from learnloop.ai.spend import SpendBudget, SpendCaps
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.source_block_fts import query_terms
@@ -63,12 +66,31 @@ def _snippet(text: str, query: str) -> str:
     return f"{'…' if start > 0 else ''}{flat[start:end]}{'…' if end < len(flat) else ''}"
 
 
-def meaning_search_state(vault: LoadedVault, repository: Repository, scope: Scope) -> dict[str, Any]:
+def embedding_route_problem(vault: LoadedVault) -> str | None:
+    """Why the ``embedding`` route cannot embed a query now, or None (no call).
+
+    The route's readiness as the query embedder will resolve it (embeddings
+    never fall back to another provider): a route is configured, and its
+    profile is ready (for OpenRouter, the API key is set). A provider that is
+    down is only found out by calling it; Enter then says so.
+    """
+
+    selection = provider_for_task(vault.config, "embedding")
+    provider = selection.provider_name
+    if not provider or provider == MANUAL_PROVIDER:
+        return "No provider is routed for embedding; set ai.routing.embedding."
+    runtime = runtime_for_provider(vault.root, vault.config, provider, task="embedding")
+    return None if runtime.ready else (runtime.message or f"{provider} is not ready")
+
+
+def meaning_search_state(vault: LoadedVault, repository: Repository, scope: Scope, *,
+                         embedder: Any | None = None) -> dict[str, Any]:
     """Whether a deep search would rank by meaning, and over how much of the scope.
 
     No call and no vector bytes: the stored index's per-source coverage, the
-    embedding switch and a known query-embedding price. ``status`` is
-    ``ready`` or ``partial`` exactly when Enter would run a meaning search.
+    embedding switch, a known query-embedding price and (unless an embedder is
+    injected) the embedding route's readiness. ``status`` is ``ready`` or
+    ``partial`` exactly when Enter would run a meaning search.
     """
 
     model_id = vault.config.embedding.model
@@ -85,6 +107,10 @@ def meaning_search_state(vault: LoadedVault, repository: Repository, scope: Scop
         state.update(status="unavailable", reason=(
             f"unknown query-embedding price for {model_id}; set "
             "source_retrieval.query_embedding_price_per_million"))
+    elif index.usable and embedder is None:
+        problem = embedding_route_problem(vault)
+        if problem is not None:
+            state.update(status="unavailable", reason=f"the embedding route is not ready: {problem}")
     return state
 
 
@@ -122,7 +148,8 @@ def search_library(
     } for hit in search.hits]
     return {
         "query": needle, "hits": hits, "searched_sources": len(scope.extractions),
-        "basis": search.basis, "deep": deep, "meaning_search": meaning_search_state(vault, repository, scope),
+        "basis": search.basis, "deep": deep,
+        "meaning_search": meaning_search_state(vault, repository, scope, embedder=embedder),
         "retrieval": search.describe(),
     }
 
@@ -209,4 +236,5 @@ def plan_library_search(vault: LoadedVault, repository: Repository, *, query: st
     return {**plan, "status": "planned", "calls": calls, "estimated_usd": total_usd}
 
 
-__all__ = ["deep_search_caps", "meaning_search_state", "plan_library_search", "search_library"]
+__all__ = ["deep_search_caps", "embedding_route_problem", "meaning_search_state", "plan_library_search",
+           "search_library"]

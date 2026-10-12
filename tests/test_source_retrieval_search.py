@@ -248,7 +248,8 @@ def _add_unembedded_source(repository):
                 furniture=False)
 
 
-def test_a_new_import_leaves_meaning_search_on_for_the_embedded_sources(tmp_path):
+def test_a_new_import_leaves_meaning_search_on_for_the_embedded_sources(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")  # the route is ready; nothing is called
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     backfill(paths)
     _add_unembedded_source(repository)  # no vectors yet: one import must not switch meaning off
@@ -268,7 +269,8 @@ def test_a_new_import_leaves_meaning_search_on_for_the_embedded_sources(tmp_path
     assert typed["meaning_search"]["blocks"] - typed["meaning_search"]["blocks_covered"] == 2  # header + text
 
 
-def test_the_typing_search_says_whether_enter_would_search_by_meaning(tmp_path):
+def test_the_typing_search_says_whether_enter_would_search_by_meaning(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")  # the route is ready; nothing is called
     paths, repository = build_retrieval_vault(tmp_path / "vault")
     vault = loaded(paths)
     before = search_library(vault, repository, query="determinant")

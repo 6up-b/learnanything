@@ -9,15 +9,16 @@ never pays twice, and replay never embeds anything.
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import closing
+from contextlib import closing, nullcontext
 from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+import time
 from typing import Any
 
 import numpy as np
 
-from learnloop.ai.embedding import EmbeddingClient
+from learnloop.ai.embedding import EmbeddingClient, embedding_request_timeout
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.routing import ready_client_for_task
@@ -131,11 +132,14 @@ def embed_queries(
     owner_id: str = "",
     cancelled: Callable[[], bool] | None = None,
     record_kind: str = QUERY_RECORD_KIND,
+    deadline: float | None = None,
 ) -> QueryVectors:
     """Vectors for ``{record_id: text}``, embedding only what is not cached.
 
     ``record_kind`` names the consumer whose queries these are (default the
-    practice index's ``practice_query``)."""
+    practice index's ``practice_query``). ``deadline`` (``time.monotonic()``)
+    time-boxes the requests: none starts after it, and each one carries the
+    time left as its request timeout (status ``timed_out`` either way)."""
     result = QueryVectors()
     reason = embedding_ready(vault, embedder)
     if reason is not None:
@@ -185,7 +189,11 @@ def embed_queries(
                     raise ValueError("A query exceeds the embedding input limit")
                 estimate = SpendEstimate(candidates=len(batch), calls=1, total_tokens=tokens,
                                          estimated_usd=tokens * price / 1_000_000)
-                with budget.request(estimate):
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError("the time box ran out before the query embedding")
+                bounded = nullcontext() if remaining is None else embedding_request_timeout(remaining)
+                with budget.request(estimate), bounded:
                     vectors = client.embed([text for _, text in batch], QUERY_TASK_PREFIX)
                 if len(vectors) != len(batch) or any(len(v) != client.dims for v in vectors):
                     raise ValueError("Embedding provider returned the wrong vector count or width")
@@ -202,8 +210,13 @@ def embed_queries(
         result.status = "cancelled"
     except SpendLimitExceeded as exc:
         result.status, result.reason = "over_budget", str(exc)
+    except TimeoutError as exc:
+        result.status, result.reason = "timed_out", str(exc)
     except AIProviderUnavailable as exc:
-        result.status, result.reason = "provider_failed", type(exc).__name__
+        if getattr(exc, "provider_error", None) == "APITimeoutError":
+            result.status, result.reason = "timed_out", "the embedding request ran out of time"
+        else:
+            result.status, result.reason = "provider_failed", type(exc).__name__
     except ValueError as exc:
         result.status, result.reason = "invalid", str(exc)
     result.charged = asdict(budget.used)

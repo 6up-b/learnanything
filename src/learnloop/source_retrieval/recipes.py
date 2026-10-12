@@ -127,13 +127,16 @@ _MANIFEST_LOCK = Lock()
 _MANIFEST_CACHE_SIZE = 64
 
 
-def extraction_manifest(connection, sqlite_path: Path, extraction_id: str) -> dict[str, str]:
+def extraction_manifest(connection, sqlite_path: Path, extraction_id: str,
+                        fingerprint: tuple[int, int] | None = None) -> dict[str, str]:
     """``{record_id: content_hash}`` of one extraction's embeddable blocks (cached).
 
-    Keyed by the extraction's block fingerprint, so replaced blocks are rehashed.
+    Keyed by the extraction's block fingerprint (``fingerprint`` when the
+    caller already read it), so replaced blocks are rehashed.
     """
 
-    key = (str(sqlite_path), extraction_id, extraction_fingerprint(connection, extraction_id))
+    key = (str(sqlite_path), extraction_id,
+           fingerprint if fingerprint is not None else extraction_fingerprint(connection, extraction_id))
     with _MANIFEST_LOCK:
         cached = _MANIFESTS.get(key)
         if cached is not None:

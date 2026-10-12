@@ -7,7 +7,7 @@ import hashlib
 import math
 import os
 
-from learnloop.ai.embedding import EmbedInput, TASK_PREFIXES, Vector
+from learnloop.ai.embedding import EmbedInput, TASK_PREFIXES, Vector, current_embedding_timeout
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.ai.transport import EMBEDDING
@@ -95,6 +95,10 @@ class OpenAIEmbeddingProviderClient:
             described.append(text)
         if not texts:
             return []
+        # A caller's time box (embedding_request_timeout) bounds this request;
+        # otherwise the client's own timeout applies.
+        timeout = current_embedding_timeout()
+        options = {} if timeout is None else {"timeout": max(float(timeout), 0.001)}
         with model_call(self, purpose="embedding", prompt=described):
             try:
                 response = self._client.embeddings.create(
@@ -102,6 +106,7 @@ class OpenAIEmbeddingProviderClient:
                     input=texts,
                     encoding_format="float",
                     extra_body={"provider": {"data_collection": "deny"}},
+                    **options,
                 )
             except Exception as exc:
                 # Normalize SDK errors for the bounded retry owner. Provider

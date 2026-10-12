@@ -182,10 +182,12 @@ def rewritten_text(rewrite: Rewrite) -> str:
 def embed_query_texts(
     vault: LoadedVault, repository: Repository, texts: Mapping[str, str], *,
     embedder: Any | None = None, owner_id: str = "", budget: SpendBudget | None = None,
+    deadline: float | None = None,
 ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
     """Query vectors by key (cached by text; one capped request for the rest).
 
-    ``budget`` replaces the default caps (``QUERY_EMBEDDING_CAPS``) with a caller's.
+    ``budget`` replaces the default caps (``QUERY_EMBEDDING_CAPS``) with a caller's;
+    ``deadline`` bounds the request (it carries the time left as its timeout).
     """
 
     queries = {query_id(text): normalize_query(text)[:MAX_QUERY_CHARS] for text in texts.values() if text.strip()}
@@ -195,6 +197,7 @@ def embed_query_texts(
         vault, repository, queries, budget=budget or SpendBudget(QUERY_EMBEDDING_CAPS), embedder=embedder,
         price_per_million=vault.config.source_retrieval.query_embedding_price_per_million,
         owner_kind="source_query_embedding", owner_id=owner_id, record_kind=QUERY_RECORD_KIND,
+        deadline=deadline,
     )
     vectors = {key: result.vectors[query_id(text)] for key, text in texts.items()
                if text.strip() and query_id(text) in result.vectors}

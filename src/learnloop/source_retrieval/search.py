@@ -149,8 +149,9 @@ def search_spans(
     ``rewrite`` None follows the config and the conceptual-question gate.
     ``query_vectors`` (``{"query": v, "rewrite": v}``) and ``rewritten`` let a
     benchmark reuse vectors and rewrites it already paid for. ``deadline``
-    (``time.monotonic()``) time-boxes the paid steps: the rewrite's request
-    carries the remaining time and no query embedding starts after it.
+    (``time.monotonic()``) time-boxes the paid steps: the rewrite's and the
+    query embedding's requests carry the remaining time as their timeout, and
+    neither starts after it.
     ``budget`` puts both paid steps under one caller's caps.
     """
 
@@ -218,7 +219,8 @@ def search_spans(
                 result.query_embedding = {"status": "timed_out", "reason": "the retrieval time box ran out"}
             else:
                 vectors, result.query_embedding = embed_query_texts(
-                    vault, repository, texts, embedder=embedder, owner_id=owner_id, budget=budget)
+                    vault, repository, texts, embedder=embedder, owner_id=owner_id, budget=budget,
+                    deadline=deadline)
 
             def permit(record_id: str) -> bool:
                 return scope.allows(*split_record_id(record_id))

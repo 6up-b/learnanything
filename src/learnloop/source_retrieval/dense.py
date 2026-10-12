@@ -22,8 +22,11 @@ id. A test pins a complete scope's ranking and scores to ``retrieve()``.
 Coverage (no vector bytes read) and the centred, row-normalized matrix are
 cached per process, keyed by database, model, the scope's manifest digest and a
 fingerprint of the stored vectors, so a long-lived sidecar reads the vectors
-once per index state and the typing search can say cheaply whether a meaning
-search is available.
+once per index state. Coverage is also cached by a cheap fingerprint of the
+scope (each extraction's block count and largest rowid, one grouped query), so
+a typing search on an unchanged library says whether a meaning search is
+available without re-reading or re-hashing any block, however many sources
+the library holds.
 """
 from __future__ import annotations
 
@@ -40,6 +43,7 @@ import numpy as np
 from learnloop.ai.execution import content_key
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.source_block_fts import extraction_fingerprints
 from learnloop.source_retrieval.corpus import Scope
 from learnloop.source_retrieval.recipes import (
     DOC_TASK_PREFIX,
@@ -123,6 +127,8 @@ class _Coverage:
 
 _CACHE: OrderedDict[tuple[Any, ...], DenseIndex] = OrderedDict()
 _COVERAGE: OrderedDict[tuple[Any, ...], _Coverage] = OrderedDict()
+#: Cheap scope fingerprint -> (coverage, its manifest-digest key).
+_BY_FINGERPRINT: OrderedDict[tuple[Any, ...], tuple[_Coverage | None, tuple[Any, ...]]] = OrderedDict()
 _CACHE_LOCK = Lock()
 _CACHE_SIZE = 4
 _COVERAGE_SIZE = 16
@@ -132,6 +138,7 @@ def clear_cache() -> None:
     with _CACHE_LOCK:
         _CACHE.clear()
         _COVERAGE.clear()
+        _BY_FINGERPRINT.clear()
 
 
 def _vectors_fingerprint(connection, model_id: str) -> tuple[int, int]:
@@ -181,20 +188,39 @@ def _covering_rows(connection, *, model_id: str, extraction_id: str,
     return found
 
 
+def _remember(cheap: tuple[Any, ...], coverage: _Coverage | None,
+              key: tuple[Any, ...]) -> tuple[_Coverage | None, tuple[Any, ...]]:
+    with _CACHE_LOCK:
+        _BY_FINGERPRINT[cheap] = (coverage, key)
+        while len(_BY_FINGERPRINT) > _COVERAGE_SIZE:
+            _BY_FINGERPRINT.popitem(last=False)
+    return coverage, key
+
+
 def _coverage(connection, sqlite_path: Path, model_id: str, extraction_ids: list[str],
               ) -> tuple[_Coverage | None, tuple[Any, ...]]:
-    manifests = {extraction_id: extraction_manifest(connection, sqlite_path, extraction_id)
+    fingerprints = extraction_fingerprints(connection, extraction_ids)
+    vectors = _vectors_fingerprint(connection, model_id)
+    cheap = (str(sqlite_path), model_id, tuple(sorted(fingerprints.items())), vectors)
+    with _CACHE_LOCK:
+        seen = _BY_FINGERPRINT.get(cheap)
+        if seen is not None:
+            _BY_FINGERPRINT.move_to_end(cheap)
+            return seen
+    manifests = {extraction_id: extraction_manifest(connection, sqlite_path, extraction_id,
+                                                    fingerprints.get(extraction_id))
                  for extraction_id in extraction_ids}
     manifests = {key: value for key, value in manifests.items() if value}
     if not manifests:
-        return None, ()
+        return _remember(cheap, None, ())
     digest = content_key(sorted((key, sorted(value.items())) for key, value in manifests.items()))
-    key = (str(sqlite_path), model_id, digest, _vectors_fingerprint(connection, model_id))
+    key = (str(sqlite_path), model_id, digest, vectors)
     with _CACHE_LOCK:
         cached = _COVERAGE.get(key)
         if cached is not None:
             _COVERAGE.move_to_end(key)
-            return cached, key
+    if cached is not None:
+        return _remember(cheap, cached, key)
     rows: dict[str, str] = {}
     complete: list[str] = []
     uncovered = 0
@@ -211,7 +237,7 @@ def _coverage(connection, sqlite_path: Path, model_id: str, extraction_ids: list
         _COVERAGE[key] = coverage
         while len(_COVERAGE) > _COVERAGE_SIZE:
             _COVERAGE.popitem(last=False)
-    return coverage, key
+    return _remember(cheap, coverage, key)
 
 
 def _label(coverage: _Coverage) -> tuple[str, str | None]:
