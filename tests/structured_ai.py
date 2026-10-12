@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.transport import STRUCTURED_COMPLETION, StructuredRequest
 from learnloop.ai.usage import TokenUsage
 from learnloop.attempts.ai_contracts import GradingContext
@@ -36,6 +37,11 @@ from learnloop.diagnosis.ai_contracts import (
     ProbeDialogueTurnContext,
     ProbeFamilyTrialsContext,
     ProbeInstanceContext,
+)
+from learnloop.projects.ai_contracts import (
+    ClosedBookContext,
+    ProbeAuthoringContext,
+    ProbeGradingContext,
 )
 from learnloop.reader.ai_contracts import ReaderPresetSynthesisContext, ReadingQuickCheckContext
 from learnloop.tutor.ai_contracts import (
@@ -72,6 +78,9 @@ _HANDLER_FOR_PURPOSE = {
     "video_storyboard": "run_video_storyboard",
     "append_reconciliation": "run_append_reconciliation",
     "vault_epigraphs": "run_vault_epigraphs",
+    "project_probe_authoring": "run_project_probe_authoring",
+    "project_closed_book_check": "run_project_closed_book_check",
+    "project_probe_grading": "run_project_probe_grading",
 }
 
 _CONTEXT_FOR_PURPOSE = {
@@ -97,6 +106,9 @@ _CONTEXT_FOR_PURPOSE = {
     "video_storyboard": VideoStoryboardContext,
     "append_reconciliation": AppendReconciliationContext,
     "vault_epigraphs": VaultEpigraphContext,
+    "project_probe_authoring": ProbeAuthoringContext,
+    "project_closed_book_check": ClosedBookContext,
+    "project_probe_grading": ProbeGradingContext,
 }
 
 
@@ -156,7 +168,9 @@ class StructuredClientFake:
     model = "fake-model"
 
     def supports(self, capability: str) -> bool:
-        return capability == STRUCTURED_COMPLETION
+        # A payload fake runs no tools (it cannot demonstrate isolation; see
+        # tests/test_ai_tool_isolation.py for the enforced boundary).
+        return capability in {STRUCTURED_COMPLETION, TOOL_FREE}
 
     def complete(self, request: StructuredRequest[Any]) -> Any:
         context = _request_context(request.prompt, request.purpose)
@@ -179,3 +193,20 @@ class StructuredClientFake:
 
     def consume_usage(self) -> TokenUsage:
         return TokenUsage()
+
+
+class RecordingStructuredClientFake(StructuredClientFake):
+    """Records every request's purpose and full prompt, for payload assertions.
+
+    Project-understanding gates G2 (no secret reaches a model) and G3 (no arm,
+    explanation, judge output or provenance label in a rendered prompt) are
+    asserted on ``requests``.
+    """
+
+    def __init__(self) -> None:
+        self.requests: list[tuple[str, str]] = []
+
+    def complete(self, request: StructuredRequest[Any]) -> Any:
+        self.requests.append((request.purpose, request.prompt))
+        return super().complete(request)
+

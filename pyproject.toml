@@ -86,8 +86,53 @@ forbidden_modules = [
     "learnloop.ops",
     "learnloop.params",
     "learnloop.sim",
+    "learnloop.projects",
 ]
 allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "projects-stay-standalone"
+name = "Project understanding M1 stays off vault state, scheduling and adapters"
+type = "forbidden"
+source_modules = ["learnloop.projects"]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    "learnloop.content",
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.ops",
+    "learnloop.params",
+    "learnloop.sim",
+    "learnloop.db.repositories",
+    "learnloop.db.stores",
+    "learnloop.vault.loader",
+    "learnloop.vault.repository",
+    "learnloop.cli",
+    "learnloop.tui",
+    "learnloop_sidecar",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "replay-never-reaches-projects"
+name = "Replay, rebuild and evidence code never reach project capture (G7)"
+type = "forbidden"
+source_modules = [
+    "learnloop.substrate",
+    "learnloop.learner",
+    "learnloop.attempts",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+]
+forbidden_modules = ["learnloop.projects"]
+allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
 id = "primitives-have-no-internal-dependencies"

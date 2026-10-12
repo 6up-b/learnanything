@@ -834,6 +834,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "measurement authority."),
     _ConfigRule(_exact("embedding.dimensions"), "structural", "operational",
                 "Vector representation width; embeddings have no measurement authority."),
+    _ConfigRule(_prefix("project."), "structural", "operational",
+                "Project-understanding M1 knob (probe delay/count, context window, sweep "
+                "throttle); it acts only on the standalone projects/project_store.sqlite, "
+                "whose answers are practice only, so it has no vault measurement authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

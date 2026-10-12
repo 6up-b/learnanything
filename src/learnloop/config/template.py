@@ -749,6 +749,7 @@ animation = "codex_medium"
 transcription = ""
 video_generation = ""
 embedding = "openrouter_embedding"
+# project = ""  # project understanding: probe authoring + closed-book check (empty = the grading route)
 
 # Embeddings are opt-in: both switches stay off until you enable them.
 # Remote embeddings send learner-derived text to OpenRouter and its upstream
@@ -777,7 +778,9 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
     # routes only; no scoring, scheduling, projection or serving change.
-    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
+    # Project understanding M1 adds the [project] section and the
+    # ai.routing.project route; both act only on the standalone project store.
+    "mvp-0.9": "c80efa31d58d5180780b453456d565e62d819b52d186a198e0ca915eac46253c",
 }
 
 

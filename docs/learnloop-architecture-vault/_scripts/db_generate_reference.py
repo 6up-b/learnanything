@@ -840,6 +840,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "ingest": "source acquisition, extraction, media handling, token budgets, and durable workers",
     "ai": "typed provider profiles and task-to-provider routing",
     "embedding": "opt-in embedding substrate, model identity, backfill consent, and privacy disclosure",
+    "project": "project-understanding M1: automatic capture of agent-written diffs and delayed probes in the standalone project store",
     "capabilities": "optional capability-residual activation and shrinkage",
     "locks": "evidence gates that lock facets and curriculum progress",
     "error_impacts": "error-family severity shaping",
@@ -1000,6 +1001,58 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "embedding.privacy_disclosure": (
         "Read-only disclosure computed by the schema and shown in Settings and `config effective`; "
         "setting it in learnloop.toml has no effect."
+    ),
+    "ai.routing.project": (
+        "Names the provider profile for project-understanding probe authoring and the closed-book "
+        "check. Empty follows ai.routing.grading, then the active provider; probe grading itself "
+        "always uses the grading route."
+    ),
+    "project.auto_sweep": (
+        "Kill switch for the automatic, git-only capture sweep at app start and Today-queue build; "
+        "`learnloop project sweep` still runs when false. Nothing happens until a repo is enrolled."
+    ),
+    "project.probe_delay_days": (
+        "Days after capture that a diff's probes stay sealed (never rendered by any command); "
+        "stored on each probe when it is generated."
+    ),
+    "project.probes_per_diff": (
+        "Probes selected at random (stored seed) from the survivors of the validity and "
+        "closed-book filters; fewer survivors leave the diff under-probed."
+    ),
+    "project.candidates_per_diff": (
+        "Answer-first candidates requested from the authoring model per diff before filtering."
+    ),
+    "project.min_diff_lines": (
+        "M1b gate randomization threshold (spec section 5.1): smaller diffs are left out of "
+        "randomization. M1 probes every capture with probe-able content."
+    ),
+    "project.context_lines": (
+        "Head-side lines of context stored and sent around each hunk; extended to the enclosing "
+        "function or class while the bundle fits project.context_token_budget."
+    ),
+    "project.context_token_budget": (
+        "Upper bound on one diff bundle's estimated tokens; larger diffs keep hunk-only excerpts, "
+        "then drop trailing files, and are marked truncated."
+    ),
+    "project.enroll_backfill_days": (
+        "On enrollment, agent-trailer commits from this many days back are captured too."
+    ),
+    "project.plan_sweep_min_interval_minutes": (
+        "Minimum minutes between automatic plan-build sweeps; app start always sweeps."
+    ),
+    "project.generate_before_serving": (
+        "When true, `learnloop project probes` generates questions for due diffs that have none "
+        "before serving, under the command's spend caps."
+    ),
+    "project.grading_reasoning_effort": (
+        "Reasoning effort for probe grading (closed-book judgments and answer grades), applied to the "
+        "grading route's profile when it takes an effort; empty keeps the route's own effort (spec "
+        "section 5.2: one high-effort pass)."
+    ),
+    "project.require_tool_isolation": (
+        "Kill switch for tool isolation: when true, an agentic transport (Codex) runs project calls in "
+        "a bubblewrap sandbox with no home, vault or repo visible, and a transport that can be neither "
+        "sandboxed nor is tool-free is refused; false runs unconfined and receipts record none."
     ),
 }
 

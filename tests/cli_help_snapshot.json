@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 20867,
-    "sha256": "d351c91c300320f53c3715f962c1cda62029ece0ee2292ec231c261b5e8b0f52"
+    "bytes": 21037,
+    "sha256": "e527d8c7daee1a62e4759d15f4e416877be737c377547ccee64e552fc98b292d"
   },
   "accept": {
     "bytes": 1593,
@@ -466,6 +466,62 @@
   "probe-regrade": {
     "bytes": 1458,
     "sha256": "df25dcce68813ebdb6274d762b9702df2557f4ad0bbc6592dd043947c965258e"
+  },
+  "project": {
+    "bytes": 3287,
+    "sha256": "6055ef286737892aaa722605b8c3bb2ffb99b2805d8511440f80e2a083919c65"
+  },
+  "project accept": {
+    "bytes": 1805,
+    "sha256": "01a7db055f8eff9d7e62ed5a1fea203aa31fc7a202de8a1f7871a27ed1281ff2"
+  },
+  "project answer": {
+    "bytes": 4645,
+    "sha256": "fec7e1e3f3b47bbc2364d26cd36652aa67fb4d18e2c4d194a9e6cb024eb674f3"
+  },
+  "project contest": {
+    "bytes": 2091,
+    "sha256": "b5a99ea009a1a4c0ed986e5789b5530040d0338c819795cfd4e557fe003a6c8e"
+  },
+  "project enroll": {
+    "bytes": 2941,
+    "sha256": "12c2cde5cd34dabb843f21ef752ffc26b797b52857ae22db96baab90f7b98909"
+  },
+  "project grade": {
+    "bytes": 3671,
+    "sha256": "2139432ff0563ff44851f6477a1420729a33aa25d5f4c6a1cce0ef18cb376ce4"
+  },
+  "project install-hook": {
+    "bytes": 1670,
+    "sha256": "31306edb09942d0e88986196f18f77d6a738710611a7c8b84748af36b34bde2a"
+  },
+  "project probes": {
+    "bytes": 4355,
+    "sha256": "4ffda75b5d51b95484f120d43c554b2c865e9072976abf4110d0fde5bb511341"
+  },
+  "project provenance": {
+    "bytes": 2010,
+    "sha256": "80931feaaf10231a23387547b5b3c830b04dd18c24a473456a456b1d66d5141c"
+  },
+  "project report": {
+    "bytes": 1206,
+    "sha256": "b073978191cb43749ec1f3922b4e3465c3bb84addbbfe5faa0a56202110f5e9f"
+  },
+  "project status": {
+    "bytes": 1380,
+    "sha256": "938ac945fbe87dc0e3d78a70badc4e410c991a392a433378a06a7d90ead46453"
+  },
+  "project sweep": {
+    "bytes": 4857,
+    "sha256": "e5961bdf353864da37eb4245415f068eebccf7baaf3422c248e110f90804a1f4"
+  },
+  "project unenroll": {
+    "bytes": 1670,
+    "sha256": "d9dbaeaf12e9c4a1e5bbf956384e0f885769e4df75e6c7042c25c82e0231b8e6"
+  },
+  "project uninstall-hook": {
+    "bytes": 1670,
+    "sha256": "f55e1489802e6ae205f3b8168d528412c7d1b30453951de944976930223fdfee"
   },
   "proposals": {
     "bytes": 963,

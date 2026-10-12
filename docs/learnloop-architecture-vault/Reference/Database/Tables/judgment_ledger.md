@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "e07079932fc00729fa62fad21ea0a15401c37940"
+source_commit_timestamp: "2026-10-12T00:42:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/db/stores/judgments.py"
+  - "src/learnloop/projects/experiment_store.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

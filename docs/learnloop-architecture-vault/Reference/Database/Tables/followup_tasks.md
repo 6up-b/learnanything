@@ -3,8 +3,8 @@ title: "followup_tasks"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "e07079932fc00729fa62fad21ea0a15401c37940"
+source_commit_timestamp: "2026-10-12T00:42:17-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite followup_tasks"
@@ -147,6 +147,7 @@ Indexes and uniqueness:
 - `tests/test_remediation_cold_retry.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_certification_cold_probe.py`
+- `tests/test_daily_loop_lo_lifecycle_serving.py`
 - `tests/test_diagnostic_probe_freshness.py`
 - `tests/test_followup_diagnostic_selection.py`
 - `tests/test_guided_redo.py`

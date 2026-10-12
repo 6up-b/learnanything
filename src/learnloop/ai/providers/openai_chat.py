@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from learnloop.ai.errors import AIInvalidOutput, AIOutputTruncated, CodexUnavailable
+from learnloop.ai.isolation import TOOL_FREE
 from learnloop.ai.execution import model_call, report_call_usage
 from learnloop.ai.multimodal import (
     MediaTranscript,
@@ -117,6 +118,9 @@ class OpenAIChatProviderClient(TokenUsageAccounting):
 
     def supports(self, capability: str) -> bool:
         if capability in {STRUCTURED_COMPLETION, "complete", "structured"}:
+            return True
+        if capability == TOOL_FREE:
+            # A chat completion runs no tools: the request is all it sees.
             return True
         modalities = set(self.profile.input_modalities or [])
         if capability in {MEDIA_TRANSCRIPTION, "audio"}:
