@@ -20,6 +20,14 @@ Paths:
   for numeric/symbolic answers by an LLM-written sympy check run in the
   sandbox. A declared isomorph must pass the structure check. The selection
   judge ranks verified survivors only.
+* ``source_anchored``: papers, textbooks, repos. Answer first from a cited
+  span of the LO's teaching sources; the reference is verified only when the
+  quoted span appears verbatim in that source (and a "method does not apply"
+  item carries its counterexample). Why-items without a verified span are
+  relabelled ``inferred`` and never published (provenance filter); items whose
+  target is source-specific are rejected when a closed-book model answers them
+  correctly (closed-book filter). No figure items exist yet (figure-only is not
+  applicable) and executable what-if perturbations are not built.
 * ``single_shot``: the pilot baseline arm. One call, measured by the same
   verification and filters, never published.
 
@@ -54,7 +62,7 @@ from learnloop.content.authoring.pf_sandbox import (
     require_sandbox, run_equivalence_checks, run_generator_tests, sandbox_available,
 )
 from learnloop.content.authoring.practice_leakage import (
-    build_held_out_inventory, screen_practice_payload,
+    build_cross_source_spans, build_held_out_inventory, screen_practice_payload,
 )
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import pf as store
@@ -76,20 +84,23 @@ from learnloop.vault.models import ActivityFamily, FamilyReference, LoadedVault,
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.writer import upsert_activity_family
 
-PATHS = ("generator", "ensemble", "single_shot")
+PATHS = ("generator", "ensemble", "source_anchored", "single_shot")
 RELATIONS = ("same_target", "isomorph", "near", "far")
 GENERATOR_VERSIONS = {"generator": "pf_generator_v1", "ensemble": "pf_ensemble_v1",
-                      "single_shot": "pf_single_shot_v1"}
+                      "source_anchored": "pf_source_anchored_v1", "single_shot": "pf_single_shot_v1"}
 GATE_POLICY_VERSION = "pf_gate_v1"
 FILTER_ORDER = (
     "authoring_gates", "held_out_leakage", "exact_duplicate", "execution_cas",
-    "solve_first_agreement", "solver_panel_outlier", "structure_check", "freshness",
+    "solve_first_agreement", "quote_verified_span", "provenance", "closed_book",
+    "solver_panel_outlier", "structure_check", "freshness",
 )
 NOT_APPLICABLE_FILTERS = ("closed_book", "figure_only", "provenance")
 OUTPUT_TOKENS = {
     "skeleton": 1200, "program": 6000, "proposer": 8000, "single_shot": 8000, "panel": 1500,
     "equivalence": 2500, "structure": 800, "freshness": 2500, "selection": 1500,
+    "source": 8000, "closed_book": 1500,
 }
+MIN_QUOTE_WORDS = 4
 LEASE_SECONDS = 3600
 DIFFICULTY_BOUNDS = (0.02, 0.98)
 
@@ -229,7 +240,7 @@ def family_targets(vault: LoadedVault, options: GenerationOptions) -> list[tuple
 def _resolve_path(vault: LoadedVault, family: ActivityFamily, requested: str) -> str:
     if requested != "auto":
         return requested
-    if family.source_kind in {"generator", "ensemble"}:
+    if family.source_kind in {"generator", "ensemble", "source_anchored"}:
         return family.source_kind
     return vault.config.pf.default_path
 
@@ -404,11 +415,15 @@ class _FamilyRun:
             self.parent_skeleton = self._parent_skeleton()
             if self.path == "generator":
                 self._generate_programs()
+            elif self.path == "source_anchored":
+                self._generate_source_anchored()
             else:
                 self._generate_proposals()
             self._free_filters()
             if self.path == "generator":
                 self._panel_generator()
+            elif self.path == "source_anchored":
+                self._verify_source_anchored()
             else:
                 self._verify_ensemble()
             self._structure()
@@ -631,6 +646,121 @@ class _FamilyRun:
                     checkpoints=payload["checkpoints"], operations=[], model=call.model,
                     prompt_version=call.prompt_version, summary=payload.get("change_note") or "",
                 )
+
+    # source-anchored path
+    def _passages(self) -> list[dict[str, Any]]:
+        """Teaching spans for the LO (assessment-adjacent sources excluded), plus quotes on the parent."""
+        passages: list[dict[str, Any]] = []
+        for span in build_cross_source_spans(self.ctx.vault, self.ctx.repository,
+                                             self.parent.learning_object_id, max_spans_per_item=6):
+            passages.append({"text": span.text, "label": span.label, "extraction_id": span.extraction_id,
+                             "span_id": span.span_id, "source_id": span.source_id})
+        for ref in self.parent.provenance.source_refs:
+            if ref.quote and ref.quote.strip():
+                passages.append({"text": ref.quote.strip(), "label": ref.ref_type, "ref_id": ref.ref_id,
+                                 "extraction_id": ref.extraction_id, "span_id": (ref.span_ids or [None])[0]})
+        return [{**passage, "ref": f"s{index}"} for index, passage in enumerate(passages)]
+
+    def _generate_source_anchored(self) -> None:
+        passages = self._passages()
+        self.passages = {passage["ref"]: passage for passage in passages}
+        if not passages:
+            self.notes.append("no teaching source spans for this LO")
+            self.report["status_detail"] = "no_source_spans"
+            return
+        entry = self.ctx.role("source")[0]
+        call = self.ctx.caller.call(
+            entry, prompt=C.source_anchored_prompt(
+                passages=[{"ref": passage["ref"], "text": passage["text"]} for passage in passages],
+                parent=_item_context(self.parent), family=_family_context(self.family), count=self.count),
+            prompt_version=C.SOURCE_ANCHORED_PROMPT, result_model=C.SourceAnchoredBatch,
+            output_tokens=OUTPUT_TOKENS["source"], candidates=self.count,
+        )
+        for index, proposed in enumerate(call.result.candidates[:self.count]):
+            payload = proposed.model_dump(mode="json")
+            passage = self.passages.get(proposed.cited_ref) or {}
+            solution = proposed.solution.strip() + f'\n\nSource: "{proposed.cited_quote.strip()}"'
+            if proposed.counterexample:
+                solution += f"\n\nCounterexample: {proposed.counterexample.strip()}"
+            payload.update(final_answer=proposed.answer, solution=solution, answer_kind="text",
+                           techniques=[proposed.item_kind], checkpoints=["cite the source span", "answer"],
+                           cited_span={key: passage.get(key) for key in ("label", "extraction_id", "span_id",
+                                                                          "source_id", "ref_id")})
+            candidate = Candidate(
+                id="pfc_" + content_key([self.request["id"], "source", call.input_hash, index])[:32],
+                path="source_anchored", payload=payload, proposer_model=call.model,
+                prompt_version=C.SOURCE_ANCHORED_PROMPT, declared_relation=self.relation,
+            )
+            self.candidates.append(candidate)
+            self._persist(candidate, insert=True)
+
+    @staticmethod
+    def _quote_in(quote: str, text: str) -> bool:
+        def normalized(value: str) -> str:
+            return " ".join(value.casefold().split())
+
+        return len(quote.split()) >= MIN_QUOTE_WORDS and normalized(quote) in normalized(text)
+
+    def _verify_source_anchored(self) -> None:
+        """Quote-verified span (exact key), provenance relabel, then the closed-book filter."""
+        passages = getattr(self, "passages", {})
+        for candidate in [c for c in self.candidates if c.alive]:
+            payload = candidate.payload
+            passage = passages.get(payload["cited_ref"])
+            quoted = passage is not None and self._quote_in(payload["cited_quote"], passage["text"])
+            complete = payload["item_kind"] != "method_does_not_apply" or bool((payload.get("counterexample") or "").strip())
+            verified = quoted and complete
+            self.ctx.caller.ledger(
+                task="reference_verified", left_kind="pf_candidate", left_id=candidate.id,
+                judge="exact_key", prompt_version="pf-quote-span-v1", input_hash=candidate.content_hash,
+                verdict="pass" if verified else "fail",
+                rationale={"check": "quote_verified_span", "quote_found": quoted,
+                           "counterexample_required": payload["item_kind"] == "method_does_not_apply",
+                           "item_kind": payload["item_kind"]},
+            )
+            if not verified:
+                if payload["item_kind"] == "why" and not quoted:
+                    # Uncited rationale is a plausible interpretation, never the key.
+                    payload["provenance_label"] = "inferred"
+                    self.ctx.caller.ledger(
+                        task="provenance", left_kind="pf_candidate", left_id=candidate.id,
+                        judge="verifier", prompt_version="pf-quote-span-v1",
+                        input_hash=candidate.content_hash, verdict="inferred",
+                        rationale={"reason": "no verified span"},
+                    )
+                    self._reject(candidate, "provenance", "relabelled_inferred_unverified")
+                else:
+                    self._reject(candidate, "quote_verified_span", {"quote_found": quoted, "complete": complete})
+                continue
+            candidate.verification = "verified"
+            candidate.verification_check = "quote_verified_span"
+            self._pass(candidate, "quote_verified_span")
+            self._pass(candidate, "provenance", "cited")
+            if not payload.get("source_specific"):
+                self._pass(candidate, "closed_book", "not_source_specific")
+                self._persist(candidate)
+                continue
+            closed = self.ctx.role("closed_book")[0]
+            call = self.ctx.caller.call(
+                closed, prompt=C.closed_book_prompt(stem=payload["stem"]), prompt_version=C.CLOSED_BOOK_PROMPT,
+                result_model=C.PanelSolve, output_tokens=OUTPUT_TOKENS["closed_book"],
+            )
+            solve = {"model": call.model, "index": 0, "input_hash": call.input_hash,
+                     "final_answer": call.result.final_answer, "answer_kind": call.result.answer_kind}
+            outcome = self._agreement("pf_candidate", candidate.id, candidate.content_hash,
+                                      payload["stem"], payload["answer"], [solve])
+            answerable = outcome["agree"] >= 1
+            self.ctx.caller.ledger(
+                task="closed_book", left_kind="pf_candidate", left_id=candidate.id, judge="llm",
+                judge_model=call.model, prompt_version=C.CLOSED_BOOK_PROMPT, input_hash=call.input_hash,
+                verdict="answerable" if answerable else "not_answerable",
+                rationale={"verifier_model": outcome["verifier_model"]},
+            )
+            if answerable:
+                self._reject(candidate, "closed_book", {"closed_book_model": call.model})
+                continue
+            self._pass(candidate, "closed_book", {"closed_book_model": call.model})
+            self._persist(candidate)
 
     # free filters
     def _free_filters(self) -> None:
@@ -1149,15 +1279,22 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
                                         comparisons=[{"ref": "item_0", "prompt": stem_proxy}] * max(1, compare)),
         "selection": C.selection_prompt(family=_family_context(family),
                                         survivors=[{"ref": "c0", "stem": stem_proxy}] * n, slots=pf.select_per_family),
+        "source": C.source_anchored_prompt(passages=[{"ref": "s0", "text": stem_proxy * 4}] * 6,
+                                           parent=context, family=_family_context(family), count=n),
+        "closed_book": C.closed_book_prompt(stem=stem_proxy),
     }
     models = {"skeleton": C.SkeletonResult, "program": C.GeneratorProgramResult, "proposer": C.ProposalBatch,
               "panel": C.PanelSolve, "equivalence": C.EquivalenceResult, "structure": C.StructureVerdict,
-              "freshness": C.FreshnessVerdict, "selection": C.SelectionVerdict}
+              "freshness": C.FreshnessVerdict, "selection": C.SelectionVerdict,
+              "source": C.SourceAnchoredBatch, "closed_book": C.PanelSolve}
     calls = {"skeleton": 1, "panel": (n + 1) * panel * k, "structure": 1 if path == "generator" else n,
              "freshness": n}
     if path == "generator":
         calls["program"] = 1
         calls["equivalence"] = 1
+    elif path == "source_anchored":
+        calls.pop("panel")
+        calls.update(source=1, closed_book=n, equivalence=n)
     else:
         role = "single_shot" if path == "single_shot" else "proposer"
         calls[role] = 1 if path == "single_shot" else len(roles["proposer"])
@@ -1271,7 +1408,8 @@ def generate_practice(
             "config_hash": content_key(vault.config.model_dump(mode="json")),
             "prompt_versions": sorted({C.SKELETON_PROMPT, C.GENERATOR_PROGRAM_PROMPT, C.PROPOSER_PROMPT,
                                        C.SINGLE_SHOT_PROMPT, C.PANEL_SOLVE_PROMPT, C.EQUIVALENCE_PROMPT,
-                                       C.STRUCTURE_PROMPT, C.FRESHNESS_PROMPT, C.SELECTION_PROMPT}),
+                                       C.STRUCTURE_PROMPT, C.FRESHNESS_PROMPT, C.SELECTION_PROMPT,
+                                       C.SOURCE_ANCHORED_PROMPT, C.CLOSED_BOOK_PROMPT}),
             "gate_policy_version": GATE_POLICY_VERSION, "diversity_basis": DIVERSITY_BASIS,
             "panel_solves_per_model": vault.config.pf.panel_solves_per_model,
             "min_agreeing_solves": vault.config.pf.min_agreeing_solves,
@@ -1305,17 +1443,19 @@ def generate_practice(
         used_roles |= {"proposer", "equivalence", "selection"}
     if "single_shot" in paths.values():
         used_roles |= {"single_shot", "equivalence"}
+    if "source_anchored" in paths.values():
+        used_roles |= {"source", "closed_book", "equivalence"}
     try:
         if dry_run:
             roles = {role: (resolve_role_clients(vault, role, injected=clients[role])
                             if clients and role in clients
                             else planned_role_clients(vault, role, tier_routes=tier_routes))
-                     for role in ("skeleton", "program", "single_shot", "proposer", "panel",
-                                  "equivalence", "structure", "freshness", "selection")}
+                     for role in ("skeleton", "program", "single_shot", "source", "proposer", "panel",
+                                  "equivalence", "closed_book", "structure", "freshness", "selection")}
         else:
             roles = {}
-            for role in ("skeleton", "program", "single_shot", "proposer", "panel", "equivalence",
-                         "structure", "freshness", "selection"):
+            for role in ("skeleton", "program", "single_shot", "source", "proposer", "panel", "equivalence",
+                         "closed_book", "structure", "freshness", "selection"):
                 if role in used_roles:
                     roles[role] = resolve_role_clients(vault, role, injected=(clients or {}).get(role),
                                                        tier_routes=tier_routes)

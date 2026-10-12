@@ -3,13 +3,13 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "b6731f0754a06c94e1511dbd5b8ddb328769106f"
+source_commit_timestamp: "2026-10-12T12:14:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
   - "table activity_surfaces"
-schema_head: 168
+schema_head: 169
 table_name: "activity_surfaces"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/pf_reports.py"
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
@@ -100,6 +101,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/pf_reports.py`
 
 ### Direct SQL writers
 

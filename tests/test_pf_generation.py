@@ -435,3 +435,34 @@ def test_enable_helper_round_trips_the_template_switch(tmp_path):
     enable_pf(paths.root, max_published_per_day=3)
     config = load_vault(paths.root).config.pf
     assert config.generation_enabled and config.max_published_per_day == 3
+
+
+@needs_bwrap
+def test_source_anchored_items_need_a_quote_verified_span_and_must_not_be_closed_book(tmp_path):
+    from learnloop.vault.writer import upsert_practice_item
+
+    _, repository, paths = seed_pf_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    parent = vault.practice_items["pi_linear_001"].model_dump(mode="json")
+    parent["provenance"] = {"origin": "human", "source_refs": [{
+        "ref_type": "manual_context", "ref_id": "ctx1",
+        "quote": "The focus of a parabola is the fixed point used with the directrix to define it."}]}
+    upsert_practice_item(paths.root, parent)
+    report = run(paths, path="source_anchored", count=5, select=5)
+    assert report["status"] == "complete", report
+    by_stem = {json.loads(row["payload_json"])["stem"]: row for row in rows(repository)}
+    why = by_stem["Why did the authors choose a directrix?"]
+    assert why["rejection_filter"] == "provenance" and why["verification"] == "unverified"
+    assert json.loads(why["payload_json"])["provenance_label"] == "inferred"
+    assert by_stem["GENERIC: what is a parabola?"]["rejection_filter"] == "closed_book"
+    assert by_stem["When does the focus construction fail?"]["rejection_filter"] == "quote_verified_span"
+    verified = [row for row in by_stem.values() if row["verification"] == "verified"]
+    assert {row["verification_check"] for row in verified} == {"quote_verified_span"}
+    published = load_vault(paths.root)
+    for item_id in report["published_item_ids"]:
+        item = published.practice_items[item_id]
+        assert 'Source: "The focus of a parabola' in item.expected_answer
+        assert item.difficulty is None and item.difficulty_source is None  # no panel on this path
+    assert report["published_item_ids"]
+    assert {row["verdict"] for row in ledger(repository, "closed_book")} == {"answerable", "not_answerable"}
+    assert [row["verdict"] for row in ledger(repository, "provenance")] == ["inferred"]

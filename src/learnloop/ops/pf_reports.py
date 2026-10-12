@@ -46,7 +46,7 @@ from learnloop.vault.paths import VaultPaths
 REPORT_VERSION = "pf-reports-v1"
 PILOT_PAIRS = 15
 SCALING_PAIRS = 10
-ARMS = ("single_shot", "generator", "ensemble")
+ARMS = ("single_shot", "generator", "ensemble", "source_anchored")
 
 
 def wilson(successes: int, total: int, z: float = 1.96) -> list[float] | None:

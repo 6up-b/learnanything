@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 21547,
-    "sha256": "0e50944357d337d3d74087284ffb611af2138f59c228021a3bb1411283417485"
+    "bytes": 21717,
+    "sha256": "9290ff7ca26b7163ea104f570504157c931240051eb5459abc9cf725042616b0"
   },
   "accept": {
     "bytes": 1593,
@@ -268,20 +268,32 @@
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
   },
   "embeddings": {
-    "bytes": 1587,
-    "sha256": "06c65cc5fd4fa58de73a7538dba27ec25e0c9987651a60fcd34a04f71e4070e7"
+    "bytes": 1757,
+    "sha256": "1698610c5e46bd866f3f690f30d64239d22ef6c7694fa2bfd25145a8fd0e07a2"
   },
   "embeddings backfill": {
     "bytes": 3744,
     "sha256": "323d1d1b749967326456178b1bdb65bf25bec2cddaaec47f36a8ecdf1d135892"
   },
+  "embeddings compare": {
+    "bytes": 6980,
+    "sha256": "3a067687193cb5baad93571beed89e34bb93e00de787ddfe3791954008b08cde"
+  },
   "eval": {
-    "bytes": 7454,
-    "sha256": "2910cafb51c5033778ad15e8e3d3123db1fe5ad93bc3a888f1ba83e3bdb8a8ed"
+    "bytes": 7794,
+    "sha256": "0987479a01778585139b6634082e9964f4083ae4a526486dfc14cb50480af915"
   },
   "eval families": {
     "bytes": 3491,
     "sha256": "5f262a093a607c08e55fdf64b56d9e19856049638acf8fce37424e74f297d569"
+  },
+  "eval pf-pilot": {
+    "bytes": 3503,
+    "sha256": "27d31caa6c6f5e1e61b36bed482c816a0e980b76029f991a4575a58cb6409271"
+  },
+  "eval pf-scaling": {
+    "bytes": 3252,
+    "sha256": "eed0f194ffba6b4197e803550dd680447322c7f6f969f72ff862aa6148986e72"
   },
   "exam": {
     "bytes": 1842,
@@ -490,6 +502,22 @@
   "persona-realism": {
     "bytes": 2145,
     "sha256": "4d9fde4345e6aa483fd682920f2efa59203cd9c6a54e921070ff1ae27fade4b3"
+  },
+  "pf": {
+    "bytes": 1927,
+    "sha256": "faebeb365d27b8e26c577c1fe71e703ee9216a1840fc1aeb7efb8beb6faa5e58"
+  },
+  "pf generate": {
+    "bytes": 8684,
+    "sha256": "b37caf550985cf89586ba19b567d1f0f22f342ee388f9814c4e4f957d27ba002"
+  },
+  "pf publish": {
+    "bytes": 1206,
+    "sha256": "67475d71495f4bd1c1360dff2928e3ffe9aed1d3c344fa638059364f0c6510c1"
+  },
+  "pf status": {
+    "bytes": 1125,
+    "sha256": "15bc0244f55ae11e49b7ebefdb0620b95a2eaeae75e96447ab34149a9fa84a3b"
   },
   "populate-goal": {
     "bytes": 3856,

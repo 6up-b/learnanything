@@ -3,13 +3,13 @@ title: "surface_mint_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "b6731f0754a06c94e1511dbd5b8ddb328769106f"
+source_commit_timestamp: "2026-10-12T12:14:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite surface_mint_requests"
   - "table surface_mint_requests"
-schema_head: 168
+schema_head: 169
 table_name: "surface_mint_requests"
 table_role: "workflow"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/078_surface_mint_jobs.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/pf_generation.py"
   - "src/learnloop/substrate/surface_mint.py"
 tags:
   - "learnloop/database/table"
@@ -47,7 +48,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/078_surface_mint_jobs.sql`.
-- **Schema touched by:** `078_surface_mint_jobs.sql`, `080_mint_fencing_and_commitment_idempotency.sql`.
+- **Schema touched by:** `078_surface_mint_jobs.sql`, `080_mint_fencing_and_commitment_idempotency.sql`, `169_pf_generation.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -93,8 +94,10 @@ Indexes and uniqueness:
 
 - `Repository._existing()`
 - `Repository.claim_next_surface_mint_request()`
+- `Repository.claim_surface_mint_request()`
 - `Repository.enqueue_surface_mint_request()`
 - `Repository.obsolete_surface_mint_requests_for_card_versions()`
+- `Repository.release_surface_mint_request()`
 - `Repository.resolve_surface_mint_request()`
 - `Repository.set_surface_mint_candidate()`
 - `Repository.surface_mint_request()`
@@ -110,6 +113,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/ops/pf_generation.py`
 - `src/learnloop/substrate/surface_mint.py`
 
 > [!note] Static-reference boundary
@@ -117,6 +121,8 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_item_fingerprints.py`
+- `tests/test_pf_generation.py`
 - `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

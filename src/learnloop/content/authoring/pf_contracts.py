@@ -28,6 +28,8 @@ FRESHNESS_PROMPT = "pf-freshness-isomorph-v1"
 SELECTION_PROMPT = "pf-selection-v1"
 PAIRWISE_PROMPT = "pf-blind-pairwise-v1"
 VALID_ALTERNATIVE_PROMPT = "pf-valid-alternative-v1"
+SOURCE_ANCHORED_PROMPT = "pf-source-anchored-v1"
+CLOSED_BOOK_PROMPT = "pf-closed-book-v1"
 
 AnswerKind = Literal["numeric", "symbolic", "text"]
 _DATA_NOT_INSTRUCTIONS = (
@@ -110,6 +112,23 @@ class TraceVariant(WireModel):
     trace: str = Field(min_length=1, max_length=8000)
     final_answer: str = Field(min_length=1, max_length=1000)
     route_note: str = Field(max_length=600)
+
+
+class SourceAnchoredCandidate(WireModel):
+    """Answer first: the cited span, then the answer it supports, then the question."""
+
+    cited_ref: str = Field(min_length=1, max_length=40)
+    cited_quote: str = Field(min_length=1, max_length=2000)
+    answer: str = Field(min_length=1, max_length=2000)
+    stem: str = Field(min_length=1, max_length=4000)
+    solution: str = Field(min_length=1, max_length=6000)
+    item_kind: Literal["why", "what", "what_if", "method_does_not_apply", "explain"]
+    source_specific: bool
+    counterexample: str | None = Field(max_length=3000)
+
+
+class SourceAnchoredBatch(WireModel):
+    candidates: list[SourceAnchoredCandidate] = Field(min_length=1, max_length=30)
 
 
 class ValidAlternativeTraces(WireModel):
@@ -254,6 +273,32 @@ def pairwise_prompt(*, a: Mapping[str, Any], b: Mapping[str, Any]) -> str:
     )
 
 
+def source_anchored_prompt(*, passages: list[Mapping[str, Any]], parent: Mapping[str, Any],
+                           family: Mapping[str, Any], count: int) -> str:
+    return _prompt(
+        "Source-anchored practice items", SOURCE_ANCHORED_PROMPT,
+        f"Write {count} practice items for this family, answer first: pick a passage, quote "
+        "the exact words (cited_quote, copied verbatim from that passage, cited_ref its ref) "
+        "that contain the answer, write the answer they support, then derive the question. "
+        "Why/design-rationale items must cite the span that states the reason; never answer "
+        "from plausible but unstated rationale. Novelty items key on the source's own "
+        "contribution statements. A 'method does not apply' item must give its counterexample. "
+        "Mark source_specific when the item tests what this source says rather than general "
+        "knowledge. Do not write multiple choice or true/false items.",
+        {"passages": list(passages), "parent": parent, "family": family, "count": count},
+    )
+
+
+def closed_book_prompt(*, stem: str) -> str:
+    return _prompt(
+        "Closed-book answer", CLOSED_BOOK_PROMPT,
+        "Answer this question from general knowledge only, without any source. Give your "
+        "best final answer, its answer_kind and a short work summary; answer UNKNOWN if you "
+        "cannot answer without the source.",
+        {"question": stem},
+    )
+
+
 def valid_alternative_prompt(*, prompt: str, reference: str, count: int) -> str:
     return _prompt(
         "Valid-alternative solution traces", VALID_ALTERNATIVE_PROMPT,
@@ -268,11 +313,13 @@ def valid_alternative_prompt(*, prompt: str, reference: str, count: int) -> str:
 __all__ = [
     "EQUIVALENCE_PROMPT", "FRESHNESS_PROMPT", "GENERATOR_PROGRAM_PROMPT", "PAIRWISE_PROMPT",
     "PANEL_SOLVE_PROMPT", "PROPOSER_PROMPT", "SELECTION_PROMPT", "SINGLE_SHOT_PROMPT",
-    "SKELETON_PROMPT", "STRUCTURE_PROMPT", "VALID_ALTERNATIVE_PROMPT",
+    "CLOSED_BOOK_PROMPT", "SKELETON_PROMPT", "SOURCE_ANCHORED_PROMPT", "STRUCTURE_PROMPT",
+    "VALID_ALTERNATIVE_PROMPT", "SourceAnchoredBatch", "SourceAnchoredCandidate",
     "EquivalenceResult", "FreshnessComparison", "FreshnessVerdict", "GeneratorProgramResult",
     "PairwiseVerdict", "PanelSolve", "ProposalBatch", "ProposedCandidate", "SelectionVerdict",
     "SkeletonResult", "StructureVerdict", "TraceVariant", "ValidAlternativeTraces",
     "equivalence_prompt", "freshness_prompt", "generator_program_prompt", "pairwise_prompt",
-    "panel_solve_prompt", "proposer_prompt", "selection_prompt", "skeleton_prompt",
+    "closed_book_prompt", "panel_solve_prompt", "proposer_prompt", "selection_prompt",
+    "skeleton_prompt", "source_anchored_prompt",
     "structure_prompt", "valid_alternative_prompt",
 ]

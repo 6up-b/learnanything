@@ -113,6 +113,27 @@ class PFFake:
             count = context["count"]
             items = self.proposals or default_proposals(self.model)
             return C.ProposalBatch(candidates=[C.ProposedCandidate(**item) for item in items[:count]])
+        if model is C.PanelSolve and "question" in context:  # closed-book answer
+            generic = "GENERIC" in context["question"]
+            return C.PanelSolve(final_answer="the generic answer" if generic else "UNKNOWN",
+                                answer_kind="text", work_summary="closed book")
+        if model is C.SourceAnchoredBatch:
+            text = context["passages"][0]["text"]
+            quote = " ".join(text.split()[:7])
+            items = [
+                ("what", f"According to the source, what defines the focus? (variant {i})", quote, True, None)
+                for i in range(2)
+            ] + [
+                ("why", "Why did the authors choose a directrix?", "the authors preferred elegance above all", True, None),
+                ("what", "GENERIC: what is a parabola?", quote, True, None),
+                ("method_does_not_apply", "When does the focus construction fail?", quote, True, None),
+            ]
+            return C.SourceAnchoredBatch(candidates=[
+                C.SourceAnchoredCandidate(
+                    cited_ref="s0", cited_quote=cited, stem=stem, solution="Read the cited span.",
+                    answer="the generic answer" if "GENERIC" in stem else f"answer {index}",
+                    item_kind=kind, source_specific=specific, counterexample=counter)
+                for index, (kind, stem, cited, specific, counter) in enumerate(items)][:context["count"]])
         if model is C.PanelSolve:
             stem = context["problem"]
             answer = solve_linear(stem) or "UNSOLVABLE"
@@ -123,13 +144,19 @@ class PFFake:
             from sympy import simplify, sympify
 
             reference = context["reference_final_answer"]
+            try:
+                sympify(reference)
+                kind = "numeric"
+            except Exception:
+                kind = "text"
             agreements = []
             for entry in context["answers"]:
                 try:
                     agreements.append(bool(simplify(sympify(reference) - sympify(entry["answer"])) == 0))
                 except Exception:
                     agreements.append(entry["answer"].strip() == reference.strip())
-            return C.EquivalenceResult(answer_kind="numeric", agreements=agreements, sympy_check=SYMPY_CHECK)
+            return C.EquivalenceResult(answer_kind=kind, agreements=agreements,
+                                       sympy_check=SYMPY_CHECK if kind == "numeric" else None)
         if model is C.StructureVerdict:
             stem = context["candidate"]["stem"]
             relation = "near" if "NEARVARIANT" in stem else "isomorph"
@@ -168,9 +195,15 @@ def proposal(stem: str, answer: str | None = None) -> dict[str, Any]:
             "checkpoints": ["isolate the x term", "divide by the coefficient"]}
 
 
+_CONTAINERS = ("tank", "barrel", "flask", "basin", "vat", "jug", "cask")
+
+
 def default_proposals(model: str) -> list[dict[str, Any]]:
-    offset = 1 if model.endswith("a") else 2
-    return [proposal(f"A tank holds {3 + offset}x + {5 + index} = {30 + index} litres; solve for x.")
+    """Distinct per model, so different proposers never collide by accident."""
+    seed = sum(map(ord, model))
+    container = _CONTAINERS[seed % len(_CONTAINERS)]
+    offset = seed % 5
+    return [proposal(f"A {container} holds {3 + offset}x + {5 + index} = {30 + index} litres; solve for x.")
             for index in range(10)]
 
 
@@ -227,7 +260,7 @@ def seed_pf_vault(root: Path, *, enabled: bool = True, extra_items: int = 0, **s
 def clients(proposer_models=("fake-a", "fake-b"), **overrides: Any) -> dict[str, Any]:
     base = PFFake("fake-judge")
     result: dict[str, Any] = {
-        "skeleton": base, "program": base, "single_shot": base,
+        "skeleton": base, "program": base, "single_shot": base, "source": base, "closed_book": base,
         "proposer": [PFFake(model) for model in proposer_models],
         "panel": [PFFake("fake-panel-1"), PFFake("fake-panel-2")],
         "equivalence": base, "structure": base, "freshness": base, "selection": base,

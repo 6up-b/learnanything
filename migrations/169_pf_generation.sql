@@ -16,7 +16,7 @@ CREATE TABLE pf_candidates (
   parent_item_id TEXT NOT NULL,
   learning_object_id TEXT NOT NULL,
   generation_path TEXT NOT NULL
-    CHECK (generation_path IN ('generator', 'ensemble', 'single_shot')),
+    CHECK (generation_path IN ('generator', 'ensemble', 'source_anchored', 'single_shot')),
   declared_relation TEXT NOT NULL
     CHECK (declared_relation IN ('same_target', 'isomorph', 'near', 'far')),
   final_relation TEXT

@@ -849,6 +849,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "trace_evidence": "opportunistic trace evidence and learner-burden limits",
     "diagnostic_augmentation": "multi-sample diagnostic augmentation",
     "families": "explicit-command offline family authoring, not live scheduling",
+    "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
 }
 
 

@@ -48,6 +48,8 @@ ROLE_TASKS: dict[str, str] = {
     "program": "pf_generator",
     "single_shot": "pf_generator",
     "valid_alternative": "pf_generator",
+    "source": "pf_generator",
+    "closed_book": "pf_closed_book",
     "proposer": "pf_proposers",
     "panel": "pf_solver_panel",
     "equivalence": "pf_reference_verifier",
@@ -60,8 +62,8 @@ ROLE_TASKS: dict[str, str] = {
 LIST_ROLES = frozenset({"proposer", "panel"})
 # Roles the scaling check moves between tiers (Slice 2 §5.6). The solver panel
 # and the reference verifier are the verifiers and stay fixed for comparability.
-TIERED_ROLES = frozenset({"skeleton", "program", "single_shot", "proposer", "structure",
-                          "freshness", "selection"})
+TIERED_ROLES = frozenset({"skeleton", "program", "single_shot", "source", "proposer", "structure",
+                          "freshness", "closed_book", "selection"})
 
 
 @dataclass
