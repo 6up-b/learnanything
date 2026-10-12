@@ -626,3 +626,40 @@ def test_a_codex_pf_turn_starts_outside_the_vault_with_tools_off_and_never_reuse
     assert f'default_permissions="{ISOLATED_PROFILE}"' in overrides
     assert {"features.shell_tool=false", "features.unified_exec=false",
             "mcp_servers.filesystem.enabled=false"} <= set(overrides)
+
+
+# -- Codex review F3: a final isomorph always has a passing structure check ----------------
+
+
+@needs_bwrap
+@pytest.mark.parametrize("relation", ["isomorph", "near"])
+def test_freshness_never_restores_isomorph_over_a_failed_structure_check(pf, relation):
+    _, repository, paths = pf
+    first = [proposal("NEARVARIANT 4x + 3 = 19 coins; solve for x.")]
+    second = [proposal("NEARVARIANT 8x + 3 = 35 pens; solve for x.")]
+    eager = PFFake("fake-judge", freshness_parent="isomorph")  # the two judges disagree
+    fakes = clients(proposer=[PFFake("fake-a", proposals=first), PFFake("fake-b", proposals=second)],
+                    freshness=eager)
+    report = run(paths, fakes=fakes, count=2, select=5, relation=relation)
+    assert report["status"] == "complete"
+    candidates = rows(repository)
+    assert candidates and all(row["final_relation"] == "near" for row in candidates)
+    for row in candidates:
+        freshness = json.loads(row["filters_json"])["freshness"]["detail"]
+        assert freshness.get("isomorph_relabel_refused") and "relabelled" not in freshness
+    vault = load_vault(paths.root)
+    published = [vault.practice_items[item_id] for item_id in report["published_item_ids"]]
+    assert published and all(item.variant_relation == "near" and item.trace_contract is None for item in published)
+
+
+@needs_bwrap
+def test_an_isomorph_verdict_without_preserved_checkpoints_is_never_a_final_isomorph(pf):
+    _, repository, paths = pf
+    inconsistent = PFFake("fake-judge", structure={"relation": "isomorph", "checkpoint_sequence_preserved": False})
+    report = run(paths, fakes=clients(structure=inconsistent), relation="near")
+    assert report["status"] == "complete"
+    candidates = rows(repository, "rejection_filter IS NULL")
+    assert candidates and all(row["final_relation"] == "near" for row in candidates)
+    declared_isomorph = run(paths, fakes=clients(structure=inconsistent), round="r2")
+    assert declared_isomorph["status"] == "complete"
+    assert all(row["final_relation"] != "isomorph" for row in rows(repository, "round='r2'"))

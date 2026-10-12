@@ -84,11 +84,17 @@ class PFFake:
 
     def __init__(self, model: str = "fake-model", *, proposals: list[dict[str, Any]] | None = None,
                  program: str = LINEAR_PROGRAM, select_everything: bool = False,
-                 provider_type: str | None = None) -> None:
+                 provider_type: str | None = None, freshness_parent: str | None = None,
+                 structure: dict[str, Any] | None = None) -> None:
         self.model = model
         self.proposals = proposals
         self.program = program
         self.select_everything = select_everything
+        # Freshness verdict on the parent (when not same_surface): lets a test
+        # make the freshness judge disagree with the structure check.
+        self.freshness_parent = freshness_parent
+        # A fixed StructureVerdict override (relation, checkpoint_sequence_preserved).
+        self.structure = structure
         self.calls: list[Any] = []
         if provider_type is not None:
             self.provider_type = provider_type
@@ -160,15 +166,22 @@ class PFFake:
         if model is C.StructureVerdict:
             stem = context["candidate"]["stem"]
             relation = "near" if "NEARVARIANT" in stem else "isomorph"
-            return C.StructureVerdict(relation=relation, checkpoint_sequence_preserved=relation == "isomorph",
+            fixed = self.structure or {}
+            return C.StructureVerdict(relation=fixed.get("relation", relation),
+                                      checkpoint_sequence_preserved=fixed.get(
+                                          "checkpoint_sequence_preserved", relation == "isomorph"),
                                       rubric_applies_verbatim="RUBRICMISMATCH" not in stem, rationale="checked")
         if model is C.FreshnessVerdict:
             stem = _letters(context["candidate"]["stem"])
+            def verdict(item: dict[str, Any]) -> str:
+                if _letters(item["prompt"]) == stem:
+                    return "same_surface"
+                if item.get("is_parent") and self.freshness_parent:
+                    return self.freshness_parent
+                return "different"
+
             return C.FreshnessVerdict(comparisons=[
-                C.FreshnessComparison(
-                    ref=item["ref"],
-                    verdict="same_surface" if _letters(item["prompt"]) == stem else "different",
-                    rationale="compared")
+                C.FreshnessComparison(ref=item["ref"], verdict=verdict(item), rationale="compared")
                 for item in context["comparisons"]])
         if model is C.SelectionVerdict:
             refs = [item["ref"] for item in context["candidates"]]

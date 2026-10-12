@@ -87,6 +87,9 @@ from learnloop.vault.writer import upsert_activity_family
 
 PATHS = ("generator", "ensemble", "source_anchored", "single_shot")
 RELATIONS = ("same_target", "isomorph", "near", "far")
+# Relations that keep the parent's trace contract: each needs a passing
+# checkpoint-preservation (structure) check.
+TRACE_RELATIONS = frozenset({"same_target", "isomorph"})
 GENERATOR_VERSIONS = {"generator": "pf_generator_v1", "ensemble": "pf_ensemble_v1",
                       "source_anchored": "pf_source_anchored_v1", "single_shot": "pf_single_shot_v1"}
 GATE_POLICY_VERSION = "pf_gate_v1"
@@ -1134,26 +1137,40 @@ class _FamilyRun:
         for candidate in alive:
             call, verdict = verdicts.get(candidate.id) or verdicts[targets[0].id]
             detail = {"judged_relation": verdict.relation, "model": call.model,
+                      "checkpoint_sequence_preserved": verdict.checkpoint_sequence_preserved,
                       "rubric_applies_verbatim": verdict.rubric_applies_verbatim}
             if verdict.relation == "reject" or not verdict.rubric_applies_verbatim:
                 self._reject(candidate, "structure_check", detail)
                 continue
-            if candidate.declared_relation == "isomorph" and (
-                    verdict.relation != "isomorph" or not verdict.checkpoint_sequence_preserved):
+            judged = verdict.relation
+            if judged in TRACE_RELATIONS and not verdict.checkpoint_sequence_preserved:
+                # The checkpoint sequence differs, so the candidate is at most
+                # near, whatever relation the judge named (§5.3 step 3).
+                judged = "near"
+                detail["checkpoints_differ"] = True
+            if candidate.declared_relation == "isomorph" and judged != "isomorph":
                 # A declared isomorph without a passing structure check is
                 # never published as an isomorph: relabel near, or reject.
-                if verdict.relation in {"near", "far"} and self.path != "generator":
-                    candidate.final_relation = verdict.relation
-                    detail["relabelled"] = verdict.relation
+                if judged in {"near", "far"} and self.path != "generator":
+                    candidate.final_relation = judged
+                    detail["relabelled"] = judged
                 else:
                     self._reject(candidate, "structure_check", detail)
                     continue
             else:
                 candidate.final_relation = (
                     candidate.declared_relation if candidate.declared_relation in {"near", "far"}
-                    and verdict.relation in {"near", "far"} else verdict.relation)
+                    and judged in {"near", "far"} else judged)
             self._pass(candidate, "structure_check", detail)
             self._persist(candidate)
+
+    @staticmethod
+    def _structure_confirms(candidate: Candidate) -> bool:
+        """A passing checkpoint-preservation check: the only way to a final isomorph."""
+        detail = (candidate.filters.get("structure_check") or {}).get("detail") or {}
+        return bool(candidate.filters.get("structure_check", {}).get("passed")
+                    and detail.get("judged_relation") in TRACE_RELATIONS
+                    and detail.get("checkpoint_sequence_preserved") is True)
 
     # freshness
     def _freshness(self) -> None:
@@ -1218,8 +1235,16 @@ class _FamilyRun:
                 continue
             parent_ref = next((ref for ref, item_id in refs.items() if item_id == self.parent.id), None)
             if relation in {"near", "far"} and parent_ref and verdicts.get(parent_ref) == "isomorph":
-                candidate.final_relation = "isomorph"
-                detail["relabelled"] = "isomorph"
+                # The freshness judge alone never makes an isomorph: the mandatory
+                # structure check must have confirmed the checkpoint sequence.
+                if self._structure_confirms(candidate):
+                    candidate.final_relation = "isomorph"
+                    detail["relabelled"] = "isomorph"
+                else:
+                    detail["isomorph_relabel_refused"] = "no passing checkpoint-preservation check"
+            if (candidate.final_relation or candidate.declared_relation) in TRACE_RELATIONS \
+                    and not self._structure_confirms(candidate):
+                raise AssertionError("a final isomorph/same_target needs a passing structure check")
             self._pass(candidate, "freshness", detail)
             self._persist(candidate)
 
