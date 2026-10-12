@@ -141,34 +141,58 @@ def success_head_eval(
     seed: Annotated[int, typer.Option("--seed", help="Pre-registered: 0.")] = 0,
     llm_cache: Annotated[Path | None, typer.Option("--llm-cache", help="Zero-data LLM probability cache outside the vault; replay makes zero calls.")] = None,
     prepare_llm: Annotated[bool, typer.Option("--prepare-llm", help="Explicit paid preparation of the zero-data arm; requires --llm-cache and both field switches.")] = False,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan only: coverage, and the LLM spend estimate with --prepare-llm. No calls, no writes.")] = False,
+    backfill_seen_stems: Annotated[bool, typer.Option("--backfill-seen-stems", help="Explicit paid step: embed (item/stem recipe, ai.routing.embedding) the exact stem each scored attempt showed, retired items and earlier wordings included. Needs both embedding switches; run alone, --dry-run first.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan only: coverage, and the spend estimate with --prepare-llm or --backfill-seen-stems. No calls, no writes.")] = False,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 100,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Embedding batch retries (--backfill-seen-stems only); LLM preparation never retries.")] = 2,
     max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 100_000,
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
-    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Conservative combined USD rate per million tokens. Unknown prices fail closed on metered routes; a Codex route only estimates cost.")] = None,
+    price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="USD per million tokens for this invocation's paid step: combined input/output for --prepare-llm, input for --backfill-seen-stems. Unknown prices fail closed on metered routes; a Codex route only estimates cost.")] = None,
     output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
 ) -> None:
     """T8 learner success head replay: emb_ridge's kill rule, gated heads, zero-data LLM.
 
     Pre-registered in docs/reviews/slice-2-t8.md. Run --dry-run first. The
-    embedding arms need `learnloop embeddings backfill --record-kind item/stem`
-    on the same copy; the LLM arms need --llm-cache (prepared with
-    --prepare-llm). Arms without inputs are reported as unavailable.
+    embedding arms read stored item/stem vectors for the text each attempt
+    showed (--backfill-seen-stems embeds them); the LLM arms need --llm-cache
+    (prepared with --prepare-llm). Arms without inputs are reported as
+    unavailable. Each paid step runs in its own invocation.
     """
     from learnloop.config import MasteryConfig
     from learnloop.field.evaluation import evaluate, report_digest, write_reports
-    from learnloop.field.item_content import load_content_index
+    from learnloop.field.item_content import load_content_index, seen_stem_records
     from learnloop.field.success_head import PREREGISTRATION, preregistration_hash, success_head_arms
     from learnloop.field.success_head_analysis import make_t8_analysis, summary_lines
 
     try:
         if prepare_llm and llm_cache is None:
             raise ValueError("--prepare-llm requires --llm-cache outside the vault")
+        if prepare_llm and backfill_seen_stems:
+            raise ValueError("Run --backfill-seen-stems and --prepare-llm as separate invocations")
         loaded = _load_offline(vault)
         inputs = _replay_inputs(loaded, legacy_fallback=legacy_fallback)
         sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        if backfill_seen_stems:
+            from learnloop.cli.embeddings import _cancellation
+            from learnloop.ops.embedding_backfill import backfill_embeddings
+
+            with closing(connect(sqlite_path, read_only=True)) as connection:
+                connection.execute("BEGIN")
+                records = seen_stem_records(connection, loaded, inputs["attempts"])
+            with _cancellation() as stop:
+                backfill = backfill_embeddings(
+                    loaded, dry_run=dry_run, recipes=("item/stem",), records=records,
+                    caps=SpendCaps(max_candidates=max_candidates, max_calls=max_calls, max_pairs=0,
+                                   max_retries=max_retries, max_total_tokens=max_tokens,
+                                   max_estimated_usd=max_cost_usd),
+                    price_per_million=price_per_million, cancelled=stop.is_set,
+                )
+            _emit({"status": backfill["status"], "backfill": backfill}, json_output)
+            if backfill["status"] not in {"dry_run", "complete"}:
+                raise typer.Exit(code=130 if backfill["status"] == "cancelled" else 1)
+            return
         with closing(connect(sqlite_path, read_only=True)) as connection:
             connection.execute("BEGIN")
             content, coverage = load_content_index(connection, loaded, inputs["attempts"])

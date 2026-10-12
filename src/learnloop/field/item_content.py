@@ -17,11 +17,12 @@ import sqlite3
 import numpy as np
 
 from learnloop.db.stores.embedding_vectors import get_vector
+from learnloop.field.evaluation import _eligible
 from learnloop.field.success_head import (
     EMBEDDING_DIMENSIONS, SKELETON_VIEW, SOLVER_PANEL, STEM_VIEW, AttemptContent, ContentIndex,
 )
 from learnloop.field.types import AttemptRow
-from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES
+from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES, EmbeddingRecord
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 
@@ -55,22 +56,9 @@ def _kcs(loaded: LoadedVault, lo_id: str, item: PracticeItem | None) -> tuple[st
     return tuple(names)
 
 
-def load_content_index(
-    connection: sqlite3.Connection, loaded: LoadedVault, attempts: Iterable[AttemptRow], *,
-    dimensions: int = EMBEDDING_DIMENSIONS,
-) -> tuple[ContentIndex, dict]:
-    """Return ``(index, aggregate coverage)`` for these replay rows, in one snapshot."""
-    model = loaded.config.embedding.model
-    stem_recipe = EMBEDDING_RECIPES["item/stem"]
-    skeleton_recipe = EMBEDDING_RECIPES.get("item/skeleton")
-    has_vectors = _table_exists(connection, "embedding_vectors")
+def _seen_items(connection: sqlite3.Connection, loaded: LoadedVault, attempts: Iterable[AttemptRow]):
+    """Yield ``(row, item revision the attempt showed or None, source)``."""
     has_snapshots = _table_exists(connection, "practice_item_snapshots")
-    skeleton_hashes: dict[str, str] = {}
-    if skeleton_recipe is not None:
-        # PF-b skeletons describe the CURRENT item content, so they apply only
-        # to attempts that saw exactly the current prompt.
-        skeleton_hashes = {record.record_id: record.content_hash
-                           for record in skeleton_recipe.records(loaded)}
     snapshots: dict[str, PracticeItem | None] = {}
 
     def snapshot(digest: str) -> PracticeItem | None:
@@ -80,6 +68,51 @@ def load_content_index(
             ).fetchone() if has_snapshots else None
             snapshots[digest] = PracticeItem.model_validate_json(stored[0]) if stored else None
         return snapshots[digest]
+
+    for row in attempts:
+        if row.revision_status == "exact" and row.item_snapshot_hash:
+            yield row, snapshot(row.item_snapshot_hash), "exact_snapshot"
+        elif row.revision_status == "reconstructed_current":
+            yield row, loaded.practice_items.get(row.features.item_id), "current_content"
+        else:
+            yield row, None, "unavailable"
+
+
+def seen_stem_records(
+    connection: sqlite3.Connection, loaded: LoadedVault, attempts: Iterable[AttemptRow],
+) -> list[EmbeddingRecord]:
+    """``item/stem`` records for the exact text each scored attempt showed.
+
+    Retired items and earlier wordings are included: the recipe's current
+    records skip them, but T8 replays history. Retrieval reads only current
+    content hashes, so these vectors never enter a live index.
+    """
+    recipe = EMBEDDING_RECIPES["item/stem"]
+    records = {}
+    for row, item, _ in _seen_items(connection, loaded, attempts):
+        if item is None or not item.prompt.strip() or not _eligible(row):
+            continue
+        record = EmbeddingRecord("item", row.features.item_id, "stem", item.prompt,
+                                 recipe.content_hash(item.prompt))
+        records.setdefault((record.record_id, record.content_hash), record)
+    return [records[key] for key in sorted(records)]
+
+
+def load_content_index(
+    connection: sqlite3.Connection, loaded: LoadedVault, attempts: Iterable[AttemptRow], *,
+    dimensions: int = EMBEDDING_DIMENSIONS,
+) -> tuple[ContentIndex, dict]:
+    """Return ``(index, aggregate coverage)`` for these replay rows, in one snapshot."""
+    model = loaded.config.embedding.model
+    stem_recipe = EMBEDDING_RECIPES["item/stem"]
+    skeleton_recipe = EMBEDDING_RECIPES.get("item/skeleton")
+    has_vectors = _table_exists(connection, "embedding_vectors")
+    skeleton_hashes: dict[str, str] = {}
+    if skeleton_recipe is not None:
+        # PF-b skeletons describe the CURRENT item content, so they apply only
+        # to attempts that saw exactly the current prompt.
+        skeleton_hashes = {record.record_id: record.content_hash
+                           for record in skeleton_recipe.records(loaded)}
 
     def vector(record_id: str, field: str, content_hash: str) -> tuple[float, ...] | None:
         if not has_vectors:
@@ -92,14 +125,9 @@ def load_content_index(
     ambiguous: set[tuple[str, str]] = set()
     coverage = defaultdict(Counter)
     solver_panel = Counter()
-    for row in attempts:
+    for row, item, source in _seen_items(connection, loaded, attempts):
         f = row.features
         key = (f.item_id, f.observed_at)
-        item, source = None, "unavailable"
-        if row.revision_status == "exact" and row.item_snapshot_hash:
-            item, source = snapshot(row.item_snapshot_hash), "exact_snapshot"
-        elif row.revision_status == "reconstructed_current":
-            item, source = loaded.practice_items.get(f.item_id), "current_content"
         stem = item.prompt if item is not None and item.prompt.strip() else None
         vectors = {}
         if stem is not None:

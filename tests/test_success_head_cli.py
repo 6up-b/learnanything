@@ -272,3 +272,90 @@ def test_loader_clears_ambiguous_identities_and_reads_skeletons_for_current_text
     ambiguous = index.get(rows[1].features)
     assert ambiguous.stem is None and not ambiguous.vectors
     assert report["ambiguous_attempt_identities"] == 1
+
+
+class FakeEmbedder:
+    def __init__(self, model, dims):
+        self.model_id, self.dims = model, dims
+        self.modalities, self.max_input_tokens = frozenset({"text"}), 32_000
+        self.texts = []
+
+    def embed(self, inputs, task_prefix):
+        self.texts.extend(inputs)
+        return [_vector("x", text, self.dims).tolist() for text in inputs]
+
+
+def _enable_embeddings(root):
+    config = root / "learnloop.toml"
+    text = config.read_text(encoding="utf-8")
+    for old, new in (("[embedding]\nenabled = false\nbackfill_enabled = false\n",
+                      "[embedding]\nenabled = true\nbackfill_enabled = true\n"),
+                     ("dimensions = 4096\n", "dimensions = 64\n")):
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    config.write_text(text, encoding="utf-8")
+
+
+def test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly(tmp_path, monkeypatch):
+    paths = build_blueprint_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    sync_vault_state(vault, repository, clock=FrozenClock(NOW))
+    for k, item in enumerate(ITEMS):
+        _attempt(vault, repository, item, 4, clock=FrozenClock(NOW + timedelta(hours=k)))
+    _enable_embeddings(paths.root)
+    common = ("--vault", str(paths.root), "--legacy-fallback", "current_content", "--json")
+    assert json.loads(_invoke(*common, "--backfill-seen-stems", "--prepare-llm",
+                              "--llm-cache", str(tmp_path / "c")).output)["status"] == "invalid"
+    _forbid_models(monkeypatch)
+    before = _digest(paths)
+    plan = json.loads(_invoke(*common, "--backfill-seen-stems", "--dry-run").output)
+    assert plan["status"] == "dry_run" and plan["backfill"]["records_source"] == "explicit"
+    assert plan["backfill"]["records"] == len(set(ITEMS)) == plan["backfill"]["pending"]
+    assert _digest(paths) == before
+    fake = FakeEmbedder(vault.config.embedding.model, 64)
+    monkeypatch.setattr("learnloop.ops.embedding_backfill.ready_client_for_task",
+                        lambda *a, **k: SimpleNamespace(client=fake, runtime=SimpleNamespace(ready=True)))
+    result = _invoke(*common, "--backfill-seen-stems")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["backfill"]["embedded"] == len(set(ITEMS))
+    assert sorted(fake.texts) == sorted(vault.practice_items[i].prompt for i in set(ITEMS))
+    _forbid_models(monkeypatch)
+    plan = json.loads(_invoke(*common, "--dry-run").output)
+    assert plan["content"]["by_revision_status"]["reconstructed_current"]["stem_vector"] == len(ITEMS)
+
+
+def test_seen_stem_records_follow_the_seen_revision_and_scored_rows(tmp_path):
+    from learnloop.field.item_content import seen_stem_records
+
+    paths = create_basic_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    item_id, item = next(iter(sorted(vault.practice_items.items())))
+    edited = _snapshot(paths, item, "An earlier wording")
+    rows = [
+        _row(item_id, "2026-01-02T00:00:00Z", status="exact", digest=edited),
+        _row(item_id, "2026-01-03T00:00:00Z", status="reconstructed_current"),
+        _row(item_id, "2026-01-04T00:00:00Z", status="excluded"),
+        AttemptRow("zero", ItemFeatures("other", "lo", "2026-01-05T00:00:00Z"), 1., 0.,
+                   revision_status="reconstructed_current"),
+    ]
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        records = seen_stem_records(connection, vault, rows)
+    assert sorted(r.text for r in records) == sorted(["An earlier wording", item.prompt])
+    recipe = EMBEDDING_RECIPES["item/stem"]
+    assert all(r.content_hash == recipe.content_hash(r.text) and r.record_id == item_id for r in records)
+
+
+def test_explicit_backfill_records_must_be_canonical_recipe_texts():
+    from learnloop.ops.embedding_backfill import _explicit_records
+    from learnloop.vault.embedding_recipes import EmbeddingRecord, select_recipes
+
+    recipe = EMBEDDING_RECIPES["item/stem"]
+    good = EmbeddingRecord("item", "i", "stem", "text", recipe.content_hash("text"))
+    assert _explicit_records([good, good], select_recipes(["item/stem"])) == [good]
+    for bad in (EmbeddingRecord("item", "i", "stem", "text", "forged"),
+                EmbeddingRecord("facet", "i", "definition", "text",
+                                EMBEDDING_RECIPES["facet/definition"].content_hash("text")),
+                EmbeddingRecord("item", "i", "stem", " ", recipe.content_hash(" "))):
+        with pytest.raises(ValueError, match="canonical"):
+            _explicit_records([bad], select_recipes(["item/stem"]))

@@ -1,7 +1,7 @@
 """Explicit, bounded embedding work. Never called by sync or rebuild."""
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import closing, contextmanager
 from dataclasses import asdict
 import json
@@ -34,6 +34,20 @@ class _InvalidEmbeddingResponse(Exception):
     def __init__(self, error_type: str):
         super().__init__(error_type)
         self.error_type = error_type
+
+
+def _explicit_records(records, selected) -> list[EmbeddingRecord]:
+    """Canonical, de-duplicated explicit records of the selected recipes."""
+    by_view = {(recipe.record_kind, recipe.field): recipe for recipe in selected}
+    unique: dict[tuple[str, str, str, str], EmbeddingRecord] = {}
+    for record in records:
+        recipe = by_view.get((record.record_kind, record.field))
+        if recipe is None or not record.text.strip() or recipe.content_hash(record.text) != record.content_hash:
+            raise ValueError("Explicit embedding records must be canonical texts of a selected recipe")
+        unique.setdefault(
+            (record.record_kind, record.record_id, record.field, record.content_hash), record,
+        )
+    return list(unique.values())
 
 
 def estimated_tokens(text: str) -> int:
@@ -113,6 +127,7 @@ def backfill_embeddings(
     price_per_million: float | None = None,
     cancelled: Callable[[], bool] | None = None,
     client_factory: Callable[[], EmbeddingClient] | None = None,
+    records: Iterable[EmbeddingRecord] | None = None,
 ) -> dict[str, Any]:
     """Plan without data changes, or checkpoint successful batches before continuing.
 
@@ -121,6 +136,11 @@ def backfill_embeddings(
     cap is deliberately not an escape hatch. A read-only WAL reader can create
     SQLite coordination sidecars; it must not use immutable mode and miss WAL
     commits when checking already-paid work.
+
+    ``records`` replaces the recipes' current records with explicit canonical
+    texts of a selected recipe (Slice 2 T8: the stem each graded attempt
+    showed, retired items included). Each must carry its recipe's content
+    hash; retrieval consumers still read only current hashes.
     """
     if type(batch_size) is not int or not 1 <= batch_size <= 256:
         raise ValueError("batch_size must be between 1 and 256")
@@ -134,7 +154,11 @@ def backfill_embeddings(
     model_id = config.model
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
     selected = select_recipes(recipes)
-    records = [record for recipe in selected for record in recipe.records(loaded)]
+    explicit = records is not None
+    if explicit:
+        records = _explicit_records(records, selected)
+    else:
+        records = [record for recipe in selected for record in recipe.records(loaded)]
     pending = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)
     estimate = _estimate(pending, math.ceil(len(pending) / batch_size), price)
@@ -143,6 +167,7 @@ def backfill_embeddings(
         "model_id": model_id, "dimensions": config.dimensions,
         "task_prefix": TASK_PREFIX, "recipes": [recipe.name for recipe in selected],
         "records": len(records), "cached": len(records) - len(pending),
+        "records_source": "explicit" if explicit else "recipes",
         "pending": len(pending), "embedded": 0, "caps": caps.as_dict(),
         "estimate": asdict(estimate), "charged": asdict(budget.used),
         "price_per_million": price,
