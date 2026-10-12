@@ -54,6 +54,16 @@ def is_subscription_client(client: Any) -> bool:
     return getattr(client, "provider_type", None) in SUBSCRIPTION_CLIENT_TYPES
 
 
+def admitted_output_limit(route: str, profile_max_tokens: Any) -> int:
+    """The route allowance, or the profile's larger declared output limit."""
+
+    allowance = OUTPUT_ALLOWANCE.get(route, 2_000)
+    if not allowance:
+        return 0
+    declared = profile_max_tokens if isinstance(profile_max_tokens, int) and profile_max_tokens > 0 else 0
+    return max(allowance, declared)
+
+
 @dataclass
 class RouteInfo:
     route: str
@@ -199,13 +209,7 @@ class ReviewSpend:
 
     @staticmethod
     def _output_limit(route: str, profile_max_tokens: Any) -> int:
-        """The route allowance, or the profile's larger declared output limit."""
-
-        allowance = OUTPUT_ALLOWANCE.get(route, 2_000)
-        if not allowance:
-            return 0
-        declared = profile_max_tokens if isinstance(profile_max_tokens, int) and profile_max_tokens > 0 else 0
-        return max(allowance, declared)
+        return admitted_output_limit(route, profile_max_tokens)
 
     def register(self, route: str, client: Any, *, model_id: str | None = None) -> RouteInfo:
         model = model_id or getattr(client, "model", None) or getattr(client, "model_id", None)
@@ -393,5 +397,6 @@ __all__ = [
     "ReviewSpend",
     "RouteInfo",
     "UsageCollector",
+    "admitted_output_limit",
     "is_subscription_client",
 ]

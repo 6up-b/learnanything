@@ -703,6 +703,39 @@ def test_a_resume_restores_the_persisted_experiment_and_refuses_changes(tmp_path
     assert other.calls == [] and client.calls == []
 
 
+def test_a_resume_refuses_a_changed_output_limit(tmp_path):
+    """F11 (re-review): profile.max_tokens is a generation setting the run binds."""
+
+    from types import SimpleNamespace
+
+    from learnloop.diagnosis.offline_review.runner import route_bindings
+
+    def metered(max_tokens: int) -> ReviewFakeClient:
+        client = ReviewFakeClient(provider_type="openrouter")
+        client.profile = SimpleNamespace(model="fake-model", max_tokens=max_tokens)
+        return client
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    run = tmp_path / "run"
+    caps = SpendCaps(max_calls=2000, max_candidates=500, max_retries=1000, max_total_tokens=10**9, max_estimated_usd=10**6)
+
+    def review(client: ReviewFakeClient):
+        clients = ReviewClients(grading=client, diagnosis=client, judge=client, generator=client, embedding=None)
+        return run_review(vault, source_sqlite=paths.sqlite_path, run_dir=run, options=RESUME_OPTIONS, clients=clients,
+                          caps=caps, price_per_million=1.0, explicit_options=())
+
+    assert review(metered(9_000))["status"] == "complete"
+    changed = metered(100)
+    refused = review(changed)
+    assert refused["status"] == "incompatible_resume"
+    assert any("grading" in reason for reason in refused["reasons"])
+    assert changed.calls == []
+    assert review(metered(9_000))["status"] == "complete"
+    bound = route_bindings(ReviewClients(grading=metered(9_000)))["grading"]
+    assert bound["max_tokens"] == 9_000 and bound["output_limit"] == 9_000
+
+
 def test_cli_resume_with_only_the_run_dir_keeps_the_original_settings(tmp_path, monkeypatch):
     from learnloop.diagnosis.offline_review import runner as runner_module
 

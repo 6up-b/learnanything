@@ -76,7 +76,7 @@ from learnloop.diagnosis.offline_review.planted import (
     request_planted_scenario,
     scenario_request,
 )
-from learnloop.diagnosis.offline_review.spend import OUTPUT_ALLOWANCE, ReviewSpend
+from learnloop.diagnosis.offline_review.spend import OUTPUT_ALLOWANCE, ReviewSpend, admitted_output_limit, is_subscription_client
 from learnloop.diagnosis.split.context import (
     assemble_diagnosis_context,
     current_attempt_from,
@@ -567,7 +567,13 @@ def vault_content_hash(vault: LoadedVault) -> str:
 
 
 def route_bindings(clients: ReviewClients) -> dict[str, dict[str, Any] | None]:
-    """Per review route, the settings that change what its requests produce."""
+    """Per review route, the settings that change what its requests produce.
+
+    Besides the model settings this binds the profile's ``max_tokens`` and
+    the output limit a metered request is held to (the route allowance or
+    the profile's larger limit), so a resume never generates under a
+    different limit than the work it reuses.
+    """
 
     bindings: dict[str, dict[str, Any] | None] = {}
     for attribute, route in REVIEW_ROUTES:
@@ -575,10 +581,15 @@ def route_bindings(clients: ReviewClients) -> dict[str, dict[str, Any] | None]:
         if client is None:
             bindings[route] = None
             continue
+        profile = getattr(client, "profile", None) or getattr(client, "config", None)
+        max_tokens = getattr(profile, "max_tokens", None)
         bindings[route] = {
             **model_settings(client),
             "provider_type": getattr(client, "provider_type", None),
             "model": getattr(client, "model", None) or getattr(client, "model_id", None),
+            "max_tokens": max_tokens,
+            # Subscription routes are not held to an output limit (F3).
+            "output_limit": None if is_subscription_client(client) else admitted_output_limit(route, max_tokens),
         }
     return bindings
 
@@ -645,7 +656,8 @@ def binding_mismatches(persisted: Mapping[str, Any] | None, current: Mapping[str
     for route, settings in current["routes"].items():
         before = (persisted.get("routes") or {}).get(route)
         if before is not None and settings is not None and before != settings:
-            reasons.append(f"route {route} changed provider/model/settings since the run started")
+            changed = ", ".join(sorted(key for key in set(before) | set(settings) if before.get(key) != settings.get(key)))
+            reasons.append(f"route {route} changed provider/model/settings since the run started ({changed})")
     return reasons
 
 
