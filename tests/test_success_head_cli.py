@@ -131,14 +131,20 @@ def test_report_runs_all_arms_read_only_and_aggregate_only(seeded, monkeypatch, 
                          "emb_ridge", "success_head"}
     assert arms["emb_ridge"]["overall"]["n"] == report["counts"]["ability_scored_attempts"] > 0
     t8 = report["analyses"]["t8"]
-    # Seven attempts on three items: no item floor (review F2), so the
-    # three-item interval decides (20 resamples here; the registration is 1000).
+    # Seven attempts on three items. v3's percentile item bootstrap killed
+    # here ([-0.173, -0.0001] at 20 resamples); v4's cluster-robust t interval
+    # has 2 degrees of freedom (t = 4.30), reaches both 0 and delta, and
+    # decides nothing. There is still no item floor.
     verdict = t8["primary"]["verdict"]
-    assert (verdict["n"], verdict["item_clusters"]) == (len(ITEMS), 3)
+    assert (verdict["n"], verdict["item_clusters"], verdict["df"]) == (len(ITEMS), 3, 2)
+    assert verdict["method"] == "cluster_robust_t_cr1"
     lower, upper = verdict["ci95"]
-    assert verdict["decision"] == ("embeddings_add_value" if lower > 0 else "kill" if upper < .005
-                                   else "insufficient_data")
-    # Every interval in the report resamples items, and the manifest says so (review F1).
+    assert lower < 0 and upper > .005
+    assert (verdict["decision"], verdict["reason_code"]) == ("insufficient_data", "undecided")
+    assert verdict["smallest_worthwhile_gain_nats_per_attempt"] == .005
+    assert report["manifest"]["t8"]["smallest_worthwhile_gain_nats_per_attempt"] == .005
+    assert report["manifest"]["t8"]["decision_interval"] == "cluster_robust_t_cr1"
+    # Every interval in the report clusters on items, and the manifest says so (review F1).
     assert report["manifest"]["bootstrap"]["unit"] == "item"
     intervals, stack = [], [report]
     while stack:
@@ -151,7 +157,7 @@ def test_report_runs_all_arms_read_only_and_aggregate_only(seeded, monkeypatch, 
     assert intervals and all("clusters" in interval or "item_clusters" in interval
                              for interval in intervals)
     assert t8["preregistration"]["deviations"] == ["bootstrap_samples"]
-    assert t8["preregistration"]["version"] == "t8-preregistration-v3"
+    assert t8["preregistration"]["version"] == "t8-preregistration-v4"
     assert t8["preregistration"]["hash"] == report["manifest"]["t8"]["preregistration_hash"] == (
         preregistration_hash())
     assert t8["gated"]["success_head+difficulty"]["status"] == "unavailable"
@@ -164,8 +170,10 @@ def test_report_runs_all_arms_read_only_and_aggregate_only(seeded, monkeypatch, 
     assert all(path.name.startswith("t8-success-head-") for path in files)
     markdown = next(path for path in files if path.suffix == ".md").read_text()
     assert "T8 pre-registered verdict" in markdown
-    assert f"**Decision: {verdict['decision']}**" in markdown
-    assert "n = 7 common attempts in 3 item clusters" in markdown and "δ = 0.005" in markdown
+    assert "**Decision: insufficient_data** (`undecided`)" in markdown
+    assert "n = 7 common attempts in 3 item clusters" in markdown
+    assert "δ in force: 0.005 nats per attempt (m = 0.0)" in markdown
+    assert "cluster-robust t interval (CR1 over items, df = 2, t = 4.303)" in markdown
     for path in files:
         text = path.read_text()
         assert not any(secret in text for secret in _private_text(vault))

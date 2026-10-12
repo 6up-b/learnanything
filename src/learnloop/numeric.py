@@ -139,6 +139,26 @@ def beta_quantile(q: float, alpha: float, beta: float) -> float:
     return 0.5 * (low + high)
 
 
+
+def student_t_quantile(p: float, df: float) -> float:
+    """Inverse CDF of Student's t with ``df`` degrees of freedom.
+
+    Uses P(|T| > t) = I_{df/(df + t^2)}(df/2, 1/2) and inverts it with
+    :func:`beta_quantile`; stdlib-only. Matches published tables
+    (t_{0.975, 2} = 4.3027) to about 1e-12.
+    """
+
+    if not 0.0 < p < 1.0:
+        raise ValueError(f"probability must be in (0, 1), got {p}")
+    if not (math.isfinite(df) and df > 0.0):
+        raise ValueError(f"degrees of freedom must be positive and finite, got {df}")
+    if p == 0.5:
+        return 0.0
+    x = beta_quantile(2.0 * min(p, 1.0 - p), df / 2.0, 0.5)
+    t = math.inf if x <= 0.0 else math.sqrt(df * (1.0 - x) / x)
+    return t if p > 0.5 else -t
+
+
 def binomial_two_sided_p(successes: int, trials: int, p: float = 0.5) -> float:
     """Exact two-sided binomial tail probability under ``p`` (small ``trials``).
 
