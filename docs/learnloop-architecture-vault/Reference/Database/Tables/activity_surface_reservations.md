@@ -3,8 +3,8 @@ title: "activity_surface_reservations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "0a72a69277711fe9e99d8d80015249fb2be7b115"
+source_commit_timestamp: "2026-10-12T11:59:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surface_reservations"
@@ -20,11 +20,11 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/ops/contamination/detectors.py"
   - "src/learnloop/curriculum/golden_path_confirm.py"
   - "src/learnloop/goals/goal_contracts.py"
+  - "src/learnloop/ops/contamination/recipes.py"
   - "src/learnloop/reader/reader_dialogue.py"
-  - "src/learnloop/scheduling/controller_snapshot.py"
-  - "src/learnloop/substrate/activities.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -101,6 +101,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/ops/contamination/detectors.py`
 
 ### Direct SQL writers
 
@@ -110,6 +111,8 @@ Indexes and uniqueness:
 
 - `src/learnloop/curriculum/golden_path_confirm.py`
 - `src/learnloop/goals/goal_contracts.py`
+- `src/learnloop/ops/contamination/detectors.py`
+- `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/substrate/activities.py`
@@ -120,6 +123,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_activity_substrate.py`
+- `tests/test_contamination_report.py`
 - `tests/test_golden_path_confirm.py`
 - `tests/test_administration_adapters.py`
 

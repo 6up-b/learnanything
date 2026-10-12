@@ -3,8 +3,8 @@ title: "activity_exposure_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "0a72a69277711fe9e99d8d80015249fb2be7b115"
+source_commit_timestamp: "2026-10-12T11:59:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_exposure_events"
@@ -128,6 +128,7 @@ Indexes and uniqueness:
 
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
+- `tests/test_contamination_report.py`
 - `tests/test_cross_seam_exposure.py`
 - `tests/test_progression.py`
 - `tests/test_administration_adapters.py`

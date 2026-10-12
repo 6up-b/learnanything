@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "0a72a69277711fe9e99d8d80015249fb2be7b115"
+source_commit_timestamp: "2026-10-12T11:59:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -29,9 +29,9 @@ source_paths:
   - "tests/test_concept_animation_service.py"
   - "tests/test_concept_animation_store.py"
   - "tests/test_concept_animation_validator.py"
+  - "tests/test_contamination_report.py"
   - "tests/test_daily_loop_reference_adoption.py"
   - "tests/test_diagnosis_isolation.py"
-  - "tests/test_doctor.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -85,9 +85,9 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_concept_animation_store.py`
 - `tests/test_concept_animation_validator.py`
 - `tests/test_config_refactor.py`
+- `tests/test_contamination_report.py`
 - `tests/test_daily_loop_reference_adoption.py`
 - `tests/test_diagnosis_isolation.py`
-- `tests/test_doctor.py`
 
 ## Extension and modification guidance
 

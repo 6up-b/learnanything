@@ -3,8 +3,8 @@ title: "activity_surfaces"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "0a72a69277711fe9e99d8d80015249fb2be7b115"
+source_commit_timestamp: "2026-10-12T11:59:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_surfaces"
@@ -23,8 +23,8 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/curriculum/golden_path_assessment.py"
-  - "src/learnloop/reader/reader_dialogue.py"
-  - "src/learnloop/scheduling/controller_snapshot.py"
+  - "src/learnloop/ops/contamination/detectors.py"
+  - "src/learnloop/ops/contamination/recipes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -110,6 +110,8 @@ Indexes and uniqueness:
 - `src/learnloop/cli/surfaces.py`
 - `src/learnloop/content/authoring/item_authoring.py`
 - `src/learnloop/curriculum/golden_path_assessment.py`
+- `src/learnloop/ops/contamination/detectors.py`
+- `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/scheduling/controller_snapshot.py`
 - `src/learnloop/substrate/activities.py`

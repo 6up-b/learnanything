@@ -3,8 +3,8 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "0a72a69277711fe9e99d8d80015249fb2be7b115"
+source_commit_timestamp: "2026-10-12T11:59:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
@@ -25,7 +25,7 @@ source_paths:
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/field/signals.py"
   - "src/learnloop/learner/facet_diagnostics.py"
-  - "src/learnloop/reader/reader_dialogue.py"
+  - "src/learnloop/ops/contamination/recipes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -135,6 +135,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/field_classification.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/learner/facet_diagnostics.py`
+- `src/learnloop/ops/contamination/recipes.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/question_queue.py`
@@ -157,6 +158,7 @@ Indexes and uniqueness:
 - `tests/test_reader_dialogue.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_tutor_qa.py`
+- `tests/test_contamination_report.py`
 - `tests/test_family_memory_projection.py`
 - `tests/test_question_context.py`
 - `tests/test_question_promotion_jobs.py`

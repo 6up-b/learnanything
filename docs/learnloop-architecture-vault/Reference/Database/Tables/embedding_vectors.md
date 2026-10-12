@@ -3,8 +3,8 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "0a72a69277711fe9e99d8d80015249fb2be7b115"
+source_commit_timestamp: "2026-10-12T11:59:52-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/db/stores/embedding_vectors.py"
   - "src/learnloop/diagnosis/split/retrieval.py"
+  - "src/learnloop/ops/contamination/detectors.py"
   - "src/learnloop/ops/embedding_backfill.py"
   - "src/learnloop/ops/family_proposals.py"
 tags:
@@ -93,6 +94,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/embedding_vectors.py`
+- `src/learnloop/ops/contamination/detectors.py`
 - `src/learnloop/ops/embedding_backfill.py`
 
 ### Direct SQL writers
@@ -109,6 +111,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_architecture.py`
+- `tests/test_contamination_report.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_embedding_store.py`
 - `tests/test_family_proposals.py`
