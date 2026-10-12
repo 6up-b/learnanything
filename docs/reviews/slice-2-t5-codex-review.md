@@ -150,7 +150,7 @@ cap flag (`8fdb14d4`), a docstring (`001f33e5`) and regenerated references
 |---|---|
 | `uv sync --extra dev` + `uv pip install pypdfium2` | ok |
 | `uv run lint-imports --no-cache` | **10 contracts kept, 0 broken** |
-| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,124 passed**, 14 existing warnings (fork DeprecationWarnings), 170 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,124 passed**, 14 existing DeprecationWarnings (fork in multi-threaded test processes; the sqlite3 datetime adapter), none from T5 tests, 170 s |
 | `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **69 passed**, 7,055 deselected |
 | T5 modules (`test_graph_nomination*.py`, 44 tests) with `--durable-sqlite` | 44 passed |
 | DB/config reference generate + validate | no schema change (head 168, 266 table notes, 552 config leaves), zero errors; global docs-vault validator passed. Regenerated because line anchors into `graph_nomination.py` and `cli/app.py` moved |
