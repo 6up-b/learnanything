@@ -296,10 +296,11 @@ MISS_PENDING = "pending"  # the diagnosis has not landed: the decision waits
 #: Why. Only a positive non-gap reading keeps the LO: a slip, an item-contract
 #: (or grader-interpretation) problem, the interaction rather than knowledge, or
 #: an unassessed (PF-c unverified) criterion. A knowledge gap returns it to
-#: learning, and so does a diagnosis that attributes no cause
-#: (``no_gap_attributed``: the diagnoser abstained, or the grader left the
-#: validity unknown): the diagnosis did not decide it, so today's rule applies
-#: (Codex review F5, fail closed).
+#: learning, and so does a diagnosis that leaves any part of the miss without a
+#: non-gap reading (``no_gap_attributed``: the diagnoser abstained, the grader
+#: left a validity unknown, or a fatal error no attribution names): the
+#: diagnosis did not decide it, so today's rule applies (Codex review F5 and
+#: re-review F4, fail closed).
 REASON_KNOWLEDGE_GAP = "knowledge_gap"
 REASON_SLIP = "slip"
 REASON_ITEM_CONTRACT = "item_contract"
@@ -344,11 +345,18 @@ class MissVerdict:
     error attribution (``causal_class`` is ``None`` where the diagnosis wrote
     no event).
 
+    ``unread_fatal_errors`` lists the grade's fatal errors that no
+    attribution names, so the diagnosis never read them; any one returns the
+    LO to learning (:func:`diagnosis_reason`).
+
     ``decided_at``/``decided_ref`` say when the decision became known: the
-    deciding diagnosis row's ``created_at`` and id, or the wait deadline (no
-    ref). Both None for a decision known with the answer itself (learner-side
-    help, an unassessed grade, a joint grade) or still pending. A miss is
-    decided once: a later regrade, ``diagnose retry`` or switch toggle does not
+    deciding diagnosis row's ``created_at`` and id; the hold the split's kill
+    switch put on the miss's diagnose job (its ``split_held_at`` and job id);
+    the wait deadline (no ref); or, while the switch is off and nothing has
+    recorded the hold yet, the read time (no ref). Both None for a decision
+    known with the answer itself (learner-side help, an unassessed grade, a
+    joint grade, no diagnosis queued) or still pending. A miss is decided once:
+    a later regrade, ``diagnose retry``, release or switch toggle does not
     change a decision that has landed.
     """
 
@@ -362,38 +370,58 @@ class MissVerdict:
     events: tuple[tuple[int, str, str | None], ...] = ()
     decided_at: str | None = None
     decided_ref: str | None = None
+    unread_fatal_errors: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
+def _non_gap_reading(scope: str, causal_class: str) -> str | None:
+    """One attribution's positive non-gap reading, or None (no reading)."""
+
+    if scope in ITEM_CONTRACT_SCOPES:
+        return REASON_ITEM_CONTRACT
+    if scope == "valid_measurement" and causal_class == "transient_execution":
+        return REASON_SLIP
+    if scope == "interaction_context":
+        return REASON_INTERACTION_CONTEXT
+    return None
+
+
 def diagnosis_reason(
     attribution_scopes: Mapping[int, str],
     event_classes: Mapping[int, str],
+    *,
+    unread_fatal_errors: Iterable[str] = (),
 ) -> str:
     """The diagnosis's reading of a graded miss (Slice 1 M2 vocabulary).
 
     A knowledge gap is ``causal_class = learner_state`` on a
-    ``valid_measurement`` attribution. Otherwise a positive non-gap reading
-    keeps the LO: an item-contract or grader-interpretation attribution names
+    ``valid_measurement`` attribution; one is enough. Otherwise the LO is kept
+    only when EVERY attribution has a positive non-gap reading (Codex
+    re-review F4): an item-contract or grader-interpretation attribution names
     the item, a ``transient_execution`` class on a valid measurement a slip,
     and an ``interaction_context`` attribution the presentation rather than
-    knowledge. Anything else (the diagnoser abstained, the grader left the
-    validity unknown, or no attribution at all) is ``no_gap_attributed``,
-    which returns the LO to learning (:data:`KEPT_REASONS`).
+    knowledge. One attribution without such a reading (the diagnoser
+    abstained on a valid measurement, or the grader left the validity
+    unknown), no attribution at all, or a fatal error no attribution names
+    (``unread_fatal_errors``: the diagnosis never read it) is
+    ``no_gap_attributed``, which returns the LO to learning
+    (:data:`KEPT_REASONS`). A kept miss is labelled by its strongest reading:
+    item contract, then slip, then interaction context.
     """
 
     indexes = sorted(set(attribution_scopes) | set(event_classes))
     pairs = [(attribution_scopes.get(i, "unknown"), event_classes.get(i, "unknown")) for i in indexes]
     if any(scope == "valid_measurement" and cls == "learner_state" for scope, cls in pairs):
         return REASON_KNOWLEDGE_GAP
-    if any(scope in ITEM_CONTRACT_SCOPES for scope, _cls in pairs):
-        return REASON_ITEM_CONTRACT
-    if any(scope == "valid_measurement" and cls == "transient_execution" for scope, cls in pairs):
-        return REASON_SLIP
-    if any(scope == "interaction_context" for scope, _cls in pairs):
-        return REASON_INTERACTION_CONTEXT
-    return REASON_NO_GAP_ATTRIBUTED
+    readings = [_non_gap_reading(scope, cls) for scope, cls in pairs]
+    if not readings or None in readings or any(True for _ in unread_fatal_errors):
+        return REASON_NO_GAP_ATTRIBUTED
+    for reason in (REASON_ITEM_CONTRACT, REASON_SLIP, REASON_INTERACTION_CONTEXT):
+        if reason in readings:
+            return reason
+    return REASON_NO_GAP_ATTRIBUTED  # pragma: no cover - every reading is one of the three
 
 
 def decide_miss(answer: AnswerFacts, graded: Mapping[str, MissVerdict]) -> MissVerdict:

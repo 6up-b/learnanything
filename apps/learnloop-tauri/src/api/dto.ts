@@ -2448,9 +2448,10 @@ export interface PlacementLearningObjectDto {
 /** Kept in maintenance: clean (full marks), slip, item_contract (the question
  *  did not make clear what it expected), interaction_context (how it was
  *  presented, not knowledge) or unassessed (a route the grader could not
- *  check). Back to learning: knowledge_gap, no_gap_attributed (the diagnosis
- *  named no cause, so today's rule), learner_side (hints, priming, "don't
- *  know"), no_diagnosis (today's rule) or i_dont_know_this. */
+ *  check), each only when every part of the miss reads that way. Back to
+ *  learning: knowledge_gap, no_gap_attributed (the diagnosis left part of the
+ *  miss without a non-gap reading, so today's rule), learner_side (hints,
+ *  priming, "don't know"), no_diagnosis (today's rule) or i_dont_know_this. */
 export type PlacementOutcomeReason =
   | "clean"
   | "slip"

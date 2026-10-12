@@ -290,6 +290,27 @@ def test_the_diagnosis_reading_is_the_m2_vocabulary():
     assert diagnosis_reason({0: "valid_measurement"}, {0: "unknown"}) == "no_gap_attributed"
     assert diagnosis_reason({0: "unknown"}, {0: "learner_state"}) == "no_gap_attributed"
     assert diagnosis_reason({}, {}) == "no_gap_attributed"
+    # Re-review F4: the topic is kept only when every attribution reads non-gap.
+    assert diagnosis_reason(
+        {0: "valid_measurement", 1: "grader_interpretation"}, {0: "unknown", 1: "unknown"},
+    ) == "no_gap_attributed"
+    assert diagnosis_reason(
+        {0: "valid_measurement", 1: "valid_measurement"}, {0: "transient_execution", 1: "unknown"},
+    ) == "no_gap_attributed"
+    assert diagnosis_reason(
+        {0: "valid_measurement", 1: "item_contract", 2: "interaction_context"},
+        {0: "transient_execution", 1: "unknown", 2: "unknown"},
+    ) == "item_contract"
+    assert diagnosis_reason(
+        {0: "valid_measurement", 1: "interaction_context"}, {0: "transient_execution", 1: "unknown"},
+    ) == "slip"
+    # A fatal error no attribution names was never read: not decided.
+    assert diagnosis_reason(
+        {0: "valid_measurement"}, {0: "transient_execution"}, unread_fatal_errors=["wrong_formula"],
+    ) == "no_gap_attributed"
+    assert diagnosis_reason(
+        {0: "valid_measurement"}, {0: "learner_state"}, unread_fatal_errors=["wrong_formula"],
+    ) == "knowledge_gap"
 
 
 # ── Lapses in maintenance ────────────────────────────────────────────────────
@@ -483,26 +504,113 @@ def test_a_decided_miss_is_not_reopened_by_a_regrade(tmp_path):
     assert (assumption.status, assumption.resolution_reason, intent.intent) == ("passed", "slip", "maintenance")
 
 
+def _switch_split(paths, enabled: bool):
+    config = paths.root / "learnloop.toml"
+    text = config.read_text()
+    if "split_enabled" not in text:
+        append_config(paths.root, f"[diagnosis]\nsplit_enabled = {'true' if enabled else 'false'}")
+    else:
+        config.write_text(text.replace(
+            f"split_enabled = {'false' if enabled else 'true'}", f"split_enabled = {'true' if enabled else 'false'}",
+        ))
+    return load_vault(paths.root)
+
+
 def test_turning_the_split_back_on_does_not_reopen_held_misses(tmp_path):
-    """F4: while the switch is off the worker releases the held job
-    ``split_disabled`` and today's rule applies; switching it back on does not
-    send the LO back to waiting. The held diagnosis decides when it lands."""
+    """F4, re-review F3: while the switch is off the worker releases the held
+    job ``split_disabled`` and records the hold (write-once): today's rule,
+    decided at the hold. Switching it back on, the next drain releasing the job
+    ``provider_not_ready`` (overwriting ``last_error``), and the diagnosis
+    landing as a slip afterwards all leave it decided."""
 
     paths, vault, repository = _assumed(tmp_path)
     miss = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), drain=False)
-    append_config(paths.root, "[diagnosis]\nsplit_enabled = false")
-    off = load_vault(paths.root)
+    off = _switch_split(paths, False)
     drain_jobs(off, repository, _Diagnosed(), clock=FrozenClock(at(DUE_HOURS + 2)))
     (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
-    assert job["last_error"] == "split_disabled"
-    assumption, intent = _state(off, repository)
-    assert (assumption.resolution.fallback, intent.intent) == ("split_disabled", "learning")
+    assert (job["last_error"], job["payload"]["split_held_at"]) == ("split_disabled", _iso(DUE_HOURS + 2))
+    held = ("failed", "no_diagnosis", "split_disabled", _iso(DUE_HOURS + 2), "learning")
 
-    config = paths.root / "learnloop.toml"
-    config.write_text(config.read_text().replace("split_enabled = false", "split_enabled = true"))
-    on = load_vault(paths.root)
-    assumption, intent = _state(on, repository)
-    assert (assumption.status, assumption.resolution.fallback, intent.intent) == ("failed", "split_disabled", "learning")
+    def outcome(v):
+        assumption, intent = _state(v, repository)
+        return (assumption.status, assumption.resolution_reason, assumption.resolution.fallback,
+                assumption.resolution.decided_at, intent.intent)
+
+    assert outcome(off) == held
+
+    on = _switch_split(paths, True)
+    assert outcome(on) == held
+    # The provider is not ready (Codex is out): the drain re-releases the job.
+    drain_jobs(on, repository, None, clock=FrozenClock(at(DUE_HOURS + 4)))
+    (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
+    assert (job["state"], job["last_error"], job["payload"]["split_held_at"]) == (
+        "queued", "provider_not_ready", _iso(DUE_HOURS + 2),
+    )
+    assert outcome(on) == held
+    state = load_placement_state(on, repository, now_iso=READ_AT)
+    assert state.awaiting_diagnosis_learning_object_ids == frozenset()
+    # The provider comes back and the diagnosis reads a slip: decided already.
+    drain_jobs(on, repository, _Diagnosed(causal_class="transient_execution"), clock=FrozenClock(at(DUE_HOURS + 6)))
+    assert repository.current_live_diagnosis(miss.attempt_id)["status"] == "completed"
+    (job,) = repository.post_attempt_jobs(attempt_id=miss.attempt_id, kind="diagnose")
+    assert (job["state"], job["payload"]["split_held_at"]) == ("done", _iso(DUE_HOURS + 2))
+    assert outcome(on) == held
+
+
+def test_the_first_serving_build_with_the_split_off_records_the_hold(tmp_path):
+    """Re-review F3: the switch applies at once, and the first serving build
+    that sees it off records the hold on every queued live diagnosis (the
+    head of the line and those behind it), so switching it back on before any
+    worker pass does not reopen what that build served on. A read-only view
+    records nothing."""
+
+    paths, vault, repository = _assumed(tmp_path, los=(LO, "lo_transpose"))
+    first = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), drain=False)
+    second = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"), item="pi_transpose_001",
+                   hours=DUE_HOURS + 1.5, drain=False)
+    off = _switch_split(paths, False)
+    for lo in (LO, "lo_transpose"):
+        assumption, intent = _state(off, repository, lo)
+        # Today's rule at once, as of the read: nothing has recorded the hold.
+        assert (assumption.status, assumption.resolution.fallback, intent.intent) == (
+            "failed", "split_disabled", "learning",
+        )
+        assert assumption.resolution.decided_at == READ_AT
+    build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 2)), persist_explanations=False)
+    assert not any("split_held_at" in job["payload"] for job in repository.post_attempt_jobs(kind="diagnose"))
+
+    build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 3)))
+    jobs = {job["attempt_id"]: job for job in repository.post_attempt_jobs(kind="diagnose")}
+    assert {jobs[a.attempt_id]["payload"]["split_held_at"] for a in (first, second)} == {_iso(DUE_HOURS + 3)}
+
+    on = _switch_split(paths, True)
+    for lo in (LO, "lo_transpose"):
+        assumption, intent = _state(on, repository, lo)
+        assert (assumption.status, assumption.resolution.fallback, assumption.resolution.decided_at, intent.intent) == (
+            "failed", "split_disabled", _iso(DUE_HOURS + 3), "learning",
+        )
+    # A later serving build does not move the hold.
+    build_due_queue(off, repository, clock=FrozenClock(at(DUE_HOURS + 5)))
+    jobs = {job["attempt_id"]: job for job in repository.post_attempt_jobs(kind="diagnose")}
+    assert {jobs[a.attempt_id]["payload"]["split_held_at"] for a in (first, second)} == {_iso(DUE_HOURS + 3)}
+
+
+def test_a_miss_decided_before_the_hold_keeps_its_diagnosis(tmp_path):
+    """Re-review F3: the hold decides only a miss nothing decided before it. A
+    slip that landed before the switch went off stays kept when a later
+    re-diagnosis is held."""
+
+    from learnloop.diagnosis.split.jobs import enqueue_diagnosis
+
+    paths, vault, repository = _assumed(tmp_path)
+    miss = _miss(vault, repository, _Diagnosed(causal_class="transient_execution"))
+    assert enqueue_diagnosis(vault, repository, attempt_id=miss.attempt_id, rediagnose=True,
+                             clock=FrozenClock(at(DUE_HOURS + 30)))
+    off = _switch_split(paths, False)
+    drain_jobs(off, repository, _Diagnosed(), clock=FrozenClock(at(DUE_HOURS + 31)))
+    assert any("split_held_at" in job["payload"] for job in repository.post_attempt_jobs(attempt_id=miss.attempt_id))
+    assumption, intent = _state(off, repository)
+    assert (assumption.status, assumption.resolution_reason, intent.intent) == ("passed", "slip", "maintenance")
 
 
 @pytest.mark.parametrize(
@@ -522,6 +630,101 @@ def test_no_gap_attributed_is_not_a_pass(tmp_path, validity, causal):
     )
     assert assumption.resolution.outcome == MISS_TO_LEARNING and assumption.resolution.diagnosis_id
     assert (intent.intent, intent.outcome_reason) == ("learning", "no_gap_attributed")
+
+
+class _Graded(_Diagnosed):
+    """The fake grader with chosen attributions and fatal errors: one
+    attribution per ``scopes`` entry (``error_types`` names them), each read by
+    the diagnoser with the matching ``classes`` entry."""
+
+    def __init__(self, *, scopes, classes, error_types=None, fatal_errors=(), **kwargs):
+        super().__init__(**kwargs)
+        self.scopes, self.classes, self.fatal_errors = list(scopes), list(classes), list(fatal_errors)
+        self.error_types = list(error_types or ["conceptual_slip"] * len(self.scopes))
+
+    def _blind_grading(self, request, context):
+        result = ReviewFakeClient._blind_grading(self, request, context)
+        (first,) = result.error_attributions
+        rows = [
+            first.model_copy(update={"validity_scope": scope, "error_type": error_type})
+            for scope, error_type in zip(self.scopes, self.error_types, strict=True)
+        ]
+        return result.model_copy(update={"error_attributions": rows, "fatal_errors": list(self.fatal_errors)})
+
+    def _diagnosis(self, request, context):
+        result = ReviewFakeClient._diagnosis(self, request, context)
+        return result.model_copy(update={
+            "event_diagnoses": [
+                event.model_copy(update={"causal_class": self.classes[event.event_index]})
+                for event in result.event_diagnoses
+            ],
+        })
+
+
+def _with_fatal_error(paths, fatal_id="wrong_factor_order"):
+    """The checked item's rubric gains a fatal error the grader may name."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = paths.practice_item_path("linear-algebra", "pi_svd_compute_001")
+    item = read_yaml(path)
+    item["grading_rubric"]["fatal_errors"] = [
+        {"id": fatal_id, "description": "Multiplies the factors in the wrong order.", "max_grade": 1},
+    ]
+    write_yaml(path, item)
+    return load_vault(paths.root)
+
+
+@pytest.mark.parametrize(
+    ("client", "reason"),
+    [
+        (lambda: _Graded(scopes=("valid_measurement", "grader_interpretation"), classes=("unknown", "unknown")),
+         "no_gap_attributed"),
+        (lambda: _Graded(scopes=("valid_measurement", "valid_measurement"),
+                         classes=("transient_execution", "unknown")), "no_gap_attributed"),
+        (lambda: _Graded(scopes=("valid_measurement", "grader_interpretation"),
+                         classes=("transient_execution", "unknown")), "item_contract"),
+    ],
+    ids=["abstain-plus-grader-interpretation", "slip-plus-abstain", "slip-plus-grader-interpretation"],
+)
+def test_a_mixed_reading_keeps_the_topic_only_when_every_part_reads_non_gap(tmp_path, client, reason):
+    """Re-review F4: an abstention on one attribution is not outweighed by a
+    non-gap reading on another."""
+
+    _paths, vault, repository = _assumed(tmp_path)
+    miss = _miss(vault, repository, client())
+    assumption, intent = _state(vault, repository)
+    assert len(assumption.resolution.events) == 2
+    kept = reason != "no_gap_attributed"
+    assert (assumption.status, assumption.resolving_attempt_id, assumption.resolution_reason, intent.intent) == (
+        "passed" if kept else "failed", miss.attempt_id, reason, "maintenance" if kept else "learning",
+    )
+
+
+@pytest.mark.parametrize(
+    ("error_type", "kept"), [("conceptual_slip", False), ("wrong_factor_order", True)],
+    ids=["unread-fatal-error", "fatal-error-named-by-an-attribution"],
+)
+def test_a_fatal_error_the_diagnosis_never_read_returns_the_topic(tmp_path, error_type, kept):
+    """Re-review F4: the diagnosis reads the grade's attributions only, so a
+    fatal error no attribution names was never read: today's rule. One an
+    attribution names is read through that attribution's reading."""
+
+    paths, _vault, repository = _assumed(tmp_path)
+    vault = _with_fatal_error(paths)
+    client = _Graded(scopes=("valid_measurement",), classes=("transient_execution",), error_types=(error_type,),
+                     fatal_errors=("wrong_factor_order",))
+    miss = _miss(vault, repository, client)
+    assert repository.latest_blind_grade_record(miss.attempt_id)["record"]["fatal_errors"] == ["wrong_factor_order"]
+    assumption, intent = _state(vault, repository)
+    if kept:
+        assert (assumption.status, assumption.resolution_reason, intent.intent) == ("passed", "slip", "maintenance")
+        assert assumption.resolution.unread_fatal_errors == ()
+    else:
+        assert (assumption.status, assumption.resolution_reason, intent.intent) == (
+            "failed", "no_gap_attributed", "learning",
+        )
+        assert assumption.resolution.unread_fatal_errors == ("wrong_factor_order",)
 
 
 def test_report3_keeps_the_raw_full_marks_miss_rate(tmp_path):

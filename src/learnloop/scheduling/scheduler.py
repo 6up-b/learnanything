@@ -796,6 +796,7 @@ def _placement_serving(
     from learnloop.placement.predictor import active_predictor
     from learnloop.placement.state import (
         choose_check_items,
+        diagnosis_can_arrive,
         load_placement_state,
         placement_active,
     )
@@ -803,6 +804,13 @@ def _placement_serving(
     if not placement_active(vault):
         return None
     if persist:
+        if not diagnosis_can_arrive(vault):
+            # The split's kill switch is off: a queued diagnosis is held, and
+            # a miss waiting on it is decided by today's rule. Record the hold
+            # on the first serving build that sees it (write-once), so turning
+            # the switch back on does not reopen what this build serves on
+            # (Codex re-review F3).
+            repository.hold_queued_live_diagnoses(clock=clock)
         reconcile_fast_track(vault, repository, clock=clock)
     now_iso = utc_now_iso(clock)
     state = load_placement_state(vault, repository, now_iso=now_iso)

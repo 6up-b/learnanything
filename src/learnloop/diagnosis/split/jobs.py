@@ -305,6 +305,11 @@ def process_next_job(
 
     if cancelled is not None and cancelled():
         return None
+    if kind == DIAGNOSE_KIND and not split_grading_active(vault):
+        # The switch is off: record that every queued live diagnosis is held,
+        # including those behind the head of the line that will not be leased
+        # (write-once; placement decides a held miss there).
+        repository.hold_queued_live_diagnoses(clock=clock)
     lease = DIAGNOSE_LEASE_SECONDS if kind == DIAGNOSE_KIND else EMBED_LEASE_SECONDS
     job = repository.lease_next_post_attempt_job(
         kind=kind, owner=owner, lease_seconds=lease, clock=clock, attempt_id=attempt_id
@@ -601,6 +606,8 @@ def run_diagnose_job(
                 # does not run; the job waits rather than failing.
                 _release(repository, job, not_before=_later(SPLIT_OFF_RECHECK_SECONDS, clock),
                          error="split_disabled", refund=True, clock=clock)
+                # Queued again: stamp it held (a no-op once it was stamped).
+                repository.hold_queued_live_diagnoses(clock=clock)
                 outcome.state, outcome.error = "released", "split_disabled"
                 return outcome
             record_row = repository.latest_blind_grade_record(attempt_id) if mode == "live" else None

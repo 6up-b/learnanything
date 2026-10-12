@@ -3,7 +3,10 @@
 Everything here is read from immutable rows: ``assumption_decisions`` and
 ``assumption_returns`` (RECEIPT), ``practice_attempts``, ``reveal_events``,
 ``coldness_receipts`` and the Slice 1 M2 diagnosis ledgers
-(``blind_grade_records``, ``attempt_diagnoses``) with the live diagnose jobs.
+(``blind_grade_records``, ``attempt_diagnoses``), plus two facts of the live
+diagnose jobs (WORKFLOW rows, never deleted): when the first was queued, and
+the write-once hold stamp the split's kill switch puts on them
+(``payload.split_held_at``).
 An assumption's outcome is never written back; its resolution (the receipt)
 names the answer, the reason and what the diagnosis read:
 
@@ -14,17 +17,20 @@ names the answer, the reason and what the diagnosis read:
   knowledge, or an unassessed PF-c criterion): assumed before
   ``first_review_due``, in maintenance from it on (the check resolves, reason
   recorded). A knowledge gap (``causal_class = learner_state`` on a
-  ``valid_measurement`` attribution), or a diagnosis that attributes no cause
-  (``no_gap_attributed``), returns it to learning;
-- a miss is decided once (:func:`load_miss_verdicts`): by the first live
-  diagnosis that lands for the grade it read. A later regrade, ``diagnose
-  retry`` or re-queue never reopens or changes it. While none has landed the
+  ``valid_measurement`` attribution), or a diagnosis that leaves any part of
+  the miss without a non-gap reading (``no_gap_attributed``), returns it to
+  learning;
+- a miss is decided once (:func:`load_miss_verdicts`), by whichever comes
+  first: the first live diagnosis that lands for the grade it read, the kill
+  switch holding its diagnosis (``diagnosis.split_enabled = false``), or the
+  wait deadline. A later regrade, ``diagnose retry``, re-queue, release or
+  switch toggle never reopens or changes it. While none has happened the
   decision waits (the assumption stays open,
   ``awaiting_diagnosis_attempt_id``), at most ``rules.DIAGNOSIS_WAIT_DAYS``
   from the miss's first diagnose job; then, or when no diagnosis can arrive
-  (``diagnosis.split_enabled = false``, a joint grade, the diagnoser failed,
-  was budget-skipped or rejected), today's rule applies (back to learning,
-  reason ``no_diagnosis`` with the fallback named). Learner-side help (hints,
+  (the switch held it, a joint grade, the diagnoser failed, was
+  budget-skipped or rejected), today's rule applies (back to learning, reason
+  ``no_diagnosis`` with the fallback named). Learner-side help (hints,
   priming, "don't know", assistance) is not a grading question: today's rule,
   reason ``learner_side``, at once, even while an earlier miss waits;
 - a clean answer before ``first_review_due`` is early practice (an explicit,
@@ -44,7 +50,7 @@ that changes whether an answer is a miss at all is still read live (Phase 6's
 merged semantics); one that leaves it a miss does not reopen its decision.
 
 Each miss's decision has a time (``MissVerdict.decided_at``): the deciding
-diagnosis row, the wait deadline, or the answer itself. Learner-side help or
+diagnosis row, the hold, the wait deadline, or the answer itself. Learner-side help or
 "I don't know this" recorded before an earlier miss's decision landed decides
 the outcome, however that diagnosis reads when it lands, so a receipt does not
 change after the fact.
@@ -128,10 +134,13 @@ def diagnosis_can_arrive(vault: LoadedVault) -> bool:
 
     The post-attempt worker runs a live diagnosis only at a split version with
     ``diagnosis.split_enabled``; otherwise the job is held, so placement falls
-    back to today's rule instead of waiting (owner decision 2026-10-12). A job
-    the worker released while the switch was off keeps that fallback until its
-    diagnosis lands (``post_attempt_jobs.last_error``), and no miss waits longer
-    than ``placement.rules.DIAGNOSIS_WAIT_DAYS`` (:func:`load_miss_verdicts`).
+    back to today's rule instead of waiting (owner decision 2026-10-12). The
+    first serving build or worker pass that sees the switch off stamps every
+    queued live diagnosis held (``Repository.hold_queued_live_diagnoses``,
+    write-once), and a held miss stays decided by today's rule when the switch
+    comes back on or its diagnosis lands later (Codex re-review F3). No miss
+    waits longer than ``placement.rules.DIAGNOSIS_WAIT_DAYS``
+    (:func:`load_miss_verdicts`).
     """
 
     config = vault.config
@@ -583,26 +592,35 @@ def load_miss_verdicts(
 ) -> dict[str, MissVerdict]:
     """How the diagnosis decides each graded miss (owner decision 2026-10-12).
 
-    A miss is decided once (Codex review F4), from append-only rows: by the
-    attempt's FIRST live diagnosis that read the blind grade current when it
-    landed (``Repository._diagnosis_concerns_grade``; a completed one must be
-    in force at landing, ``Repository._diagnosis_in_force``). A later regrade,
-    ``diagnose retry`` or re-queue appends rows but never reopens or changes a
-    decision that has landed. A diagnosis of a grade a regrade had already
-    superseded decides nothing; the miss waits for the next one. In order:
+    A miss is decided once (Codex review F4, re-review F3), by the first of
+    three events, each read from a row that does not change once written:
+
+    - the attempt's FIRST live diagnosis that read the blind grade current
+      when it landed (``Repository._diagnosis_concerns_grade``; a completed
+      one must be in force at landing, ``Repository._diagnosis_in_force``):
+      completed, its reading (:func:`placement.rules.diagnosis_reason`);
+      failed, budget-skipped, rejected or not needed, today's rule saying
+      which. A diagnosis of a grade a regrade had already superseded decides
+      nothing;
+    - the kill switch holding one of the miss's live diagnose jobs (the first
+      ``payload.split_held_at``, write-once): today's rule
+      (``split_disabled``), decided at the hold;
+    - the wait deadline, ``DIAGNOSIS_WAIT_DAYS`` after the miss's first live
+      diagnose job (its ``created_at``), once it has passed: today's rule
+      (``diagnosis_unavailable``), decided at the deadline.
+
+    A later regrade, ``diagnose retry``, re-queue, release (``last_error`` is
+    never read) or switch toggle never reopens or changes a decided miss.
+    Before any of them:
 
     - not blind-graded (a joint grade): no diagnosis can arrive, today's rule;
-    - a deciding diagnosis that landed within ``DIAGNOSIS_WAIT_DAYS`` of the
-      miss's first live diagnose job: completed, its reading
-      (:func:`placement.rules.diagnosis_reason`); failed, budget-skipped,
-      rejected or not needed, today's rule saying which;
-    - one that landed after that deadline, or none by ``now_iso`` past it:
-      today's rule (``diagnosis_unavailable``), decided at the deadline;
-    - a live job still queued or leased: pending, unless the split is off
-      (``diagnosis_live`` false, or the worker released the job
-      ``split_disabled``): today's rule (``split_disabled``) while it is held;
-    - no job and nothing landed: ``split_disabled`` with the switch off, else
-      ``not_diagnosed``.
+    - a live job still queued with the switch off (``diagnosis_live`` false)
+      and no hold recorded yet: today's rule (``split_disabled``) as of
+      ``now_iso``, so the kill switch applies at once; the next serving build
+      or worker pass records the hold, which then decides it;
+    - a live job queued (switch on) or leased (in flight): pending;
+    - no live job queued: ``not_diagnosed``, with the answer (a blind grade
+      means the split was on when it was graded).
     """
 
     wanted = sorted({a.attempt_id for a in answers if a.graded_miss})
@@ -636,7 +654,7 @@ def load_miss_verdicts(
             diagnoses[str(row["attempt_id"])].append(row)
         for row in _rows(
             connection,
-            "SELECT attempt_id, state, last_error, payload_json, created_at FROM post_attempt_jobs "
+            "SELECT id, attempt_id, state, payload_json, created_at FROM post_attempt_jobs "
             f"WHERE kind = 'diagnose' AND attempt_id IN ({marks}) ORDER BY attempt_id, created_at, id",
             chunk,
         ):
@@ -682,19 +700,47 @@ def load_miss_verdicts(
                     (r for r in attempt_records if str(r["id"]) == str(record_id)), current,
                 ) if record_id is not None else current
                 break
-        if deciding is not None and deadline is not None and _order(deciding["created_at"], deciding["id"]) > (deadline, ""):
-            # It landed after the miss stopped waiting: the deadline decided it.
+        # The first hold the switch put on one of the miss's live jobs
+        # (``post_attempt_jobs.payload.split_held_at``, write-once).
+        held = min(
+            (
+                (str(stamp), str(job["id"]))
+                for job in attempt_jobs
+                if (stamp := (_json(job["payload_json"], {}) or {}).get("split_held_at"))
+            ),
+            default=None,
+        )
+        # Whichever came first decides, once (Codex re-review F3): the deciding
+        # diagnosis landing, the switch holding the job, or the wait deadline
+        # (once it has passed).
+        events: list[tuple[tuple[str, str], str]] = []
+        if deciding is not None:
+            events.append((_order(deciding["created_at"], deciding["id"]), "diagnosis"))
+        if held is not None:
+            events.append((held, "held"))
+        if deadline is not None and (now_iso > deadline or any(order > (deadline, "") for order, _kind in events)):
+            events.append(((deadline, ""), "deadline"))
+        first = min(events)[1] if events else None
+        if first == "deadline":
+            # The miss stopped waiting before anything else decided it.
             verdicts[attempt_id] = fallback(FALLBACK_DIAGNOSIS_UNAVAILABLE, decided_at=deadline)
             continue
-        if deciding is not None:
+        if first == "held":
+            # The kill switch held its diagnosis: today's rule, decided at the
+            # hold. Turning the switch back on, a later release or the
+            # diagnosis landing afterwards does not change it.
+            assert held is not None
+            verdicts[attempt_id] = fallback(FALLBACK_SPLIT_DISABLED, decided_at=held[0], decided_ref=held[1])
+            continue
+        if first == "diagnosis":
+            assert deciding is not None
             decided = {"decided_at": str(deciding["created_at"]), "decided_ref": str(deciding["id"])}
             record_id = str(deciding_record["id"]) if deciding_record is not None else None
             current_id = record_id
             if Repository._diagnosis_in_force(deciding["status"], deciding["blind_grade_record_id"], current_id):
                 proposal = _json(deciding["proposal_json"], {}) or {}
-                attributions = list(
-                    (_json(deciding_record["record_json"], {}) or {}).get("error_attributions") or []
-                ) if deciding_record is not None else []
+                grade = (_json(deciding_record["record_json"], {}) or {}) if deciding_record is not None else {}
+                attributions = list(grade.get("error_attributions") or [])
                 scopes = {
                     int(row.get("index", position)): str(row.get("validity_scope") or "unknown")
                     for position, row in enumerate(attributions) if isinstance(row, Mapping)
@@ -703,7 +749,11 @@ def load_miss_verdicts(
                     int(event.get("event_index", -1)): str(event.get("causal_class") or "unknown")
                     for event in proposal.get("event_diagnoses") or [] if isinstance(event, Mapping)
                 }
-                reason = diagnosis_reason(scopes, classes)
+                # A fatal error no attribution names was never read by the
+                # diagnosis (its events key on the attributions).
+                named = {str(row.get("error_type")) for row in attributions if isinstance(row, Mapping)}
+                unread = sorted({str(error) for error in grade.get("fatal_errors") or []} - named)
+                reason = diagnosis_reason(scopes, classes, unread_fatal_errors=unread)
                 verdicts[attempt_id] = MissVerdict(
                     attempt_id,
                     MISS_TO_LEARNING if reason not in KEPT_REASONS else MISS_KEPT,
@@ -714,6 +764,7 @@ def load_miss_verdicts(
                         (index, scopes.get(index, "unknown"), classes.get(index))
                         for index in sorted(set(scopes) | set(classes))
                     ),
+                    unread_fatal_errors=tuple(unread),
                     **decided,
                 )
                 continue
@@ -733,18 +784,23 @@ def load_miss_verdicts(
             )
             continue
         if open_job is not None:
-            if deadline is not None and now_iso > deadline:
-                verdicts[attempt_id] = fallback(FALLBACK_DIAGNOSIS_UNAVAILABLE, decided_at=deadline)
-            elif not diagnosis_live or str(open_job["last_error"] or "") == FALLBACK_SPLIT_DISABLED:
-                # Held by the kill switch: today's rule while it is held.
-                verdicts[attempt_id] = fallback(FALLBACK_SPLIT_DISABLED)
+            if not diagnosis_live and open_job["state"] == "queued":
+                # The switch is off and nothing has recorded the hold yet (the
+                # next serving build or worker pass does): today's rule, as of
+                # now, so the kill switch applies at once.
+                verdicts[attempt_id] = fallback(FALLBACK_SPLIT_DISABLED, decided_at=now_iso)
             else:
+                # Waiting on the diagnosis (a leased job is in flight: it lands,
+                # or the worker releases it and records the hold).
                 verdicts[attempt_id] = MissVerdict(
                     attempt_id, MISS_PENDING, REASON_DIAGNOSIS_PENDING,
                     blind_grade_record_id=str(latest_record["id"]), job_state=str(open_job["state"]),
                 )
             continue
-        verdicts[attempt_id] = fallback(FALLBACK_SPLIT_DISABLED if not diagnosis_live else FALLBACK_NOT_DIAGNOSED)
+        # No live job was queued for it (the grade needed no diagnosis): decided
+        # with the answer. The switch plays no part: a blind grade means the
+        # split was on when it was graded.
+        verdicts[attempt_id] = fallback(FALLBACK_NOT_DIAGNOSED)
     return verdicts
 
 
@@ -844,7 +900,7 @@ def _order(created_at: Any, row_id: Any) -> tuple[str, str]:
 def _landed(verdict: MissVerdict, answer: AnswerFacts) -> tuple[str, str] | None:
     """When a miss's decision became known, in the durable order: None while
     it is pending; the answer itself when it was known at once (learner-side
-    help, an unassessed or joint grade, a held split)."""
+    help, an unassessed or joint grade, no diagnosis queued)."""
 
     if verdict.outcome == MISS_PENDING:
         return None

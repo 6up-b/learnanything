@@ -281,9 +281,10 @@ def placement_report(connection: Any, vault: Any, *, now_iso: str | None = None)
                             "can resolve it early).",
             "miss": "A first review that returned the LO to learning (first_review_miss_rate): a miss the "
                     "diagnosis attributed to a knowledge gap (causal_class learner_state on a valid_measurement "
-                    "attribution) or to no cause at all (no_gap_attributed), learner-side help (hints, priming, "
-                    "\"don't know\", assistance), or, when no diagnosis landed within the wait, any answer short "
-                    "of clean full marks (today's rule, reason no_diagnosis).",
+                    "attribution) or that left any part of it without a non-gap reading (no_gap_attributed), "
+                    "learner-side help (hints, priming, \"don't know\", assistance), or, when no diagnosis decided "
+                    "it (none landed within the wait, or the split's kill switch held it), any answer short of "
+                    "clean full marks (today's rule, reason no_diagnosis).",
             "full_marks_miss": "A first review short of clean full marks, whatever the diagnosis decided "
                                "(first_review_full_marks_miss_rate, the rate before the owner's 2026-10-12 "
                                "decision): returned to learning, or kept by the diagnosis. An unassessed (PF-c) "
