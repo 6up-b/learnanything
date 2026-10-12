@@ -38,7 +38,8 @@ Automated verification is green. Real-device acceptance remains open.
   vault loader, ingest runner, migration, or primary startup maintenance.
   `/healthz`, `/api/v1/status`, `/pair`, capture receipt/status endpoints.
 - Header-first Host/Origin/identity/bearer/scope checks, bounded headers/bodies/
-  multipart/deadlines/rates/admission, separate serialized capture execution,
+  multipart/deadlines/admission (no per-device rate limit; only pairing attempts
+  share a budget), separate serialized capture execution,
   retryable SQLite contention, no CORS, no-store responses, CSP, and no payload/
   secret access logs. All RPC methods are denied in M1, including future methods.
 - Five-minute single-use pairing with fragment QR/manual code, hashed tokens,
@@ -55,9 +56,11 @@ Automated verification is green. Real-device acceptance remains open.
   `migration_head_167`, regenerated in rollback mode, references regenerated.
   No working-owner fixture was migrated, reverted, or committed.
 - Desktop Today Inbox: mount/focus/30-second refresh, pinned-vault banner,
-  existing card/Quick Add/tutor routes, image-to-card fallback, dismiss/purge,
-  and deletion failure/shared-original visibility. Destination IDs/receipts
-  make route retries recover committed work rather than duplicate it.
+  existing card/Quick Add/tutor routes, image-to-card fallback with the photo
+  shown beside the card editor, dismiss/purge, a paged handled view, and
+  deletion failure/shared-original visibility. Destination IDs/receipts make
+  route retries recover committed work rather than duplicate it; an unfinished
+  save can be finished from its persisted request after a restart.
 - `learnloop inbox list --vault PATH --json`, including handled entries with
   `--all`. Saving a phone capture creates only a reference; no automatic
   classification, provider call, practice adoption or scheduler write.
@@ -145,14 +148,19 @@ tailscale serve status --json
 uv run learnloop-mobile doctor --json
 ```
 
-Never use Funnel. Doctor verifies actual loopback listeners, exact HTTPS Serve
-target, absence of Funnel on 443, schema/vault, env-file permissions, paired
-devices, orphan originals and owner tailnet devices. It does not modify policy.
+Never use Funnel. Doctor verifies actual loopback listeners, that the exact
+HTTPS Serve target is the only Serve route to the backend port (background,
+foreground and Service configs; no TCP forwards), absence of Funnel on 443 and
+on any backend route, schema/vault, env-file permissions, paired devices,
+orphan originals and owner tailnet devices, and surfaces Tailscale health
+warnings. It neither checks nor modifies tailnet policy (D12).
 Grading can be unavailable without preventing M1 captures.
 
-### Grant and acceptance A1–A2
+### Acceptance A1–A2, and an optional grant
 
-Revision-2 scope requires a phone-only rule; adapt doctor’s printed example:
+Under D12 no LearnLoop-specific policy is needed. Doctor returns a phone-only
+recipe as `optional_policy_example`, only for an owner who wants to narrow
+access to this port; it is not part of acceptance:
 
 ```json
 {
@@ -171,13 +179,13 @@ Revision-2 scope requires a phone-only rule; adapt doctor’s printed example:
 }
 ```
 
-Grants are a union: remove/narrow overlapping broad rules or this is not a
-phone-only policy. Keep the phone user-owned, not tagged, so Serve supplies
-identity. A1: make a phone request with a fake login header and verify Serve
-replaces it with the real owner identity. A2: run policy tests and prove another
-owner device cannot reach carson:443. These checks require the owner's policy and
-devices and have **not** run here. Revision 3's broader-access preference remains
-a scope decision to resolve before applying this optional deployment recipe.
+If used, grants are a union, so it narrows nothing while broader rules remain.
+Keep the phone user-owned, not tagged, so Serve supplies identity. A1: make a
+phone request with a fake login header and verify Serve replaces it with the
+real owner identity. A2: `tailscale serve status --json` shows only the expected
+443 → loopback mapping (doctor's `serve`/`funnel` checks), and the URL does not
+resolve or connect from a device off the tailnet. These checks require the
+owner's devices and have **not** run here.
 
 ### Pair and install native Shortcuts
 
