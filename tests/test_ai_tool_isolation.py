@@ -273,6 +273,88 @@ def test_codex_refuses_an_isolated_request_without_bubblewrap(monkeypatch, tmp_p
     assert "app_config" not in captured  # nothing was launched
 
 
+# --- the agent's own run state stays private (fix-codex-sandbox) -----------------------------
+
+# Writes where the real Codex 0.161 app-server writes, observed from inside the
+# sandbox during a live turn (docs/reviews/fix-codex-sandbox.md). Startup opens
+# installation_id read-write even when it exists: a read-only bind of it failed
+# every live launch with "Error: Read-only file system (os error 30)".
+_CODEX_LIKE_APP_SERVER = r"""#!/bin/sh
+home="${CODEX_HOME:-$HOME/.codex}"
+fail() { echo "Error: $1" >&2; exit 1; }
+echo "seen-id:$(cat "$home/installation_id" 2>/dev/null)"
+printf '' 1<>"$home/installation_id" || fail "installation_id: Read-only file system (os error 30)"
+[ -s "$home/installation_id" ] || printf 'sandbox-id\n' 1<>"$home/installation_id" || fail "installation_id"
+for db in state_5 logs_2 goals_1 memories_1 queue_1 thread_history_1; do
+  for suffix in "" -wal -shm; do
+    printf 'SANDBOX STATE' > "$home/$db.sqlite$suffix" || fail "$db.sqlite$suffix"
+  done
+done
+for dir in skills/.system tmp/arg0/codex-arg0x sessions/2026/10/12 shell_snapshots thread-writer-locks \
+           mcp-oauth-locks cache/codex_apps_tools plugins/cache; do
+  mkdir -p "$home/$dir" || fail "$dir"
+done
+for file in tmp/arg0/codex-arg0x/.lock thread-writer-locks/.coordination.lock mcp-oauth-locks/file-store.lock \
+            skills/.system/.codex-system-skills.marker shell_snapshots/s.sh cache/codex_apps_tools/t.json \
+            models_cache.json .sandbox_migration; do
+  printf 'SANDBOX STATE' > "$home/$file" || fail "$file"
+done
+printf 'SANDBOX TRANSCRIPT\n' > "$home/sessions/2026/10/12/rollout-x.jsonl" || fail "session rollout"
+printf 'scratch' > "${TMPDIR:-/tmp}/codex-scratch" || fail "TMPDIR"
+printf '{"token": "refreshed"}' > "$home/auth.json" || fail "auth.json"
+cat "$home/config.toml" > /dev/null || fail "config.toml is unreadable"
+if (printf '#' >> "$home/config.toml") 2>/dev/null; then fail "config.toml is writable"; fi
+echo answer > answer.txt || fail "working directory"
+echo app-server-ready
+"""
+
+
+def _tree(root: Path) -> dict[str, str]:
+    return {
+        str(path.relative_to(root)): path.read_text(encoding="utf-8") if path.is_file() else "<dir>"
+        for path in sorted(root.rglob("*"))
+    }
+
+
+@requires_bwrap
+@pytest.mark.parametrize("launch", ["sdk_codex_bin", "sdk_launch_command"])
+def test_the_app_server_keeps_its_run_state_in_a_private_home(monkeypatch, layout, tmp_path, launch):
+    import shlex
+
+    from learnloop.ai.providers.codex import CodexSDKProviderClient
+    from tests.project_support import install_fake_codex_sdk
+
+    home = layout["home"]
+    (home / "installation_id").write_text("HOST-INSTALLATION-ID\n", encoding="utf-8")
+    monkeypatch.setenv("CODEX_HOME", str(home))
+    host_home_before = _tree(home)
+    hidden_before = {name: _tree(layout[name]) for name in ("vault", "repo")}
+    agent = _script(tmp_path / "tools" / "codex", _CODEX_LIKE_APP_SERVER.removeprefix("#!/bin/sh\n"))
+    update = ({"sdk_codex_bin": str(agent)} if launch == "sdk_codex_bin"
+              else {"sdk_launch_command": f"{shlex.quote(str(agent))} app-server --listen stdio://"})
+    profile = LearnLoopConfig().ai.providers["codex_low"].model_copy(update=update)
+    captured = install_fake_codex_sdk(monkeypatch, spawn=True, final_response='{"grades": []}')
+    client = CodexSDKProviderClient("codex_low", profile, layout["workdir"])
+    isolation = ToolIsolation(workdir=layout["workdir"], hidden=(layout["vault"], layout["repo"]))
+    with tool_isolation(isolation):
+        client._run_structured("p", {"type": "object"}, purpose="project_closed_book_check")
+
+    spawned = captured["spawned"]
+    assert spawned["returncode"] == 0, spawned["stderr"]
+    assert "app-server-ready" in spawned["stdout"] and "Read-only" not in spawned["stderr"]
+    # The sandbox starts from an empty home: the host's id is not visible ...
+    assert "seen-id:\n" in spawned["stdout"] and "HOST-INSTALLATION-ID" not in spawned["stdout"]
+    # ... and its run state, transcript included, never reaches the host.
+    host_home_after = _tree(home)
+    assert host_home_after.pop("auth.json") == '{"token": "refreshed"}'  # a token refresh persists
+    host_home_before.pop("auth.json")
+    assert host_home_after == host_home_before
+    assert {name: _tree(layout[name]) for name in ("vault", "repo")} == hidden_before
+    assert not (Path("/tmp") / "codex-scratch").exists()
+    # The working directory is the agent's output.
+    assert (layout["workdir"] / "answer.txt").read_text(encoding="utf-8") == "answer\n"
+
+
 # --- every mount honours the exclusions (F2 re-review) -------------------------------------
 
 

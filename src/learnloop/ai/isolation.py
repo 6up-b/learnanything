@@ -18,6 +18,12 @@ agent's process runs under bubblewrap with a deny-by-default filesystem view.
   the directory it happens to sit in.
 - **Visible, writable:** an empty working directory, and the agent's
   credential file so a token refresh persists.
+- **Private, writable, discarded at exit:** ``/tmp`` and the agent's home are
+  in-memory directories. The agent keeps its run state there, so none of it
+  reaches the host. Codex 0.161 writes its ``installation_id``, its state,
+  log, goal, memory, queue and thread-history databases, session rollouts,
+  shell snapshots, lock files, model/app/plugin caches, system skills and
+  ``tmp/arg0`` helpers.
 - **Everything else is absent:** home directories (so vaults, repositories and
   ``~/.config``), other mounts, and the agent's own history. The agent's home
   (``~/.codex``) is replaced by an empty in-memory directory into which only
@@ -25,6 +31,13 @@ agent's process runs under bubblewrap with a deny-by-default filesystem view.
   history and memory databases may hold the very code a closed-book check must
   not see. The process gets its own PID namespace, so ``/proc`` shows no host
   process (and no host working directory).
+
+A host file is bound back only in a mode the agent can open it with. Codex
+opens ``installation_id`` read-write at startup, even when the file exists, so
+a read-only bind stopped the app-server with ``Read-only file system (os error
+30)``. A writable bind would let the sandbox write a host file that the
+owner's own Codex reads and sends with its requests. So the file is not bound:
+each isolated launch creates a fresh id in its private home.
 
 Paths named in ``hidden`` are masked inside *every* mounted tree: the system
 trees, the executable's package and the working directory. A layout the mask
@@ -53,10 +66,13 @@ TOOL_ISOLATION = "tool_isolation"
 
 _SYSTEM_READ_ONLY = ("/usr", "/etc", "/opt", "/nix", "/sys", "/run/systemd/resolve")
 _SYSTEM_LINKS = ("/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32")
-# Bound back into the otherwise empty agent home. Only the credential file is
-# writable (token refreshes are written in place).
+# Bound back into the otherwise empty, in-memory agent home. Only the credential
+# file is writable (token refreshes are written in place); the configuration is
+# read-only. A file the agent opens for writing must not be bound read-only:
+# Codex opens ``installation_id`` read-write at startup, so it is created fresh
+# in the private home instead (see the module docstring).
 AGENT_HOME_WRITABLE = ("auth.json",)
-AGENT_HOME_READ_ONLY = ("config.toml", "installation_id")
+AGENT_HOME_READ_ONLY = ("config.toml",)
 
 
 @dataclass(frozen=True)

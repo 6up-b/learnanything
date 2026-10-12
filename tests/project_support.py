@@ -263,7 +263,8 @@ def install_fake_codex_sdk(monkeypatch, *, final_response: str = '{"grades": []}
                 kwargs = config.kwargs
                 command = list(kwargs["launch_args_override"] or [kwargs["codex_bin"], "app-server", "--listen", "stdio://"])
                 completed = subprocess.run(command, cwd=kwargs["cwd"], capture_output=True, text=True, timeout=60)
-                captured["spawned"] = {"command": command, "stdout": completed.stdout, "stderr": completed.stderr}
+                captured["spawned"] = {"command": command, "stdout": completed.stdout, "stderr": completed.stderr,
+                                       "returncode": completed.returncode}
 
         def __enter__(self):
             return self
