@@ -119,6 +119,7 @@ def load_run(run_dir: Path) -> dict[str, Any]:
         real_ids = [row["attempt_id"] for row in data["review_targets"] if row["kind"] == "real"]
         evidence: dict[str, dict[str, float]] = defaultdict(dict)
         misconceptions: dict[str, list[str | None]] = defaultdict(list)
+        stored_events: dict[str, list[dict[str, Any]]] = defaultdict(list)
         adjudicated: dict[str, Any] = {}
         if real_ids:
             placeholders = ",".join("?" for _ in real_ids)
@@ -129,10 +130,18 @@ def load_run(run_dir: Path) -> dict[str, Any]:
             ):
                 evidence[str(row[0])][str(row[1])] = float(row[2] or 0.0)
             for row in connection.execute(
-                f"SELECT attempt_id, misconception_id FROM error_events WHERE attempt_id IN ({placeholders}) ORDER BY created_at, id",
+                f"SELECT attempt_id, misconception_id, error_type, repair_plan_json FROM error_events "
+                f"WHERE attempt_id IN ({placeholders}) ORDER BY created_at, id",
                 real_ids,
             ):
                 misconceptions[str(row[0])].append(row[1])
+                try:
+                    plan = json.loads(row[3]) if row[3] else {}
+                except ValueError:
+                    plan = {}
+                stored_events[str(row[0])].append(
+                    {"misconception_id": row[1], "error_type": row[2], "repair_plan": plan if isinstance(plan, dict) else {}}
+                )
             for row in connection.execute(
                 f"SELECT attempt_id, adjudicated_anchor_json FROM diagnosis_adjudications "
                 f"WHERE attempt_id IN ({placeholders}) AND supersedes_id IS NULL",
@@ -159,6 +168,7 @@ def load_run(run_dir: Path) -> dict[str, Any]:
             fatal, scores = {}, {}
         data["stored_evidence"] = dict(evidence)
         data["stored_misconceptions"] = dict(misconceptions)
+        data["stored_error_events"] = dict(stored_events)
         data["stored_adjudicated_anchor"] = adjudicated
         data["stored_fatal"] = fatal
         data["stored_score"] = scores
@@ -678,13 +688,103 @@ def _owner_grade_errors(data: Mapping[str, Any], grades: Mapping[str, Mapping[st
     return errors
 
 
+def _event_anchor(attribution: Mapping[str, Any]) -> dict[str, Any]:
+    """Localization and targets of one error event (blind attribution or stored plan)."""
+
+    divergence = attribution.get("first_divergence")
+    divergence = divergence if isinstance(divergence, Mapping) else {}
+    start, end = divergence.get("char_start"), divergence.get("char_end")
+    quote = " ".join(str(divergence.get("quote") or divergence.get("normalized_quote") or "").split()).casefold()
+    facets = {str(value) for value in attribution.get("target_evidence_families") or []}
+    ref = attribution.get("target_ref")
+    if isinstance(ref, Mapping) and ref.get("kind") == "facet_capability" and ref.get("facet_id"):
+        facets.add(str(ref["facet_id"]))
+    criteria = {str(value) for value in attribution.get("target_criterion_ids") or []}
+    if isinstance(ref, Mapping) and ref.get("kind") == "criterion" and ref.get("criterion_id"):
+        criteria.add(str(ref["criterion_id"]))
+    return {
+        "span": (int(start), int(end)) if isinstance(start, int) and isinstance(end, int) and end > start else None,
+        "quote": quote,
+        "facets": facets,
+        "criteria": criteria,
+    }
+
+
+def _events_correspond(blind: Mapping[str, Any], stored: Mapping[str, Any]) -> bool:
+    """Same localization (overlapping validated spans, else equal or nested
+    quotes) AND compatible targets (overlapping when both name any)."""
+
+    if blind["span"] is not None and stored["span"] is not None:
+        localized = blind["span"][0] < stored["span"][1] and stored["span"][0] < blind["span"][1]
+    elif blind["quote"] and stored["quote"]:
+        localized = blind["quote"] in stored["quote"] or stored["quote"] in blind["quote"]
+    else:
+        localized = False
+    if not localized:
+        return False
+    blind_targets = blind["facets"] | {f"criterion:{value}" for value in blind["criteria"]}
+    stored_targets = stored["facets"] | {f"criterion:{value}" for value in stored["criteria"]}
+    return not blind_targets or not stored_targets or bool(blind_targets & stored_targets)
+
+
+def align_events(blind: Sequence[Mapping[str, Any]], stored: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """One-to-one blind -> stored event alignment by localization and target.
+
+    A blind event aligns only when it corresponds to exactly one stored event
+    that corresponds to no other blind event; everything else is unmatched or
+    ambiguous and is reported, never compared by list position.
+    """
+
+    blind_anchors = [_event_anchor(row) for row in blind]
+    stored_anchors = [_event_anchor(row.get("repair_plan") or {}) for row in stored]
+    matches = {
+        index: [j for j, other in enumerate(stored_anchors) if _events_correspond(anchor, other)]
+        for index, anchor in enumerate(blind_anchors)
+    }
+    claimed: Counter = Counter(j for candidates in matches.values() for j in candidates)
+    aligned: dict[int, int] = {}
+    ambiguous_blind = 0
+    unmatched_blind = 0
+    for index, candidates in matches.items():
+        if not candidates:
+            unmatched_blind += 1
+        elif len(candidates) == 1 and claimed[candidates[0]] == 1:
+            aligned[index] = candidates[0]
+        else:
+            ambiguous_blind += 1
+    return {
+        "aligned": aligned,
+        "unmatched_blind": unmatched_blind,
+        "ambiguous_blind": ambiguous_blind,
+        "unmatched_stored": sum(1 for j in range(len(stored)) if claimed[j] == 0),
+    }
+
+
 def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
+    """E4: registry_match vs the legacy misconception match, on ALIGNED events.
+
+    A diagnosis event is keyed by its index into the BLIND grade's
+    attributions; the legacy match lives on the stored JOINT grade's error
+    events. The two lists are aligned by validated localization and targets
+    (:func:`align_events`), never by position; unmatched and ambiguous events
+    are counted separately and excluded from agreement.
+    """
+
     target_of = {row["id"]: row for row in data["review_targets"]}
+    blind_by_attempt = {
+        row["attempt_id"]: list((row.get("record") or {}).get("error_attributions") or [])
+        for row in data.get("review_blind_grades") or []
+        if row.get("purpose") == "primary" and row.get("status") == "completed"
+    }
+    stored_events = data.get("stored_error_events") or {}
     out: dict[str, Any] = {}
     for arm in ("b", "c", "d", "e"):
         agree = 0
         compared = 0
         both_abstain = 0
+        unmatched_blind = 0
+        unmatched_stored = 0
+        ambiguous = 0
         disagreements = []
         for row in data["review_diagnoses"]:
             if row["arm"] != arm or row["status"] != "completed":
@@ -692,12 +792,16 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
             target = target_of.get(row["target_id"])
             if target is None or target["kind"] != "real":
                 continue
-            stored = data["stored_misconceptions"].get(target["attempt_id"]) or []
+            stored = stored_events.get(target["attempt_id"]) or []
+            alignment = align_events(blind_by_attempt.get(target["attempt_id"]) or [], stored)
+            unmatched_blind += alignment["unmatched_blind"]
+            unmatched_stored += alignment["unmatched_stored"]
+            ambiguous += alignment["ambiguous_blind"]
             for event in (row.get("proposal") or {}).get("event_diagnoses") or []:
                 index = int(event.get("event_index", -1))
-                if index < 0 or index >= len(stored):
+                if index not in alignment["aligned"]:
                     continue
-                legacy = stored[index]
+                legacy = stored[alignment["aligned"][index]].get("misconception_id")
                 match = event.get("registry_match") or {}
                 proposed = match.get("id") if match.get("kind") in {"durable", "candidate"} else None
                 if not legacy and not proposed:
@@ -708,10 +812,13 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
                 if legacy == proposed:
                     agree += 1
                 else:
-                    disagreements.append({"target_id": row["target_id"], "event_index": index, "legacy_id": legacy, "proposed_kind": match.get("kind"), "proposed_id": proposed})
+                    disagreements.append({"target_id": row["target_id"], "event_index": index, "stored_event_index": alignment["aligned"][index], "legacy_id": legacy, "proposed_kind": match.get("kind"), "proposed_id": proposed})
         out[arm] = {
             "agreement_where_either_linked": wilson(agree, compared),
             "both_unlinked": both_abstain,
+            "unmatched_blind_events": unmatched_blind,
+            "unmatched_stored_events": unmatched_stored,
+            "ambiguous_events": ambiguous,
             "disagreements": disagreements,
         }
     return out
@@ -878,7 +985,9 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     for arm, row in report["registry_match"].items():
         lines.append(
             f"- {ARM_LABELS.get(arm, arm)}: agreement where either linked a registry row {_fmt_rate(row['agreement_where_either_linked'])}; "
-            f"both unlinked {row['both_unlinked']}; disagreements to audit {len(row['disagreements'])} (ids in report.json)"
+            f"both unlinked {row['both_unlinked']}; disagreements to audit {len(row['disagreements'])} (ids in report.json); "
+            f"events not aligned to a stored event: {row['unmatched_blind_events']} unmatched, {row['ambiguous_events']} ambiguous "
+            f"({row['unmatched_stored_events']} stored events unmatched)"
         )
     spot = report["spot_check"]
     lines += ["", "## Owner spot-check", ""]

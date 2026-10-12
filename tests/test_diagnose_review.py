@@ -396,3 +396,53 @@ def test_one_judge_pass_is_never_reported_as_a_confirmed_link():
     assert arm["same_share"]["n"] == 0
     both = _links_section(_link_data({0: "same", 1: "same"}))["by_arm"]["c"]
     assert (both["judged_same_both_passes"], both["incomplete_pairs"], both["confirmed_links_unique_to_arm"]) == (1, 0, 1)
+
+
+def _e4_data(*, blind_order=("B", "A"), extra_blind=False):
+    spans = {"A": ("first wrong step", 0, 16, "recall", "mc_a"), "B": ("second wrong step", 20, 37, "compute", "mc_b")}
+
+    def divergence(key):
+        quote, start, end, _facet, _mc = spans[key]
+        return {"anchor_kind": "span", "quote": quote, "char_start": start, "char_end": end}
+
+    stored = [
+        {"misconception_id": spans[key][4], "error_type": "conceptual_slip",
+         "repair_plan": {"first_divergence": divergence(key), "target_evidence_families": [spans[key][3]]}}
+        for key in ("A", "B")
+    ]
+    attributions = [
+        {"index": index, "error_type": "conceptual_slip", "first_divergence": divergence(key),
+         "target_evidence_families": [spans[key][3]], "validity_scope": "valid_measurement"}
+        for index, key in enumerate(blind_order)
+    ]
+    if extra_blind:
+        attributions.append({"index": len(attributions), "error_type": "conceptual_slip",
+                             "first_divergence": {"anchor_kind": "span", "quote": "elsewhere", "char_start": 50, "char_end": 59},
+                             "target_evidence_families": ["other"], "validity_scope": "valid_measurement"})
+    events = [
+        {"event_index": index, "registry_match": {"kind": "durable", "id": spans[key][4]}}
+        for index, key in enumerate(blind_order)
+    ]
+    if extra_blind:
+        events.append({"event_index": len(events), "registry_match": {"kind": "durable", "id": "mc_c"}})
+    return {
+        "review_targets": [{"id": "t1", "attempt_id": "att_t", "kind": "real"}],
+        "review_diagnoses": [{"id": "d1", "target_id": "t1", "arm": "b", "status": "completed", "proposal": {"event_diagnoses": events}}],
+        "review_blind_grades": [{"attempt_id": "att_t", "purpose": "primary", "status": "completed", "record": {"error_attributions": attributions}}],
+        "stored_misconceptions": {"att_t": [row["misconception_id"] for row in stored]},
+        "stored_error_events": {"att_t": stored},
+    }
+
+
+def test_e4_aligns_events_by_localization_and_target_not_list_position():
+    """F14: joint A/B vs blind B/A with correct registry matches is full agreement."""
+
+    from learnloop.diagnosis.offline_review.report import _registry_section
+
+    section = _registry_section(_e4_data())["b"]
+    assert section["agreement_where_either_linked"]["n"] == 2
+    assert section["agreement_where_either_linked"]["rate"] == 1.0
+    assert section["disagreements"] == []
+    extra = _registry_section(_e4_data(extra_blind=True))["b"]
+    assert extra["agreement_where_either_linked"]["n"] == 2
+    assert extra["unmatched_blind_events"] == 1
