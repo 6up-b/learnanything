@@ -34,6 +34,56 @@ def test_serve_requires_private_https_proxy():
     assert serve_checks(data, "desktop.tail.ts.net", 8765) == (False, False)
 
 
+def _with(extra: dict) -> dict:
+    data = serve_config()
+    for key, value in extra.items():
+        if isinstance(value, dict) and isinstance(data.get(key), dict):
+            data[key] = {**data[key], **value}
+        else:
+            data[key] = value
+    return data
+
+
+@pytest.mark.parametrize("extra,expected", [
+    # A raw TLS-terminated TCP forward on another port, with Funnel: public, and
+    # the backend sees client-supplied identity headers.
+    ({"TCP": {"8443": {"TCPForward": "127.0.0.1:8765", "TerminateTLS": "desktop.tail.ts.net"}},
+      "AllowFunnel": {"desktop.tail.ts.net:8443": True}}, (False, False)),
+    # The same raw forward without Funnel still bypasses Serve's identity headers.
+    ({"TCP": {"8443": {"TCPForward": "127.0.0.1:8765", "TerminateTLS": "desktop.tail.ts.net"}}},
+      (False, True)),
+    ({"TCP": {"10000": {"TCPForward": "localhost:8765"}}}, (False, True)),
+    # A second HTTPS web route to the same backend, publicly funnelled.
+    ({"TCP": {"8443": {"HTTPS": True}},
+      "Web": {"desktop.tail.ts.net:8443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8765"}}}},
+      "AllowFunnel": {"desktop.tail.ts.net:8443": True}}, (False, False)),
+    ({"TCP": {"8443": {"HTTPS": True}},
+      "Web": {"desktop.tail.ts.net:8443": {"Handlers": {"/x": {"Proxy": "http://localhost:8765/"}}}}},
+      (False, True)),
+    # Foreground sessions (`tailscale serve` without --bg) are separate configs.
+    ({"Foreground": {"session": {
+        "TCP": {"8443": {"TCPForward": "127.0.0.1:8765"}},
+        "AllowFunnel": {"desktop.tail.ts.net:8443": True}}}}, (False, False)),
+    ({"Foreground": {"session": {
+        "TCP": {"443": {"HTTPS": True}},
+        "Web": {"desktop.tail.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8765"}}}},
+        "AllowFunnel": {"desktop.tail.ts.net:443": True}}}}, (False, False)),
+    # Tailscale Services carry their own TCP/Web mappings.
+    ({"Services": {"svc:learnloop": {"TCP": {"443": {"HTTPS": True}}, "Web": {
+        "learnloop.tail.ts.net:443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:8765"}}}}}}},
+      (False, True)),
+    # An unparseable forward target fails closed.
+    ({"TCP": {"9000": {"TCPForward": "not a target"}}}, (False, True)),
+    # Unrelated mappings, even funnelled ones, do not reach this backend.
+    ({"TCP": {"8443": {"HTTPS": True}},
+      "Web": {"desktop.tail.ts.net:8443": {"Handlers": {"/": {"Proxy": "http://127.0.0.1:3000"}}}},
+      "AllowFunnel": {"desktop.tail.ts.net:8443": True}}, (True, True)),
+    ({"TCP": {"2222": {"TCPForward": "127.0.0.1:22"}}}, (True, True)),
+])
+def test_serve_rejects_any_second_path_to_the_backend(extra, expected):
+    assert serve_checks(_with(extra), "desktop.tail.ts.net", 8765) == expected
+
+
 def test_serve_refuses_wrong_host_port_and_extra_handlers():
     data = serve_config()
     assert serve_checks(data, "other.tail.ts.net", 8765)[0] is False
@@ -123,7 +173,7 @@ def test_doctor_checks_fake_deployment_without_mutating_vault(monkeypatch, tmp_p
         if args[1:3] == ["serve", "status"]:
             return json.dumps(serve_config())
         if args[1] == "status":
-            return json.dumps({"Self": {"UserID": 1}, "Peer": {
+            return json.dumps({"Self": {"UserID": 1}, "Health": ["MagicDNS is not working"], "Peer": {
                 "phone": {"HostName": "phone", "UserID": 1, "TailscaleIPs": ["100.64.0.2"]},
             }})
         if args[1] == "whois":
@@ -136,7 +186,14 @@ def test_doctor_checks_fake_deployment_without_mutating_vault(monkeypatch, tmp_p
     result = module.doctor(config, env_file=environment)
     assert result["ok"], result
     assert result["tailnet_devices"][0]["untagged"]
-    assert any(check["status"] == "owner must confirm" for check in result["checks"])
+    # D12: the tailnet policy is neither checked nor presented as required work.
+    assert {check["status"] for check in result["checks"]} <= {"verified", "warning"}
+    assert not any("polic" in check["name"] for check in result["checks"])
+    assert "Optional" in result["optional_policy_example"]["note"]
+    assert result["optional_policy_example"]["policy"] == policy_example()
+    # §4.7 health warnings are surfaced without failing the deployment.
+    assert {"name": "tailscale_health", "status": "warning",
+            "detail": "MagicDNS is not working"} in result["checks"]
     assert all("set" not in command for command in calls)
     with connect(paths.sqlite_path, read_only=True) as connection:
         assert list(connection.iterdump()) == before

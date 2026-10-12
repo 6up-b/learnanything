@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tomllib
 from typing import Any
+from urllib.parse import urlsplit
 
 from learnloop.config.loader import global_settings_path
 from learnloop.db.migrate import applied_versions, discover_migrations
@@ -48,20 +49,71 @@ def read_unit_environment(path: Path) -> dict[str, str]:
     return values
 
 
+def _reaches_backend(target: Any, port: int) -> bool:
+    """Whether a Serve ``Proxy``/``TCPForward`` target could reach ``port``.
+
+    Any host is counted, not only loopback names: a second route to the same
+    port is refused rather than reasoned about. Unparseable targets fail closed.
+    """
+    if not isinstance(target, str) or not target.strip():
+        return True
+    value = target.strip()
+    if value.startswith("unix:"):
+        return False  # A Unix socket cannot be this TCP listener.
+    if value.isdecimal():
+        return int(value) == port
+    if "://" not in value:
+        value = "tcp://" + value
+    try:
+        parsed = urlsplit(value)
+        found = parsed.port
+    except ValueError:
+        return True
+    if found is None:
+        found = {"http": 80, "https": 443, "https+insecure": 443}.get(parsed.scheme)
+    return found is None or found == port
+
+
+def _serve_configs(data: dict[str, Any], label: str = "background"):
+    """The background config plus every foreground session and Service config."""
+    yield label, data
+    for name, nested in (data.get("Foreground") or {}).items():
+        yield from _serve_configs(nested, f"foreground:{name}")
+    for name, nested in (data.get("Services") or {}).items():
+        yield from _serve_configs(nested, f"service:{name}")
+
+
 def serve_checks(data: dict[str, Any], hostname: str, port: int) -> tuple[bool, bool]:
-    """Require HTTPS Serve, not a TCP forward; inspect Funnel independently."""
-    tcp = data.get("TCP", {}).get("443", {})
-    web = data.get("Web", {}).get(f"{hostname}:443", {})
-    handlers = web.get("Handlers", {})
-    expected = {"Proxy": f"http://127.0.0.1:{port}"}
+    """Require exactly one route to the backend: background HTTPS Serve on :443.
+
+    Every mapping is inspected, including foreground sessions and Services. A
+    raw TCP forward (with or without TLS termination) would bypass Serve's
+    identity headers, and a second web route widens exposure, so any other route
+    to the backend port fails. Funnel must be off on :443 and on every port that
+    carries a route to the backend.
+    """
+    expected_route = ("background", "web", f"{hostname}:443", "/")
+    routes: list[tuple[str, str, str, str]] = []
+    funnels: list[str] = []
+    for label, config in _serve_configs(data):
+        for tcp_port, handler in (config.get("TCP") or {}).items():
+            if "TCPForward" in (handler or {}) and _reaches_backend(handler["TCPForward"], port):
+                routes.append((label, "tcp", f":{tcp_port}", ""))
+        for host_port, web in (config.get("Web") or {}).items():
+            for path, handler in ((web or {}).get("Handlers") or {}).items():
+                if "Proxy" in (handler or {}) and _reaches_backend(handler["Proxy"], port):
+                    routes.append((label, "web", str(host_port), str(path)))
+        funnels += [str(address) for address, enabled in (config.get("AllowFunnel") or {}).items()
+                    if enabled]
+    tcp = (data.get("TCP") or {}).get("443") or {}
+    handlers = ((data.get("Web") or {}).get(f"{hostname}:443") or {}).get("Handlers") or {}
     serve = (
         tcp == {"HTTPS": True}
-        and handlers == {"/": expected}
+        and handlers == {"/": {"Proxy": f"http://127.0.0.1:{port}"}}
+        and routes == [expected_route]
     )
-    no_funnel = not any(
-        enabled for address, enabled in data.get("AllowFunnel", {}).items()
-        if address.rsplit(":", 1)[-1] == "443"
-    )
+    exposed_ports = {"443"} | {route[2].rsplit(":", 1)[-1] for route in routes}
+    no_funnel = not any(address.rsplit(":", 1)[-1] in exposed_ports for address in funnels)
     return serve, no_funnel
 
 
@@ -91,7 +143,8 @@ def _unit_readiness(vault: Path, values: dict[str, str]) -> dict[str, Any]:
 
 
 def policy_example() -> dict[str, Any]:
-    """Placeholders only: never discover or alter an owner's access policy."""
+    """An optional narrowing recipe (D12: not required). Placeholders only;
+    never discover or alter an owner's access policy."""
     return {
         "hosts": {
             "learnloop-phone": "<phone-tailnet-IP>",
@@ -111,7 +164,7 @@ def policy_example() -> dict[str, Any]:
 
 
 def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
-    """Return verified/failed/owner-must-confirm checks, never optimistic guesses."""
+    """Return verified/failed checks plus non-fatal warnings, never optimistic guesses."""
     from learnloop.capture import list_devices, report_orphan_originals
     from learnloop_mobile.config import sqlite_path
 
@@ -144,8 +197,10 @@ def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
     try:
         data = json.loads(_command(["tailscale", "serve", "status", "--json"]))
         serve, private = serve_checks(data, config.hostname, config.port)
-        check("serve", serve, f"Require HTTPS :443 / → http://127.0.0.1:{config.port}.")
-        check("funnel", private, "Funnel must be off on :443.")
+        check("serve", serve,
+              f"Require HTTPS :443 / → http://127.0.0.1:{config.port} as the only Serve route "
+              f"(background, foreground or Service) to port {config.port}; no TCP forwards.")
+        check("funnel", private, f"Funnel must be off on :443 and on any route to port {config.port}.")
     except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError):
         check("serve", False, "Could not verify tailscale serve status --json.")
         check("funnel", False, "Funnel exposure is unverified.")
@@ -196,17 +251,22 @@ def doctor(config: Any, *, env_file: Path | None = None) -> dict[str, Any]:
                 "untagged": not peer.get("Tags"),
             })
         check("tailnet_devices", True, "The phone must remain user-owned and untagged.")
+        # Spec §4.7: surfaced, never fatal (e.g. broken MagicDNS on the desktop).
+        for warning in status.get("Health") or []:
+            checks.append({"name": "tailscale_health", "status": "warning", "detail": str(warning)})
     except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError):
         check("tailnet_devices", False, "Could not list owner devices using tailscale status/whois.")
-    checks.append({
-        "name": "effective_policy", "status": "owner must confirm",
-        "detail": "Grants are a union. Remove or narrow overlapping broad rules, including default allow-all. "
-                  "Apply the example with real IPs and run its accept/deny policy tests. LearnLoop never edits policy.",
-    })
+    # The tailnet policy is deliberately not checked (spec §4.7, D12): the
+    # tailnet is single-user and general phone → desktop access is intended.
     return {
         "ok": not any(item["status"] == "failed" for item in checks),
         "checks": checks, "devices": devices, "tailnet_devices": tailnet_devices,
-        "orphan_originals": orphans, "policy": policy_example(),
+        "orphan_originals": orphans,
+        "optional_policy_example": {
+            "note": "Optional and not needed for acceptance (D12). LearnLoop never checks or edits "
+                    "tailnet policy. Use only if you want to narrow access to this port yourself.",
+            "policy": policy_example(),
+        },
     }
 
 

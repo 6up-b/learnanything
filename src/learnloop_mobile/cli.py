@@ -100,7 +100,7 @@ def doctor(
     env_file: Annotated[Path | None, typer.Option("--env-file")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ):
-    """Inspect local configuration, Serve, and policy confirmation requirements."""
+    """Inspect local configuration, Serve, Funnel and loopback; edits nothing."""
     from learnloop_mobile.doctor import doctor as run_doctor
     result = run_doctor(_config(config), env_file=env_file)
     _print(result)
