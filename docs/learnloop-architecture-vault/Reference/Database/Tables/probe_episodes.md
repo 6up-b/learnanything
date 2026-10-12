@@ -3,8 +3,8 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "2c46a06ae67b136a686e5622d9a55062f49bc638"
-source_commit_timestamp: "2026-10-12T16:39:13-04:00"
+source_commit: "298cedbf511db83701839ab55743915c27c30927"
+source_commit_timestamp: "2026-10-12T17:27:19-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
@@ -27,6 +27,7 @@ source_paths:
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_activity_policy.py"
   - "src/learnloop/attempts/post_attempt.py"
+  - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
   - "src/learnloop/curriculum/depth_rungs.py"
 tags:
@@ -127,8 +128,8 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/post_attempt.py`
+- `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/depth_rungs.py`
