@@ -930,3 +930,65 @@ def test_f12_a_pick_after_the_plan_closed_adds_no_feedback_dwell(tmp_path):
     assert step["origin"] == "open_list"
     after = load_duration_evidence(env.repository, latency_cap_minutes=10.0).feedback_dwell
     assert after == before
+
+
+# -- Re-review F13: a pick keeps only a live, shown offer --
+
+
+def test_f13_a_pick_ignores_a_used_or_unshown_offer(tmp_path, monkeypatch):
+    import sqlite3
+    from types import SimpleNamespace
+
+    import learnloop.clock as clock_module
+    from learnloop.daily_plan.engine import _offered_candidate
+    from learnloop_sidecar.context import SidecarContext
+
+    paths = create_daily_plan_vault(
+        tmp_path / "vault", learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]}
+    )
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: NOW)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    session_id = _rpc(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    served = _rpc(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})
+    queue = _rpc(ctx, "get_today_queue", {"sessionId": session_id})
+    listed = {
+        item["practiceItemId"]: item["schedulerCandidateId"]
+        for section in queue["sections"]
+        for item in section["items"]
+    }
+    planned_ids = {item["practiceItemId"] for block in served["plan"]["blocks"] for item in block["items"]}
+    pick_id = next(item_id for item_id in listed if item_id not in planned_ids)
+    offer = listed[pick_id]
+    picked = _rpc(ctx, "plan_learner_pick", {"practiceItemId": pick_id, "sessionId": session_id, "schedulerCandidateId": offer})
+    assert picked["step"]["schedulerCandidateId"] == offer
+    # The learner answers under that offer: it is used up.
+    _rpc(
+        ctx, "submit_dont_know",
+        {"sessionId": session_id, "practiceItemId": pick_id, "schedulerCandidateId": offer, "submissionId": "sub_f13_first"},
+    )
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        (used_by,) = connection.execute(
+            "SELECT chosen_attempt_id FROM scheduler_slate_candidates WHERE id = ?", (offer,)
+        ).fetchone()
+    assert used_by is not None
+    # A pick from the stale list (the same, used offer) is served with a live
+    # candidate, and the answer under it binds.
+    again = _rpc(ctx, "plan_learner_pick", {"practiceItemId": pick_id, "sessionId": session_id, "schedulerCandidateId": offer})
+    candidate = again["step"]["schedulerCandidateId"]
+    assert candidate != offer
+    repository = Repository(paths.sqlite_path)
+    assert repository.bind_submission_offer(
+        submission_id="sub_f13_again", session_id=session_id, practice_item_id=pick_id, scheduler_candidate_id=candidate,
+    ) == candidate
+    # A plan build's own candidate was never shown as the list: it is not "the
+    # full list's offer", whatever its returned flag says.
+    step = served["step"]
+    env = SimpleNamespace(repository=repository, session_id=session_id)
+    assert step["schedulerCandidateId"] is not None
+    assert _offered_candidate(env, step["schedulerCandidateId"], step["practiceItemId"]) is None
+    assert _offered_candidate(env, offer, pick_id) is None  # used up
+    fresh = _rpc(ctx, "get_today_queue", {"sessionId": session_id})
+    shown = next(item for section in fresh["sections"] for item in section["items"])
+    assert _offered_candidate(env, shown["schedulerCandidateId"], shown["practiceItemId"]) == shown["schedulerCandidateId"]

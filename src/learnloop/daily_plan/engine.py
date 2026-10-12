@@ -1723,19 +1723,26 @@ def _offered_candidate(env: PlanEnv, candidate_id: str | None, practice_item_id:
 
     A pick from the full list is served with the offer the learner picked it
     from (``get_today_queue`` published that list as shown), not with the plan
-    build's unpublished slate. Anything else falls back to the plan's own.
+    build's unpublished slate. Only a live, shown offer counts: one in a
+    published offer receipt and not yet answered. A used offer from a stale
+    list, or a plan build's candidate (never published), falls back to the
+    plan's own (re-review F13).
     """
 
     if not candidate_id:
         return None
     with env.repository.connection() as connection:
         row = connection.execute(
-            "SELECT 1 FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id = c.slate_id "
-            "WHERE c.id = ? AND c.practice_item_id = ? AND c.was_returned = 1 "
+            "SELECT r.returned_candidate_ids_json AS shown FROM scheduler_slate_candidates c "
+            "JOIN scheduler_slates s ON s.id = c.slate_id "
+            "JOIN scheduler_offer_receipts r ON r.slate_id = c.slate_id "
+            "WHERE c.id = ? AND c.practice_item_id = ? AND c.was_returned = 1 AND c.chosen_attempt_id IS NULL "
             "AND (s.session_id IS ? OR ? IS NULL)",
             (candidate_id, practice_item_id, env.session_id, env.session_id),
         ).fetchone()
-    return candidate_id if row is not None else None
+    if row is None or candidate_id not in json.loads(row["shown"] or "[]"):
+        return None
+    return candidate_id
 
 
 def learner_pick(
