@@ -321,6 +321,7 @@ Items without a family keep today's behaviour. Vaults with no families load and 
 - **Prediction from g97u4:** per family beats per item; per LO is worse; the distance discount helps.
   - **If confirmed:** an algorithm successor makes `family_memory_state` the live scheduling key for family items, following `docs/algorithm-change-playbook.md`, with kill switch `families.retention_key_live`. *Revised 2026-10-11:* this happens in this track (Slice A Phase 3b), not later. If the replay can't tell, the key stays per item.
   - **If not:** families still drive generation, freshness, and transfer probes.
+  - **Either way, families also feed the learner field's `idea_hier` predictor** (`spec_learner_field_v1.md` §5.6). Each family's effect `u_F` is one of the item-anchored model's few ability dimensions.
 - **Not in PF:** population-pretrained memory models. Public srs-benchmark results favour population-trained sequence models over per-user fitting, but no model there uses card content. They stay a plan B/J question (sweep §5).
 
 ### 5.3 Generators and verified references

@@ -659,6 +659,68 @@ These are gaps worth rechecking in later sweeps.
 - **Router:** keep it thin, add a scored "let them continue" no-op, and shadow an LLM P(correct) sensor (2610.04825, 2607.21306, 2610.11135, 2608.16907).
 - **Project-understanding vertical:** an explain-to-accept gate and Code-QA-style items (2602.20206, 2607.26375, 2605.29277, 2607.08849).
 
+
+## 11. Facet representation and the learner-field kernel (second sweep, 2026-10-11)
+
+Three research agents asked whether deep metric learning should separate facet dossiers. Their conclusion: separation is the wrong target. Similarity should predict **ability transfer**, and the learner's own data can't supervise a metric. ✔ marks papers Claude re-checked.
+
+**Text similarity vs measured co-performance**
+- **Hommel & Arslan**, *Language models accurately infer correlations between psychological items and scales from text alone*, AMPPS 2025 (doi 10.1177/25152459251377093) `[PR]` ✔.
+  - A model fine-tuned on empirical item correlations predicts them at r = .71 (pilot) and .59 on new items (preregistered).
+  - Frozen SBERT reached about .19 (A, from the full text).
+  - Metric learning pays when its target is co-variation, not separation. These were survey items, not ability items.
+- **Fitzpatrick, Heusser & Manning**, Nat Commun 17:2055 (2026) `[PR]` A. Knowledge smoothed over text-embedding distance predicted held-out answers within a lecture (OR 15.9). Across lectures it did so only after both had been taught. A generic encoder squeezed course content into a tiny region.
+- **2609.31976** `[pre]` A. Over 40 TIMSS items, a single-factor 2PL beat all 12 Q-matrix structures. **2509.23484** `[pre]` A: topic profiles added nothing over one latent ability. This motivates the field's general factor.
+- **2409.20167** `[PR: EDM 2025]` A. GPT-4o KC descriptions clustered by embedding did worse than human KCs on masked items (e.g. Statics RMSE .465 vs .407).
+- **2502.18632** KCGen-KT `[PR: Findings ACL 2026]` A. LLM KCs beat human KCs (AUC .816 vs .797). Coarse merging by embedding clusters hurt.
+- **2604.16398** `[PR: AIED 2026]` A. LLM Q-matrices revised against response fit beat the expert one (AUC .780 vs .717). The LLM proposes; the data selects.
+
+**LLM pair verdicts as the metric**
+- **2510.06747**, *LLMs Enable Bag-of-Texts Representations for Short-Text Clustering* (2025-10-08) ✔ (training-free; numbers FT, A).
+  - The LLM's verdicts on embedding candidates become the representation.
+  - E5 NMI/Acc 66.59/49.10 → 70.87/59.30, ahead of fine-tuning the embedder on LLM triplets (69.63/53.23).
+- **2505.06469** KCluster `[PR: EDM 2025]` ✔. LLM question-similarity clustering beat expert KCs and embedding cosine on student-performance prediction. The margins are small (FT, A).
+
+**Contrastive descriptions and training-free conditioning**
+- **2311.07593** FuDD `[PR: ICLR 2024]` A. Descriptions that contrast a class with its confusable neighbours beat generic ones.
+- **2505.21239** LMCD `[pre]` A. KC descriptions written against distractor KCs gain about 0.01 AUC.
+- **2605.22544** `[pre]` A. Qwen3-Embedding's best-minus-worst spread across 15 prompts is about 0.15 on clustering and STS.
+- **2511.11041** `[PR: ICML 2026 workshop]` A.
+  - Projecting out the mean direction: wins/ties/losses 29/9/0 on classification, 22/12/4 on retrieval across 38 models.
+  - Full PCA whitening hurt all 5 models tested.
+
+**Learned adapters and their limits**
+- **2505.24754** GSTransform `[PR: ACL 2025]` A. The LLM rewrite carried most of the gain (74.22 → 56.56 without it). The adapter needs about 10³ labelled texts.
+- **2310.08750** Search-Adaptor `[PR: ACL 2024]` A. A residual, anchored adapter on frozen API embeddings helps. Unregularized customization fell below zero-shot on 5 of 8 BEIR sets.
+- **2409.02343** NUDGE `[PR: ICLR 2025]` A. Bounded per-item offsets work for closed sets; normalization matters out of distribution.
+- **2405.12442** SKarREC `[pre]` A. A contrastive adapter cut the Davies-Bouldin index from 2.03 to 0.66, while HR@1 rose only from .773 to .792. Separation is not usefulness.
+- **2609.00100** `[pre]` A. A contrastive objective raised retrieval but preserved behavioural structure worse than PCA.
+
+**Kernels, collapse and identifiability**
+- **2608.09058**, *When Can Text Embeddings Replace Item Calibration?* (2026-08-10) `[pre]` ✔.
+  - Embedding-derived loadings recovered traits at r = .825, vs .857 for calibrated loadings.
+  - But they had κ = 137, mean inter-trait cosine 0.90, and about 4× posterior uncertainty.
+  - The condition number is a collapse diagnostic that can run before any data exists.
+- **2109.08215** HyperBO `[PR: JMLR 2024]` A and **2602.12082** Empirical GPs `[pre]` A. Fit GP priors on a population, then freeze them for new tasks.
+- **2102.12108** `[PR: UAI 2021]` A (and AVDKL, ICML 2024). Marginal-likelihood deep kernel learning overfits on small data and learns spurious non-local correlations.
+- **1303.0426**, **1803.04353** A. Skills measured only together form identifiability equivalence classes determined by the item–skill design matrix.
+- **2608.00201** `[pre]` A: weighted A-optimal adaptive design for the multidimensional 2PL. **2608.24721** KENDO `[pre]` A: kernel ensembles in place of hyperparameter sampling.
+- **Metrics:**
+  - 2602.14486 `[PR: ICML 2026]` A: after a permutation-null correction, only local-neighbourhood agreement survives.
+  - 2403.00642 `[PR: ICLR 2024]` A: uniformity misses dimensional collapse.
+  - 2402.03191 `[PR: ACL 2024]` A: strict isotropy conflicts with cluster structure.
+
+**Applied to `spec_learner_field_v1.md` (§4.1, §4.3, §5.1–5.2, §6.2, §8.4 6c/6d, D15–D19):**
+- frontier-written facet dossiers with contrastive fields, embedded per field;
+- LLM-adjudicated text edges;
+- a general factor;
+- a cap on correlation from text alone;
+- co-measured classes taken from the loading matrix;
+- a placement kernel ensemble;
+- population-fit kernel scalars;
+- an optional co-performance projection trained on public data and gated by a transfer guard;
+- no separation-targeted metric learning, and no per-learner metric learning.
+
 ---
 
 *Related: [[Pipeline Augmentation Plan]] · [[Embedding Integration Map]] · [[User intentions]] · [[LearnLoop_User_Intentions_v2]] · `docs/specs/spec_blind_grading_diagnosis_split_v1.md` · `docs/specs/spec_embedding_consumers_v1.md`*
