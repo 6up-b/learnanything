@@ -790,7 +790,7 @@ That last question is the one that matters for the daily loop.
 | D5 | Sessions: one shared session with handoff, or concurrent per-device sessions? | One shared session with atomic handoff and ownership (§6.5). Per-device sessions break session-scoped caps |
 | D6 | Phone-ineligible items: filter them from the phone queue, or show them with "best on desktop"? | Filter before offer logging, and show a count ("3 items waiting for the desktop") |
 | D7 | Photo answers: does the grader see transcript text only, or text plus image? | Text only. One canonical answer; the image is shown beside the grade for one-tap correction and kept for contests. *Revised 2026-10-11: no confirm step before grading (§6.6)* |
-| D8 | Capture processing semantics | **Blocked on daily-loop Q1/Q2/Q3/Q6.** M1 routes manually |
+| D8 | Capture processing semantics | **Decided (owner, 2026-10-11):** the daily-loop defaults C1–C3 (`docs/specs/daily_loop_frictionless_defaults.md`). Saving makes a reference; filing and verified solving happen silently; one tap adopts. M1 stores and routes manually; the background processor comes in M3 (T6) |
 | D9 | Offline practice? | No. Practice needs the desktop online; capture works offline |
 | D10 | Identity: require both the Tailscale login header and a device token, or the token only? | Both, always. The token is the credential on loopback; the header filters other tailnet users if a grant is broad |
 | D11 | Desktop asleep | Accept it in M1. Measure how often captures queue; then choose between a sleep inhibitor during sessions, Wake-on-LAN through an always-on node, or moving the host |
