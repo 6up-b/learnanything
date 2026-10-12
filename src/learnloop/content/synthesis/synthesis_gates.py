@@ -351,13 +351,17 @@ def _known_facet_references(proposal: GateProposal, ctx: GateContext) -> set[str
     """Facet ids a reference may name: registered, proposed, or an alias of either.
 
     An alias resolves to its facet at load (``vault.facet_aliases``); facet
-    identity keeps a merged candidate's id as the survivor's alias.
+    identity keeps a merged candidate's id as the survivor's alias. Aliases
+    count only while facet identity is on: off, the gate is today's.
     """
 
     known = set(ctx.registered_facet_ids) | {
         item.entity_id or item.client_item_id for item in proposal.items if item.item_type == "facet"
     }
     vault = getattr(ctx, "vault", None)
+    settings = getattr(getattr(vault, "config", None), "facet_identity", None)
+    if settings is not None and not getattr(settings, "enabled", True):
+        return known
     if vault is not None:
         known |= set(getattr(vault, "facet_aliases", {}) or {})
     for item in proposal.items:

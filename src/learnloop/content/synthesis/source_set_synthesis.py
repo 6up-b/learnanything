@@ -2413,6 +2413,9 @@ def revalidate_synthesis_candidate(
     now = utc_now_iso(clock)
     usage = dict(run.get("actual_usage") or {})
     usage["revalidations"] = int(usage.get("revalidations") or 0) + 1
+    stored_plan = (
+        FacetIdentityPlan.from_dict(usage.get("facet_identity")) if vault.config.facet_identity.enabled else None
+    )
     if repair_log:
         usage["candidate_repairs"] = list(usage.get("candidate_repairs") or []) + repair_log
     try:
@@ -2428,8 +2431,9 @@ def revalidate_synthesis_candidate(
             items_off=(dict(manifest.get("brief") or {}).get("practice_items") == "as_you_read"),
             # Zero model calls: stored (content-addressed) vectors only.
             nominator=GraphNominator.for_review(vault),
-            # The run's own facet-identity decisions, replayed (no judge call).
-            facet_identity_plan=FacetIdentityPlan.from_dict(usage.get("facet_identity")),
+            # The run's own facet-identity decisions, replayed (no judge call),
+            # only while the switch is on (review F10: off restores today's run).
+            facet_identity_plan=stored_plan,
         )
     except StudyMapError as exc:
         exc.candidate_preserved = True
@@ -2449,9 +2453,7 @@ def revalidate_synthesis_candidate(
             root, repository, result, brief=dict(manifest.get("brief") or {}), create_goal=create_goal,
             clock=clock, facet_ids=normalized.facet_ids, progress=progress,
         )
-    result.facet_identity = facet_identity_result(
-        root, repository, FacetIdentityPlan.from_dict(usage.get("facet_identity")), synthesis_run_id,
-    )
+    result.facet_identity = facet_identity_result(root, repository, stored_plan, synthesis_run_id)
     return result
 
 

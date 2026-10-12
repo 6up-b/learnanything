@@ -502,3 +502,52 @@ def test_the_dedupe_dry_run_never_migrates_the_database(tmp_path, monkeypatch):
     monkeypatch.setattr(repositories, "apply_migrations", no_migration)
     report = run_dedupe(root, dry_run=True, client=_study_judge(data))
     assert report["status"] == "dry_run" and report["estimate"]["calls"] == 1
+
+
+# --- review F10: the kill switch also stops a stored plan from replaying ------------------
+
+
+def test_revalidation_with_the_switch_off_replays_no_stored_plan(tmp_path, monkeypatch):
+    import learnloop.content.synthesis.source_set_synthesis as synthesis
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
+    from learnloop.content.synthesis.synthesis_gates import GateDiagnostic
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    real = synthesis.run_synthesis_gates
+
+    def failing_once(proposal, ctx):
+        monkeypatch.setattr(synthesis, "run_synthesis_gates", real)
+        report = real(proposal, ctx)
+        report.diagnostics.append(GateDiagnostic(gate="test", severity="hard_fail", entity_refs=(),
+                                                 message="forced", suggested_action="retry"))
+        return report
+
+    monkeypatch.setattr(synthesis, "run_synthesis_gates", failing_once)
+    try:
+        create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate), repository=repo,
+                         clock=_CLOCK, facet_identity_client=FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]]))
+    except synthesis.StudyMapError as exc:
+        run_id = exc.synthesis_run_id
+    else:  # pragma: no cover
+        raise AssertionError("the forced gate failure must fail the run")
+    append_config_toml(root, "[facet_identity]\nenabled = false")
+    result = revalidate_synthesis_candidate(root, run_id, repository=Repository(repo.sqlite_path), clock=_CLOCK)
+    facets = [row["payload"]["id"] for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+    assert DUP_ID in facets  # minted, as with no facet identity at all
+    assert result.facet_identity is None and list_actions(repo) == []
+
+
+def test_the_gate_knows_aliases_only_while_facet_identity_is_on():
+    from types import SimpleNamespace
+
+    from learnloop.content.synthesis.synthesis_gates import GateItem, GateProposal, _known_facet_references
+
+    def ctx(enabled):
+        config = SimpleNamespace(facet_identity=SimpleNamespace(enabled=enabled))
+        vault = SimpleNamespace(config=config, facet_aliases={"facet_old_name": "facet_a"})
+        return SimpleNamespace(registered_facet_ids={"facet_a"}, vault=vault)
+
+    proposal = GateProposal(items=[GateItem(client_item_id="c", item_type="facet", entity_id="facet_b",
+                                            payload={"id": "facet_b", "aliases": ["cand_b2"]})])
+    assert {"facet_old_name", "cand_b2"} <= _known_facet_references(proposal, ctx(True))
+    assert _known_facet_references(proposal, ctx(False)) == {"facet_a", "facet_b"}
