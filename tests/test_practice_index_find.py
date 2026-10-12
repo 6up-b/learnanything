@@ -248,3 +248,46 @@ def test_a_partial_rerank_is_retried_then_reported_unreranked(indexed):
     with repository.connection() as connection:
         assert connection.execute(
             "SELECT COUNT(*) FROM judgment_ledger WHERE task='practice_relevance'").fetchone()[0] == 0
+
+
+class _ItemAwareLLM(FakePracticeLLM):
+    """Dossier text that depends on the grounding items, so a source edit changes it."""
+
+    def _practice_dossier(self, context):
+        draft = super()._practice_dossier(context)
+        first = context["items"][0]["prompt"] if context.get("items") else "none"
+        return draft.model_copy(update={"covers": [*draft.covers, f"grounded on {first}"]})
+
+
+def test_changed_index_content_voids_an_earlier_evaluation_approval(indexed):
+    """F3: approval binds to the evaluated item text, facet mapping and dossier revisions."""
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    paths, vault, repository, llm, embedder = indexed
+    _evaluation(repository, load_snapshot(vault, repository, embedder=embedder), "dossier")
+    assert find_practice(vault, repository, QUERY, embedder=embedder,
+                         rerank_client=llm)["path"] == "dossier"
+    # Same models and recipe versions; only item text and the dossier it grounds change.
+    item_path = paths.practice_item_path("linear-algebra", "pi_eigen_1")
+    write_yaml(item_path, {**read_yaml(item_path),
+                           "prompt": "Compute the eigenvalues of [[4,1],[2,3]] by hand."})
+    assert generate_dossiers(load_vault(paths.root), caps=CAPS,
+                             client=_ItemAwareLLM())["generated"] >= 1
+    vault = load_vault(paths.root)
+    assert backfill_embeddings(vault, caps=CAPS,
+                               client_factory=lambda: embedder)["status"] == "complete"
+    snapshot = load_snapshot(vault, repository, embedder=embedder)
+    assert snapshot.dossier_available, snapshot.dossier_reason
+    result = find_practice(vault, repository, QUERY, embedder=embedder, rerank_client=llm)
+    assert result["path"] == "direct"
+    assert "different index" in result["path_reason"]
+    # A facet-mapping change alone also voids it.
+    _evaluation(repository, snapshot, "dossier")
+    assert find_practice(vault, repository, QUERY, embedder=embedder,
+                         rerank_client=llm)["path"] == "dossier"
+    span_item = paths.practice_item_path("linear-algebra", "pi_span_3")
+    write_yaml(span_item, {**read_yaml(span_item),
+                           "evidence_facets": ["facet_span", "facet_independence"],
+                           "evidence_weights": {"facet_span": 1.0, "facet_independence": 1.0}})
+    moved = load_vault(paths.root)
+    assert load_snapshot(moved, repository, embedder=embedder).manifest_hash() != snapshot.manifest_hash()

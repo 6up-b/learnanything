@@ -161,6 +161,8 @@ class IndexSnapshot:
     rrf_k: int
     facet_top_k: int
     candidate_pool: int
+    #: Fingerprints of the indexed content an evaluation's verdict was made on.
+    content: dict[str, str] = field(default_factory=dict)
 
     @property
     def dossier_available(self) -> bool:
@@ -171,7 +173,13 @@ class IndexSnapshot:
         return self.embedding_model is not None
 
     def manifest(self) -> dict[str, Any]:
-        """What a retrieval evaluation's verdict depends on."""
+        """What a retrieval evaluation's verdict depends on.
+
+        Versions and settings, plus content fingerprints: the indexed item
+        text, the item-to-facet mapping, the selected dossier revisions and
+        the vectors' content hashes. Replacing content under the same models
+        and recipe versions therefore voids an earlier approval.
+        """
         return {
             "embedding_model": self.embedding_model,
             "item_recipe": self.item_recipe,
@@ -183,6 +191,7 @@ class IndexSnapshot:
             "rrf_k": self.rrf_k,
             "facet_top_k": self.facet_top_k,
             "candidate_pool": self.candidate_pool,
+            "content": dict(sorted(self.content.items())),
         }
 
     def manifest_hash(self) -> str:
@@ -255,16 +264,25 @@ def load_snapshot(vault: LoadedVault, repository: Repository, *,
         dossier_reason = "dossier embeddings are incomplete; run the embedding backfill"
     else:
         dossier_reason = None
+    texts = {item_id: item.prompt for item_id, item in sorted(items.items())}
+    mapping = {item_id: item_facets(vault, item) for item_id, item in items.items()}
+    content = {
+        "item_text": content_key(texts),
+        "item_facets": content_key({item_id: sorted(f) for item_id, f in sorted(mapping.items())}),
+        "dossier_revisions": content_key({facet_id: row.id for facet_id, row in sorted(dossiers.items())}),
+        "item_vectors": content_key(item_manifest),
+        "dossier_vectors": content_key(dossier_manifests),
+    }
     return IndexSnapshot(
         embedding_model=model_id, embedding_reason=reason,
         item_recipe=item_recipe, item_manifest=item_manifest,
-        item_bm25=BM25({item_id: item.prompt for item_id, item in items.items()}),
-        item_facets={item_id: item_facets(vault, item) for item_id, item in items.items()},
+        item_bm25=BM25(texts),
+        item_facets=mapping,
         facets=facets, dossiers=dossiers,
         dossier_bm25=BM25(dossier_documents(dossiers, facets)) if dossiers else None,
         dossier_manifests=dossier_manifests, dossier_vectors_complete=dossier_vectors,
         dossier_reason=dossier_reason, rrf_k=config.rrf_k, facet_top_k=config.facet_top_k,
-        candidate_pool=config.candidate_pool,
+        candidate_pool=config.candidate_pool, content=content,
     )
 
 
