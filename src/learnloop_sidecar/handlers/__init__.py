@@ -14,6 +14,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     epigraphs,
     exams,
     facet_detail,
+    facet_identity,
     facets,
     feedback,
     goals,

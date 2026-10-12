@@ -1,0 +1,257 @@
+"""Facet identity at mint time: within-run consolidation, attach (D2), undo, kill switch.
+
+Bootstrap synthesis end to end with the house fake synthesis client and a
+fake judge. A duplicate candidate is not minted: its references keep its id
+(an alias of the survivor), so the one-tap undo re-mints it exactly.
+"""
+
+from __future__ import annotations
+
+import sqlite3
+
+from learnloop.content.facet_identity.actions import list_actions, undo_action
+from learnloop.content.facet_identity.judge import TASK
+from learnloop.content.synthesis.ai_contracts import (
+    SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION,
+    SOURCE_SET_SYNTHESIS_PROMPT_VERSION,
+    SynthCriterion,
+    SynthCriterionTarget,
+    SynthFacet,
+    SynthPracticeItem,
+    SynthRecipeComponent,
+    source_set_synthesis_prompt,
+)
+from learnloop.content.synthesis.source_set_synthesis import create_study_map
+from learnloop.db.repositories import Repository
+from learnloop.vault.loader import load_vault
+from learnloop.vault.models import learning_object_facet_union
+from learnloop.vault.paths import VaultPaths
+from learnloop.vault.yaml_io import read_yaml
+
+from tests.facet_identity_fakes import FakeFacetJudge
+from tests.helpers import append_config_toml, write_facets
+from tests.test_source_set_synthesis import _CLOCK, FakeSynthesisClient, _default_payload, _setup
+
+DEF_CLAIM = "A real square matrix is symmetric exactly when A^T = A."
+DUP_ID = "facet_symmetry_definition_restated"
+DUP_CLAIM = "A real square matrix A is symmetric if and only if it equals its transpose."
+
+
+def _with_duplicate(context, _ordinal):
+    payload = _default_payload(context)
+    prov = payload.facets[0].provenance
+    payload.facets.append(SynthFacet(
+        client_item_id="f_def_dup", id=DUP_ID, concept_client_id="c_sym", kind="definition",
+        claim=DUP_CLAIM, preconditions=["the matrix is square"], positive_examples=["[[1,2],[2,1]]"],
+        error_signatures=["checks only the diagonal"], instructional_repairs=["compare entries across the diagonal"],
+        provenance=prov,
+    ))
+    payload.blueprints[0].recipes[0].all_of.append(
+        SynthRecipeComponent(facet_client_id="f_def_dup", capability="retrieval"))
+    payload.practice_items.append(SynthPracticeItem(
+        client_item_id="pi_3", id="pi_transpose_check", learning_object_client_id="lo_diag",
+        practice_mode="retrieval", prompt="When does A equal its transpose?", expected_answer="When a_ij = a_ji.",
+        evidence_facet_client_ids=["f_def_dup"],
+        criteria=[SynthCriterion(
+            id="states_transpose_condition", points=1.0, description="States a_ij = a_ji.",
+            correlation_group="transpose_condition",
+            targets=[SynthCriterionTarget(facet_client_id="f_def_dup", capability="retrieval", role="primary")],
+        )],
+        provenance=prov,
+    ))
+    return payload
+
+
+class _RecordingSynthesisClient(FakeSynthesisClient):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.prompts: list[str] = []
+
+    def complete(self, request):
+        if request.purpose == "source_set_synthesis":
+            self.prompts.append(request.prompt)
+        return super().complete(request)
+
+
+def _ledger(sqlite_path):
+    return sqlite3.connect(sqlite_path).execute(
+        "SELECT left_kind, verdict, judge, judge_model FROM judgment_ledger WHERE task = ?", (TASK,)
+    ).fetchall()
+
+
+def test_a_duplicate_candidate_is_merged_before_the_gates_and_undo_re_mints_it(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]])
+    client = _RecordingSynthesisClient(builder=_with_duplicate)
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, apply=True,
+                              facet_identity_client=judge)
+    assert result.applied
+    block = result.facet_identity
+    assert block["status"] == "judged" and block["in_run_retired"] == 1
+    (action,) = block["actions"]
+    assert action["action"] == "merge" and action["scope"] == "in_run" and action["status"] == "applied"
+    assert action["survivor"]["id"] == "facet_symmetry_definition"
+    assert [facet["id"] for facet in action["retired"]] == [DUP_ID]
+    assert action["undoable"]
+    # The prompt carried the one-facet-per-skill rule under the bumped version.
+    assert "ONE FACET PER TESTABLE SKILL" in client.prompts[0]
+    assert SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION in client.prompts[0]
+
+    vault = load_vault(root)
+    assert DUP_ID not in vault.evidence_facets
+    survivor = vault.evidence_facets["facet_symmetry_definition"]
+    assert DUP_ID in survivor.aliases
+    assert "the matrix is square" in survivor.preconditions
+    assert "[[1,2],[2,1]]" in survivor.positive_examples
+    # References keep the candidate's id on disk; the loader resolves the alias.
+    paths = VaultPaths(vault.root, vault.config)
+    item_yaml = read_yaml(paths.practice_item_path("linear-algebra", "pi_transpose_check"))
+    assert item_yaml["evidence_facets"] == [DUP_ID]
+    assert vault.practice_items["pi_transpose_check"].evidence_facets == ["facet_symmetry_definition"]
+    assert vault.practice_items["pi_transpose_check"].grading_rubric.criteria[0].targets[0].facet == "facet_symmetry_definition"
+    assert set(learning_object_facet_union(vault.learning_objects["lo_diagonalize_symmetric"])) == {
+        "facet_symmetry_definition", "facet_spectral_applicability"}
+    # One ledger row per pair of the three c_sym candidates.
+    rows = _ledger(repo.sqlite_path)
+    assert len(rows) == 3 and {row[0] for row in rows} == {"facet_candidate"}
+    assert sorted(row[1] for row in rows) == ["different", "different", "same"]
+
+    undone = undo_action(root, repo, action["id"], clock=_CLOCK)
+    assert undone["restored_facet_ids"] == [DUP_ID]
+    vault = load_vault(root)
+    assert DUP_ID in vault.evidence_facets
+    assert DUP_ID not in vault.evidence_facets["facet_symmetry_definition"].aliases
+    assert vault.evidence_facets[DUP_ID].claim == DUP_CLAIM
+    assert "the matrix is square" not in vault.evidence_facets["facet_symmetry_definition"].preconditions
+    assert vault.practice_items["pi_transpose_check"].evidence_facets == [DUP_ID]
+    assert set(learning_object_facet_union(vault.learning_objects["lo_diagonalize_symmetric"])) == {
+        "facet_symmetry_definition", "facet_spectral_applicability", DUP_ID}
+
+
+def test_an_unapplied_proposal_records_the_merge_without_an_undo(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]])
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate), repository=repo,
+                              clock=_CLOCK, facet_identity_client=judge)
+    (action,) = result.facet_identity["actions"]
+    assert action["status"] == "proposed" and not action["undoable"]
+    proposal_facets = [row for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+    assert sorted(row["payload"]["id"] for row in proposal_facets) == [
+        "facet_spectral_applicability", "facet_symmetry_definition"]
+    try:
+        undo_action(root, repo, action["id"])
+    except Exception as exc:  # noqa: BLE001
+        assert getattr(exc, "code", "") == "not_applied"
+    else:  # pragma: no cover
+        raise AssertionError("undo of an unapplied merge must refuse")
+
+
+def test_a_candidate_matching_a_registered_facet_becomes_its_alias(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    paths = VaultPaths(root, load_vault(root).config)
+    write_facets(paths, [{
+        "id": "facet_symmetric_matrix_definition", "kind": "definition", "claim": DEF_CLAIM,
+        "concept_id": None, "status": "reviewed",
+    }])
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM]], key=lambda view: str(view.get("claim") or ""))
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(), repository=repo, clock=_CLOCK,
+                              apply=True, facet_identity_client=judge)
+    block = result.facet_identity
+    assert block["attached"] == 1, block
+    (action,) = block["actions"]
+    assert action["scope"] == "attach" and action["survivor"]["id"] == "facet_symmetric_matrix_definition"
+    vault = load_vault(root)
+    assert "facet_symmetry_definition" not in vault.evidence_facets
+    assert "facet_symmetry_definition" in vault.evidence_facets["facet_symmetric_matrix_definition"].aliases
+    assert vault.practice_items["pi_identify_symmetry"].evidence_facets == ["facet_symmetric_matrix_definition"]
+    undo_action(root, repo, action["id"], clock=_CLOCK)
+    vault = load_vault(root)
+    assert "facet_symmetry_definition" in vault.evidence_facets
+    assert vault.evidence_facets["facet_symmetric_matrix_definition"].aliases == []
+    assert vault.practice_items["pi_identify_symmetry"].evidence_facets == ["facet_symmetry_definition"]
+
+
+def test_the_kill_switch_restores_the_prompt_and_never_calls_the_judge(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    append_config_toml(root, "[facet_identity]\nenabled = false")
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]])
+    client = _RecordingSynthesisClient(builder=_with_duplicate)
+    result = create_study_map(root, "set_la", client=client, repository=repo, clock=_CLOCK, apply=True,
+                              facet_identity_client=judge)
+    assert result.facet_identity is None and judge.requests == []
+    assert "ONE FACET PER TESTABLE SKILL" not in client.prompts[0]
+    assert SOURCE_SET_SYNTHESIS_PROMPT_VERSION in client.prompts[0]
+    assert source_set_synthesis_prompt(client.calls[0]) == client.prompts[0]
+    assert DUP_ID in load_vault(root).evidence_facets
+    assert _ledger(repo.sqlite_path) == [] and list_actions(repo) == []
+
+
+def test_an_unavailable_judge_keeps_the_candidates_and_says_so(tmp_path):
+    root, repo = _setup(tmp_path, with_exam=False)
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate),
+                              repository=repo, clock=_CLOCK, apply=True)
+    assert result.facet_identity["status"] == "judge_unavailable"
+    assert result.facet_identity["actions"] == []
+    assert DUP_ID in load_vault(root).evidence_facets
+
+
+def test_revalidation_replays_the_plan_without_a_judge_call(tmp_path, monkeypatch):
+    import learnloop.content.synthesis.source_set_synthesis as synthesis
+    from learnloop.content.synthesis.source_set_synthesis import revalidate_synthesis_candidate
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    judge = FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]])
+    real = synthesis.run_synthesis_gates
+
+    def failing_once(proposal, ctx):
+        monkeypatch.setattr(synthesis, "run_synthesis_gates", real)
+        report = real(proposal, ctx)
+        from learnloop.content.synthesis.synthesis_gates import GateDiagnostic
+
+        report.diagnostics.append(GateDiagnostic(gate="test", severity="hard_fail", entity_refs=(),
+                                                 message="forced", suggested_action="retry"))
+        return report
+
+    monkeypatch.setattr(synthesis, "run_synthesis_gates", failing_once)
+    try:
+        create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate), repository=repo,
+                         clock=_CLOCK, facet_identity_client=judge)
+    except synthesis.StudyMapError as exc:
+        run_id = exc.synthesis_run_id
+    else:  # pragma: no cover
+        raise AssertionError("the forced gate failure must fail the run")
+    calls = len(judge.requests)
+    result = revalidate_synthesis_candidate(root, run_id, repository=Repository(repo.sqlite_path), clock=_CLOCK)
+    assert len(judge.requests) == calls
+    facets = [row["payload"]["id"] for row in repo.proposal_items(result.proposal_id) if row["item_type"] == "facet"]
+    assert DUP_ID not in facets
+    assert result.facet_identity["in_run_retired"] == 1
+
+
+def test_the_desktop_lists_a_runs_merges_and_undoes_one(tmp_path):
+    import io
+    import json
+
+    from learnloop_sidecar.server import serve
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate), repository=repo,
+                              clock=_CLOCK, apply=True,
+                              facet_identity_client=FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]]))
+    action_id = result.facet_identity["actions"][0]["id"]
+    messages = [
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"vaultPath": str(root)}},
+        {"jsonrpc": "2.0", "id": 2, "method": "list_facet_identity_actions",
+         "params": {"runId": result.synthesis_run_id}},
+        {"jsonrpc": "2.0", "id": 3, "method": "undo_facet_identity_action", "params": {"actionId": action_id}},
+        {"jsonrpc": "2.0", "id": 4, "method": "undo_facet_identity_action", "params": {"actionId": action_id}},
+    ]
+    stdout = io.StringIO()
+    serve(io.StringIO("".join(json.dumps(m) + "\n" for m in messages)), stdout)
+    replies = {reply["id"]: reply for reply in map(json.loads, stdout.getvalue().splitlines()) if "id" in reply}
+    assert "undo_facet_identity_action" in replies[1]["result"]["capabilities"]["methods"]
+    listed = replies[2]["result"]["actions"]
+    assert [entry["id"] for entry in listed] == [action_id] and listed[0]["undoable"] is True
+    assert replies[3]["result"]["status"] == "undone"
+    assert replies[3]["result"]["action"]["status"] == "undone"
+    assert replies[4]["error"]["data"]["code"] == "already_undone"

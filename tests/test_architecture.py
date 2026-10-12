@@ -48,6 +48,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
         "src/learnloop/db/stores/judgments.py",
+        # Facet identity: applied merge/absorb actions and their facet_merges rows.
+        "src/learnloop/db/stores/facet_identity.py",
         "src/learnloop/projects/experiment_store.py",
         # Slice 1 M1: review_* tables that exist only inside a scratch copy.
         "src/learnloop/db/stores/diagnosis_review.py",

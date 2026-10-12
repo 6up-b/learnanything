@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-171. Migration 167 adds the learner-field F1 read model
+172. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -13,7 +13,9 @@ blind-grading/diagnosis split (`blind_grade_records`, `attempt_diagnoses`,
 and the `diagnostic_augmentation_receipts.grader_mode` column); migration 171
 adds mobile M1 capture (`capture_inbox`, `capture_routes`, `mobile_devices`,
 `mobile_pairings`, `mobile_pairing_attempts`, `mobile_pairing_guard`,
-`mobile_request_log`). It pins current-head schema coverage while the original
+`mobile_request_log`); migration 172 adds facet identity's
+`facet_identity_actions` (each applied facet merge or absorb and the
+facets.yaml entries its undo restores). It pins current-head schema coverage while the original
 populated fixture and the other vaults remain at historical versions for
 upgrade-path tests.
 

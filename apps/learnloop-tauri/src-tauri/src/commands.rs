@@ -618,6 +618,10 @@ sidecar_passthrough!(get_subject_registry, "get_subject_registry");
 
 sidecar_passthrough!(propose_facet_merge, "propose_facet_merge");
 
+sidecar_passthrough!(list_facet_identity_actions, "list_facet_identity_actions");
+
+sidecar_passthrough!(undo_facet_identity_action, "undo_facet_identity_action");
+
 sidecar_passthrough!(accept_proposal_items, "accept_proposal_items");
 
 sidecar_passthrough!(reject_proposal_items, "reject_proposal_items");

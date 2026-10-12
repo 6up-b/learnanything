@@ -10,6 +10,7 @@ from pathlib import Path
 from learnloop.config.compat import normalize_config_input
 from learnloop.config.schema import (
     CODEX_LOW_PROVIDER,
+    CODEX_LUNA_PROVIDER,
     CODEX_MEDIUM_PROVIDER,
     CodexHTTPProviderConfig,
     CodexSDKProviderConfig,
@@ -98,7 +99,7 @@ def _apply_global_overrides(config: LearnLoopConfig) -> LearnLoopConfig:
         provider = config.ai.providers.get("codex")
         if isinstance(provider, (CodexSDKProviderConfig, CodexHTTPProviderConfig)):
             provider.checkout_path = resolved
-        for provider_name in (CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER):
+        for provider_name in (CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER, CODEX_LUNA_PROVIDER):
             provider = config.ai.providers.get(provider_name)
             if isinstance(provider, (CodexSDKProviderConfig, CodexHTTPProviderConfig)):
                 provider.checkout_path = resolved

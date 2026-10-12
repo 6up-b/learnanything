@@ -997,6 +997,11 @@ class AIRoutingConfig(BaseModel):
     # Slice 2 T4: the leak/reveal judge of `learnloop contamination report`
     # (shadow flags only). Empty = ai.active_provider.
     contamination_judge: str | None = None
+    # Facet identity (handoff §4): the cheap judge that partitions candidate
+    # facets into same-skill sets at ingest and in `learnloop facets dedupe`.
+    # Empty = the code-default `codex_luna` profile when the active provider
+    # is Codex, else ai.active_provider.
+    facet_identity_judge: str | None = None
     grading: str | None = None
     # Slice 1 history-aware diagnoser. Empty = the resolved `grading` route.
     diagnosis: str | None = None
@@ -1050,7 +1055,17 @@ DEFAULT_CODEX_REASONING_EFFORT = "low"
 LEGACY_CODEX_MODEL = "gpt-5.5"
 CODEX_LOW_PROVIDER = "codex_low"
 CODEX_MEDIUM_PROVIDER = "codex_medium"
-CODEX_PROVIDER_NAMES = frozenset({"codex", CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER})
+# The cheapest Codex model the owner's account lists (`gpt-6-luna`, "fast and
+# affordable model for easier tasks"; checked in the Codex CLI's model list on
+# 2026-10-12). Code-default profile for cheap judges such as facet identity.
+CODEX_LUNA_PROVIDER = "codex_luna"
+CODEX_LUNA_MODEL = "gpt-6-luna"
+CODEX_PROVIDER_NAMES = frozenset({"codex", CODEX_LOW_PROVIDER, CODEX_MEDIUM_PROVIDER, CODEX_LUNA_PROVIDER})
+# Claude Haiku through OpenRouter: the metered alternative for cheap judges
+# (OpenRouter listing on 2026-10-12: $0.10 per million input tokens, $0.50
+# per million output tokens).
+OPENROUTER_HAIKU_PROVIDER = "openrouter_haiku"
+OPENROUTER_HAIKU_MODEL = "anthropic/claude-haiku-5.5"
 OPENROUTER_TRANSCRIPTION_PROVIDER = "openrouter_transcription"
 
 DEFAULT_CODEX_TASK_ROUTES = {
@@ -1062,6 +1077,7 @@ DEFAULT_CODEX_TASK_ROUTES = {
     "teach_back": CODEX_LOW_PROVIDER,
     "rung_variant": CODEX_LOW_PROVIDER,
     "animation": CODEX_MEDIUM_PROVIDER,
+    "facet_identity_judge": CODEX_LUNA_PROVIDER,
 }
 
 
@@ -1451,6 +1467,44 @@ class GraphNominationConfig(BaseModel):
     max_query_cost_usd: float = Field(default=0.05, ge=0)
 
 
+class FacetIdentityConfig(BaseModel):
+    """Facet identity at mint time, and the dedupe command (handoff §4).
+
+    At ingest, a cheap judge sees each concept neighbourhood of candidate
+    facets whole and partitions it into same-skill sets (``merge``,
+    ``absorb``, ``keep_distinct``); candidates nominated against registered
+    facets go to the same judge. ``learnloop facets dedupe`` does the same for
+    an existing vault. Merges and absorbs apply live, each with an undo.
+    Embeddings only bound and shortlist neighbourhoods; the judge decides.
+    ``enabled = false`` is the kill switch: today's lexical gate only, the
+    pre-change synthesis prompts, no judge and no shortlist embedding.
+    """
+
+    enabled: bool = True
+    # Facets one judge call partitions; a larger neighbourhood is split.
+    max_group_size: int = Field(default=40, ge=2, le=120)
+    # Embedding shortlist rank within a run (the study: every duplicate was
+    # within rank 4) and registry nominations per candidate (T5, top-4).
+    shortlist_top_k: int = Field(default=4, ge=1, le=20)
+    attach_top_k: int = Field(default=4, ge=1, le=20)
+    # Owner option c (2026-10-12): judge decisions apply live with undo, also
+    # on facets whose identity is locked (knowledge model §3.4). False keeps
+    # the strict lock policy: a locked facet is reported and never merged.
+    merge_locked_facets: bool = True
+    # Per ingest run (and the dedupe command's defaults). Codex runs on the
+    # subscription: tokens and dollars are estimated only, never enforced.
+    max_calls: int = Field(default=24, ge=0)
+    max_facets: int = Field(default=400, ge=0)
+    max_pairs: int = Field(default=20_000, ge=0)
+    max_retries: int = Field(default=2, ge=0)
+    max_total_tokens: int = Field(default=600_000, ge=0)
+    max_cost_usd: float = Field(default=0.5, ge=0)
+    # Owner price override (USD per million tokens, input and output) for a
+    # metered judge model without a built-in price; unknown prices refuse.
+    price_per_million_input: float | None = Field(default=None, gt=0)
+    price_per_million_output: float | None = Field(default=None, ge=0)
+
+
 class FieldConfig(BaseModel):
     """Offline F1 analysis only; activation requires a later algorithm successor."""
 
@@ -1525,6 +1579,7 @@ class LearnLoopConfig(BaseModel):
     ai: AIConfig = Field(default_factory=AIConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     graph_nomination: GraphNominationConfig = Field(default_factory=GraphNominationConfig)
+    facet_identity: FacetIdentityConfig = Field(default_factory=FacetIdentityConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
@@ -1565,9 +1620,16 @@ class LearnLoopConfig(BaseModel):
                 update={"model": DEFAULT_CODEX_MODEL, "reasoning_effort": "medium"}
             ),
         )
+        self.ai.providers.setdefault(
+            CODEX_LUNA_PROVIDER,
+            codex_runtime_profile.model_copy(
+                update={"model": CODEX_LUNA_MODEL, "reasoning_effort": "low"}
+            ),
+        )
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
+        self.ai.providers.setdefault(OPENROUTER_HAIKU_PROVIDER, openrouter_haiku_provider())
         for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
             if task == "canonical_ingest_retry":
                 # Resolved after the loop so it can mirror the (possibly
@@ -1661,6 +1723,17 @@ def deepseek_pro_provider() -> AIProviderConfig:
         reasoning_effort="high",
         max_tokens=16384,
         timeout_seconds=180,
+    )
+
+
+def openrouter_haiku_provider() -> AIProviderConfig:
+    """Claude Haiku through OpenRouter, for cheap metered judges."""
+
+    return OpenRouterProviderConfig(
+        model=OPENROUTER_HAIKU_MODEL,
+        api_key_env="OPENROUTER_API_KEY",
+        response_format="json_object",
+        timeout_seconds=120,
     )
 
 

@@ -17,6 +17,7 @@ import type {
   ConceptGraphSnapshot,
   ConfirmQuickAddInput,
   EntityProvenance,
+  FacetIdentityActionDto,
   FacetMergeResultDto,
   PlanQuickAddInput,
   ProposeFacetMergeInput,
@@ -725,6 +726,16 @@ export const api = {
     )),
   getSpanView: (input: SpanViewInput) =>
     call<{ version: number; spanView: SpanViewDto }>("get_span_view", { input }),
+  // Facet identity (handoff §4): a run's merges/absorbs and the one-tap undo.
+  listFacetIdentityActions: (runId?: string | null) =>
+    call<{ version: number; actions: FacetIdentityActionDto[] }>("list_facet_identity_actions", {
+      input: { runId: runId ?? null }
+    }),
+  undoFacetIdentityAction: (actionId: string) =>
+    mutatingAll(call<{ version: number; status: string; action: FacetIdentityActionDto | null }>(
+      "undo_facet_identity_action",
+      { input: { actionId } },
+    )),
   getSubjectRegistry: (subjectId: string) =>
     call<SubjectRegistryDto>("get_subject_registry", { input: { subjectId } }),
   proposeFacetMerge: (input: ProposeFacetMergeInput) =>

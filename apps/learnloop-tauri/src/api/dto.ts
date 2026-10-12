@@ -2595,6 +2595,45 @@ export interface IngestJobView {
   dependsOn: string[];
 }
 
+/** Facet identity (handoff §4): one merge or absorb a judge applied, with its undo state. */
+export interface FacetIdentityFacetRef {
+  id: string;
+  claim: string;
+}
+
+export interface FacetIdentityActionDto {
+  id: string;
+  origin: "ingest" | "append" | "dedupe";
+  scope: "in_run" | "attach" | "vault";
+  runId: string;
+  proposalId: string | null;
+  action: "merge" | "absorb";
+  absorbAs: "example" | "precondition" | null;
+  survivor: FacetIdentityFacetRef;
+  retired: FacetIdentityFacetRef[];
+  rationale: string;
+  locked: boolean;
+  judge: string;
+  judgeModel: string | null;
+  /** proposed = applies with its proposal; applied = undoable now; undone. */
+  status: "proposed" | "applied" | "undone";
+  undoable: boolean;
+  createdAt: string;
+  undoneAt: string | null;
+}
+
+/** The facet-identity block of a synthesis/append job result (absent when switched off). */
+export interface FacetIdentitySummaryDto {
+  status: string;
+  groups: number;
+  groupsJudged: number;
+  inRunRetired: number;
+  attached: number;
+  judge: string | null;
+  notes: string[];
+  actions: FacetIdentityActionDto[];
+}
+
 export interface IngestBatchDto {
   version?: number;
   id: string;

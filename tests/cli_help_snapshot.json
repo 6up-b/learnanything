@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 22312,
-    "sha256": "d600ae2f549273935f9b1c7dc8067d1c329d3321046dadeb6d56f2829d547f60"
+    "bytes": 22482,
+    "sha256": "2eb2663d64914037a0e921c3d9d638b645e5f34849c36d72c9a0f58de0a6d177"
   },
   "accept": {
     "bytes": 1593,
@@ -362,6 +362,22 @@
   "facet-mint-gate": {
     "bytes": 1854,
     "sha256": "ac77a69150d837586317b8765af49e2fdc9e00b93b79ab8ccbda6a68b7105e9b"
+  },
+  "facets": {
+    "bytes": 1923,
+    "sha256": "117998b778b5974a02b29ffa439f39baf49ae7bfdd5a496fa3336cab298518f3"
+  },
+  "facets actions": {
+    "bytes": 1380,
+    "sha256": "ca3b9e6f3b4ef26a79a055501a69bea337351be88ff94953f31b6d4c8a5dbf41"
+  },
+  "facets dedupe": {
+    "bytes": 3404,
+    "sha256": "f0e1e91fe56d9cf0e0fd5e52ba0f280cb8f9cab3d5317cc438d3b143e2b216dc"
+  },
+  "facets undo": {
+    "bytes": 1755,
+    "sha256": "142e20059cd9f48a76f1dbe86b3387111a65b32b8e09be2414c0e9757847b921"
   },
   "families": {
     "bytes": 1757,

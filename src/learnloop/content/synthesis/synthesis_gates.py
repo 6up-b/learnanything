@@ -347,10 +347,27 @@ def _has_semantic_authority(item: GateItem) -> bool:
     return False
 
 
-def _gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
-    known_facets = set(ctx.registered_facet_ids) | {
+def _known_facet_references(proposal: GateProposal, ctx: GateContext) -> set[str]:
+    """Facet ids a reference may name: registered, proposed, or an alias of either.
+
+    An alias resolves to its facet at load (``vault.facet_aliases``); facet
+    identity keeps a merged candidate's id as the survivor's alias.
+    """
+
+    known = set(ctx.registered_facet_ids) | {
         item.entity_id or item.client_item_id for item in proposal.items if item.item_type == "facet"
     }
+    vault = getattr(ctx, "vault", None)
+    if vault is not None:
+        known |= set(getattr(vault, "facet_aliases", {}) or {})
+    for item in proposal.items:
+        if item.item_type == "facet" and isinstance(item.payload, dict):
+            known |= {str(alias) for alias in item.payload.get("aliases") or [] if alias}
+    return known
+
+
+def _gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
+    known_facets = _known_facet_references(proposal, ctx)
     out: list[GateDiagnostic] = []
     for item in proposal.items:
         criteria = _criteria_of(item)
@@ -399,9 +416,7 @@ def _gate_criterion_targets_dag(proposal: GateProposal, ctx: GateContext) -> lis
 
 
 def _gate_recipe_validity(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
-    known_facets = set(ctx.registered_facet_ids) | {
-        item.entity_id or item.client_item_id for item in proposal.items if item.item_type == "facet"
-    }
+    known_facets = _known_facet_references(proposal, ctx)
     out: list[GateDiagnostic] = []
     for item in proposal.items:
         blueprints = _blueprints_of(item)
