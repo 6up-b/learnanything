@@ -1449,13 +1449,36 @@ def _skip(env: PlanEnv, record: PlanRecord, practice_item_id: str) -> PlanRecord
 # -- learner picks -----------------------------------------------------------------
 
 
-def learner_pick(env: PlanEnv, practice_item_id: str) -> tuple[PlanRecord | None, dict[str, Any]]:
+def _offered_candidate(env: PlanEnv, candidate_id: str | None, practice_item_id: str) -> str | None:
+    """The full list's offer for this item, when ``candidate_id`` is one (F5).
+
+    A pick from the full list is served with the offer the learner picked it
+    from (``get_today_queue`` published that list as shown), not with the plan
+    build's unpublished slate. Anything else falls back to the plan's own.
+    """
+
+    if not candidate_id:
+        return None
+    with env.repository.connection() as connection:
+        row = connection.execute(
+            "SELECT 1 FROM scheduler_slate_candidates c JOIN scheduler_slates s ON s.id = c.slate_id "
+            "WHERE c.id = ? AND c.practice_item_id = ? AND c.was_returned = 1 "
+            "AND (s.session_id IS ? OR ? IS NULL)",
+            (candidate_id, practice_item_id, env.session_id, env.session_id),
+        ).fetchone()
+    return candidate_id if row is not None else None
+
+
+def learner_pick(
+    env: PlanEnv, practice_item_id: str, *, offer_candidate_id: str | None = None
+) -> tuple[PlanRecord | None, dict[str, Any]]:
     """§6.1, L3, G12: opening an item from the full list is a one-item block.
 
     Its estimate comes out of the minutes left and the lanes (push, new,
     repair, maintain); planned items that no longer fit are displaced. A
     planned item opened from the list is simply served. A plan that is no
     longer open does not grow: the item is served as an open-list pick.
+    ``offer_candidate_id`` is the full list's offer it was picked from.
     """
 
     vault = env.vault
@@ -1469,7 +1492,9 @@ def learner_pick(env: PlanEnv, practice_item_id: str) -> tuple[PlanRecord | None
         None,
     )
     context, built = _live_context(env, record)
-    candidate_id = context.candidate_ids.get(practice_item_id)
+    candidate_id = _offered_candidate(env, offer_candidate_id, practice_item_id) or context.candidate_ids.get(
+        practice_item_id
+    )
     if planned is not None:
         block = next(b for b in record.blocks if b.id == planned.block_id)
         _serve(env, block, planned, candidate_id=candidate_id)

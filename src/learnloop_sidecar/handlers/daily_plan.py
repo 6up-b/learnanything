@@ -87,27 +87,30 @@ class PlanMoreNewInput(ParamsModel):
 class PlanLearnerPickInput(ParamsModel):
     practice_item_id: str
     session_id: str | None = None
+    #: The offer the learner picked it from: the full list's own candidate id
+    #: (``get_today_queue`` published that list as shown). Without it the pick
+    #: is served with the plan build's candidate for the item.
+    scheduler_candidate_id: str | None = None
 
 
 def _env(ctx: SidecarContext, vault: Any, repository: Any, session_id: str | None) -> PlanEnv:
     def eligible(minutes: float) -> list[Any]:
-        # Today's own build: the same scheduler call, teach-back filter and
-        # offer finalization as get_today_queue, so a served plan item carries
-        # the candidate id of the slate that ranked it.
+        # Today's own build: the same scheduler call and teach-back filter as
+        # get_today_queue, so a served plan item carries the candidate id of
+        # the slate that ranked it. No offer is finalized: the learner sees one
+        # block, not this list, so publishing it as "offered" (as the full
+        # list does when it is shown) would be a false offer set for the field
+        # and router logging (review F5). The plan's own item_served receipt
+        # records what was served.
         queue = build_due_queue(
             vault,
             repository,
             session=SchedulerSession(session_id=session_id, available_minutes=int(round(minutes))),
             limit=None,
         )
-        slate_id = queue[0].scheduler_slate_id if queue else None
-        queue = filter_unready_teach_back_items(
+        return filter_unready_teach_back_items(
             vault, queue, grading_provider_override=ctx.grading_provider_override
         )
-        repository.finalize_scheduler_offer(
-            slate_id, [item.scheduler_candidate_id for item in queue if item.scheduler_candidate_id]
-        )
-        return queue
 
     return PlanEnv(vault=vault, repository=repository, session_id=session_id, eligible=eligible)
 
@@ -254,7 +257,9 @@ def plan_learner_pick(ctx: SidecarContext, params: PlanLearnerPickInput) -> dict
         return _off(ctx)
     _vault, _repository, env = required
     try:
-        record, step = learner_pick(env, params.practice_item_id)
+        record, step = learner_pick(
+            env, params.practice_item_id, offer_candidate_id=params.scheduler_candidate_id
+        )
     except KeyError as exc:
         raise SidecarError("not_found", f"Unknown Practice Item {params.practice_item_id}.") from exc
     return versioned({"enabled": True, "step": step, **_current_view(env)})

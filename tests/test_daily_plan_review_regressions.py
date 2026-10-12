@@ -345,3 +345,70 @@ def test_f4_a_followup_that_cannot_fit_is_declined_not_appended(tmp_path):
     assert "pi_f" not in {item.practice_item_id for item in record.items()}
     assert not any(item.displaced for item in record.items())
     assert record.minutes_planned() <= record.budget + 1e-6
+
+
+# -- F5: plan builds publish no offer the learner never saw --
+
+
+def _rpc(ctx, name, params):
+    import learnloop_sidecar.handlers  # noqa: F401 -- populate METHOD_REGISTRY
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    spec = METHOD_REGISTRY[name]
+    return spec.handler(ctx, spec.params_model.model_validate(params))
+
+
+def _offer_receipts(path):
+    import sqlite3
+
+    with sqlite3.connect(path) as connection:
+        return connection.execute(
+            "SELECT entry_surface, returned_candidate_ids_json FROM scheduler_offer_receipts ORDER BY rowid"
+        ).fetchall()
+
+
+def test_f5_plan_rpcs_finalize_no_offer_and_picks_keep_the_list_offer(tmp_path, monkeypatch):
+    import json
+
+    import learnloop.clock as clock_module
+    from learnloop_sidecar.context import SidecarContext
+
+    paths = create_daily_plan_vault(
+        tmp_path / "vault", learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]}
+    )
+    monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: NOW)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.grading_provider_override = "manual"
+    session_id = _rpc(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    before = _offer_receipts(paths.sqlite_path)
+    _rpc(ctx, "get_daily_plan", {"sessionId": session_id})
+    served = _rpc(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})
+    _rpc(ctx, "next_plan_item", {"sessionId": session_id, "serve": False})
+    assert _offer_receipts(paths.sqlite_path) == before  # nothing "offered" that no screen showed
+    step = served["step"]
+    # The served plan item still binds: its candidate is a returned one of the
+    # plan build's slate in this session.
+    assert Repository(paths.sqlite_path).bind_submission_offer(
+        submission_id="sub_f5", session_id=session_id, practice_item_id=step["practiceItemId"],
+        scheduler_candidate_id=step["schedulerCandidateId"],
+    ) == step["schedulerCandidateId"]
+    # The full list, when shown, is published as the desktop queue's offer...
+    queue = _rpc(ctx, "get_today_queue", {"sessionId": session_id})
+    receipts = _offer_receipts(paths.sqlite_path)
+    assert len(receipts) == len(before) + 1 and receipts[-1][0] == "desktop_queue"
+    listed = {
+        item["practiceItemId"]: item["schedulerCandidateId"]
+        for section in queue["sections"]
+        for item in section["items"]
+    }
+    planned_ids = {item["practiceItemId"] for block in served["plan"]["blocks"] for item in block["items"]}
+    pick_id = next(item_id for item_id in listed if item_id not in planned_ids)
+    # ...and a pick from it is served with that offer, not the plan build's.
+    picked = _rpc(
+        ctx, "plan_learner_pick",
+        {"practiceItemId": pick_id, "sessionId": session_id, "schedulerCandidateId": listed[pick_id]},
+    )
+    assert picked["step"]["schedulerCandidateId"] == listed[pick_id]
+    assert listed[pick_id] in json.loads(receipts[-1][1])
+    assert _offer_receipts(paths.sqlite_path) == receipts

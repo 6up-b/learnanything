@@ -504,7 +504,8 @@ export function TodayScreen({
 
   // Daily-loop DL1 (L3, §6.1): opening an item from the full list while the
   // plan serves is a learner pick -- a one-item block that displaces the
-  // plan's tail -- served with the offer that ranked it. Off: DL0's open.
+  // plan's tail -- served with the offer the learner picked it from (the full
+  // list's own, published when the list was shown). Off: DL0's open.
   const openPractice = useCallback(
     (practiceItemId: string, schedulerCandidateId?: string | null) => {
       if (!planEnabled) {
@@ -516,7 +517,7 @@ export function TodayScreen({
         return;
       }
       api
-        .planLearnerPick(practiceItemId, session.sessionId)
+        .planLearnerPick(practiceItemId, session.sessionId, schedulerCandidateId ?? null)
         .then((result) => {
           const step = result.step;
           onOpenPractice(

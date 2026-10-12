@@ -959,8 +959,13 @@ export const api = {
     input.confirm
       ? mutating([TAG.queue], call<DailyPlanDto>("plan_more_new", { input }))
       : call<DailyPlanDto>("plan_more_new", { input }),
-  planLearnerPick: (practiceItemId: string, sessionId?: string | null) =>
-    mutating([TAG.queue], call<DailyPlanDto>("plan_learner_pick", { input: { practiceItemId, sessionId: sessionId ?? null } })),
+  planLearnerPick: (practiceItemId: string, sessionId?: string | null, schedulerCandidateId?: string | null) =>
+    mutating(
+      [TAG.queue],
+      call<DailyPlanDto>("plan_learner_pick", {
+        input: { practiceItemId, sessionId: sessionId ?? null, schedulerCandidateId: schedulerCandidateId ?? null }
+      })
+    ),
   getTodayHeadline: () => call<TodayHeadlineDto>("get_today_headline", { input: {} }),
   beginProbeDialogue: (learningObjectId: string) =>
     mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),
