@@ -503,3 +503,46 @@ def test_sympy_never_sees_model_text_outside_a_safe_math_alphabet():
     assert not safe_math_text("__import__('os')")
     assert not safe_math_text("open(1)")
     assert not safe_math_text("x.__class__")
+
+
+PROBE_OPTIONS = ReviewOptions(sample_size=6, arms=("b",), planted_per_shape=0, generate_planted=False, judge=False, sweep=False,
+                              joint_repeat=False, repeat_subset=0, probe_items=5)
+
+
+def test_failed_probes_are_retried_on_resume_without_regenerating_paid_inputs(tmp_path):
+    """F12: generation/grading failures are retryable; drafts and probe ids persist."""
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault, _repository = seed_history(paths)
+    run = tmp_path / "run"
+    first_client = ReviewFakeClient(
+        fail_purposes=("diagnosis_paraphrase",),
+        fail_when=lambda purpose, prompt: purpose == "blind_grading" and "By another route" in prompt,
+    )
+    _client, first = _run(paths, vault, run, client=first_client, options=PROBE_OPTIONS)
+    assert first["status"] == "complete"
+    statuses = dict(_scratch_rows(run, "SELECT probe || ':' || practice_item_id, status FROM review_probes"))
+    assert {value for key, value in statuses.items() if key.startswith("valid_alternative")} == {"grading_failed"}
+    assert {value for key, value in statuses.items() if key.startswith("paraphrase")} == {"generation_failed"}
+    probe_ids = {
+        row[0]: json.loads(row[1])["probe_attempt_id"]
+        for row in _scratch_rows(run, "SELECT practice_item_id, detail_json FROM review_probes WHERE probe = 'valid_alternative'")
+    }
+    excluded_before = {key: value for key, value in statuses.items() if value in {"unverified", "invalid_criterion", "not_wrong"}}
+    client = ReviewFakeClient()
+    _client, resumed = _run(paths, vault, run, client=client, options=PROBE_OPTIONS)
+    assert resumed["status"] == "complete"
+    after = dict(_scratch_rows(run, "SELECT probe || ':' || practice_item_id, status FROM review_probes"))
+    assert {value for key, value in after.items() if key.startswith(("valid_alternative", "paraphrase"))} == {"graded"}
+    # The persisted draft was re-graded under its stable probe id: no regeneration.
+    assert "diagnosis_valid_alternative" not in client.calls
+    assert client.calls.count("diagnosis_paraphrase") == sum(1 for key in statuses if key.startswith("paraphrase"))
+    for item_id, probe_id in probe_ids.items():
+        detail = json.loads(_scratch_rows(run, "SELECT detail_json FROM review_probes WHERE probe = 'valid_alternative' AND practice_item_id = ?", (item_id,))[0][0])
+        assert detail["probe_attempt_id"] == probe_id
+    # Deliberately excluded probes stay excluded and are never re-paid.
+    assert {key: after[key] for key in excluded_before} == excluded_before
+    # The verified synthetic error on the numeric item was graded and is reported.
+    assert after.get("synthetic_error:pi_unrelated_001") == "graded"
+    report = offline_review_report(run, vault=vault)
+    assert report["grader"]["probes"]["real_vs_synthetic"]["synthetic_n"] == 1

@@ -51,6 +51,7 @@ class ReviewFakeClient:
         invent_id: bool = False,
         fail_purposes: tuple[str, ...] = (),
         fail_modes: tuple[str, ...] = (),
+        fail_when: Any = None,
     ) -> None:
         self.provider_type = provider_type
         self.model = model
@@ -59,6 +60,8 @@ class ReviewFakeClient:
         self.fail_purposes = set(fail_purposes)
         #: Diagnosis history modes whose requests fail (e.g. ``("full",)``).
         self.fail_modes = set(fail_modes)
+        #: Optional ``(purpose, prompt) -> bool``: fail exactly those requests.
+        self.fail_when = fail_when
         self.calls: list[str] = []
         self.workspaces: list[Path] = []
         self.workspace_files: list[list[str]] = []
@@ -84,7 +87,7 @@ class ReviewFakeClient:
             self.workspace_files.append(sorted(str(path.relative_to(request.workspace)) for path in Path(request.workspace).rglob("*") if path.is_file()))
         if purpose in self.fail_purposes or (
             purpose == "diagnosis" and any(f"history_mode: {mode}\n" in request.prompt for mode in self.fail_modes)
-        ):
+        ) or (self.fail_when is not None and self.fail_when(purpose, request.prompt)):
             from learnloop.ai.errors import AIProviderUnavailable
 
             raise AIProviderUnavailable(f"fake failure for {purpose}")

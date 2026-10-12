@@ -104,6 +104,9 @@ ARM_MODES = {"b": "exact", "b_prime": "exact", "b0": "exact", "c": "hybrid", "d"
 DEFAULT_SWEEP_BUDGETS = (25_000, 50_000, 100_000)
 MIN_SAMPLE = 40
 _GRADED_SOURCES = ("ai", "codex")
+#: Probe checkpoints a resume skips: graded, or deliberately excluded. A
+#: ``generation_failed`` or ``grading_failed`` probe is retried.
+PROBE_SETTLED_STATUSES = frozenset({"graded", "unverified", "invalid_criterion", "not_wrong"})
 _JOINT_HISTORY_LIMIT = 4
 
 
@@ -1340,17 +1343,31 @@ class ReviewRun:
         items = [self.vault.practice_items[item_id] for item_id in seen if probing.is_reference_bearing(self.vault.practice_items[item_id])]
         items = items[: self.options.probe_items]
         blind = {row["attempt_id"]: row["record"] for row in self._rows("review_blind_grades", purpose="primary", status="completed") if row.get("record")}
-        done = {(row["probe"], row["practice_item_id"]) for row in self._rows("review_probes")}
+        # A probe is settled when it was graded or deliberately excluded
+        # (unverified, invalid criterion, not wrong); a generation or grading
+        # failure is retried on resume, re-grading a persisted draft under its
+        # stable probe id instead of paying to regenerate it.
+        existing = {(row["probe"], row["practice_item_id"]): row for row in self._rows("review_probes")}
+
+        def pending(probe: str, item_id: str) -> tuple[bool, Mapping[str, Any] | None]:
+            row = existing.get((probe, item_id))
+            if row is not None and row["status"] in PROBE_SETTLED_STATUSES:
+                return False, row
+            return True, row
+
         for position, item in enumerate(items):
             self.progress(f"probes {position + 1}/{len(items)}")
-            if ("valid_alternative", item.id) not in done:
-                self._probe_valid_alternative(item)
-            if ("synthetic_error", item.id) not in done:
-                self._probe_synthetic(item)
-            if ("paraphrase", item.id) not in done:
+            todo, previous = pending("valid_alternative", item.id)
+            if todo:
+                self._probe_valid_alternative(item, previous)
+            todo, previous = pending("synthetic_error", item.id)
+            if todo:
+                self._probe_synthetic(item, previous)
+            todo, previous = pending("paraphrase", item.id)
+            if todo:
                 source = next((target for target in targets if target["practice_item_id"] == item.id and target["attempt_id"] in blind), None)
                 if source is not None:
-                    self._probe_paraphrase(item, source, blind[source["attempt_id"]])
+                    self._probe_paraphrase(item, source, blind[source["attempt_id"]], previous)
 
     def _record_probe(self, probe: str, item: PracticeItem, *, status: str, known: float | None, maximum: float | None, blind_score: float | None, detail: Mapping[str, Any]) -> None:
         with self._write() as connection:
@@ -1367,8 +1384,20 @@ class ReviewRun:
                     "blind_score": blind_score,
                     "detail_json": dict(detail),
                 },
-                or_ignore=True,
+                # A retry replaces its failed checkpoint (UNIQUE run/probe/item).
+                or_replace=True,
             )
+
+    @staticmethod
+    def _persisted_draft(previous: Mapping[str, Any] | None, model: type) -> tuple[Any | None, str | None]:
+        """The draft and probe id of a probe whose GRADING failed, for re-grading."""
+
+        if previous is None or previous.get("status") != "grading_failed":
+            return None, None
+        detail = previous.get("detail") or {}
+        if not detail.get("draft") or not detail.get("probe_attempt_id"):
+            return None, None
+        return model.model_validate(detail["draft"]), str(detail["probe_attempt_id"])
 
     def _generate(self, purpose: str, prompt: str, request: Callable[[Any, str], Any], subject: str) -> Any | None:
         try:
@@ -1379,30 +1408,35 @@ class ReviewRun:
         except (AIProviderUnavailable, ValueError):
             return None
 
-    def _probe_valid_alternative(self, item: PracticeItem) -> None:
+    def _probe_valid_alternative(self, item: PracticeItem, previous: Mapping[str, Any] | None = None) -> None:
         maximum = float(resolved_rubric(self.vault, item).max_points)
-        draft = self._generate("diagnosis_valid_alternative", probing.valid_alternative_prompt(self.vault, item), probing.request_valid_alternative, item.id)
+        draft, probe_id = self._persisted_draft(previous, probing.ValidAlternativeDraft)
         if draft is None:
-            self._record_probe("valid_alternative", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
-            return
+            draft = self._generate("diagnosis_valid_alternative", probing.valid_alternative_prompt(self.vault, item), probing.request_valid_alternative, item.id)
+            if draft is None:
+                self._record_probe("valid_alternative", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
+                return
+            probe_id = f"probe_{new_ulid()}"
         check = probing.verify_alternative(item, draft)
         if check["status"] != "verified":
             self._record_probe("valid_alternative", item, status="unverified", known=None, maximum=maximum, blind_score=None, detail=check)
             return
-        probe_id = f"probe_{new_ulid()}"
         record = self.blind_grade(attempt_id=probe_id, item=item, answer=draft.derivation_md, purpose="probe_valid_alternative", stage="probes")
         self._record_probe(
             "valid_alternative", item, status="graded" if record else "grading_failed", known=maximum, maximum=maximum,
             blind_score=float(record["rubric_score"]) if record else None,
-            detail={**check, "probe_attempt_id": probe_id},
+            detail={**check, "probe_attempt_id": probe_id, "draft": draft.model_dump(mode="json")},
         )
 
-    def _probe_synthetic(self, item: PracticeItem) -> None:
-        draft = self._generate("diagnosis_synthetic_error", probing.synthetic_error_prompt(self.vault, item), probing.request_synthetic_error, item.id)
+    def _probe_synthetic(self, item: PracticeItem, previous: Mapping[str, Any] | None = None) -> None:
         maximum = float(resolved_rubric(self.vault, item).max_points)
+        draft, probe_id = self._persisted_draft(previous, probing.SyntheticErrorDraft)
         if draft is None:
-            self._record_probe("synthetic_error", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
-            return
+            draft = self._generate("diagnosis_synthetic_error", probing.synthetic_error_prompt(self.vault, item), probing.request_synthetic_error, item.id)
+            if draft is None:
+                self._record_probe("synthetic_error", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
+                return
+            probe_id = f"probe_{new_ulid()}"
         # The outcome is established from the answer itself (a stated final
         # answer shown to differ from the reference), never from the
         # generator's declaration; only "not full marks" is known.
@@ -1410,28 +1444,29 @@ class ReviewRun:
         if check["status"] != "verified_wrong":
             self._record_probe("synthetic_error", item, status=check["status"], known=None, maximum=maximum, blind_score=None, detail=check)
             return
-        probe_id = f"probe_{new_ulid()}"
         record = self.blind_grade(attempt_id=probe_id, item=item, answer=draft.answer_md, purpose="probe_synthetic_error", stage="probes")
         self._record_probe(
             "synthetic_error", item, status="graded" if record else "grading_failed", known=None, maximum=maximum,
             blind_score=float(record["rubric_score"]) if record else None,
-            detail={**check, "probe_attempt_id": probe_id},
+            detail={**check, "probe_attempt_id": probe_id, "draft": draft.model_dump(mode="json")},
         )
 
-    def _probe_paraphrase(self, item: PracticeItem, target: Mapping[str, Any], original: Mapping[str, Any]) -> None:
-        answer = self.target_answer(target, {})
-        draft = self._generate("diagnosis_paraphrase", probing.paraphrase_prompt(self.vault, item, answer), probing.request_paraphrase, item.id)
+    def _probe_paraphrase(self, item: PracticeItem, target: Mapping[str, Any], original: Mapping[str, Any], previous: Mapping[str, Any] | None = None) -> None:
         maximum = float(resolved_rubric(self.vault, item).max_points)
+        draft, probe_id = self._persisted_draft(previous, probing.ParaphraseDraft)
         if draft is None:
-            self._record_probe("paraphrase", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
-            return
-        probe_id = f"probe_{new_ulid()}"
+            answer = self.target_answer(target, {})
+            draft = self._generate("diagnosis_paraphrase", probing.paraphrase_prompt(self.vault, item, answer), probing.request_paraphrase, item.id)
+            if draft is None:
+                self._record_probe("paraphrase", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
+                return
+            probe_id = f"probe_{new_ulid()}"
         record = self.blind_grade(attempt_id=probe_id, item=item, answer=draft.answer_md, purpose="probe_paraphrase", stage="probes")
         self._record_probe(
             "paraphrase", item, status="graded" if record else "grading_failed",
             known=float(original.get("rubric_score") or 0.0), maximum=maximum,
             blind_score=float(record["rubric_score"]) if record else None,
-            detail={"source_attempt_id": target["attempt_id"], "probe_attempt_id": probe_id},
+            detail={"source_attempt_id": target["attempt_id"], "probe_attempt_id": probe_id, "draft": draft.model_dump(mode="json")},
         )
 
     # -- finish -------------------------------------------------------------------
