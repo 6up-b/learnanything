@@ -286,29 +286,35 @@ class _Build:
 
     def resolve_citation(
         self, diagnosis: Mapping[str, Any], citation: Mapping[str, Any]
-    ) -> tuple[list[tuple[str, str, str | None, str | None]], str | None]:
-        """Class pairs a validated citation links, or ([], reason)."""
+    ) -> tuple[list[tuple[str, str, str | None, str | None]], str | None, tuple[str, str, str | None, str | None] | None]:
+        """(class pairs the citation links, why it is unresolved, the attempt pair).
+
+        The attempt pair is (the diagnosed attempt's class, the cited
+        attempt's class, their episodes): what an attempt-level verdict on
+        the same two answers (a card tap, an M1 import) is about.
+        """
 
         attempt_id = str(diagnosis["attempt_id"])
         cited = str(citation.get("attempt_id") or "")
         proposal = diagnosis.get("proposal") or {}
         claim = claim_for_citation(proposal, citation)
         if claim is None:
-            return [], "claim_not_found"
+            return [], "claim_not_found", None
         ref = str(claim.get("hypothesis_ref") or "")
         pairs: list[tuple[str, str, str | None, str | None]] = []
         if ref.startswith(CAUSE_REF_PREFIX):
             cause = _cause_of(proposal, ref)
             if cause is None:
-                return [], "cause_ref_unknown"
+                return [], "cause_ref_unknown", None
             anchor, facet = cause
             if anchor not in self.index.classes_on(attempt_id):
-                return [], "cause_not_materialized"
+                return [], "cause_not_materialized", None
             anchor_episode = self.index.representative(attempt_id, anchor)
+            own, own_episode = anchor, anchor_episode
         else:
             episode = self.index.episode(ref)
             if episode is None:
-                return [], "hypothesis_ref_unknown"
+                return [], "hypothesis_ref_unknown", None
             anchor, facet, anchor_episode = episode.statement_normalized, episode.facet, episode.key
             # The event whose primary cause continues this prior hypothesis
             # (its ``prior_hypothesis_id``) names the diagnosed attempt's own
@@ -318,13 +324,15 @@ class _Build:
             if own is None:
                 own, reason = self.index.resolve_on(attempt_id, prefer=anchor, facet=facet)
             if own is None:
-                return [], f"diagnosed_attempt:{reason}"
-            pairs.append((own, anchor, self.index.representative(attempt_id, own), anchor_episode))
+                return [], f"diagnosed_attempt:{reason}", None
+            own_episode = self.index.representative(attempt_id, own)
+            pairs.append((own, anchor, own_episode, anchor_episode))
         target, reason = self.index.resolve_on(cited, prefer=anchor, facet=facet)
         if target is None:
-            return pairs, f"cited_attempt:{reason}"
-        pairs.append((anchor, target, anchor_episode, self.index.representative(cited, target)))
-        return pairs, None
+            return pairs, f"cited_attempt:{reason}", None
+        target_episode = self.index.representative(cited, target)
+        pairs.append((anchor, target, anchor_episode, target_episode))
+        return pairs, None, (own, target, own_episode, target_episode)
 
 
 def _source_citations(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> None:
@@ -332,16 +340,15 @@ def _source_citations(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> 
         for position, citation in enumerate(diagnosis.get("validated_citations") or []):
             cited = str(citation.get("attempt_id") or "")
             ref = f"citation:{diagnosis['id']}:{citation.get('claim_index')}:{cited}:{position}"
-            pairs, reason = build.resolve_citation(diagnosis, citation)
+            pairs, reason, attempt_pair = build.resolve_citation(diagnosis, citation)
             if reason is not None:
                 build.review(
                     "unresolved_link", left=str(diagnosis["attempt_id"]), right=cited, source=ref,
                     occurred_at=str(diagnosis.get("created_at") or ""), detail={"source": "citation", "reason": reason},
                 )
+            if attempt_pair is not None:
+                build.citation_pairs.setdefault((str(diagnosis["attempt_id"]), cited), []).append(attempt_pair)
             for anchor, target, anchor_episode, target_episode in pairs:
-                build.citation_pairs.setdefault((str(diagnosis["attempt_id"]), cited), []).append(
-                    (anchor, target, anchor_episode, target_episode)
-                )
                 build.edge(
                     anchor, target, verdict="same", judge="diagnoser", source="citation", ref=ref,
                     occurred_at=str(diagnosis.get("created_at") or ""),
@@ -359,15 +366,11 @@ def _source_taps(build: _Build, connection: Any) -> None:
         for citation in (diagnosis or {}).get("validated_citations") or []:
             if str(citation.get("attempt_id") or "") != cited:
                 continue
-            pairs, why = build.resolve_citation(diagnosis, citation)  # type: ignore[arg-type]
-            # The learner disowned the cited answer's link to the claim's
-            # cause: only the pair that names the cited attempt's class is
-            # "different" (an existing-hypothesis claim also links the
-            # diagnosed attempt, which the tap says nothing about).
-            for pair in pairs:
-                episode = build.index.episodes.get(pair[3] or "")
-                if episode is not None and episode.attempt_id == cited:
-                    targeted.append(pair)
+            _pairs, why, attempt_pair = build.resolve_citation(diagnosis, citation)  # type: ignore[arg-type]
+            # The learner disowned the cited answer: this answer's cause and
+            # the cited answer's are "different"; nothing else is implied.
+            if attempt_pair is not None:
+                targeted.append(attempt_pair)
             if why is not None:
                 reason = why
         if not targeted:

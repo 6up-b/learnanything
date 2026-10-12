@@ -243,3 +243,19 @@ def test_a_citation_of_an_existing_hypothesis_resolves_through_prior_hypothesis_
     other = next(row for row in _heads(repository, second.attempt_id) if row["statement"] == "Confuses rows and columns.")
     assert recurrence_key(other, groups) != first_key
     assert not repository.recurrence_review("unresolved_link")
+
+    # The learner's "not the same mistake" on that citation is about THIS
+    # answer's cause and the cited answer's: one learner_card "different"
+    # between the two classes, not one inside the cited class.
+    from learnloop.recurrence import normalize_statement
+    from learnloop.substrate.recurrence_groups import compute_groups
+
+    card = diagnosis_card(vault, repository, second.attempt_id)
+    record_card_tap(vault, repository, attempt_id=second.attempt_id, diagnosis_id=card["diagnosis_id"],
+                    response="not_same_mistake", cited_attempt_id=first.attempt_id)
+    with repository.connection() as connection:
+        taps = [row for row in compute_groups(connection).labelled if row["judge"] == "learner_card"]
+    assert [(row["left_class"], row["right_class"], row["verdict"]) for row in taps] == [
+        (normalize_statement(V_REWORDED), normalize_statement(V_SAME), "different")
+    ]
+    assert not repository.recurrence_review("exact_key_conflict")
