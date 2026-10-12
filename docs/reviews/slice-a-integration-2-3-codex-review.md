@@ -292,3 +292,10 @@ These checks ran on the final code tree (`b9725f4a`). This record is the only co
 2. **F8 successor.** The re-review asked for an algorithm successor again. It was declined for the reason above. The kill switch now restores baseline serving, and the cards adopted earlier are kept. Say if you want an `mvp-0.10` successor anyway.
 3. **F11 prerequisite targets.** A prerequisite question now resolves only to an LO on a declared prerequisite concept, and only when exactly one such LO is responsible for the facet. Anything else goes to the opt-in classifier. Confirm this reading. Vaults with few declared prerequisites will send most prerequisite questions to the classifier.
 4. **"Help before work".** Resolved by F5. The practice screen's explicit `no_draft` marker now counts. The command-palette ask path sends no marker, so it makes no claim.
+
+## Owner decisions (2026-10-12)
+
+1. **`dont_know` mass.** The 0.7 weight is an arbitrary hand-picked value. Historical `dont_know` rows keep their configured mass, and spec §4's wording now matches §3. New answers stop producing `dont_know`: "I'm stuck" opens the answer box with "Write what you can, or what's confusing you", and that text goes through the grader and the diagnoser. An empty answer is an ordinary attempt scored 0. The stage is `implementation_handoffs.md` §4, "'Write what you can' replaces 'I don't know'".
+2. **F8 successor.** None. Reader reference-question adoption stays in the same algorithm version, behind its kill switch.
+3. **F11 prerequisite targets.** The grounded rule as built stays. On top of it, the tutor names the target when it answers, the Decider answers the same question, and a prerequisite the vault lacks is named and created by an LLM. The stage is `implementation_handoffs.md` §4, "Tutor-named targets and missing prerequisites".
+4. **Help before work.** The `attempt_progress` marker is the signal. The command-palette ask path will carry the practice screen's state, in the tutor-targets stage.

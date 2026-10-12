@@ -122,6 +122,8 @@ These are the prompts for the agents that build the rest of Slice A and the slic
 | **Not promptable yet** | Mobile M2b/M3 | — |
 | | Project understanding M2+ | PF-a/b and Slice 1 |
 | | Learner-field deferred items | Triggers in `spec_learner_field_v1.md` §11 |
+| **After router R0 and Slice 2 T1 merge** (owner-directed, 2026-10-12) | Learner-text gaps: prerequisites and misconceptions (§4) | R0 (the Decider client); T1 (the shared matcher) |
+| **After Slice 1 M2 merges** (owner-directed, 2026-10-12) | "Write what you can" replaces "I don't know" (§4) | Slice 1 M2 (the blind grader and the diagnoser) |
 
 **Keeping merges manageable.** Keep at most three or four branches open at once. Merge one at a time, newest last; the later branch renumbers its migration.
 
@@ -841,6 +843,199 @@ Must hold:
 Done also means:
 - a shadow rebuild of a fixtures-local copy shows only the documented differences;
 - the review file gives the owner the commands for the report after 200 decisions.
+```
+
+---
+
+## 4. Owner-directed follow-ups (2026-10-12)
+
+The owner decided these while reviewing the Slice A 2/3 integration's open questions. The decisions are recorded in `docs/reviews/slice-a-integration-2-3-codex-review.md`, "Owner decisions".
+
+### Learner-text gaps: prerequisites and misconceptions
+
+```text
+Implement one pipeline that turns learner text into named gaps in LearnLoop: missing
+prerequisites and misconceptions, from tutor questions, stuck answers and diagnoses.
+Follow the standard rules in docs/specs/implementation_handoffs.md §0. Review file:
+docs/reviews/learner-text-gaps.md.
+
+Owner decisions (2026-10-12):
+- The grounded rule from the Slice A 2/3 integration (F11) stays:
+  - an item question targets its item's LO;
+  - a prerequisite question resolves only to an LO on a concept the item's LO
+    declares as a prerequisite, and only when exactly one such LO owns the facet.
+  - It is the fallback below.
+- The tutor names the target when it answers, and the decision model (the Decider)
+  answers too.
+- A prerequisite the vault lacks is named and created by an LLM.
+- The same applies to misconceptions.
+
+Specs:
+- docs/specs/spec_learner_field_v1.md: §3.1 (interaction signals), §4.1, G13;
+- docs/specs/spec_embedding_consumers_v1.md: §1 (R1–R6: embeddings shortlist, judges
+  decide, no calibrators, nothing decided by score), §3 (T1's recurrence groups and
+  same-cause judge), §5.8 (judgment_ledger);
+- docs/specs/spec_blind_grading_diagnosis_split_v1.md: the diagnoser, registry_match
+  and the holding pen, the diagnosis card;
+- docs/specs/spec_action_router_v1.md §6 (the Decider client and typed questions) and
+  §4 (the learner-state card);
+- docs/specs/spec_knowledge_model.md (concepts, LOs, prerequisite edges);
+- docs/reviews/slice-a-integration-2-3-codex-review.md (F4, F5, F11 and the owner
+  decisions).
+
+Prerequisites: router R0 and Slice 2 T1 have merged. T1 builds the shortlist + judge +
+judgment_ledger step for misconceptions as a component parameterized by kind; reuse it
+and don't build a parallel matcher. Branch learner/text-gaps from origin/main.
+
+The pipeline, for each learner text (a tutor question, a non-empty stuck answer, or a
+diagnosis of a wrong answer):
+1. Kind. Classify the gap with a typed choice:
+   - missing knowledge (a prerequisite);
+   - a wrong belief (a misconception);
+   - a slip or procedural error;
+   - a wording or notation problem;
+   - none.
+   - For tutor questions the tutor answers it in the call that answers the question:
+     TutorAnswer gains the fields next to question_type and facets, with a prompt
+     version bump. Diagnoses already carry their causes.
+   - The Decider answers the same typed question as a logged second opinion
+     (judge = decider), within the Slice A spend controls.
+   - Config selects the authoritative chooser; the default is the model with the
+     whole exchange in context (the tutor or the diagnoser).
+2. Name first. The model states the gap in its own words: a prerequisite's name and
+   one line, or the belief as a statement. Don't ask "pick from this list or say
+   none": that over-picks from lists.
+3. Match. The Phase 1 embeddings shortlist candidates (stored vectors only):
+   - for a prerequisite: the item's LO, its declared prerequisite LOs, a vault-wide LO
+     shortlist, and the prerequisites created that day;
+   - for a misconception: the registry and the holding pen, as the diagnoser's
+     registry_match already does.
+   - A judge decides same or different, through T1's component, recorded in
+     judgment_ledger. The Decider and the LLM both judge and both are logged.
+   - No score cutoffs.
+4. Act, with the bar for each kind:
+   - Prerequisite, matched:
+     - record the weak signal on that LO;
+     - if it isn't already a declared prerequisite of the item's LO, ask the judge a
+       separate yes/no ("is this needed to do this item?") before adding the edge.
+       The edge is refused if it would create a cycle. It is labelled as added from a
+       question, with one-tap undo.
+   - Prerequisite, missing:
+     - an LLM call on the authoring route drafts the concept, the LO statement and the
+       edge. Codex is allowed per Slice A plan §5 rule 6;
+     - it is placed in the asking item's subject or the subject the shortlist points
+       to. No new subjects;
+     - it is created live, with provenance learner_text_gap_v1, shown as "Added from
+       your question: <LO>", with one-tap undo, behind a kill switch;
+     - it is seeded with one practice item made from the learner's own question and
+       the tutor's answer, through the existing question-promotion path
+       (tutor/promotions.py);
+     - light commitment: that item is a single delayed check. Pass, and the LO enters
+       maintenance; fail, and it enters learning;
+     - caps: a configured number of creations per day (default 3), and at most one per
+       learner text.
+   - Misconception: the same registry_match path as the diagnoser.
+     - A new belief enters the holding pen as a candidate. Promotion stays with T1's
+       recurrence rule.
+     - New here: tutor questions and stuck text that state a belief count as sightings.
+   - Slip, wording or notation: a signal only; nothing is created.
+   - Error types (error_types.yaml and the mechanism taxonomy) are never auto-created.
+     Unmatched ones are logged for a batch review.
+5. Assumed or maintenance LOs. A matched prerequisite gap on an LO that is assumed
+   known or in maintenance brings its next check forward, within a bound. This changes
+   scheduling, so it ships as an algorithm successor with its own kill switch.
+6. Each named gap is logged as an event the router's learner-state card can read
+   (spec_action_router_v1.md §4), so a later plan can put a short prerequisite block
+   first. This stage builds no router behaviour.
+
+Also:
+- The persisted target is question-time, with its subject (the F4 contract). Replay
+  never re-asks.
+- Without a pick (old events, a failed call, the feature switched off), the grounded
+  rule applies, then the opt-in classifier.
+- Asking never lowers the record (G13). Signals stay weak observations.
+- Command-palette asks (App.tsx) carry the practice screen's state (item, session and
+  attemptProgress) when a practice item is open, so help-before-work holds there too.
+
+Done also means:
+- fake-model tests for each kind and each action;
+- grounded candidates only (no cross-subject target);
+- the chooser and the Decider both logged;
+- fallback to the grounded rule;
+- edges: cycle refusal and undo;
+- creation: dedupe against same-day creations, undo, the seed item, the daily cap;
+- a tutor question that states a belief reaches the holding pen;
+- the successor's kill-switch parity;
+- a report command, dry-run first, giving for each kind and chooser:
+  - created, matched, undone;
+  - for created prerequisites, the first-check pass rate;
+  - "not the same mistake" taps for misconceptions;
+  - this answers whether the Decider or the LLM chooses better;
+- the review file gives the owner the commands and what to watch.
+```
+
+### "Write what you can" replaces "I don't know"
+
+```text
+Replace LearnLoop's "I don't know" answer with a prompt to write what you can.
+Follow the standard rules in docs/specs/implementation_handoffs.md §0. Review file:
+docs/reviews/stuck-prompt.md.
+
+Owner decision (2026-10-12): "I don't know" as a skip is poor, and its fixed 0.7
+weight is an arbitrary hand-picked value. The learner should write as much as they
+can, or what they're confused about. That text goes through the LLM grader and seeds
+the diagnosis pipeline.
+
+Specs:
+- docs/specs/spec_blind_grading_diagnosis_split_v1.md (the blind grader, the
+  diagnoser, history modes);
+- docs/specs/spec_learner_field_v1.md: §3 and §4 (outcome rows and dont_know), §3.1
+  (signals);
+- docs/specs/daily_loop_frictionless_defaults.md (one tap, no friction; P7 grading
+  latency);
+- docs/algorithm-change-playbook.md.
+
+Prerequisite: Slice 1 M2 has merged. Branch practice/stuck-prompt from origin/main.
+
+Must hold:
+- Wherever the learner can answer "I don't know" today, the control becomes "I'm
+  stuck". That covers the practice screen, diagnostic probes, the golden path and the
+  TUI. One tap opens the answer box with the prompt "Write what you can, or what's
+  confusing you". There is no extra screen.
+- A non-empty answer is an ordinary attempt:
+  - graded by the grader (the blind grader in split vaults) at the standard attempt
+    mass;
+  - diagnosed by the diagnoser.
+- Text that describes confusion rather than attempting an answer:
+  - is graded as an answer, usually 0 points;
+  - is also logged as a confusion signal on the item's LO (learner field §3.1), which
+    blocks fast-tracking (Phase 6).
+  - The grader's structured output marks it.
+- An empty submission is still allowed:
+  - it records an ordinary attempt with an empty answer, scored 0 without a model call
+    (there is nothing to grade), at the standard attempt mass;
+  - it reveals the answer as "I don't know" does today.
+  - New answers get no separate dont_know weight.
+- Historical dont_know rows keep their meaning. Replay and rebuild under earlier
+  versions are unchanged, and the learner field keeps reading them at the configured
+  mass.
+- An algorithm successor (the next free version at landing) with a kill switch that
+  restores today's button and scoring exactly.
+- Phase 6's "I don't know this" self-report on an assumed-known LO is a different
+  control. It returns the LO to learning and writes no evidence. Don't change it.
+- The simulator's dont_know modelling keeps working; it models history.
+
+Done also means:
+- tests for:
+  - a partial answer is graded and diagnosed;
+  - confusion text becomes a signal;
+  - an empty answer scores 0 without a model call;
+  - kill-switch parity;
+  - replay of historical dont_know rows is unchanged;
+  - the frontend control on each screen;
+- a shadow rebuild of a fixtures-local copy shows only the documented differences;
+- the review file says what the owner should watch: the share of stuck answers that
+  contain text, and the grading wait on a stuck answer.
 ```
 
 ---

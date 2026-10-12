@@ -233,7 +233,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   - Sensitivity `H = a·p(1−p)`; noise `R = base_observation_variance · p(1−p) / w`, with `w = effective_mass`.
   - **Zero-mass rows are skipped**: quarantined, unassessable, or `excluded` revision.
   - **Primed attempts** shift `b` exactly as the attempt path does (`attempts.py:2458`). They are never discounted a second time through mass.
-  - `dont_know` is outcome 0 at full mass, and a skip gives no row.
+  - `dont_know` is outcome 0 at the configured attempt-type mass (`evidence.attempt_types.dont_know`, 0.7), as §3 says; a skip gives no row. Owner, 2026-10-12: new answers stop producing `dont_know` once "I'm stuck" replaces it (`implementation_handoffs.md` §4); historical rows keep this reading.
   - Superseded grading epochs are dropped.
 - **Item difficulty.**
   - `(a, b)` come from `resolve_item_irt_params`: empirical-Bayes `b`, then solver-panel difficulty (`difficulty_source = "solver_panel"`), then authored, then the LO prior.
