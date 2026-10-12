@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "66c4193dc2ce8334be735abb14db741c8b6669ad"
+source_commit_timestamp: "2026-10-12T13:50:14-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -19,13 +19,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/166_embedding_substrate_and_judgments.sql"
+  - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/stuck.py"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
   - "src/learnloop/db/stores/practice_index.py"
-  - "src/learnloop/diagnosis/offline_review/__init__.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -99,6 +100,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
+- `src/learnloop/attempts/stuck.py`
 - `src/learnloop/cli/families.py`
 - `src/learnloop/db/stores/families.py`
 - `src/learnloop/db/stores/practice_index.py`
@@ -134,6 +136,8 @@ None found by exact static reference scan.
 - `tests/test_judgment_ledger.py`
 - `tests/test_practice_index_evaluation.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_stuck_prompt.py`
+- `tests/test_stuck_prompt_replay.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
