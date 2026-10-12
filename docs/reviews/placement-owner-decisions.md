@@ -275,7 +275,21 @@ the assumption open (its items withheld) instead of returning the LO
 
 ## Gate
 
-GATE_PLACEHOLDER
+Source and tests as of `0abe2da3` (the later commits are documentation and
+regenerated references only).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | OK (pypdfium2 5.14.0 reinstalled after the sync) |
+| `uv run lint-imports --no-cache` | **12 kept, 0 broken** (rerun on the final commit) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,797 passed**, 0 failed, 46 warnings (existing Python 3.12 fork and SQLite datetime-adapter deprecations); 352 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **84 passed**, 7,713 deselected, 1 warning; 90 s |
+| `npm install` (apps/learnloop-tauri) | OK (existing notice: esbuild's postinstall blocked by allowScripts); lockfile unchanged |
+| `npm run typecheck` | **0 errors** |
+| `npm test` (vitest) | **103 passed** in 23 files |
+| DB reference (`db_generate_reference.py`, `db_validate_reference.py`) | No schema change; regenerated for the moved source anchors and the new-vault `algorithm_version`: schema **173**, **288** table notes, **599** config leaves in **35** sections, **0 errors**. `validate_vault.py`: passed (1,056 notes) |
+| `cargo check` | Not run: no Rust change |
+| Tracked working vaults | Untouched (`git status` clean for `fixtures/linear_algebra`, `probability`, `arxiv_v2`) |
 
 ## Open questions
 
