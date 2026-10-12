@@ -386,7 +386,7 @@ A **daily plan** belongs to one local calendar date (D9) and one vault, and is s
 
 **Rules:**
 - **Finite (P1).** The plan's estimated minutes never exceed its budget. Nothing new is added mid-plan, except that follow-ups produced by this session's errors may **displace** later planned items. Displaced items go back to the pool; they are not debt.
-- **Done when done.** The plan completes when its planned items are done or skipped, however long that took. Finishing early or late is fine, and actual time is shown honestly.
+- **Done when done.** The plan completes when its planned items and reading blocks are done or skipped, however long that took. Finishing early or late is fine, and actual time is shown honestly.
 - **Requests first (L3).** Up to `tutor_promotion.requested_items_per_session` learner requests (default 1, `learnloop/config/schema.py:599`) go in the first block, as the queue's requested floor does today. Their estimates are deducted from the budget **before** the split (§6.2), so they sit outside the lane budgets but inside the plan's minutes. Further requests wait in their lane, exempt from the new-item cap.
 - **Learner picks (L3).** Opening any item from the full list is a one-item learner-pick block. Its estimate is deducted from the minutes left, and from the lanes' remaining minutes in the order push, new, repair, maintain. Planned items that no longer fit are displaced, so the plan stays finite.
 - **Captures don't grow today's plan.** An item adopted mid-day joins tomorrow's plan, or "keep going" today (acceptance criterion 6).
@@ -437,7 +437,7 @@ k              = 3 pseudo-observations
 - `median_mode` is the learner's median for the item's `practice_mode`.
 - **`expected_minutes` is a new optional `PracticeItem` field.** Authoring prompts (generation, capture drafting) write it from now on. It is omitted when null and is not in the scheduling hash. There is no backfill by default: mode medians cover existing items. The prior of 3.0 is the existing conservative constant (`learnloop/scheduling/controller_snapshot.py:43`).
 - **`feedback_minutes`** is the learner's median feedback dwell (from a plan item's `item_done` event to the next `item_served`, capped at 5 minutes). It defaults to 0.5 until 10 observations exist.
-- **Reading blocks** are estimated as section words ÷ `plan.read_words_per_minute` (120).
+- **Reading blocks** are estimated as the section's words left ÷ `plan.read_words_per_minute` (120), where words left = section words × (1 − spans seen ÷ span count) from `reader_section_progress` (§6.10).
 - **Estimates are labelled** "about" in the UI. Each planned item's estimate is stored on its plan event, so the report can compare estimated and actual time (§12, DL1 gate).
 
 ### 6.5 Auto-advance and "keep going" (P1, P2)
@@ -508,13 +508,23 @@ class PlanState:                      # everything a chooser may read
     intents: Mapping[str, IntentView] # per candidate LO (§5): choice, disposition, target, deadline
 
 @dataclass(frozen=True)
+class ReadingTarget:                  # a reading block's section (§6.10)
+    source_id: str
+    extraction_id: str
+    section_id: str
+    section_title: str
+    words_left: int                   # section words × (1 − spans_seen / span_count)
+    partial: bool                     # the block covers only part of what is left
+
+@dataclass(frozen=True)
 class BlockCandidate:
     candidate_id: str
     lane: Lane
     action: str                       # canonical action (controller_actions)
     subtype: str | None
     learning_object_ids: tuple[str, ...]
-    item_ids: tuple[str, ...]         # planned items, in within-block order
+    item_ids: tuple[str, ...]         # planned items, in within-block order; empty for reading
+    reading: ReadingTarget | None     # set only for a reading block (lane "new")
     est_minutes: float
     planner_value: float              # the source's own score, logged and shown
     reason: str                       # plain-language reason from the source
@@ -569,7 +579,17 @@ class BlockChooser(Protocol):
 ### 6.10 Items before reading (Q5; default, owner may override)
 
 **As-you-read, plus optional pre-questions.**
-- **A reading block.** A source imported `as_you_read` under a Learn or Master intent (or uncommitted) puts at most one reading block a day in the new lane: "Continue §3.2 · about 12 min". It is the reader guide plan's next unfinished section. Starting it opens the reader there. Section completion still triggers item generation as today (`learnloop/reader/reader_progression.py`), and those items enter the new lane on later days.
+- **A reading block.** A source imported `as_you_read` under a Learn or Master intent (or uncommitted) puts at most one reading block a day in the new lane: "Continue §3.2 · about 12 min". It is the reader guide plan's next unfinished section, carried as a `ReadingTarget` (§6.8). Starting it opens the reader there. Section completion still triggers item generation as today (`learnloop/reader/reader_progression.py`), and those items enter the new lane on later days.
+- **Its size.** The estimate is the section's words left (§6.4). When that exceeds what the new lane, the plan or a block (15 minutes) has left, the block is a **partial reading block** of the size that fits: "Continue §3.2 · about 12 min (of about 25)". It never counts more minutes than it was given.
+- **Progress** comes from the reader's existing `reader.mark_section_progress` (`learnloop_sidecar/handlers/reader.py:1370`). That method writes `reader_section_progress` (`migrations/106_reader_section_progress.sql:6`: spans seen, span count, completion). While a reading block is current, each call also appends a `reading_progress` block event with the spans seen and the span count.
+- **Ending.** The block ends with a `block_ended` event whose `outcome` is one of:
+  - `section_completed`: the reader marks the section complete;
+  - `left_reader`: the learner goes back to the plan (Esc, or "Back to today's plan" in the reader);
+  - `skipped`: the learner skips it from the block line.
+
+  In every case its estimate counts as used, like a planned item done or skipped, and the plan moves to the next block. The sidecar method `plan_reading_ended` records the end, and `next_plan_item` returns the next step.
+- **Interrupted reading.** If the app closes or the learner leaves Today mid-block, the block stays current, and reopening the plan reopens the reader at that section. If the day ends first, the plan is `abandoned`, but section progress is kept in `reader_section_progress`. The next day's reading block continues the same section with the words left.
+- **Typed steps.** `next_plan_item` returns either `{"kind": "item", …}` or `{"kind": "reading", "reading": ReadingTarget, …}`, so the client never guesses what a block holds.
 - **Pre-questions (DL4).** The block opens with up to `plan.pre_questions` = 3 questions, skippable and never required. They come from the existing quick-check producer, run at section start instead of section end.
   - They are **formative only**, like quick checks: recorded on `reader_authored_questions`, never attempts, mastery or evidence (`learnloop/reader/reader_quick_check.py:12`).
   - A pre-question answered correctly shows one tap, "I know this", which is the Phase 6 self-report. It is the learner's choice, never automatic.
@@ -617,8 +637,8 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 | Table | Role (`learnloop/db/table_roles.py`) | Phase | Contents |
 |---|---|---|---|
 | `daily_plans` | WORKFLOW | DL1 | `id`, `local_date`, `kind` (`normal` \| `reentry` \| `keep_going`), `parent_plan_id`, `minutes_budget`, `split_json` (lane minutes, loads, caps, reasons), `admission_json` (§6.3 inputs and result), `estimator_version`, `source`, `chooser`, `status` (`open` \| `complete` \| `stopped` \| `abandoned`), `algorithm_version`, `config_hash`, `created_at`, `completed_at` |
-| `attention_blocks` (existing, migration 096) | WORKFLOW | DL1 | `ADD COLUMN daily_plan_id TEXT`, `plan_ordinal INTEGER`, `lane TEXT`, `chosen_by TEXT`, `decision_ref TEXT`. Existing rows stay null |
-| `attention_block_events` (existing) | RECEIPT | DL1 | New kinds: `block_chosen`, `block_started`, `block_ended`, `item_planned`, `item_served`, `item_done`, `item_skipped`, `item_displaced`. `detail_json` carries `practice_item_id`, `scheduler_candidate_id`, `est_minutes`, `wall_ms` and `serving_origin` (`daily_plan` \| `learner_pick`) |
+| `attention_blocks` (existing, migration 096) | WORKFLOW | DL1 | `ADD COLUMN daily_plan_id TEXT`, `plan_ordinal INTEGER`, `lane TEXT`, `chosen_by TEXT`, `decision_ref TEXT`, `reading_json TEXT` (the `ReadingTarget` of a reading block, else null). Existing rows stay null |
+| `attention_block_events` (existing) | RECEIPT | DL1 | New kinds: `block_chosen`, `block_started`, `block_ended` (with `outcome`; for reading `section_completed` \| `left_reader` \| `skipped`), `item_planned`, `item_served`, `item_done`, `item_skipped`, `item_displaced`, `reading_progress` (spans seen, span count). `detail_json` carries `practice_item_id`, `scheduler_candidate_id`, `est_minutes`, `wall_ms` and `serving_origin` (`daily_plan` \| `learner_pick`) |
 | `capture_inbox` (existing, from mobile M1) | RAW_LEDGER | DL3 | `ADD COLUMN source_anchor_json TEXT` (nullable; set at insert for reader captures, part of the request fingerprint, cleared by purge) |
 | `practice_attempts` (existing) | RAW_LEDGER | DL3 | `ADD COLUMN reference_status TEXT NOT NULL DEFAULT 'not_applicable'` (`not_applicable` \| `verified` \| `unverified`), set once at attempt time (§4.4) |
 | `capture_processing` | WORKFLOW (paid outputs; never re-run on rebuild) | DL3 | `capture_id` (PK), `processed_at`, `kind`, `transcript_md`, `transcript_confidence`, filing (`subject_id`, `learning_object_id`, `confidence`, `filing_status` = `filed` \| `unfiled` \| `moved`), answer (`solution_md`, `final_answer`, `verification` = `pending` \| `verified` \| `unverified`, `verification_check`), adoption (`adopt_requested_at`, `practice_item_ids_json`, `commitment_id`, `family_id`), `model_ids_json`, `prompt_versions_json`, `estimated_cost_usd`, `cost_kind` (`metered` \| `estimated_only`), `attempts`, `last_error`, `updated_at` |
@@ -671,7 +691,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 | Phase | Builds | Needs | Serving change | Gate and checkpoint |
 |---|---|---|---|---|
 | **DL0: start friction** | Minutes-only Start (desktop and TUI); remembered minutes (last session's); one-tap minute chips; auto-advance from feedback to the head of the live queue, with the list one key away; the honest streak label | Nothing (this base) | None (UI only) | G11; vitest and pytest for each item; `get_today_queue` output unchanged on fixture copies |
-| **DL1: the finite plan** | `daily_plans` and the `attention_blocks` columns (one migration); `split_v1`; §6.3 admission; §6.4 estimator and `PracticeItem.expected_minutes`; `legacy_lanes_v1` and `lane_quota_v1` behind §6.8's interface; plan RPCs (`get_daily_plan`, `set_plan_minutes`, `next_plan_item`, `plan_keep_going`, `plan_more_new`, `plan_learner_pick`, `get_today_headline`); Today plan view, block lines, done screen, keep going; goal-optional re-entry (§7); reading blocks without pre-questions; the headline; `learnloop plan show \| report` | DL0; `fix/daily-loop-followups` merged (F1). Phase 6 preferred, not required | `daily_plan_v1`, `plan.enabled` | G1–G3, G10, G12, G13; shadow rebuild with zero projection deltas. **Owner checkpoint:** two weeks of use, then read `learnloop plan report` (days active, plan starts and completions, estimated vs actual minutes, keep-going rate, open-to-first-item time). That answers Q0 (§14) |
+| **DL1: the finite plan** | `daily_plans` and the `attention_blocks` columns (one migration); `split_v1`; §6.3 admission; §6.4 estimator and `PracticeItem.expected_minutes`; `legacy_lanes_v1` and `lane_quota_v1` behind §6.8's interface; plan RPCs (`get_daily_plan`, `set_plan_minutes`, `next_plan_item`, `plan_reading_ended`, `plan_keep_going`, `plan_more_new`, `plan_learner_pick`, `get_today_headline`); Today plan view, block lines, done screen, keep going; goal-optional re-entry (§7); reading blocks without pre-questions; the headline; `learnloop plan show \| report` | DL0; `fix/daily-loop-followups` merged (F1). Phase 6 preferred, not required | `daily_plan_v1`, `plan.enabled` | G1–G3, G10, G12, G13; shadow rebuild with zero projection deltas. **Owner checkpoint:** two weeks of use, then read `learnloop plan report` (days active, plan starts and completions, estimated vs actual minutes, keep-going rate, open-to-first-item time). That answers Q0 (§14) |
 | **DL2: intent** | Intent resolution (§5.1, §5.3 precedence); the single control (§5.2) on LO, subject, source, item and capture views, with the cost preview; serving-time recall targets; disposition exclusion; push from intent; deadlines (a learner goal linked through the commitment version's `goal_id`); re-entry triage by intent; assumed-known as Keep (§5.6) | DL1 | `intent_v1`, `intent.enabled` | G4; shadow rebuild with zero projection deltas; uncommitted items' order byte-identical at 0.90. **Owner checkpoint:** the target table (Q8) |
 | **DL3: capture** | `capture.create` and the box (Alt+C, text, URL, image paste and drop stored); the Captures strip replacing M1's Inbox strip; the processor (§4.3) for text and URL captures (images wait for DL4); `capture_processing`, `capture_inbox.source_anchor_json` and `practice_attempts.reference_status` (one migration); the attempt-time certification gate (§4.4); Practice this (§4.4); Move and undo; spend controls and `learnloop capture add \| list \| process [--dry-run]`; the "Practice on…" box (§6.9) | DL1 (the "Practice on…" block); mobile M1 merged; Slice A Phase 5a merged for verification (otherwise answers stay `unverified`, §4.3); Phase 3 for the one-member family; Phase 5b for `find_practice` (text search until then) | `capture_reference_v1` (projection; otherwise content) | G5–G9; shadow rebuild with zero projection deltas. **Owner checkpoint:** capture report (captures per week by channel, filing confidence, Moves, verification rate, adoption rate) |
 | **DL4: images, reader presets, pre-questions** | Image transcription in the processor (the `image_transcription` route, added here if the image drop-in spec hasn't landed); image drop-in on the Ingest screen into `capture_inbox`; reader presets through adoption (§4.5); pre-questions in reading blocks (§6.10) | DL3 | None | G5–G9 for images; G14 |
@@ -712,8 +732,9 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `test_daily_plan_kill_switch.py` (G1);
   - `test_block_chooser_interface.py` (G13);
   - `test_daily_plan_rpc.py`;
+  - `test_daily_plan_reading.py` (the words-left estimate; a partial block when the section exceeds the remaining minutes; each `block_ended` outcome advancing the plan and consuming the estimate; `reading_progress` events from `reader.mark_section_progress`; resuming an interrupted block; the next day continuing the same section; `next_plan_item` returning a typed reading step);
   - `test_today_headline.py`;
-  - vitest for the plan view, block lines, done screen and keep going.
+  - vitest for the plan view, block lines, done screen and keep going, and for a reading step opening the reader at its section and returning to the plan.
 - **DL2:** `tests/test_intent_resolution.py` (the §5.3 cases, ties, and consequence-line parity); `test_intent_recall_targets.py` (the ratio, identity at 0.90, kill switch); `test_intent_exclusion.py`; `test_intent_goal_deadline.py`; vitest for the control and its cost preview.
 - **DL3:**
   - `tests/test_capture_box.py`;
