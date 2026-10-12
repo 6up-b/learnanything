@@ -453,8 +453,11 @@ k              = 3 pseudo-observations
 ### 6.6 Minutes, and no readiness form (P4)
 
 - **The sliders are removed** on desktop and in the TUI. `start_session` keeps accepting `energy` and `sleep_quality` for old clients and the CLI, but nothing sends them. The scheduler's `energy` input stays and logs `None`.
-- **Minutes are remembered.** The default is the last plan's budget; before the first plan it is the last session's `available_minutes`; on a fresh vault it is 25 (D1).
-- **One tap changes them:** chips for 10, 15, 25, 40 and 60 on Start and Today. A change re-plans the remaining blocks.
+- **Minutes are remembered.** The remembered value is the learner's ordinary daily budget: the minutes last chosen with a chip.
+  - **Generated budgets never change it.** These are a `keep_going` extension (10), a re-entry plan's cap (§7), and the normal plan offered after re-entry for the day's remaining minutes. So a learner who usually plans 40 minutes and finishes a 10-minute "keep going" gets 40 again tomorrow, not 10.
+  - **Storage.** Every plan stores `remembered_minutes`, carried forward from the previous plan unless a chip set it. Today's default is the latest plan's `remembered_minutes`.
+  - **Fallbacks.** Before the first plan, the default is the last session's `available_minutes`. On a fresh vault it is 25 (D1).
+- **One tap changes them:** chips for 10, 15, 25, 40 and 60 on Start and Today. A tap sets the remembered value and re-plans the remaining blocks. On a re-entry plan, the tap still sets the remembered value, but the re-entry plan keeps its cap (§7), and the normal plan offered after it uses the tapped value.
 
 ### 6.7 What the learner sees
 
@@ -636,7 +639,7 @@ Grading stays synchronous. The plan hides what it can: the next item and block a
 
 | Table | Role (`learnloop/db/table_roles.py`) | Phase | Contents |
 |---|---|---|---|
-| `daily_plans` | WORKFLOW | DL1 | `id`, `local_date`, `kind` (`normal` \| `reentry` \| `keep_going`), `parent_plan_id`, `minutes_budget`, `split_json` (lane minutes, loads, caps, reasons), `admission_json` (§6.3 inputs and result), `estimator_version`, `source`, `chooser`, `status` (`open` \| `complete` \| `stopped` \| `abandoned`), `algorithm_version`, `config_hash`, `created_at`, `completed_at` |
+| `daily_plans` | WORKFLOW | DL1 | `id`, `local_date`, `kind` (`normal` \| `reentry` \| `keep_going`), `parent_plan_id`, `minutes_budget`, `remembered_minutes` (the ordinary budget in force; §6.6), `minutes_source` (`chip` \| `carried` \| `generated`), `split_json` (lane minutes, loads, caps, reasons), `admission_json` (§6.3 inputs and result), `estimator_version`, `source`, `chooser`, `status` (`open` \| `complete` \| `stopped` \| `abandoned`), `algorithm_version`, `config_hash`, `created_at`, `completed_at` |
 | `attention_blocks` (existing, migration 096) | WORKFLOW | DL1 | `ADD COLUMN daily_plan_id TEXT`, `plan_ordinal INTEGER`, `lane TEXT`, `chosen_by TEXT`, `decision_ref TEXT`, `reading_json TEXT` (the `ReadingTarget` of a reading block, else null). Existing rows stay null |
 | `attention_block_events` (existing) | RECEIPT | DL1 | New kinds: `block_chosen`, `block_started`, `block_ended` (with `outcome`; for reading `section_completed` \| `left_reader` \| `skipped`), `item_planned`, `item_served`, `item_done`, `item_skipped`, `item_displaced`, `reading_progress` (spans seen, span count). `detail_json` carries `practice_item_id`, `scheduler_candidate_id`, `est_minutes`, `wall_ms` and `serving_origin` (`daily_plan` \| `learner_pick`) |
 | `capture_inbox` (existing, from mobile M1) | RAW_LEDGER | DL3 | `ADD COLUMN source_anchor_json TEXT` (nullable; set at insert for reader captures, part of the request fingerprint, cleared by purge) |
@@ -731,7 +734,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
   - `test_daily_plan_reentry.py`;
   - `test_daily_plan_kill_switch.py` (G1);
   - `test_block_chooser_interface.py` (G13);
-  - `test_daily_plan_rpc.py`;
+  - `test_daily_plan_rpc.py` (including remembered minutes: 40, then a 10-minute keep going, defaults to 40 the next day; a 15-minute re-entry plan and the post-re-entry remainder leave 40 in place; a chip tap on a re-entry plan changes the remembered value but not the re-entry cap);
   - `test_daily_plan_reading.py` (the words-left estimate; a partial block when the section exceeds the remaining minutes; each `block_ended` outcome advancing the plan and consuming the estimate; `reading_progress` events from `reader.mark_section_progress`; resuming an interrupted block; the next day continuing the same section; `next_plan_item` returning a typed reading step);
   - `test_today_headline.py`;
   - vitest for the plan view, block lines, done screen and keep going, and for a reading step opening the reader at its section and returning to the plan.
