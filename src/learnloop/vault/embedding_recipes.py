@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from types import MappingProxyType
+from typing import Any
 
 from learnloop.vault.models import LoadedVault
 
@@ -42,39 +43,106 @@ class EmbeddingRecipe:
         for record_id, text in self.texts(loaded):
             if not text.strip():
                 continue
-            # Version the composition, not just the authored text: a future
-            # recipe change must not silently reuse the former representation.
-            payload = json.dumps(
-                [self.record_kind, self.field, self.version, text],
-                ensure_ascii=False, separators=(",", ":"),
-            )
-            yield EmbeddingRecord(
-                self.record_kind, record_id, self.field, text,
-                hashlib.sha256(payload.encode("utf-8")).hexdigest(),
-            )
+            yield self.record(record_id, text)
+
+    def content_hash(self, text: str) -> str:
+        # Version the composition, not just the authored text: a future
+        # recipe change must not silently reuse the former representation.
+        payload = json.dumps(
+            [self.record_kind, self.field, self.version, text],
+            ensure_ascii=False, separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def record(self, record_id: str, text: str) -> EmbeddingRecord:
+        """One record of this recipe's text, hashed exactly as a backfill would.
+
+        Ingest uses this for candidate text that is not in the vault yet, so the
+        vector it pays for is the one the record's later backfill would find.
+        """
+        return EmbeddingRecord(self.record_kind, record_id, self.field, text, self.content_hash(text))
+
+
+def _value(source: Any, name: str) -> Any:
+    return source.get(name) if isinstance(source, Mapping) else getattr(source, name, None)
+
+
+def _text(source: Any, name: str) -> str:
+    value = _value(source, name)
+    return value if isinstance(value, str) else ""
+
+
+def _texts(source: Any, name: str) -> list[str]:
+    # Every listed value, verbatim: facet/definition v1 hashes must not move.
+    return [str(value) for value in (_value(source, name) or [])]
+
+
+def facet_definition_text(facet: Any) -> str:
+    """Canonical ``facet/definition`` text of a facet model or proposal payload."""
+    parts = [
+        f"{label}: {value}" for label, value in (
+            ("Title", _text(facet, "title")), ("Claim", _text(facet, "claim")),
+            ("Description", _text(facet, "description")),
+        ) if value and value.strip()
+    ]
+    for label, name in (
+        ("Preconditions", "preconditions"),
+        ("Postconditions", "postconditions"),
+        ("Applicability", "applicability"),
+        ("Positive examples", "positive_examples"),
+        ("Negative examples", "negative_examples"),
+        ("Non-goals", "non_goals"),
+    ):
+        values = _texts(facet, name)
+        if values:
+            parts.append(f"{label}:\n" + "\n".join(f"- {value}" for value in values))
+    return "\n".join(parts)
+
+
+def concept_definition_text(concept: Any) -> str:
+    """Canonical ``concept/definition`` text: the LLM-written definition, not a bare label.
+
+    Title and type name the idea; the synthesis-authored description defines
+    it; aliases are other names for it. Edges, tags and ids are excluded.
+    """
+    parts = [f"{label}: {value}" for label, value in (
+        ("Title", _text(concept, "title")), ("Type", _text(concept, "type")),
+        ("Description", _text(concept, "description")),
+    ) if value and value.strip()]
+    aliases = [alias for alias in _texts(concept, "aliases") if alias.strip()]
+    if aliases:
+        parts.append("Aliases: " + "; ".join(aliases))
+    return "\n".join(parts)
+
+
+def repair_record_id(text: str) -> str:
+    """A repair text's record id: its own digest, so one text is one record."""
+    return "repair_" + hashlib.sha256(text.strip().encode("utf-8")).hexdigest()[:32]
 
 
 def _facet_definitions(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
     for facet_id, facet in sorted(loaded.evidence_facets.items()):
         if facet.status == "retired":
             continue
-        parts = [
-            f"{label}: {value}" for label, value in (
-                ("Title", facet.title), ("Claim", facet.claim),
-                ("Description", facet.description),
-            ) if value and value.strip()
-        ]
-        for label, values in (
-            ("Preconditions", facet.preconditions),
-            ("Postconditions", facet.postconditions),
-            ("Applicability", facet.applicability),
-            ("Positive examples", facet.positive_examples),
-            ("Negative examples", facet.negative_examples),
-            ("Non-goals", facet.non_goals),
-        ):
-            if values:
-                parts.append(f"{label}:\n" + "\n".join(f"- {value}" for value in values))
-        yield facet_id, "\n".join(parts)
+        yield facet_id, facet_definition_text(facet)
+
+
+def _concept_definitions(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+    for concept_id, concept in sorted(loaded.concepts.items()):
+        yield concept_id, concept_definition_text(concept)
+
+
+def _facet_repairs(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+    seen: set[str] = set()
+    for _facet_id, facet in sorted(loaded.evidence_facets.items()):
+        if facet.status == "retired":
+            continue
+        for repair in facet.instructional_repairs:
+            text = repair.strip()
+            record_id = repair_record_id(text)
+            if text and record_id not in seen:
+                seen.add(record_id)
+                yield record_id, text
 
 
 def _item_stems(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
@@ -102,6 +170,20 @@ EMBEDDING_RECIPES: Mapping[str, EmbeddingRecipe] = _registry(
         "Canonical practice item prompt only; excludes retired items, expected "
         "answers, hints, grading material and learner responses.",
         _item_stems,
+    ),
+    # Slice 2 T5 (§8, §12): the synthesis-written concept definition and each
+    # distinct instructional repair, for nominations and the repair shadow.
+    EmbeddingRecipe(
+        "concept", "definition", 1,
+        "Concept title, type, synthesis-authored description and aliases; "
+        "excludes ids, tags and edges.",
+        _concept_definitions,
+    ),
+    EmbeddingRecipe(
+        "facet_repair", "text", 1,
+        "One record per distinct instructional repair of a non-retired facet, "
+        "keyed by the repair text's digest; excludes every other facet field.",
+        _facet_repairs,
     ),
 )
 

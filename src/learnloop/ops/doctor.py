@@ -195,9 +195,11 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     _check_registered_facets(vault, issues)
     _check_facet_contract_completeness(vault, issues)
     _check_blueprints_and_criteria(vault, issues)
-    _check_concept_merge_candidates(vault, issues)
-    _check_facet_merge_candidates(vault, issues)
-    _check_registry_near_duplicate_facets(vault, issues)
+    # Slice 2 T5: a cosine column beside the lexical scores (stored vectors only).
+    nominator = review_nominator(vault)
+    _check_concept_merge_candidates(vault, issues, nominator)
+    _check_facet_merge_candidates(vault, issues, nominator)
+    _check_registry_near_duplicate_facets(vault, issues, nominator)
     _check_learning_object_merge_candidates(vault, issues)
     if repository is not None:
         _check_database_contracts(vault, repository, database_tables, issues, fix_state=fix_state)
@@ -1777,7 +1779,25 @@ def _first_dependency_cycle(graph: dict[str, list[str]]) -> list[str] | None:
     return None
 
 
-def _check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+def review_nominator(vault: LoadedVault) -> Any:
+    """Slice 2 T5 stored-vector nominator for the doctor's cosine columns, or None."""
+
+    from learnloop.content.synthesis.facet_doctor import review_nominator as _review
+
+    return _review(vault)
+
+
+def _cosine_column(nominator: Any, recipe: str, left: str, right: str) -> tuple[dict[str, Any], str]:
+    """(details fields, message suffix) for the T5 cosine column; empty when off."""
+
+    if nominator is None:
+        return {}, ""
+    column = nominator.cosine_column(recipe, left, right)
+    suffix = f", cosine={column['cosine']:.2f}" if column.get("cosine") is not None else ""
+    return column, suffix
+
+
+def _check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue], nominator: Any = None) -> None:
     by_lo: dict[str, set[str]] = {}
     item_ids_by_lo_facet: dict[tuple[str, str], list[str]] = {}
     for item in vault.practice_items.values():
@@ -1809,27 +1829,31 @@ def _check_facet_merge_candidates(vault: LoadedVault, issues: list[HealthIssue])
                     # alone is not enough to recommend destructive coarsening.
                     continue
                 code = "evidence_facet:merge_candidate:auto_propose" if score >= 0.82 else "evidence_facet:merge_candidate:needs_review"
+                column, suffix = _cosine_column(nominator, "facet/definition", left, right)
                 issues.append(
                     _issue(
                         "warning",
                         code,
                         (
                             f"{learning_object_id} has similar evidence facets {left!r} and {right!r} "
-                            f"(similarity={score:.2f})"
+                            f"(similarity={score:.2f}{suffix})"
                         ),
                         entity_id=learning_object_id,
-                        details=_facet_merge_details(
-                            learning_object_id,
-                            left,
-                            right,
-                            score,
-                            item_ids_by_lo_facet=item_ids_by_lo_facet,
-                        ),
+                        details={
+                            **_facet_merge_details(
+                                learning_object_id,
+                                left,
+                                right,
+                                score,
+                                item_ids_by_lo_facet=item_ids_by_lo_facet,
+                            ),
+                            **column,
+                        },
                     )
                 )
 
 
-def _check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+def _check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[HealthIssue], nominator: Any = None) -> None:
     """Post-append near-duplicate facet pass over the whole registry (§14).
 
     Emits merge-REVIEW warnings (never auto-merges); the same detection runs on the
@@ -1837,14 +1861,16 @@ def _check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[Healt
 
     from learnloop.content.synthesis.facet_doctor import near_duplicate_facet_review
 
-    for proposal in near_duplicate_facet_review(vault):
+    for proposal in near_duplicate_facet_review(vault, nominator=nominator):
+        cosine = (proposal.cosine or {}).get("cosine")
+        suffix = f", cosine {cosine:.2f}" if cosine is not None else ""
         issues.append(
             _issue(
                 "warning",
                 "evidence_facet:registry_near_duplicate",
                 (
                     f"registry facets {proposal.left_facet_id!r} and {proposal.right_facet_id!r} "
-                    f"are near-duplicates (jaccard {proposal.similarity:.2f}); review as a merge"
+                    f"are near-duplicates (jaccard {proposal.similarity:.2f}{suffix}); review as a merge"
                 ),
                 entity_id=proposal.left_facet_id,
                 details=proposal.as_dict(),
@@ -1852,7 +1878,10 @@ def _check_registry_near_duplicate_facets(vault: LoadedVault, issues: list[Healt
         )
 
 
-def _check_concept_merge_candidates(vault: LoadedVault, issues: list[HealthIssue]) -> None:
+def concept_merge_candidate_pairs(vault: LoadedVault) -> list[tuple[str, str, float, bool]]:
+    """Doctor's lexical concept-duplicate pairs: (left, right, similarity, strong_alias)."""
+
+    pairs: list[tuple[str, str, float, bool]] = []
     ordered = sorted(vault.concepts.items())
     for index, (left_id, left) in enumerate(ordered):
         for right_id, right in ordered[index + 1 :]:
@@ -1860,27 +1889,35 @@ def _check_concept_merge_candidates(vault: LoadedVault, issues: list[HealthIssue
             score = _concept_similarity(left_id, left, right_id, right)
             if not strong_alias and score < 0.72:
                 continue
-            canonical, duplicate = sorted([left_id, right_id], key=lambda value: (len(value), value))
-            code = "concept:merge_candidate:strong_alias" if strong_alias else "concept:merge_candidate:needs_review"
-            issues.append(
-                _issue(
-                    "warning",
-                    code,
-                    f"Concepts {left_id!r} and {right_id!r} look duplicative (similarity={score:.2f})",
-                    entity_id=canonical,
-                    details={
-                        "canonical_concept_id": canonical,
-                        "duplicate_concept_id": duplicate,
-                        "similarity": round(score, 3),
-                        "strong_alias": strong_alias,
-                        "affected": _concept_merge_affected_refs(vault, canonical, duplicate),
-                        "suggested_action": (
-                            f"Review and run `learnloop merge-concepts {canonical} {duplicate}` "
-                            "if these are the same concept."
-                        ),
-                    },
-                )
+            pairs.append((left_id, right_id, score, strong_alias))
+    return pairs
+
+
+def _check_concept_merge_candidates(vault: LoadedVault, issues: list[HealthIssue], nominator: Any = None) -> None:
+    for left_id, right_id, score, strong_alias in concept_merge_candidate_pairs(vault):
+        canonical, duplicate = sorted([left_id, right_id], key=lambda value: (len(value), value))
+        code = "concept:merge_candidate:strong_alias" if strong_alias else "concept:merge_candidate:needs_review"
+        column, suffix = _cosine_column(nominator, "concept/definition", left_id, right_id)
+        issues.append(
+            _issue(
+                "warning",
+                code,
+                f"Concepts {left_id!r} and {right_id!r} look duplicative (similarity={score:.2f}{suffix})",
+                entity_id=canonical,
+                details={
+                    "canonical_concept_id": canonical,
+                    "duplicate_concept_id": duplicate,
+                    "similarity": round(score, 3),
+                    "strong_alias": strong_alias,
+                    "affected": _concept_merge_affected_refs(vault, canonical, duplicate),
+                    "suggested_action": (
+                        f"Review and run `learnloop merge-concepts {canonical} {duplicate}` "
+                        "if these are the same concept."
+                    ),
+                    **column,
+                },
             )
+        )
 
 
 def _concept_similarity(left_id: str, left: Any, right_id: str, right: Any) -> float:

@@ -9,7 +9,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.embedding import EmbeddingClient
+from learnloop.ai.embedding import EMBEDDING_PRICES_PER_MILLION, EmbeddingClient
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key, observe_model_calls
 from learnloop.ai.routing import ready_client_for_task
@@ -25,7 +25,7 @@ from learnloop.vault.paths import VaultPaths
 
 TASK_PREFIX = "retrieval-document"
 # Spec §9.1's published estimate, not a promise of the provider's invoice.
-PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
+PRICES_PER_MILLION = EMBEDDING_PRICES_PER_MILLION
 
 
 class _InvalidEmbeddingResponse(Exception):

@@ -134,6 +134,10 @@ class GateContext:
     # specialized additive item types must be create-only.
     append_mode: bool = False
     registered_facet_texts: dict[str, str] = field(default_factory=dict)
+    # Slice 2 T5 cosine column: (proposed payload | registered id) x 2 -> the
+    # definition-embedding cosine, or None. Display only: it never adds,
+    # removes or re-grades a near-duplicate diagnostic.
+    facet_cosine: Callable[[Any, Any], float | None] | None = None
     # Lock guard: when both are present, gates delegate to can_apply; otherwise
     # they fall back to each item's `lock_reason` field (pure unit tests).
     vault: Any = None
@@ -654,6 +658,18 @@ def _endpoint_known(endpoint: str, proposal: GateProposal) -> bool:
     return False
 
 
+def _cosine_note(ctx: GateContext, left: Any, right: Any) -> str:
+    """``", cosine 0.91"`` beside the Jaccard, when T5 vectors exist (display only)."""
+
+    if ctx.facet_cosine is None:
+        return ""
+    try:
+        cosine = ctx.facet_cosine(left, right)
+    except Exception:  # noqa: BLE001 - a display column never fails a gate
+        return ""
+    return "" if cosine is None else f", cosine {cosine:.2f}"
+
+
 def _gate_near_duplicate_facets(proposal: GateProposal, ctx: GateContext) -> list[GateDiagnostic]:
     facets = [item for item in proposal.items if item.item_type == "facet"]
     out: list[GateDiagnostic] = []
@@ -665,27 +681,29 @@ def _gate_near_duplicate_facets(proposal: GateProposal, ctx: GateContext) -> lis
         for j in range(i + 1, len(texts)):
             sim = _jaccard(texts[i][1], texts[j][1])
             if sim >= ctx.near_duplicate_threshold:
+                cosine = _cosine_note(ctx, facets[i].payload, facets[j].payload)
                 out.append(
                     GateDiagnostic(
                         gate="near_duplicate_facet",
                         severity="review",
                         entity_refs=(texts[i][0], texts[j][0]),
-                        message=f"proposed facets {texts[i][0]} and {texts[j][0]} are near-duplicates (jaccard {sim:.2f})",
+                        message=f"proposed facets {texts[i][0]} and {texts[j][0]} are near-duplicates (jaccard {sim:.2f}{cosine})",
                         suggested_action="review as a merge proposal; never auto-merge",
                     )
                 )
     # Proposed-vs-registered.
     registered = {fid: _text_tokens(text) for fid, text in ctx.registered_facet_texts.items()}
-    for fid, tokens in texts:
+    for index, (fid, tokens) in enumerate(texts):
         for rid, rtokens in registered.items():
             sim = _jaccard(tokens, rtokens)
             if sim >= ctx.near_duplicate_threshold:
+                cosine = _cosine_note(ctx, facets[index].payload, rid)
                 out.append(
                     GateDiagnostic(
                         gate="near_duplicate_facet",
                         severity="review",
                         entity_refs=(fid, rid),
-                        message=f"proposed facet {fid} is a near-duplicate of registered {rid} (jaccard {sim:.2f})",
+                        message=f"proposed facet {fid} is a near-duplicate of registered {rid} (jaccard {sim:.2f}{cosine})",
                         suggested_action="review as a merge proposal; never auto-merge",
                     )
                 )

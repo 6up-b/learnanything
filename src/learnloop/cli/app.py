@@ -1616,6 +1616,7 @@ def facet_mint_gate_command(
     """
 
     from learnloop.content.synthesis.facet_mint_gate import MintDisposition, judge_facet_mints
+    from learnloop.content.synthesis.facet_doctor import review_nominator
 
     vault_root = _root(vault)
     loaded = _load_vault_or_exit(vault_root, json_output=json_output)
@@ -1624,8 +1625,22 @@ def facet_mint_gate_command(
         for _fid, facet in sorted(loaded.evidence_facets.items())
     ]
     report = judge_facet_mints(payloads)
+    # Slice 2 T5 (stored vectors only): embedding neighbours, the cosine column
+    # and the repair-equivalence shadow beside the verdicts; never a verdict.
+    nominator = review_nominator(loaded)
+    nomination = None
+    if nominator is not None:
+        from learnloop.content.synthesis.graph_nomination import annotate_mint_report
+
+        nomination = {
+            **annotate_mint_report(nominator, report, payloads, payloads),
+            "summary": nominator.summary(),
+        }
     if json_output:
-        typer.echo(_dump(report.as_dict()))
+        payload = report.as_dict()
+        if nomination is not None:
+            payload["graph_nomination"] = nomination
+        typer.echo(_dump(payload))
         return
     summary = report.summary()
     typer.echo(f"{summary['candidate_count']} registered facet(s) re-judged under D2.")
@@ -1638,10 +1653,20 @@ def facet_mint_gate_command(
         if verdict.disposition is MintDisposition.MINT:
             continue
         target = f" -> {verdict.alias_of}" if verdict.alias_of else ""
+        cosine = ""
+        if nomination is not None and verdict.deciding_neighbour:
+            record = next(
+                (r for r in nomination["candidates"] if r["candidate_id"] == verdict.candidate_id), {}
+            )
+            value = (record.get("d2_cosines") or {}).get(verdict.deciding_neighbour)
+            cosine = f" cosine={value:.2f}" if value is not None else ""
         typer.echo(
             f"  {str(verdict.disposition):<8}{verdict.candidate_id}{target} "
-            f"reason={verdict.reason} neighbours={len(verdict.neighbours)}"
+            f"reason={verdict.reason} neighbours={len(verdict.neighbours)}{cosine}"
         )
+    if nomination is not None:
+        typer.echo(f"  embedding nominations: {nomination['summary']['status']} "
+                   f"({nomination['summary']['model_id']}); --json lists them")
 
 @app.command("persona-gate-precision")
 def persona_gate_precision_command(
@@ -1696,17 +1721,19 @@ def facet_candidates_command(
     """
 
     from learnloop.content.synthesis.facet_candidates import harvest_facet_candidates
+    from learnloop.content.synthesis.facet_doctor import review_nominator
 
     vault_root = _root(vault)
     loaded = _load_vault_or_exit(vault_root, json_output=json_output)
     repository = _repository(loaded.root)
-    result = harvest_facet_candidates(loaded, repository)
+    result = harvest_facet_candidates(loaded, repository, nominator=review_nominator(loaded))
     if json_output:
         typer.echo(_dump(result))
         return
     typer.echo(f"{len(result['candidates'])} candidate(s), {len(result['review_pairs'])} review pair(s).")
     for pair in result["review_pairs"]:
-        typer.echo(f"  review: {pair['left']} ~ {pair['right']} ({pair['similarity']})")
+        cosine = f", cosine {pair['cosine']:.2f}" if pair.get("cosine") is not None else ""
+        typer.echo(f"  review: {pair['left']} ~ {pair['right']} ({pair['similarity']}{cosine})")
 
 @app.command("merge-concepts")
 def merge_concepts_command(

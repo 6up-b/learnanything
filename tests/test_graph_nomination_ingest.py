@@ -1,0 +1,297 @@
+"""Slice 2 T5 at ingest: the structuring pass, the append lane and revalidation.
+
+The graph-structuring model receives registry concept titles and definitions
+for the nominated candidates (not ids alone) and decides; the append
+neighbourhood unions embedding nominations with the lexical reasons; the kill
+switch restores the pre-T5 requests; revalidation never pays.
+"""
+
+from __future__ import annotations
+
+from dataclasses import asdict
+import json
+from pathlib import Path
+
+import pytest
+
+from learnloop.ai.spend import SpendCaps
+from learnloop.ai.transport import render_structured_prompt
+from learnloop.content.synthesis.ai_contracts import (
+    CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION,
+    CONCEPT_GRAPH_STRUCTURING_PROMPT,
+    CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION,
+    ConceptGraphContext,
+    ConceptGraphStructuring,
+    ConceptGraphStructuringWithRegistry,
+    ConceptMergeGroup,
+    RegistryConceptMerge,
+    concept_graph_structuring_prompt,
+)
+from learnloop.content.synthesis.source_append import append_source
+from learnloop.content.synthesis.source_set_synthesis import (
+    create_study_map,
+    revalidate_synthesis_candidate,
+)
+from learnloop.db.repositories import Repository
+from learnloop.ops.embedding_backfill import backfill_embeddings
+from learnloop.vault.loader import load_vault
+from learnloop.vault.writer import upsert_concept, upsert_facet
+
+from tests.embedding_fakes import BagOfWordsEmbedder, ExplodingFactory
+from tests.helpers import append_config_toml
+from tests.test_source_append import FakeAppendClient, _bootstrap_and_add
+from tests.test_source_set_synthesis import (
+    _CLOCK,
+    FakeSynthesisClient,
+    _distinct_title_builder,
+    _setup,
+    _setup_two_chapters,
+)
+
+REGISTRY_ID = "concept_symmetric_registry"
+
+
+def _enable(root: Path, *, nominations: bool = True) -> None:
+    path = root / "learnloop.toml"
+    text = path.read_text(encoding="utf-8")
+    block = "[embedding]\nenabled = false\nbackfill_enabled = false\n"
+    assert block in text
+    text = text.replace(block, "[embedding]\nenabled = true\nbackfill_enabled = true\n")
+    text = text.replace("dimensions = 4096", "dimensions = 64")
+    path.write_text(text, encoding="utf-8")
+    append_config_toml(root, f"""
+        [graph_nomination]
+        enabled = {'true' if nominations else 'false'}
+        top_k = 2
+    """)
+
+
+def _backfill(root: Path, embedder: BagOfWordsEmbedder, recipes: tuple[str, ...]) -> None:
+    report = backfill_embeddings(
+        load_vault(root), caps=SpendCaps(max_candidates=1000, max_total_tokens=10**7),
+        recipes=recipes, client_factory=lambda: embedder,
+    )
+    assert report["status"] == "complete", report
+
+
+def _registry_concept(root: Path, *, type_: str = "concept") -> None:
+    upsert_concept(root, REGISTRY_ID, {
+        "title": "Symmetric matrix", "type": type_,
+        "description": "A square matrix equal to its own transpose.",
+        "aliases": [], "tags": [],
+    }, clock=_CLOCK)
+
+
+class RegistryStructuringClient(FakeSynthesisClient):
+    """Records the structuring context and decides what the test tells it to."""
+
+    def __init__(self, decide=None):
+        super().__init__(builder=_distinct_title_builder)
+        self.structuring_contexts: list[ConceptGraphContext] = []
+        self.decide = decide
+
+    def run_concept_graph_structuring(self, context):
+        self.structuring_contexts.append(context)
+        ids = [c["client_item_id"] for c in context.concepts]
+        merges = [ConceptMergeGroup(canonical_client_id=ids[0], duplicate_client_ids=ids[1:])]
+        if not context.registry_concept_details:
+            return ConceptGraphStructuring(merge_groups=merges)
+        return ConceptGraphStructuringWithRegistry(
+            merge_groups=merges,
+            registry_merges=self.decide(context, ids) if self.decide else [],
+        )
+
+
+def _ledger(repo: Repository) -> list[dict]:
+    with repo.connection() as connection:
+        return [dict(row) for row in connection.execute(
+            "SELECT * FROM judgment_ledger WHERE task='same_concept' ORDER BY created_at, id"
+        )]
+
+
+def _synthesize(root, repo, client, **kwargs):
+    return create_study_map(
+        root, "set_la", client=client, brief={"depth": "intro"}, repository=repo,
+        clock=_CLOCK, budget_overrides={"synthesis_shard_input_tokens": 1}, **kwargs,
+    )
+
+
+@pytest.mark.durability
+def test_structuring_sees_registry_definitions_and_decides_a_registry_merge(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+
+    def decide(context, ids):
+        return [RegistryConceptMerge(
+            client_item_id=ids[0], registry_concept_id=context.registry_concept_details[0]["id"],
+            rationale="the same idea: a matrix equal to its transpose",
+        )]
+
+    client = RegistryStructuringClient(decide)
+    result = _synthesize(root, repo, client, apply=True, embedding_client_factory=lambda: embedder)
+
+    context = client.structuring_contexts[0]
+    assert context.registry_concepts == [REGISTRY_ID]  # ids, as before
+    assert context.registry_concept_details == [{
+        "id": REGISTRY_ID, "title": "Symmetric matrix", "type": "concept", "aliases": [],
+        "description": "A square matrix equal to its own transpose.",
+    }]
+    assert {n["client_item_id"] for n in context.registry_nominations} == {
+        c["client_item_id"] for c in context.concepts
+    }
+    # The candidate folded into the registry concept: no new concept row, and
+    # every learning object anchors to the registry concept.
+    assert "concept" not in result.item_counts
+    vault = load_vault(root)
+    assert set(vault.concepts) == {REGISTRY_ID}
+    assert {lo.concept for lo in vault.learning_objects.values()} == {REGISTRY_ID}
+    run = repo.synthesis_run(result.synthesis_run_id)
+    assert run["actual_usage"]["registry_merges"] == 1
+    assert run["coverage_decisions"]["graph_nomination"]["summary"]["status"] == "active"
+    [verdict] = _ledger(repo)
+    assert (verdict["judge"], verdict["verdict"], verdict["right_id"]) == ("llm", "same", REGISTRY_ID)
+    assert verdict["prompt_version"] == CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION
+    assert verdict["left_kind"] == "concept_candidate"
+    assert json.loads(verdict["rationale"])["applied"] is True
+
+
+def test_nominations_alone_never_merge(tmp_path):
+    """R1: a nominated registry concept stays separate unless the model decides."""
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    client = RegistryStructuringClient(decide=None)
+    result = _synthesize(root, repo, client, embedding_client_factory=lambda: embedder)
+    assert client.structuring_contexts[0].registry_concept_details  # it was nominated
+    assert result.item_counts["concept"] == 1  # the candidates merged with each other only
+    assert _ledger(repo) == []
+
+
+def test_guarded_registry_merge_is_ledgered_but_not_applied(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root, type_="procedure")
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+
+    def decide(context, ids):
+        return [
+            RegistryConceptMerge(client_item_id=ids[0], registry_concept_id=REGISTRY_ID, rationale="same"),
+            RegistryConceptMerge(client_item_id="ghost", registry_concept_id="no_such_concept"),
+            RegistryConceptMerge(client_item_id="ghost", registry_concept_id=REGISTRY_ID),
+            RegistryConceptMerge(client_item_id=ids[0], registry_concept_id="no_such_concept"),
+        ]
+
+    result = _synthesize(root, repo, RegistryStructuringClient(decide), embedding_client_factory=lambda: embedder)
+    assert result.item_counts["concept"] == 1
+    refused = [json.loads(v["rationale"]) for v in _ledger(repo)]
+    assert sorted((r["applied"], r["refused"]) for r in refused) == [
+        (False, "type_mismatch"), (False, "unknown_registry_concept"),
+    ]
+
+
+def test_kill_switch_restores_the_pre_t5_request(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root, nominations=False)
+    _backfill(root, BagOfWordsEmbedder(), ("concept/definition",))
+    factory = ExplodingFactory()
+    client = RegistryStructuringClient(decide=None)
+    result = _synthesize(root, repo, client, embedding_client_factory=factory)
+    assert factory.calls == 0
+    context = client.structuring_contexts[0]
+    assert context.registry_concept_details == [] and context.registry_nominations == []
+    run = repo.synthesis_run(result.synthesis_run_id)
+    assert "graph_nomination" not in run["coverage_decisions"]
+    assert "registry_merges" not in run["actual_usage"]
+    # Byte-identical prompt to the pre-T5 contract when there are no nominations.
+    legacy = {key: value for key, value in asdict(context).items()
+              if key not in {"registry_concept_details", "registry_nominations"}}
+    assert concept_graph_structuring_prompt(context) == render_structured_prompt(
+        "learnloop concept graph structuring", CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION,
+        {"task": CONCEPT_GRAPH_STRUCTURING_PROMPT, "context": legacy},
+    )
+
+
+def test_unbackfilled_registry_degrades_to_lexical_and_says_so(tmp_path):
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    factory = ExplodingFactory()
+    client = RegistryStructuringClient(decide=None)
+    result = _synthesize(root, repo, client, embedding_client_factory=factory)
+    assert factory.calls == 0  # nothing to compare with, so nothing is paid for
+    assert client.structuring_contexts[0].registry_concept_details == []
+    summary = repo.synthesis_run(result.synthesis_run_id)["coverage_decisions"]["graph_nomination"]["summary"]
+    assert summary["status"] == "lexical_only"
+    assert summary["indexes"]["concept/definition"] == "index_incomplete"
+
+
+def test_revalidation_reuses_paid_vectors_and_makes_no_embedding_call(tmp_path, monkeypatch):
+    root, repo = _setup(tmp_path)
+    # A registered facet so the mint shadow has a complete index to compare with.
+    upsert_facet(root, {
+        "id": "facet_elimination", "kind": "procedure_contract",
+        "claim": "Gaussian elimination reaches row echelon form",
+        "instructional_repairs": ["practise one pivot at a time"],
+    }, clock=_CLOCK)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("facet/definition",))
+    client = FakeSynthesisClient()
+
+    def explode(self, batch, rows):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(Repository, "persist_proposal_batch", explode)
+    with pytest.raises(RuntimeError, match="disk full"):
+        create_study_map(root, "set_la", client=client, brief={"depth": "intro"},
+                         repository=repo, clock=_CLOCK, embedding_client_factory=lambda: embedder)
+    monkeypatch.undo()
+    with repo.connection() as connection:
+        run_id = connection.execute(
+            "SELECT id FROM synthesis_runs ORDER BY created_at DESC, id DESC LIMIT 1"
+        ).fetchone()["id"]
+    paid = len(embedder.calls)
+    first = repo.synthesis_run(run_id)
+    assert paid >= 2  # the backfill, then the candidates' definitions at ingest
+
+    def no_paid_client(*_args, **_kwargs):
+        raise AssertionError("revalidation must not resolve a paid client")
+
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", no_paid_client)
+    result = revalidate_synthesis_candidate(root, run_id, repository=repo, clock=_CLOCK)
+    assert len(embedder.calls) == paid
+    record = repo.synthesis_run(run_id)["coverage_decisions"]["graph_nomination"]
+    assert record["summary"]["mode"] == "review"
+    assert record["summary"]["counts"]["calls"] == 0
+    # The candidates' paid definition vectors were found by content.
+    assert all(c["embedding_neighbours"] for c in record["candidates"])
+    assert first["status"] == "failed"
+    assert result.item_counts["facet"] == 2
+
+
+def test_append_neighbourhood_records_embedding_nominations(tmp_path):
+    root, repo = _bootstrap_and_add(tmp_path)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("facet/definition", "concept/definition"))
+    client = FakeAppendClient()
+    result = append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, embedding_client_factory=lambda: embedder)
+    reasons = result.neighborhood["match_reasons"]
+    assert any(r["kind"] == "embedding" for rs in reasons.values() for r in rs)
+    assert result.neighborhood["nomination"]["status"] == "active"
+    run = repo.synthesis_run(result.synthesis_run_id)
+    assert run["coverage_decisions"]["graph_nomination"]["summary"]["mode"] == "ingest"
+    # The new claim was embedded once, under the nominator's receipts.
+    with repo.connection() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind='graph_nomination'"
+        ).fetchone()[0] >= 1

@@ -1366,6 +1366,29 @@ class EmbeddingConfig(BaseModel):
         )
 
 
+class GraphNominationConfig(BaseModel):
+    """Slice 2 T5: embedding nominations for ingest and graph review.
+
+    Nominations only, never identity: the append-reconciliation or
+    graph-structuring model, or the owner, decides every merge. Acts only when
+    ``embedding.enabled`` is also true; ``enabled = false`` is the kill switch
+    that restores the lexical-only behaviour exactly. Registry vectors come
+    from the backfill; an incomplete index degrades to lexical. New
+    LLM-written candidate text is embedded at ingest within these caps (per
+    synthesis or append run); exceeding them degrades to lexical too.
+    """
+
+    enabled: bool = True
+    # Nearest registry neighbours nominated per new claim, concept or facet.
+    # A rank limit, not a cosine cutoff (R4: cutoffs come from a report).
+    top_k: int = Field(default=5, ge=1, le=50)
+    embed_new_text: bool = True
+    max_query_texts: int = Field(default=256, ge=0)
+    max_query_calls: int = Field(default=8, ge=0)
+    max_query_tokens: int = Field(default=200_000, ge=0)
+    max_query_cost_usd: float = Field(default=0.05, ge=0)
+
+
 class FieldConfig(BaseModel):
     """Offline F1 analysis only; activation requires a later algorithm successor."""
 
@@ -1401,6 +1424,7 @@ class LearnLoopConfig(BaseModel):
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
+    graph_nomination: GraphNominationConfig = Field(default_factory=GraphNominationConfig)
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)

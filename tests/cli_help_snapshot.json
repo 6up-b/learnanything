@@ -268,12 +268,16 @@
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
   },
   "embeddings": {
-    "bytes": 1587,
-    "sha256": "06c65cc5fd4fa58de73a7538dba27ec25e0c9987651a60fcd34a04f71e4070e7"
+    "bytes": 1757,
+    "sha256": "ab0ccd2de2341a4ca645b8cc35e8678bfdb6e3cadc5fbc48729df48298708e71"
   },
   "embeddings backfill": {
     "bytes": 3744,
     "sha256": "323d1d1b749967326456178b1bdb65bf25bec2cddaaec47f36a8ecdf1d135892"
+  },
+  "embeddings nomination-report": {
+    "bytes": 3651,
+    "sha256": "cc6a828826ccbc828ba92aecfc6a4b2e4a81eaa72f021973445a78596faaddc4"
   },
   "eval": {
     "bytes": 7454,

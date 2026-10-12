@@ -5,6 +5,9 @@ from typing import Protocol, TypeAlias, runtime_checkable
 EmbedInput: TypeAlias = str | tuple[str, bytes]
 Vector: TypeAlias = list[float]
 TASK_PREFIXES = frozenset({"retrieval-document", "retrieval-query", "similarity"})
+# Spec Slice 1 §9.1's published estimate (USD per million input tokens), not a
+# promise of the provider's invoice. Unknown models fail closed in every caller.
+EMBEDDING_PRICES_PER_MILLION = {"qwen/qwen3-embedding-8b": 0.01}
 
 
 @runtime_checkable

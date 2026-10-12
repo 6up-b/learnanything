@@ -800,7 +800,11 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # The Slice A 2-3 review adds tutor_qa.adopt_reference_questions = true,
     # the kill switch over the daily-loop reference-question adoption sweep;
     # its default keeps the merged behaviour.
-    "mvp-0.9": "c1f6c55cd95d91515286ca27e010d05fdfb15f8718f220bf46097bd16f9696ca",
+    # Slice 2 T5 adds [graph_nomination]: embedding nominations shown to the
+    # structuring / append models and cosine review columns. It acts only when
+    # embedding.enabled (default false) is also on, changes no scoring,
+    # scheduling, projection or serving, and enabled = false is its kill switch.
+    "mvp-0.9": "4858c8fa789088e73f4d146d54f83f33e9056f6bda3224afe822b0d22e4937db",
 }
 
 

@@ -53,6 +53,9 @@ def vault(tmp_path):
     loaded.evidence_facets["definition"] = EvidenceFacet(
         id="definition", title="SVD", claim="A canonical factorization claim.",
     )
+    # The counts below are about one facet and one item record; Slice 2 T5's
+    # concept/definition recipe is covered in test_graph_nomination.py.
+    loaded.concepts.clear()
     return loaded, Repository(paths.sqlite_path)
 
 
@@ -65,7 +68,9 @@ def run(loaded, client, **kwargs):
 
 def test_recipes_declare_canonical_text_and_hash_only_their_inputs(vault):
     loaded, _ = vault
-    assert set(EMBEDDING_RECIPES) == {"facet/definition", "item/stem"}
+    assert set(EMBEDDING_RECIPES) == {
+        "facet/definition", "item/stem", "concept/definition", "facet_repair/text",
+    }
     records = embedding_records(loaded)
     assert {(r.record_kind, r.field) for r in records} == {("facet", "definition"), ("item", "stem")}
     assert all(EMBEDDING_RECIPES[f"{r.record_kind}/{r.field}"].text_recipe for r in records)
@@ -86,7 +91,7 @@ def test_recipes_declare_canonical_text_and_hash_only_their_inputs(vault):
 def test_recipes_are_selected_by_kind_or_by_kind_and_field():
     # Slice 2 R3 adds fields per kind (item/skeleton, facet/dossier_*); a bare
     # kind selects all of its fields, kind/field exactly one.
-    assert [r.name for r in select_recipes()] == ["facet/definition", "item/stem"]
+    assert [r.name for r in select_recipes()] == ["concept/definition", "facet/definition", "facet_repair/text", "item/stem"]
     assert [r.name for r in select_recipes(["item"])] == ["item/stem"]
     assert [r.name for r in select_recipes(["facet/definition", "facet"])] == ["facet/definition"]
     for selectors in (["item/skeleton"], ["facet/stem"], ["attempt"]):
@@ -116,7 +121,9 @@ def test_backfill_is_batched_and_idempotent_with_receipts(vault):
         budget = json.loads(row[3])
         manifest = budget.pop("embedding")
         assert budget == SpendCaps().as_dict()
-        assert manifest["recipe_versions"] == {"facet/definition": 1, "item/stem": 1}
+        assert manifest["recipe_versions"] == {
+            "concept/definition": 1, "facet/definition": 1, "facet_repair/text": 1, "item/stem": 1,
+        }
         assert manifest["prompt_version"] == "embedding-v1"
         assert connection.execute(
             "SELECT owner_id FROM model_call_receipts WHERE owner_kind='embedding_backfill'"
@@ -332,7 +339,7 @@ def test_cli_dry_run_on_disabled_vault_needs_no_provider(tmp_path, monkeypatch):
     assert report["status"] == "dry_run"
     assert not report["embedding_enabled"]
     assert not report["backfill_enabled"]
-    assert report["recipes"] == ["facet/definition", "item/stem"]
+    assert report["recipes"] == ["concept/definition", "facet/definition", "facet_repair/text", "item/stem"]
     assert paths.sqlite_path.read_bytes() == before
     narrowed = CliRunner().invoke(app, [
         "embeddings", "backfill", "--vault", str(paths.root), "--dry-run", "--json",

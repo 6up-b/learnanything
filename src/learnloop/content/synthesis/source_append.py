@@ -25,6 +25,7 @@ other item stays a pending review proposal.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.append_neighborhood import Neighborhood, select_neighborhood
+from learnloop.content.synthesis.graph_nomination import GraphNominator
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
@@ -152,8 +154,13 @@ def append_source(
     clock: Clock | None = None,
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
+    embedding_client_factory: Callable[[], Any] | None = None,
 ) -> AppendResult:
-    """Run bounded append reconciliation and (by policy) auto-apply routine items."""
+    """Run bounded append reconciliation and (by policy) auto-apply routine items.
+
+    ``embedding_client_factory`` replaces the ``ai.routing.embedding`` client
+    for T5 nominations (tests); it is used only when nominations are on.
+    """
 
     vault = load_vault(root)
     if repository is None:
@@ -165,6 +172,7 @@ def append_source(
         revision_diff=revision_diff or {}, brief=brief or {}, auto_apply=auto_apply, clock=clock,
         budget_overrides=budget_overrides,
         unlimited_token_budget=unlimited_token_budget,
+        embedding_client_factory=embedding_client_factory,
     )
 
 
@@ -183,6 +191,7 @@ def _append(
     clock: Clock | None,
     budget_overrides: dict[str, int] | None = None,
     unlimited_token_budget: bool = False,
+    embedding_client_factory: Callable[[], Any] | None = None,
 ) -> AppendResult:
     source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
     if source_set is None:
@@ -198,11 +207,16 @@ def _append(
     # is part of the run's identity rather than an invisible tweak.
     budgets = vault.config.ingest.budgets.model_copy(update=dict(budget_overrides or {}))
 
-    # Deterministic bounded affected-neighborhood selection (§10.1/§3.2).
+    # Deterministic bounded affected-neighborhood selection (§10.1/§3.2), with
+    # Slice 2 T5 embedding nominations unioned in when they are switched on.
+    nominator = GraphNominator.for_ingest(
+        vault, repository, client_factory=embedding_client_factory,
+    )
     neighborhood = select_neighborhood(
         vault, repository, new_inventories,
         budget_tokens=budgets.append_neighborhood_input_tokens,
         source_ids=new_source_ids, revision_ids=revs,
+        nominator=nominator,
     )
 
     provider = getattr(client, "provider_name", None) or getattr(client, "provider_type", None) or "codex"
@@ -318,12 +332,13 @@ def _append(
             dispositions,
             auto_apply_ids,
             normalizer_diagnostics,
+            graph_nomination,
         ) = _normalize_append(
             reconciliation, inputs, vault, neighborhood, now, subject_id=subject_id,
-            items_off=items_off,
+            items_off=items_off, nominator=nominator,
         )
 
-        gate_ctx = _gate_context(vault, repository, inputs, [])
+        gate_ctx = _gate_context(vault, repository, inputs, [], nominator=nominator)
         gate_ctx.append_mode = True
         gate_proposal = GateProposal(
             items=gate_items,
@@ -364,9 +379,14 @@ def _append(
             },
             rows,
         )
+        coverage = {"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids}
+        if nominator is not None:
+            coverage["graph_nomination"] = {
+                **(graph_nomination or {}), "summary": nominator.summary(),
+            }
         repository.complete_synthesis_run(
             synthesis_run_id, status="completed", proposal_id=patch_id,
-            coverage_decisions={"gate_diagnostics": diagnostics, "auto_apply_item_ids": auto_apply_ids},
+            coverage_decisions=coverage,
         )
         finish_agent_run(repository, agent_run_id, client, clock=clock)
     except StudyMapError:
@@ -406,7 +426,9 @@ def _append(
         from learnloop.content.synthesis.facet_doctor import near_duplicate_facet_review
 
         result.merge_review_proposals = [
-            p.as_dict() for p in near_duplicate_facet_review(vault_after)
+            p.as_dict() for p in near_duplicate_facet_review(
+                vault_after, nominator=GraphNominator.for_review(vault_after),
+            )
         ]
 
     # Best-effort Start-screen epigraphs (see vault_epigraphs.py): an append
@@ -469,8 +491,11 @@ def _output_tokens(result: Any) -> int:
 
 
 def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subject_id,
-                      items_off: bool = False):
-    """Map an AppendReconciliation to proposal rows + gate items + auto-apply ids."""
+                      items_off: bool = False, nominator=None):
+    """Map an AppendReconciliation to proposal rows + gate items + auto-apply ids.
+
+    The last element is the T5 mint-gate shadow record (``None`` when
+    nominations are off)."""
 
     def d(obj):
         return obj if isinstance(obj, dict) else obj.model_dump()
@@ -485,7 +510,7 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         practice_items=getattr(reconciliation, "practice_items", []) or [],
     )
     normalized = _normalize(coverage, inputs, vault, now, subject_id=subject_id,
-                            items_off=items_off)
+                            items_off=items_off, nominator=nominator)
     rows = list(normalized.rows)
     gate_items = list(normalized.gate_items)
     auto_apply_ids: list[str] = []
@@ -620,6 +645,7 @@ def _normalize_append(reconciliation, inputs, vault, neighborhood, now, *, subje
         set(getattr(reconciliation, "non_conflict_dispositions", []) or []),
         auto_apply_ids,
         [*normalized.edge_diagnostics, *dropped_diagnostics],
+        normalized.graph_nomination,
     )
 
 

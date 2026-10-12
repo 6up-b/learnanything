@@ -54,6 +54,53 @@ def get_vector(connection: sqlite3.Connection, *, record_kind: str, record_id: s
     return None if row is None else np.frombuffer(row[0], dtype="<f2").astype(np.float64)
 
 
+def get_vector_by_content(connection: sqlite3.Connection, *, record_kind: str, field: str,
+                          content_hash: str, model_id: str, task_prefix: str) -> np.ndarray | None:
+    """Any stored vector of exactly this recipe text, whatever record it was saved for.
+
+    A recipe's content hash covers its kind, field, version and full text, so
+    two rows with the same hash, model and prefix embed identical input. This
+    lets a candidate embedded at ingest serve the record it becomes after apply
+    (or a revalidated candidate with a fresh id) without paying again.
+    """
+    row = connection.execute(
+        "SELECT vector FROM embedding_vectors WHERE record_kind=? AND field=? "
+        "AND content_hash=? AND model_id=? AND task_prefix=? ORDER BY created_at, id LIMIT 1",
+        (record_kind, field, content_hash, model_id, task_prefix),
+    ).fetchone()
+    return None if row is None else np.frombuffer(row[0], dtype="<f2").astype(np.float64)
+
+
+def current_vectors(connection: sqlite3.Connection, *, record_kind: str, field: str,
+                    model_id: str, task_prefix: str,
+                    expected_records: Mapping[str, str]) -> dict[str, np.ndarray]:
+    """Vectors for every current record, by identity or else by identical content.
+
+    Raises :class:`IncompleteEmbeddingIndex` unless every expected record has a
+    vector from this model, so a consumer never ranks over a partial index.
+    """
+    rows = connection.execute(
+        "SELECT record_id,content_hash,vector FROM embedding_vectors "
+        "WHERE record_kind=? AND field=? AND model_id=? AND task_prefix=? "
+        "ORDER BY created_at, id",
+        (record_kind, field, model_id, task_prefix),
+    ).fetchall()
+    by_identity: dict[tuple[str, str], bytes] = {}
+    by_content: dict[str, bytes] = {}
+    for record_id, content_hash, blob in rows:
+        by_identity.setdefault((str(record_id), str(content_hash)), blob)
+        by_content.setdefault(str(content_hash), blob)
+    found: dict[str, np.ndarray] = {}
+    for record_id, content_hash in expected_records.items():
+        blob = by_identity.get((record_id, content_hash)) or by_content.get(content_hash)
+        if blob is not None:
+            found[record_id] = np.frombuffer(blob, dtype="<f2").astype(np.float64)
+    missing = len(expected_records) - len(found)
+    if missing:
+        raise IncompleteEmbeddingIndex(f"{missing} current records missing for {model_id}")
+    return found
+
+
 def put_vector(connection: sqlite3.Connection, *, record_kind: str, record_id: str,
                field: str, content_hash: str, model_id: str, task_prefix: str,
                vector: Sequence[float] | np.ndarray, created_at: str | None = None) -> str:
