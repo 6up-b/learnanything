@@ -16,7 +16,10 @@ found readers that still turned it into evidence:
 * F5: records written before the rule carried no mark of the interpretation
   they were written under;
 * F6: retention eligibility still read the informational review flag as an
-  unresolved grade.
+  unresolved grade;
+* F7 (re-review): the flag replaced any other review concern the grade had
+  (low grader confidence, the grader's own recommendation), so F6's exemption
+  admitted a genuinely unresolved grade.
 
 Fakes only; no network.
 """
@@ -59,6 +62,7 @@ from tests.test_pfc_unverified_unassessed import (
     _PartialWithoutAttribution,
     _mass,
     _mapped_split_vault,
+    _support,
 )
 
 
@@ -622,3 +626,145 @@ def test_retention_exclusions_distinguish_the_review_reasons():
     assert retention_exclusions(pfc) == ["unresolved_grade"]
     assert retention_exclusions({**pfc, "outcome_pfc_assessment": PFC_PARTIALLY_ASSESSED}) == []
     assert retention_exclusions({**pfc, "outcome_pfc_assessment": PFC_NOTHING_ASSESSED}) == ["outcome_unassessed"]
+
+
+# -- F7: the informational flag never masks a separate review concern -------------------------
+
+
+class _PartialWithAConcern(_PartialWithoutAttribution):
+    """``_PartialWithoutAttribution`` (PF-c: ``setup`` assessed, ``result``
+    unverified) whose grade ALSO carries a review concern of its own: low
+    grader confidence, or the grader's own review recommendation."""
+
+    def __init__(self, concern: str, **kwargs):
+        super().__init__(**kwargs)
+        self.concern = concern
+
+    def _blind_grading(self, request, context):
+        result = super()._blind_grading(request, context)
+        if self.concern == "low_grader_confidence":
+            return result.model_copy(update={"grader_confidence": 0.2})
+        return result.model_copy(update={"manual_review_recommended": True})
+
+
+_CONCERNS = {"low_grader_confidence": "low_grader_confidence", "grader_recommended": "codex_manual_review"}
+
+
+def _retention_exclusions_everywhere(vault, repository, outcome_attempt_id: str):
+    """(scheduling evaluation's excluded counts, the dataset export's exclusions
+    for the label ending at ``outcome_attempt_id``, the data-quality report)."""
+
+    from learnloop.scheduling.evaluation import _retention_section
+    from learnloop.substrate.data_quality import inspect_collection
+    from learnloop.substrate.dataset import outcome_records
+
+    section = _retention_section(vault, repository, bins=5)
+    with repository.connection() as connection:
+        records = [
+            row["R_next"]
+            for row in outcome_records(connection)
+            if (row.get("R_next") or {}).get("outcome_attempt_id") == outcome_attempt_id
+        ]
+        report = inspect_collection(connection)
+    return section, records, json.dumps(report, sort_keys=True, default=str)
+
+
+@pytest.mark.parametrize("concern", sorted(_CONCERNS))
+def test_a_separate_review_concern_survives_the_pfc_flag(tmp_path, concern):
+    """A delayed, unassisted PF-c outcome with ``setup`` assessed and a second
+    review concern: the concern stays the attempt's review reason, so the
+    outcome is still an unresolved grade for retention. The PF-c state stays on
+    the evidence and the blind record."""
+
+    from learnloop.outcome_contract import PFC_PARTIALLY_ASSESSED
+    from learnloop.substrate.canonical_projection import pfc_assessments
+
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
+    submit(vault, repository, ReviewFakeClient(), answer=VERIFYING_ANSWER, when=at(0), session_id="s1")
+    unsure = submit(
+        vault, repository, _PartialWithAConcern(concern), answer=VERIFYING_ANSWER, when=at(48), session_id="s2"
+    )
+
+    section, records, report = _retention_exclusions_everywhere(vault, repository, unsure.attempt_id)
+    assert section["excluded_labels_by_reason"] == {"unresolved_grade": 1}
+    assert section["count"] == 0
+    assert len(records) == 1 and "unresolved_grade" in records[0]["retention_exclusions"]
+    assert "unresolved_grade" in report
+
+    attempt = repository.fetch_practice_attempt(unsure.attempt_id)
+    assert attempt["manual_review"]
+    assert attempt["manual_review_reason"] == _CONCERNS[concern]
+    assert (attempt["rubric_score"], attempt["correctness"]) == (4, 1.0)  # graded over `setup` alone
+    assert _support(repository, unsure.attempt_id)["unverified_criterion_ids"] == ["result"]
+    with repository.connection() as connection:
+        assert pfc_assessments(connection, [unsure.attempt_id]) == {unsure.attempt_id: PFC_PARTIALLY_ASSESSED}
+
+    # A regrade under the rule keeps the concern the same way.
+    regrade_attempt(
+        vault, repository, attempt,
+        runtime=ReadyRuntime(), client=_PartialWithAConcern(concern), grading_source="ai", clock=None,
+    )
+    regraded = repository.fetch_practice_attempt(unsure.attempt_id)
+    assert (regraded["manual_review"], regraded["manual_review_reason"]) == (1, _CONCERNS[concern])
+    section, _records, _report = _retention_exclusions_everywhere(vault, repository, unsure.attempt_id)
+    assert section["excluded_labels_by_reason"] == {"unresolved_grade": 1}
+
+
+def test_the_pfc_flag_is_the_reason_only_when_it_is_the_sole_concern(tmp_path):
+    """Control: the same PF-c grade with no other concern carries the PF-c
+    reason, and a regrade keeps it."""
+
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
+    result = submit(vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER, when=at(0))
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    assert attempt["manual_review_reason"] == UNVERIFIED_REVIEW_REASON
+    regrade_attempt(
+        vault, repository, attempt,
+        runtime=ReadyRuntime(), client=_PartialWithoutAttribution(), grading_source="ai", clock=None,
+    )
+    assert repository.fetch_practice_attempt(result.attempt_id)["manual_review_reason"] == UNVERIFIED_REVIEW_REASON
+
+
+def test_nothing_assessed_is_read_from_the_evidence_not_the_review_reason(tmp_path):
+    """Once the review reason can be another concern, it can also be cleared
+    (an expired clarification clears it, ``expire_clarifications``). A PF-c
+    outcome with nothing assessed is still no measurement then."""
+
+    vault, repository, first, partial, nothing = _retention_world(tmp_path)
+    row = repository.fetch_practice_attempt(nothing.attempt_id)
+    repository.update_attempt_grade(
+        nothing.attempt_id,
+        rubric_score=int(row["rubric_score"] or 0),
+        correctness=float(row["correctness"] or 0.0),
+        grader_confidence=float(row["grader_confidence"] or 0.0),
+        manual_review=False,
+        manual_review_reason=None,
+        error_type=row.get("error_type"),
+    )
+
+    section, records, report = _retention_exclusions_everywhere(vault, repository, nothing.attempt_id)
+    assert section["excluded_labels_by_reason"] == {"intervening_practice": 1, "outcome_unassessed": 2}
+    assert section["count"] == 1
+    assert records and all("outcome_unassessed" in record["retention_exclusions"] for record in records)
+    assert "outcome_unassessed" in report
+
+
+def test_retention_exclusions_keep_the_pfc_state_and_the_review_independent():
+    from learnloop.outcome_contract import (
+        PFC_NOTHING_ASSESSED,
+        PFC_PARTIALLY_ASSESSED,
+        retention_exclusions,
+    )
+
+    clean = {
+        "outcome_hints_used": 0, "outcome_primed": False, "elapsed_seconds": 2 * 86400,
+        "source_session_id": "a", "outcome_session_id": "b", "label_value": 1.0,
+    }
+    other = {**clean, "outcome_manual_review": True, "outcome_manual_review_reason": "low_grader_confidence"}
+    assert retention_exclusions({**other, "outcome_pfc_assessment": PFC_PARTIALLY_ASSESSED}) == ["unresolved_grade"]
+    assert retention_exclusions({**other, "outcome_pfc_assessment": PFC_NOTHING_ASSESSED}) == [
+        "outcome_unassessed",
+        "unresolved_grade",
+    ]
+    assert retention_exclusions({**clean, "outcome_pfc_assessment": PFC_NOTHING_ASSESSED}) == ["outcome_unassessed"]
+    assert retention_exclusions({**clean, "outcome_pfc_assessment": PFC_PARTIALLY_ASSESSED}) == []

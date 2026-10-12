@@ -1343,8 +1343,8 @@ def _complete_blind_graded_attempt(
         validate_blind_grading_proposal,
     )
     from learnloop.attempts.grading_support import (
-        UNVERIFIED_REVIEW_REASON,
         family_key,
+        gated_review_reason,
         grade_uncertainty_signal,
         request_blind_grading_run,
     )
@@ -1359,6 +1359,16 @@ def _complete_blind_graded_attempt(
     try:
         validated = validate_blind_grading_proposal(
             run.proposal,
+            attempt_id=attempt_id,
+            item=item,
+            vault=vault,
+            learner_answer_md=draft.learner_answer_md,
+            rubric=rubric,
+        )
+        # PF-c's informational reason, unless the grade carries a review
+        # concern of its own (review F7).
+        review_override = gated_review_reason(
+            run,
             attempt_id=attempt_id,
             item=item,
             vault=vault,
@@ -1405,9 +1415,7 @@ def _complete_blind_graded_attempt(
             grading_source=grading_source,
             grader_mode="blind",
             grader_identity=identity,
-            manual_review_override=(
-                UNVERIFIED_REVIEW_REASON if support.get("valid_alternative_gate_applied") else None
-            ),
+            manual_review_override=review_override,
             unverified_criterion_ids=tuple(support.get("unverified_criterion_ids") or ()),
             clock=clock,
         )

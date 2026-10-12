@@ -28,7 +28,10 @@ answer.
   no facet mass or outcome in the attempt step, the canonical projection, the
   evidence timeline or the learner field; and it alone never queues a
   diagnosis (``assessed_shortfall``). ``manual_review_recommended`` and the
-  reason stay as a non-blocking log: nothing waits on a review.
+  reason stay as a non-blocking log: nothing waits on a review. The reason is
+  the attempt's only when it is the grade's sole review concern
+  (``gated_review_reason``, review F7): a concern the grade carries without
+  the gate stays its reason, and blocking.
 * **Solve-first without a reference.** The grader writes its own expected
   answer before reading the learner's, and scores claims, not prose.
 * **One pass.** No voting. Where k-sampling is configured, the modal
@@ -67,6 +70,7 @@ from learnloop.attempts.blind_grading import (
     BlindGradingProposal,
     BlindRepairedTrace,
     blind_grading_prompt,
+    validate_blind_grading_proposal,
 )
 from learnloop.attempts.answer_check import final_answer_check
 from learnloop.substrate.canonical_projection import (
@@ -84,7 +88,8 @@ REFERENCE_POLICY_CALIBRATION_PROMPT_VERSION = "grading_prompt_v2_1_blind_referen
 GRADING_SUPPORT_VERSION = "pf-c-grading-support-v1"
 #: The manual-review reason, and the per-criterion block reason persisted in
 #: ``grading_evidence.attribution_json`` (one value, read by the projection).
-#: As a review reason it is a non-blocking log (owner decision 2026-10-12).
+#: As a review reason it is a non-blocking log (owner decision 2026-10-12),
+#: recorded only when it is the grade's sole review concern (review F7).
 UNVERIFIED_REVIEW_REASON = UNVERIFIED_CRITERION_BLOCK
 #: How every learner-facing surface shows an unverified criterion: not
 #: assessed, never as lost points.
@@ -393,6 +398,47 @@ class BlindGradingRun:
     prompt_version: str
     grading_support: dict[str, Any] = field(default_factory=dict)
     samples: int = 1
+    #: The modal proposal as the grader returned it, before the PF-c gate
+    #: forced its review flag and rescoped its attributions (review F7).
+    ungated_proposal: BlindGradingProposal | None = None
+
+
+def gated_review_reason(
+    run: BlindGradingRun,
+    *,
+    attempt_id: str,
+    item: PracticeItem,
+    vault: LoadedVault,
+    learner_answer_md: str,
+    rubric: Rubric,
+) -> str | None:
+    """The attempt's manual-review reason when the PF-c gate applied, else None.
+
+    The gate's reason is informational, so it is the attempt's reason only when
+    it is the grade's SOLE review concern (review F7). The gated proposal cannot
+    say whether it is: the gate forces ``manual_review_recommended`` and
+    rescopes attributions, so its validated reason is always the gate's. The
+    grade's own concerns are read from the grader's proposal as returned,
+    validated the same way. Any reason found there (the grader's own
+    recommendation, low confidence, an unknown target, a pending
+    clarification...) stays the attempt's reason: a blocking review, which
+    retention reads as an unresolved grade. The PF-c state itself is on the
+    evidence rows and the blind record, whichever reason is recorded.
+    """
+
+    if not run.grading_support.get("valid_alternative_gate_applied"):
+        return None
+    own = None
+    if run.ungated_proposal is not None:
+        own = validate_blind_grading_proposal(
+            run.ungated_proposal,
+            attempt_id=attempt_id,
+            item=item,
+            vault=vault,
+            learner_answer_md=learner_answer_md,
+            rubric=rubric,
+        ).grade.manual_review_reason
+    return own if own is not None else UNVERIFIED_REVIEW_REASON
 
 
 def request_blind_grading_run(
@@ -441,7 +487,7 @@ def request_blind_grading_run(
             declared.append([])
             extras.append({})
     winner, sampling = modal_sample(raw, rubric) if len(raw) > 1 else (0, {"sample_count": 1})
-    proposal = raw[winner]
+    ungated = proposal = raw[winner]
     support: dict[str, Any] = {"version": GRADING_SUPPORT_VERSION, "sampling": sampling}
     if policy is not None:
         gate = apply_valid_alternative_gate(
@@ -472,6 +518,7 @@ def request_blind_grading_run(
         ),
         grading_support=support,
         samples=len(raw),
+        ungated_proposal=ungated,
     )
 
 
@@ -489,6 +536,7 @@ __all__ = [
     "apply_valid_alternative_gate",
     "criterion_outcomes",
     "family_key",
+    "gated_review_reason",
     "grade_uncertainty_signal",
     "modal_sample",
     "reference_policy",

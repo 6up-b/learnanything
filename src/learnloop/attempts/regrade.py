@@ -257,12 +257,23 @@ def regrade_attempt(
             # PF-c: a criterion the gate recorded unverified is unassessed
             # (owner decision 2026-10-12), exactly as on the live grade: its
             # row is stamped with the block, the grade excludes it below, and
-            # replay leaves it out of the facet evidence.
+            # replay leaves it out of the facet evidence. The informational
+            # reason is recorded only as the grade's sole concern (review F7).
             unverified = {str(value) for value in run.grading_support.get("unverified_criterion_ids") or ()}
             if run.grading_support.get("valid_alternative_gate_applied"):
-                from learnloop.attempts.grading_support import UNVERIFIED_REVIEW_REASON
+                from learnloop.attempts.grading_support import gated_review_reason
 
-                validated = replace(validated, manual_review_reason=UNVERIFIED_REVIEW_REASON)
+                validated = replace(
+                    validated,
+                    manual_review_reason=gated_review_reason(
+                        run,
+                        attempt_id=attempt["id"],
+                        item=item,
+                        vault=vault,
+                        learner_answer_md=attempt.get("learner_answer_md") or "",
+                        rubric=rubric,
+                    ),
+                )
         else:
             proposal = request_vault_grading_proposal(vault, client, context)
             validated = validate_codex_grading_proposal(

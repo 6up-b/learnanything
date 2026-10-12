@@ -18,8 +18,13 @@ RETENTION_MIN_DELAY_SECONDS = 86400
 # dependency free, a test pins the two equal). On an outcome attempt graded
 # under the unassessed rule it is an informational log, not an unresolved
 # grade: callers read the attempt's evidence and pass ``outcome_pfc_assessment``
-# (``canonical_projection.pfc_assessment``). A PF-c attempt written before the
-# rule carries no such state and stays ``unresolved_grade``, as it always was.
+# (``canonical_projection.pfc_assessment``) for every outcome, whatever its
+# review reason. The two are read independently (review F7): the attempt step
+# records the PF-c reason only when it is the grade's sole review concern, so
+# any other reason is a blocking review on a PF-c attempt too, and nothing
+# assessed excludes the outcome whatever the reason says. A PF-c attempt
+# written before the rule carries no such state and stays ``unresolved_grade``,
+# as it always was.
 PFC_REVIEW_REASON = "valid_alternative_unverified"
 #: Some criteria were assessed: the grade over them is an ordinary outcome.
 PFC_PARTIALLY_ASSESSED = "partially_assessed"
@@ -53,11 +58,12 @@ def retention_exclusions(row: Mapping[str, Any]) -> list[str]:
         reasons.append("same_session")
     if pfc_assessment == PFC_NOTHING_ASSESSED:
         reasons.append("outcome_unassessed")
-    elif row.get("outcome_manual_review", outcome.get("manual_review")) and not (
-        pfc_assessment == PFC_PARTIALLY_ASSESSED
-        and row.get("outcome_manual_review_reason", outcome.get("manual_review_reason"))
-        == PFC_REVIEW_REASON
-    ):
+    review_reason = row.get("outcome_manual_review_reason", outcome.get("manual_review_reason"))
+    pfc_sole_concern = review_reason == PFC_REVIEW_REASON and pfc_assessment in (
+        PFC_PARTIALLY_ASSESSED,
+        PFC_NOTHING_ASSESSED,
+    )
+    if row.get("outcome_manual_review", outcome.get("manual_review")) and not pfc_sole_concern:
         reasons.append("unresolved_grade")
     if row.get("label_value") is None:
         reasons.append("outcome_unscorable")

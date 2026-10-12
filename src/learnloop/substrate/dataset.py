@@ -18,7 +18,7 @@ from learnloop.clock import parse_utc
 from learnloop.db.connection import connect
 from learnloop.db.copies import backup_database
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
-from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, PFC_REVIEW_REASON, retention_exclusions
+from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
 from learnloop.substrate.data_quality import inspect_collection, rows, table_names
 
 # Tables that are neither ledgers nor receipts but record captured workflow
@@ -501,14 +501,13 @@ def outcome_records(connection: sqlite3.Connection) -> list[dict[str, Any]]:
 
     attempts = read("practice_attempts")
     attempt_by_id = {row["id"]: row for row in attempts}
-    # PF-c: an informational review reason, unless nothing was assessed.
+    # PF-c: an informational review reason, unless nothing was assessed. The
+    # state is read from the evidence of every attempt, whatever its review
+    # reason says (review F7).
     from learnloop.substrate.canonical_projection import pfc_assessments
 
     pfc_states = (
-        pfc_assessments(
-            connection,
-            (row["id"] for row in attempts if row.get("manual_review_reason") == PFC_REVIEW_REASON),
-        )
+        pfc_assessments(connection, (row["id"] for row in attempts))
         if "grading_evidence" in tables
         else {}
     )

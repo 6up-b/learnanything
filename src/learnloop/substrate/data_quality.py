@@ -10,7 +10,7 @@ from typing import Any
 
 from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
-from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, PFC_REVIEW_REASON, retention_exclusions
+from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION, retention_exclusions
 
 
 _ATTEMPT_COLUMNS = (
@@ -124,14 +124,12 @@ def inspect_collection(connection: sqlite3.Connection, *, splits: dict[str, Any]
         cohort["duration_observed"] += call["finished_at"] is not None
     attempt_by_id = {row["id"]: row for row in attempts}
     # PF-c: the review reason is informational once the grade is over the
-    # assessed criteria; whether any were assessed is read from the evidence.
+    # assessed criteria; whether any were assessed is read from the evidence,
+    # for every attempt, whatever its review reason says (review F7).
     from learnloop.substrate.canonical_projection import pfc_assessments
 
     pfc_states = (
-        pfc_assessments(
-            connection,
-            (row["id"] for row in attempts if row.get("manual_review_reason") == PFC_REVIEW_REASON),
-        )
+        pfc_assessments(connection, (row["id"] for row in attempts))
         if "grading_evidence" in tables
         else {}
     )

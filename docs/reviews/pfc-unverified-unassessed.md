@@ -289,7 +289,7 @@ it).
    a citation to it ("You've made this mistake before"). I left it alone so this
    branch merges cleanly with Slice 2 T1 (recurrence groups). T1 could read
    `grading_support.unverified_criterion_ids` there.
-4. **Retention labels.** *(Fixed in the Codex review, F6.)* `outcome_contract.retention_exclusions` still excludes
+4. **Retention labels.** *(Fixed in the Codex review, F6; the exemption covers PF-c only as the sole review concern since the re-review, F7.)* `outcome_contract.retention_exclusions` still excludes
    any `manual_review` attempt as `unresolved_grade`, which includes PF-c's
    non-blocking log. Exempt `valid_alternative_unverified` (a label-contract
    change)?
