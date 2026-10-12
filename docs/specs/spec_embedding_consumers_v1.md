@@ -17,6 +17,7 @@
 - **PF does not depend on T1's calibrator framework.** It runs in R4's no-calibrator mode: embeddings block candidates, and the LLM judge decides every pair above the blocking cutoff.
 - **Small follow-on edits:** T1's B1 compares OpenRouter embedding models through Slice 1's client (§3.3), and T8's difficulty prior comes from PF's solver panel (§11).
 - **Not changed:** T1's recurrence design and T4–T7.
+- **Ensemble generation (owner, 2026-10-11, later the same day).** A second generation path, `ensemble`, is added for quantitative and conceptual families (§5.3). Several different models propose candidates; the solver panel verifies them by solving first with an agreement requirement; an LLM judge selects among verified survivors. The judge never establishes correctness. Generator programs stay as the cheap path for procedural drill, and the pilot compares both paths (§5.6).
 - **Recorded but not applied:** the review's other recommendations are in the sweep §10 and await owner decision. They are dropping T1's calibrator/skip-LLM machinery, and a thin router.
 
 **T1 runs after** `spec_blind_grading_diagnosis_split_v1.md` (Slice 1) has completed milestone M2 and its exit review; **PF is built in Slice A, before Slice 1** (`spec_slice_a_practice_and_field_v1.md`; §5.7). **T1 is milestone M3**, the third learner-signal checkpoint. It depends on these Slice 1 pieces:
@@ -269,7 +270,7 @@ A **practice family** is one idea with a fixed retrieval target, plus its varian
 | `learning_object_id` | Owning LO |
 | `idea_statement` | LLM-written, owner-editable |
 | `retrieval_target` | What a cold attempt must produce. Examples: "the full solution from setup to final answer"; "the reason the authors chose X over Y, as stated in §4 and the rebuttal" |
-| `source_kind` | `generator` (quantitative, §5.3), `source_anchored` (paper, textbook, or repo span, §5.3), or `authored` (owner-written) |
+| `source_kind` | `generator` (a generator program, for procedural quantitative drill, §5.3), `ensemble` (several models propose, the solver panel verifies, a judge selects, §5.3), `source_anchored` (paper, textbook, or repo span, §5.3), or `authored` (owner-written). For a new quantitative or conceptual family, an LLM proposes `generator` or `ensemble` at family setup (one-tap override); the pilot (§5.6) sets the default |
 | `reference` | The verified reference (§5.3), with `verification` ∈ {`verified`, `unverified`} and the check that verified it |
 | `generator` | For `generator` families: program text + hash (§5.3) |
 | `provenance` | As for items |
@@ -377,6 +378,37 @@ The Phase 3 agent confirms three mechanics first and stops for the owner only if
 
   Solver-panel isomorphs only cover the "same capability, different surface" slot (2602.05114). The "different required operation" slot needs its own program.
 
+**Ensemble families (direct generation; added 2026-10-11, owner).** This path is for topics that don't parameterize naturally:
+- word problems and probability setups where the *story* changes but the structure stays;
+- counterexamples, proof-shaped items, and conceptual twists.
+
+These are often better isomorphs than number swaps, because a new surface tests transfer.
+
+The pipeline:
+1. **Propose.** At least two *different* models each propose candidates (route `pf_proposers`, a list of models). Different models matter, because samples from one model collapse toward the same question (Artificial Hivemind, §5.4).
+   - **Inputs:** the parent item, the family's retrieval target, and the declared `variant_relation`.
+   - **Each candidate carries:**
+     - a stem;
+     - the proposer's worked solution and final answer;
+     - the declared relation;
+     - one line on what changes (surface, story, representation) and what is preserved (the solution's checkpoint sequence).
+2. **Verify by agreement, solve first.** The solver panel (§5.4) solves each candidate *without seeing the proposer's answer*.
+   - The reference becomes `verified` only when **at least two independent panel solves agree** with the proposer's final answer.
+   - Where the answer is numeric or symbolic, an LLM-written equivalence check (sympy) must also confirm the agreement. The check runs in the same bubblewrap sandbox as generator programs.
+   - Disagreement leaves the candidate `unverified`, so it is never published.
+   - The same panel run sets the candidate's difficulty (§5.4), so verification needs no extra panel.
+3. **Structure check (mandatory for ensemble isomorphs).** With no program to guarantee invariance, the isomorph judge compares the candidate's solution skeleton with the parent's. A declared `isomorph` whose checkpoint sequence differs is relabelled `near`, or rejected. The freshness gate applies as usual.
+4. **Select.** Among verified survivors of every filter, an LLM judge (route `pf_selection_judge`) picks the best for quality and diversity. It ranks the list as a whole, with the MMR/Vendi diversity scores as input. Every verdict is written to `judgment_ledger` (task `selection`).
+   - **The judge only chooses among verified candidates; it never establishes correctness.** Best-of-N judges favour impressive-looking problems over well-posed ones, and they miss errors in a candidate's own answer key. A false key degrades grading (fMAE 0.065 → 0.249, 2603.14732).
+   - The scheduler still decides when anything is served.
+
+**Known bias.** The pool leans toward problems the panel can solve. That is acceptable for isomorphs of existing items, whose parent difficulty is known. The pilot reports the panel-disagreement rate per family, so a family where the panel can't agree shows up instead of silently producing nothing.
+
+**When to use which.**
+- **Generator programs** suit procedural drill: eigenvalues, derivatives, formula computation. Once written, every draw is free, CAS-checked and invariant by construction, which is what spaced maintenance reps want.
+- **Ensemble** suits everything that doesn't parameterize naturally.
+- The pilot (§5.6) decides whether ensemble becomes the default everywhere, with programs kept for drill.
+
 **Source-anchored families (papers, textbooks, repos):**
 - **Answer first.** The generator writes the answer with a cited span, then derives the question (Code-QA-Bench 2605.29277).
 - **Provenance.**
@@ -391,6 +423,7 @@ The Phase 3 agent confirms three mechanics first and stops for the owner only if
 **Verified reference (every family).**
 - **How a reference becomes `verified`.** An independent check must agree with it:
   - CAS or exact evaluation (quantitative);
+  - for `ensemble` candidates, at least two independent solve-first panel solves agreeing with the proposer's answer, plus the equivalence check where the answer is numeric or symbolic (above);
   - execution (code);
   - an independent high-effort, solve-first derivation by a strong model that matches the reference (proofs, explanations);
   - for source-anchored items, a quote-verified span that contains the answer.
@@ -404,11 +437,12 @@ For each family cell (`variant_relation` × difficulty band), over-generate N ca
 | Filter | Applies to | Effect | Evidence |
 |---|---|---|---|
 | Execution / CAS | generator families | Reject if the answer fails to verify, or if an `isomorph` changes the checkpoint sequence | EFAGen |
+| Solve-first agreement | ensemble candidates | Reject unless at least two independent panel solves agree with the proposer's answer, plus the equivalence check where applicable (§5.3). Declared isomorphs also need the structure check | 2603.14732 (false keys degrade grading) |
 | Closed-book | source-anchored items whose target is source-specific (not "teach me the concept") | Reject if a model without the source answers correctly against the verified reference: the item tests generic knowledge | Code-QA-Bench |
 | Figure-only | "explain this figure" items | Reject if answerable from the figure alone | 2604.23733 |
 | Provenance | why-items | Relabel `inferred` when no verified span is cited (not rejected) | IsComment; RPC-Bench |
 | Freshness / isomorph | all | See below | former T3 |
-| Solver panel | generator and isomorph variants | 2–3 models at different tiers each solve the candidate several times. The solve rate sets a per-variant difficulty offset (`difficulty_source = "solver_panel"`, a new enum value); outliers are rejected. Variants are not assumed equally difficult | 2602.05114; 2601.09953 |
+| Solver panel | generator, ensemble and isomorph variants (for ensemble candidates the same solves are the verification) | 2–3 models at different tiers each solve the candidate several times. The solve rate sets a per-variant difficulty offset (`difficulty_source = "solver_panel"`, a new enum value); outliers are rejected. Variants are not assumed equally difficult | 2602.05114; 2601.09953 |
 
 **Difficulty never comes from LLM self-labels.** They correlated at ρ = 0.06 with actual difficulty (2609.27063). The solver-panel prior is then updated by the learner's results, as `empirical` difficulty is today.
 
@@ -426,7 +460,7 @@ For each family cell (`variant_relation` × difficulty band), over-generate N ca
   - a declared `isomorph` or `same_target` judged *the same surface* as an administered item is rejected as a duplicate.
 - **Limits on embeddings.** They may block a candidate pending the judge, or add a familiarity discount. They never grant novelty (R1). `surface_hash` and hard namespaces stay exact.
 
-**Selection.** From the survivors, select by MMR/Vendi diversity against administered history and against each other, weighted by verifier pass. LLM samples collapse (Artificial Hivemind: 79% of same-model pairs have cosine > 0.8; NoveltyBench). The coverage axes stay LLM-labelled (QDAIF).
+**Selection.** From the survivors, select by MMR/Vendi diversity against administered history and against each other, weighted by verifier pass. For `ensemble` families, these scores are input to the selection judge, which makes the pick (§5.3). LLM samples collapse (Artificial Hivemind: 79% of same-model pairs have cosine > 0.8; NoveltyBench). The coverage axes stay LLM-labelled (QDAIF).
 
 **Kept from former T3, shadow only:**
 - **Exemplar retrieval** for distractor and probe generation: public banks plus the learner's logged errors, excluding anything structurally close to administered items (Feng et al., NAACL'24 Findings; MATH-Perturb).
@@ -466,11 +500,19 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
   - Compares stem vs LLM skeleton vs symbolic fingerprint vs LLM judge, sweeping MRL dims per domain. It uses `qwen/qwen3-embedding-8b`, and any other OpenRouter model, by config.
   - It sets the per-view blocking cutoffs (R4).
   - PF builds the shared `learnloop embeddings compare` harness (§4).
-- **Pilot (PF-b's first run; its report tunes the filters and does not gate publishing, revised 2026-10-11).** One textbook chapter with generator families, and one paper or repo with source-anchored families.
+- **Pilot (PF-b's first run; its report tunes the filters and does not gate publishing, revised 2026-10-11).** One textbook chapter with quantitative families **generated both ways** (generator programs and ensemble), and one paper or repo with source-anchored families.
   - Sixty candidates each go through §5.4's filters, and survival is recorded per filter.
   - **Comparison against single-shot items** (revised 2026-10-11: no owner rating chore). An LLM judge compares 15 survivors against 15 single-shot items for depth and accuracy, blind and pairwise, with two passes and their agreement reported. Then, once published, usage signals: skips, "too easy", contests, retires and "unfair/ambiguous" taps per item source. An optional ≤ 10-minute owner rating can be added.
+  - **Generation-path comparison** (added 2026-10-11). On the same quantitative families, three arms: single-shot items, generator-program survivors and ensemble survivors. Each arm reports:
+    - survival per filter;
+    - the panel-disagreement rate;
+    - the blind pairwise LLM judge (two passes, agreement reported);
+    - cost per published item;
+    - once published, usage signals per item source.
+
+    The report recommends the default path per topic type. If ensemble matches or beats programs, it becomes the default everywhere and programs remain the cheap path for procedural drill.
   - For a paper, its OpenReview rebuttal is the provenance anchor. For a repo, `git log` and issues are.
-- **Scaling check: does quality rise with the model?** (added 2026-10-11). The pilot runs the generator and the LLM judges (family, isomorph, closed-book) at **two configured model tiers**, a cheap route and a frontier route, on identical inputs. For each tier it reports:
+- **Scaling check: does quality rise with the model?** (added 2026-10-11). The pilot runs the generators (programs and ensemble proposers) and the LLM judges (family, isomorph, closed-book, selection) at **two configured model tiers**, a cheap route and a frontier route, on identical inputs. For each tier it reports:
   - filter survival rates;
   - judge agreement with the verifiers and with your undo / contest signals;
   - verified-reference pass rate;
@@ -484,7 +526,7 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
 | Step | Contents | Needs | Gate to proceed |
 |---|---|---|---|
 | **PF-a** | Family contract and fields (§5.1); `families propose` (exhaustive within-LO judge) + owner review; `family_memory_state`; replay report (§5.2). If the replay favours it: retention key live (successor, kill switch) | Slice A Phase 1 (embedding substrate; only needed for LOs above the exhaustive limit) | Correctness gates (§13); replay report reviewed |
-| **PF-b** | Generators in bubblewrap, verified references, filters, freshness gate, solver panel, selection, **publication** (§5.3–5.4); B2; pilot (§5.6); **the practice index** (§5.9: dossiers, `find_practice`, coverage report, retrieval evaluation). Generation switch `pf.generation_enabled`, off in the template; Slice A spend controls | PF-a | Pilot and B2 reports reviewed |
+| **PF-b** | Generator programs in bubblewrap and the ensemble path (proposers, solve-first agreement, structure check, selection judge), verified references, filters, freshness gate, solver panel, selection, **publication** (§5.3–5.4); B2; pilot (§5.6); **the practice index** (§5.9: dossiers, `find_practice`, coverage report, retrieval evaluation). Generation switch `pf.generation_enabled`, off in the template; Slice A spend controls | PF-a | Pilot and B2 reports reviewed |
 | **PF-c** | Grading support (§5.5) | Slice 1 S1.3 (blind grader live) | E1-style report: valid-alternative false rejection, before vs after; error on real adjudicated answers |
 
 **Why:** "I want to be able to transfer the concepts to other similar problems instead of having a fragile brittle memorization of the solution". Families separate the maintenance reps that keep a solution retrievable from the transfer probes that show it generalizes. Verified references and the source-span rules keep "why" items honest about what the authors (or past-you) actually said.
@@ -498,7 +540,7 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
 | Column | Meaning |
 |---|---|
 | `id`, `created_at`, `supersedes_id` | Identity; a later verdict on the same question supersedes, never edits |
-| `task` | e.g. `same_target` (family judge), `isomorph`, `closed_book`, `figure_only`, `provenance`, `reference_verified`, `pilot_rating`, `placement_override`; T1 adds `same_cause` |
+| `task` | e.g. `same_target` (family judge), `isomorph`, `closed_book`, `figure_only`, `provenance`, `reference_verified`, `pilot_rating`, `placement_override`, `selection`; T1 adds `same_cause` |
 | `left_kind` / `left_id`, `right_kind` / `right_id` | Subjects; `right_*` is null for unary tasks |
 | `judge` | `llm` \| `verifier` \| `owner` \| `diagnoser` \| `learner_card` \| `exact_key` |
 | `judge_model`, `prompt_version`, `input_hash` | What produced the verdict and on exactly what input |
@@ -510,6 +552,7 @@ These change the Slice 1 blind grader, so they land after S1.3. They come with a
 
 **Model routes.** Every paid PF component is its own config route, so tiers can be swapped and compared without code changes:
 - `ai.routing.pf_generator`;
+- `pf_proposers` (a list of models for the ensemble path; at least two different models), `pf_selection_judge`;
 - `pf_family_judge`, `pf_isomorph_judge`, `pf_closed_book`;
 - `pf_reference_verifier`, `pf_solver_panel`.
 
@@ -692,6 +735,11 @@ Report-based, with a noise floor, as in Slice 1 §13.
   - Every family traces to an auto-accept decision (two agreeing judge passes) or an authored record, and every decision can be undone in one step.
   - No learner answer or prior grade reaches `BlindGradingContext` through PF's grading support (S1; asserted on fixtures).
   - An item with an `unverified` reference is never published (so it can never certify).
+  - **Ensemble path:**
+    - a candidate whose panel solves disagree with its proposer is never published;
+    - the selection judge is never offered an unverified candidate, which is asserted by a fake judge that would pick it;
+    - a declared ensemble isomorph without a passing structure check is never published as `isomorph`;
+    - `pf_proposers` with fewer than two distinct models is refused.
   - The generator sandbox runs under bubblewrap and fails closed without it. Tests show network, vault reads, and writes outside scratch are all denied.
   - Items without a family serialize byte-identically, and `practice_item_hash` is unchanged.
   - The publish cap holds per day.
@@ -703,7 +751,7 @@ Report-based, with a noise floor, as in Slice 1 §13.
 - **PF:**
   - the idea-identity replay;
   - B2;
-  - pilot filter survival and blind depth rating;
+  - pilot filter survival and blind depth rating, split by generation path (single-shot, program, ensemble);
   - isomorph-suspect rates on replayed history;
   - declared-vs-judged `variant_relation` disagreement;
   - valid-alternative false rejection and real-answer error before vs after §5.5.
