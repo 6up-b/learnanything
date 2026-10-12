@@ -140,6 +140,77 @@ def _entropy(distribution: Mapping[str, float]) -> float:
 # --- Episode lifecycle (§5.1/§5.2) ------------------------------------------------
 
 
+def episode_open_contract(
+    vault: LoadedVault,
+    repository: Repository,
+    learning_object_id: str,
+    *,
+    trigger: str,
+    goal_id: str | None = None,
+    clock: Clock | None = None,
+) -> dict[str, Any]:
+    """What an episode opened now for ``trigger`` is held to: its observation
+    budget, required facets, terminal-contract pin, calibration channel pin
+    and algorithm version (the ``probe_episodes`` columns set at open).
+
+    :func:`enter_episode` stamps these on a new episode, and
+    :func:`adopt_ignored_opening_episode` re-stamps them on the opening episode
+    it adopts, so an adopted episode is held to the contract of the request it
+    stands in for (Codex re-review F1).
+    """
+
+    from learnloop.learner.facet_diagnostics import required_facets
+
+    episode_config = vault.config.probe.episode
+    # Pin the exact confirmed terminal-contract version at episode open (§3.4).
+    # Ungoal-conditioned probes leave the pin NULL (not a terminal claim).
+    target_contract_version_id: str | None = None
+    target_support_hash: str | None = None
+    if goal_id is not None:
+        from learnloop.goals.goal_contracts import resolve_head
+
+        head = resolve_head(repository, goal_id)
+        if head is not None:
+            target_contract_version_id = head.id
+            target_support_hash = head.support_hash
+
+    # mvp-0.8 robust cutover (§4.2, invariant 3): resolve + pin the calibration
+    # channel at episode open. Both robust selection and the decision-time
+    # observed_update consume this pinned model hash. Legacy vaults leave it NULL.
+    calibration_model_id: str | None = None
+    calibration_model_hash: str | None = None
+    probe_mapping_version: str | None = None
+    from learnloop.diagnosis.probe_robust import resolve_episode_channel, use_robust_probe
+
+    if use_robust_probe(vault):
+        channel = resolve_episode_channel(
+            repository, learning_object_id=learning_object_id, clock=clock
+        )
+        calibration_model_id = channel.model_id or None
+        calibration_model_hash = channel.model_hash
+        probe_mapping_version = channel.mapping_version
+    return {
+        "algorithm_version": vault.config.algorithms.algorithm_version,
+        "required_facets": sorted(required_facets(vault, learning_object_id, repository)),
+        # Purpose-specific minimum: initial/goal placement is a routing
+        # conclusion, so one qualifying observation may complete it; the
+        # 2-observation breadth contract stays for diagnostic re-entries
+        # (misconception / stale-uncertainty triggers), whose conclusions feed
+        # stronger claims.
+        "minimum_independent_observations": (
+            episode_config.placement_minimum_observations
+            if trigger in ("initial", "goal_diagnostic")
+            else episode_config.minimum_independent_observations
+        ),
+        "maximum_observations": episode_config.maximum_observations,
+        "target_contract_version_id": target_contract_version_id,
+        "target_support_hash": target_support_hash,
+        "calibration_model_id": calibration_model_id,
+        "calibration_model_hash": calibration_model_hash,
+        "probe_mapping_version": probe_mapping_version,
+    }
+
+
 def enter_episode(
     vault: LoadedVault,
     repository: Repository,
@@ -194,7 +265,6 @@ def enter_episode(
 
     ensure_builtin_families(repository, clock=clock)
     algorithm_version = vault.config.algorithms.algorithm_version
-    episode_config = vault.config.probe.episode
     episode_id = new_ulid()
     if causal_factor_id is not None:
         from learnloop.diagnosis.causal_probe_coherence import (
@@ -235,36 +305,6 @@ def enter_episode(
         id=hypothesis_set_id,
     )
     now = utc_now_iso(clock)
-    from learnloop.learner.facet_diagnostics import required_facets
-
-    # Pin the exact confirmed terminal-contract version at episode open (§3.4).
-    # Ungoal-conditioned probes leave the pin NULL (not a terminal claim).
-    target_contract_version_id: str | None = None
-    target_support_hash: str | None = None
-    if goal_id is not None:
-        from learnloop.goals.goal_contracts import resolve_head
-
-        head = resolve_head(repository, goal_id)
-        if head is not None:
-            target_contract_version_id = head.id
-            target_support_hash = head.support_hash
-
-    # mvp-0.8 robust cutover (§4.2, invariant 3): resolve + pin the calibration
-    # channel at episode open. Both robust selection and the decision-time
-    # observed_update consume this pinned model hash. Legacy vaults leave it NULL.
-    calibration_model_id: str | None = None
-    calibration_model_hash: str | None = None
-    probe_mapping_version: str | None = None
-    from learnloop.diagnosis.probe_robust import resolve_episode_channel, use_robust_probe
-
-    if use_robust_probe(vault):
-        channel = resolve_episode_channel(
-            repository, learning_object_id=learning_object_id, clock=clock
-        )
-        calibration_model_id = channel.model_id or None
-        calibration_model_hash = channel.model_hash
-        probe_mapping_version = channel.mapping_version
-
     repository.insert_probe_episode(
         episode_id=episode_id,
         learning_object_id=learning_object_id,
@@ -281,26 +321,11 @@ def enter_episode(
             else None
         ),
         origin=origin,
-        algorithm_version=algorithm_version,
-        required_facets=sorted(required_facets(vault, learning_object_id, repository)),
-        # Purpose-specific minimum: initial/goal placement is a routing
-        # conclusion, so one qualifying observation may complete it; the
-        # 2-observation breadth contract stays for diagnostic re-entries
-        # (misconception / stale-uncertainty triggers), whose conclusions feed
-        # stronger claims.
-        minimum_independent_observations=(
-            episode_config.placement_minimum_observations
-            if trigger in ("initial", "goal_diagnostic")
-            else episode_config.minimum_independent_observations
-        ),
-        maximum_observations=episode_config.maximum_observations,
         entered_at=now,
-        target_contract_version_id=target_contract_version_id,
-        target_support_hash=target_support_hash,
-        calibration_model_id=calibration_model_id,
-        calibration_model_hash=calibration_model_hash,
-        probe_mapping_version=probe_mapping_version,
         clock=clock,
+        **episode_open_contract(
+            vault, repository, learning_object_id, trigger=trigger, goal_id=goal_id, clock=clock,
+        ),
     )
     repository.open_state_segment(
         learning_object_id=learning_object_id,
@@ -345,6 +370,21 @@ def episode_has_observations(repository: Repository, episode_id: str) -> bool:
     )
 
 
+#: The ``probe_episodes`` columns :func:`episode_open_contract` sets, as a
+#: relock may re-stamp them (column name -> how it is stored).
+_CONTRACT_COLUMNS = (
+    "algorithm_version",
+    "required_facets_json",
+    "minimum_independent_observations",
+    "maximum_observations",
+    "target_contract_version_id",
+    "target_support_hash",
+    "calibration_model_id",
+    "calibration_model_hash",
+    "probe_mapping_version",
+)
+
+
 def _relock_episode_row(
     repository: Repository,
     episode_id: str,
@@ -353,14 +393,27 @@ def _relock_episode_row(
     origin: str | None,
     target_decision: Mapping[str, Any],
     clock: Clock | None,
+    contract: Mapping[str, Any] | None = None,
 ) -> None:
+    """Point the row at the new set. ``contract`` (an
+    :func:`episode_open_contract`) also re-stamps the open-time contract; the
+    causal relock leaves it as the episode was opened."""
+
     now = utc_now_iso(clock)
+    contract_values: list[Any] = []
+    if contract is not None:
+        stored = {
+            **{key: value for key, value in contract.items() if key != "required_facets"},
+            "required_facets_json": json.dumps(list(contract["required_facets"]), sort_keys=True, separators=(",", ":")),
+        }
+        contract_values = [stored[column] for column in _CONTRACT_COLUMNS]
+    contract_sql = "".join(f", {column} = ?" for column in _CONTRACT_COLUMNS) if contract is not None else ""
     with repository.connection() as connection:
         connection.execute(
-            """
+            f"""
             UPDATE probe_episodes
                SET hypothesis_set_id = ?, origin = ?, target_decision_json = ?,
-                   entered_at = ?, updated_at = ?
+                   entered_at = ?, updated_at = ?{contract_sql}
              WHERE id = ?
             """,
             (
@@ -376,6 +429,7 @@ def _relock_episode_row(
                 # evidence by construction; so does this one.
                 now,
                 now,
+                *contract_values,
                 episode_id,
             ),
         )
@@ -496,9 +550,16 @@ def adopt_ignored_opening_episode(
     (:func:`retarget_episode_to_causal_factor`): a fresh hypothesis set locked
     now, any committed presentation invalidated, ``entered_at`` moved with the
     lock, and the request stamped on ``origin`` and ``target_decision``. That
-    stamp is what stops placement ignoring it. The episode keeps its id, its
-    ``initial`` trigger and its observation budget, as a relock always does;
-    the requested trigger rides on ``target_decision``.
+    stamp is what stops placement ignoring it. The episode keeps its id and its
+    ``initial`` trigger (the requested trigger rides on ``target_decision``),
+    but unlike the causal relock it is held to the contract of the request it
+    stands in for (Codex re-review F1): its observation budget, required
+    facets, terminal-contract pin, calibration channel pin and algorithm
+    version are re-stamped as :func:`enter_episode` would set them for the
+    requested trigger now (:func:`episode_open_contract`). An error-driven
+    re-probe therefore keeps the two-observation breadth contract, and no
+    adopted episode decides on a channel pinned when an earlier version opened
+    it.
 
     Nothing changes until the learner or an error acts, so the kill switches
     stay exact for every episode no door touched.
@@ -540,6 +601,9 @@ def adopt_ignored_opening_episode(
             "relocked_from_hypothesis_set_id": episode.hypothesis_set_id,
         },
         clock=clock,
+        contract=episode_open_contract(
+            vault, repository, learning_object_id, trigger=trigger, goal_id=goal_id, clock=clock,
+        ),
     )
     relocked = repository.probe_episode(episode.id)
     assert relocked is not None

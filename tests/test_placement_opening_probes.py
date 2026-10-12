@@ -292,6 +292,8 @@ def test_the_overconfidence_list_adopts_an_ignored_episode(tmp_path):
     assert adopted.target_decision["kind"] == "adopted_opening_episode"
     assert adopted.target_decision["requested_trigger"] == "goal_diagnostic"
     assert adopted.hypothesis_set_id != before.hypothesis_set_id
+    # Held to the overconfidence list's own contract: a routing conclusion.
+    assert adopted.minimum_independent_observations == vault.config.probe.episode.placement_minimum_observations
     assert not episode_ignored(vault, repository, adopted)
     assert "lo_diag" in servable_open_episodes(vault, repository)
     # Served behind its episode again (not as new material), as the predecessor served it.
@@ -321,6 +323,87 @@ def test_an_error_driven_reprobe_adopts_an_ignored_episode(tmp_path):
     assert maybe_reprobe_for_misconception(vault, repository, "lo_diag", severity=0.9, clock=_at(4)) is None
 
 
+def test_an_adopted_reprobe_is_held_to_the_reprobe_contract(tmp_path):
+    """Re-review F1: an error-driven re-probe that adopts the opening episode
+    keeps the two-observation breadth contract of a diagnostic re-entry, not
+    the opening episode's one-observation placement minimum, and is pinned to
+    the calibration channel and algorithm version of now, not of the version
+    that opened it."""
+
+    from learnloop.diagnosis.probe_episodes import maybe_reprobe_for_misconception
+    from learnloop.diagnosis.probe_robust import load_pinned_channel
+
+    _paths, vault, repository = _upgraded(tmp_path)
+    episode_config = vault.config.probe.episode
+    assert (episode_config.placement_minimum_observations, episode_config.minimum_independent_observations) == (1, 2)
+    before = repository.open_probe_episode("lo_diag")
+    assert (before.minimum_independent_observations, before.algorithm_version) == (1, "mvp-0.10")
+    # The pin the opening episode carries is from when an earlier version
+    # opened it; make it visibly stale.
+    with repository.connection() as connection:
+        connection.execute(
+            "UPDATE probe_episodes SET calibration_model_id = NULL, calibration_model_hash = 'stale', "
+            "probe_mapping_version = 'stale' WHERE id = ?",
+            (before.id,),
+        )
+        connection.commit()
+
+    reprobed = maybe_reprobe_for_misconception(vault, repository, "lo_diag", severity=0.9, clock=_at(3))
+    assert reprobed.id == before.id and reprobed.trigger == "initial"
+    assert reprobed.minimum_independent_observations == 2
+    assert reprobed.maximum_observations == episode_config.maximum_observations
+    assert reprobed.algorithm_version == "mvp-0.11"
+    # Re-resolved at adoption: a channel persisted now, which the decision
+    # path can load.
+    channel = load_pinned_channel(repository, reprobed.calibration_model_hash)
+    assert channel is not None and channel.model_hash == reprobed.calibration_model_hash
+    assert (reprobed.calibration_model_id, reprobed.probe_mapping_version) == (
+        channel.model_id, channel.mapping_version,
+    )
+    # Exactly what enter_episode stamps on a fresh misconception re-probe (the
+    # channel resolves to a new snapshot on every call).
+    from learnloop.diagnosis.probe_episodes import episode_open_contract
+
+    contract = episode_open_contract(vault, repository, "lo_diag", trigger="misconception", clock=_at(3))
+    pinned = {"calibration_model_id", "calibration_model_hash"}
+    with repository.connection() as connection:
+        pins = connection.execute(
+            "SELECT target_contract_version_id, target_support_hash FROM probe_episodes WHERE id = ?", (reprobed.id,),
+        ).fetchone()
+    stored = {key: getattr(reprobed, key) for key in contract if hasattr(reprobed, key) and key not in pinned}
+    stored.update(target_contract_version_id=pins[0], target_support_hash=pins[1])
+    assert stored == {key: value for key, value in contract.items() if key not in pinned}
+
+
+def test_an_adopted_episode_that_completes_without_a_gap_opens_no_tutor(tmp_path):
+    """Re-review F2: the adoption stamp is provenance, not a §12.1 typed
+    transition. An adopted episode that completes without a gap (the block end
+    writes no decision) neither opens the tutor nor reaches its context; a
+    typed decision the block end writes still does."""
+
+    from learnloop.diagnosis.probe_episodes import _set_target_decision, maybe_reprobe_for_misconception
+    from learnloop.tutor.tutor_qa import _diagnostic_decision_for, build_tutor_opening
+
+    _paths, vault, repository = _upgraded(tmp_path)
+    adopted = maybe_reprobe_for_misconception(vault, repository, "lo_diag", severity=0.9, clock=_at(3))
+    repository.update_probe_episode_status(
+        adopted.id, status="complete", completion_reason="decision_stable", completed_at=NOW_ISO, clock=_at(4),
+    )
+    assert repository.probe_episode(adopted.id).target_decision["kind"] == "adopted_opening_episode"
+    item = vault.practice_items["pi_diag_mid"]
+    assert _diagnostic_decision_for(vault, repository, item, "practice") is None
+
+    class NoPaidOpening:
+        def __getattr__(self, name):
+            raise AssertionError(f"the tutor was asked to open ({name})")
+
+    assert build_tutor_opening(vault, repository, NoPaidOpening(), practice_item_id="pi_diag_mid") is None
+
+    typed = {"diagnosed_gap": "misconception:m1", "tutor_move": "contrast_cases", "target_facets": []}
+    _set_target_decision(repository, adopted.id, typed, clock=_at(5))
+    assert _diagnostic_decision_for(vault, repository, item, "practice") == typed
+
+
 def test_a_named_calibration_adopts_an_ignored_episode(tmp_path):
     _paths, vault, repository = _upgraded(tmp_path)
     before = repository.open_probe_episode("lo_diag")
@@ -333,6 +416,8 @@ def test_a_named_calibration_adopts_an_ignored_episode(tmp_path):
     assert adopted.id == before.id
     assert adopted.target_decision["requested_trigger"] == "manual"
     assert not episode_ignored(vault, repository, adopted)
+    # A named calibration keeps the breadth contract (re-review F1).
+    assert adopted.minimum_independent_observations == vault.config.probe.episode.minimum_independent_observations == 2
 
 
 def test_the_causal_quick_check_stops_the_episode_being_ignored(tmp_path):
@@ -398,10 +483,11 @@ def test_an_ignored_episode_feeds_no_reader_that_scores_it(tmp_path, monkeypatch
     _submit_on_lo_diag(_sidecar(paths))
     assert seen == [None]
 
-    closed = SimpleNamespace(status="complete", target_decision={"kind": "typed_transition"})
+    typed = {"diagnosed_gap": "misconception:m1", "tutor_move": "contrast_cases"}
+    closed = SimpleNamespace(status="complete", target_decision=typed)
     monkeypatch.setattr(repository, "probe_episodes_for_learning_object", lambda _lo: [closed])
     item = vault.practice_items["pi_diag_mid"]
-    assert _diagnostic_decision_for(vault, repository, item, "practice") == {"kind": "typed_transition"}
+    assert _diagnostic_decision_for(vault, repository, item, "practice") == typed
 
     monkeypatch.setattr(state_signals, "_commitment_learning_object_ids", lambda *_args: {"lo_diag"})
     assert state_signals.decision_relevant_robust_value(repository, None, "c") == state_signals.OPEN_EPISODE_ROBUST_VALUE

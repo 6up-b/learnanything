@@ -1187,6 +1187,13 @@ def _diagnostic_decision_for(
     while a block is still measuring) and the latest closed episode persisted
     a decision on its way into tutoring. An unanswered opening episode
     placement ignores is not measuring anything (owner decision 2026-10-12).
+
+    Only a typed transition counts (Codex re-review F2). ``target_decision``
+    also records how an episode was opened or relocked, as ``{"kind": ...}``
+    (an opening episode a door adopted, the causal quick check), until a block
+    routes it into tutoring and overwrites it with the typed decision, which
+    has no ``kind``. An episode that completed without a gap keeps that stamp;
+    it is no decision, so it neither opens the tutor nor reaches the model.
     """
 
     if item is None or context not in ("practice", "feedback"):
@@ -1197,8 +1204,14 @@ def _diagnostic_decision_for(
     if servable_open_episode(vault, repository, lo_id) is not None:
         return None
     for episode in reversed(repository.probe_episodes_for_learning_object(lo_id)):
-        if episode.status in ("complete", "converted_to_tutoring") and episode.target_decision:
-            return dict(episode.target_decision)
+        decision = episode.target_decision
+        if (
+            episode.status in ("complete", "converted_to_tutoring")
+            and isinstance(decision, Mapping)
+            and decision
+            and "kind" not in decision
+        ):
+            return dict(decision)
     return None
 
 
