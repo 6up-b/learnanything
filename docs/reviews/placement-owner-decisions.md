@@ -20,15 +20,26 @@ defaults (honest labels, generous defaults, live changes behind kill
 switches, no shadow stages). Codex is exhausted until 2026-10-18: no Codex
 review ran for this stage (see "Review" below).
 
+> **Superseded in part by the review fixes**
+> (`placement-owner-decisions-codex-review.md`, 2026-10-12, F1-F12). Where
+> this record disagrees, that file is current. In short: an ignored opening
+> episode is absent at every door (feedback included) and a door that opens
+> an episode adopts it; a miss is decided once, waits at most 7 days for its
+> diagnosis, and `no_gap_attributed` returns the LO to learning; the version
+> gates derive from `SUCCESSOR_CHAIN`.
+
 ## Amending `mvp-0.11` in place
 
-No owner vault has been upgraded to `mvp-0.11` (the tracked working vaults are
-at `mvp-0.8`), so its semantics are amended in place, as the PF-c fix amended
-`mvp-0.10`. The amendment is recorded beside `PLACEMENT_ALGORITHM_VERSION` in
+No vault this repository tracks has been upgraded to `mvp-0.11` (the three
+tracked working vaults are at `mvp-0.8`), so its semantics are amended in
+place, as the PF-c fix amended `mvp-0.10`. That check covers only those three
+vaults: `learnloop upgrade` has targeted `mvp-0.11` by default since the
+Phase 6 merge into main (2026-10-12 15:19 -0400, hours earlier), and any other
+vault upgraded with the default target since then would run the amended
+semantics without a new tag (owner to confirm none was). The amendment is recorded beside `PLACEMENT_ALGORITHM_VERSION` in
 `src/learnloop/algorithm_versions.py`, in this file, in the Phase 6 review's
-header and in `docs/algorithm-change-playbook.md` (a new paragraph: a
-successor no vault has reached may be amended in place by an owner decision,
-recorded beside the version and in the review; items 4 and 6-8 still apply).
+header and in `docs/algorithm-change-playbook.md` (as a recorded one-off
+exception, not a general rule; the first pass wrote it as a rule, review F11).
 
 Playbook check:
 
@@ -49,11 +60,13 @@ Playbook check:
   with an `@ALGORITHM_VERSION@` placeholder; `default_config_text(version)`
   renders it and `DEFAULT_CONFIG_TEXT = default_config_text()` renders it at
   `LATEST_ALGORITHM_VERSION`. A successor merge (Slice 2 T1 `mvp-0.12`,
-  practice/stuck-prompt `mvp-0.13`) moves only that constant, plus its own
-  snapshot entry. The template stays at 80 lines.
-- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` is now defined as
-  `defaults_fingerprint_for_version(version)`: the template rendered at each
-  version. All three recorded snapshots recompute unchanged
+  practice/stuck-prompt `mvp-0.13`) appends its tag to
+  `algorithm_versions.SUCCESSOR_CHAIN` (one line: LATEST and every version
+  gate follow; review fix), plus its own snapshot entry. The template stays
+  at 80 lines.
+- `DEFAULTS_SNAPSHOT_BY_ALGORITHM` entries stay literal hashes (the
+  tripwire), each pinned by a test to `defaults_fingerprint_for_version(version)`:
+  the template rendered at that version. All three recorded snapshots recompute unchanged
   (`a9a1916d…a6f`, `ab768a5d…7af9`, `36b5b6c3…c4c9`). The tests no longer
   string-replace a hard-coded `algorithm_version = "mvp-0.9"`
   (`test_mvp010_upgrade.py`, `test_mvp011_upgrade.py`, `test_config_refactor.py`
@@ -104,6 +117,9 @@ Playbook check:
   the scheduler subtracts from the due set). A later "I don't know this" does
   not wait: it returns the LO. A regrade or `diagnose retry` re-queues the
   diagnosis, so the decision waits again until the new one lands.
+  *Superseded by review F3/F4/F8:* a miss is decided once by its first
+  diagnosis (a re-queue no longer reopens it), waits at most 7 days, and
+  learner-side help does not wait on it either.
 - **No diagnosis can arrive: today's rule, said so.** Reason `no_diagnosis`
   with `MissVerdict.fallback` naming why: `split_disabled`
   (`diagnosis.split_enabled = false`, read from today's config, so a held job
@@ -112,7 +128,9 @@ Playbook check:
   `not_diagnosed` (none was ever queued, e.g. a full-marks answer flagged for
   review).
 - **Receipts.** Outcomes stay derived on read, as Phase 6 designed (no
-  migration). The receipt is the resolution: `Assumption.resolution_reason`
+  migration). The receipt is the resolution (*review F4:* as first written it
+  was recomputed on every read and changed after the fact; each miss is now
+  decided once, with its decision time on the receipt): `Assumption.resolution_reason`
   and `resolution` (a `MissVerdict`: attempt, outcome, reason, fallback,
   diagnosis id, blind-grade record id, job state, and each attribution's
   `(index, validity_scope, causal_class)`), and the same on
@@ -153,7 +171,13 @@ and `episode_ignored`. The doors that read them:
 
 Nothing rewrites or closes an episode, so `placement.enabled = false` restores
 today's behaviour exactly, and `placement.initial_probes = true` serves the
-opening probes again.
+opening probes again. *Review F1/F2/F6/F7 (current):* the first pass missed
+feedback deferral, the next-probe peek, the applied-episode record, the
+re-probe, overconfidence and causal doors, three scoring readers and the
+notice sweep; now every door treats the episode as absent, a door that opens
+an episode adopts it (stamping it, after which it is served), and a notice the
+predecessor raised is held, so the switches restore every episode no door
+touched exactly.
 
 **Proof on backup-API copies** (`fixtures-local/placement-decisions/`, made with
 `copy_tree_with_databases` from the worktree's tracked `linear_algebra`,
@@ -217,9 +241,11 @@ D6 and D11 in §10 and §5.2 carry the decisions.
 2. **An unassessed answer at the check now resolves it into maintenance**
    (Phase 6's merge had made it ineligible, the check waiting). Before the due
    date it leaves the LO assumed.
-3. **`no_gap_attributed` keeps the topic.** A diagnosis that abstains, or a
-   blind grade with a shortfall but no attribution, is not a knowledge gap.
-   Report 3 counts these separately so they can be watched.
+3. ~~**`no_gap_attributed` keeps the topic.**~~ *Reversed by review F5:* a
+   diagnosis that abstains, or a blind grade with a shortfall but no
+   attribution, did not decide the miss, so today's rule returns the LO to
+   learning (reason `no_gap_attributed`). Only a positive non-gap reading
+   keeps it (slip, item contract, interaction context, unassessed).
 4. **A kept miss must still pass the independence rule** to resolve the check
    (a post-reveal answer is ineligible and the check waits), as a clean answer
    must.
@@ -227,7 +253,11 @@ D6 and D11 in §10 and §5.2 carry the decisions.
    answer awaits its diagnosis is still open and due); the scheduler subtracts
    the new `awaiting_diagnosis_learning_object_ids`. DL1 can do the same to
    count checks still to serve.
-6. **What "ignored" does not touch.** An ignored opening episode still
+6. ~~**What "ignored" does not touch.**~~ *Superseded by review F1/F2/F6:*
+   the claim below did not hold (before, the opening episode was served, so it
+   did stand in; ignored, it blocked re-probes for nothing). Now an ignored
+   episode is absent at every door, and a door that opens an episode adopts
+   it. The original text: an ignored opening episode still
    occupies its LO's one open-episode slot, so an error-driven re-probe on that
    LO stays blocked exactly as before (where the opening episode stood in for
    it); closing it would break the kill switch's exactness. The staged
@@ -295,10 +325,8 @@ regenerated references only).
 
 1. Interpretation 1: should the diagnosis also decide misses with learner-side
    help (hints, priming, "don't know")?
-2. Interpretation 3: should `no_gap_attributed` (the diagnoser abstained, or a
-   shortfall with no attribution) keep the topic, or fall back to today's rule?
-3. A pending diagnosis that never lands while the split is on (provider never
-   ready) keeps the decision waiting indefinitely. Add a time-out (say 7 days)
-   after which today's rule applies?
+2. ~~Interpretation 3~~: resolved by review F5 (today's rule, fail closed).
+3. ~~A pending diagnosis that never lands~~: resolved by review F3 (at most 7
+   days from the miss's first diagnose job, then today's rule, latched).
 4. Phase 6 open question 4 (the quick check on the import result) is still
    open.
