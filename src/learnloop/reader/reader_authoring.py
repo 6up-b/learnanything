@@ -19,7 +19,9 @@ under the Learning Object whose provenance cites the passage being read, and
 links that item to the commitment as a ``legacy_practice_item`` target (which
 the scheduler reads as a learner-requested item). When no active Learning
 Object fits, nothing is invented: the result says ``reference_only`` so the
-reader never promises practice that will not happen.
+reader never promises practice that will not happen. Such a reference is adopted
+later, with no learner step, once an active Learning Object cites its passage
+(:func:`adopt_reference_questions`, run on every sidecar vault load).
 
 Fluid maintenance (§9.3) dispatches to P1 lineage classification: already-administered
 versions stay immutable; split/merge never blindly transfers scheduling/certification;
@@ -33,7 +35,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from learnloop.clock import Clock
-from learnloop.content.authoring.item_authoring import author_item
+from learnloop.content.authoring.item_authoring import author_item, retire_item
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.db.repositories import Repository
 from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span, parse_block_span
@@ -223,6 +225,28 @@ def _adopt_into_practice(
     if lo_id is None:
         return {"practice_item_id": None, "learning_object_id": None, "practice_status": "reference_only"}
 
+    if source_id is None and anchor is not None:
+        run = repository.get_extraction_run(anchor[0]) or {}
+        source_id = (repository.get_source_revision(str(run.get("revision_id") or "")) or {}).get("source_id")
+    # Crash-safe idempotency: a card already written in these exact words under
+    # this LO (the commitment link below never landed) is reused, not duplicated.
+    existing = next(
+        (
+            item for item in vault.practice_items.values()
+            if item.learning_object_id == lo_id and item.status == "active"
+            and item.provenance.origin == "human"
+            and item.prompt == question.strip() and item.expected_answer == answer.strip()
+        ),
+        None,
+    )
+    if existing is not None:
+        C.add_target(
+            repository, commitment_id=commitment_id,
+            target={"target_kind": "legacy_practice_item", "target_ref": existing.id, "role": "required"},
+            change_reason="adopted_into_practice", clock=clock,
+        )
+        return {"practice_item_id": existing.id, "learning_object_id": lo_id, "practice_status": "scheduled"}
+
     source_refs = (
         [{
             "ref_type": "canonical_source",
@@ -247,6 +271,89 @@ def _adopt_into_practice(
         change_reason="adopted_into_practice", clock=clock,
     )
     return {"practice_item_id": payload["id"], "learning_object_id": lo_id, "practice_status": "scheduled"}
+
+
+def adopt_reference_questions(
+    vault: LoadedVault, repository: Repository, *, clock: Clock | None = None
+) -> list[dict[str, Any]]:
+    """Adopt reference-only reader questions whose passage an active LO now cites.
+
+    A question written over a passage no active Learning Object cited was kept as
+    a reference (no ``legacy_practice_item`` target on its ``reader_authored_qa``
+    commitment). When a study-map apply adds or links an LO that cites the
+    passage, the question becomes practice exactly as if the LO had existed when
+    it was written -- the learner takes no step. Idempotent: an adopted
+    commitment carries its card as a target and is never swept again; a retired
+    commitment is never adopted. Returns one row per newly adopted question."""
+
+    with repository.connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT commitment.id AS id
+            FROM commitments commitment
+            WHERE commitment.created_action = 'help_me_remember'
+              AND EXISTS (
+                SELECT 1 FROM commitment_versions version
+                WHERE version.commitment_id = commitment.id AND version.reason = 'reader_authored_qa'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM commitment_versions version
+                JOIN commitment_target_versions target ON target.commitment_version_id = version.id
+                WHERE version.commitment_id = commitment.id AND target.target_kind = 'legacy_practice_item'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM commitment_events event
+                WHERE event.commitment_id = commitment.id AND event.kind = 'retired'
+              )
+            ORDER BY commitment.created_at, commitment.id
+            """
+        ).fetchall()
+    adopted: list[dict[str, Any]] = []
+    for row in rows:
+        head = C.resolve_head(repository, row["id"])
+        subject_id = next(
+            (t.target_ref for t in head.targets if t.target_kind == "source_locator"), None
+        )
+        anchor = _span_anchor(repository, subject_id)
+        if anchor is None or not head.interpretation_text:
+            continue
+        if _practice_learning_object(vault, repository, learning_object_id=None, anchor=anchor) is None:
+            continue
+        practice = _adopt_into_practice(
+            vault.root, repository, commitment_id=row["id"], question=head.intent_text,
+            answer=head.interpretation_text, subject_id=subject_id, source_id=None,
+            learning_object_id=None, clock=clock,
+        )
+        if practice["practice_item_id"] is not None:
+            adopted.append({"commitment_id": row["id"], **practice})
+    return adopted
+
+
+def _retire_adopted_items(
+    root: Path, repository: Repository, *, commitment_id: str, clock: Clock | None
+) -> list[str]:
+    """Retire the practice items a reader question (``reader_authored_qa``
+    commitment) was adopted into. Other commitments' targets are left alone."""
+
+    with repository.connection() as connection:
+        is_reader_question = connection.execute(
+            "SELECT 1 FROM commitment_versions WHERE commitment_id = ? AND reason = 'reader_authored_qa' LIMIT 1",
+            (commitment_id,),
+        ).fetchone()
+    if is_reader_question is None:
+        return []
+    vault = load_vault(root)
+    retired: list[str] = []
+    for target in C.resolve_head(repository, commitment_id).targets:
+        item = vault.practice_items.get(target.target_ref) if target.target_kind == "legacy_practice_item" else None
+        if item is None or item.status != "active":
+            continue
+        retire_item(
+            root, repository, practice_item_id=item.id, reason="no_longer_relevant",
+            note="the reader question was retired", clock=clock,
+        )
+        retired.append(item.id)
+    return retired
 
 
 def mint_ai_sibling(
@@ -386,6 +493,7 @@ def maintain(
     bounds: Mapping[str, Any] | None = None,
     reviewed_edges: Any = (),
     scheduler_algorithm_version: str = "fsrs6",
+    root: Path | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """In-review maintenance verbs (§9.3), each routed through the LANDED P1 lineage
@@ -457,7 +565,18 @@ def maintain(
         # Retirement preserves commitment/evidence + provenance (§9.3): a disposition
         # event only, never a delete.
         disposition = C.retire(repository, commitment_id=commitment_id, clock=clock)
-        return {"action": "retire", "disposition": disposition, "evidence_preserved": True}
+        # A reader question adopted into practice takes its card with it (with the
+        # vault ``root``), through the learner retire path: off the queue, serving
+        # doors closed, surface work obsolete, history kept.
+        retired = (
+            _retire_adopted_items(root, repository, commitment_id=commitment_id, clock=clock)
+            if root is not None
+            else []
+        )
+        return {
+            "action": "retire", "disposition": disposition, "evidence_preserved": True,
+            "retired_practice_item_ids": retired,
+        }
 
     # change_depth
     if commitment_id is None:

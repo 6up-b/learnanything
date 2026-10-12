@@ -1016,7 +1016,7 @@ class ReaderMaintainInput(ParamsModel):
 
 @method("reader.maintain", ReaderMaintainInput)
 def reader_maintain(ctx: SidecarContext, params: ReaderMaintainInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
+    vault, repository = _require_reader(ctx)
     try:
         result = AUTH.maintain(
             repository, action=params.action, lineage_id=params.lineage_id,
@@ -1027,9 +1027,13 @@ def reader_maintain(ctx: SidecarContext, params: ReaderMaintainInput) -> dict[st
             split_card_version_id=params.split_card_version_id,
             forked_card_version_id=params.forked_card_version_id,
             commitment_id=params.commitment_id, policy=params.policy, bounds=params.bounds,
+            root=vault.root,
         )
     except (AUTH.AuthoringError, C_ERR) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    if result.get("retired_practice_item_ids"):
+        # The retired cards are vault YAML; reload so Today drops them at once.
+        ctx.reload(maintenance=False)
     return versioned(result)
 
 
