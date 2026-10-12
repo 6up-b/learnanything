@@ -53,3 +53,44 @@
   - scheduled checks always classify into maintain (F7).
 - **A new successor:** `capture_reference_v1` (DL3) changes what certification projections mean, for attempts on unverified keys only. It deliberately has no kill switch that re-enables certification (C3). `capture.unverified_adoption = false` is the off-ramp.
 - **Cross-spec edit:** `spec_action_router_v1.md` §7.3's kill-switch line now says "pre-router version", which matches its own G8.
+
+## Re-review (Codex job `20261012-011909-hLAhyu`)
+
+**Reviewed range:** `fd2de33c..4458d6f4`. The verdict was REOPENED: F1 and F2 were confirmed fixed, F3 reopened, and two new Medium findings (F13, F14) were raised.
+**Deliverable changed:** `docs/specs/spec_daily_loop_v1.md` only. Docs only: no code, migration or fixture touched. No AI calls were made.
+
+**How each finding was reproduced.**
+- **F3** was reproduced with a failing test on the base code. A scratch pytest, run in this worktree and not committed, used `create_basic_vault`. It built the queue, then redacted the item with `edit_item` as §4.7 said, then scanned every column of every table for the original prompt and answer. Both cases failed (`2 failed in 1.68s`):
+  - queue build only: the text stayed in `practice_item_snapshots.item_json`;
+  - with a self-graded attempt: it also stayed in `activity_surfaces.surface_json`.
+  - `UPDATE practice_item_snapshots` aborted with "immutable".
+  - Reading the code found two more copies the scan couldn't reach in that vault: `assessment_contract_versions.contract_json` (written at attempt time under the canonical algorithm versions) and grading receipts.
+- **F13 and F14** concern behaviour that isn't built yet, so they were checked against the spec and the code:
+  - F13: §5.3 step 1 dropped `satisfied` commitments, and step 4 then served the item as uncommitted. `satisfy_single_check` appends a `disposition_changed` event (`learnloop/curriculum/commitments.py:717`), which would also have moved the choice time.
+  - F14: the selection predicate in §4.3 excluded every capture whose call budget was spent, including one whose only remaining work was a call-free adoption.
+
+| ID | Severity | Title | Verdict | Commit | Test, or reason |
+|---|---|---|---|---|---|
+| F1 | High | Unverified practice can still earn certification credit | Confirmed fixed by the re-review; no change | `1219b31c` | G7, `test_capture_unverified.py` (unchanged) |
+| F2 | High | Feasibility rules permit both plan and lane overspend | Confirmed fixed by the re-review; no change | `c47f79a5` | G13, `test_daily_plan_build.py` (unchanged) |
+| F3 | High | Purge leaves historical copies of an adopted capture (reopened) | Fixed | `d593c3f3`, `8d049ebd`, `31926127` | **Reproduced** by the scratch test above. **Fix** (§4.7): purge redacts every stored revision of the item: snapshots, surfaces, contracts, and grading receipts (sidecar by submission, TUI by item id). Text fields become "[removed]" and `redacted_at` is set; ids, hashes, targets, weights and points stay. DL3's migration replaces the snapshot update trigger with one that admits only that redaction; deletes stay forbidden. Replay reads structure, not text. Learner field F1 treats a redacted snapshot as a missing revision (`excluded`), and the learner-field note in §16 says so. The purge prompt now says feedback is kept too. **Tests:** G15 and `test_capture_purge.py` now cover purge after a queue build, after a fake-LLM-graded attempt, a sentinel scan of every text column and of the vault files, the trigger, and a rebuild before and after |
+| F13 | Medium | Completed "Check once" items return to ordinary practice | Fixed | `6172d145` | **Fix** (§5.2, §5.3): `satisfied` commitments stay in resolution as a terminal disposition, like `stopped`, until a later choice. Satisfying a check doesn't move the choice time. The request query skips `satisfied` items. The dated check is requested only while its pending commitment decides the item. **Tests:** G4 and `test_intent_resolution.py` cover an uncommitted item and one under an older LO Master after the check, re-inclusion by a later choice, a check replaced before its date, and an unchanged choice order after satisfaction |
+| F14 | Medium | Exhausting the model-call budget blocks pending adoption | Fixed | `9d859e20` | **Fix** (§4.3, §4.4, §10): the lifetime cap gates only model-calling work (processing, `idea` drafting, verification retries). Completing an adoption from persisted results is selected whatever the budget. Work that still needs a call ends with a label. A requested adoption that can't finish closes with `adopt_stopped_reason` = `call_cap` \| `processing_failed`. **Tests:** G9 and `test_capture_processor.py` cover processing done on the last allowed call with adoption pending (a `problem` completes with zero calls; an `idea` needing drafts closes with `call_cap`), and processing pending at the cap |
+
+**Rejected:** none.
+
+### Re-review gate results
+
+| Check | Result |
+|---|---|
+| **Code citations re-checked in this worktree** | A script resolved every `` `path:line` `` in the spec, with bare `` `:NNN` `` continuations assigned to the preceding path on the same line: **144 distinct citations, 0 missing files, 0 out-of-range lines** (107 explicit and 51 continuation occurrences). No code, migration, app or test file changed on this branch since its base (`git diff --stat 16db5ac5..HEAD -- src migrations apps tests` is empty), so the citations checked line by line in the first round still hold. The 11 citations added this round were each read against their claim: `repositories.py:8673`, `activities.py:176`, `assessment_contracts.py:98`, `:118`, `:119` and `:154`, `server.py:113`, `tui/state.py:61`, `attempts/ai_contracts.py:572`, and migration 164 `:13` and `:15` |
+| **Internal consistency** | A read-through of §4.3–§4.7, §5.2–§5.3, §10, §12 (DL3), §13 (G4, G9, G15 and the test lists) and §16. A search for 8 superseded phrases ("Retired and `satisfied`", "isn't selected again", the old selection predicate, "Your past answers are kept.", "Attempt history stays, including", "stops selection", "then satisfied \|", "drop out. A commitment") found **0 hits**. Markdown tables: **16 in the spec, 0 rows with a wrong column count** |
+| **`git diff --check`** | Clean from the branch base (`16db5ac5..HEAD`), over the first-round fixes (`fd2de33c..HEAD`) and over this round (`4458d6f4..HEAD`) |
+| **Tests** | One scratch reproduction ran: **2 failed** (expected; it reproduced F3), and it was then deleted. The suite was not run, because no executable file changed |
+
+### Owner-facing notes (re-review)
+
+New defaults introduced by these fixes. Each is a default the owner may override:
+- **Purge of an adopted capture** also redacts the item's stored revisions. It keeps attempt history (answers, scores, grading evidence and feedback) and M1's manual-route destinations. Backups and dataset exports made earlier are not reached.
+- **A completed "Check once"** stays terminal for what it covers until a later choice.
+- **The capture call cap** stops calls, not call-free adoption. Adoptions that can't finish close with a visible reason and are not retried.
