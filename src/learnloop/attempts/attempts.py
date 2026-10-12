@@ -103,6 +103,7 @@ from learnloop.learner.recall_coverage import (
     resolve_error_impact,
     resolve_reliability,
     scale_coverage_for_graded_criteria,
+    target_criterion_facet_weights,
 )
 from learnloop.attempts.surprise import compute_surprise
 from learnloop.vault.hashes import practice_item_hash
@@ -2855,6 +2856,15 @@ def _compute_resolved_grade_application(
     # No assessed criterion left in the vector (the learner field's test too):
     # never the legacy "no criterion information" reading of an empty vector.
     nothing_assessed = bool(unassessed) and not criterion_points
+    # Which facets the unassessed criteria alone account for comes from the
+    # rubric's observation contract (the projection's map), never the item's
+    # lexical inference: on most items that maps nothing and the attempt's
+    # outcome would reach every facet, the unassessed one included (review F1).
+    pfc_facet_weights = (
+        target_criterion_facet_weights(item, rubric, resolve=vault.canonical_facet_id)
+        if unassessed
+        else None
+    )
     coverage = resolve_coverage(
         item,
         rubric,
@@ -2875,6 +2885,7 @@ def _compute_resolved_grade_application(
             rubric,
             criterion_points=criterion_points,
             transfer_evidence_multiplier=vault.config.teach_back.transfer_evidence_multiplier,
+            criterion_facet_weights=pfc_facet_weights,
         )
     if nothing_assessed:
         # An empty criterion vector reads as "no criterion information" above
@@ -2938,6 +2949,7 @@ def _compute_resolved_grade_application(
         correctness=correctness,
         attempt_type=draft.attempt_type,
         error_attributions=grade_attributions,
+        criterion_facet_weights=pfc_facet_weights,
     )
     # Prediction lane, mean-preserving (P1 revision): the mastery EKF keeps the
     # RAW rubric fraction as its observation y and consumes the calibrated grade

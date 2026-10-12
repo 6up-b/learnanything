@@ -409,8 +409,12 @@ def test_joint_fixture_replays_through_the_unchanged_path(tmp_path, monkeypatch)
 # -- field and projection agreement ------------------------------------------------------
 
 
-def test_field_projection_and_timeline_read_unverified_criteria_the_same_way(tmp_path):
-    _paths, vault, repository = _mapped_split_vault(tmp_path)
+@pytest.mark.parametrize("mapped", [True, False], ids=["authored_map", "targets_only"])
+def test_field_projection_and_timeline_read_unverified_criteria_the_same_way(tmp_path, mapped):
+    """With the authored criterion -> facet map and without it (the ordinary
+    item: only the criteria's targets name the facets; review F1)."""
+
+    _paths, vault, repository = (_mapped_split_vault if mapped else split_vault)(tmp_path)
     project_canonical_facet_state(vault, repository)
     recall_before = _mass(repository, "recall")
     partial = submit(vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER)

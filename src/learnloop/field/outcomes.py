@@ -40,6 +40,7 @@ from learnloop.learner.recall_coverage import (
     resolve_coverage,
     resolve_reliability,
     scale_coverage_for_graded_criteria,
+    target_criterion_facet_weights,
 )
 from learnloop.substrate.canonical_projection import UNVERIFIED_CRITERION_BLOCK, surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -372,7 +373,14 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
                 item, rubric, attempt_type=attempt["attempt_type"], hints_used=hints,
                 learner_answer_md=attempt.get("learner_answer_md") or "", evidence=vault.config.evidence,
             )
-            coverage = scale_coverage_for_graded_criteria(coverage, item, rubric, criterion_points=points)
+            # PF-c: the facets only unassessed criteria measure leave with
+            # them, by the projection's criterion -> facet map (review F1).
+            pfc_facet_weights = (
+                target_criterion_facet_weights(item, rubric, resolve=canonical) if unverified else None
+            )
+            coverage = scale_coverage_for_graded_criteria(
+                coverage, item, rubric, criterion_points=points, criterion_facet_weights=pfc_facet_weights,
+            )
             covered = coverage.covered_facets
             # A dont_know answer is still a measurement even with no engagement.
             if dont_know:
@@ -433,7 +441,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
             outcomes = derive_facet_outcomes(
                 item, rubric, criterion_points=points, covered_facets=covered,
                 correctness=outcome, attempt_type="dont_know" if dont_know else attempt["attempt_type"],
-                error_attributions=attributions,
+                error_attributions=attributions, criterion_facet_weights=pfc_facet_weights,
             )
         else:
             # Preserve exclusion accounting at facet granularity where the

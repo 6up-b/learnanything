@@ -130,6 +130,66 @@ def _apply_graded(
     )
 
 
+# -- F1: the criterion -> facet map comes from the rubric's targets --------------------
+
+
+def test_an_ordinary_item_gives_the_unverified_criterion_s_facet_nothing(tmp_path):
+    """No ``criterion_facet_weights`` and no lexical match: before the fix the
+    attempt step and the field gave ``recall`` the attempt's outcome (1.0)
+    while the projection, reading the criteria's targets, skipped it."""
+
+    from learnloop.learner.recall_coverage import criterion_facet_weights_for_item
+
+    _paths, vault, repository = split_vault(tmp_path)
+    item = vault.practice_items[ITEM]
+    rubric = resolved_rubric(vault, item)
+    assert not item.criterion_facet_weights
+    assert criterion_facet_weights_for_item(item, rubric) == {}
+    project_canonical_facet_state(vault, repository)
+    recall_before = _mass(repository, "recall")
+
+    result = submit(vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER)
+
+    debug = repository.attempt_debug_payload(result.attempt_id)
+    assert debug["unassessed_criteria"] == ["result"]
+    assert set(debug["covered_facets"]) == {"compute"}
+    assert debug["facet_outcomes"] == {"compute": 1.0}
+    assert _field_outcomes(vault, repository, result.attempt_id) == {"compute": 1.0}
+    assert _mass(repository, "recall") == pytest.approx(recall_before)
+
+    rebuild_all_derived_state(vault, repository, clock=CLOCK)
+    replayed = repository.attempt_debug_payload(result.attempt_id)
+    assert replayed["facet_outcomes"] == {"compute": 1.0}
+    assert set(replayed["covered_facets"]) == {"compute"}
+    assert _mass(repository, "recall") == pytest.approx(recall_before)
+
+
+def test_a_criterion_without_targets_shares_its_facets_with_the_assessed_one(tmp_path):
+    """Legacy criteria (no targets, no map) each measure every item facet, as
+    the projection compiles them: the assessed criterion alone carries both
+    facets' outcome, and their mass is its share of the rubric."""
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+    from learnloop.vault.loader import load_vault
+
+    paths, _vault, repository = split_vault(tmp_path)
+    item_path = paths.practice_item_path("linear-algebra", ITEM)
+    raw = read_yaml(item_path)
+    for criterion in raw["grading_rubric"]["criteria"]:
+        criterion.pop("targets", None)
+    write_yaml(item_path, raw)
+    vault = load_vault(paths.root)
+
+    result = submit(vault, repository, _PartialWithoutAttribution(), answer=VERIFYING_ANSWER)
+
+    debug = repository.attempt_debug_payload(result.attempt_id)
+    assert debug["facet_outcomes"] == {"recall": 1.0, "compute": 1.0}
+    scaling = debug["coverage_trace"]["graded_criterion_scaling"]
+    assert scaling["ungraded_criteria"] == ["result"]
+    assert scaling["facet_scales"] == pytest.approx({"recall": 0.5, "compute": 0.5})
+    assert _field_outcomes(vault, repository, result.attempt_id) == {"recall": 1.0, "compute": 1.0}
+
+
 # -- F5: each record names the interpretation it was written under ------------------------
 
 
