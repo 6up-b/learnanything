@@ -173,10 +173,12 @@ and the F4/F11 tutor mapping tests unchanged.
   every bare backfill plan exceed its caps and stop with `over_budget` (so the
   item and facet recipes would stop backfilling), and an owner who raised the
   caps would buy the whole library without asking for it.
-- `source_retrieval/dense.py`: a scope is searched densely only when every
-  embeddable block in it has a vector for `embedding.model` (by identity or by
-  identical recipe text, the Phase 1 rule), otherwise the search is keyword
-  only and says why. Scores are the Phase 1 mean-centred cosine over the whole
+- `source_retrieval/dense.py`: a source is searched densely only when every
+  embeddable block of its extraction has a vector for `embedding.model` (by
+  identity or by identical recipe text, the Phase 1 rule). *(Review F2: this
+  was a whole-scope rule, so one new import switched meaning search off for the
+  library; the index now covers the complete extractions and labels the result
+  `partial`. See `slice-2-t6-codex-review.md`.)* Scores are the Phase 1 mean-centred cosine over the whole
   scope, exclusions applied after centring; a test pins ranking and scores to
   `retrieve()`. The centred matrix is cached per process (keyed by database,
   model and manifest digest; float32, about 70 MB for the 4259-block arxiv
@@ -221,7 +223,9 @@ and the F4/F11 tutor mapping tests unchanged.
    Marker block ids. The response's `basis` reaches the UI: the hit count reads
    "· keyword match · Enter also searches by meaning", "· keyword + meaning" or
    "· keyword + meaning + rewritten question" (`screens/reader/searchBasis.ts`,
-   tested), so the UI never claims a meaning search that did not run.
+   tested). *(Review F3: the typing hint was shown whatever the index state and
+   a meaning-only basis was labelled "keyword + meaning"; both are fixed, the
+   hint now follows the response's `meaning_search`.)*
 2. **Tutor spans** (`source_retrieval/tutor.py`, injected into
    `tutor_qa.ask_question` by the sidecar's `ask_tutor_question`). Teaching
    scope = the LOs' subjects' source-set sources plus any source their teaching
@@ -231,7 +235,12 @@ and the F4/F11 tutor mapping tests unchanged.
    practice question in context; the LOs' own linked spans are one more ranked
    list. In the practice context a candidate that reproduces the item's
    expected answer (`answer_leaks_expected`) is withheld before anyone sees
-   it. Verification then picks at most four; the existing citation allowlist
+   it. *(Review F1, High: this let the item's own worked solution rank first and
+   be cited, and short answers were never withheld. Fixed: the query is the
+   learner's question alone, problem sets, notes and exams never ground the
+   tutor, exercise and solution blocks are dropped in practice and feedback,
+   short answers are measured, and a cited span's overlap is a reveal. See
+   `slice-2-t6-codex-review.md`.)* Verification then picks at most four; the existing citation allowlist
    keeps citations inside them. If verification cannot run (switch off, no
    route, metered route without a price, over budget, provider failure, empty
    pool) the tutor gets exactly the LO-linked spans it gets today. Each
@@ -328,7 +337,10 @@ target or filing. Replay and rebuild make zero model and embedding calls
 (tested). Kill switch `source_retrieval.enabled = false` restores every
 consumer's previous behaviour (tested for the library search byte for byte,
 the tutor's spans with nothing recorded, the Quick Add selection, and no
-suggestion).
+suggestion). *(Review: the Quick Add test and two byte-identity gaps, the
+plan's `scope_basis` and the ask responses' empty `suggested_learning_objects`,
+were missing at this commit; both fields are now absent with the switch off,
+and the Quick Add plan is tested.)*
 
 ## 4. Deviations from the plan and the prompt
 
@@ -462,7 +474,7 @@ Reading:
 Label agreement: linear_algebra 401 pairs, κ 0.46; probability 546 pairs,
 κ 0.45.
 
-**Decision (P4): `page_image_default = false` on both copies.** Adding page
+**Decision (P4, provisional; review F5): `page_image_default = false` on both copies.** Adding page
 images to the text hybrid shows no gain on Axler and a significant loss on
 the probability pages; a page image alone is worse than text chunks from the
 same model, and much worse than qwen3 text. Text chunks stay the only PDF
