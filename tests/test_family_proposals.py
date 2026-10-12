@@ -478,3 +478,53 @@ def test_route_availability_never_changes_preview_model(vault, monkeypatch):
     assert preview["estimate"] == actual["estimate"]
     assert actual["status"] == "unavailable" and actual["charged"]["calls"] == 0
     assert seen == ["primary"]
+
+
+class TargetlessJudge(Judge):
+    """A schema-valid ``same`` with no shared retrieval target on its first call."""
+
+    def complete(self, request):
+        verdict = super().complete(request)
+        if len(self.calls) == 1:
+            return verdict.model_copy(update={"retrieval_target": " ", "variant_relation": None})
+        return verdict
+
+
+def _same_target_rows(repository):
+    with repository.connection() as connection:
+        return [dict(row) for row in connection.execute(
+            "SELECT * FROM judgment_ledger WHERE task='same_target' ORDER BY rowid"
+        )]
+
+
+def test_unusable_returned_verdict_is_ledgered_and_never_groups(vault):
+    """Review F9: every returned paid verdict reaches judgment_ledger."""
+    judge = TargetlessJudge("same")
+    report = run(vault, judge)
+    assert report["status"] == "complete" and len(judge.calls) == 7
+    assert report["charged"]["retries"] == 1 and report["unusable_verdicts"] == 1
+    rows = _same_target_rows(vault[1])
+    unusable = [row for row in rows if row["verdict"] == "unusable"]
+    assert len(unusable) == 1 and not unusable[0]["id"].startswith("pfj_")
+    rationale = json.loads(unusable[0]["rationale"])
+    assert rationale["result"]["verdict"] == "same"
+    assert rationale["unusable_reason"] == "missing_shared_retrieval_target"
+    assert unusable[0]["judge_model"] == "fake-resolved"
+    # The checkpoint keys hold only usable verdicts; grouping reads only them.
+    checkpoints = [row for row in rows if row["id"].startswith("pfj_")]
+    assert len(checkpoints) == 6 and {row["verdict"] for row in checkpoints} == {"same"}
+    assert len(report["accepted"]) == 1
+
+
+def test_unusable_verdict_without_retry_budget_is_ledgered_and_reasked(vault):
+    judge = TargetlessJudge("same")
+    report = run(vault, judge, caps=SpendCaps(max_total_tokens=1_000_000, max_retries=0))
+    assert report["status"] == "provider_failed" and len(judge.calls) == 1
+    rows = _same_target_rows(vault[1])
+    assert [row["verdict"] for row in rows] == ["unusable"]
+    assert not report["accepted"]
+    # The pass stays pending: a later run asks again and the unusable row
+    # never counts as a completed verdict or a vote.
+    again = run(vault, Judge("same"))
+    assert again["status"] == "complete" and again["cached_passes"] == 0
+    assert len(again["accepted"]) == 1

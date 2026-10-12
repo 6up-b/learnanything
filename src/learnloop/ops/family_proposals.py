@@ -318,7 +318,7 @@ def propose_families(
         "model_id": settings["model"], "provider": provider,
         "candidates": len(items), "pairs": len(pairs), "blocked_los": blocked_los,
         "cached_passes": len(saved), "pending_passes": len(pending),
-        "completed_passes": 0, "accepted": [], "rejected_components": 0,
+        "completed_passes": 0, "unusable_verdicts": 0, "accepted": [], "rejected_components": 0,
         "caps": caps.as_dict(), "estimate": asdict(_estimate(pending, price_per_million)),
         "price_per_million": price_per_million,
         "price_source": "owner_override" if price_per_million is not None else "unknown",
@@ -466,6 +466,16 @@ def propose_families(
                                 not verdict.idea_statement.strip() or not verdict.retrieval_target.strip()
                                 or verdict.variant_relation is None
                             ):
+                                # A paid, returned verdict is ledgered before the
+                                # retry, under its own id: never the pass's
+                                # checkpoint, so it is never a vote or a cache hit.
+                                _record_unusable(
+                                    repository, current, verdict,
+                                    model=usage.get("resolved_model") or settings["model"],
+                                    reason="missing_shared_retrieval_target", run_id=run_id,
+                                    attempt=attempts,
+                                )
+                                report["unusable_verdicts"] += 1
                                 raise AIProviderUnavailable("Missing shared retrieval target")
                         except AIInterrupted:
                             raise
@@ -509,6 +519,28 @@ def propose_families(
                 counts[row["judge_model"]][row["verdict"]] += 1
             report["results_by_model"] = {model: dict(values) for model, values in counts.items()}
     return report
+
+
+def _record_unusable(repository: Repository, current: PairPass, verdict: FamilyVerdict, *,
+                     model: str, reason: str, run_id: str, attempt: int) -> None:
+    """Ledger a returned verdict that failed semantic admission (review F9).
+
+    It is stored as ``unusable`` under a fresh id. Grouping, the paid-work
+    checkpoint and acceptance validation read only ``pfj_`` pass ids with a
+    ``same``/``different``/``unsure`` verdict, so it never participates.
+    """
+    with repository.connection() as connection:
+        append_judgment(
+            connection, task="same_target",
+            left_kind="practice_item", left_id=current.left,
+            right_kind="practice_item", right_id=current.right,
+            judge="llm", judge_model=model, prompt_version=current.prompt_version,
+            input_hash=current.input_hash, verdict="unusable",
+            rationale=json.dumps({
+                "result": verdict.model_dump(mode="json"), "unusable_reason": reason,
+                "pass_judgment_id": current.judgment_id, "run_id": run_id, "attempt": attempt,
+            }, sort_keys=True),
+        )
 
 
 def _subscription_estimate(event: dict[str, Any], current: PairPass | None,
