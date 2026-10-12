@@ -261,3 +261,149 @@ at `56056da4`). It was not a gate run.
 2. **Grading-time rows after an undo (F9).** They stay with the survivor and
    the UI says so. Should a future step store the on-disk facet id at grading
    time so that an undo moves them too?
+
+## Re-review
+
+The Codex re-review confirmed F2 to F11 as fixed (F9 by documenting it), and
+reopened F1. It also found one new defect, F12, which the F4 fix commits
+introduced. Both reproduced as failing tests before the fixes, and both are
+fixed. None were rejected.
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Reopened: attempts graded before a merge are replayed from contracts that still name both facets | fixed | `b4ef5145` | `test_facet_identity_actions.py::test_a_criterion_graded_before_the_merge_keeps_its_two_facets_apart[4,0]`. Before the fix, on a criterion targeting both facets as `primary`: a correct answer gave alpha 1.625 / mass 0.5 (a single target gives 2.0 / 1.0), and a wrong answer gave no recall row (a single target gives beta 2.0). Also `::test_a_held_back_retiree_stays_registered_while_the_rest_of_the_set_merges`, `::test_a_criterion_naming_the_two_facets_at_different_capabilities_does_not_hold_back`, `::test_dedupe_reports_a_held_back_retiree_as_refused`. Live: see below |
+| F12 | Low | After a crash, an interrupted merge keeps sending the retired facet's evidence to the survivor | fixed | `3b791c62` | `test_facet_identity_actions.py::test_a_merge_interrupted_before_its_file_write_keeps_the_facets_evidence_apart`, `::test_an_undo_interrupted_after_its_file_write_keeps_the_restored_facets_evidence_apart`, `::test_the_sidecar_finishes_an_interrupted_merge_when_it_opens_the_vault`, `::test_recovery_withdraws_a_merge_that_a_criterion_graded_meanwhile_names_both_facets`, and `::test_a_merge_interrupted_after_its_file_write_already_resolves_through_the_alias` (passed before the fix too; it guards the alias path) |
+| F2–F11 | — | Confirmed fixed by the re-review | no change | — | — |
+
+### F1: what changed
+
+The reviewer offered two fixes. This step takes the second: refuse the
+merge. The first would collapse duplicate targets inside the projection, and
+that changes persisted meaning, so it needs an algorithm successor. Main is
+already at `mvp-0.11` (Phase 6), so the successor would be `mvp-0.12`, with
+its own upgrade function. A vault not yet upgraded would still mis-count, so
+a refusal would be needed anyway.
+
+The refusal is per retiree, not per set, so the rest of a judged set still
+merges (the owner's "apply live"):
+
+- `graded_shared_criteria` reads every assessment contract version that a
+  live grading row was written against. These are the effective versions
+  under the vault's algorithm version, the same contracts the projection
+  replays. It lists each criterion that names two of the set's facets at
+  one capability, after resolving aliases and settled merges.
+- `hold_back_shared` goes through the retirees in the judge's order. A
+  retiree is held back when such a criterion names it together with the
+  survivor or with a retiree already kept.
+- `merge_registered_facets` merges only the kept retirees. Its result lists
+  `held_back` (each retiree, the facets it would collide with, and the
+  criteria), and the action's detail and view record them too. If every
+  retiree is held back, the merge is refused with reason
+  `shared_graded_criterion`. This applies under both lock policies, because
+  the override lifts a lock, not a counting error.
+- Dedupe lists held-back retirees under `refused`, with the criteria and a
+  note. A locked proposal lists only the retirees that could apply.
+- Two facets named at different capabilities are two cells, not a
+  duplicate, so they are not held back.
+
+Projection code is unchanged. Attempts graded after a merge use the
+collapsed contract, as before. Legacy attempts without contract lineage
+replay from the item as it loads, which the loader collapses.
+
+### F12: what changed
+
+- `Repository.facet_merge_map()` now leaves out the `facet_merges` rows of
+  any facet-identity action that is still `applying` or `undoing`
+  (`stores.facet_identity.settled_merge_rows`). Until the action settles,
+  `facets.yaml` is the authority: a facet it still lists keeps its own
+  evidence, and a merge already written to the file resolves through its
+  alias.
+- `field/outcomes.py` read `facet_merges` directly. It now reads the same
+  settled rows.
+- The write-time checks (the cycle check in `insert_facet_merge`, and the
+  merge's "already merged" check) still see every row, through
+  `include_in_flight=True`.
+- The sidecar runs `recover_interrupted_actions` when it opens the vault,
+  before it syncs or re-projects. A failure is logged and does not block
+  opening the vault.
+- Recovery now re-checks F1 when an intent never reached its file write. If
+  a criterion graded while the intent waited names two of its facets, the
+  intent is withdrawn (`abandoned`) instead of merged.
+
+### Live check
+
+The check ran on a fresh backup-API copy, `fixtures-local/fi-rereview-la`,
+of the worktree's `fixtures/linear_algebra`. As in the first live check,
+the Codex judge is out until 2026-10-18, so the copy routes
+`facet_identity_judge = "openrouter_haiku"`. The dry run went first, and
+both runs stayed inside `--max-calls 3 --max-cost-usd 0.05`.
+
+Before any merge, 7 graded criteria on 4 items name two facets at one
+capability.
+
+1. **Dry run.** 1 group of 39 facets, 741 pairs, 1 call, estimated $0.0045,
+   20 facets locked, policy `refuse_locked`.
+2. **Dedupe, default policy.** 1 call. The judge returned 5 sets.
+   - 1 set was applied: an unlocked absorb of the proof about complex
+     multiplication into the laws of complex arithmetic.
+   - 4 sets were listed as locked proposals.
+   - The vector-space set again included "vector addition must be
+     commutative and associative". That facet was held back and listed
+     under `refused` (`shared_graded_criterion`), because two graded
+     `method_selection` criteria name it together with the vector-space
+     definition: `pi_what_makes_counterexample_interpret_03` /
+     `criterion_what_makes_integrates_conjunction` and
+     `pi_what_makes_log_transport_strategy` / `crit_transport_addition_laws`.
+3. **Dedupe with `merge_locked_facets = true`.** 1 call. The first run's
+   absorb changed the neighbourhood (38 facets, 703 pairs), so its group
+   was judged again rather than reused.
+   - 5 sets were applied: the 4 locked sets, plus the laws of complex
+     arithmetic absorbed into scalar arithmetic over R or C.
+   - The commutativity facet was held back again.
+4. **After the merges.** 54 graded contracts with 75 criteria. No criterion
+   has two distinct targets that resolve to one cell. Each of the 7
+   multi-facet criteria still names two distinct facets. A plain `doctor`
+   added no errors: its one error, the missing `rubrics` directory, is in
+   the baseline copy too.
+
+The first live check's step 3 merged this same commutativity facet into the
+vector-space survivor, so those 2 criteria were double-counted until its
+step 4 undid the set.
+
+| Route | Calls | Tokens (reported) | Cost |
+|---|---|---|---|
+| OpenRouter `anthropic/claude-haiku-5.5` | 2 | 21,622 input, 6,579 output | **$0.0055** (OpenRouter-reported: $0.0026466 + $0.0028051) |
+
+### Gate (re-review)
+
+The gate ran on `3b791c62`, a clean tree. The commit after it adds only this
+section.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **12 contracts kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` (run with `-q -p no:cacheprovider`) | **7,715 passed, 0 skipped**, 46 warnings (the existing mobile-host, fork and sqlite datetime deprecations), 178 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **83 passed**, 7,632 deselected, 1 warning, 62 s |
+| The stage's 3 test files | **73 passed** (63 + 10 new) |
+| Frontend | not run: no frontend change since `29807f99` |
+| DB references | not run: no schema change (migration 172 is untouched) |
+
+### Merge notes (additions)
+
+- `Repository.facet_merge_map()` gains a keyword-only `include_in_flight`.
+  Existing callers are unaffected.
+- Code on other branches that reads `facet_merges` directly should switch
+  to `stores.facet_identity.settled_merge_rows`. Only `field/outcomes.py`
+  did so on this branch.
+- Migration numbering, R0 and T1 are unchanged from the notes above.
+
+### Open question for the owner (new)
+
+3. **Held-back facets (F1).** A facet that a graded criterion names
+   together with its duplicate stays registered, under either lock policy.
+   On `linear_algebra` this is "vector addition must be commutative and
+   associative", next to the vector-space definition. Merging such pairs
+   needs an algorithm successor that collapses duplicate cells in frozen
+   contracts. Is that worth a future successor, or should these pairs stay
+   apart?
