@@ -617,6 +617,7 @@ def simulate_blocks(
     pending = list(forced)
     for _ in range(max_blocks):
         taken = sim.planned_ids() | {item.practice_item_id for item in sim.items() if item.skipped}
+        taken |= {item.practice_item_id for item in pending}  # forced: never packed again (re-review F11)
         view = replace(
             context,
             pool=tuple(item for item in context.pool if item.practice_item_id not in taken),
@@ -1084,6 +1085,12 @@ def _boundary(
     """Choose and persist the next block, or close the plan. Returns the block id."""
 
     forced = list(forced)
+    forced_ids = {item.practice_item_id for item in forced}
+    if forced_ids:
+        # Forced items (requests, follow-ups) are placed whatever is chosen, so
+        # the source never sees them: a candidate packing one again would plan
+        # it twice in one block, and the copy would never resolve (re-review F11).
+        context = replace(context, pool=tuple(item for item in context.pool if item.practice_item_id not in forced_ids))
     forced_minutes = sum(item.est_minutes for item in forced)
     releases: dict[str, dict[str, Any] | None] = {}
     forced_allotment = {lane: 0.0 for lane in LANES}
@@ -1143,9 +1150,13 @@ def _boundary(
         _close(env, record, status="complete", reason=choice.why or "nothing more worth doing today", stop_detail=detail)
         return None
     items: list[tuple[PoolItem | PlannedItem, str]] = [(item, forced_origin) for item in forced]
-    by_id = {item.practice_item_id: item for item in context.pool}
+    by_id = {item.practice_item_id: item for item in context.pool}  # forced ids are not in it
     if candidate is not None:
-        items.extend((by_id[item_id], ORIGIN_CHOOSER) for item_id in candidate.item_ids if item_id in by_id)
+        items.extend(
+            (by_id[item_id], ORIGIN_CHOOSER)
+            for item_id in candidate.item_ids
+            if item_id in by_id and item_id not in forced_ids
+        )
         lane = candidate.lane
         action, subtype = candidate.action, candidate.subtype
         est = candidate.est_minutes + forced_minutes

@@ -1,4 +1,4 @@
-"""Daily-loop DL1: regressions for the Codex review findings (F1-F10).
+"""Daily-loop DL1: regressions for the Codex review findings (F1-F10) and its re-review (F11-F13).
 
 Each test reproduces one finding against the fixed engine. Fakes only: the
 plan reads the scheduler's ranked list through ``PlanEnv.eligible`` (or the
@@ -776,3 +776,135 @@ def test_n1_an_item_whose_estimate_is_its_lanes_whole_load_is_planned(tmp_path):
     assert [item.practice_item_id for item in record.items()] == ["pi_long"]
     allotment, spent = record.ledger()
     assert spent["maintain"] <= allotment["maintain"]
+
+
+# -- Re-review F11: a requested or follow-up item is planned once, and the plan ends --
+
+
+def _due_request_env(tmp_path, *, count=4, requested=("pi_q0",)):
+    """``count`` attempted, due items (maintain lane); ``requested`` are asked for."""
+
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    los = {f"lo_q{i}": [(f"pi_q{i}", 1.0)] for i in range(count)}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    _no_goals(paths)
+    clock = MovableClock(NOW)
+    state = {"items": [scheduled(f"pi_q{i}", f"lo_q{i}", forgetting_risk=0.6) for i in range(count)]}
+    env = make_env(paths.root, lambda: list(state["items"]), clock=clock, requested=list(requested))
+    for i in range(count):
+        seed_due(env.repository, f"pi_q{i}", due=NOW - timedelta(days=1), last=NOW - timedelta(days=3))
+    return env, clock, state
+
+
+def _planned_once(record) -> None:
+    for block in record.blocks:
+        ids = [item.practice_item_id for item in block.items]
+        assert len(ids) == len(set(ids)), (block.ordinal, ids)
+    ids = [item.practice_item_id for item in record.items() if not item.displaced]
+    assert len(ids) == len(set(ids)), ids
+
+
+def _answer_through(env, clock, *, limit=30):
+    from learnloop.daily_plan.engine import advance
+
+    served = []
+    for _ in range(limit):
+        record, step = advance(env, serve=True)
+        _planned_once(record)
+        if step["kind"] != "item":
+            return record, served
+        served.append(step["practice_item_id"])
+        clock.advance(1)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.instant)
+        clock.advance(1)
+    raise AssertionError(f"the plan never finished: served {served}")
+
+
+def test_f11_a_requested_due_item_is_planned_once_and_served_to_the_end(tmp_path):
+    from learnloop.daily_plan.engine import build_plan
+
+    env, clock, _state = _due_request_env(tmp_path)
+    record = build_plan(env, kind="normal", budget=30.0, remembered=30, minutes_source="chip")
+    first = record.blocks[0]
+    assert first.items[0].practice_item_id == "pi_q0" and first.items[0].origin == "requested"
+    assert first.items[0].lane == "maintain"
+    _planned_once(record)
+    record, served = _answer_through(env, clock)
+    assert len(served) == len(set(served)) and served[0] == "pi_q0"
+    assert record.status == "complete"
+    assert all(item.done for item in record.items() if not item.displaced)
+
+
+def test_f11_the_crash_recovery_boundary_plans_a_request_once(tmp_path, monkeypatch):
+    import pytest
+
+    from learnloop.daily_plan import engine
+
+    env, clock, _state = _due_request_env(tmp_path)
+    real_boundary = engine._boundary
+
+    def crash(*args, **kwargs):
+        raise RuntimeError("the app died between the two writes")
+
+    monkeypatch.setattr(engine, "_boundary", crash)
+    with pytest.raises(RuntimeError):
+        get_or_create_today(env)
+    monkeypatch.setattr(engine, "_boundary", real_boundary)
+    record, served = _answer_through(env, clock)
+    assert served[0] == "pi_q0" and len(served) == len(set(served))
+    assert record.status == "complete"
+
+
+def test_f11_a_followup_already_in_the_universe_is_forced_once(tmp_path):
+    from learnloop.daily_plan.engine import advance, build_plan
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    # Eight recent errors: twelve repair minutes, more than one block packs.
+    los = {f"lo_r{i}": [(f"pi_r{i}", 1.0)] for i in range(8)}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    _no_goals(paths)
+    clock = MovableClock(NOW)
+    state = {"items": [scheduled(f"pi_r{i}", f"lo_r{i}", recent_error=0.6) for i in range(8)]}
+    env = make_env(paths.root, lambda: list(state["items"]), clock=clock)
+    for i in range(8):
+        seed_due(env.repository, f"pi_r{i}", due=NOW - timedelta(days=1), last=NOW - timedelta(days=3))
+    record = build_plan(env, kind="normal", budget=40.0, remembered=40, minutes_source="chip")
+    first = record.blocks[0]
+    first_ids = {item.practice_item_id for item in first.items}
+    target = next(item_id for item_id in record.split["universe"] if item_id not in first_ids)
+    # Answer the whole first block; an answer turns ``target`` (still in the
+    # universe, not planned) into a follow-up, forced into the next block,
+    # whose repair lane still has minutes for the chooser.
+    for _ in range(len(first.items)):
+        record, step = advance(env, serve=True)
+        clock.advance(1)
+        record_attempt(env.repository, step["practice_item_id"], step["learning_object_id"], clock.instant)
+        clock.advance(1)
+    state["items"] = [
+        scheduled(item.practice_item_id, item.learning_object_id, followup_kind="intervention_followup", recent_error=0.6)
+        if item.practice_item_id == target
+        else item
+        for item in state["items"]
+    ]
+    record, _step = advance(env, serve=False)
+    _planned_once(record)
+    second = record.blocks[1]
+    assert second.items[0].practice_item_id == target and second.items[0].origin == "followup"
+    assert len(second.items) > 1  # the chooser still packed the rest of the lane
+    record, served = _answer_through(env, clock)
+    assert len(served) == len(set(served)) and target in served
+    assert record.status == "complete"
+
+
+def test_f11_simulated_blocks_plan_a_forced_request_once(tmp_path):
+    from learnloop.daily_plan.engine import _context, _prepare_plan, simulate_blocks
+
+    env, _clock, _state = _due_request_env(tmp_path)
+    prepared = _prepare_plan(env, kind="normal", budget=30.0, remembered=30, minutes_source="chip")
+    assert [item.practice_item_id for item in prepared.requests] == ["pi_q0"]
+    draft = prepared.record()
+    context = _context(env, draft, prepared.built, day=prepared.day)
+    simulated = simulate_blocks(draft, context, env.policy, forced=prepared.requests)
+    ids = [item.practice_item_id for _decision, block in simulated for item in block.items]
+    assert ids[0] == "pi_q0" and len(ids) == len(set(ids)), ids
