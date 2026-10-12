@@ -293,3 +293,79 @@ Run on `c93f7427` (only the two review docs changed after it).
 3. **Field serving kind.** Plan-served attempts now have no offer receipt, so the learner
    field reads their serving as `unknown`. Add a `daily_plan` serving kind to the field
    (reading the plan's `item_served` receipts), or leave it to router R1?
+
+## Re-review
+
+The Codex re-review confirmed F1 fixed and F2–F10 and N1 as described. It reopened the
+verdict for one new **High** (F11), whose root cause predates the fix commits: it reproduces on
+`80161805`, and a0eb1c15's crash-recovery path repeats it. It also found two new **Lows** (F12, F13).
+All three reproduced with a failing test first and are fixed. **Paid calls:** none ($0.00).
+**Migration, config, RPC, frontend:** no change. **Algorithm version:** still
+`daily_plan_v1` (serving-only fixes inside the successor).
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F11 | High | A requested or follow-up item in the repair or maintain lane is planned twice, and the plan then serves it forever | fixed | `d78e8232` | `tests/test_daily_plan_review_regressions.py::test_f11_a_requested_due_item_is_planned_once_and_served_to_the_end`, `::test_f11_the_crash_recovery_boundary_plans_a_request_once`, `::test_f11_a_followup_already_in_the_universe_is_forced_once`, `::test_f11_simulated_blocks_plan_a_forced_request_once` |
+| F12 | Low | A pick served after the plan closed skews the feedback-time estimate | fixed | `5fcaa9d8` | `::test_f12_a_pick_after_the_plan_closed_adds_no_feedback_dwell` |
+| F13 | Low | `_offered_candidate` accepts offers that were used up or never shown | fixed | `44b3c662` | `::test_f13_a_pick_ignores_a_used_or_unshown_offer` (real RPCs, real scheduler, a real `submit_dont_know` uses up the offer) |
+
+Every new test failed on the unfixed code. F11: 4 of 4. Before the fix, block 1 was `[pi_q0 requested, pi_q0 chooser, pi_q1, pi_q2]`. In the follow-up variant, block 2 was `[pi_r4 followup, pi_r4 chooser]`.
+F12: the dwell went from `(1.0, 1.0)` to `(1.0, 1.0, 4.0)`. F13: the used offer was returned again. The plan-build-candidate
+half of F13's test comes after that assertion, so it was checked separately: the old query accepted
+the served plan step's candidate, which has no offer receipt.
+
+### F11: forced items are hidden from the source
+
+`_boundary` places forced items (the first plan's requests, the crash-recovery requests, and mid-plan
+follow-ups forced into a new block) whatever is chosen. It used to hand the source a pool
+that still held them. The new lane's admission already excluded requests, but the maintain
+and repair lanes had no such filter, so the chosen candidate could pack the same item again. A block's events are
+keyed by practice item (`records._apply_event`), so every later event went to the second
+copy. The first copy never resolved, and the plan kept serving it until the learner skipped it.
+
+Now `_boundary` removes the forced ids from `context.pool` before `decide` and drops any forced id
+from the candidate's items. `simulate_blocks` (the view's projection and the more-new preview)
+counts pending forced items as taken. The re-review describes the
+request case, and the same defect also hit a follow-up that is already in the plan's universe as an unplanned item.
+It reproduced with a repair-lane follow-up, the realistic case, and is fixed by the same change. The
+existing fixture copies (`fixtures-local/dl1fix-*`) were checked read-only: no block there
+plans an item twice. `arxiv_v2`'s one requested item was planned once.
+
+### F12: dwell only between numbered blocks
+
+`_feedback_dwell` now reads only `attention_blocks` rows with a `plan_ordinal`. The
+open-list pick receipt (F10) and the stop receipts (F6) have none. The pick's
+`item_served` used to pair with the plan's last `item_done`, so time on the done screen
+counted as feedback. The estimator version stays `duration_shrinkage_v1`: no plan outside
+dev has persisted under it.
+
+### F13: only a live, shown offer
+
+`_offered_candidate` now requires three things: an unanswered candidate (`chosen_attempt_id IS NULL`), a
+published offer receipt for its slate, and the candidate's presence in that receipt's
+`returned_candidate_ids_json`. Otherwise the pick falls back to the plan's own candidate,
+as before the F5 fix. The session rule (`s.session_id IS ? OR ? IS NULL`) is unchanged. After
+the stale used offer is rejected, the test binds an answer under the returned candidate.
+
+### Re-review gate
+
+Run on `44b3c662` (only this file changed after it).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **13 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,906 passed**, 0 failed, 46 existing warnings; 246 s (7,900 at the first gate + 6 new re-review tests) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **86 passed**, 7,820 deselected, 1 warning; 64 s |
+| Frontend (`npm install`, `typecheck`, `test`) | Not run: no frontend file changed since the first gate (122 vitest passed there) |
+| DB reference scripts | Not needed: no schema change |
+| Mobile pins | Unchanged: the eight DL1 RPCs stay never phone-allowed (`test_mobile_allowlist.py`, `test_mobile_host_auth.py` run in the suite) |
+| Tracked working vaults | Untouched; no manual run mutated anything (the check above opened the `fixtures-local/dl1fix-*` copies read-only) |
+
+### Open question (re-review)
+
+4. **Dwell across a learner stop.** F12 drops picks served after the plan closed. A plan
+   the learner *stopped* and later reopened with a bigger chip has no stop receipt
+   (`stop_today` writes none, unlike a chooser's stop). So the next served item still
+   pairs with the last answer before the stop, and that sample is capped at 5 minutes. This was left as is,
+   because it was not in the finding. Should a learner stop also write a receipt that ends a dwell sample?
