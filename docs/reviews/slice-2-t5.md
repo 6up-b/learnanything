@@ -7,6 +7,9 @@ Prerequisite "previous track's report reviewed" waived (owner, 2026-10-12;
 `implementation_goal.md` §1a: tracks are built in parallel, report gates are
 post-hoc).
 
+Codex review fixes (F1-F6, all fixed): `docs/reviews/slice-2-t5-codex-review.md`.
+Statements below that the review changed are marked "(review Fn)".
+
 ## 1. Plan (written before coding)
 
 **What T5 changes.** Ingest and graph review gain embedding *nominations*.
@@ -111,7 +114,9 @@ calls and no data changes.
 - `get_vector_by_content` / `current_vectors` in the vector store: the same
   model, kind, field, prefix and content hash is the same input, so a vector
   paid for at ingest serves the applied record, a revalidation, or a rerun.
-  `current_vectors` still refuses an incomplete manifest.
+  `current_vectors` still refuses an incomplete manifest. The backfill plans
+  the same way: such a record is `reused_by_content`, never bought again, and
+  a real run writes its identity row from the stored vector (review F5).
 - `EMBEDDING_PRICES_PER_MILLION` moved to `ai/embedding.py` (the backfill keeps
   its `PRICES_PER_MILLION` name).
 
@@ -138,12 +143,17 @@ calls and no data changes.
 1. *Append neighbourhood* (`append_neighborhood.py`, `source_append.py`): each
    new inventory claim (and procedure contract), composed in the
    `facet/definition` layout, nominates its top-k registry facets; each concept
-   mention, in the `concept/definition` layout, its top-k registry concepts.
+   mention, in the `concept/definition` layout with the claims that define it
+   (`concept_mention_ids`), its top-k registry concepts. A mention no claim
+   defines gets no query and stays lexical-only, counted as
+   `concept_mentions_without_definition` (review F4).
    They join as one `embedding` match reason per entity. Lexical and provenance
    matches keep today's order and come first, so under the token cap
    embeddings only add; the loose lexical round is unchanged. The manifest
-   record carries `nomination` only when nominations are on. The
-   reconciliation model decides reuse vs mint.
+   record carries `nomination` only when nominations are on: the
+   nominator's identity (configuration, model, route, index status and
+   definition digests, compared queries), never its usage counts (review F2).
+   The reconciliation model decides reuse vs mint.
 2. *Graph structuring* (`source_set_synthesis.py`, `ai_contracts.py`): each
    candidate concept nominates its top-k registry concepts; the pass receives
    `registry_concept_details` (id, title, type, aliases, definition) and
@@ -175,7 +185,10 @@ calls and no data changes.
    (`judge='llm'`, model, `mvp-0.7-concept-graph-structuring-1+t5-registry-nominations-1`,
    input hash of both definitions, `left_kind='concept_candidate'` keyed by the
    candidate definition's content hash), including refused ones
-   (`applied=false`, `refused=<reason>`).
+   (`applied=false`, `refused=<reason>`). The verdicts are one transaction
+   and a merge is applied only once they are recorded; if recording fails,
+   every merge is declined and the decisions are kept on the run's usage
+   (review F3).
 
 **The T5 report** (`ops/graph_nomination_report.py`,
 `learnloop embeddings nomination-report`):
@@ -203,7 +216,10 @@ calls and no data changes.
    `embedding.enabled = false`) gives byte-identical pre-T5 behaviour: no
    nominator is built, no client constructed, prompts/contexts/result models
    and manifests are unchanged (tested: prompt equality, manifest record
-   equality, absent keys). `embed_new_text = false` keeps nominations to stored
+   equality, absent keys). When nominations are on, the nominator's identity
+   is part of the synthesis and append manifests, so a cached run is never
+   reused across the switch, an index change or a registry definition change
+   (review F1). `embed_new_text = false` keeps nominations to stored
    vectors only.
 3. **Mint gate: shadow, not nomination into D2.** Top-k always returns k
    neighbours (no cutoff exists yet, R4), so feeding embedding neighbours into
@@ -218,12 +234,14 @@ calls and no data changes.
    without an output it could only relate, never decide, so
    `registry_merges` was added (prompt/result model switch only when
    nominations exist). Guards are deterministic and never fire on a score.
-5. **Ingest-time embedding has no `--dry-run`.** `learnloop synthesize` and
-   the append path had none before T5. The new paid side effect (embedding a
-   run's candidate text) is capped per run in config (default $0.05; at the
-   spec's $0.01/M that is ~5M tokens), receipted, and off unless the owner has
-   enabled embeddings and backfilled the registry. The report command, the
-   stage's own paid command, has `--dry-run`.
+5. **Ingest-time embedding has a `--dry-run`** (review F6; this decision
+   originally said it had none). `learnloop synthesize <set> --dry-run` plans
+   one run's embedding spend with no client and no data change: an append's
+   new inventory queries priced exactly (less those stored), text the run
+   writes itself bounded by what the per-run cap leaves. The spend stays
+   capped per run in config (default $0.05 and 200,000 tokens, so $0.002 at
+   the spec's $0.01/M), receipted, and off unless the owner has enabled
+   embeddings and backfilled the registry.
 6. **Bootstrap shards are unchanged.** Shards still receive `registry_index`
    ids; T5 nominates at the structuring pass (spec §8) and in append. Concept
    identity by slug (`_normalize`) stays an exact key.
@@ -327,6 +345,8 @@ Phase 1). `[graph_nomination]` needs nothing: its defaults are on and act only
 with embeddings on.
 
 ```bash
+# What one synthesis/append would pay to embed (no calls, no data change):
+uv run learnloop synthesize <set> --dry-run --vault <vault>
 # The T5 report: plan first, then the paid backfill + report (cents or less).
 uv run learnloop embeddings nomination-report --vault <vault> --dry-run --json
 uv run learnloop embeddings nomination-report --vault <vault> --json
