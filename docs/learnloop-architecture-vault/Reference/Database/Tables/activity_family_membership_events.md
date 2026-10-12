@@ -3,13 +3,13 @@ title: "activity_family_membership_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_family_membership_events"
   - "table activity_family_membership_events"
-schema_head: 168
+schema_head: 169
 table_name: "activity_family_membership_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -44,7 +44,7 @@ It belongs to the **activity substrate** navigation family. The family context l
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/168_activity_family_membership.sql`.
-- **Schema touched by:** `168_activity_family_membership.sql`.
+- **Schema touched by:** `168_activity_family_membership.sql`, `169_decider_judgments_and_receipt_labels.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -110,6 +110,7 @@ None found by exact static reference scan.
 
 - `tests/test_activity_families.py`
 - `tests/test_family_proposals.py`
+- `tests/test_judge_routes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

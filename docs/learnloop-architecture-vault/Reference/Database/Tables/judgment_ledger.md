@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 168
+schema_head: 169
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,11 +21,11 @@ source_paths:
   - "migrations/166_embedding_substrate_and_judgments.sql"
   - "src/learnloop/cli/diagnose.py"
   - "src/learnloop/cli/families.py"
+  - "src/learnloop/cli/probability_arms.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
   - "src/learnloop/diagnosis/offline_review/__init__.py"
   - "src/learnloop/diagnosis/offline_review/links.py"
-  - "src/learnloop/diagnosis/offline_review/report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -49,7 +49,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_decider_judgments_and_receipt_labels.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -126,7 +126,9 @@ None found by exact static reference scan.
 - `tests/test_eval_harness.py`
 - `tests/test_family_proposals.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_judge_routes.py`
 - `tests/test_judgment_ledger.py`
+- `tests/test_probability_prep.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -143,7 +145,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE judgment_ledger (
+CREATE TABLE "judgment_ledger" (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
     supersedes_id TEXT REFERENCES judgment_ledger(id),
@@ -152,7 +154,7 @@ CREATE TABLE judgment_ledger (
     left_id TEXT NOT NULL,
     right_kind TEXT,
     right_id TEXT,
-    judge TEXT NOT NULL CHECK(judge IN ('llm', 'verifier', 'owner', 'diagnoser', 'learner_card', 'exact_key')),
+    judge TEXT NOT NULL CHECK(judge IN ('llm', 'verifier', 'owner', 'diagnoser', 'learner_card', 'exact_key', 'decider')),
     judge_model TEXT,
     prompt_version TEXT,
     input_hash TEXT NOT NULL,

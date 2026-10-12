@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 168
+schema_head: 169
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/160_model_call_receipts.sql`.
-- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`.
+- **Schema touched by:** `160_model_call_receipts.sql`, `163_provider_receipt_details.sql`, `165_model_call_budgets.sql`, `169_decider_judgments_and_receipt_labels.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -89,6 +89,9 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `cache_write_tokens` | `INTEGER` | no | — | — | Stored value |
 | `usage_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `budget_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `judge` | `TEXT` | no | — | — | Stored value |
+| `question_set_version` | `TEXT` | no | — | — | Stored value |
+| `state_hash` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -134,9 +137,11 @@ None found by exact static reference scan.
 - `tests/test_ingest_ownership.py`
 - `tests/test_ingestion_checkpoints.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_judge_routes.py`
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
+- `tests/test_probability_prep.py`
 - `tests/test_spend_controls.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -180,7 +185,8 @@ CREATE TABLE model_call_receipts (
   error_type TEXT,
   output_budget_tokens INTEGER,
   collection_version TEXT NOT NULL DEFAULT 'learnloop-events-v1'
-, endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT, budget_json TEXT);
+, endpoint TEXT, resolved_model TEXT, cache_write_tokens INTEGER, usage_json TEXT, budget_json TEXT, judge TEXT
+  CHECK(judge IS NULL OR judge IN ('decider', 'llm')), question_set_version TEXT, state_hash TEXT);
 ```
 
 ## Related notes

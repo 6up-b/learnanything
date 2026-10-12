@@ -3,13 +3,13 @@ title: "question_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite question_events"
   - "table question_events"
-schema_head: 168
+schema_head: 169
 table_name: "question_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/cli/field_classification.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/followups.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/field/signals.py"
   - "src/learnloop/learner/facet_diagnostics.py"
   - "src/learnloop/reader/reader_dialogue.py"
@@ -124,6 +125,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -152,6 +154,7 @@ Indexes and uniqueness:
 - `tests/test_field_signal_production_paths.py`
 - `tests/test_interaction_signals.py`
 - `tests/test_migrations.py`
+- `tests/test_probability_prep.py`
 - `tests/test_question_promotions.py`
 - `tests/test_question_signal.py`
 - `tests/test_reader_dialogue.py`
