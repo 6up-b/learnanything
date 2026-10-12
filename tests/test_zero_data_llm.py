@@ -168,7 +168,9 @@ def test_metered_route_refuses_hidden_retries(case):
     assert report["physical_request_bound"] is True and report["billing"] == "metered"
 
 
-def test_codex_subscription_runs_unbounded_with_estimated_cost(case):
+@pytest.mark.parametrize("price", [None, .001])
+@pytest.mark.parametrize("enclosing_total", [False, True])
+def test_codex_subscription_runs_unbounded_with_estimated_cost(case, price, enclosing_total):
     from learnloop.ai.execution import model_call, report_call_usage
 
     paths, rows, content, kwargs = case
@@ -176,24 +178,139 @@ def test_codex_subscription_runs_unbounded_with_estimated_cost(case):
 
     def predict(request):
         client = type("C", (), {"provider_name": "codex", "provider_type": "codex_sdk", "model": "m"})()
-        for _ in range(2):
-            with model_call(client, purpose=f"{zero.TASK}:sdk_turn"):
-                turns.append(1)
-                report_call_usage({"input_tokens": 10, "output_tokens": 20})
+        with model_call(client, purpose=zero.TASK):  # the structured operation's receipt
+            for _ in range(2):  # an initial turn and a JSON repair
+                with model_call(client, purpose=f"{zero.TASK}:sdk_turn"):
+                    turns.append(1)
+                    report_call_usage({"input_tokens": 10_000, "output_tokens": 100})
+            if enclosing_total:  # a transport that also totals its turns
+                report_call_usage({"input_tokens": 20_000, "output_tokens": 200})
         return {"p_success": .4}
 
     kwargs.update(caps=SpendCaps(max_total_tokens=1, max_estimated_usd=0),
-                  estimate_per_prediction=SpendEstimate(calls=1, total_tokens=500))
+                  estimate_per_prediction=SpendEstimate(calls=1, total_tokens=500, estimated_usd=price))
     arms, report = zero.prepare_zero_data_probabilities(rows, content, predict=predict,
                                                         subscription=True, **kwargs)
     assert report["status"] == "complete" and arms is not None
     assert len(turns) == 2 * len(rows)
     assert report["cost_basis"] == "estimated_only" and report["physical_request_bound"] is False
+    # Both physical turns count once each; an enclosing total is not added (review F5).
+    assert report["charged"]["total_tokens"] == 20_200 * len(rows)
+    if price is None:
+        assert report["charged"]["estimated_usd"] is None
+    else:
+        assert report["charged"]["estimated_usd"] == pytest.approx(20_200 * price / 500 * len(rows))
     with sqlite3.connect(paths.sqlite_path) as connection:
         usage = [json.loads(u) for (u,) in connection.execute(
             "SELECT usage_json FROM model_call_receipts WHERE owner_kind=? AND purpose LIKE '%sdk_turn'",
             (zero.TASK,))]
     assert usage and {u["cost_basis"] for u in usage} == {"estimated_only"}
+
+
+def _replay(arm, rows):
+    arm.rebuild(())
+    predictions = []
+    for row in rows:
+        predictions.append(arm.predict(row.features))
+        arm.observe(row)
+    return predictions
+
+
+def _count_calls(predict):
+    calls = []
+
+    def counted(request):
+        calls.append(request)
+        return predict(request)
+
+    return counted, calls
+
+
+def test_resume_recovers_committed_verdicts_when_the_cache_was_never_published(case, monkeypatch):
+    import os
+
+    paths, rows, content, kwargs = case
+    predict, calls = _count_calls(lambda request: {"p_success": .7})
+    real_replace, failures = os.replace, []
+
+    def replace_once(source, target, *args, **kw):
+        if str(source).endswith(".tmp") and not failures:
+            failures.append(target)
+            raise OSError("disk full")
+        return real_replace(source, target, *args, **kw)
+
+    # The first verdict commits to the ledger, then publishing its checkpoint fails.
+    monkeypatch.setattr(os, "replace", replace_once)
+    with pytest.raises(OSError, match="disk full"):
+        zero.prepare_zero_data_probabilities(rows, content, predict=predict, **kwargs)
+    monkeypatch.setattr(os, "replace", real_replace)
+    assert len(calls) == 1 and len(_ledger(paths)) == 1
+    assert not [path for path in kwargs["cache_dir"].iterdir() if path.suffix in {".json", ".tmp"}]
+    # Resume buys only what was never committed.
+    arms, report = zero.prepare_zero_data_probabilities(rows, content, predict=predict, **kwargs)
+    assert report["status"] == "complete" and arms is not None and report["recovered"] == 1
+    assert len(calls) == len(rows) and len(_ledger(paths)) == len(rows)
+    assert report["charged"]["calls"] == len(rows) - 1
+
+
+def test_a_lost_cache_is_rebuilt_from_the_ledger_without_paying_again(case):
+    paths, rows, content, kwargs = case
+    predict, calls = _count_calls(lambda request: {"p_success": .7})
+    arms, _ = zero.prepare_zero_data_probabilities(rows, content, predict=predict, **kwargs)
+    first = _replay(arms[0], rows)
+    calls.clear()
+    kwargs["cache_dir"] = kwargs["cache_dir"].parent / "fresh-cache"
+    dry = zero.prepare_zero_data_probabilities(rows, content, predict=predict, dry_run=True, **kwargs)[1]
+    assert dry["recovered"] == len(rows) and dry["estimate"]["calls"] == 0
+    assert not kwargs["cache_dir"].exists()
+    arms, report = zero.prepare_zero_data_probabilities(rows, content, predict=predict, **kwargs)
+    assert not calls and report["recovered"] == len(rows) and report["charged"]["calls"] == 0
+    assert len(_ledger(paths)) == len(rows)
+    loaded, _ = zero.load_zero_data_arms(rows, content, cache_dir=kwargs["cache_dir"],
+                                         vault_path=paths.root, model="fake-llm")
+    assert _replay(loaded[0], rows) == first
+
+
+def test_ledger_verdicts_under_other_settings_are_not_recovered(case):
+    paths, rows, content, kwargs = case
+    predict, calls = _count_calls(lambda request: {"p_success": .7})
+    zero.prepare_zero_data_probabilities(rows, content, predict=predict, **kwargs)
+    calls.clear()
+    kwargs["cache_dir"] = kwargs["cache_dir"].parent / "other-settings"
+    _, report = zero.prepare_zero_data_probabilities(
+        rows, content, predict=predict, settings={"reasoning_effort": "high"}, **kwargs)
+    assert report["recovered"] == 0 and len(calls) == len(rows)
+
+
+def test_concurrent_preparations_on_one_cache_never_both_pay(case):
+    paths, rows, content, kwargs = case
+    rows = rows[:1]
+    calls, nested = [], {}
+
+    def second(request):
+        calls.append("second")
+        return {"p_success": .7}
+
+    def first(request):
+        calls.append("first")
+        # Another process starts on the same cache while this call is in flight.
+        try:
+            nested["result"] = zero.prepare_zero_data_probabilities(
+                rows, content, predict=second, **{**kwargs, "repository": Repository(paths.sqlite_path)})
+        except ValueError as exc:
+            nested["error"] = str(exc)
+        return {"p_success": .3}
+
+    arms, report = zero.prepare_zero_data_probabilities(rows, content, predict=first, **kwargs)
+    assert calls == ["first"] and "another" in nested["error"].lower()
+    assert len(_ledger(paths)) == 1
+    loaded, _ = zero.load_zero_data_arms(rows, content, cache_dir=kwargs["cache_dir"],
+                                         vault_path=paths.root, model="fake-llm")
+    assert loaded[0].predict(rows[0].features) == arms[0].predict(rows[0].features) == .3
+    assert not [path for path in kwargs["cache_dir"].iterdir() if path.suffix == ".tmp"]
+    # Once the first preparation finishes, the second finds everything done.
+    _, again = zero.prepare_zero_data_probabilities(rows, content, predict=second, **kwargs)
+    assert again["cached"] == 1 and calls == ["first"]
 
 
 def test_recalibration_is_fit_on_past_predictions_only():

@@ -16,12 +16,16 @@ calls. Point predictors only; never active (G11).
 """
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, replace
 from hashlib import sha256
 import json
 from math import exp, isfinite, log
+import os
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import model_call, observe_model_calls
@@ -36,6 +40,8 @@ from learnloop.field.types import FacetRow, ItemFeatures, SignalRow
 
 PROMPT_VERSION = "t8-zero-data-probability-v1"
 TASK = "t8_zero_data_probability"
+LEFT_KIND = "offline_prediction"
+_USAGE = ("input_tokens", "output_tokens", "cost")
 HISTORY_WINDOW = PREREGISTRATION["llm"]["history_window"]
 STEM_CHAR_CAP = PREREGISTRATION["llm"]["stem_char_cap"]
 INSTRUCTIONS = (
@@ -172,8 +178,97 @@ def _intercept_map(past: list[tuple[float, float]]) -> float:
     return c
 
 
+def _identity(model: str, settings_hash: str, digest: str) -> str:
+    """One prediction's full identity: request, model, prompt version, route settings.
+
+    It names the checkpoint file and is the ledger row's ``input_hash``, so a
+    committed verdict is recoverable whatever happened to the cache.
+    """
+    return _hash([model, PROMPT_VERSION, settings_hash, digest])
+
+
 def _cache_path(directory: Path, model: str, settings_hash: str, digest: str) -> Path:
-    return directory / f"{_hash([model, PROMPT_VERSION, settings_hash, digest])}.json"
+    return directory / f"{_identity(model, settings_hash, digest)}.json"
+
+
+def _checkpoint(model: str, settings_hash: str, digest: str, judgment_id: str, probability: float) -> dict:
+    return {"model": model, "input_hash": digest, "prompt_version": PROMPT_VERSION,
+            "settings_hash": settings_hash, "p_success": probability, "judgment_id": judgment_id}
+
+
+def _publish(path: Path, checkpoint: dict) -> None:
+    """Durably publish one checkpoint: a uniquely named temporary file, fsync,
+    atomic rename, then fsync the directory. A failure leaves no partial file;
+    the ledger row it came from stays recoverable."""
+    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8") as handle:
+            handle.write(json.dumps(checkpoint, sort_keys=True))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        descriptor = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _committed(repository, model: str, settings_hash: str, digest: str) -> tuple[str, float] | None:
+    """The earliest valid paid verdict already committed for this identity."""
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT id, verdict FROM judgment_ledger WHERE task=? AND left_kind=? AND left_id=? "
+            "AND judge='llm' AND judge_model=? AND prompt_version=? AND input_hash=? "
+            "AND score IS NOT NULL ORDER BY created_at, id",
+            (TASK, LEFT_KIND, digest, model, PROMPT_VERSION, _identity(model, settings_hash, digest)),
+        ).fetchall()
+    for judgment_id, verdict in rows:
+        try:
+            return judgment_id, _probability(json.loads(verdict))
+        except (ValueError, AttributeError):
+            continue
+    return None
+
+
+@contextmanager
+def _preparation_lock(directory: Path) -> Iterator[None]:
+    """One preparation per cache directory at a time; process death releases it."""
+    try:
+        import fcntl
+    except ImportError as exc:  # pragma: no cover - the app targets POSIX
+        raise ValueError("Zero-data preparation requires POSIX advisory locks") from exc
+    with (directory / ".prepare.lock").open("a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ValueError("Another zero-data preparation is using this cache directory") from exc
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _physical_usage(parents: dict, reported: dict) -> dict:
+    """Usage summed over the innermost receipts that reported it.
+
+    Each physical turn (an initial turn, a JSON repair) counts once; an
+    enclosing receipt that also totals its turns is not added again.
+    """
+    enclosing = set()
+    for call_id in reported:
+        parent = parents.get(call_id)
+        while parent is not None and parent not in enclosing:
+            enclosing.add(parent)
+            parent = parents.get(parent)
+    totals: dict = {}
+    for call_id, values in reported.items():
+        if call_id not in enclosing:
+            for name, value in values.items():
+                totals[name] = totals.get(name, 0) + value
+    return totals
 
 
 def _read_cache(requests, directory: Path, model: str, settings):
@@ -235,17 +330,42 @@ def prepare_zero_data_probabilities(
     route allows one physical request per prediction and refuses hidden
     retries; a Codex route (``subscription``) lifts that bound and the
     token/dollar caps, estimating cost only. Candidate and call caps always
-    apply. Every completed paid verdict appends to ``judgment_ledger``.
+    apply. Every completed paid verdict appends to ``judgment_ledger`` under
+    its full identity (request, model, prompt, settings) before its
+    checkpoint is published.
+
+    Resumable: a verdict already committed for an identity is recovered from
+    the ledger, never bought again, even when its checkpoint was never
+    published or the cache is new. One preparation holds a cache directory at
+    a time; the cache and ledger are read only after taking it.
     """
     if not model.strip():
         raise ValueError("An explicit offline model is required")
     if estimate_per_prediction.calls != 1 or estimate_per_prediction.retries:
         raise ValueError("Declare exactly one physical call and no hidden retries")
     directory = _outside_vault(cache_dir, vault_path)
+    if not dry_run:
+        directory.mkdir(parents=True, exist_ok=True)
+    with nullcontext() if dry_run else _preparation_lock(directory):
+        return _prepare(
+            rows, content, repository=repository, directory=directory, model=model,
+            predict=predict, estimate_per_prediction=estimate_per_prediction, caps=caps,
+            dry_run=dry_run, cancelled=cancelled, settings=settings, subscription=subscription,
+        )
+
+
+def _prepare(rows, content, *, repository, directory, model, predict, estimate_per_prediction,
+             caps, dry_run, cancelled, settings, subscription):
     budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription)
+    settings_hash = _hash(settings or {})
     requests = prediction_requests(rows, content)
     probabilities, pending = _read_cache(requests, directory, model, settings)
-    count = len(pending)
+    recovered = {}
+    for digest in pending:
+        committed = _committed(repository, model, settings_hash, digest)
+        if committed is not None:
+            recovered[digest] = committed
+    count = len(pending) - len(recovered)
     estimate = SpendEstimate(
         candidates=count, calls=count, total_tokens=count * estimate_per_prediction.total_tokens,
         estimated_usd=count * estimate_per_prediction.estimated_usd
@@ -254,8 +374,8 @@ def prepare_zero_data_probabilities(
     summary = {
         "status": "dry_run" if dry_run else "complete", "model": model,
         "prompt_version": PROMPT_VERSION, "task": TASK, "predictions": len(requests),
-        "cached": len(probabilities), "invalid": 0, "caps": caps.as_dict(),
-        "settings_hash": _hash(settings or {}), "estimate": asdict(estimate),
+        "cached": len(probabilities), "recovered": len(recovered), "invalid": 0,
+        "caps": caps.as_dict(), "settings_hash": settings_hash, "estimate": asdict(estimate),
         "charged": asdict(budget.used),
         "billing": "subscription" if subscription else "metered",
         "cost_basis": ESTIMATED_ONLY if subscription else "metered_caps",
@@ -267,22 +387,38 @@ def prepare_zero_data_probabilities(
         else None
     )
     try:
+        if not dry_run:
+            # Publish what was already paid for before admitting anything new.
+            for digest, (judgment_id, probability) in recovered.items():
+                _publish(pending[digest][1],
+                         _checkpoint(model, settings_hash, digest, judgment_id, probability))
+                probabilities[digest] = probability
         budget.check(estimate)
         if dry_run:
             return None, summary
-        directory.mkdir(parents=True, exist_ok=True)
         for digest, (request, path) in pending.items():
-            usage, physical_calls = {}, 0
+            if digest in probabilities:
+                continue
+            # A preparation of this vault on another cache may have committed it since.
+            committed = _committed(repository, model, settings_hash, digest)
+            if committed is not None:
+                _publish(path, _checkpoint(model, settings_hash, digest, *committed))
+                probabilities[digest] = committed[1]
+                summary["recovered"] += 1
+                continue
+            parents, reported, physical_calls = {}, {}, 0
 
             def observe(action, event):
                 nonlocal physical_calls
-                if action == "start" and not subscription and (
-                    event.get("purpose") == "chat_request"
-                    or str(event.get("purpose", "")).endswith(":sdk_turn")
-                ):
-                    if physical_calls:
-                        raise SpendLimitExceeded("Hidden zero-data probability retries are prohibited")
-                    physical_calls += 1
+                if action == "start":
+                    parents[event["id"]] = event.get("parent_call_id")
+                    if not subscription and (
+                        event.get("purpose") == "chat_request"
+                        or str(event.get("purpose", "")).endswith(":sdk_turn")
+                    ):
+                        if physical_calls:
+                            raise SpendLimitExceeded("Hidden zero-data probability retries are prohibited")
+                        physical_calls += 1
                 if action != "start" and subscription:
                     event = {**event, "usage_json": json.dumps({
                         **json.loads(event.get("usage_json") or "{}"),
@@ -293,9 +429,9 @@ def prepare_zero_data_probabilities(
                     }, sort_keys=True)}
                 repository.record_model_event(action, event, owner_kind=TASK, owner_id=digest)
                 if action == "finish":
-                    for name in ("input_tokens", "output_tokens", "cost"):
-                        if event.get(name) is not None:
-                            usage[name] = max(usage.get(name, 0), event[name])
+                    values = {name: event[name] for name in _USAGE if event.get(name) is not None}
+                    if values:
+                        reported[event["id"]] = values
 
             with budget.request(replace(estimate_per_prediction, candidates=1)) as charge:
                 with observe_model_calls(observe):
@@ -305,6 +441,7 @@ def prepare_zero_data_probabilities(
                         with model_call(client, purpose=TASK, prompt=request):
                             raw = dict(predict(request))
                     finally:
+                        usage = _physical_usage(parents, reported)
                         tokens = sum(usage.get(name, 0) for name in ("input_tokens", "output_tokens"))
                         cost = usage.get("cost")
                         if (tokens and estimate_per_prediction.total_tokens
@@ -320,19 +457,15 @@ def prepare_zero_data_probabilities(
                 probability = None
             with repository.connection() as connection:
                 judgment_id = append_judgment(
-                    connection, task=TASK, left_kind="offline_prediction", left_id=digest,
+                    connection, task=TASK, left_kind=LEFT_KIND, left_id=digest,
                     judge="llm", judge_model=model, prompt_version=PROMPT_VERSION,
-                    input_hash=digest, verdict=json.dumps(raw, sort_keys=True), score=probability,
+                    input_hash=_identity(model, settings_hash, digest),
+                    verdict=json.dumps(raw, sort_keys=True), score=probability,
                 )
             if probability is None:
                 summary["invalid"] += 1
                 continue
-            checkpoint = {"model": model, "input_hash": digest, "prompt_version": PROMPT_VERSION,
-                          "settings_hash": _hash(settings or {}), "p_success": probability,
-                          "judgment_id": judgment_id}
-            temporary = path.with_suffix(".tmp")
-            temporary.write_text(json.dumps(checkpoint, sort_keys=True), encoding="utf-8")
-            temporary.replace(path)
+            _publish(path, _checkpoint(model, settings_hash, digest, judgment_id, probability))
             probabilities[digest] = probability
     except AIInterrupted:
         summary["status"] = "cancelled"
