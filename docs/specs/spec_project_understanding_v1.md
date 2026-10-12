@@ -279,7 +279,7 @@ Follows the `CLAUDE.md` head-fixture procedure and is classified in `db/table_ro
 | `project_capture_queue` | WORKFLOW (pending captures from hooks and sweeps) |
 
 - **M1 rows are imported once** (`learnloop project import-experiment`).
-- **Probes become PF `source_anchored` family items** (Slice 2 §5.1): `PracticeFamily` under one LO per enrolled repo, with items carrying `family_id` and `variant_relation`. They are administered through the normal attempt path, so they need no project-specific tables.
+- **Probes become PF `source_anchored` family items** (Slice 2 §5.1): an `ActivityFamily` (purpose `practice`) under one LO per enrolled repo, with items carrying `family_id` and `variant_relation`. They are administered through the normal attempt path, so they need no project-specific tables.
 
 ### 6.3 Coldness of repo-derived probes
 

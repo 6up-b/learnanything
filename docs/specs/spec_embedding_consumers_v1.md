@@ -261,11 +261,11 @@ So hand-built effort goes into a small set of **verifier contracts** (§5.4), no
 
 ### 5.1 The family contract
 
-A **practice family** is one idea with a fixed retrieval target, plus its variants. It is a new vault model, `PracticeFamily` (vault content, hashed like items):
+A **practice family** is one idea with a fixed retrieval target, plus its variants. It is an activity family with purpose `practice` (P12, decided: one family concept, see "Where families live" below). Its authored content is a new vault model, `ActivityFamily` (vault content, hashed like items):
 
 | Field | Meaning |
 |---|---|
-| `id` | The `idea_id` |
+| `id` | The `activity_families` id (the idea id) |
 | `learning_object_id` | Owning LO |
 | `idea_statement` | LLM-written, owner-editable |
 | `retrieval_target` | What a cold attempt must produce. Examples: "the full solution from setup to final answer"; "the reason the authors chose X over Y, as stated in §4 and the rebuttal" |
@@ -286,11 +286,33 @@ The generator declares `variant_relation`, and the isomorph judge checks it (§5
 
 Items without a family keep today's behaviour. Vaults with no families load and rebuild unchanged (correctness gate, §13).
 
+**Where families live** (P12, decided by the owner 2026-10-11: merge the terms). PF adds no parallel family table and no second identity. It builds on the activity-lineage substrate that is already live for mvp-0.8+ vaults (migrations 065, 075, 077, 078):
+
+| Level | Existing substrate | PF meaning |
+|---|---|---|
+| Family | `activity_families` (purpose fixed for life; immutable versions) | The idea: one retrieval target. Its authored content is versioned with the family |
+| Card | `activity_cards`, with the card lineage that owns scheduling state (075: "a surface never owns FSRS state") | What memory state attaches to |
+| Surface | `activity_surfaces` (`surface_hash` and `fingerprint`) | One concrete question |
+
+- **Today** every item resolves to its own family → card → surface (`substrate/activities.py` `resolve_legacy_item`, keyed on purpose and item id). PF groups the cards of existing items under one idea family. RAW_LEDGER rows are never rewritten; regrouping is recorded additively, and undo removes the grouping.
+- **Each item keeps its own card** until Phase 3b. Whether family members share memory state is exactly the §5.2 replay question. If 3b goes live, the shared key reuses the card-lineage state machinery where it fits rather than adding a second scheduling authority, behind its kill switch. Published PF-b items are ordinary vault items, so they also get their own cards.
+- **Reused instead of rebuilt:**
+  - the fingerprint namespaces (077: `shared_stimulus`, `source_example`, `solution_recipe`, `parameter_template`, …) for the exact and structural keys of the freshness gate (§5.4);
+  - the familiarity projection for warmth;
+  - the durable mint-job pattern (078) for background generation.
+- **Practice pools (085) are owner-admitted.** For PF families, auto-accept with undo (§5.2) replaces that admission step.
+- **Diagnostic and assessment reuse** of an item keeps its own purpose-specific family, as today. The shared `surface_hash` already blocks manufactured novelty.
+
+The Phase 3 agent confirms three mechanics first and stops for the owner only if the mapping doesn't fit:
+1. whether `activity_card_state` or `practice_item_state` is the live scheduling authority for the owner's vaults (`substrate_cutover.purpose_adapters_live`);
+2. how to record regrouping additively;
+3. where the authored family content is stored: vault content keyed by the family id, or `activity_family_versions.family_spec_json`. The existing rule is that authored content lives in the vault and SQLite holds identity.
+
 **Hash compatibility** (revised 2026-10-11):
 - **Scheduling hash unchanged.** `family_id` and `variant_relation` are not in `practice_item_hash`'s field whitelist (`vault/hashes.py`), so scheduling hashes and lineage keep their meaning.
 - **Byte-identical serialization.** Items without a family must serialize byte-identically: unset family fields are omitted, never written as null.
 - **Expected difference.** Full-item snapshot hashes (`practice_item_snapshots`, keyed by the item JSON) change only for items that gained family fields. That is documented, not a rebuild-equivalence failure.
-- **Separate versioning.** Family metadata is versioned on `PracticeFamily`.
+- **Separate versioning.** Family metadata is versioned on `ActivityFamily`.
 
 **Evidence:**
 - Spacing helped practiced items only when practice overlapped the earlier retrieval; distinct sibling questions removed the benefit (PsyArXiv g97u4, 1,050 students).
@@ -640,7 +662,7 @@ New tables use the next free migration numbers after Slice 1's 166, following th
 | `source_block_fts` (FTS5) | DERIVED (rebuild owner registered) | T6 |
 
 **Vault content changes (PF):**
-- a new `PracticeFamily` model, holding the generator program text and hash for `generator` families;
+- a new `ActivityFamily` model (the authored content of an activity family, P12), holding the generator program text and hash for `generator` families;
 - optional `PracticeItem.family_id` and `PracticeItem.variant_relation`;
 - a new `difficulty_source` value, `"solver_panel"`.
 
@@ -713,7 +735,7 @@ Report-based, with a noise floor, as in Slice 1 §13.
 | P8 | Family backfill: propose families for existing items, or only for newly generated items? | Existing items, with the exhaustive within-LO judge. *Revised 2026-10-11:* auto-accept confident families with one-step undo; ambiguous items stay unfamilied; no review queue |
 | P9 | ~~May an `unverified` reference ever certify cold evidence?~~ | **Resolved 2026-10-11:** unverified candidates are never published |
 | P10 | Solver panel composition and cost | 2–3 models at different tiers, ~3 solves each per candidate, at mint time only. Drop to one tier if the pilot shows the panel rarely changes selection |
-| P12 | How does `PracticeFamily` relate to the existing activity-lineage substrate? That substrate (`migrations/065_activity_lineage_substrate.sql`) already has `activity_families` → `activity_cards` → `activity_surfaces` as authoring and presentation identity, with exposure and reservation tracking | Decide before PF-a. The two "families" mean different things: 065's is authoring identity, keyed on purpose + kind + title; PF's is a shared retrieval target. Map PF variants onto 065 cards/surfaces if they fit, rather than adding parallel identity, and rename PF's concept (e.g. `idea`) if the name collides in code |
+| P12 | How does the practice family relate to the existing activity-lineage substrate (`migrations/065_activity_lineage_substrate.sql`: `activity_families` → `activity_cards` → `activity_surfaces`, with lineage, exposure and reservation tracking)? | **Decided (owner, 2026-10-11): merge the terms.** One family concept: a practice family is an `activity_families` row with purpose `practice`; cards carry memory state; surfaces are concrete questions. The vault model is `ActivityFamily`. Mapping and the three mechanics the Phase 3 agent confirms are in §5.1 "Where families live" |
 | P11 | Does `isomorph` count as a maintenance rep in `family_memory_state`, or only `same_target`? | Both in the shadow state. The replay's variant-distance covariate tests whether isomorphs should be discounted |
 | P6 | Same-cause judge: separate LLM call for out-of-context pairs, or rely on diagnoser links only? | Both, as specified. Drop the separate judge if B3 shows diagnoser links alone recover nearly all confirmed recurrences |
 
