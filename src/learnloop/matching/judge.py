@@ -5,6 +5,12 @@ the caller, which owns spend admission (``ai.spend`` caps, a dry run that
 sends nothing), the route's client and model-call receipts, so this module
 stays free of any domain.
 
+**Judge label.** The ledger's ``judge`` is the executor's (``executor.judge``,
+default ``llm``): a later stage can log a second judge beside the LLM on the
+same pairs, and reuse, claims and supersession are per label. (A ``decider``
+label also needs ``judgment_ledger``'s CHECK widened; T1's groups read only the
+labels in their authority map.)
+
 **Producer identity.** An executor names the producer it will ask
 (``executor.producer``: the judge model its route resolves to) before any
 call. Reuse is per producer: a pair judged by model A is not "already judged"
@@ -69,8 +75,16 @@ class SameOrDifferent(WireModel):
     rationale: str = Field(description="One or two sentences naming what makes them the same or different.")
 
 
+#: The ``judgment_ledger.judge`` an executor writes unless it names another.
+DEFAULT_JUDGE = "llm"
+
+
 class Executor(Protocol):
-    """One admitted, isolated structured call; ``producer`` is known before it."""
+    """One admitted, isolated structured call; ``producer`` is known before it.
+
+    An executor may also carry ``judge`` (the ledger label of its verdicts,
+    default ``llm``).
+    """
 
     producer: str
 
@@ -111,10 +125,10 @@ def pair_input_hash(kind: MatchKind, left: Subject, right: Subject) -> str:
     )
 
 
-def claim_key(kind: MatchKind, producer: str, input_hash: str) -> str:
+def claim_key(kind: MatchKind, producer: str, input_hash: str, *, judge: str = DEFAULT_JUDGE) -> str:
     """The work item: one question to one producer under one prompt and input."""
 
-    return content_key({"task": kind.task, "judge": "llm", "producer": producer,
+    return content_key({"task": kind.task, "judge": judge, "producer": producer,
                         "prompt_version": kind.prompt_version, "input_hash": input_hash})
 
 
@@ -127,9 +141,10 @@ def _pair_clause(left: Subject, right: Subject) -> tuple[str, tuple[Any, ...]]:
 
 
 def already_judged(
-    connection: Any, kind: MatchKind, left: Subject, right: Subject, *, input_hash: str, producer: str | None
+    connection: Any, kind: MatchKind, left: Subject, right: Subject, *, input_hash: str, producer: str | None,
+    judge: str = DEFAULT_JUDGE,
 ) -> bool:
-    """A verdict exists for this pair, prompt and input FROM THIS PRODUCER.
+    """A verdict exists for this pair, prompt and input FROM THIS PRODUCER (and judge label).
 
     ``producer=None`` (a planner that cannot name the producer) matches any
     model; the judge itself always passes its producer.
@@ -137,10 +152,10 @@ def already_judged(
 
     clause, params = _pair_clause(left, right)
     query = (
-        "SELECT 1 FROM judgment_ledger WHERE task = ? AND judge = 'llm' AND prompt_version = ? "
+        "SELECT 1 FROM judgment_ledger WHERE task = ? AND judge = ? AND prompt_version = ? "
         f"AND input_hash = ? AND {clause}"
     )
-    values: tuple[Any, ...] = (kind.task, kind.prompt_version, input_hash, *params)
+    values: tuple[Any, ...] = (kind.task, judge, kind.prompt_version, input_hash, *params)
     if producer is not None:
         query += " AND judge_model = ?"
         values = (*values, producer)
@@ -148,17 +163,17 @@ def already_judged(
 
 
 def _previous_verdict(
-    connection: Any, kind: MatchKind, left: Subject, right: Subject, *, producer: str
+    connection: Any, kind: MatchKind, left: Subject, right: Subject, *, producer: str, judge: str = DEFAULT_JUDGE
 ) -> tuple[str, Subject, Subject] | None:
     """This producer's latest standing verdict on the pair (id, its orientation)."""
 
     clause, params = _pair_clause(left, right)
     row = connection.execute(
-        "SELECT id, left_kind, left_id FROM judgment_ledger j WHERE task = ? AND judge = 'llm' "
+        "SELECT id, left_kind, left_id FROM judgment_ledger j WHERE task = ? AND judge = ? "
         f"AND prompt_version = ? AND judge_model = ? AND {clause} "
         "AND NOT EXISTS (SELECT 1 FROM judgment_ledger later WHERE later.supersedes_id = j.id) "
         "ORDER BY created_at DESC, rowid DESC LIMIT 1",
-        (kind.task, kind.prompt_version, producer, *params),
+        (kind.task, judge, kind.prompt_version, producer, *params),
     ).fetchone()
     if row is None:
         return None
@@ -202,6 +217,7 @@ def judge_pairs(
     *,
     execute: Callable[..., Any],
     producer: str | None = None,
+    judge: str | None = None,
     rerun: bool = False,
     stop_on: tuple[type[BaseException], ...] = (SpendLimitExceeded, AIInterrupted),
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
@@ -216,6 +232,7 @@ def judge_pairs(
     producer = str(producer or getattr(execute, "producer", "") or "")
     if not producer:
         raise ValueError("judge_pairs needs the producer (the judge model) before any call")
+    label = str(judge or getattr(execute, "judge", None) or DEFAULT_JUDGE)
     owner = f"judge:{uuid4().hex}"
     results: list[JudgedPair] = []
     stopped: str | None = None
@@ -225,10 +242,12 @@ def judge_pairs(
             results.append(JudgedPair(left, right, "not_run", score=pair.score, error=stopped))
             continue
         input_hash = pair_input_hash(kind, left, right)
-        key = claim_key(kind, producer, input_hash)
+        key = claim_key(kind, producer, input_hash, judge=label)
         with repository.atomic():
             connection = repository.connection()
-            if not rerun and already_judged(connection, kind, left, right, input_hash=input_hash, producer=producer):
+            if not rerun and already_judged(
+                connection, kind, left, right, input_hash=input_hash, producer=producer, judge=label
+            ):
                 status, epoch = "already_judged", None
             else:
                 status, epoch = claim_work(
@@ -262,7 +281,7 @@ def judge_pairs(
             if holds_claim(connection, claim_key=key, owner=owner, epoch=epoch):
                 first, second = left, right
                 if rerun:
-                    previous = _previous_verdict(connection, kind, left, right, producer=producer)
+                    previous = _previous_verdict(connection, kind, left, right, producer=producer, judge=label)
                     if previous is not None:
                         supersedes, first, second = previous
                 judgment_id = append_judgment(
@@ -272,7 +291,7 @@ def judge_pairs(
                     left_id=first.id,
                     right_kind=second.kind,
                     right_id=second.id,
-                    judge="llm",
+                    judge=label,
                     judge_model=producer,
                     prompt_version=kind.prompt_version,
                     input_hash=input_hash,
@@ -305,6 +324,7 @@ def _release(repository: Any, key: str, owner: str, epoch: int, now: Callable[[]
 
 
 __all__ = [
+    "DEFAULT_JUDGE",
     "DEFAULT_LEASE_SECONDS",
     "Executor",
     "JudgedPair",

@@ -266,3 +266,58 @@ def test_a_cutoff_applies_only_to_the_vectors_it_was_measured_on():
     other_recipe = SimpleNamespace(cutoff=0.4, dims=4096, recipe="objective/statement@v2", task_prefix="similarity")
     assert compatible_cutoff(other_recipe, kind, model_id=MODEL, dims=4096)[1] == "refused_incompatible"
     assert compatible_cutoff(None, kind, model_id=MODEL, dims=4096) == (None, "top_k_only", None)
+
+
+# -- second review F6: what a later kind (learner-text gaps) needs from the step ----------
+
+#: An ASYMMETRIC kind: a learner's stated prerequisite (an ephemeral query,
+#: embedded once with the query prompt) against stored learning objectives.
+GAPS = MatchKind(
+    name="named prerequisite", task="same_prerequisite_test", subject_kind="learning_object",
+    record_kind="learning_object", field="statement", task_prefix="retrieval-document",
+    route="authoring", purpose="same_prerequisite_test", prompt_version="test-v1",
+    question="Does the stated prerequisite name this learning objective?", guidance="Wording may differ.",
+    query_record_kind="learner_text", query_field="named_gap", query_task_prefix="retrieval-query",
+)
+
+
+def test_an_asymmetric_kind_shortlists_an_ephemeral_query_against_a_pool_of_another_record_kind(repository):
+    from learnloop.matching.kinds import EmbeddingIdentity
+
+    assert GAPS.pool_identity() == EmbeddingIdentity("learning_object", "statement", "retrieval-document", "")
+    assert GAPS.query_identity().task_prefix == "retrieval-query" and not GAPS.symmetric
+    assert KIND.query_identity() == KIND.pool_identity() and KIND.symmetric
+    los = [Subject(kind="learning_object", id=name, text=name, content_hash=f"h-{name}") for name in ("lo_a", "lo_b", "lo_c")]
+    with closing(connect(repository.sqlite_path)) as connection, connection:
+        for subject, vector in zip(los, ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.6, 0.6, 0.0]), strict=True):
+            put_vector(connection, record_kind="learning_object", record_id=subject.id, field="statement",
+                       content_hash=subject.content_hash, model_id=MODEL, task_prefix="retrieval-document",
+                       vector=np.asarray(vector, dtype=float))
+    query = Subject(kind="learner_text", id="question-1", text="I never learned what an eigenvector is",
+                    content_hash="h-q")
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        result = shortlist_pairs(
+            connection, GAPS, queries=[query], pool=los, model_id=MODEL, top_k=2, cutoff=None,
+            compatible=lambda q, c: True, query_vectors={"question-1": np.asarray([0.9, 0.1, 0.0])},
+        )
+    assert [pair.right.id for pair in result.pairs] == ["lo_a", "lo_c"]
+    assert result.queries_without_vector == 0 and result.pool_with_vector == 3
+
+
+class _Verifier(_Judge):
+    judge = "verifier"
+
+
+def test_the_judge_label_is_the_executors_and_reuse_is_per_label(repository):
+    """The ledger's ``judge`` is a parameter of the executor (a later stage
+    logs a second judge, e.g. the Decider, beside the LLM), and a verdict
+    from one judge label is not "already judged" for another."""
+
+    judge_pairs(repository, KIND, _pairs("a"), execute=_Judge(["same"]))
+    results = judge_pairs(repository, KIND, _pairs("a"), execute=_Verifier(["different"]))
+    assert [row.status for row in results] == ["judged"]
+    with repository.connection() as connection:
+        rows = connection.execute("SELECT judge, verdict FROM judgment_ledger ORDER BY rowid").fetchall()
+    assert [tuple(row) for row in rows] == [("llm", "same"), ("verifier", "different")]
+    again = judge_pairs(repository, KIND, _pairs("a"), execute=_Verifier([]))
+    assert [row.status for row in again] == ["already_judged"]

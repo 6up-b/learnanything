@@ -7,6 +7,14 @@ the top ``k`` and, when a benchmark has set one for this model, drop those
 below the blocking cutoff. Pairs the caller says are already settled are
 skipped before ranking, so the judge's budget goes to undecided pairs.
 
+Asymmetric kinds (a query side with its own embedding identity, e.g. a
+learner's stated prerequisite against learning objectives) read the pool's
+stored vectors and take the queries' vectors from that identity or, for a
+query embedded once and never stored, from ``query_vectors``. Two prompt
+spaces have different means, so they are compared by plain cosine (each side
+unit-normalized, not centred); symmetric kinds keep Slice 1 §9.2's
+mean-centring over the population.
+
 The score only chooses which pairs a judge sees. Nothing here merges,
 rejects or skips a judge by score, and a model without a benchmark-set
 cutoff is blocked by top-k alone (cutoffs are never hand-set in code). A
@@ -32,7 +40,7 @@ from typing import Any
 
 import numpy as np
 
-from learnloop.matching.kinds import MatchKind, Subject
+from learnloop.matching.kinds import EmbeddingIdentity, MatchKind, Subject
 
 
 @dataclass(frozen=True)
@@ -166,22 +174,38 @@ def stored_vectors(
     subjects: Sequence[Subject],
     *,
     model_id: str,
+    identity: EmbeddingIdentity | None = None,
 ) -> dict[str, np.ndarray]:
-    """Current vectors (content hash matches) for these subjects, by subject id."""
+    """Current vectors (content hash matches) for these subjects, by subject id.
+
+    ``identity`` defaults to the kind's pool identity.
+    """
 
     wanted = {subject.id: subject.content_hash for subject in subjects}
     if not wanted:
         return {}
+    identity = identity or kind.pool_identity()
     rows = connection.execute(
         "SELECT record_id, content_hash, vector FROM embedding_vectors "
         "WHERE record_kind = ? AND field = ? AND model_id = ? AND task_prefix = ?",
-        (kind.record_kind, kind.field, model_id, kind.task_prefix),
+        (identity.record_kind, identity.field, model_id, identity.task_prefix),
     ).fetchall()
     vectors: dict[str, np.ndarray] = {}
     for record_id, content_hash, blob in rows:
         if wanted.get(str(record_id)) == content_hash:
             vectors[str(record_id)] = np.frombuffer(blob, dtype="<f2").astype(np.float64)
     return vectors
+
+
+def unit_rows(vectors: Mapping[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """Unit-length rows, not centred (asymmetric kinds: two prompt spaces)."""
+
+    out: dict[str, np.ndarray] = {}
+    for key, vector in vectors.items():
+        row = np.asarray(vector, dtype=np.float64)
+        norm = float(np.linalg.norm(row))
+        out[key] = row / norm if norm else np.zeros_like(row)
+    return out
 
 
 def centred_unit(vectors: Mapping[str, np.ndarray]) -> dict[str, np.ndarray]:
@@ -212,31 +236,43 @@ def shortlist_pairs(
     compatible: Callable[[Subject, Subject], bool],
     settled: Callable[[Subject, Subject], bool] | None = None,
     centre_over: Sequence[Subject] | None = None,
+    query_vectors: Mapping[str, np.ndarray] | None = None,
 ) -> Shortlist:
     """Top-k compatible, unsettled pool neighbours of each query.
 
     ``centre_over`` names the population whose mean is removed (default:
     queries plus pool); it should be every current subject of the kind, so a
-    small query batch is centred like the whole vault.
+    small query batch is centred like the whole vault. ``query_vectors``
+    supplies query vectors that were embedded but not stored (by query id);
+    with it, or for an asymmetric kind, queries and pool are compared by plain
+    cosine (see the module notes).
     """
 
     if top_k < 1:
         raise ValueError("top_k must be at least 1")
-    population = {subject.id: subject for subject in (centre_over or [*queries, *pool])}
-    for subject in (*queries, *pool):
-        population.setdefault(subject.id, subject)
-    unit = centred_unit(stored_vectors(connection, kind, list(population.values()), model_id=model_id))
+    if kind.symmetric and query_vectors is None:
+        population = {subject.id: subject for subject in (centre_over or [*queries, *pool])}
+        for subject in (*queries, *pool):
+            population.setdefault(subject.id, subject)
+        unit = centred_unit(stored_vectors(connection, kind, list(population.values()), model_id=model_id))
+        query_unit = unit
+    else:
+        unit = unit_rows(stored_vectors(connection, kind, list(pool), model_id=model_id))
+        query_unit = unit_rows(
+            query_vectors if query_vectors is not None
+            else stored_vectors(connection, kind, list(queries), model_id=model_id, identity=kind.query_identity())
+        )
     result = Shortlist(model_id=model_id, top_k=top_k, cutoff=cutoff, queries=len(queries))
     pool_with_vector = [subject for subject in pool if subject.id in unit]
     result.pool_with_vector = len(pool_with_vector)
     for query in queries:
-        vector = unit.get(query.id)
+        vector = query_unit.get(query.id)
         if vector is None:
             result.queries_without_vector += 1
             continue
         scored: list[tuple[float, str, Subject]] = []
         for candidate in pool_with_vector:
-            if candidate.id == query.id or not compatible(query, candidate):
+            if (candidate.id == query.id and candidate.kind == query.kind) or not compatible(query, candidate):
                 continue
             if settled is not None and settled(query, candidate):
                 result.skipped_settled += 1
@@ -263,4 +299,5 @@ __all__ = [
     "shortlist_pairs",
     "stored_vectors",
     "stored_width",
+    "unit_rows",
 ]

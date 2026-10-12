@@ -9,12 +9,13 @@ no-chaining refusal. Below the domains: it imports only ``ai`` and ``db``.
 """
 
 from learnloop.matching.judge import JudgedPair, SameOrDifferent, judge_pairs, pair_input_hash, pair_prompt
-from learnloop.matching.kinds import MatchKind, Subject, VERDICTS
+from learnloop.matching.kinds import EmbeddingIdentity, MatchKind, Subject, VERDICTS
 from learnloop.matching.shortlist import CandidatePair, Shortlist, shortlist_pairs
 from learnloop.matching.union import Refusal, UnionEdge, UnionResult, union_with_refusals
 
 __all__ = [
     "CandidatePair",
+    "EmbeddingIdentity",
     "JudgedPair",
     "MatchKind",
     "Refusal",
