@@ -122,3 +122,100 @@ Run on the fix commits (`56054049`..`77991b93`), before the documentation commit
 1. Should the diagnoser's validated `registry_match` on a shortlisted belief from another LO merge the event into that belief? Normalization's LO/confusable scope is unchanged for now.
 2. Live diagnosis on a metered route needs a known price (fail closed). Add a `diagnosis.price_per_million` config field, or keep the per-command `--price-per-million`?
 3. Non-practice graders in split vaults use the mvp-2.0 blind prompt without the PF-c reference policy (teach-back grades transcripts, exams grade under time). Should PF-c extend to them?
+4. `diagnose drain` now admits a diagnosis's retrieval embeddings on the command's caps (F12). Embed-on-write jobs (`--kind embed`) still run under their own per-job caps, reported in the plan's `embed` block. Should they move onto the command budget too?
+
+## Re-review
+
+Codex re-review `codex-agent/jobs/20261012-064814-gAd2OZ` of `5aed28d7..slice-1/m2` (at `e83396be`).
+
+- **Confirmed fixed:** F1, F2, F3 and F4 (the four Highs).
+- **Confirmed as claimed:** F5 to F10.
+- **Reopened:** three new Medium findings, F11 to F13.
+
+Each new finding was first reproduced with a test that failed on the unfixed source, then fixed. Tests use fakes only. The live smoke test below made real calls on a fixtures-local backup copy.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F11 | Medium | Blind teach-back grades retain the joint calibration identity | fixed | `8ed33443` | `tests/test_teach_back.py`: `test_a_teach_back_grade_is_calibrated_and_replayed_under_its_graders_identity` (split and joint), `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`; `tests/test_exam_session.py`: `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity` (split and joint) |
+| F12 | Medium | Registry retrieval bypasses the new command spend caps | fixed | `af8676ad`, `106be2bf` | `tests/test_diagnosis_reports.py`: `test_retrieval_embeddings_are_admitted_and_charged_on_the_command_budget`, `test_retrieval_never_takes_the_call_a_queued_diagnosis_needs`, `test_an_attempt_scoped_command_reserves_only_its_own_diagnosis` |
+| F13 | Medium | Failed diagnoses are recorded as available at serve time | fixed | `6f422031` (DB reference: `962df33e`) | `tests/test_diagnosis_async_router.py`: `test_a_failed_or_budget_skipped_diagnosis_is_unavailable_at_the_serve` |
+
+No finding was rejected.
+
+### What changed, by finding
+
+- **F11 (calibration identity).**
+  - **Reproduced.** In a split vault:
+    - a blind teach-back grade stamped `grading_prompt_v1` / `grading_proposal_v1` on its raw grade, and every soft-score lookup (live and replay) selected that pair;
+    - a teach-back regraded blind replayed under the joint pair;
+    - exam answers had the same defect: the same F2 change made them blind, and they took the same fix.
+  - **Teach-back.** `_grade_and_apply_transcript` passes `vault_grading_calibration_identity(vault)` into `ApplyAttemptInput.grader_identity`. In a split vault that is the blind mvp-2.0 pair (`grading_prompt_v2_blind`, `blind_grading_proposal_v1`); it has no PF-c, so it is not the 2.1 pair. A joint vault gets None. The raw grade and the calibration lookup both use it.
+  - **Exams.** `record_exam_answer` stores the identity with the grade (`calibration_identity`, only when it is not the joint grader's). `finish_exam` stamps it on the raw grade.
+  - **Replay.** `replay_grader_identity` reads, in order:
+    1. the blind record, as before;
+    2. else the attempt's newest primary raw grade, when it carries the blind output schema;
+    3. else None (joint).
+    `raw_grade_events` is a raw ledger, so no config is read. Teach-back writes no blind record, so this is where its identity lives.
+  - **Teach-back regrades.** A teach-back regrade passes its new grade's identity to its own replay through `replay_learning_object(grader_identity_overrides=...)`. That replay stamps it on the raw grade it appends, so later rebuilds read it.
+  - **Joint vaults replay exactly as before.** Only a blind-schema raw grade changes the replay identity. None of the joint fixture copies under `fixtures-local/c1-*-base` has one (0 of 307 raw grades across 9 copies).
+- **F12 (retrieval on the command budget).**
+  - **Reproduced.** A `--max-tokens 0 --max-cost-usd 0` drain on an embeddings-on vault sent 2 embedding requests: a registry batch and its query. Neither was charged.
+  - **Admission.** With a command budget, every retrieval embedding request is admitted and charged on it (`register_retrieval_route`):
+    - route `embedding`, metered;
+    - the published price wins over `--price-per-million`, which is for an unknown price; an unknown price still fails closed;
+    - the subscription exception stays with the diagnosis route.
+  - **The reserve rule.** Retrieval is optional (S6), so a request is admitted only while every queued diagnosis still fits after it. Each needs a call plus its output limit; an `--attempt` drain or a `retry` reserves only its own. A refusal sends nothing, and that diagnosis uses the exact set (`exact_fallback`, `SpendLimitExceeded`).
+  - **Metering.** The hybrid index's centring embeds now run inside the diagnosis's observer, so they are metered and receipted.
+  - **Dry run.** `drain` and `retry --dry-run` add a `retrieval` block: requests, input tokens, cost, and whether it fits beside the diagnoses. It is an upper bound mirroring the retriever: missing vectors in batches of 32, plus one query per index, with vectors an earlier planned diagnosis embeds counted once. `admissible` still covers the diagnoses, the command's required work.
+  - **Unchanged.** Without a command budget (sidecar worker, inline path), per-job `RETRIEVAL_CAPS` apply as before. The `--max-calls`, `--max-tokens` and `--max-cost-usd` help now names retrieval; the help snapshot is regenerated.
+- **F13 (E7 availability).**
+  - **Reproduced.** For a required diagnosis that failed or was skipped for budget, the serve receipt said `served_without_diagnosis = false`. An attempt a regrade left `not_needed` still produced a receipt.
+  - **The fix.** `session_diagnosis_availability` reads each session attempt's `diagnosis_status`, which follows the diagnosis in force:
+    - `done` is available;
+    - `pending` (queued, running) and `failed` (failed, budget-skipped, rejected, or written for a superseded grade) are not;
+    - `not_needed` is outside the population; a session with no required diagnosis writes no receipt.
+  - **The receipt.** `pending_attempt_ids_json` now names every unavailable attempt. There is no schema change: the migration-167 comment and the report's population label were updated, and the DB reference regenerated.
+
+### Deviations and notes
+
+1. **Embed-on-write jobs are not on the command budget.** They keep their per-job caps, as F5 left them; see open question 4. F12 covers the embedding requests a diagnosis makes.
+2. **The diagnosis reserve is approximate on a metered diagnoser.** It holds back each queued diagnosis's call and output limit, but not its input tokens. A tight token cap on a metered diagnosis route can still release a later job as `over_budget`, unspent. On the default subscription route the reserve is exact (calls only).
+3. **The grading-epoch contract the learner field reads is unchanged.** No `grading_evidence` write changed. F11 changes only the calibration identity stamped on non-practice blind raw grades in split vaults.
+4. **Charges are reservations.** A run charges each admitted embedding request at its admission estimate (reservations are never refunded, `ai/spend.py`). Each receipt records the reported usage and cost.
+
+### Live smoke test (paid calls, fixtures-local copy)
+
+Run on `fixtures-local/m2-linear_algebra`, the M2 backup-API copy (mvp-0.10, `history_mode = "hybrid"`, embeddings on). The tracked vaults were never written.
+
+| Step | Result |
+|---|---|
+| `learnloop attempt pi_axiom_commutative_recall_02 --ai-provider codex_low --no-diagnose` (a wrong answer) | Codex blind grade in 26 s, score 0, diagnosis queued |
+| `diagnose drain --kind diagnose --max-tokens 0 --max-cost-usd 0 --dry-run` | 1 diagnosis admissible; retrieval 1 request, 801 tokens, `fits: false` (`total_tokens exceeds max_total_tokens`) |
+| the same drain, run | diagnosis completed (52 s); hybrid retrieval `exact_fallback` (`SpendLimitExceeded`); 0 embedding requests, no embedding receipt; charged 1 call, 0 metered tokens, $0 |
+| a second wrong answer, then `diagnose drain --kind diagnose --dry-run` | retrieval 2 requests (the first answer's divergence vector, then the query), 1,651 tokens, $0.0000165, fits |
+| the same drain, run | diagnosis completed (34 s), hybrid `knn`; 2 embedding requests admitted, charged and receipted under the attempt (312 tokens reported, $0.0000031); charged 3 calls, 1,651 metered tokens, $0.0000165 |
+
+Calls since 15:25 UTC:
+
+- **Codex:** 2 blind-grading turns (31,734 in / 2,240 out) and 2 diagnosis turns (33,084 in / 3,379 out), with no JSON repairs. This is the owner's subscription, `estimated_only`.
+- **OpenRouter:** 2 embedding calls (312 tokens), $0.0000031.
+
+### Re-review gate
+
+Run on the fix commits (`6f422031`..`962df33e`), before this documentation commit.
+
+- `uv sync --extra dev`, `uv pip install pypdfium2`: done.
+- `uv run lint-imports --no-cache`: **8 kept, 0 broken**.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **6561 passed**, 0 failed, 169 s.
+  - The run added `-q -p no:cacheprovider`, which changes neither selection nor counts.
+  - That is 9 more than the first fix gate's 6552: the new tests listed above (F11 is 5 test cases, F12 is 3, F13 is 1).
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`: **72 passed**, 6489 deselected, 47 s.
+- **Frontend:** not rerun. Nothing under `apps/` or `learnloop_mobile` changed.
+- **Schema:** unchanged. The only migration edit is the comment above `diagnosis_wait_receipts` (F13).
+  - `db_generate_reference.py`: 268 table notes.
+  - `db_validate_reference.py`: `errors: []`.
+  - `validate_vault.py`: passed (1,031 notes).
+  - `module_validate.py`: every wikilink and source link resolved.
+- **CLI help snapshot** (`tests/cli_help_snapshot.json`): regenerated for the `diagnose drain` and `diagnose retry` help text (F12).
