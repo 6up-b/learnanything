@@ -274,7 +274,51 @@ switches on). Tracked fixtures are untouched.
   line 32). The report, like the backfill, refuses vaults with validation
   issues; the owner should run doctor on the live vault first.
 
-## 5. Owner-run commands (live vaults stay the owner's)
+## 5. Gate (run on `36c3b0f4`, clean tree)
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | ok |
+| `uv run lint-imports --no-cache` | **10 contracts kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,111 passed**, 14 existing warnings, 202 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **69 passed**, 7,042 deselected |
+| T5 modules (`test_graph_nomination*.py`, 31 tests) with `--durable-sqlite` | 31 passed |
+| DB/config reference generate + validate | schema head 168, 266 table notes, **552** config leaves (was 545), zero errors; global docs-vault validator passed |
+| Frontend | not touched (no `npm` run needed) |
+
+The first full run (on `f381ea28`) had 9 failures, all fixed in `9b5476a5`:
+the parameter-registry audit requires every numeric config leaf to be
+classified (`graph_nomination.*` is now structural/operational, beside
+`families.*`), and `request_concept_graph_structuring(None, None)` in
+`test_model_usage_report.py` dereferenced the context. The reference pages were
+then regenerated (line anchors into `parameter_registry.py` moved).
+
+New tests: `tests/test_graph_nomination.py` (19), `tests/test_graph_nomination_ingest.py`
+(7), `tests/test_graph_nomination_report.py` (5), with the fake in
+`tests/embedding_fakes.py` (`BagOfWordsEmbedder`, signed word hashing, so shared
+words mean nearby vectors). `tests/test_embedding_backfill.py` was updated for
+the two new recipes; `tests/cli_help_snapshot.json` regenerated (only the
+`embeddings` group and the new command changed).
+
+## 6. Files touched
+
+- New: `src/learnloop/content/synthesis/graph_nomination.py`,
+  `src/learnloop/ops/graph_nomination_report.py`, `tests/embedding_fakes.py`,
+  the three T5 test modules, this file, and the generated
+  `Reference/Configuration/Fields/Config - graph_nomination.md`.
+- Changed: `ai/embedding.py`, `ops/embedding_backfill.py`,
+  `db/stores/embedding_vectors.py`, `vault/embedding_recipes.py`,
+  `config/schema.py`, `config/template.py` (fingerprint snapshot, with its
+  decision comment), `params/parameter_registry.py`,
+  `content/synthesis/{ai_contracts,append_neighborhood,source_append,source_set_synthesis,synthesis_gates,facet_doctor,facet_candidates}.py`,
+  `ops/doctor.py`, `cli/app.py`, `cli/embeddings.py`,
+  `tests/test_embedding_backfill.py`, `tests/cli_help_snapshot.json`,
+  `_scripts/db_generate_reference.py` (section description), the prose leaf
+  counts in `Configuration.md` / `Database.md`, and the regenerated reference
+  notes (commit stamps and line anchors).
+- Migrations: none.
+
+## 7. Owner-run commands (live vaults stay the owner's)
 
 Enable on the vault first (`learnloop.toml`): `[embedding] enabled = true`,
 `backfill_enabled = true`, an `openrouter_embedding` profile and
@@ -299,7 +343,7 @@ After the backfill, every synthesis and append run nominates live (capped per
 run). The report's `ingest` block then counts those runs, and the ledger block
 the structuring model's `same_concept` decisions.
 
-## 6. Open questions
+## 8. Open questions
 
 1. **Blocking cutoffs.** The report records cosine-at-recall per model and
    kind. Should a later change let review passes or the append neighbourhood
