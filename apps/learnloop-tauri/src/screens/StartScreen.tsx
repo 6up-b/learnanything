@@ -1828,9 +1828,9 @@ export function StartScreen({
 
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-            <span style={{ padding: "8px 14px", border: `1px solid ${COLOR.border}`, fontSize: 13, color: COLOR.textDim, cursor: "pointer" }}>
-              postpone
-            </span>
+            {/* No "postpone" control: nothing can defer a session (no reminder,
+                no deferred start, no sidecar method), and the tabs already leave
+                Start without beginning one. Daily-loop audit 2026-10-11. */}
             <span
               onClick={begin}
               style={{
