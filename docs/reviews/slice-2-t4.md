@@ -207,15 +207,20 @@ public function with identical behaviour.
    persisted history, so no serving path ever embeds.
 2. **Tutor floor definition.** Spec §7 describes the floor as "token recall ≥
    0.8". Live, a tutor answer also debits the reveal ledger by its overlap,
-   and a debit of 0.35 or more alone primes the next attempt. The real run
-   (below) showed that both judge-confirmed reveals sat at about 0.56. Counting
-   only the 0.8 flag would have reported them as missed when the live path had
-   already protected the cold evidence. The report counts either as caught,
-   records `leak_suspected` and `live_reveal_amount` separately, and names the
-   rule in the manifest (`tutor_floor_rule`). A turn from before the reveal
-   ledger (migration 154, `leak_overlap` NULL) was never debited, so its live
-   floor is the 0.8 flag alone. Today's lexical rule still shortlists it for
-   the judge.
+   and a debit of 0.35 or more alone primes the next attempt. Counting only
+   the 0.8 flag would report as missed a reveal the live path had already
+   protected. So the report's `floor` means "the live path protected this
+   answer": the 0.8 flag, or a persisted debit of at least
+   `AUTO_PRIME_REVEAL_THRESHOLD`. The manifest names the rule
+   (`tutor_floor_rule`).
+   - A turn from before the reveal ledger (migration 154, `leak_overlap`
+     NULL) was never debited, so its live floor is the 0.8 flag alone, and
+     its `live_reveal_amount` is 0.
+   - Today's lexical rule (overlap recomputed, at least 0.35) still
+     shortlists such a turn for the judge, as reason `lexical`.
+   - The real run below is exactly this case. The first build counted the
+     recomputed overlap as a debit and wrongly reported both reveals as
+     protected; this was fixed before the final run.
 3. **Exam leakage scans generated items only** (`codex_proposal`,
    `canonical_extract`), per §7's "generated practice". Hand-authored and
    imported items are out of scope.
@@ -246,10 +251,13 @@ this worktree's tracked fixtures. Nothing touched `fixtures/linear_algebra`,
    vector sits beside a real model's) and a fake word-overlap judge. The
    script is in the session scratchpad.
 
-   | Copy | Records embedded | Judge calls (dry → run) | Tutor answers | Shortlisted | Decided | Rerun |
+   Final code. The first build's run is resumed: embeddings and earlier
+   verdicts are cached.
+
+   | Copy | Records embedded | Tutor answers | Shortlisted (lexical / rank) | Judge calls, cumulative | Decided | Rerun |
    |---|---|---|---|---|---|---|
-   | linear_algebra | 139 | 5 → 5 | 10 | 5 | 2 clean, 3 unsure | 5 cached, 0 calls |
-   | probability | 162 | 3 → 3 | 5 | 3 | 1 clean, 2 unsure | 3 cached, 0 calls |
+   | linear_algebra | 139 | 10 | 7 (4 / 5) | 7 | 3 clean, 4 unsure | all 7 cached, 0 calls |
+   | probability | 162 | 5 | 3 (2 / 3) | 3 | 1 clean, 2 unsure | all 3 cached, 0 calls |
 
    In both copies, exam leakage and reader reveal reported `no_targets`: the
    fixtures have no exam-role sources and no live assessment reserves.
@@ -263,21 +271,24 @@ this worktree's tracked fixtures. Nothing touched `fixtures/linear_algebra`,
      embedded.
    - **`contamination report`**: the dry run planned 9 calls on `codex`
      (`gpt-5.6-sol`, subscription). The real runs made **10 Codex calls** (9,
-     then 1 more after the tutor-floor change shortlisted one floor-only
-     pair): 105,268 input and 947 output tokens reported, cost
+     then 1 more after the tutor-floor change shortlisted one pair by the
+     lexical rule alone): 105,268 input and 947 output tokens reported, cost
      `estimated_only` (subscription), about 54 s for the first 9.
-   - **Result on this copy:**
+   - **Result on this copy (final code; all verdicts cached, no new
+     call):**
      - 10 tutor answers, all with vectors;
-     - 4 caught by the floor;
-     - 10 pairs shortlisted (9 by rank, 4 by the floor);
-     - the judge found 2 reveals and 8 clean;
-     - agreement: `floor_and_shadow` 2, `floor_only` 2 (the floor over-primes),
-       `shadow_only` 0;
-     - no proposals.
+     - all 10 predate the reveal ledger, so the live floor protected none;
+     - 10 pairs shortlisted (9 by rank, 4 by today's lexical rule);
+     - the judge found **2 reveals** and 8 clean;
+     - agreement: `shadow_only` 2;
+     - two `reveal_debit` proposals, live amount 0.0, no next attempt yet.
 
-     So on this small copy the floor missed no paraphrased reveal, and the
-     rank shortlist is near-exhaustive (9 of 10), as a recall-first rule should
-     be at this size.
+     The two reveals have a recomputed overlap of about 0.56, so today's floor
+     would now debit them; they are history-only gaps from before the ledger.
+     The rank shortlist is near-exhaustive at this size (9 of 10), as a
+     recall-first rule should be. The judge-confirmed reveals scored 0.34 to
+     0.83 against 0.19 to 0.80 for clean pairs, so no single cosine separates
+     them, which supports R4's rule that scores never decide.
 
 Total paid spend this stage: **$0.000114 metered**, plus 10 subscription judge
 calls.
@@ -356,9 +367,13 @@ here.
 2. **Owner verdicts.** Should a `learnloop contamination verdict <judgment-id>
    reveal|clean` command record owner audits (`judge='owner'`, superseding)?
    The report already ranks them first.
-3. **Floor over-priming.** The real copy showed 2 of 4 floor catches judged
-   clean: overlap-based debits prime attempts the judge would not. Is that
-   worth a later report, or is over-priming the accepted cost of a generous
-   floor?
-4. **Exam scope.** Should hand-authored and imported items also be scanned for
+3. **Floor over-priming.** On the real copy, today's lexical rule flagged 4
+   turns and the judge called 2 of them clean: overlap-based debits would
+   prime attempts the judge would not. Is that worth a later report, or is
+   over-priming the accepted cost of a generous floor?
+4. **Pre-ledger history.** Turns from before migration 154 were never
+   debited. Should the owner's first report be read with that in mind, and
+   should those `reveal_debit` proposals be applied (debit plus re-prime), or
+   left as history?
+5. **Exam scope.** Should hand-authored and imported items also be scanned for
    held-out leakage? Today only generated items are.
