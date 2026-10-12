@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5a9a9e3d31c99bb1d5aa65b1d5235509915ed81e"
-source_commit_timestamp: "2026-10-12T17:19:24-04:00"
+source_commit: "8fc4dea3cf9af37970a1a03f0c6064a4e1b37a62"
+source_commit_timestamp: "2026-10-12T18:37:04-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -117,7 +117,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `probe.lifecycle.retire_minimum_sample` | `10` | integer | modeled default or validator seed | Sets the minimum retire sample required by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:312`; `src/learnloop/diagnosis/probe_lifecycle.py:130` |
 | `probe.lifecycle.retire_negative_information_rate` | `0.5` | number | modeled default or validator seed | Sets the rate of retire negative information used by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:313`; `src/learnloop/diagnosis/probe_lifecycle.py:132` |
 | `probe.lifecycle.retire_regrade_agreement_floor` | `0.5` | number | modeled default or validator seed | Controls retire regrade agreement floor in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:314`; `src/learnloop/diagnosis/probe_lifecycle.py:141` |
-| `probe.shadow.enabled` | `true` | boolean | modeled default or validator seed | Turns shadow behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **DORMANT** — Shadow-only telemetry has no live selection authority. | `src/learnloop/config/schema.py:325`; `src/learnloop/diagnosis/probe_episodes.py:1074`; `src/learnloop/scheduling/scheduler.py:705` |
+| `probe.shadow.enabled` | `true` | boolean | modeled default or validator seed | Turns shadow behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **DORMANT** — Shadow-only telemetry has no live selection authority. | `src/learnloop/config/schema.py:325`; `src/learnloop/diagnosis/probe_episodes.py:1074`; `src/learnloop/scheduling/scheduler.py:708` |
 | `probe.shadow.top_k` | `3` | integer | modeled default or validator seed | Controls top k in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **DORMANT** — Shadow-only telemetry has no live selection authority. | `src/learnloop/config/schema.py:326`; `src/learnloop/diagnosis/probe_episodes.py:1076` |
 | `probe.block.family_redundancy_penalty` | `0.6` | number | modeled default or validator seed | Controls family redundancy penalty in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:339`; `src/learnloop/diagnosis/probe_episodes.py:784` |
 | `probe.block.max_block_size` | `4` | integer | modeled default or validator seed | Caps block size allowed by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:340`; `src/learnloop/diagnosis/probe_episodes.py:1234` |
