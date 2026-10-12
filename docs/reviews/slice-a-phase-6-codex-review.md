@@ -207,3 +207,100 @@ The placement suites alone (`test_assumed_known.py`, `test_quick_check.py`,
 `test_placement_signals.py`, `test_placement_upgrade.py`,
 `test_placement_fixture_copies.py`) run 70 tests outside the durability lane
 (plus the placement durability test inside it), 20 of them new for this review.
+
+## Re-review
+
+**Re-review:** Codex job `20261012-134248-OTvsVS` over `a83ef5ac..3b218bcf`
+(the fix commits). Verdict REOPENED: F1, F2 and F4 confirmed fixed, F3
+reopened, one new Medium finding (F11). **Fix commit:** `b122d7dd`. Same owner
+decisions (2026-10-12) and the same scope: every change acts only at
+`mvp-0.10` with `placement.enabled = true`, and the kill-switch tests (G9) are
+unchanged and passing. No migration, no frontend change.
+
+### Method
+
+Both findings were reproduced on `3b218bcf` first, with the real attempt,
+coldness-receipt repository, placement and scheduler code on fresh test
+vaults, then fixed. Each new test below fails on `3b218bcf`:
+
+| Finding | Reproduced on the unfixed code |
+|---|---|
+| F3 | A clean check answer at day 14 plus a final coldness receipt for it with `retrieval_delay = fail`, `unassisted`/`answer_leakage = pass` and `qualifies_as_cold_retrieval = false` resolved the assumption `passed` (same with the qualification unknown, `null`) |
+| F11 | "I don't know this" then "I know this" in the same second: the new decision was `assumed`, yet the intent stayed `learning` (`>=` gave the older return precedence); after the new assumption passed its check, the intent was still `learning` and the queue served `pi_diag_easy`, `pi_diag_hard` and `pi_diag_mid` (fixed: `maintenance`, only `pi_diag_mid`) |
+| F11 (same order for answers and report 3) | A miss in the same second as, but after, "I know this" was ignored (the assumption stayed `open`); report 3 dropped that item from the learning obligations |
+
+### Findings
+
+| Id | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Passing the first review restores the skipped learning items | confirmed fixed by the re-review | `2884cee0` | No change |
+| F2 | High | Fast-tracked topics can complete their "14-day check" immediately | confirmed fixed by the re-review | `2884cee0` | No change |
+| F3 | High | A non-independent answer can pass the assumed-known check (reopened: the final receipt's cold-retrieval qualification was ignored) | fixed | `b122d7dd` | `test_assumed_known.py::test_a_final_receipt_that_does_not_qualify_as_cold_retrieval_cannot_pass_the_check[delay-failed-unqualified\|qualification-unknown]`, `::test_a_qualified_final_receipt_still_lets_the_check_pass` |
+| F4 | High | Quick checks expose held-out exam items | confirmed fixed by the re-review | `2884cee0` | No change |
+| F11 | Medium | Same-second return overrides a later "I know this" | fixed | `b122d7dd` | `test_assumed_known.py::test_i_know_this_in_the_same_second_as_a_return_supersedes_it`, `::test_a_return_in_the_same_second_as_i_know_this_still_returns_the_lo`, `::test_answers_in_the_same_second_as_a_decision_or_return_keep_their_order`; `test_placement_report.py::test_report3_orders_same_second_practice_after_the_decision` |
+
+Two fixed (one High), none rejected.
+
+### What changed
+
+**F3: the receipt's own qualification binds (`placement/state.py`).** The
+cold lane's final receipt derives `qualifies_as_cold_retrieval` (retrieval
+delay + unassisted + no hard exposure). Placement's independence check now
+vetoes an answer when any final receipt for it fails the unassisted or
+answer-leakage dimension (`coldness_receipt_not_independent`, as before) **or**
+does not qualify it as cold retrieval: `false`, or `null` when the receipt
+could not be constructed (`coldness_receipt_not_cold_retrieval`). This is the
+same `is True` reading the dataset export uses for cold labels. It applies
+wherever placement asks for independence: the check (the answer is
+`ineligible`, the check waits), fast-track and the quick check (the answer
+never counts). An answer with no final receipt is unchanged (the reveal-ledger
+rule alone decides). `RULES_VERSION` stays `placement-rules-v2`: v2 was
+introduced on this unmerged branch and has never been released.
+
+**F11: one durable order (`placement/state.py`, `placement/report.py`).**
+`created_at` has second precision. Every decision, return and attempt id is a
+ULID from the one monotonic generator (`learnloop.ids.new_ulid`, which already
+guarantees in-process creation order within a millisecond), and the placement
+reads already sort each ledger by `(created_at, id)`. The state now compares
+that same key across the ledgers instead of `created_at` alone:
+
+- the LO's intent: the later of its latest decision and latest return wins,
+  so an "I know this" in the same second as an earlier "I don't know this"
+  supersedes it (and a return after a decision in the same second still
+  returns it);
+- an assumption's resolution: answers are placed against the decision and its
+  return in the same order (a miss written right after "I know this" fails the
+  assumption; one written right before "I don't know this" is the miss);
+- report 3: an item's first answer and the LO's first decision are compared in
+  the same order, so its learning obligations agree with the state.
+
+A sequence column was considered and not added: it would need a migration and
+a head-fixture rename for an order the stored ULIDs already carry; a tie can
+only misorder if the wall clock steps backwards between two processes inside
+one second.
+
+### Paid calls and manual runs
+
+No paid call, no model route, $0.00. No manual run: both fixes are pure reads
+of existing rows, covered by the tests above. No tracked working vault was
+read or written.
+
+### Gate
+
+Run on the fix commit `b122d7dd`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev`, then `uv pip install pypdfium2` | OK (`uv sync` removes `pypdfium2`; reinstalled 5.14.0). The stage does not touch `learnloop_mobile` |
+| `uv run lint-imports --no-cache` | **10 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **7,154 passed**, 0 failed, 14 existing warnings (Python 3.12 fork and SQLite datetime-adapter deprecations); 200 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **67 passed**, 7,087 deselected; 40 s |
+| Frontend (`npm install`, `npm run typecheck`, `npm test`) | Not run: no frontend change since the gated `2884cee0` (`git diff 3b218bcf b122d7dd -- apps/` is empty) |
+| DB reference generate / validate | Not run: no schema change (`migrations/` unchanged; head stays 170) |
+| Tracked working vaults | Untouched (`git status` clean for `fixtures/linear_algebra`, `probability`, `arxiv_v2`) |
+
+The placement suites (`test_assumed_known.py`, `test_quick_check.py`,
+`test_placement_report.py`, `test_placement_sidecar.py`,
+`test_placement_signals.py`, `test_placement_upgrade.py`,
+`test_placement_fixture_copies.py`) now run 77 tests outside the durability
+lane, 7 of them new for this re-review.
