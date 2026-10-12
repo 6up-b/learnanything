@@ -8,10 +8,16 @@ reports flag rates, agreement with the lexical floor, proposals and samples.
   listed for the owner and are never executed (``proposals_executed`` is 0).
 * **No embedding call.** It reads stored vectors only; missing vectors degrade
   to the lexical floor and the symbolic check, and the report says where.
-* **Who decides** (R1, R4): the owner, then the symbolic verifier (a match on a
-  distinctive math answer), then the LLM judge. No score decides anything.
+* **Who decides** (R1, R4): the owner, then the symbolic verifier (a math match
+  linked to the item: the text works the item's own expression to its answer),
+  then the LLM judge's first pass. No score decides anything.
+* **Noise floor** (R6): a bounded, deterministic sample of pairs per detector
+  is judged a second time under identical settings; the report gives the
+  disagreement between the two passes beside the owner's audited verdicts, so
+  a detector change can be told apart from judge variability.
 * **Paid work** is the judge alone, under ``SpendCaps``; ``--dry-run`` plans it
-  with no client, lock or data change. Verdicts append to ``judgment_ledger``.
+  (repeats included) with no client, lock or data change. Verdicts append to
+  ``judgment_ledger``.
 """
 from __future__ import annotations
 
@@ -39,8 +45,8 @@ from learnloop.ops.contamination.detectors import (
     DETECTORS, POSITIVE_VERDICT, SCANNERS, Candidate, DetectorScan, StoredVectors,
 )
 from learnloop.ops.contamination.judge import (
-    METERED_JUDGE_TYPES, PROMPT_VERSIONS, JudgeRequest, build_requests, estimate,
-    judge_settings, owner_rows, rows_by_id, run_judgments,
+    METERED_JUDGE_TYPES, PRIMARY_PASS, PROMPT_VERSIONS, REPEAT_PASS, JudgeRequest, build_requests,
+    estimate, judge_settings, owner_rows, rows_by_id, run_judgments,
 )
 from learnloop.ops.contamination.recipes import CONTAMINATION_RECIPES
 from learnloop.ops.contamination.symbolic import SYMBOLIC_VERSION
@@ -74,6 +80,10 @@ def verifier_judgment_id(candidate: Candidate) -> str:
         "version": SYMBOLIC_VERSION, "question": candidate.question,
         "subject": candidate.subject_text, "expected": candidate.symbolic.expected,
     })
+
+
+def _repeats(requests: list[JudgeRequest]) -> int:
+    return sum(request.pass_index != PRIMARY_PASS for request in requests)
 
 
 @contextmanager
@@ -152,15 +162,75 @@ def _proposal(candidate: Candidate, decision: Decision) -> dict[str, Any] | None
                 "practice_item_id": candidate.right_id,
                 "live_reveal_amount": candidate.extra.get("live_reveal_amount"),
                 "next_attempt": candidate.extra.get("next_attempt"), **common}
-    return {"action": "burn_reserve", "surface_id": candidate.right_id,
-            "question_event_id": candidate.left_id, "asked_at": candidate.extra.get("asked_at"),
-            "reserved_at": candidate.extra.get("reserved_at"), **common}
+    status = candidate.extra.get("reservation_status")
+    if status == "reserved":
+        if not candidate.extra.get("burn_eligible"):
+            return None  # already burned by an exposure, or no longer held unseen
+        return {"action": "burn_reserve", "surface_id": candidate.right_id,
+                "question_event_id": candidate.left_id, "asked_at": candidate.extra.get("asked_at"),
+                "reserved_at": candidate.extra.get("reserved_at"), **common}
+    if status == "rendered":
+        # Taken after the reveal: nothing to burn, but its cold evidence may be
+        # contaminated, so the administration goes for review.
+        return {"action": "review_assessment", "surface_id": candidate.right_id,
+                "question_event_id": candidate.left_id, "administration_id": candidate.extra.get("administration_id"),
+                "reservation_status": status, "asked_at": candidate.extra.get("asked_at"),
+                "reserved_at": candidate.extra.get("reserved_at"),
+                "rendered_at": candidate.extra.get("closed_at"), **common}
+    return None  # cancelled or released unseen: no reserve and no assessment
+
+
+def _agreement(pairs: list[tuple[str, str]]) -> dict[str, Any]:
+    compared = len(pairs)
+    agree = sum(left == right for left, right in pairs)
+    return {"compared": compared, "agree": agree, "disagree": compared - agree}
+
+
+def _noise_floor(
+    scan: DetectorScan, requests: dict[tuple[str, str, str, str, str], JudgeRequest],
+    repeats: dict[tuple[str, str, str, str, str], JudgeRequest], rows: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Run-to-run disagreement of the judge on its repeated pairs (R6)."""
+
+    pairs = []
+    sampled = [candidate for candidate in scan.candidates if candidate.question in repeats]
+    for candidate in sampled:
+        first, second = requests.get(candidate.question), repeats[candidate.question]
+        if first is not None and first.judgment_id in rows and second.judgment_id in rows:
+            pairs.append((rows[first.judgment_id]["verdict"], rows[second.judgment_id]["verdict"]))
+    block = {"repeat_pairs": len(sampled), **_agreement(pairs)}
+    block["disagreement_rate"] = round(block["disagree"] / block["compared"], 6) if block["compared"] else None
+    return block
+
+
+def _owner_audit(
+    scan: DetectorScan, requests: dict[tuple[str, str, str, str, str], JudgeRequest],
+    rows: dict[str, dict[str, Any]], owners: dict[tuple[str, str, str, str, str], dict[str, Any]],
+) -> dict[str, Any]:
+    """The independently audited baseline: each automatic judge against the owner."""
+
+    audited, llm, verifier = 0, [], []
+    for candidate in scan.candidates:
+        owner = owners.get(candidate.question)
+        if owner is None:
+            continue
+        audited += 1
+        request = requests.get(candidate.question)
+        if request is not None and request.judgment_id in rows:
+            llm.append((rows[request.judgment_id]["verdict"], owner["verdict"]))
+        if candidate.symbolic is not None and candidate.symbolic.decides:
+            row = rows.get(verifier_judgment_id(candidate))
+            if row is not None:
+                verifier.append((row["verdict"], owner["verdict"]))
+    return {"audited_pairs": audited, "llm": _agreement(llm), "verifier": _agreement(verifier)}
 
 
 def _summarize(
     scan: DetectorScan, decisions: dict[tuple[str, str, str, str, str], Decision],
     requests: dict[tuple[str, str, str, str, str], JudgeRequest],
-    rows: dict[str, dict[str, Any]], sample_size: int,
+    repeats: dict[tuple[str, str, str, str, str], JudgeRequest],
+    rows: dict[str, dict[str, Any]], owners: dict[tuple[str, str, str, str, str], dict[str, Any]],
+    sample_size: int,
 ) -> dict[str, Any]:
     reasons = Counter(reason for candidate in scan.candidates for reason in candidate.reasons)
     decided = Counter()
@@ -225,8 +295,8 @@ def _summarize(
         "symbolic": scan.symbolic,
         "shortlist": {
             "pairs": len(scan.candidates),
-            "by_reason": {reason: reasons.get(reason, 0) for reason in ("lexical", "symbolic", "embedding")},
-            "embedding_only": sum(candidate.reasons == {"embedding"} for candidate in scan.candidates),
+            "by_reason": {reason: reasons.get(reason, 0) for reason in ("bound", "lexical", "symbolic", "embedding")},
+            "embedding_only": sum(candidate.reasons - {"bound"} == {"embedding"} for candidate in scan.candidates),
         },
         "judge": {
             "requested": sum(candidate.question in requests for candidate in scan.candidates),
@@ -247,9 +317,15 @@ def _summarize(
         "agreement": {key: agreement.get(key, 0) for key in (
             "floor_and_shadow", "floor_only", "shadow_only", "floor_undecided", "unsure",
         )},
+        "noise_floor": _noise_floor(scan, requests, repeats, rows),
+        "owner_audit": _owner_audit(scan, requests, rows, owners),
         "embedding_scores": {"flag": _stats(scores["flag"]), "clean": _stats(scores["clean"])},
         "proposals": proposals,
         "samples": samples,
+        **({"flags_by_reservation_status": dict(sorted(Counter(
+            candidate.extra.get("reservation_status") for candidate in scan.candidates
+            if decisions[candidate.question].positive
+        ).items()))} if scan.detector == "reader_reveal" else {}),
     }
 
 
@@ -289,6 +365,7 @@ def contamination_report(
     detectors: Sequence[str] = DETECTORS,
     top_k: int = 3,
     sample_size: int = 5,
+    repeat_sample: int = 5,
     price_per_million: float | None = None,
     judge_revision: str = "1",
     cancelled: Callable[[], bool] | None = None,
@@ -303,6 +380,8 @@ def contamination_report(
         raise ValueError("top_k must be an integer between 1 and 50")
     if type(sample_size) is not int or not 0 <= sample_size <= 100:
         raise ValueError("sample_size must be an integer between 0 and 100")
+    if type(repeat_sample) is not int or not 0 <= repeat_sample <= 50:
+        raise ValueError("repeat_sample must be an integer between 0 and 50")
     if price_per_million is not None and (not math.isfinite(price_per_million) or price_per_million <= 0):
         raise ValueError("price_per_million must be finite and positive")
     if not judge_revision.strip():
@@ -319,6 +398,12 @@ def contamination_report(
     finally:
         vectors.close()
     candidates = [candidate for scan in scans.values() for candidate in scan.candidates]
+    # The noise-floor sample: per detector, the first pairs in a stable hash
+    # order, so a resumed or repeated report re-judges the same pairs.
+    repeat_questions = [
+        question for scan in scans.values()
+        for _, question in sorted((content_key(c.question), c.question) for c in scan.candidates)[:repeat_sample]
+    ]
 
     selection = provider_for_task(loaded.config, "contamination_judge")
     provider = getattr(client, "provider_name", None) or selection.provider_name
@@ -330,7 +415,7 @@ def contamination_report(
     )
 
     def plan() -> tuple[list[JudgeRequest], dict[str, dict[str, Any]], list[JudgeRequest]]:
-        requests = build_requests(candidates, settings) if judge else []
+        requests = build_requests(candidates, settings, repeats=repeat_questions) if judge else []
         verifier_ids = [verifier_judgment_id(c) for c in candidates if c.symbolic is not None and c.symbolic.decides]
         rows = rows_by_id(sqlite_path, [r.judgment_id for r in requests] + verifier_ids)
         return requests, rows, [r for r in requests if r.judgment_id not in rows]
@@ -341,7 +426,7 @@ def contamination_report(
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "report": REPORT_VERSION, "shadow": True, "proposals_executed": 0,
         "detectors_run": [name for name in DETECTORS if name in detectors],
-        "top_k": top_k, "sample_size": sample_size,
+        "top_k": top_k, "sample_size": sample_size, "repeat_sample": repeat_sample,
         "manifest": {
             "algorithm_version": loaded.config.algorithms.algorithm_version,
             "config_hash": content_key(loaded.config.model_dump(mode="json")),
@@ -351,7 +436,10 @@ def contamination_report(
             "embedding_model": loaded.config.embedding.model,
             "embedding_enabled": loaded.config.embedding.enabled,
             "judge_revision": judge_revision,
-            "shortlist_rule": "rank_top_k_only_no_cosine_cutoff",
+            "shortlist_rule": "rank_top_k_with_boundary_ties_no_cosine_cutoff",
+            "tutor_pair_rule": "every bound pair judged; rank recorded for evaluation only",
+            "reader_scope_rule": "reservations live at, or closed after, each answer; burn only live eligible reserves",
+            "noise_floor_rule": "repeat_sample pairs per detector judged a second time under identical settings",
             "tutor_floor_rule": "leak_suspected or live reveal debit >= AUTO_PRIME_REVEAL_THRESHOLD",
             "decision_authority": ["owner", "verifier", "llm"],
         },
@@ -361,7 +449,8 @@ def contamination_report(
             "cost_basis": ESTIMATED_ONLY if subscription else "metered_caps",
             "physical_request_bound": not subscription,
             "caps": caps.as_dict(), "caps_in_force": budget.declared(),
-            "requests": len(requests), "cached": len(requests) - len(pending),
+            "requests": len(requests), "repeat_requests": _repeats(requests),
+            "cached": len(requests) - len(pending),
             "pending": len(pending), "completed": 0,
             "estimate": asdict(estimate(pending, price_per_million)),
             "charged": asdict(budget.used),
@@ -382,12 +471,13 @@ def contamination_report(
             + [verifier_judgment_id(c) for c in candidates if c.symbolic is not None and c.symbolic.decides],
         )
         owners = owner_rows(sqlite_path)
-        by_question = {r.candidate.question: r for r in requests}
+        by_question = {r.candidate.question: r for r in requests if r.pass_index == PRIMARY_PASS}
+        repeats = {r.candidate.question: r for r in requests if r.pass_index == REPEAT_PASS}
         decisions = {c.question: _decide(c, by_question.get(c.question), current_rows, owners) for c in candidates}
         report["judge"]["charged"] = asdict(budget.used)
         report["judge"]["remaining"] = sum(1 for r in requests if r.judgment_id not in current_rows)
         report["detectors"] = {
-            name: _summarize(scan, decisions, by_question, current_rows, sample_size)
+            name: _summarize(scan, decisions, by_question, repeats, current_rows, owners, sample_size)
             for name, scan in scans.items()
         }
         return report
@@ -430,7 +520,7 @@ def contamination_report(
             settings = judge_settings(loaded, provider, getattr(client, "model", None), judge_revision)
             requests, rows, pending = plan()
             report["judge"].update(
-                model_id=settings["model"], requests=len(requests),
+                model_id=settings["model"], requests=len(requests), repeat_requests=_repeats(requests),
                 cached=len(requests) - len(pending), pending=len(pending),
                 estimate=asdict(estimate(pending, price_per_million)),
             )

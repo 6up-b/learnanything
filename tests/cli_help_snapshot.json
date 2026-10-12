@@ -136,8 +136,8 @@
     "sha256": "005036ec91ca6cdff766d797eca44a52ebaeaf8fbaf0b6e72f078cbfe41c5ffc"
   },
   "contamination report": {
-    "bytes": 5186,
-    "sha256": "935702a9c5bc1fb532e04b1be093a4ca1519ba53f3eb450f36dade885ebb6ee3"
+    "bytes": 5943,
+    "sha256": "3f2d766dfe6d960e3146d56e2cea61d6dbc640512168a8b011ed6cd0cbc14231"
   },
   "contract-hit-rate": {
     "bytes": 1942,

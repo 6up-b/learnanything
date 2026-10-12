@@ -8,23 +8,32 @@ detector starts from the live lexical floor, unchanged, and widens the set of
   span: the floor's shingle/numeric findings, plus the top-k spans nearest the
   item's stored ``item/stem`` and ``item/expected_answer`` vectors;
 * **tutor_answer_leak** — every answered tutor turn bound to an item against
-  that item's expected answer: the floor (its persisted leak flag, or a live
-  reveal debit that alone primes the next attempt), the symbolic check, plus a
-  shortlist when the item's own expected answer ranks in the top k for the
-  stored answer vector among all expected answers;
-* **reader_reveal** — every reader answer against every live assessment
-  reserve: the floor's hash/fingerprint/bigram rule, the symbolic check on the
-  reserve's answer, plus the top-k reserves nearest the stored answer vector.
+  that item's expected answer. The pair is already bound, so every one goes to
+  the judge: a rank cut would let unrelated items with similar answers push a
+  known pair out (R4 allows only a benchmark-set blocking cutoff, and none
+  exists yet). The floor (its persisted leak flag, or a live reveal debit that
+  alone primes the next attempt), the symbolic check and the bound item's rank
+  among all expected answers for the stored answer vector are recorded as
+  signals, for evaluation;
+* **reader_reveal** — every reader answer against every assessment
+  reservation it could have contaminated: one still live, or one closed (by a
+  render, cancellation or release) after the answer. The floor's
+  hash/fingerprint/bigram rule, the symbolic check on the reserve's answer,
+  plus the top-k such reserves nearest the stored answer vector. A finding on
+  a reserve that is no longer live stays in the report; only a live, still
+  eligible reserve can be proposed for a burn.
 
 Shortlisting is by rank only (R4): no cosine cutoff is set here, and no score
-decides anything. An index without the complete current set of vectors, or a
-subject without its vector, degrades to the lexical floor and the symbolic
-check, and the scan says so.
+decides anything. Ranks are competition ranks, so a tie at the k-th place is
+kept whole rather than broken by record id. An index without the complete
+current set of vectors, or a subject without its vector, degrades to the
+lexical floor and the symbolic check, and the scan says so.
 """
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
 from typing import Any
@@ -39,10 +48,11 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import EmbeddingMatch, get_vector, retrieve
 from learnloop.ops.contamination.recipes import (
-    CONTAMINATION_RECIPES, answered_question_events, expected_answer_text,
+    CONTAMINATION_RECIPES, answered_question_events, assessment_reservations, expected_answer_text,
 )
 from learnloop.ops.contamination.symbolic import SymbolicResult, symbolic_check
 from learnloop.reader.reader_dialogue import lexical_reserve_reveal, surface_statement_text
+from learnloop.substrate.activities import evaluate_held_out_eligibility
 from learnloop.tutor.tutor_qa import answer_leak_overlap
 from learnloop.vault.models import LoadedVault, PracticeItem
 
@@ -191,20 +201,38 @@ class VectorIndex:
     def usable(self) -> bool:
         return self.status == "complete"
 
-    def ranked(self, query: np.ndarray, *, limit: int) -> list[EmbeddingMatch]:
-        """Mean-centred cosine over the complete current index, best first."""
+    def ranked(self, query: np.ndarray, *, candidate_ids: Collection[str] | None = None) -> list[EmbeddingMatch]:
+        """Mean-centred cosine over the complete current index, best first.
+
+        ``candidate_ids`` filters after scoring: the centroid is always the
+        whole index."""
 
         definition = CONTAMINATION_RECIPES[self.recipe]
         assert self.vectors._connection is not None and self.usable
         return retrieve(
             self.vectors._connection, record_kind=definition.record_kind, field=definition.field,
             model_id=self.vectors.model_id, task_prefix=TASK_PREFIX, query=query,
-            expected_records=self.manifest, limit=limit,
+            expected_records=self.manifest, limit=len(self.manifest), candidate_ids=candidate_ids,
         )
 
     def describe(self) -> dict[str, Any]:
         return {"recipe": self.recipe, "status": self.status,
                 "records": len(self.manifest), "missing": self.missing}
+
+
+def top_k_with_ties(matches: list[EmbeddingMatch], k: int) -> list[tuple[int, EmbeddingMatch]]:
+    """The best ``k`` by competition rank (1, 2, 2, 4): a tie at the boundary stays whole."""
+
+    kept: list[tuple[int, EmbeddingMatch]] = []
+    rank = 0
+    previous: float | None = None
+    for position, match in enumerate(matches, start=1):
+        if previous is None or match.score < previous:
+            rank, previous = position, match.score
+        if rank > k:
+            break
+        kept.append((rank, match))
+    return kept
 
 
 def _embedding_block(index: VectorIndex, queries: Iterable[str], with_vectors: int, without: int) -> dict[str, Any]:
@@ -290,9 +318,9 @@ def scan_exam_leakage(loaded: LoadedVault, repository: Repository, vectors: Stor
                 if query is None:
                     continue
                 found = True
-                for rank, match in enumerate(index.ranked(query, limit=top_k), start=1):
-                    if match.record_id not in span_by_key:
-                        continue  # changed between the index manifest and this scan
+                # Spans changed between the index manifest and this scan are not ranked.
+                ranked = index.ranked(query, candidate_ids=span_by_key)
+                for rank, match in top_k_with_ties(ranked, top_k):
                     hit = candidate(item, match.record_id)
                     hit.reasons.add("embedding")
                     hit.note_embedding(query=recipe, score=match.score, rank=rank)
@@ -350,11 +378,13 @@ def scan_tutor_answer_leak(loaded: LoadedVault, repository: Repository, vectors:
                    "live_reveal_amount": debited},
         )
         floor_subjects += hit.floor
-        # Today's lexical rule shortlists even a pre-ledger turn it would flag;
-        # ``floor`` alone says whether the live path actually protected it.
+        # The pair is bound, so it is always judged; the rest are signals.
+        hit.reasons.add("bound")
+        # Today's lexical rule flags even a pre-ledger turn the live path never
+        # debited; ``floor`` alone says whether the live path protected it.
         if hit.floor or overlap >= AUTO_PRIME_REVEAL_THRESHOLD:
             hit.reasons.add("lexical")
-        hit.symbolic = symbolic_check(answer, item.expected_answer)
+        hit.symbolic = symbolic_check(answer, item.expected_answer, prompt=item.prompt)
         if hit.symbolic.status != "not_math":
             symbolic_counts["math_pairs"] += 1
         if hit.symbolic.status == "match":
@@ -365,16 +395,16 @@ def scan_tutor_answer_leak(loaded: LoadedVault, repository: Repository, vectors:
             query = vectors.vector("question_event/answer", hit.left_id, answer_manifest.get(hit.left_id))
             if query is not None:
                 with_vectors += 1
-                ranked = index.ranked(query, limit=len(index.manifest))
-                for rank, match in enumerate(ranked, start=1):
-                    if match.record_id == item.id:
-                        hit.note_embedding(query="question_event/answer", score=match.score, rank=rank)
-                        if rank <= top_k:
-                            hit.reasons.add("embedding")
-                        break
-        if hit.reasons:
-            hit.extra["next_attempt"] = _next_attempt(repository, item.id, str(event.get("created_at") or ""))
-            candidates.append(hit)
+                ranked = index.ranked(query)
+                own = next((match for match in ranked if match.record_id == item.id), None)
+                if own is not None:  # a competition rank: ties share the better place
+                    rank = 1 + sum(match.score > own.score for match in ranked)
+                    hit.note_embedding(query="question_event/answer", score=own.score, rank=rank)
+                    # What a rank-k gate would have shortlisted, for evaluation only.
+                    if rank <= top_k:
+                        hit.reasons.add("embedding")
+        hit.extra["next_attempt"] = _next_attempt(repository, item.id, str(event.get("created_at") or ""))
+        candidates.append(hit)
     return DetectorScan(
         "tutor_answer_leak", "scanned" if events else "no_subjects", len(events), len(events), floor_subjects,
         _embedding_block(index, queries, with_vectors, len(events) - with_vectors),
@@ -382,40 +412,104 @@ def scan_tutor_answer_leak(loaded: LoadedVault, repository: Repository, vectors:
     )
 
 
-def _reserved_at(repository: Repository) -> dict[str, str]:
-    with repository.connection() as connection:
-        rows = connection.execute(
-            "SELECT surface_id, reserved_at FROM activity_surface_reservations "
-            "WHERE status='reserved' AND purpose='assessment'"
-        ).fetchall()
-    return {str(row[0]): str(row[1]) for row in rows}
+def _when(value: Any) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
+@dataclass
+class _Reserve:
+    """One surface and every assessment reservation it has held."""
+
+    surface: dict[str, Any]
+    reservations: list[dict[str, Any]]
+    eligible: bool = False
+
+    def exposed_to(self, at: datetime | None) -> list[dict[str, Any]]:
+        """Reservations an answer at ``at`` could contaminate: live, or closed after it."""
+
+        if at is None:  # unknown time: only what is live now
+            return [r for r in self.reservations if r["closed_at"] is None]
+        return [r for r in self.reservations
+                if r["closed_at"] is None or (_when(r["closed_at"]) or at) > at]
+
+    def live_at(self, at: datetime | None) -> bool:
+        """Was this surface a live reserve when the answer was given (the floor's view)?"""
+
+        for r in self.exposed_to(at):
+            reserved = _when(r["reserved_at"])
+            if at is None or reserved is None or reserved <= at:
+                return True
+        return False
+
+    @staticmethod
+    def applicable(reservations: list[dict[str, Any]]) -> dict[str, Any]:
+        """The reservation a finding reports: the live one, else a render, else the latest."""
+
+        for status in ("reserved", "rendered"):
+            for r in reservations:
+                if r["status"] == status:
+                    return r
+        return reservations[-1]
+
+
+def _surface_prompt(surface: Mapping[str, Any]) -> str:
+    """The reserve's own question text, without its expected answer."""
+
+    body = surface.get("surface") or {}
+    return " ".join(str(body[key]) for key in ("prompt", "statement", "statement_md", "question")
+                    if isinstance(body.get(key), str))
+
+
+def _reserves(repository: Repository) -> dict[str, _Reserve]:
+    reserves: dict[str, _Reserve] = {}
+    for row in assessment_reservations(repository):
+        surface = row["surface"]
+        reserve = reserves.setdefault(str(surface["id"]), _Reserve(surface, []))
+        reserve.reservations.append(row["reservation"])
+    for reserve in reserves.values():
+        # Burnable now: a live reservation on a surface the held-out rules
+        # still count as unseen (no exposure, near clone or quarantine).
+        reserve.eligible = any(r["status"] == "reserved" for r in reserve.reservations) and (
+            evaluate_held_out_eligibility(repository, surface=reserve.surface, purpose="assessment").is_unseen
+        )
+    return dict(sorted(reserves.items()))
 
 
 def scan_reader_reveal(loaded: LoadedVault, repository: Repository, vectors: StoredVectors, *, top_k: int) -> DetectorScan:
     events = [event for event in answered_question_events(repository) if event.get("context") == "reader"]
-    reserves = sorted(repository.reserved_assessment_surfaces(), key=lambda row: str(row["id"]))
+    by_id = _reserves(repository)
     index = vectors.index("surface/statement")
     queries = ("question_event/answer",)
-    if not reserves or not events:
+    if not by_id or not events:
         return DetectorScan(
-            "reader_reveal", "no_targets" if not reserves else "no_subjects", len(events), len(reserves), 0,
+            "reader_reveal", "no_targets" if not by_id else "no_subjects", len(events), len(by_id), 0,
             _embedding_block(index, queries, 0, len(events)), [], None,
         )
-    reserved_at = _reserved_at(repository)
-    by_id = {str(surface["id"]): surface for surface in reserves}
     candidates: dict[tuple[str, str], Candidate] = {}
     symbolic_counts = {"math_pairs": 0, "matches": 0, "verifier_decisions": 0}
 
-    def candidate(event: Mapping[str, Any], surface_id: str) -> Candidate:
+    def candidate(event: Mapping[str, Any], surface_id: str, at: datetime | None) -> Candidate:
         key = (str(event["id"]), surface_id)
         if key not in candidates:
-            surface = by_id[surface_id]
-            statement = surface_statement_text(surface)
+            reserve = by_id[surface_id]
+            statement = surface_statement_text(reserve.surface)
+            reservation = reserve.applicable(reserve.exposed_to(at))
             candidates[key] = Candidate(
                 "reader_reveal", "question_event", str(event["id"]), "activity_surface", surface_id,
                 context={"reserved_assessment_question": statement, "reader_answer": str(event["answer_md"])},
                 subject_text=str(event["answer_md"]), target_text=statement,
-                extra={"asked_at": event.get("created_at"), "reserved_at": reserved_at.get(surface_id)},
+                extra={
+                    "asked_at": event.get("created_at"), "reserved_at": reservation["reserved_at"],
+                    "reservation_id": reservation["id"], "reservation_status": reservation["status"],
+                    "closed_at": reservation["closed_at"], "administration_id": reservation["administration_id"],
+                    "live_at_answer": reserve.live_at(at), "burn_eligible": reserve.eligible,
+                },
             )
         return candidates[key]
 
@@ -423,41 +517,47 @@ def scan_reader_reveal(loaded: LoadedVault, repository: Repository, vectors: Sto
     answer_manifest = vectors.manifest("question_event/answer") if index.usable else {}
     for event in events:
         answer = str(event["answer_md"])
+        at = _when(event.get("created_at"))
         citations = list((event.get("source_context") or {}).get("citations") or [])
+        in_scope = {surface_id for surface_id, reserve in by_id.items() if reserve.exposed_to(at)}
         flagged = False
-        for surface_id, surface in by_id.items():
+        for surface_id in sorted(in_scope):
+            surface = by_id[surface_id].surface
             hit_floor, overlap = lexical_reserve_reveal(answer, surface, citations=citations)
             expected = (surface.get("surface") or {}).get("expected_answer")
-            result = symbolic_check(answer, expected) if expected is not None else None
+            result = (symbolic_check(answer, expected, prompt=_surface_prompt(surface))
+                      if expected is not None else None)
             if result is not None and result.status != "not_math":
                 symbolic_counts["math_pairs"] += 1
             if hit_floor or (result is not None and result.status == "match"):
-                hit = candidate(event, surface_id)
-                hit.floor, hit.floor_score = hit_floor, overlap
+                hit = candidate(event, surface_id, at)
+                # The live floor compared only against reserves live at the time.
+                caught = hit_floor and by_id[surface_id].live_at(at)
+                hit.floor, hit.floor_score = caught, overlap
                 if hit_floor:
                     hit.reasons.add("lexical")
-                    flagged = True
+                    flagged = flagged or caught
                 if result is not None and result.status == "match":
                     hit.symbolic = result
                     hit.reasons.add("symbolic")
                     symbolic_counts["matches"] += 1
                     symbolic_counts["verifier_decisions"] += result.decides
         floor_subjects += flagged
-        if index.usable:
+        if index.usable and in_scope:
             query = vectors.vector("question_event/answer", str(event["id"]), answer_manifest.get(str(event["id"])))
             if query is None:
                 continue
             with_vectors += 1
-            for rank, match in enumerate(index.ranked(query, limit=top_k), start=1):
-                if match.record_id not in by_id:
-                    continue  # a reserve released between the index manifest and this scan
-                hit = candidate(event, match.record_id)
+            # Reserves released or rendered before this answer are not ranked.
+            for rank, match in top_k_with_ties(index.ranked(query, candidate_ids=in_scope), top_k):
+                hit = candidate(event, match.record_id, at)
                 hit.reasons.add("embedding")
                 hit.note_embedding(query="question_event/answer", score=match.score, rank=rank)
                 if hit.floor_score is None:
-                    hit.floor_score = lexical_reserve_reveal(answer, by_id[match.record_id], citations=citations)[1]
+                    hit.floor_score = lexical_reserve_reveal(
+                        answer, by_id[match.record_id].surface, citations=citations)[1]
     return DetectorScan(
-        "reader_reveal", "scanned", len(events), len(reserves), floor_subjects,
+        "reader_reveal", "scanned", len(events), len(by_id), floor_subjects,
         _embedding_block(index, queries, with_vectors, len(events) - with_vectors),
         [candidates[key] for key in sorted(candidates)], symbolic_counts,
     )

@@ -8,7 +8,7 @@ from learnloop.ops.contamination.symbolic import (
 )
 
 
-@pytest.mark.parametrize(("answer", "expected", "decides"), [
+@pytest.mark.parametrize(("answer", "expected", "is_distinctive"), [
     (r"So the probability is $\frac{2}{3}$.", "2/3", True),
     ("Rounded, that is 0.667 overall.", "2/3", True),
     ("We get x^2 + 2x + 1 after expanding.", "(x+1)^2", True),
@@ -16,14 +16,16 @@ from learnloop.ops.contamination.symbolic import (
     ("Hence p = 3/4", {"final_answer": "3/4"}, True),
     ("x = 144", "144", True),
     # A one-decimal rounding or a small integer also appears in innocent
-    # explanations: it shortlists the pair but never decides.
+    # explanations; distinctiveness is reported, never a decision by itself.
     ("About 0.7 of the mass.", "2/3", False),
     ("Step 2 is the key.", "2", False),
 ])
-def test_equivalent_forms_match(answer, expected, decides):
+def test_equivalent_forms_match(answer, expected, is_distinctive):
     result = symbolic_check(answer, expected)
     assert result.status == "match", result
-    assert result.decides is decides
+    assert result.distinctive is is_distinctive
+    # No item prompt, no established link: an occurrence alone never decides.
+    assert result.decides is False
 
 
 def test_different_values_and_prose_answers_do_not_match():
@@ -61,3 +63,58 @@ def test_runs_split_on_prose_and_equals_and_normalize_latex():
 ])
 def test_distinctiveness(text, expected):
     assert distinctive(text) is expected
+
+
+# --- Codex review fixes ------------------------------------------------------
+
+
+@pytest.mark.parametrize(("answer", "expected", "prompt"), [
+    # F2: an occurrence of the answer's value with no established link to it.
+    ("Read page 144 for the method.", "144", "Compute 12 * 12."),
+    ("In an unrelated example, 1/2 + 1/6 = 2/3.", "2/3", "Two of three balls are red. P(red)?"),
+    ("It's not x = 144; recheck the carry.", "144", "Compute 12 * 12."),
+    # A restatement: equal to the answer, but not the answer's own form.
+    ("Start from (x+1)^2 = (x+1)(x+1).", "x^2 + 2x + 1", "Expand (x+1)^2."),
+    # Equal values in another computation are not the item's expression.
+    ("Compare 6 * 24 = 144.", "144", "Compute 12 * 12."),
+    # The prompt already states its answer: restating it reveals nothing.
+    ("Indeed 1/2 + 1/2 = 1.", "1", "Show that 1/2 + 1/2 = 1."),
+])
+def test_an_occurrence_without_a_link_to_the_item_shortlists_but_never_decides(answer, expected, prompt):
+    result = symbolic_check(answer, expected, prompt=prompt)
+    assert result.status == "match", result
+    assert result.linked is False and result.decides is False
+
+
+@pytest.mark.parametrize(("answer", "expected", "prompt"), [
+    (r"Just multiply: $12 \times 12 = 144$.", "144", "Compute 12 * 12."),
+    (r"Add them: 1/3 + 1/3 = \frac{2}{3}.", "2/3", r"Compute $\frac{1}{3} + \frac{1}{3}$."),
+    ("Here 3/4 + 1/6 = 9/12 + 2/12 = 11/12 exactly.", "11/12", "Compute 3/4 + 1/6."),
+    ("So 2 + 2 = 4.", "4", "What is 2 + 2?"),
+    ("Note sin(pi/2 - x) = cos(x) here.", "cos(x)", "Simplify sin(pi/2 - x)."),
+    ("Expanding, (x+1)^2 = x^2 + 2x + 1.", "x^2 + 2x + 1", "Expand (x + 1)^2."),
+    ("Roughly 1/3 + 1/3 = 0.667.", "2/3", "Compute 1/3 + 1/3."),
+])
+def test_working_the_items_own_expression_to_its_answer_decides(answer, expected, prompt):
+    result = symbolic_check(answer, expected, prompt=prompt)
+    assert result.status == "match" and result.linked and result.decides, result
+    assert result.as_dict()["link"]
+
+
+@pytest.mark.parametrize(("answer", "expected"), [
+    # F5: function applications are math without digits or operators.
+    ("The answer is sin(x).", "sin(x)"),
+    ("So we get cos(x) in the end.", "sin(x + pi/2)"),
+    (r"It reduces to $\sqrt{x}$.", "sqrt(x)"),
+    ("Take exp(t) as the solution.", "exp(t)"),
+])
+def test_function_answers_without_numerals_are_checked(answer, expected):
+    assert math_answer(expected) is not None
+    result = symbolic_check(answer, expected)
+    assert result.status == "match", result
+    assert result.checked >= 1
+
+
+def test_function_runs_are_candidates():
+    assert math_runs("We get cos(x) here, or log(y).") == ["cos(x)", "log(y)"]
+    assert symbolic_check("Then cos(x) follows.", "tan(x)").status == "no_match"

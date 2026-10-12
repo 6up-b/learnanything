@@ -95,6 +95,11 @@ def contamination_report_command(
     )] = None,
     top_k: Annotated[int, typer.Option("--top-k", min=1, max=50, help="Embedding shortlist rank; no score cutoff.")] = 3,
     sample: Annotated[int, typer.Option("--sample", min=0, max=100, help="Audited samples per category.")] = 5,
+    repeat_sample: Annotated[int, typer.Option(
+        "--repeat-sample", min=0, max=50,
+        help="Noise floor: pairs per detector judged a second time under identical settings "
+             "(planned in --dry-run; 0 turns it off).",
+    )] = 5,
     judge_revision: Annotated[str, typer.Option(
         "--judge-revision", help="Checkpoint revision; change it to re-judge under a retargeted model alias.",
     )] = "1",
@@ -114,8 +119,10 @@ def contamination_report_command(
     """Shadow flag rates, floor agreement, proposals and audited samples (Slice 2 §13).
 
     Reads stored vectors only (no embedding call); missing vectors degrade to
-    the lexical floor. Proposals (burn_reserve, reveal_debit, review_item) are
-    never executed. Rerun to resume: saved verdicts are never paid for again.
+    the lexical floor. Every item-bound tutor answer is judged. The noise floor
+    re-judges a few pairs per detector. Proposals (burn_reserve,
+    review_assessment, reveal_debit, review_item) are never executed. Rerun to
+    resume: saved verdicts are never paid for again.
     """
     from learnloop.ops.contamination.detectors import DETECTORS
     from learnloop.ops.contamination.report import contamination_report
@@ -126,7 +133,7 @@ def contamination_report_command(
             report = contamination_report(
                 loaded, dry_run=dry_run, judge=not no_judge,
                 detectors=tuple(detector) if detector else DETECTORS,
-                top_k=top_k, sample_size=sample, judge_revision=judge_revision,
+                top_k=top_k, sample_size=sample, repeat_sample=repeat_sample, judge_revision=judge_revision,
                 price_per_million=price_per_million, cancelled=stop.is_set,
                 caps=SpendCaps(
                     max_candidates=max_candidates, max_pairs=max_pairs, max_calls=max_calls,

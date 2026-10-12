@@ -1,11 +1,20 @@
 """The ``leak`` / ``reveal`` judge: one bounded LLM verdict per shortlisted pair.
 
-Every verdict appends to ``judgment_ledger`` under a content-addressed id
-(``ctj_`` + input hash), which is also the paid-work checkpoint: a rerun never
-pays for a verdict it already has, and changed text, model settings or an
-explicit judge revision get a new id. The judge sees only the two texts it
-compares: never the lexical, symbolic or embedding signals, the learner's
-question, or anything about the learner.
+Every verdict appends to ``judgment_ledger``. Its ``input_hash`` addresses the
+judged content (prompt, schema, model settings, judge revision); its id
+(``ctj_`` + a hash of the input hash, the ordered pair identity and the pass)
+names one verdict on one pair. The id is also the paid-work checkpoint: a
+rerun never pays for a verdict it already has, while changed text, model
+settings or an explicit judge revision get a new id. Two pairs with identical
+texts (two question events with the same tutor reply about one item) are
+separate questions, so each is judged and ledgered on its own; no verdict is
+shared between pairs.
+
+Pass 1 decides. A bounded sample of pairs is judged a second time under the
+identical settings (pass 2) to measure the judge's run-to-run disagreement,
+the report's noise floor (R6); a repeat never decides anything. The judge sees
+only the two texts it compares: never the lexical, symbolic or embedding
+signals, the learner's question, or anything about the learner.
 
 Metered routes (``openai_chat`` / ``openrouter``) keep the full cap set and a
 physical-request bound. A Codex route runs on the owner's subscription (Slice A
@@ -15,9 +24,9 @@ candidate, pair, call and retry caps still apply.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from contextlib import closing, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 import sqlite3
@@ -94,16 +103,31 @@ def ledger_verdict(task: str, verdict: str) -> str:
     return POSITIVE_VERDICT[task] if verdict == "contaminated" else verdict
 
 
+#: The pass that decides; later passes only measure the noise floor.
+PRIMARY_PASS = 1
+REPEAT_PASS = 2
+
+
 @dataclass(frozen=True)
 class JudgeRequest:
     candidate: Candidate
     prompt: str
     prompt_version: str
     input_hash: str
+    pass_index: int = PRIMARY_PASS
 
     @property
     def judgment_id(self) -> str:
-        return "ctj_" + self.input_hash
+        """One verdict on one ordered pair in one pass; never shared between pairs."""
+
+        return "ctj_" + content_key({
+            "input_hash": self.input_hash, "question": list(self.candidate.question),
+            "pass": self.pass_index,
+        })
+
+    @property
+    def primary_id(self) -> str:
+        return replace(self, pass_index=PRIMARY_PASS).judgment_id
 
 
 def judge_settings(vault: LoadedVault, provider: str, model: str | None, revision: str) -> dict[str, Any]:
@@ -116,7 +140,14 @@ def judge_settings(vault: LoadedVault, provider: str, model: str | None, revisio
     }
 
 
-def build_requests(candidates: Iterable[Candidate], settings: dict[str, Any]) -> list[JudgeRequest]:
+def build_requests(
+    candidates: Iterable[Candidate], settings: dict[str, Any],
+    *, repeats: Collection[tuple[str, str, str, str, str]] = (),
+) -> list[JudgeRequest]:
+    """Every pass-1 request, then a pass-2 request for each pair in ``repeats``.
+
+    Repeats come last, so caps that cut a run short spend on decisions first."""
+
     schema = ContaminationJudgment.model_json_schema()
     requests = []
     for candidate in candidates:
@@ -130,6 +161,9 @@ def build_requests(candidates: Iterable[Candidate], settings: dict[str, Any]) ->
             "output_tokens": OUTPUT_TOKENS,
         })
         requests.append(JudgeRequest(candidate, prompt, version, key))
+    wanted = set(repeats)
+    requests += [replace(request, pass_index=REPEAT_PASS) for request in requests
+                 if request.candidate.question in wanted]
     return requests
 
 
@@ -220,6 +254,7 @@ def run_judgments(
             declared["contamination_judge"] = {
                 "prompt_version": current.prompt_version if current else None,
                 "input_hash": current.input_hash if current else None,
+                "pass": current.pass_index if current else None,
                 "model_id": settings["model"], "price_per_million": price_per_million,
                 "cost_basis": ESTIMATED_ONLY if subscription else "metered_caps",
             }
@@ -297,6 +332,9 @@ def run_judgments(
                         rationale=json.dumps({
                             "result": verdict.model_dump(mode="json"),
                             "detector": candidate.detector,
+                            # Pass 1 decides; a repeat measures the noise floor only.
+                            "pass": current.pass_index,
+                            "repeat_of": current.primary_id if current.pass_index != PRIMARY_PASS else None,
                             # The signals that shortlisted the pair, for evaluation
                             # only; the judge never saw them.
                             "shortlist": candidate.signals(),

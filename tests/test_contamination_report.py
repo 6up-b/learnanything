@@ -104,9 +104,11 @@ def _db_hash(paths):
 
 
 def run(loaded, client, **kwargs):
+    """No noise-floor repeats unless a test asks: call counts stay per pair."""
     return contamination_report(
         loaded, client=client, caps=kwargs.pop("caps", SpendCaps(max_total_tokens=1_000_000)),
-        price_per_million=kwargs.pop("price_per_million", 1.0), **kwargs,
+        price_per_million=kwargs.pop("price_per_million", 1.0),
+        repeat_sample=kwargs.pop("repeat_sample", 0), **kwargs,
     )
 
 
@@ -202,7 +204,9 @@ def test_paraphrased_leak_missed_by_the_floor_is_judged_and_only_proposed(tutor_
     tutor = report["detectors"]["tutor_answer_leak"]
     assert tutor["embedding"]["status"] == "used"
     assert tutor["lexical_floor"]["flagged_subjects"] == 0
-    assert tutor["shortlist"] == {"pairs": 1, "by_reason": {"lexical": 0, "symbolic": 0, "embedding": 1}, "embedding_only": 1}
+    assert tutor["shortlist"] == {
+        "pairs": 1, "by_reason": {"bound": 1, "lexical": 0, "symbolic": 0, "embedding": 1}, "embedding_only": 1,
+    }
     assert tutor["decided"]["flags"] == 1 and tutor["agreement"]["shadow_only"] == 1
     assert tutor["flag_rate"] == 1.0
     [proposal] = tutor["proposals"]
@@ -269,7 +273,7 @@ def test_no_judge_and_no_vectors_degrade_to_the_floor(tmp_path):
     repository = Repository(paths.sqlite_path)
     caught = _answer(repository, BASIC_ITEM, "A matrix factorization into U, Sigma, and V transpose.",
                      leak_suspected=True, overlap=1.0)
-    _answer(repository, BASIC_ITEM, PARAPHRASE)
+    paraphrase = _answer(repository, BASIC_ITEM, PARAPHRASE)
     loaded = load_vault(paths.root)
     judge = Judge()
     report = run(loaded, judge, detectors=("tutor_answer_leak",))
@@ -277,11 +281,14 @@ def test_no_judge_and_no_vectors_degrade_to_the_floor(tmp_path):
     assert tutor["embedding"]["status"] == "unavailable"
     assert tutor["embedding"]["reason"] == "index item/expected_answer is incomplete"
     assert tutor["embedding"]["index"]["missing"] == 1
-    # Only the floor's own flag reaches the judge; the paraphrase is not seen.
-    assert tutor["shortlist"]["pairs"] == 1 and tutor["shortlist"]["by_reason"]["lexical"] == 1
-    assert len(judge.calls) == 1 and tutor["agreement"]["floor_and_shadow"] == 1
-    assert tutor["proposals"] == []  # the floor already debited this answer
+    # No vectors: no rank signal, but each bound pair still reaches the judge.
+    assert tutor["shortlist"]["pairs"] == 2 and tutor["shortlist"]["by_reason"]["lexical"] == 1
+    assert tutor["shortlist"]["by_reason"]["embedding"] == 0
+    assert len(judge.calls) == 2 and tutor["agreement"]["floor_and_shadow"] == 1
     assert tutor["samples"]["floor_and_shadow"][0]["question"]["left_id"] == caught
+    # The floor already debited the caught answer; only the paraphrase is proposed.
+    [proposal] = tutor["proposals"]
+    assert proposal["question_event_id"] == paraphrase
     free = run(loaded, Judge(), judge=False)
     assert free["status"] == "complete" and free["judge"]["requests"] == 0
     # No held-out exam material and no live reserve: nothing measured, no rate.
@@ -295,7 +302,11 @@ def test_a_live_debit_that_alone_primes_the_next_attempt_counts_as_the_floor(tmp
     repository = Repository(paths.sqlite_path)
     debited = _answer(repository, BASIC_ITEM, "Partly: U and V transpose are involved.", overlap=0.5)
     _answer(repository, BASIC_ITEM, "Think about which factors are orthogonal.", overlap=0.2)
-    tutor = run(load_vault(paths.root), Judge(), detectors=("tutor_answer_leak",))["detectors"]["tutor_answer_leak"]
+
+    def verdict(request):
+        return "contaminated" if "Partly" in request.prompt else "clean"
+
+    tutor = run(load_vault(paths.root), Judge(verdict), detectors=("tutor_answer_leak",))["detectors"]["tutor_answer_leak"]
     # 0.5 is below the 0.8 leak flag but above the 0.35 auto-prime debit.
     assert tutor["lexical_floor"]["flagged_subjects"] == 1
     assert tutor["agreement"]["floor_and_shadow"] == 1 and tutor["proposals"] == []
@@ -330,9 +341,10 @@ def test_a_subject_without_its_vector_is_counted_and_falls_back(tutor_vault):
 def test_symbolic_verifier_decides_math_reveals_and_outranks_the_llm(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
     loaded = load_vault(paths.root)
-    _item(loaded, "pi_prob", prompt="Two of three balls are red. P(red)?", expected="2/3")
+    _item(loaded, "pi_prob", prompt=r"Compute $\frac{1}{3} + \frac{1}{3}$.", expected="2/3")
     repository = Repository(paths.sqlite_path)
-    event = _answer(repository, "pi_prob", r"Count favourable outcomes: you get $\frac{2}{3}$.")
+    # Works the item's own expression to its answer: the link is established.
+    event = _answer(repository, "pi_prob", r"Add the numerators: 1/3 + 1/3 = $\frac{2}{3}$.")
     loaded = load_vault(paths.root)
     report = run(loaded, None, detectors=("tutor_answer_leak",), judge=False)
     tutor = report["detectors"]["tutor_answer_leak"]
@@ -346,7 +358,7 @@ def test_symbolic_verifier_decides_math_reveals_and_outranks_the_llm(tmp_path):
     with repository.connection() as connection:
         rows = connection.execute("SELECT judge, verdict, prompt_version FROM judgment_ledger ORDER BY judge").fetchall()
     assert [tuple(r) for r in rows] == [
-        ("llm", "clean", "contamination-reveal-v1"), ("verifier", "reveal", "contamination-symbolic-v1"),
+        ("llm", "clean", "contamination-reveal-v1"), ("verifier", "reveal", "contamination-symbolic-v2"),
     ]
     assert event
 
@@ -376,7 +388,10 @@ def test_dry_run_changes_nothing_and_builds_no_client(tutor_vault, monkeypatch):
     report = contamination_report(loaded, caps=SpendCaps(max_total_tokens=1_000_000), dry_run=True,
                                   price_per_million=1.0)
     assert report["status"] == "dry_run"
-    assert report["judge"]["pending"] == 1 and report["judge"]["estimate"]["calls"] == 1
+    # The default plan includes the noise floor: the one pair is judged twice.
+    assert report["judge"]["pending"] == 2 and report["judge"]["estimate"]["calls"] == 2
+    assert report["judge"]["repeat_requests"] == 1 and report["repeat_sample"] == 5
+    assert report["judge"]["estimate"]["pairs"] == 1
     assert report["judge"]["estimate"]["estimated_usd"] > 0
     assert report["detectors"]["tutor_answer_leak"]["decided"]["undecided"] == 1
     assert _db_hash(paths) == before
@@ -414,6 +429,29 @@ def test_a_subscription_route_runs_without_a_price_and_records_estimated_cost(tu
             "SELECT usage_json FROM model_call_receipts WHERE owner_kind='contamination_report'"
         ).fetchone()[0])
     assert usage["cost_basis"] == "estimated_only"
+    # The estimate is from the reported token usage (10 in + 20 out). Dollars
+    # need an owner price, as for every subscription command (shared helper).
+    assert usage["estimated_total_tokens"] == 30 and usage["estimated_token_source"] == "reported_usage"
+    assert usage["estimated_usd"] is None and report["judge"]["price_source"] == "unknown"
+
+
+def test_a_priced_subscription_run_records_a_numeric_estimate(tutor_vault):
+    """F7 (rejected; see the review): with an owner price the estimate is numeric."""
+    _paths, loaded, repository, _event = tutor_vault
+    judge = Judge()
+    judge.provider_type = "codex_sdk"
+    dry = run(loaded, judge, dry_run=True, price_per_million=2.0)
+    planned = dry["judge"]["estimate"]
+    assert planned["total_tokens"] > 0 and planned["estimated_usd"] == pytest.approx(planned["total_tokens"] * 2e-6)
+    report = run(loaded, judge, price_per_million=2.0)
+    assert report["status"] == "complete" and report["judge"]["price_source"] == "owner_override"
+    with repository.connection() as connection:
+        usage = json.loads(connection.execute(
+            "SELECT usage_json FROM model_call_receipts WHERE owner_kind='contamination_report'"
+        ).fetchone()[0])
+    assert usage["estimated_usd"] == pytest.approx(30 * 2e-6)
+    # The command budget keeps the planned reservation (never refunded).
+    assert report["judge"]["charged"]["estimated_usd"] == pytest.approx(planned["estimated_usd"])
 
 
 def test_reruns_are_cached_and_a_new_revision_rejudges(tutor_vault):
@@ -553,6 +591,10 @@ def test_cli_dry_runs_and_refuses_unknown_detectors(tutor_vault):
     result = runner.invoke(app, ["contamination", "report", "--vault", str(paths.root), "--dry-run", "--json"])
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["status"] == "dry_run"
+    assert json.loads(result.output)["judge"]["repeat_requests"] == 1
+    result = runner.invoke(app, ["contamination", "report", "--vault", str(paths.root), "--dry-run",
+                                 "--repeat-sample", "0", "--json"])
+    assert result.exit_code == 0 and json.loads(result.output)["judge"]["repeat_requests"] == 0
     result = runner.invoke(app, ["contamination", "report", "--vault", str(paths.root), "--detector", "bogus", "--json"])
     assert result.exit_code == 1 and json.loads(result.output)["status"] == "invalid"
 
@@ -567,3 +609,222 @@ def test_cli_embed_dry_run_plans_every_t4_recipe(tmp_path):
     assert report["status"] == "dry_run" and report["recipes"] == sorted(CONTAMINATION_RECIPES)
     assert report["pending"] == 3  # item stem, expected answer and the tutor answer
     assert PARAPHRASE not in result.output and _db_hash(paths) == before
+
+
+# --- Codex review fixes (F1-F7) ---------------------------------------------
+
+
+def test_identical_answers_on_distinct_pairs_each_get_their_own_ledger_verdict(tutor_vault):
+    """F1: the judgment id names the pair, not only the texts and settings."""
+    _paths, loaded, repository, event = tutor_vault
+    twin = _answer(repository, BASIC_ITEM, PARAPHRASE, created_at="2026-05-19T12:30:00+00:00")
+    _vectors(loaded, repository, "question_event/answer", {twin: [0.9, 0.05, 0.05]})
+    judge = Judge()
+    report = run(loaded, judge, detectors=("tutor_answer_leak",), repeat_sample=0)
+    assert report["status"] == "complete", report
+    assert len(judge.calls) == 2 and report["judge"]["completed"] == 2
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT id, left_id, input_hash FROM judgment_ledger WHERE judge='llm' ORDER BY left_id"
+        ).fetchall()
+    assert sorted(row["left_id"] for row in rows) == sorted([event, twin])
+    assert len({row["id"] for row in rows}) == 2 and len({row["input_hash"] for row in rows}) == 1
+    tutor = report["detectors"]["tutor_answer_leak"]
+    assert tutor["decided"]["flags"] == 2 and len(tutor["proposals"]) == 2
+    again = Judge()
+    report = run(loaded, again, detectors=("tutor_answer_leak",), repeat_sample=0)
+    assert not again.calls and report["judge"]["cached"] == 2
+
+
+def test_identical_answers_resume_without_reusing_the_other_pairs_verdict(tutor_vault):
+    """F1 across runs: an interrupted run judges only the missing pair on resume."""
+    _paths, loaded, repository, event = tutor_vault
+    twin = _answer(repository, BASIC_ITEM, PARAPHRASE, created_at="2026-05-19T12:30:00+00:00")
+    _vectors(loaded, repository, "question_event/answer", {twin: [0.9, 0.05, 0.05]})
+    first = Judge(fail_at=2)
+    report = run(loaded, first, detectors=("tutor_answer_leak",), repeat_sample=0,
+                 caps=SpendCaps(max_total_tokens=1_000_000, max_retries=0))
+    assert report["status"] == "provider_failed" and report["judge"]["completed"] == 1
+    resumed = Judge()
+    report = run(loaded, resumed, detectors=("tutor_answer_leak",), repeat_sample=0)
+    assert report["status"] == "complete" and len(resumed.calls) == 1
+    assert report["judge"]["cached"] == 1 and report["judge"]["completed"] == 1
+    with repository.connection() as connection:
+        judged = sorted(row[0] for row in connection.execute(
+            "SELECT left_id FROM judgment_ledger WHERE judge='llm'"))
+    assert judged == sorted([event, twin])
+
+
+def test_incidental_math_shortlists_but_never_decides_a_reveal(tmp_path):
+    """F2: "page 144" is not a link to the answer 144; the judge decides."""
+    paths = create_basic_vault(tmp_path / "vault")
+    loaded = load_vault(paths.root)
+    _item(loaded, "pi_square", prompt="Compute 12 * 12.", expected="144")
+    repository = Repository(paths.sqlite_path)
+    event = _answer(repository, "pi_square", "Read page 144 for the method.")
+    loaded = load_vault(paths.root)
+    report = run(loaded, Judge("clean"), detectors=("tutor_answer_leak",), repeat_sample=0)
+    tutor = report["detectors"]["tutor_answer_leak"]
+    assert tutor["symbolic"]["matches"] == 1 and tutor["symbolic"]["verifier_decisions"] == 0
+    assert report["verifier"]["written"] == 0
+    assert tutor["decided"]["flags"] == 0 and tutor["decided"]["by_judge"] == {"llm": 1}
+    assert tutor["proposals"] == []
+    with repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM judgment_ledger WHERE judge='verifier'").fetchone()[0] == 0
+    assert event
+
+
+def test_a_bound_tutor_pair_is_judged_however_many_items_share_its_answer(tmp_path):
+    """F3: four items with one expected answer tie on rank; the bound pair is never dropped."""
+    paths = create_basic_vault(tmp_path / "vault")
+    loaded = load_vault(paths.root)
+    twins = ("pi_a", "pi_b", "pi_c", "pi_d")
+    for item_id in twins:
+        _item(loaded, item_id, prompt=f"Define the trace ({item_id}).", expected="The sum of the diagonal entries.")
+    loaded = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    event = _answer(repository, "pi_d", "Add up what sits on the main slant, top-left to bottom-right.")
+    _vectors(loaded, repository, "item/expected_answer", {
+        BASIC_ITEM: [1.0, 0.0, 0.0], **{item_id: [0.0, 1.0, 0.0] for item_id in twins},
+    })
+    _vectors(loaded, repository, "question_event/answer", {event: [0.0, 0.9, 0.1]})
+    judge = Judge()
+    report = run(loaded, judge, detectors=("tutor_answer_leak",), top_k=3, repeat_sample=0)
+    tutor = report["detectors"]["tutor_answer_leak"]
+    assert tutor["lexical_floor"]["flagged_subjects"] == 0
+    assert tutor["shortlist"]["pairs"] == 1 and len(judge.calls) == 1
+    assert tutor["decided"]["flags"] == 1
+    [sample] = tutor["samples"]["shadow_only"]
+    # Tied with three other items: rank 1, not an arbitrary 4 by item id.
+    assert sample["signals"]["embedding"]["rank"] == 1
+    assert sample["question"]["right_id"] == "pi_d"
+
+
+def _render(repository, loaded, resolved, reservation, at):
+    from learnloop.clock import FrozenClock
+    from learnloop.substrate.activities import open_administration
+
+    return open_administration(repository, resolved=resolved, reservation=reservation, clock=FrozenClock(at))
+
+
+def test_a_reader_reveal_before_the_assessment_was_taken_stays_in_the_report(tmp_path):
+    """F4: reserve -> reader reply -> assessment rendered; the reveal is still found."""
+    from datetime import timedelta
+
+    from learnloop.clock import FrozenClock
+
+    paths = create_basic_vault(tmp_path / "vault")
+    loaded = load_vault(paths.root)
+    _item(loaded, "pi_trace", prompt="Define the trace.", expected="The sum of the diagonal entries.")
+    loaded = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    resolved, reservations = {}, {}
+    for item_id in (BASIC_ITEM, "pi_trace"):
+        resolved[item_id] = resolve_legacy_item(loaded, repository, loaded.practice_items[item_id],
+                                                purpose="assessment", clock=FrozenClock(NOW))
+        reservations[item_id] = reserve_surface(repository, surface_id=resolved[item_id].surface_id,
+                                                purpose="assessment", clock=FrozenClock(NOW))
+    surfaces = {item_id: value.surface_id for item_id, value in resolved.items()}
+    before = _answer(repository, None, PARAPHRASE, context="reader",
+                     created_at=(NOW + timedelta(hours=1)).isoformat())
+    # The learner then takes the SVD assessment: its reservation is rendered.
+    _render(repository, loaded, resolved[BASIC_ITEM], reservations[BASIC_ITEM], NOW + timedelta(hours=2))
+    after = _answer(repository, None, PARAPHRASE, context="reader",
+                    created_at=(NOW + timedelta(hours=3)).isoformat())
+    _vectors(loaded, repository, "surface/statement", {
+        surfaces[BASIC_ITEM]: [1.0, 0.0, 0.0], surfaces["pi_trace"]: [0.0, 1.0, 0.0],
+    })
+    _vectors(loaded, repository, "question_event/answer", {before: [0.9, 0.1, 0.0], after: [0.9, 0.1, 0.0]})
+
+    def verdict(request):
+        return "contaminated" if "Define SVD" in request.prompt else "clean"
+
+    report = run(loaded, Judge(verdict), detectors=("reader_reveal",), top_k=2, repeat_sample=0)
+    reader = report["detectors"]["reader_reveal"]
+    assert reader["status"] == "scanned" and reader["targets"] == 2
+    assert reader["embedding"]["status"] == "used"
+    pairs = {(s["question"]["left_id"], s["question"]["right_id"])
+             for category in reader["samples"].values() for s in category}
+    # The reply after the render is not paired with the taken assessment.
+    assert (after, surfaces[BASIC_ITEM]) not in pairs
+    assert reader["decided"]["flags"] == 1
+    [proposal] = reader["proposals"]
+    # Already taken: nothing to burn; its cold evidence goes for review.
+    assert proposal["action"] == "review_assessment"
+    assert proposal["surface_id"] == surfaces[BASIC_ITEM] and proposal["question_event_id"] == before
+    assert proposal["reservation_status"] == "rendered" and proposal["administration_id"]
+    [sample] = reader["samples"]["shadow_only"]
+    assert sample["signals"]["reservation_status"] == "rendered"
+
+
+def test_a_reserve_already_burned_by_an_exposure_gets_no_burn_proposal(tmp_path):
+    """F4: burn proposals only for currently eligible reserves."""
+    from learnloop.clock import FrozenClock
+    from learnloop.substrate.activities import append_exposure
+
+    paths = create_basic_vault(tmp_path / "vault")
+    loaded = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    resolved = resolve_legacy_item(loaded, repository, loaded.practice_items[BASIC_ITEM],
+                                   purpose="assessment", clock=FrozenClock(NOW))
+    reserve_surface(repository, surface_id=resolved.surface_id, purpose="assessment", clock=FrozenClock(NOW))
+    event = _answer(repository, None, PARAPHRASE, context="reader")
+    _vectors(loaded, repository, "surface/statement", {resolved.surface_id: [1.0, 0.0, 0.0]})
+    _vectors(loaded, repository, "question_event/answer", {event: [0.9, 0.1, 0.0]})
+    report = run(loaded, Judge(), detectors=("reader_reveal",), repeat_sample=0)
+    [proposal] = report["detectors"]["reader_reveal"]["proposals"]
+    assert proposal["action"] == "burn_reserve" and proposal["question_event_id"] == event
+    # Another reader answer burned it the way the live floor does: an exposure.
+    append_exposure(repository, surface=repository.fetch_surface(resolved.surface_id), administration_id=None,
+                    kind="externally_reported", purpose="instructional", consumes_unseen=False,
+                    detail={"reason": "reader_answer_revealed_cue"}, clock=FrozenClock(NOW))
+    report = run(loaded, Judge(), detectors=("reader_reveal",), repeat_sample=0)
+    reader = report["detectors"]["reader_reveal"]
+    assert reader["decided"]["flags"] == 1 and reader["proposals"] == []
+
+
+def test_the_report_carries_a_repeated_judgment_noise_floor_and_owner_audits(tutor_vault):
+    """F6: a bounded second pass, ledgered as its own row, planned in the dry run."""
+    _paths, loaded, repository, event = tutor_vault
+    _answer(repository, "pi_trace", "Add up the main diagonal.")
+    dry = contamination_report(loaded, caps=SpendCaps(max_total_tokens=1_000_000), dry_run=True,
+                               price_per_million=1.0, detectors=("tutor_answer_leak",), repeat_sample=1)
+    assert dry["judge"]["pending"] == 3 and dry["judge"]["repeat_requests"] == 1
+    assert dry["judge"]["estimate"]["calls"] == 3
+
+    flips = {"n": 0}
+
+    def flaky(request):
+        flips["n"] += 1
+        return "contaminated" if flips["n"] != 3 else "clean"
+
+    judge = Judge(flaky)
+    report = run(loaded, judge, detectors=("tutor_answer_leak",), repeat_sample=1)
+    assert report["status"] == "complete" and len(judge.calls) == 3
+    tutor = report["detectors"]["tutor_answer_leak"]
+    floor = tutor["noise_floor"]
+    assert floor["repeat_pairs"] == 1 and floor["compared"] == 1
+    assert floor["disagree"] == 1 and floor["disagreement_rate"] == 1.0
+    # The repeat never decides: decisions come from the first pass.
+    assert tutor["decided"]["flags"] == 2
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT id, left_id, input_hash, rationale FROM judgment_ledger WHERE judge='llm'"
+        ).fetchall()
+    passes = sorted(json.loads(row["rationale"])["pass"] for row in rows)
+    assert passes == [1, 1, 2] and len({row["id"] for row in rows}) == 3
+    # Owner audits are the independent baseline: reported beside the floor.
+    with repository.connection() as connection:
+        append_judgment(
+            connection, task="reveal", left_kind="question_event", left_id=event,
+            right_kind="practice_item", right_id=BASIC_ITEM, judge="owner",
+            input_hash="owner-audit", verdict="clean", rationale="Names roles only.",
+        )
+        connection.commit()
+    again = Judge()
+    report = run(loaded, again, detectors=("tutor_answer_leak",), repeat_sample=1)
+    assert not again.calls
+    audit = report["detectors"]["tutor_answer_leak"]["owner_audit"]
+    assert audit["audited_pairs"] == 1
+    assert audit["llm"] == {"compared": 1, "agree": 0, "disagree": 1}
+    assert audit["verifier"] == {"compared": 0, "agree": 0, "disagree": 0}

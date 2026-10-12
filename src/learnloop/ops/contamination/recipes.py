@@ -15,6 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 import json
 from types import MappingProxyType
+from typing import Any
 
 from learnloop.content.authoring.practice_leakage import held_out_spans
 from learnloop.db.repositories import Repository
@@ -66,12 +67,40 @@ def _question_event_answers(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
         yield str(event["id"]), str(event["answer_md"])
 
 
-def _reserved_surfaces(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
+def assessment_reservations(repository: Repository) -> list[dict[str, Any]]:
+    """Every assessment reservation, live or closed, with its immutable surface.
+
+    Rows are ``{"reservation": ..., "surface": ...}`` in surface, then
+    reservation order. A surface's text never changes (surfaces are
+    content-addressed), so the text a reader answer is compared with is the
+    one that was reserved at the time."""
+
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT r.id AS r_id, r.status AS r_status, r.reserved_at AS r_reserved_at, "
+            "r.closed_at AS r_closed_at, r.administration_id AS r_administration_id, s.* "
+            "FROM activity_surface_reservations r JOIN activity_surfaces s ON s.id = r.surface_id "
+            "WHERE r.purpose = 'assessment' ORDER BY s.id, r.reserved_at, r.id"
+        ).fetchall()
+    result = []
+    for row in rows:
+        values = dict(row)
+        reservation = {key[2:]: values.pop(key) for key in list(values) if key.startswith("r_")}
+        values["surface"] = json.loads(values.get("surface_json") or "{}")
+        result.append({"reservation": reservation, "surface": values})
+    return result
+
+
+def _assessment_surfaces(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
     repository = read_only_repository(loaded)
     if repository is None:
         return
-    for surface in sorted(repository.reserved_assessment_surfaces(), key=lambda row: str(row["id"])):
-        yield str(surface["id"]), surface_statement_text(surface)
+    seen: set[str] = set()
+    for row in assessment_reservations(repository):
+        surface = row["surface"]
+        if str(surface["id"]) not in seen:
+            seen.add(str(surface["id"]))
+            yield str(surface["id"]), surface_statement_text(surface)
 
 
 def _held_out_exam_spans(loaded: LoadedVault) -> Iterator[tuple[str, str]]:
@@ -102,9 +131,10 @@ CONTAMINATION_RECIPES: Mapping[str, EmbeddingRecipe] = MappingProxyType({
     "surface/statement": EmbeddingRecipe(
         "surface", "statement", 1,
         "The reserved assessment surface text the reader reveal floor compares "
-        "against (prompt, statement, question and expected answer); only surfaces "
-        "holding a live assessment reservation.",
-        _reserved_surfaces,
+        "against (prompt, statement, question and expected answer); every surface "
+        "that has held an assessment reservation, live or closed, so reader answers "
+        "given while it was reserved can still be audited.",
+        _assessment_surfaces,
     ),
     "exam_span/text": EmbeddingRecipe(
         "exam_span", "text", 1,
