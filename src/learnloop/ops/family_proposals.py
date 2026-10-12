@@ -4,12 +4,20 @@ The append-only judgment ledger is also the paid-work checkpoint. A run may die
 after a remote response but before its local commit (no remote idempotency
 contract can eliminate that billing window). Completed local verdicts are never
 paid for again. Different model settings or authored inputs get different keys.
+
+Metered judge routes (openai_chat/openrouter) must bound every physical request
+and keep the full cap set. A Codex route is billed to the owner's subscription
+(Slice A §5 rule 6): it runs without a physical-request bound, its token and
+dollar caps are not enforced and an unknown price does not refuse it, while the
+candidate, pair, call and retry caps still apply. Its cost is estimated from
+reported token usage (else the input-plus-output estimate) and recorded on
+receipts as ``estimated_only``.
 """
 from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Iterator
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from itertools import combinations
 import json
@@ -23,7 +31,10 @@ from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key, generation_limit, observe_model_calls
 from learnloop.ai.routing import provider_for_task, ready_client_for_task
 from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
+from learnloop.ai.spend import (
+    ESTIMATED_ONLY, SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded,
+    is_subscription_transport,
+)
 from learnloop.ai.transport import (
     BOUNDED_STRUCTURED_COMPLETION, execute_structured_operation, render_structured_prompt,
 )
@@ -42,6 +53,7 @@ from learnloop.vault.paths import VaultPaths
 
 PROMPT_VERSIONS = FAMILY_JUDGE_PROMPTS
 OUTPUT_TOKENS = 1024
+METERED_JUDGE_TYPES = frozenset({"openai_chat", "openrouter"})
 
 
 class FamilyVerdict(WireModel):
@@ -295,7 +307,12 @@ def propose_families(
         return passes, saved, [p for p in passes if p.judgment_id not in saved]
 
     passes, saved, pending = plan()
-    budget = SpendBudget(caps, cancelled=cancelled)
+    route_profile = vault.config.ai.providers.get(provider)
+    subscription = (
+        is_subscription_transport(client=client) if client is not None
+        else is_subscription_transport(profile=route_profile)
+    )
+    budget = SpendBudget(caps, cancelled=cancelled, subscription=subscription)
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "model_id": settings["model"], "provider": provider,
@@ -305,6 +322,10 @@ def propose_families(
         "caps": caps.as_dict(), "estimate": asdict(_estimate(pending, price_per_million)),
         "price_per_million": price_per_million,
         "price_source": "owner_override" if price_per_million is not None else "unknown",
+        "billing": "subscription" if subscription else "metered",
+        "cost_basis": ESTIMATED_ONLY if subscription else "metered_caps",
+        "physical_request_bound": not subscription,
+        "caps_in_force": budget.declared(),
         "charged": asdict(budget.used), "results_by_model": {},
         "manifest": {
             "algorithm_version": vault.config.algorithms.algorithm_version,
@@ -326,21 +347,22 @@ def propose_families(
         report.update(status="over_budget", reason=str(exc))
         return report
     if dry_run:
-        profile = vault.config.ai.providers.get(provider)
         report["bounded_transport"] = (
             client.supports(BOUNDED_STRUCTURED_COMPLETION) if client is not None else
-            profile is not None and profile.type in {"openai_chat", "openrouter"}
+            route_profile is not None and route_profile.type in METERED_JUDGE_TYPES
         )
         return report
     with _proposal_lock(vault.root):
         if pending and client is None:
-            profile = vault.config.ai.providers.get(provider)
-            if profile is None or profile.type not in {"openai_chat", "openrouter"}:
+            profile = route_profile
+            if profile is None or not (
+                profile.type in METERED_JUDGE_TYPES or is_subscription_transport(profile=profile)
+            ):
                 report.update(
                     status="unavailable",
-                    reason="Family judgments require a bounded openai_chat/openrouter profile. "
-                           "Set ai.routing.pf_family_judge to one; Codex app-server turns "
-                           "cannot guarantee per-request spend caps.",
+                    reason="Family judgments require an openai_chat/openrouter profile (bounded "
+                           "physical requests) or a Codex profile (subscription, estimated cost). "
+                           "Set ai.routing.pf_family_judge to one.",
                 )
                 return report
             # Pin the planned route: an availability fallback must not silently
@@ -355,7 +377,8 @@ def propose_families(
             provider = resolved.provider_name
             settings = _settings(vault, provider, getattr(client, "model", None))
             settings["judge_revision"] = judge_revision
-        if pending and not client.supports(BOUNDED_STRUCTURED_COMPLETION):
+        if pending and not subscription and not client.supports(BOUNDED_STRUCTURED_COMPLETION):
+            # Metered routes keep the physical-request bound.
             report.update(status="unavailable", reason="Judge transport cannot bound physical requests")
             return report
         if pending and not settings["model"]:
@@ -378,7 +401,12 @@ def propose_families(
                     "prompt_version": current.prompt_version if current else None,
                     "input_hash": current.input_hash if current else None,
                     "model_id": settings["model"], "price_per_million": price_per_million,
+                    "cost_basis": ESTIMATED_ONLY if subscription else "metered_caps",
                 }
+                if subscription and current is not None:
+                    planned = _estimate([current], price_per_million)
+                    declared["family_judge"]["estimated_total_tokens"] = planned.total_tokens
+                    declared["family_judge"]["estimated_usd"] = planned.estimated_usd
                 event = {**event, "budget_json": json.dumps(declared, sort_keys=True)}
             else:
                 # Child receipts carry actual usage/resolved model. Root receipts
@@ -387,6 +415,12 @@ def propose_families(
                     if event.get(key) is not None:
                         usage[key] = event[key]
                 event = {**event, "resolved_model": usage.get("resolved_model") or settings["model"]}
+                if subscription:
+                    event["usage_json"] = json.dumps(
+                        {**json.loads(event.get("usage_json") or "{}"),
+                         **_subscription_estimate(event, current, price_per_million)},
+                        sort_keys=True,
+                    )
             repository.record_model_event(action, event, owner_kind="family_proposals", owner_id=run_id)
 
         try:
@@ -410,16 +444,22 @@ def propose_families(
                             with budget.request(estimate) as charge:
                                 seen_items.update(pair)
                                 seen_pairs.add(pair)
+                                # Codex turns cannot bound physical requests;
+                                # metered routes must (one request, no repair).
+                                bound = nullcontext() if subscription else single_request()
                                 try:
-                                    with single_request(), generation_limit(OUTPUT_TOKENS):
+                                    with bound, generation_limit(OUTPUT_TOKENS):
                                         verdict = execute_structured_operation(
                                             client, purpose="pf_family_judge",
                                             prompt=current.prompt, result_model=FamilyVerdict,
                                         )
                                 finally:
                                     tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
-                                    cost = max(usage.get("cost") or 0.0,
-                                               tokens * (price_per_million or 0.0) / 1_000_000)
+                                    if subscription and price_per_million is None:
+                                        cost = None  # estimated tokens only; never refused
+                                    else:
+                                        cost = max(usage.get("cost") or 0.0,
+                                                   tokens * (price_per_million or 0.0) / 1_000_000)
                                     charge.reconcile(total_tokens=tokens, estimated_usd=cost)
                             verdict = FamilyVerdict.model_validate(verdict)
                             if verdict.verdict == "same" and (
@@ -469,6 +509,21 @@ def propose_families(
                 counts[row["judge_model"]][row["verdict"]] += 1
             report["results_by_model"] = {model: dict(values) for model, values in counts.items()}
     return report
+
+
+def _subscription_estimate(event: dict[str, Any], current: PairPass | None,
+                           price_per_million: float | None) -> dict[str, Any]:
+    """Codex receipt estimate: reported tokens, else the input-plus-output plan."""
+    reported = (event.get("input_tokens") or 0) + (event.get("output_tokens") or 0)
+    planned = _estimate([current], price_per_million).total_tokens if current is not None else 0
+    tokens = reported or planned
+    return {
+        "cost_basis": ESTIMATED_ONLY,
+        "estimated_total_tokens": tokens,
+        "estimated_token_source": "reported_usage" if reported else "input_plus_output_estimate",
+        "estimated_usd": (tokens * price_per_million / 1_000_000
+                          if price_per_million is not None else None),
+    }
 
 
 def _apply_groups(vault, repository, pairs, passes, saved, report, cancelled):

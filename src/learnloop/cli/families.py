@@ -42,7 +42,7 @@ def families_propose(
     max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
     price_per_million: Annotated[float | None, typer.Option(
         "--price-per-million", min=0,
-        help="Positive owner price bound (USD per million tokens, at least the higher input/output rate). Unknown prices fail closed.",
+        help="Positive owner price bound (USD per million tokens, at least the higher input/output rate). Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.",
     )] = None,
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:

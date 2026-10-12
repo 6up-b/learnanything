@@ -300,8 +300,8 @@
     "sha256": "e09b5c3e38014073c3c4a7f5520390ac9bcde21a317148e22f7c07cd091dd4c8"
   },
   "families propose": {
-    "bytes": 3485,
-    "sha256": "3cae246040097d304c2aaa480aa46dad9a0e8433955389d9ed662e5a13a2c8e9"
+    "bytes": 3740,
+    "sha256": "97b7163277f2988c964f54729e05f40e8166f323d0f68aeca3e18cf02fd7f8ce"
   },
   "families undo": {
     "bytes": 1670,

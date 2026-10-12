@@ -265,15 +265,160 @@ def test_isomorph_is_preserved_in_authored_members(vault):
     ]
 
 
-def test_default_codex_route_is_rejected_before_client_or_spend(vault, monkeypatch):
+class CodexJudge(Judge):
+    """A fake Codex SDK client: subscription-billed, no physical-request bound."""
+
+    provider_name = "codex"
+    provider_type = "codex_sdk"
+    model = "fake-codex"
+
+    def supports(self, capability):
+        return capability == "structured_completion"
+
+    def complete(self, request):
+        from learnloop.ai.execution import single_request_active
+
+        assert not single_request_active(), "Codex turns must not be forced to one request"
+        return super().complete(request)
+
+
+class MeteredJudge(Judge):
+    provider_name = "metered"
+    provider_type = "openai_chat"
+
+    def complete(self, request):
+        from learnloop.ai.execution import single_request_active
+
+        assert single_request_active(), "metered judges keep the physical-request bound"
+        return super().complete(request)
+
+
+def _codex_route(vault, monkeypatch, client):
+    from types import SimpleNamespace
+
+    loaded, _, _ = vault
+    assert loaded.config.ai.providers["codex"].type == "codex_sdk"
+    seen = []
+
+    def resolve(root, config, task, *, explicit):
+        seen.append((task, explicit))
+        return SimpleNamespace(ready=True, client=client, provider_name="codex")
+
+    monkeypatch.setattr("learnloop.ops.family_proposals.ready_client_for_task", resolve)
+    return seen
+
+
+def _receipts(repository):
+    with repository.connection() as connection:
+        return [dict(row) for row in connection.execute(
+            "SELECT budget_json, usage_json FROM model_call_receipts "
+            "WHERE owner_kind='family_proposals' ORDER BY started_at, id"
+        )]
+
+
+def test_codex_route_dry_run_shows_an_estimate_without_a_price(vault, monkeypatch):
     def forbidden(*args, **kwargs):
-        pytest.fail("unbounded transport must be rejected before startup")
+        pytest.fail("dry-run must not construct a client")
     monkeypatch.setattr("learnloop.ops.family_proposals.ready_client_for_task", forbidden)
-    report = propose_families(vault[0], caps=SpendCaps(max_total_tokens=1_000_000),
-                             price_per_million=1)
-    assert report["status"] == "unavailable"
-    assert report["charged"]["calls"] == 0
-    assert "pf_family_judge" in report["reason"]
+    _, _, paths = vault
+    before = paths.sqlite_path.read_bytes()
+    # The default pf_family_judge route falls back to the active Codex profile.
+    report = propose_families(vault[0], dry_run=True, caps=SpendCaps(
+        max_total_tokens=1, max_estimated_usd=0))
+    assert report["status"] == "dry_run" and report["provider"] == "codex"
+    assert report["billing"] == "subscription" and report["cost_basis"] == "estimated_only"
+    assert report["physical_request_bound"] is False
+    assert report["caps_in_force"]["not_enforced"] == ["max_total_tokens", "max_estimated_usd"]
+    assert report["estimate"]["calls"] == 6 and report["estimate"]["total_tokens"] > 0
+    assert report["estimate"]["estimated_usd"] is None  # unknown, never refused, never zero
+    priced = propose_families(vault[0], dry_run=True, caps=SpendCaps(), price_per_million=2.0)
+    assert priced["estimate"]["estimated_usd"] == pytest.approx(
+        priced["estimate"]["total_tokens"] * 2.0 / 1_000_000)
+    assert paths.sqlite_path.read_bytes() == before
+    result = CliRunner().invoke(app, [
+        "families", "propose", "--vault", str(paths.root), "--dry-run", "--json",
+    ])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["cost_basis"] == "estimated_only"
+
+
+def test_fake_codex_run_succeeds_and_receipts_carry_estimated_only(vault, monkeypatch):
+    judge = CodexJudge("same")
+    seen = _codex_route(vault, monkeypatch, judge)
+    # Token and dollar caps are not enforced and the price is unknown;
+    # the call, candidate and pair caps still are.
+    report = propose_families(vault[0], caps=SpendCaps(
+        max_total_tokens=1, max_estimated_usd=0, max_calls=6))
+    assert report["status"] == "complete", report
+    assert seen == [("pf_family_judge", "codex")]
+    assert len(judge.calls) == 6 and len(report["accepted"]) == 1
+    assert report["charged"]["calls"] == 6 and report["charged"]["estimated_usd"] is None
+    receipts = _receipts(vault[1])
+    assert receipts
+    for receipt in receipts:
+        budget = json.loads(receipt["budget_json"])
+        assert budget["cost_basis"] == "estimated_only" and budget["billing"] == "subscription"
+        assert budget["family_judge"]["cost_basis"] == "estimated_only"
+        usage = json.loads(receipt["usage_json"])
+        assert usage["cost_basis"] == "estimated_only"
+        assert usage["estimated_total_tokens"] == 30  # reported 10 input + 20 output
+        assert usage["estimated_token_source"] == "reported_usage"
+        assert usage["estimated_usd"] is None
+
+
+def test_codex_run_still_stops_a_runaway_at_the_call_cap(vault, monkeypatch):
+    judge = CodexJudge()
+    _codex_route(vault, monkeypatch, judge)
+    report = propose_families(vault[0], caps=SpendCaps(max_calls=5))
+    assert report["status"] == "over_budget" and "calls" in report["reason"]
+    assert not judge.calls
+
+
+def test_codex_estimate_falls_back_to_input_plus_output_tokens(vault, monkeypatch):
+    class SilentCodex(CodexJudge):
+        def complete(self, request):
+            from learnloop.ai.execution import single_request_active
+
+            assert not single_request_active()
+            self.calls.append(request)
+            return FamilyVerdict(verdict="different", variant_relation=None,
+                                 rationale="Not the same", idea_statement="", retrieval_target="")
+
+    judge = SilentCodex()
+    _codex_route(vault, monkeypatch, judge)
+    report = propose_families(vault[0], caps=SpendCaps(), price_per_million=1.0)
+    assert report["status"] == "complete"
+    usage = [json.loads(r["usage_json"]) for r in _receipts(vault[1])]
+    assert {u["estimated_token_source"] for u in usage} == {"input_plus_output_estimate"}
+    assert all(u["estimated_total_tokens"] > 1024 and u["estimated_usd"] > 0 for u in usage)
+
+
+def test_metered_route_keeps_the_physical_request_bound_and_full_caps(vault):
+    bounded = MeteredJudge()
+    report = run(vault, bounded)
+    assert report["status"] == "complete" and report["billing"] == "metered"
+    assert report["physical_request_bound"] is True and len(bounded.calls) == 6
+    receipts = _receipts(vault[1])
+    assert receipts and all(
+        "cost_basis" not in json.loads(r["budget_json"])
+        and json.loads(r["budget_json"])["family_judge"]["cost_basis"] == "metered_caps"
+        for r in receipts)
+
+    class UnboundedMetered(MeteredJudge):
+        def supports(self, capability):
+            return capability == "structured_completion"
+
+    unbounded = UnboundedMetered()
+    unbounded.model = "another-metered-model"  # new checkpoint keys: real pending work
+    report = run(vault, unbounded)
+    assert report["status"] == "unavailable" and not unbounded.calls
+    assert "bound physical requests" in report["reason"]
+    # Metered routes still refuse an unknown price and enforce the token cap.
+    fresh = MeteredJudge()
+    fresh.model = "uncached-metered-model"
+    assert run(vault, fresh, price_per_million=None)["status"] == "over_budget"
+    assert run(vault, fresh, caps=SpendCaps(max_total_tokens=1))["status"] == "over_budget"
+    assert not fresh.calls
 
 
 def test_explicit_revision_invalidates_alias_cache_but_reports_resolved_model(vault):
