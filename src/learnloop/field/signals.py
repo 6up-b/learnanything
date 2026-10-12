@@ -242,7 +242,7 @@ def load_interaction_signals(
         names = [c[0] for c in cursor.description]
         return [dict(zip(names, row, strict=True)) for row in cursor]
 
-    questions = rows("question_events")
+    questions = _link_practice_questions(connection, rows("question_events"))
     readers = [r for r in rows("interaction_events") if r["kind"] == "learner_question_asked"]
     # Read-only reports also open pre-classifier vaults; never migrate them just
     # to discover that no paid classifications are available.
@@ -254,6 +254,44 @@ def load_interaction_signals(
         questions, readers, attempts,
         facet_to_lo={}, cached_classifications=cached, diagnostics=diagnostics,
     )
+
+
+def _link_practice_questions(connection: Any, questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Link a practice-screen question to the attempt it preceded (review F5).
+
+    The practice screen asks before the attempt exists, so its row carries the
+    item and session but no ``attempt_id``. Submission counts such a question
+    as a hint equivalent of the NEXT attempt on the item when that attempt is
+    in the question's session (``tutor_qa.hint_equivalents_for_submission``:
+    after the previous attempt on the item, at or before this one). The same
+    window over the two immutable ledgers supplies the link here. Explicit
+    links and other contexts are left as logged.
+    """
+    pending = [
+        q for q in questions
+        if not q.get("attempt_id") and q.get("context") == "practice" and q.get("practice_item_id")
+    ]
+    if not pending or connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='practice_attempts'"
+    ).fetchone() is None:
+        return questions
+    by_item: dict[str, list[tuple[datetime, str, str | None]]] = defaultdict(list)
+    for attempt_id, item_id, session_id, created_at in connection.execute(
+        "SELECT id, practice_item_id, session_id, created_at FROM practice_attempts"
+    ):
+        by_item[item_id].append((instant(created_at), attempt_id, session_id))
+    for attempts in by_item.values():
+        attempts.sort()
+    pending_ids = {id(q) for q in pending}
+    linked = []
+    for question in questions:
+        if id(question) in pending_ids:
+            asked = instant(question["created_at"])
+            following = next((a for a in by_item.get(question["practice_item_id"], ()) if a[0] >= asked), None)
+            if following is not None and following[2] in (None, question.get("session_id")):
+                question = {**question, "attempt_id": following[1]}
+        linked.append(question)
+    return linked
 
 
 def _available_for_attempt(signal: SignalRow, attempt: AttemptRow) -> bool:
