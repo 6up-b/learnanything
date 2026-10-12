@@ -3,8 +3,8 @@ title: "post_attempt_jobs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "2c46a06ae67b136a686e5622d9a55062f49bc638"
+source_commit_timestamp: "2026-10-12T16:39:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite post_attempt_jobs"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/stores/diagnoses.py"
   - "src/learnloop/diagnosis/split/jobs.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/placement/state.py"
   - "src/learnloop_sidecar/context.py"
   - "src/learnloop_sidecar/post_attempt_worker.py"
 tags:
@@ -97,6 +98,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
 
@@ -115,6 +117,7 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnosis_reports.py`
 - `tests/test_field_split_outcomes.py`
+- `tests/test_placement_diagnosis_decides.py`
 - `tests/test_placement_split_grades.py`
 - `tests/test_post_attempt_worker.py`
 

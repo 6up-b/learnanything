@@ -3,8 +3,8 @@ title: "probe_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "2c46a06ae67b136a686e5622d9a55062f49bc638"
+source_commit_timestamp: "2026-10-12T16:39:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_observations"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/config/template.py"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/placement/state.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
@@ -100,6 +101,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
 

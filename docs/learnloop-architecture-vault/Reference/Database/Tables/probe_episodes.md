@@ -3,8 +3,8 @@ title: "probe_episodes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "13029ed2c187198a27c0e8e37abeb6e6d22ff8fc"
-source_commit_timestamp: "2026-10-12T15:09:17-04:00"
+source_commit: "2c46a06ae67b136a686e5622d9a55062f49bc638"
+source_commit_timestamp: "2026-10-12T16:39:13-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_episodes"
@@ -27,8 +27,8 @@ source_paths:
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_activity_policy.py"
   - "src/learnloop/attempts/post_attempt.py"
-  - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/curriculum_locks.py"
+  - "src/learnloop/curriculum/depth_rungs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -118,6 +118,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
 
@@ -128,7 +129,6 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/post_attempt.py`
-- `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/curriculum_locks.py`
 - `src/learnloop/curriculum/depth_rungs.py`
@@ -142,6 +142,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/goals/goal_contracts.py`
+- `src/learnloop/placement/state.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/scheduling/state_signals.py`
 - `src/learnloop/sim/diagnostic_validation.py`
@@ -169,9 +170,9 @@ Indexes and uniqueness:
 - `tests/test_instrument_servability_journeys.py`
 - `tests/test_p2_acceptance.py`
 - `tests/test_p2_leakage_suite.py`
+- `tests/test_placement_opening_probes.py`
 - `tests/test_probe_audit.py`
 - `tests/test_probe_block_end.py`
-- `tests/test_probe_dialogue.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
