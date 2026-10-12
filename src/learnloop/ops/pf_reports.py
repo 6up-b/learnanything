@@ -43,9 +43,12 @@ from learnloop.ops.pf_generation import FILTER_ORDER
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
-REPORT_VERSION = "pf-reports-v1"
+REPORT_VERSION = "pf-reports-v2"
 PILOT_PAIRS = 15
 SCALING_PAIRS = 10
+# Agreed (two-pass) blind comparisons each arm needs, on families both arms
+# share, before the pilot recommends a default path.
+MIN_AGREED_PAIRS = 5
 ARMS = ("single_shot", "generator", "ensemble", "source_anchored")
 
 
@@ -189,19 +192,47 @@ class _Judge:
                                           "accuracy": result["accuracy"],
                                           "order": "left_first" if order[0] is left else "right_first"})
             verdicts.append((call.model, result))
-        return {"model": verdicts[0][0], "passes": [verdict for _, verdict in verdicts]}
+        return {"model": verdicts[0][0], "passes": [verdict for _, verdict in verdicts],
+                "family_id": left["family_id"]}
 
 
-def _pair_rows(left: list[dict[str, Any]], right: list[dict[str, Any]], limit: int) -> list[tuple[dict, dict]]:
-    ordered_left = sorted(left, key=lambda row: content_key(["pair", row["id"]]))[:limit]
-    ordered_right = sorted(right, key=lambda row: content_key(["pair", row["id"]]))[:limit]
-    return list(zip(ordered_left, ordered_right))
+def frozen_inputs_key(row: Mapping[str, Any]) -> tuple[str, str | None, str | None]:
+    """(family, judged parent contract, family revision): rows comparable as identical inputs."""
+    try:
+        judged = json.loads(row.get("judged_inputs_json") or "{}")
+    except ValueError:
+        judged = {}
+    return (row["family_id"], judged.get("parent_input_hash"), judged.get("family_revision"))
+
+
+def _pair_rows(left: list[dict[str, Any]], right: list[dict[str, Any]], limit: int,
+               key: Callable[[Mapping[str, Any]], Any] = frozen_inputs_key) -> list[tuple[dict, dict]]:
+    """Pairs within the same family and frozen inputs only, spread across families.
+
+    A comparison between different families (or a parent edited between the
+    arms) would measure topic mix, not the arms.
+    """
+    groups: dict[Any, tuple[list[dict], list[dict]]] = defaultdict(lambda: ([], []))
+    for side, rows in ((0, left), (1, right)):
+        for row in rows:
+            groups[key(row)][side].append(row)
+    queues = []
+    for group in sorted(groups, key=lambda value: json.dumps(value, default=str)):
+        lefts, rights = (sorted(rows, key=lambda row: content_key(["pair", row["id"]])) for rows in groups[group])
+        queues.append(list(zip(lefts, rights)))
+    pairs: list[tuple[dict, dict]] = []
+    while len(pairs) < limit and any(queues):
+        for queue in queues:
+            if queue and len(pairs) < limit:
+                pairs.append(queue.pop(0))
+    return pairs
 
 
 def _summarize_pairs(results: list[dict[str, Any]]) -> dict[str, Any]:
     if not results:
-        return {"pairs": 0}
-    summary: dict[str, Any] = {"pairs": len(results), "by_judge_model": dict(Counter(r["model"] for r in results))}
+        return {"pairs": 0, "families": [], "decisions": []}
+    summary: dict[str, Any] = {"pairs": len(results), "by_judge_model": dict(Counter(r["model"] for r in results)),
+                               "families": sorted({r["family_id"] for r in results})}
     for key in ("preferred", "depth", "accuracy"):
         agree = [r for r in results if r["passes"][0][key] == r["passes"][1][key]]
         left_wins = sum(1 for r in agree if r["passes"][0][key] == "left")
@@ -209,6 +240,11 @@ def _summarize_pairs(results: list[dict[str, Any]]) -> dict[str, Any]:
         summary[key] = {"two_pass_agreement": _rate(len(agree), len(results)),
                         "left_wins_when_agreed": left_wins, "right_wins_when_agreed": right_wins,
                         "ties_when_agreed": len(agree) - left_wins - right_wins}
+    # Per-pair outcome on the overall preference (ids only): the recommendation
+    # counts agreed comparisons on families both arms share.
+    summary["decisions"] = [{"family_id": r["family_id"],
+                             "agreed": r["passes"][0]["preferred"] == r["passes"][1]["preferred"],
+                             "winner": r["passes"][0]["preferred"]} for r in results]
     return summary
 
 
@@ -301,21 +337,40 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
 
 
 def _recommend(report: dict[str, Any]) -> dict[str, Any]:
+    """A default path only from usable, agreed blind comparisons on shared families (§5.6).
+
+    Each arm is compared with single-shot items of the same family and frozen
+    inputs. Only pairs whose two passes agree count, only on families both
+    arms were compared on, and each arm needs ``MIN_AGREED_PAIRS`` of them.
+    Programs become the default only when their preference rate over
+    single-shot clearly exceeds the ensemble's (Wilson intervals separate);
+    otherwise ensemble matches or beats them and is the default (§5.6).
+    """
     arms = report.get("arms", {})
-    comparison = report.get("blind_comparison", {})
+    comparison = report.get("blind_comparison") or {}
     if not {"generator", "ensemble"} <= set(arms):
-        return {"default_path": None, "reason": "both quantitative arms must run on the same families"}
-    def survival(arm: str) -> float | None:
-        return arms[arm]["survived_all_filters"]["rate"]
-    def wins(arm: str) -> int:
-        preferred = comparison.get(arm, {}).get("preferred", {})
-        return preferred.get("left_wins_when_agreed", 0) - preferred.get("right_wins_when_agreed", 0)
+        return {"default_path": None, "reason": "insufficient evidence: both quantitative arms must run"}
     if not comparison:
-        return {"default_path": None, "reason": "run with --judge for the blind comparison"}
-    ensemble, generator = survival("ensemble"), survival("generator")
-    if ensemble is not None and generator is not None and wins("ensemble") >= wins("generator"):
-        return {"default_path": "ensemble", "reason": "ensemble matches or beats programs; keep programs for procedural drill"}
-    return {"default_path": "generator", "reason": "programs beat ensemble on the blind comparison"}
+        return {"default_path": None, "reason": "insufficient evidence: run with --judge for the blind comparison"}
+    decisions = {arm: [d for d in (comparison.get(arm) or {}).get("decisions") or [] if d.get("agreed")]
+                 for arm in ("generator", "ensemble")}
+    common = {d["family_id"] for d in decisions["generator"]} & {d["family_id"] for d in decisions["ensemble"]}
+    tallies = {}
+    for arm, rows in decisions.items():
+        usable = [d for d in rows if d["family_id"] in common]
+        tallies[arm] = _rate(sum(1 for d in usable if d["winner"] == "left"), len(usable))
+    evidence = {"agreed_pairs_on_shared_families": {arm: tally["n"] for arm, tally in tallies.items()},
+                "shared_families": sorted(common), "minimum_agreed_pairs": MIN_AGREED_PAIRS,
+                "preferred_over_single_shot": tallies}
+    if any(tally["n"] < MIN_AGREED_PAIRS for tally in tallies.values()):
+        return {"default_path": None, "reason": "insufficient evidence: too few agreed blind comparisons "
+                "on families both arms share", **evidence}
+    generator, ensemble = tallies["generator"]["wilson95"], tallies["ensemble"]["wilson95"]
+    if generator[0] > ensemble[1]:
+        return {"default_path": "generator", "reason": "programs clearly beat ensemble on the blind comparison",
+                **evidence}
+    return {"default_path": "ensemble",
+            "reason": "ensemble matches or beats programs; keep programs for procedural drill", **evidence}
 
 
 def _pilot_markdown(report: dict[str, Any]) -> str:
@@ -361,7 +416,9 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
     survivors = {tier: [row for row in tier_rows if store.verdict_survived(verdicts[row["id"]])
                         and store.verdict_verified(verdicts[row["id"]])]
                  for tier, tier_rows in tiers.items()}
-    pairs = _pair_rows(survivors["frontier"], survivors["cheap"], SCALING_PAIRS)
+    # Identical inputs: the same family, frozen parent/family inputs and path.
+    pairs = _pair_rows(survivors["frontier"], survivors["cheap"], SCALING_PAIRS,
+                       key=lambda row: (*frozen_inputs_key(row), row["generation_path"]))
     report["blind_comparison_plan"] = {"pairs": len(pairs)}
     if judge:
         report["judge_estimate"] = asdict(_judge_plan(len(pairs), caps))

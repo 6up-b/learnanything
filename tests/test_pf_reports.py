@@ -59,7 +59,8 @@ def test_pilot_compares_all_three_arms_and_the_blind_judge_is_two_pass(tmp_path)
         ratings = connection.execute(
             "SELECT judge_model, prompt_version FROM judgment_ledger WHERE task='pilot_rating'").fetchall()
     assert len(ratings) == 2 * sum(arm["pairs"] for arm in comparison.values())
-    assert report["recommendation"]["default_path"] in {"ensemble", "generator"}
+    # The fake judge always prefers position A, so its two passes never agree.
+    assert report["recommendation"]["default_path"] is None
     for name in report["report_files"]:
         assert (tmp_path / "reports" / name).exists()
     text = (tmp_path / "reports" / report["report_files"][1]).read_text()
@@ -131,3 +132,61 @@ def test_each_scaling_tier_runs_its_own_program_writer_on_identical_inputs(tmp_p
     assert models == {"cheap": "cheap-writer-resolved", "frontier": "frontier-writer-resolved"}
     family = load_vault(paths.root).activity_families["af_linear"]
     assert family.generator is None and family.source_kind == "authored"  # tier trials never author the family
+
+
+def test_pilot_never_recommends_a_path_without_usable_comparisons():
+    """Codex review F13: empty or inconclusive comparisons are insufficient evidence."""
+    from learnloop.ops.pf_reports import _recommend
+
+    arms = {arm: {"survived_all_filters": {"rate": 0.5}} for arm in ("generator", "ensemble", "single_shot")}
+    for comparison in ({}, {"generator": {"pairs": 0}, "ensemble": {"pairs": 0}},
+                       {"generator": {"pairs": 4, "decisions": []}, "ensemble": {"pairs": 4, "decisions": []}}):
+        verdict = _recommend({"arms": arms, "blind_comparison": comparison})
+        assert verdict["default_path"] is None, comparison
+
+
+def test_pairs_never_cross_families_or_frozen_inputs():
+    from learnloop.ops.pf_reports import _pair_rows
+
+    def row(identifier, family, parent_hash="p"):
+        return {"id": identifier, "family_id": family,
+                "judged_inputs_json": json.dumps({"parent_input_hash": parent_hash, "family_revision": "f"})}
+
+    left = [row("l1", "fa"), row("l2", "fb"), row("l3", "fa", parent_hash="edited")]
+    right = [row("r1", "fa"), row("r2", "fc"), row("r3", "fa")]
+    pairs = _pair_rows(left, right, 15)
+    assert [(a["id"], b["family_id"]) for a, b in pairs] == [("l1", "fa")]
+    assert all(a["family_id"] == b["family_id"] for a, b in pairs)
+
+
+class PrefersSolve(PFFake):
+    """A consistent blind judge: prefers the 'Solve ...' item, else a tie."""
+
+    def complete(self, request):
+        from learnloop.content.authoring import pf_contracts as C
+        from tests.pf_fakes import prompt_context
+
+        if request.result_model is not C.PairwiseVerdict:
+            return super().complete(request)
+        self.calls.append(request)
+        context = prompt_context(request.prompt)
+        a, b = (context[side]["problem"].startswith("Solve") for side in ("A", "B"))
+        choice = "A" if a and not b else "B" if b and not a else "tie"
+        return C.PairwiseVerdict(preferred=choice, depth=choice, accuracy="tie", rationale="consistent")
+
+
+@needs_bwrap
+def test_pilot_recommends_only_from_agreed_comparisons_on_the_same_families(tmp_path):
+    _, _, paths = seed_pf_vault(tmp_path / "vault")
+    for path in ("single_shot", "generator", "ensemble"):
+        generate(paths, path, "pilot-1")
+    biased = pilot_report(load_vault(paths.root), round_id="pilot-1", output_dir=tmp_path / "a", judge=True,
+                          caps=CAPS, price_per_million=1.0, clients={"pairwise": PFFake("position-biased")})
+    # The fake always prefers position A: the two passes never agree.
+    assert biased["recommendation"]["default_path"] is None
+    assert "insufficient" in biased["recommendation"]["reason"]
+    consistent = pilot_report(load_vault(paths.root), round_id="pilot-1", output_dir=tmp_path / "b", judge=True,
+                              caps=CAPS, price_per_million=1.0, clients={"pairwise": PrefersSolve("consistent")})
+    assert consistent["recommendation"]["default_path"] == "generator", consistent["recommendation"]
+    for arm in ("generator", "ensemble"):
+        assert consistent["blind_comparison"][arm]["families"] == ["af_linear"]
