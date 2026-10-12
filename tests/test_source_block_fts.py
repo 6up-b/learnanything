@@ -1,4 +1,4 @@
-"""Slice 2 T6: the ``source_block_fts`` keyword index (migration 175, DERIVED)."""
+"""Slice 2 T6: the ``source_block_fts`` keyword index (migrations 175-176, DERIVED)."""
 from __future__ import annotations
 
 from contextlib import closing
@@ -157,3 +157,65 @@ def test_a_delete_never_removes_another_blocks_index_row(tmp_path):
     issues = []
     _check_source_block_fts(repository, issues)
     assert issues == []
+
+
+_EARLIER_175_DELETE_PATHS = (
+    "CREATE TRIGGER source_block_fts_after_delete AFTER DELETE ON source_document_blocks "
+    "BEGIN DELETE FROM source_block_fts WHERE rowid = OLD.rowid; END",
+    "CREATE TRIGGER source_block_fts_after_update AFTER UPDATE OF extraction_id, span_id, block_type, text "
+    "ON source_document_blocks BEGIN DELETE FROM source_block_fts WHERE rowid = OLD.rowid; "
+    "INSERT OR REPLACE INTO source_block_fts(rowid, text, extraction_id, span_id) "
+    "SELECT NEW.rowid, NEW.text, NEW.extraction_id, NEW.span_id "
+    "WHERE NEW.block_type NOT IN ('PageHeader', 'PageFooter', 'TableOfContents'); END",
+)
+
+
+def _trigger_sql(path) -> dict[str, str]:
+    with closing(connect(path, read_only=True)) as connection:
+        return {str(name): str(sql) for name, sql in connection.execute(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'source_block_fts_%'")}
+
+
+def test_a_vault_that_applied_the_earlier_175_gets_the_identity_delete_paths(tmp_path):
+    """Re-review F20: 175 was edited in place and migrations carry no checksum,
+    so a vault with the earlier rowid-only delete paths is repaired by 176."""
+
+    from learnloop.db.migrate import apply_migrations
+
+    repository = Repository(tmp_path / "s.sqlite")
+    with repository.connection() as connection:
+        connection.execute("DROP TRIGGER source_block_fts_after_delete")
+        connection.execute("DROP TRIGGER source_block_fts_after_update")
+        for statement in _EARLIER_175_DELETE_PATHS:
+            connection.execute(statement)
+        connection.execute("DELETE FROM schema_migrations WHERE version > 175")
+        connection.commit()
+    assert "OLD.extraction_id" not in _trigger_sql(repository.sqlite_path)["source_block_fts_after_delete"]
+    applied = apply_migrations(repository.sqlite_path)
+    assert [migration.version for migration in applied][:1] == [176]
+    triggers = _trigger_sql(repository.sqlite_path)
+    assert set(triggers) == {"source_block_fts_after_insert", "source_block_fts_after_delete",
+                             "source_block_fts_after_update"}
+    for name in ("source_block_fts_after_delete", "source_block_fts_after_update"):
+        assert "extraction_id = OLD.extraction_id AND span_id = OLD.span_id" in triggers[name]
+    # And they behave: a renumbered rowid never deletes another block's row.
+    seed_source(Repository(repository.sqlite_path), source_id="src", revision_id="rev", extraction_id="ext",
+                title="Notes", units=BOOK)
+    with repository.connection() as connection:
+        (first, _), (second, second_span) = connection.execute(
+            "SELECT rowid, span_id FROM source_document_blocks WHERE block_type = 'Text' "
+            "ORDER BY rowid LIMIT 2").fetchall()
+        text = connection.execute("SELECT text FROM source_document_blocks WHERE rowid = ?", (second,)).fetchone()[0]
+        connection.execute("DELETE FROM source_block_fts WHERE rowid IN (?, ?)", (first, second))
+        connection.execute("INSERT INTO source_block_fts(rowid, text, extraction_id, span_id) VALUES (?,?,?,?)",
+                           (first, text, "ext", second_span))
+        connection.execute("DELETE FROM source_document_blocks WHERE rowid = ?", (first,))
+        connection.commit()
+    assert ("ext", second_span) in {(row[2], row[3]) for row in _rows(repository.sqlite_path)}
+
+
+def test_a_fresh_vault_has_the_same_triggers_through_176(tmp_path):
+    repository = Repository(tmp_path / "s.sqlite")
+    triggers = _trigger_sql(repository.sqlite_path)
+    for name in ("source_block_fts_after_delete", "source_block_fts_after_update"):
+        assert "extraction_id = OLD.extraction_id AND span_id = OLD.span_id" in triggers[name]
