@@ -34,7 +34,12 @@ rename); the row becomes ``applied`` only after the derived state is
 refreshed. An undo records ``undoing`` (with the owner's verdicts) before it
 restores the file. :func:`recover_interrupted_actions` finishes either from
 whichever side of the file write it stopped on; every merge, undo and
-dedupe run calls it under the vault lock, and ``doctor --fix-state`` does too.
+dedupe run calls it under the vault lock, the sidecar calls it when it opens
+the vault, and ``doctor --fix-state`` does too. Until an action settles, its
+``facet_merges`` rows are left out of the merge map
+(``Repository.facet_merge_map``), so facets.yaml is the authority: a facet it
+still lists keeps its own evidence, and a written merge already resolves
+through the alias (review F12).
 
 What an undo restores. Evidence resolved at projection time (every attempt's
 criterion targets, recipes and evidence facets, which keep the retired id on
@@ -407,7 +412,7 @@ def merge_registered_facets(
         if locks and not policy:
             return {"status": "refused", "reason": "identity_locked", "lock_reasons": locks,
                     "retired_facet_ids": retired, "held_back": held_back}
-        merge_map = repository.facet_merge_map()
+        merge_map = repository.facet_merge_map(include_in_flight=True)
         already = [facet_id for facet_id in retired if facet_id in merge_map]
         if already:
             return {"status": "refused", "reason": "already_merged", "facet_ids": already}
@@ -760,8 +765,9 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
 
     * ``applying``: facets.yaml already shows the merge -> refresh, ``applied``;
       it still shows the facets before -> write the merge, refresh,
-      ``applied``; anything else (edited since) -> the intent is withdrawn
-      (``abandoned``, its ``facet_merges`` rows removed).
+      ``applied``, unless a criterion graded meanwhile names two of its facets
+      (review F1); that, or anything else (edited since) -> the intent is
+      withdrawn (``abandoned``, its ``facet_merges`` rows removed).
     * ``undoing``: the owner asked for the undo, so it is finished: the file
       restored if it still shows the merge, the rows removed, ``undone``. A
       file that shows neither side is reported and left for the owner.
@@ -790,6 +796,16 @@ def recover_interrupted_actions(root: Path, repository: Repository, *, clock: Cl
                     out.append({"id": record["id"], "from": "applying", "to": "abandoned"})
                     continue
                 if state == "before":
+                    # A criterion graded while the intent waited may now name
+                    # two of its facets (review F1): withdraw rather than merge.
+                    _kept, held = hold_back_shared(
+                        survivor, retired, graded_shared_criteria(vault, repository, (survivor, *retired)),
+                    )
+                    if held:
+                        _abandon(repository, record, clock=clock,
+                                 reason="a criterion graded since the intent names two of its facets")
+                        out.append({"id": record["id"], "from": "applying", "to": "abandoned", "held_back": held})
+                        continue
                     _write_facets(paths, _applied_document(document, record))
                 affected = affected_learning_objects(vault, (survivor, *retired))
                 refresh_derived_state(root, repository, affected, clock=clock)

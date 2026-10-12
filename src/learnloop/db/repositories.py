@@ -32,6 +32,7 @@ from learnloop.db.stores.diagnoses import (
 from learnloop.db.stores.model_calls import ModelCallStoreMixin
 from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
+from learnloop.db.stores.facet_identity import settled_merge_rows
 from learnloop.db.stores.observation_ledger import (
     load_authoritative_observation_ledger,
     load_canonical_observation_ledger,
@@ -5802,8 +5803,18 @@ class Repository(
 
     # -- facet_merges: transitive resolution, cycle-rejected at write (§3.4) ------
 
-    def facet_merge_map(self) -> dict[str, str]:
+    def facet_merge_map(self, *, include_in_flight: bool = False) -> dict[str, str]:
+        """The settled merge map, retired facet -> survivor.
+
+        Rows of a facet-identity merge or undo still in flight (``applying`` or
+        ``undoing``) are left out until it settles: facets.yaml is the authority
+        meanwhile (``stores.facet_identity.settled_merge_rows``, review F12).
+        ``include_in_flight`` returns every row, for the write-time checks.
+        """
+
         with self.connection() as connection:
+            if not include_in_flight:
+                return dict(settled_merge_rows(connection))
             rows = connection.execute(
                 "SELECT retired_facet_id, surviving_facet_id FROM facet_merges"
             ).fetchall()
@@ -5832,7 +5843,7 @@ class Repository(
 
         if retired_facet_id == surviving_facet_id:
             raise ValueError("merge would create a cycle: a facet cannot be merged into itself")
-        table = self.facet_merge_map()
+        table = self.facet_merge_map(include_in_flight=True)
         if retired_facet_id in table:
             raise ValueError(f"facet {retired_facet_id!r} is already retired by a merge")
         # Would (retired -> surviving) create a cycle? It does iff `retired` is

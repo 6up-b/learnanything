@@ -154,6 +154,39 @@ def graded_contract_version_ids(connection: sqlite3.Connection) -> list[str]:
     return sorted(str(row[0]) for row in rows)
 
 
+def settled_merge_rows(connection: sqlite3.Connection) -> list[tuple[str, str]]:
+    """``facet_merges`` rows, minus those of a facet-identity action still in flight.
+
+    A vault merge commits its ``facet_merges`` rows (``applying``) before it
+    writes ``facets.yaml``, and an undo (``undoing``) restores the file before
+    it deletes them. Until the action settles, facets.yaml is the authority:
+    its aliases already resolve a written merge, and a facet it still lists
+    keeps its own evidence (review F12). A database without the actions table
+    (before migration 172) has no such rows.
+    """
+
+    has_actions = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'facet_identity_actions'"
+    ).fetchone()
+    if has_actions is None:
+        rows = connection.execute("SELECT retired_facet_id, surviving_facet_id FROM facet_merges").fetchall()
+    else:
+        rows = connection.execute(
+            """
+            SELECT merge.retired_facet_id, merge.surviving_facet_id
+              FROM facet_merges AS merge
+             WHERE NOT EXISTS (
+                   SELECT 1
+                     FROM facet_identity_actions AS action, json_each(action.merge_rows_json) AS pair
+                    WHERE action.status IN ('applying', 'undoing')
+                      AND json_extract(pair.value, '$[0]') = merge.retired_facet_id
+                      AND json_extract(pair.value, '$[1]') = merge.surviving_facet_id
+             )
+            """
+        ).fetchall()
+    return [(str(row[0]), str(row[1])) for row in rows]
+
+
 def delete_merge_rows(connection: sqlite3.Connection, rows: Iterable[Sequence[str]]) -> int:
     """Remove exactly the ``facet_merges`` rows an action inserted (its undo)."""
 
@@ -174,4 +207,5 @@ __all__ = [
     "insert_action",
     "list_actions",
     "set_status",
+    "settled_merge_rows",
 ]

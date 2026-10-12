@@ -26,6 +26,7 @@ from learnloop.attempts.evidence import attempt_evidence_mass
 from learnloop.attempts.reveal_ledger import production_admissibility
 from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.db.stores.facet_identity import settled_merge_rows
 from learnloop.db.stores.families import family_judge_models
 from learnloop.db.stores.field import replace_facet_outcomes
 from learnloop.db.stores.observation_ledger import load_authoritative_observation_ledger
@@ -286,7 +287,8 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
         repository, (r.get("active_interpretation") for r in ledger.values()),
     )
     activity_by_attempt = repository.all_causal_activity_classifications()
-    merges = dict(connection.execute("SELECT retired_facet_id,surviving_facet_id FROM facet_merges"))
+    # Settled merges only: an interrupted facet-identity action's rows wait for it (F12).
+    merges = dict(settled_merge_rows(connection))
 
     def canonical(facet):
         current = vault.canonical_facet_id(facet)

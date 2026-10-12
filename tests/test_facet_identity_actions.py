@@ -490,6 +490,98 @@ def test_a_merge_intent_whose_file_changed_meanwhile_is_withdrawn(tmp_path, monk
     assert _merge_rows(paths) == [] and list_actions(repository)[0]["status"] == "abandoned"
 
 
+# --- re-review F12: an interrupted merge or undo never leaves a half-merged vault ------
+
+
+def _project(paths, repository):
+    from learnloop.substrate.canonical_projection import project_canonical_facet_state
+
+    project_canonical_facet_state(load_vault(paths.root), repository, clock=FrozenClock(NOW))
+
+
+def _graded_duplicate(tmp_path):
+    paths, vault, repository = _vault_with_duplicate(tmp_path)
+    _attempt(vault, repository, "pi_svd_define_001", {"correctness": 4}, FrozenClock(NOW))
+    _attempt(vault, repository, "pi_svd_restated_001", {"states_factorization": 0}, FrozenClock(NOW))
+    before = _belief(repository)
+    assert any(row[0] == DUP for row in before)
+    return paths, repository, before
+
+
+def test_a_merge_interrupted_before_its_file_write_keeps_the_facets_evidence_apart(tmp_path, monkeypatch):
+    """While facets.yaml still lists the retired facet, its evidence stays its own."""
+
+    paths, repository, before = _graded_duplicate(tmp_path)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "_write_facets")
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    assert list_actions(repository)[0]["status"] == "applying" and DUP in load_vault(paths.root).evidence_facets
+    _project(paths, repository)  # any later re-projection: a grade, a sync, a sidecar start
+    assert _belief(repository) == before
+
+
+def test_an_undo_interrupted_after_its_file_write_keeps_the_restored_facets_evidence_apart(tmp_path, monkeypatch):
+    paths, repository, before = _graded_duplicate(tmp_path)
+    applied = _merge(paths, repository)
+    assert not any(row[0] == DUP for row in _belief(repository))
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "_delete_merge_rows")
+        with pytest.raises(_Killed):
+            undo_action(paths.root, repository, applied["action_id"], clock=_CLOCK)
+    assert list_actions(repository)[0]["status"] == "undoing" and _merge_rows(paths) == [(DUP, SHARED)]
+    assert DUP in load_vault(paths.root).evidence_facets
+    _project(paths, repository)
+    assert _belief(repository) == before
+
+
+def test_a_merge_interrupted_after_its_file_write_already_resolves_through_the_alias(tmp_path, monkeypatch):
+    from learnloop.content.facet_identity.actions import recover_interrupted_actions
+
+    paths, repository, _before = _graded_duplicate(tmp_path)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "refresh_derived_state")
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    _project(paths, repository)
+    during = _belief(repository)
+    assert not any(row[0] == DUP for row in during)
+    recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
+    assert list_actions(repository)[0]["status"] == "applied" and _belief(repository) == during
+
+
+def test_the_sidecar_finishes_an_interrupted_merge_when_it_opens_the_vault(tmp_path, monkeypatch):
+    from learnloop_sidecar.context import SidecarContext
+
+    paths, _vault, repository = _vault_with_duplicate(tmp_path)
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "_write_facets")
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    context = SidecarContext()
+    context.load(paths.root, maintenance=False)
+    assert list_actions(repository)[0]["status"] == "applied"
+    assert DUP not in context.vault.evidence_facets and DUP in context.vault.evidence_facets[SHARED].aliases
+
+
+def test_recovery_withdraws_a_merge_that_a_criterion_graded_meanwhile_names_both_facets(tmp_path, monkeypatch):
+    """Graded while the intent waited, a criterion naming both facets would be counted twice (F1)."""
+
+    from learnloop.content.facet_identity.actions import recover_interrupted_actions
+
+    paths, repository = _vault_targeting(tmp_path / "vault", [(SHARED, "primary"), (DUP, "primary")])
+    with monkeypatch.context() as patched:
+        _kill_at(patched, "_write_facets")
+        with pytest.raises(_Killed):
+            _merge(paths, repository)
+    _attempt(load_vault(paths.root), repository, "pi_both_001", {"states": 0}, FrozenClock(NOW))
+    graded = _belief(repository)
+    (row,) = recover_interrupted_actions(paths.root, repository, clock=_CLOCK)
+    assert (row["from"], row["to"]) == ("applying", "abandoned")
+    assert DUP in load_vault(paths.root).evidence_facets and _merge_rows(paths) == []
+    assert list_actions(repository)[0]["status"] == "abandoned" and _belief(repository) == graded
+
+
 def test_dataset_exports_keep_the_merge_history_an_undo_removes_from_facet_merges():
     from learnloop.db.table_roles import TABLE_ROLES, TableRole
     from learnloop.substrate.dataset import _CAPTURED_WORKFLOW_TABLES
