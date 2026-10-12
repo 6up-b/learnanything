@@ -17,8 +17,9 @@ Two stores implement :class:`HistoryStore`:
   learners whose whole past is constructed.
 
 Both apply the same as-of cutoff: only attempts completed strictly before the
-diagnosed attempt, and only hypotheses/registry rows whose source attempt
-precedes it. Status is read as of now (status history is not versioned; the
+diagnosed attempt, only hypotheses/registry rows whose source attempt
+precedes it, and repair classes aggregated from only the owning hypotheses
+and cold verifications that precede it. Status is read as of now (status history is not versioned; the
 receipt discloses ``lagged_attempts``).
 """
 
@@ -574,7 +575,7 @@ class VaultHistoryStore:
         self._error_event_attempt: dict[str, str] = {}
         self._hypotheses: list[HypothesisRecord] = []
         self._registry: list[RegistryRecord] = []
-        self._repairs: list[RepairRecord] = []
+        self._repair_classes: list[tuple[Any, ...]] = []
 
     def with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> "VaultHistoryStore":
         merged = {**self._blind, **dict(blind_grades)}
@@ -630,7 +631,8 @@ class VaultHistoryStore:
                 "SELECT * FROM misconception_candidates ORDER BY created_at, id"
             )]
             cold = [dict(row) for row in connection.execute(
-                "SELECT source_attempt_id, repair_class_id, success FROM causal_cold_verifications"
+                "SELECT source_attempt_id, cold_attempt_id, repair_class_id, success, created_at "
+                "FROM causal_cold_verifications ORDER BY created_at, id"
             )]
         repair_ids = sorted({str(row["repair_class_id"]) for row in hypotheses if row.get("repair_class_id")})
         definitions = self.repository.causal_repair_class_definitions(repair_ids) if repair_ids else {}
@@ -763,9 +765,13 @@ class VaultHistoryStore:
                     source_attempt_id=self._earliest_source(sources),
                 )
             )
-        outcomes: dict[str, list[int]] = {}
+        # Raw per-class owners and cold observations: the as-of view is
+        # aggregated per cutoff in ``repairs_before``, never across all time.
+        observations: dict[str, list[tuple[str, str, int]]] = {}
         for row in cold:
-            outcomes.setdefault(str(row["repair_class_id"]), []).append(int(row["success"] or 0))
+            observations.setdefault(str(row["repair_class_id"]), []).append(
+                (str(row.get("cold_attempt_id") or ""), str(row.get("created_at") or ""), int(row["success"] or 0))
+            )
         by_class: dict[str, list[HypothesisRecord]] = {}
         for record in self._hypotheses:
             if record.repair_class_id:
@@ -773,27 +779,49 @@ class VaultHistoryStore:
         for repair_class_id, owners in sorted(by_class.items()):
             definition = definitions.get(repair_class_id) or {}
             refs = definition.get("target_refs") or []
-            facets = tuple(
+            defined_facets = tuple(
                 dict.fromkeys(
                     vault.canonical_facet_id(str(ref.get("facet_id")))
                     for ref in refs
                     if isinstance(ref, Mapping) and ref.get("kind") == "facet_capability" and ref.get("facet_id")
                 )
-            ) or tuple(dict.fromkeys(facet for owner in owners for facet in owner.target_facets))
-            results = outcomes.get(repair_class_id, [])
-            sources = [owner.source_attempt_id for owner in owners if owner.source_attempt_id]
-            self._repairs.append(
-                RepairRecord(
-                    repair_class_id=repair_class_id,
-                    operator=str(definition.get("operator") or ""),
-                    target_facets=facets,
-                    hypothesis_ids=tuple(owner.id for owner in owners),
-                    cold_successes=sum(results),
-                    cold_failures=len(results) - sum(results),
-                    source_attempt_id=min(sources, key=lambda value: self._order.get(value, ("~", value)), default=None),
+            )
+            self._repair_classes.append(
+                (
+                    repair_class_id,
+                    str(definition.get("operator") or ""),
+                    defined_facets,
+                    tuple(owners),
+                    tuple(observations.get(repair_class_id, [])),
                 )
             )
         self._loaded = True
+
+    def _observed_before(self, cold_attempt_id: str, created_at: str, before: AttemptRef) -> bool:
+        """A cold verification counts as of ``before`` when its cold attempt precedes it."""
+
+        order = self._order.get(cold_attempt_id)
+        if order is not None:
+            return order < before.key()
+        return bool(created_at) and created_at < before.completed_at
+
+    def _repair_as_of(self, entry: tuple[Any, ...], before: AttemptRef) -> RepairRecord | None:
+        repair_class_id, operator, defined_facets, owners, observations = entry
+        visible = [owner for owner in owners if self._source_before(owner.source_attempt_id, before)]
+        if not visible:
+            return None
+        results = [success for cold_attempt_id, created_at, success in observations if self._observed_before(cold_attempt_id, created_at, before)]
+        facets = defined_facets or tuple(dict.fromkeys(facet for owner in visible for facet in owner.target_facets))
+        sources = [owner.source_attempt_id for owner in visible if owner.source_attempt_id]
+        return RepairRecord(
+            repair_class_id=repair_class_id,
+            operator=operator,
+            target_facets=facets,
+            hypothesis_ids=tuple(owner.id for owner in visible),
+            cold_successes=sum(results),
+            cold_failures=len(results) - sum(results),
+            source_attempt_id=min(sources, key=lambda value: self._order.get(value, ("~", value)), default=None),
+        )
 
     def _earliest_source(self, error_event_ids: Sequence[str]) -> str | None:
         attempts = [
@@ -939,11 +967,11 @@ class VaultHistoryStore:
     ) -> list[RepairRecord]:
         self._load()
         wanted = set(facets) if facets is not None else None
+        records = [record for entry in self._repair_classes if (record := self._repair_as_of(entry, before)) is not None]
         return [
             record
-            for record in self._repairs
-            if self._source_before(record.source_attempt_id, before)
-            and (wanted is None or not record.target_facets or wanted & set(record.target_facets))
+            for record in records
+            if wanted is None or not record.target_facets or wanted & set(record.target_facets)
         ]
 
     def lagged_attempts(self, before: AttemptRef) -> int:

@@ -26,6 +26,7 @@ from learnloop.diagnosis.split.retrieval import EmbeddingHistoryRetriever
 from learnloop.diagnosis.split.settings import DiagnosisSettings
 from learnloop.diagnosis.split.snapshot import export_snapshot, snapshot_workspace
 from learnloop.diagnosis.offline_review.judge import DiagnosisJudgment
+from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient, ReviewFakeClient
 from tests.diagnosis_split_helpers import blind_record, build_diagnosis_vault, seed_history
@@ -326,3 +327,42 @@ def test_hybrid_degrades_to_exact_when_embeddings_fail(seeded):
     assert assembled.blocks["failure_history"] == exact.blocks["failure_history"]
     unconfigured = assemble_diagnosis_context(vault, store, current, DiagnosisSettings(), mode="hybrid", retriever=None)
     assert unconfigured.receipt["method"] == "exact_fallback"
+
+
+def test_repairs_before_filters_owners_and_cold_outcomes_by_the_cutoff(tmp_path):
+    """F5: a repair class shown as of attempt N carries no owner or outcome from after N."""
+
+    import sqlite3
+    from contextlib import closing
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    _vault, repository = seed_history(paths)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection, connection:
+        owners = dict(connection.execute(
+            "SELECT attempt_id, id FROM causal_hypotheses WHERE attempt_id IN ('att_02_svd_fail', 'att_07_svd_future')"
+        ).fetchall())
+        # A test-only shortcut on a throwaway vault: give two existing
+        # hypotheses one repair class (the live path appends successors).
+        connection.execute("DROP TRIGGER causal_hypotheses_no_update")
+        connection.execute(
+            "UPDATE causal_hypotheses SET repair_class_id = 'rc_transpose' "
+            "WHERE attempt_id IN ('att_02_svd_fail', 'att_07_svd_future')"
+        )
+        for cold_attempt, success, when in (("att_03_svd_pass", 1, "2026-05-01T11:00:00Z"), ("att_07_svd_future", 1, "2026-05-01T19:00:00Z")):
+            connection.execute(
+                "INSERT INTO causal_cold_verifications (id, source_attempt_id, cold_attempt_id, repair_class_id, hypothesis_ids_json, "
+                "source_surface_family, cold_surface_family, avoided_affordances_json, success, capability_update_json, "
+                "diagnosis_support_update_json, repair_effect_support_json, created_at) "
+                "VALUES (?, 'att_02_svd_fail', ?, 'rc_transpose', '[]', 'svd_compute', 'svd_compute_b', '[]', ?, '{}', '{}', '{}', ?)",
+                (f"ccv_{cold_attempt}", cold_attempt, success, when),
+            )
+    vault = load_vault(paths.root)
+    store = VaultHistoryStore(vault, repository)
+    cutoff = store.ref("att_06_svd_fail")
+    (record,) = store.repairs_before(cutoff, None)
+    assert record.hypothesis_ids == (owners["att_02_svd_fail"],)
+    assert (record.cold_successes, record.cold_failures) == (1, 0)
+    # After both observations, everything is visible.
+    (late,) = store.repairs_before(store.ref("att_07_svd_future"), None)
+    assert late.hypothesis_ids == (owners["att_02_svd_fail"],)
+    assert (late.cold_successes, late.cold_failures) == (1, 0)
