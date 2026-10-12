@@ -75,7 +75,7 @@ def upgrade(
         str,
         typer.Option(
             "--to",
-            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10).",
+            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10 or mvp-0.11).",
         ),
     ] = "mvp-0.9",
 ) -> None:
@@ -86,7 +86,10 @@ def upgrade(
     projection over an mvp-0.7 vault; ``--to mvp-0.9`` (default) activates
     cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
     activates the Slice 1 split (learner-blind grader + asynchronous diagnoser)
-    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``)."""
+    over an mvp-0.9 vault (kill switch: ``diagnosis.split_enabled = false``);
+    ``--to mvp-0.11`` activates Slice 2 T1 recurrence groups over an mvp-0.10
+    vault, refused while the same-answer/different-cause guard has a false
+    merge or has not run (kill switch: ``recurrence.enabled = false``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
@@ -103,9 +106,13 @@ def upgrade(
         result = upgrade_to_mvp09(_root(vault))
     elif to == "mvp-0.10":
         result = upgrade_to_mvp010(_root(vault))
+    elif to == "mvp-0.11":
+        from learnloop.diagnosis.recurrence.upgrade import upgrade_to_mvp011
+
+        result = upgrade_to_mvp011(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, mvp-0.10 or mvp-0.11."
         )
         raise typer.Exit(code=2)
     if result.upgraded:

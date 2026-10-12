@@ -111,6 +111,20 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # ledger rows.  It is an ordered rebuild prerequisite but intentionally
     # claims no DERIVED table: the resulting observations are replay inputs.
     DerivedStateReplayer("activity_substrate", frozenset()),
+    # Slice 2 T1: recurrence groups read only raw ledgers (hypotheses,
+    # diagnoses, verdicts, card taps), and learner replay's normalization
+    # reads the groups, so they are rebuilt before it.
+    DerivedStateReplayer(
+        "recurrence_groups",
+        frozenset(
+            {
+                "hypothesis_recurrence_groups",
+                "hypothesis_recurrence_review",
+                "hypothesis_recurrence_state",
+            }
+        ),
+        ("activity_substrate",),
+    ),
     DerivedStateReplayer(
         "learning_state",
         frozenset(
@@ -262,6 +276,28 @@ def _run_activity_substrate(
         rows_processed=int(report.attempts_replayed),
         accounted_attempt_ids=accounted,
         details=report.as_dict(),
+    )
+
+
+def _run_recurrence_groups(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    """Clear and recompute the recurrence-group projection (no model call).
+
+    Groups are vault-wide, so a learning-object-scoped rebuild recomputes
+    them whole. Empty unless the vault is at a recurrence-group successor
+    with ``recurrence.enabled`` on.
+    """
+
+    from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
+
+    cleared = _clear_tables(context.repository, tuple(spec.owned_tables))
+    report = refresh_recurrence_groups(context.vault, context.repository, force=True)
+    return ReplayerResult(
+        spec.name,
+        tuple(sorted(spec.owned_tables)),
+        rows_processed=int(report.get("member_count") or 0),
+        details={"cleared_rows_by_table": cleared, **report},
     )
 
 
@@ -423,6 +459,7 @@ def _run_family_memory(
 
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
+    "recurrence_groups": _run_recurrence_groups,
     "learning_state": _run_learning_state,
     "canonical_projection": _run_canonical_projection,
     "identifiability": _run_identifiability,

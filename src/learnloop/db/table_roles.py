@@ -193,6 +193,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("grading_clarifications", TableRole.RAW_LEDGER),
     ("grading_evidence", TableRole.RAW_LEDGER),
     ("hypothesis_events", TableRole.RAW_LEDGER),
+    # Slice 2 T1 (M3): recurrence groups, their review cases and the build
+    # state, rebuilt from raw ledgers by the recurrence_groups replayer.
+    ("hypothesis_recurrence_groups", TableRole.DERIVED),
+    ("hypothesis_recurrence_review", TableRole.DERIVED),
+    ("hypothesis_recurrence_state", TableRole.DERIVED),
     ("hypothesis_sets", TableRole.COMPAT),
     ("ingest_batches", TableRole.WORKFLOW),
     ("ingest_job_dependencies", TableRole.WORKFLOW),
@@ -290,6 +295,8 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("reader_background_requests", TableRole.WORKFLOW),
     ("reader_capture_outbox", TableRole.WORKFLOW),
     ("reader_section_progress", TableRole.WORKFLOW),
+    # What an escalated repair showed (Slice 2 T1 §3.7); append-only.
+    ("recurrence_escalations", TableRole.RECEIPT),
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
     ("reveal_events", TableRole.RAW_LEDGER),

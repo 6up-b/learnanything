@@ -810,14 +810,25 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice 1 M2 adds the [diagnosis] section (modelled defaults only, left
     # out of the decision-only template). It is dormant below mvp-0.10 (the
     # algorithm version gates the split), so mvp-0.9 serving is unchanged.
-    "mvp-0.9": "bf4c9f5ce520f43a500d98583bfbbcffb858aa90eecc32551752a91b6729ed81",
+    # Slice 2 T1 adds the [recurrence] section (modelled defaults only) and
+    # the unset ai.routing.same_cause_judge route. Both are dormant below
+    # mvp-0.11 (the algorithm version gates the recurrence groups), so
+    # mvp-0.9 and mvp-0.10 serving are unchanged.
+    "mvp-0.9": "0faf3bf489a17cec015c6767cac0d565aced9036184f086b5d7d6a2ef19a5c0d",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
     # `learnloop upgrade --to mvp-0.10`; the template stays at mvp-0.9 until
     # the S1.5 exit review. Computed from DEFAULT_CONFIG_TEXT with only
     # algorithm_version changed.
-    "mvp-0.10": "72058bd3349d2fc330e10388fe64ff193a86675ddd79a7cd17bd26e6955fafa4",
+    "mvp-0.10": "fc47eada8e5270f9d63e4741c332f1240866ca477b9f38208cd883b216209e8a",
+    # mvp-0.11 (Slice 2 T1 / M3): the same effective defaults with recurrence
+    # groups live (recurrence.enabled, the live same-cause judge with top_k 3
+    # and no blocking cutoff until B3 sets one, the escalation card). Reached
+    # by `learnloop upgrade --to mvp-0.11` once the same-answer/different-cause
+    # guard passes. Computed from DEFAULT_CONFIG_TEXT with only
+    # algorithm_version changed.
+    "mvp-0.11": "54429a9360fe8bb771eb2005b52655602bd2894fd0894a5aeedcdf0306c6822b",
 }
 
 

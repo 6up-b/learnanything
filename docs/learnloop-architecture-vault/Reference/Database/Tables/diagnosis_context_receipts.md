@@ -3,13 +3,13 @@ title: "diagnosis_context_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_context_receipts"
   - "table diagnosis_context_receipts"
-schema_head: 170
+schema_head: 171
 table_name: "diagnosis_context_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -20,6 +20,8 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/170_blind_grading_diagnosis_split.sql"
   - "src/learnloop/db/stores/diagnoses.py"
+  - "src/learnloop/db/stores/recurrence.py"
+  - "src/learnloop/diagnosis/recurrence/report.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -95,6 +97,8 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/diagnoses.py`
+- `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/diagnosis/recurrence/report.py`
 
 ### Direct SQL writers
 

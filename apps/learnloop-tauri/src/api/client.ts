@@ -33,6 +33,7 @@ import type {
   FeedbackBundle,
   DiagnosisCardDto,
   DiagnosisCardResponse,
+  EscalationResponse,
   DiagnosisFeedbackResultDto,
   AttemptTraceEvidenceDto,
   GradingClarificationResultDto,
@@ -481,7 +482,7 @@ export const api = {
   recordDiagnosisFeedback: (input: {
     attemptId: string;
     diagnosisId: string;
-    response: DiagnosisCardResponse | "not_same_mistake";
+    response: DiagnosisCardResponse | EscalationResponse | "not_same_mistake";
     citedAttemptId?: string | null;
     shownAt?: string | null;
   }) => mutating(ATTEMPT_TAGS, call<DiagnosisFeedbackResultDto>("record_diagnosis_feedback", { input })),

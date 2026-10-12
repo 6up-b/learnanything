@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 170
-table_count: 277
+schema_head: 171
+table_count: 281
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_170/state.sqlite"
+  - "fixtures/migration_head_171/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-170"
+  - "learnloop/database/schema-head-171"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 277 user tables at migration head 170. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 281 user tables at migration head 171. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -39,8 +39,8 @@ This is the exhaustive map of the 277 user tables at migration head 170. Use [[T
 | Role | Tables |
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 134 |
-| [[Table Roles#Derived|`derived`]] | 12 |
-| [[Table Roles#Receipt|`receipt`]] | 59 |
+| [[Table Roles#Derived|`derived`]] | 15 |
+| [[Table Roles#Receipt|`receipt`]] | 60 |
 | [[Table Roles#Workflow|`workflow`]] | 62 |
 | [[Table Roles#Compat|`compat`]] | 10 |
 
@@ -48,7 +48,7 @@ This is the exhaustive map of the 277 user tables at migration head 170. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 264 |
+| `active` | 268 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 3 |
 | `dormant-shadow` | 3 |
@@ -56,7 +56,7 @@ This is the exhaustive map of the 277 user tables at migration head 170. Use [[T
 
 ## DERIVED tables
 
-The exact clearable set is: [[Reference/Database/Tables/ability_transition_events|ability_transition_events]], [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/capability_residual_state|capability_residual_state]], [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]], [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], [[Reference/Database/Tables/family_memory_state|family_memory_state]], [[Reference/Database/Tables/item_parameter_state|item_parameter_state]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]], [[Reference/Database/Tables/practice_item_quality_state|practice_item_quality_state]], [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]]. Ownership and dependency order live in [[Rebuild Ownership]]. ^derived-table-index
+The exact clearable set is: [[Reference/Database/Tables/ability_transition_events|ability_transition_events]], [[Reference/Database/Tables/attempt_surprise|attempt_surprise]], [[Reference/Database/Tables/capability_residual_state|capability_residual_state]], [[Reference/Database/Tables/facet_capability_evidence|facet_capability_evidence]], [[Reference/Database/Tables/facet_outcome_observations|facet_outcome_observations]], [[Reference/Database/Tables/facet_recall_state|facet_recall_state]], [[Reference/Database/Tables/family_memory_state|family_memory_state]], [[Reference/Database/Tables/hypothesis_recurrence_groups|hypothesis_recurrence_groups]], [[Reference/Database/Tables/hypothesis_recurrence_review|hypothesis_recurrence_review]], [[Reference/Database/Tables/hypothesis_recurrence_state|hypothesis_recurrence_state]], [[Reference/Database/Tables/item_parameter_state|item_parameter_state]], [[Reference/Database/Tables/learning_object_mastery|learning_object_mastery]], [[Reference/Database/Tables/learning_outcome_labels|learning_outcome_labels]], [[Reference/Database/Tables/practice_item_quality_state|practice_item_quality_state]], [[Reference/Database/Tables/subject_identifiability_watermarks|subject_identifiability_watermarks]]. Ownership and dependency order live in [[Rebuild Ownership]]. ^derived-table-index
 
 ## How to use this catalog
 
@@ -187,6 +187,9 @@ Diagnostic probes, causal attribution, misconceptions, and repair evidence. This
 - [[Reference/Database/Tables/diagnostic_surface_generation_needs|diagnostic_surface_generation_needs]] — `workflow` · `active` · Queues an identified supply gap for diagnostic surface generation so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `learning_object_id`, `consumed_practice_item_id`, `target_key`, making the operational relationship explicit.
 - [[Reference/Database/Tables/discrimination_profile_matches|discrimination_profile_matches]] — `receipt` · `active` · Gives discrimination profile matche a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `attempt_id`, `practice_item_id`, `profile_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/error_hunt_outcomes|error_hunt_outcomes]] — `receipt` · `active` · Records the measured outcome and lineage for error hunt so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `attempt_id`, `practice_item_id`, `misconception_candidate_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/hypothesis_recurrence_groups|hypothesis_recurrence_groups]] — `derived` · `active` · Gives hypothesis recurrence group a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `builder_version`, `episode_key`, `statement_normalized`, making the operational relationship explicit.
+- [[Reference/Database/Tables/hypothesis_recurrence_review|hypothesis_recurrence_review]] — `derived` · `active` · Gives hypothesis recurrence review a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `case_kind`, `builder_version`, `left_ref`, making the operational relationship explicit.
+- [[Reference/Database/Tables/hypothesis_recurrence_state|hypothesis_recurrence_state]] — `derived` · `active` · Maintains the decision-facing current projection for hypothesis recurrence so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `builder_version`, `scope`, `input_fingerprint`, making the operational relationship explicit.
 - [[Reference/Database/Tables/misconception_candidates|misconception_candidates]] — `workflow` · `active` · Holds candidates for misconception while policy selects or reviews one so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `learning_object_id`, `concept_id`, `promoted_misconception_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/misconception_disposition_events|misconception_disposition_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of misconception disposition so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It supplies replay-stable input rather than a disposable cache. Rows bind `misconception_id`, `replacement_misconception_id`, `disposition`, making the operational relationship explicit.
 - [[Reference/Database/Tables/misconception_transition_events|misconception_transition_events]] — `receipt` · `active` · Preserves an append-only chronology of misconception transition so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `misconception_id`, `from_status`, `to_status`, making the operational relationship explicit.
@@ -206,6 +209,7 @@ Diagnostic probes, causal attribution, misconceptions, and repair evidence. This
 - [[Reference/Database/Tables/probe_presentations|probe_presentations]] — `raw_ledger` · `active` · Gives probe presentation a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It supplies replay-stable input rather than a disposable cache. Rows bind `probe_episode_id`, `practice_item_id`, `scheduler_candidate_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/probe_regrade_checks|probe_regrade_checks]] — `receipt` · `active` · Gives probe regrade check a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `attempt_id`, `probe_family_template_id`, `probe_family_template_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/probe_state_segments|probe_state_segments]] — `workflow` · `active` · Gives probe state segment a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `learning_object_id`, `probe_episode_id`, `opened_by_attempt_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/recurrence_escalations|recurrence_escalations]] — `receipt` · `active` · Gives recurrence escalation a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `attempt_id`, `diagnosis_id`, `repair_suggestion_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/unresolved_cause_factors|unresolved_cause_factors]] — `workflow` · `active` · Gives unresolved cause factor a stable database identity so diagnostic selection and repair can distinguish competing explanations instead of guessing from a score. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `attempt_id`, `observation_id`, `resolution_kind`, making the operational relationship explicit.
 
 ## Scheduling

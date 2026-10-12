@@ -22,7 +22,7 @@ from learnloop.substrate.replay import rebuild_derived_state
 from learnloop.vault.loader import load_vault
 
 FIXTURE_VAULT = (
-    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_170"
+    Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_171"
 )
 CLOCK = FrozenClock(datetime(2026, 5, 19, 12, 0, tzinfo=UTC))
 
@@ -259,6 +259,27 @@ def _inject_one_stale_row_per_derived_table(repository: Repository) -> None:
             "review_count": 1,
             "weights_hash": "stale",
             "projection_version": "stale",
+        },
+        "hypothesis_recurrence_groups": {
+            "episode_key": "stale_episode",
+            "statement_normalized": "stale statement",
+            "group_key": "rg:stale",
+            "root_episode_key": "stale_episode",
+            "class_count": 2,
+            "joined_by": "root",
+            "builder_version": "stale",
+        },
+        "hypothesis_recurrence_review": {
+            "id": "stale_review",
+            "case_kind": "refused_union",
+            "detail_json": "{}",
+            "builder_version": "stale",
+        },
+        "hypothesis_recurrence_state": {
+            "scope": "stale",
+            "input_fingerprint": "stale",
+            "builder_version": "stale",
+            "active": 0,
         },
         "item_parameter_state": {
             "practice_item_id": "stale_item",

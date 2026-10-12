@@ -1000,6 +1000,9 @@ class AIRoutingConfig(BaseModel):
     # planted-case / grader-probe generator. Empty = ai.active_provider.
     diagnosis_judge: str | None = None
     diagnosis_generator: str | None = None
+    # Slice 2 T1: the same-cause judge (live, backlog and the guard suite).
+    # Empty = the resolved diagnosis route (itself the grading route when unset).
+    same_cause_judge: str | None = None
     canonical_ingest: str | None = None
     canonical_ingest_retry: str | None = None
     authoring: str | None = None
@@ -1353,6 +1356,47 @@ class DiagnosisConfig(BaseModel):
     rrf_k: int = Field(default=60, ge=1)
 
 
+class RecurrenceConfig(BaseModel):
+    """Slice 2 T1 (M3): recurrence groups with authority (spec_embedding_consumers_v1 §3).
+
+    Dormant below ``mvp-0.11``: the algorithm version, not this section, decides
+    whether grouping sites read recurrence groups. ``enabled`` is the kill
+    switch: off, an ``mvp-0.11`` vault groups by exact statement again from the
+    next normalization, vault open or rebuild (the groups projection is
+    emptied); verdicts already in ``judgment_ledger`` are kept.
+
+    Candidate pairs for the same-cause judge come from hypothesis-embedding
+    kNN: the top ``top_k`` earlier hypotheses in scope, and, for a model with
+    a benchmark-set cutoff in ``blocking_cutoffs`` (model id -> cosine, set
+    from B3's recall on confirmed matches), only those at or above it. No
+    cutoff is hand-set: an empty map blocks by top-k alone. Scores never
+    merge or reject anything.
+    """
+
+    enabled: bool = True
+    # The live same-cause judge inside the diagnose job (the backlog command
+    # and the guard run regardless; they are explicit owner commands).
+    judge_enabled: bool = True
+    top_k: int = Field(default=3, ge=1, le=20)
+    blocking_cutoffs: dict[str, float] = Field(default_factory=dict)
+    # Live judge calls per diagnose job; pairs beyond it wait for the backlog.
+    judge_max_pairs_per_attempt: int = Field(default=4, ge=0, le=20)
+    # Per-turn deadline for one Codex judge turn.
+    judge_timeout_seconds: int = Field(default=180, ge=30, le=1_000)
+    # The escalated-repair block on the diagnosis card (UI only).
+    escalation_card_enabled: bool = True
+
+    @model_validator(mode="after")
+    def _cutoffs_are_cosines(self) -> "RecurrenceConfig":
+        for model_id, cutoff in self.blocking_cutoffs.items():
+            if not str(model_id).strip():
+                raise ValueError("recurrence.blocking_cutoffs keys must be embedding model ids")
+            value = float(cutoff)
+            if value != value or not -1.0 <= value <= 1.0:
+                raise ValueError(f"recurrence.blocking_cutoffs[{model_id!r}] must be a cosine in [-1, 1]")
+        return self
+
+
 class ProjectConfig(BaseModel):
     """Project understanding M1 (spec_project_understanding_v1): delayed probes.
 
@@ -1510,6 +1554,7 @@ class LearnLoopConfig(BaseModel):
         default_factory=DiagnosticAugmentationConfig
     )
     diagnosis: DiagnosisConfig = Field(default_factory=DiagnosisConfig)
+    recurrence: RecurrenceConfig = Field(default_factory=RecurrenceConfig)
 
     @model_validator(mode="before")
     @classmethod

@@ -147,3 +147,77 @@ it("respects the card kill switch", async () => {
   await act(async () => {});
   expect(container.textContent).toBe("");
 });
+
+const ESCALATED: DiagnosisCardDto = {
+  ...DONE,
+  escalation: {
+    escalationId: "esc_1",
+    headline: "Third time with this one - trying a different approach",
+    recurrenceCount: 3,
+    differentApproach: true,
+    approachNote: null,
+    repair: { practiceMode: "redo", learningObjectId: null, rationale: "Contrast V with its transpose." },
+    earlierAnswers: [
+      { attemptId: "att_e2", practiceItemId: "pi_2", date: "2026-05-03T09:00:00Z", rubricScore: 2, correctness: 0.5 },
+      { attemptId: "att_e1", practiceItemId: "pi_1", date: "2026-05-01T09:00:00Z", rubricScore: 2, correctness: 0.5 },
+    ],
+    responses: [
+      { response: "escalation:helped", label: "Helped" },
+      { response: "escalation:didnt_help", label: "Didn't help" },
+      { response: "escalation:not_sure", label: "Not sure" },
+    ],
+    recordedResponse: null,
+  },
+};
+
+it("leads with an escalated repair, its earlier answers and one usefulness tap", async () => {
+  api.diagnosisStatus.mockResolvedValue(ESCALATED);
+  const open = vi.fn();
+  render(<DiagnosisCard attemptId="att_1" initialStatus="done" onOpenAttempt={open} onError={vi.fn()} />);
+  await act(async () => {});
+  expect(screen.getByTestId("escalation-headline").textContent).toContain("Third time with this one");
+  expect(screen.getByTestId("escalation-repair").textContent).toContain("Contrast V");
+  const answers = screen.getAllByTestId("escalation-earlier-answer");
+  expect(answers).toHaveLength(2);
+  fireEvent.click(answers[1]);
+  expect(open).toHaveBeenCalledWith("att_e1");
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("escalation-tap-didnt_help"));
+  });
+  expect(api.recordDiagnosisFeedback).toHaveBeenCalledWith(
+    expect.objectContaining({ diagnosisId: "diag_1", response: "escalation:didnt_help", citedAttemptId: null }),
+  );
+  // One tap; the card's own diagnosis taps stay independent.
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("escalation-tap-helped"));
+  });
+  expect(api.recordDiagnosisFeedback).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("diagnosis-tap-partly"));
+  });
+  expect(api.recordDiagnosisFeedback).toHaveBeenCalledTimes(2);
+});
+
+it("says plainly when the escalated repair is the same kind as before", async () => {
+  api.diagnosisStatus.mockResolvedValue({
+    ...ESCALATED,
+    escalation: {
+      ...ESCALATED.escalation!,
+      headline: "Third time with this one",
+      differentApproach: false,
+      approachNote: "This is the same kind of repair you were shown before; no different one was available.",
+    },
+  });
+  render(<DiagnosisCard attemptId="att_1" initialStatus="done" onError={vi.fn()} />);
+  await act(async () => {});
+  const block = screen.getByTestId("diagnosis-escalation").textContent ?? "";
+  expect(block).not.toContain("different approach");
+  expect(block).toContain("same kind of repair");
+});
+
+it("shows no escalation block without one", async () => {
+  api.diagnosisStatus.mockResolvedValue(DONE);
+  render(<DiagnosisCard attemptId="att_1" initialStatus="done" onError={vi.fn()} />);
+  await act(async () => {});
+  expect(screen.queryByTestId("diagnosis-escalation")).toBeNull();
+});

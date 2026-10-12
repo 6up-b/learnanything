@@ -3,13 +3,13 @@ title: "causal_hypotheses"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "159dbbd638e2903f80498b94bd0ee926bdaf7d23"
-source_commit_timestamp: "2026-10-12T11:43:33-04:00"
+source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
+source_commit_timestamp: "2026-10-12T12:14:39-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_hypotheses"
   - "table causal_hypotheses"
-schema_head: 170
+schema_head: 171
 table_name: "causal_hypotheses"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,12 +20,12 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/118_causal_attribution_p1.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/recurrence.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_augmentation.py"
   - "src/learnloop/diagnosis/failure_triage.py"
-  - "src/learnloop/diagnosis/probe_blocks.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
 tags:
@@ -54,7 +54,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/118_causal_attribution_p1.sql`.
-- **Schema touched by:** `118_causal_attribution_p1.sql`, `119_causal_mechanism_taxonomy.sql`, `120_causal_projection_indexes.sql`, `121_causal_probe_coherence.sql`, `125_causal_repair_mapping_provenance.sql`, `126_diagnosis_adjudication.sql`, `133_causal_mechanism_repair_key.sql`.
+- **Schema touched by:** `118_causal_attribution_p1.sql`, `119_causal_mechanism_taxonomy.sql`, `120_causal_projection_indexes.sql`, `121_causal_probe_coherence.sql`, `125_causal_repair_mapping_provenance.sql`, `126_diagnosis_adjudication.sql`, `133_causal_mechanism_repair_key.sql`, `171_recurrence_groups.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -119,6 +119,7 @@ Database triggers:
 - `Repository.causal_hypotheses_for_attempt()`
 - `Repository.causal_hypotheses_for_learning_object()`
 - `Repository.causal_hypotheses_with_operations()`
+- `Repository.causal_hypotheses_with_statement()`
 - `Repository.causal_hypothesis()`
 - `Repository.find_record()`
 - `Repository.latest_causal_hypothesis_for_episode()`
@@ -127,8 +128,11 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/recurrence.py`
+- `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/substrate/recurrence_groups.py`
 
 ### Direct SQL writers
 
@@ -149,12 +153,13 @@ Database triggers:
 - `src/learnloop/diagnosis/failure_triage.py`
 - `src/learnloop/diagnosis/guided_redo.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
+- `src/learnloop/diagnosis/recurrence/kind.py`
+- `src/learnloop/diagnosis/recurrence/live.py`
+- `src/learnloop/diagnosis/recurrence/report.py`
 - `src/learnloop/diagnosis/remediation.py`
 - `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/tutor/durable_promotion.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
-- `src/learnloop_sidecar/handlers/knowledge_map.py`
-- `src/learnloop_sidecar/handlers/measurement.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

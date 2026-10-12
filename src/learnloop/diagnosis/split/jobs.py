@@ -44,6 +44,7 @@ from learnloop.diagnosis.offline_review.spend import ReviewSpend
 from learnloop.diagnosis.split.settings import DIAGNOSIS_PROMPT_VERSION
 from learnloop.ids import new_ulid
 from learnloop.substrate.canonical_projection import project_canonical_facet_state
+from learnloop.substrate.recurrence_groups import claim_for_citation
 from learnloop.vault.models import LoadedVault
 
 LOG = logging.getLogger(__name__)
@@ -289,6 +290,7 @@ def process_next_job(
     owner: str,
     client_factory: ClientFactory | None = None,
     embedding_factory: ClientFactory | None = None,
+    judge_factory: ClientFactory | None = None,
     attempt_id: str | None = None,
     session_id: str | None = None,
     spend: ReviewSpend | None = None,
@@ -319,6 +321,7 @@ def process_next_job(
             client_factory=client_factory or (lambda: default_diagnosis_client(vault)),
             session_id=session_id,
             embedding_factory=embedding_factory or (lambda: default_embedding_client(vault)),
+            judge_factory=judge_factory or _default_judge_factory(vault),
             spend=spend,
             scope_attempt_id=attempt_id,
             cancelled=cancelled,
@@ -331,6 +334,14 @@ def process_next_job(
         embedding_factory=embedding_factory or (lambda: default_embedding_client(vault)),
         clock=clock,
     )
+
+
+def _default_judge_factory(vault: LoadedVault) -> ClientFactory:
+    """The same-cause judge client, resolved only when a pair needs judging."""
+
+    from learnloop.diagnosis.recurrence.live import default_live_judge_factory
+
+    return default_live_judge_factory(vault)
 
 
 def _existing_diagnosis(repository: Repository, job: Mapping[str, Any]) -> dict[str, Any] | None:
@@ -577,6 +588,7 @@ def run_diagnose_job(
     *,
     client_factory: ClientFactory,
     embedding_factory: ClientFactory | None = None,
+    judge_factory: ClientFactory | None = None,
     session_id: str | None = None,
     spend: ReviewSpend | None = None,
     scope_attempt_id: str | None = None,
@@ -656,6 +668,7 @@ def run_diagnose_job(
         if existing["status"] == "completed" and existing["mode"] == "live":
             apply_diagnosis(
                 vault, repository, attempt=attempt, diagnosis=existing, session_id=session_id, clock=clock,
+                judge_factory=judge_factory, embedding_factory=embedding_factory,
             )
             if vault.config.embedding.enabled:
                 enqueue_embed_job(
@@ -885,18 +898,27 @@ def apply_diagnosis(
     diagnosis: Mapping[str, Any],
     session_id: str | None = None,
     clock: Clock | None = None,
+    judge_factory: ClientFactory | None = None,
+    embedding_factory: ClientFactory | None = None,
 ) -> None:
     """The diagnosis-dependent pipeline steps (§7.2 worker half). Idempotent.
 
     1. The attempt's still-open factor takes the candidate set the projection
        now derives from the diagnosis (what a rebuild would open it with).
-    2. Materialization from the diagnosis + misconception normalization with
+    2. Slice 2 T1 (``mvp-0.11``): materialize, refresh the recurrence groups
+       (this diagnosis's validated citations now count) and, with the judge
+       and embeddings on, judge this attempt's shortlisted same-cause pairs,
+       so step 3's promotion and K=3 count see the merges.
+    3. Materialization from the diagnosis + misconception normalization with
        ``registry_match`` (no ``misconception_match`` call), via the shared
        normalizer, which materializes first in canonical vaults.
-    3. The machine-check sweep and the common-repair consultation.
-    4. Validated pattern claims become ``same_cause`` verdicts (judge
-       ``diagnoser``) for Slice 2 T1; they confer no authority here (shadow).
+    4. The machine-check sweep and the common-repair consultation.
+    5. Validated pattern claims become ``same_cause`` verdicts (judge
+       ``diagnoser``); T1's group builder reads them from the receipts.
+    6. Slice 2 T1: the escalation receipt when the cause recurred K times.
     """
+
+    from learnloop.diagnosis.recurrence.live import record_escalation, recurrence_step
 
     from learnloop.diagnosis.followups import run_post_diagnosis_hooks
     from learnloop.diagnosis.misconceptions import normalize_and_resolve_attempt
@@ -912,6 +934,10 @@ def apply_diagnosis(
         project_canonical_facet_state(
             vault, repository, clock=clock, refresh_factor_candidates_for={attempt_id}
         )
+    recurrence_step(
+        vault, repository, attempt_id=attempt_id, judge_factory=judge_factory,
+        embedding_factory=embedding_factory, clock=clock,
+    )
     normalize_and_resolve_attempt(
         vault,
         repository,
@@ -929,6 +955,10 @@ def apply_diagnosis(
         clock=clock,
     )
     record_pattern_verdicts(repository, diagnosis=diagnosis, attempt_id=attempt_id)
+    try:
+        record_escalation(vault, repository, attempt_id=attempt_id, diagnosis=diagnosis, clock=clock)
+    except Exception:  # noqa: BLE001 - the escalation display never fails the diagnosis
+        LOG.warning("escalation receipt failed for attempt %s", attempt_id, exc_info=True)
 
 
 def record_pattern_verdicts(repository: Repository, *, diagnosis: Mapping[str, Any], attempt_id: str) -> int:
@@ -939,13 +969,15 @@ def record_pattern_verdicts(repository: Repository, *, diagnosis: Mapping[str, A
 
     receipt = repository.diagnosis_context_receipt(str(diagnosis["id"])) or {}
     proposal = diagnosis.get("proposal") or {}
-    claims = list(proposal.get("pattern_claims") or [])
     written = 0
     with repository.atomic():
         connection = repository.connection()
         for citation in receipt.get("validated_citations") or []:
             index = int(citation.get("claim_index", -1))
-            claim = claims[index] if 0 <= index < len(claims) else {}
+            # The stored proposal keeps only claims that survived validation,
+            # so ``claim_index`` (a pre-validation position) can point past a
+            # dropped claim; find the claim that cites this attempt instead.
+            claim = claim_for_citation(proposal, citation) or {}
             relation = str(claim.get("relation") or "same_mechanism")
             cited = str(citation.get("attempt_id") or "")
             if not cited:
@@ -1044,6 +1076,7 @@ def drain(
     attempt_id: str | None = None,
     client_factory: ClientFactory | None = None,
     embedding_factory: ClientFactory | None = None,
+    judge_factory: ClientFactory | None = None,
     max_jobs: int = 1_000,
     spend: ReviewSpend | None = None,
     cancelled: Cancelled | None = None,
@@ -1068,6 +1101,7 @@ def drain(
                 owner=owner,
                 client_factory=client_factory,
                 embedding_factory=embedding_factory,
+                judge_factory=judge_factory,
                 attempt_id=attempt_id if kind == DIAGNOSE_KIND else None,
                 spend=spend if kind == DIAGNOSE_KIND else None,
                 cancelled=cancelled,

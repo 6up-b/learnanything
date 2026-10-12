@@ -16,6 +16,15 @@ unresolved-cause factor, ``believed_candidate`` / ``slipped`` /
 ``diagnosis_wrong`` are also forwarded to that factor's existing self-report
 channel (O14; ``diagnosis.forward_card_taps``). A per-citation "not the same
 mistake" tap is also a learner ``same_cause`` verdict in ``judgment_ledger``.
+
+Slice 2 T1 (``mvp-0.11``): when the diagnosis's cause has recurred K times,
+the card also shows the escalated repair with the earlier answers as its
+evidence ("Third time with this one"), read from the escalation receipt
+written when the diagnosis was applied, plus its own one-tap usefulness
+rating (``helped`` / ``didn't help`` / ``not sure``), recorded in
+``diagnosis_feedback`` with ``response`` prefixed ``escalation:``. The
+headline says "trying a different approach" only when the repair's operator
+really differs from every repair shown for the group before.
 """
 
 from __future__ import annotations
@@ -28,6 +37,7 @@ from learnloop.attempts.reveal_ledger import record_repair_display_reveals
 from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.split.validation import primary_cause
+from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault
 
 LOG = logging.getLogger(__name__)
@@ -42,6 +52,14 @@ CARD_LABELS = {
     "unsure": "Not sure",
 }
 NOT_SAME_MISTAKE = "not_same_mistake"
+#: The escalated repair's usefulness tap (Slice 2 §3.7), fixed neutral order.
+ESCALATION_RESPONSES: tuple[str, ...] = ("escalation:helped", "escalation:didnt_help", "escalation:not_sure")
+ESCALATION_LABELS = {
+    "escalation:helped": "Helped",
+    "escalation:didnt_help": "Didn't help",
+    "escalation:not_sure": "Not sure",
+}
+_ORDINALS = {3: "Third", 4: "Fourth", 5: "Fifth", 6: "Sixth"}
 #: Card taps that the existing unresolved-cause channel understands.
 _FORWARDABLE = {"believed_candidate", "slipped", "diagnosis_wrong"}
 PREREQUISITE_LABEL = "possible cause - not yet checked"
@@ -123,6 +141,64 @@ def plain_summary(repository: Repository, text: str) -> str:
     return _ULID.sub(label, text)
 
 
+def escalation_block(
+    vault: LoadedVault, repository: Repository, diagnosis_id: str, repair_suggestions: list[Mapping[str, Any]]
+) -> dict[str, Any] | None:
+    """The escalated repair and its evidence, from the escalation receipt."""
+
+    config = getattr(vault.config, "recurrence", None)
+    if config is not None and not bool(getattr(config, "escalation_card_enabled", True)):
+        return None
+    escalation = repository.recurrence_escalation(diagnosis_id)
+    if escalation is None:
+        return None
+    count = int(escalation["recurrence_count"])
+    ordinal = _ORDINALS.get(count, f"{count}th")
+    headline = f"{ordinal} time with this one"
+    if escalation["different_approach"]:
+        headline += " - trying a different approach"
+    repair = next(
+        (
+            dict(row)
+            for row in repair_suggestions
+            if escalation.get("repair_suggestion_id") and str(row.get("id")) == escalation["repair_suggestion_id"]
+        ),
+        None,
+    )
+    earlier = []
+    for attempt_id in escalation["earlier_attempt_ids"]:
+        attempt = repository.fetch_practice_attempt(attempt_id) or {}
+        earlier.append(
+            {
+                "attempt_id": attempt_id,
+                "practice_item_id": attempt.get("practice_item_id"),
+                "date": attempt.get("created_at"),
+                "rubric_score": attempt.get("rubric_score"),
+                "correctness": attempt.get("correctness"),
+            }
+        )
+    taps = [
+        row["response"]
+        for row in repository.diagnosis_feedback_rows(diagnosis_id)
+        if str(row["response"]).startswith("escalation:")
+    ]
+    return {
+        "escalation_id": escalation["id"],
+        "headline": headline,
+        "recurrence_count": count,
+        "different_approach": escalation["different_approach"],
+        # Honest label: the repair is the same kind as before when no
+        # different operator was available (the headline then makes no claim).
+        "approach_note": None
+        if escalation["different_approach"]
+        else "This is the same kind of repair you were shown before; no different one was available.",
+        "repair": repair,
+        "earlier_answers": earlier,
+        "responses": [{"response": value, "label": ESCALATION_LABELS[value]} for value in ESCALATION_RESPONSES],
+        "recorded_response": taps[-1] if taps else None,
+    }
+
+
 def diagnosis_card(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]:
     """The card for one attempt (status first; content only when done)."""
 
@@ -144,16 +220,22 @@ def diagnosis_card(vault: LoadedVault, repository: Repository, attempt_id: str) 
     proposal = diagnosis.get("proposal") or {}
     metadata = repository.fetch_attempt_feedback_metadata(attempt_id) or {}
     taps = repository.diagnosis_feedback_rows(str(diagnosis.get("id")))
+    repair_suggestions = list(metadata.get("repair_suggestions") or [])
     card.update(
         diagnosis_id=diagnosis.get("id"),
         created_at=diagnosis.get("created_at"),
         history_mode=diagnosis.get("history_mode"),
         summary_md=plain_summary(repository, str(proposal.get("analysis_md") or "")),
-        repair_suggestions=list(metadata.get("repair_suggestions") or []),
+        repair_suggestions=repair_suggestions,
         made_before=_citations(repository, str(diagnosis.get("id"))),
         prerequisite_gap=_prerequisite_gap(vault, proposal),
+        escalation=escalation_block(vault, repository, str(diagnosis.get("id")), repair_suggestions),
         recorded_response=next(
-            (row["response"] for row in reversed(taps) if row["response"] != NOT_SAME_MISTAKE),
+            (
+                row["response"]
+                for row in reversed(taps)
+                if row["response"] != NOT_SAME_MISTAKE and not str(row["response"]).startswith("escalation:")
+            ),
             None,
         ),
         not_same_mistake_attempt_ids=sorted(
@@ -224,6 +306,11 @@ def record_card_tap(
         cited = {row["attempt_id"] for row in _citations(repository, diagnosis_id)}
         if not cited_attempt_id or cited_attempt_id not in cited:
             raise CardError("not_same_mistake must name a validated citation of this diagnosis")
+    elif response in ESCALATION_RESPONSES:
+        if repository.recurrence_escalation(diagnosis_id) is None:
+            raise CardError("an escalation rating needs an escalated repair on this diagnosis")
+        if cited_attempt_id is not None:
+            raise CardError("only not_same_mistake names a cited attempt")
     elif response not in CARD_RESPONSES:
         raise CardError(f"unknown card response {response!r}")
     elif cited_attempt_id is not None:
@@ -233,7 +320,9 @@ def record_card_tap(
     forwarded_factor_id: str | None = None
     note = "card_only"
     config = getattr(vault.config, "diagnosis", None)
-    if response in _FORWARDABLE and bool(getattr(config, "forward_card_taps", True)):
+    if response in ESCALATION_RESPONSES:
+        note = "escalation_rating"
+    elif response in _FORWARDABLE and bool(getattr(config, "forward_card_taps", True)):
         forwarded_factor_id, note = _forward(
             vault,
             repository,
@@ -268,6 +357,8 @@ def record_card_tap(
                 verdict="different",
                 rationale="diagnosis card: not the same mistake",
             )
+        # Slice 2 T1: the tap is a learner_card "different" for the groups.
+        refresh_recurrence_groups(vault, repository)
     return {"feedback_id": feedback_id, "forwarded_factor_id": forwarded_factor_id, "forwarding": note}
 
 
@@ -316,11 +407,14 @@ def debit_displayed_repairs(
 __all__ = [
     "CARD_LABELS",
     "CARD_RESPONSES",
+    "ESCALATION_LABELS",
+    "ESCALATION_RESPONSES",
     "CardError",
     "NOT_SAME_MISTAKE",
     "PREREQUISITE_LABEL",
     "debit_displayed_repairs",
     "diagnosis_card",
     "diagnosis_repairs_debited",
+    "escalation_block",
     "record_card_tap",
 ]

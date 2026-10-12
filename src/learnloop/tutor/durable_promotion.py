@@ -56,7 +56,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from learnloop.recurrence import recurrence_key
+from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.vault.models import LoadedVault
@@ -169,6 +169,7 @@ def _asserted_hypotheses(
     from learnloop.diagnosis.causal_attribution import OPEN_SET_CAUSE_ID
 
     snapshot = adjudication.get("system_snapshot") or {}
+    groups = repository.recurrence_group_map()
     hypotheses: list[dict[str, Any]] = []
     seen: set[str] = set()
     for raw in snapshot.get("plausible_hypothesis_ids") or []:
@@ -181,7 +182,7 @@ def _asserted_hypotheses(
         # A chain may have advanced past the version the receipt named; the
         # normalized statement is stable across versions of one episode, so it
         # is the join key rather than the id.
-        key = recurrence_key(hypothesis)
+        key = recurrence_key(hypothesis, groups)
         if not key or key in seen:
             continue
         seen.add(key)
@@ -212,7 +213,8 @@ def _promote_hypothesis(
     if learning_object is None:
         return None, f"learning_object_absent:{learning_object_id}"
 
-    normalized = recurrence_key(hypothesis) or normalize_text(
+    groups = repository.recurrence_group_map()
+    normalized = recurrence_key(hypothesis, groups) or normalize_text(
         str(hypothesis.get("statement") or "")
     )
     if not normalized:
@@ -229,7 +231,9 @@ def _promote_hypothesis(
     for record in repository.misconceptions_for_learning_object(
         learning_object_id, statuses=ANY_BELIEF_STATUS
     ):
-        if normalize_text(record.statement) != normalized:
+        # A durable belief of the same recurrence group (Slice 2 T1) is the
+        # same belief; with no merges this is the exact-statement test.
+        if key_for_statement(normalize_text(record.statement), groups) != normalized:
             continue
         if record.lifecycle_disposition in {"demoted", "superseded"}:
             return None, f"previously_withdrawn:{record.lifecycle_disposition}"
@@ -292,13 +296,14 @@ def _withdraw_hypothesis(
     from learnloop.learner.surfaced_beliefs import record_belief_withdrawal
 
     learning_object_id = str(hypothesis.get("learning_object_id") or "")
-    normalized = recurrence_key(hypothesis)
+    groups = repository.recurrence_group_map()
+    normalized = recurrence_key(hypothesis, groups)
     if not normalized:
         return None, "statement_empty"
     for record in repository.misconceptions_for_learning_object(
         learning_object_id, statuses=ANY_BELIEF_STATUS
     ):
-        if normalize_text(record.statement) != normalized:
+        if key_for_statement(normalize_text(record.statement), groups) != normalized:
             continue
         # One adjudicated withdrawal per belief. A re-adjudication that lands a
         # second overturning verdict finds the belief already retracted, and
@@ -495,6 +500,7 @@ def _confirmed_hypotheses(
 
     confirmed: list[dict[str, Any]] = []
     seen: set[str] = set()
+    groups = repository.recurrence_group_map()
     for hypothesis in repository.causal_hypotheses_for_attempt(
         attempt_id, latest_only=False
     ):
@@ -506,7 +512,7 @@ def _confirmed_hypotheses(
             continue
         if str(confirmation.get("response") or "") != "believed_candidate":
             continue
-        key = recurrence_key(hypothesis)
+        key = recurrence_key(hypothesis, groups)
         if not key or key in seen:
             continue
         seen.add(key)

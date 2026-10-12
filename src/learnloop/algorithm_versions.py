@@ -29,19 +29,40 @@ REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 # projection does not: it inherits the mvp-0.8 namespace like mvp-0.9.
 DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 
+# mvp-0.11 (Slice 2 T1 / M3, spec_embedding_consumers_v1 §3.4): recurrence
+# with authority. Holding-pen promotion and the K=3 escalation count group
+# hypotheses by recurrence group (exact statement classes joined by validated
+# diagnoser citations and ``same_cause`` verdicts) instead of by exact
+# statement, and a group's K-th recurrence shows its escalated repair with
+# the earlier answers as evidence. The spec's "mvp-0.11" was a placeholder; it
+# is the next free label after mvp-0.10. Kill switch: ``recurrence.enabled``
+# (off: exact-statement keys again from the next normalization or rebuild).
+# It keeps the split and the mvp-0.8 projection namespace.
+RECURRENCE_GROUP_ALGORITHM_VERSION = "mvp-0.11"
+
 # Versions at which practice grading is split (kill switch
 # ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
 # attempt's grader mode is recorded per attempt and replay never reads the
-# switch).
+# switch). A later successor that keeps the split adds itself here.
 DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = frozenset(
-    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
+    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION, RECURRENCE_GROUP_ALGORITHM_VERSION}
+)
+
+# Versions whose grouping sites read the recurrence-group map (behind
+# ``recurrence.enabled``). Gates must use this set, never equality.
+RECURRENCE_GROUP_VERSIONS: frozenset[str] = frozenset(
+    {RECURRENCE_GROUP_ALGORITHM_VERSION}
 )
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against
 # P0_ALGORITHM_VERSION, or each version bump silently demotes fresh vaults.
 P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(
-    {REVEAL_LEDGER_ALGORITHM_VERSION, DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
+    {
+        REVEAL_LEDGER_ALGORITHM_VERSION,
+        DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
+        RECURRENCE_GROUP_ALGORITHM_VERSION,
+    }
 )
 P0_PROJECTION_VERSIONS: frozenset[str] = (
     frozenset({P0_ALGORITHM_VERSION}) | P0_SUCCESSOR_VERSIONS

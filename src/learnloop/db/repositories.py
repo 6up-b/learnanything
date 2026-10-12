@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from learnloop.algorithm_versions import CANONICAL_STATE_VERSIONS
-from learnloop.recurrence import recurrence_key
+from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION, LABEL_VERSION
 from learnloop.causal_activity_policy import (
     CAUSAL_ACTIVITY_POLICY_VERSION,
@@ -30,6 +30,7 @@ from learnloop.db.stores.diagnoses import (
     merge_causal_view_into_feedback,
 )
 from learnloop.db.stores.model_calls import ModelCallStoreMixin
+from learnloop.db.stores.recurrence import RecurrenceStoreMixin
 from learnloop.db.stores.collection import CollectionStoreMixin
 from learnloop.db.stores.ingest_queue import IngestQueueStoreMixin
 from learnloop.db.stores.observation_ledger import (
@@ -781,6 +782,7 @@ class Repository(
     ModelCallStoreMixin,
     CollectionStoreMixin,
     DiagnosisStoreMixin,
+    RecurrenceStoreMixin,
 ):
     def __init__(self, sqlite_path: Path):
         self._initialize(sqlite_path, read_only=False)
@@ -2388,14 +2390,19 @@ class Repository(
     ) -> list[dict[str, Any]]:
         """Compatibility projection over P1's single hypothesis owner."""
 
+        # Slice 2 T1: the recurrence-group map (empty unless the successor is
+        # active) makes merged statement classes one group; singleton classes
+        # keep their exact key.
+        groups = self.recurrence_group_map()
         heads = self.causal_hypotheses_for_learning_object(
             learning_object_id,
             statuses=("candidate", "validated"),
             statement_normalized=statement_normalized,
+            groups=groups,
         )
         # Slice 1 §7.6: every grouping goes through the recurrence-key seam.
         validated_statements = {
-            recurrence_key(row)
+            recurrence_key(row, groups)
             for row in heads
             if row["status"] == "validated"
         }
@@ -2417,7 +2424,7 @@ class Repository(
                     learning_object_id,
                 )
                 continue
-            normalized = recurrence_key(row)
+            normalized = recurrence_key(row, groups)
             if normalized in validated_statements:
                 continue
             grouped.setdefault(normalized, []).append(row)
@@ -2548,16 +2555,23 @@ class Repository(
     def misconception_candidate_by_normalized(
         self, learning_object_id: str, statement_normalized: str
     ) -> dict[str, Any] | None:
-        """The open candidate for one normalized statement on an LO, if any."""
+        """The open candidate for one normalized statement on an LO, if any.
 
+        ``statement_normalized`` may be a raw normalized statement or a
+        recurrence key; a statement whose class was merged (Slice 2 T1)
+        resolves to its group's candidate.
+        """
+
+        groups = self.recurrence_group_map()
+        key = key_for_statement(statement_normalized, groups)
         projected = next(
             (
                 row
                 for row in self._projected_causal_candidates(
                     learning_object_id,
-                    statement_normalized=statement_normalized,
+                    statement_normalized=key,
                 )
-                if recurrence_key(row) == statement_normalized
+                if recurrence_key(row, groups) == key
             ),
             None,
         )
@@ -2597,13 +2611,14 @@ class Repository(
             if "candidate" in status_list
             else []
         )
-        projected_normalized = {recurrence_key(row) for row in projected}
+        groups = self.recurrence_group_map()
+        projected_normalized = {recurrence_key(row, groups) for row in projected}
         return [
             *projected,
             *[
                 row
                 for row in legacy
-                if recurrence_key(row) not in projected_normalized
+                if recurrence_key(row, groups) not in projected_normalized
             ],
         ]
 
@@ -2729,13 +2744,13 @@ class Repository(
                     "promotion metadata requires status='promoted'"
                 )
             if status == "promoted":
-                normalized = str(causal["statement_normalized"])
-                group = recurrence_key(causal)
+                groups = self.recurrence_group_map()
+                group = recurrence_key(causal, groups)
                 for member in self.causal_hypotheses_for_learning_object(
                     str(causal["learning_object_id"]),
                     statuses=("candidate",),
                 ):
-                    if recurrence_key(member) != group:
+                    if recurrence_key(member, groups) != group:
                         continue
                     evidence = dict(member.get("evidence") or {})
                     evidence["promoted_misconception_id"] = promoted_misconception_id
@@ -2747,7 +2762,10 @@ class Repository(
                         learning_object_id=str(member["learning_object_id"]),
                         cause_scope=str(member["cause_scope"]),
                         statement=str(member["statement"]),
-                        statement_normalized=normalized,
+                        # The member's own class: an episode's statement is
+                        # stable across its versions (a merged group spans
+                        # several statement classes; Slice 2 T1).
+                        statement_normalized=str(member["statement_normalized"]),
                         mechanism=member.get("mechanism"),
                         operation=member.get("operation"),
                         target_ref=member.get("target_ref"),
@@ -14353,12 +14371,15 @@ class Repository(
         statuses: Iterable[str] = ("candidate",),
         latest_only: bool = True,
         statement_normalized: str | None = None,
+        groups: Mapping[str, str] | None = None,
     ) -> list[dict[str, Any]]:
         """Hypothesis heads on an LO; ``statement_normalized`` is a recurrence key.
 
         The key filter runs through :func:`learnloop.recurrence.recurrence_key`
-        (Slice 1 §7.6) rather than SQL equality, so Slice 2 T1 can change what
-        a key is without touching this query.
+        (Slice 1 §7.6) rather than SQL equality, so Slice 2 T1's recurrence
+        groups apply without touching this query. A raw normalized statement
+        is accepted too and resolves to its group. ``groups`` is the caller's
+        already-loaded group map (loaded here when omitted).
         """
 
         status_list = [str(value) for value in statuses]
@@ -14390,7 +14411,32 @@ class Repository(
         decoded = [_decode_causal_hypothesis(row) for row in rows]
         if statement_normalized is None:
             return decoded
-        return [row for row in decoded if recurrence_key(row) == statement_normalized]
+        if groups is None:
+            groups = self.recurrence_group_map()
+        key = key_for_statement(statement_normalized, groups)
+        return [row for row in decoded if recurrence_key(row, groups) == key]
+
+    def causal_hypotheses_with_statement(
+        self, statement_normalized: str
+    ) -> list[dict[str, Any]]:
+        """Episode heads, vault-wide, of one exact statement class (Slice 2 T1)."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT h.* FROM causal_hypotheses h
+                 WHERE h.statement_normalized = ?
+                   AND h.status != 'open_set'
+                   AND h.version = (
+                     SELECT MAX(head.version)
+                       FROM causal_hypotheses head
+                      WHERE head.episode_key = h.episode_key
+                   )
+                 ORDER BY h.created_at, h.id
+                """,
+                (statement_normalized,),
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
 
     def causal_hypotheses_with_operations(
         self, *, latest_only: bool = True, require_operation: bool = True

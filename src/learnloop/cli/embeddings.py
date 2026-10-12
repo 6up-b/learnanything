@@ -95,3 +95,70 @@ def embeddings_backfill(
         raise typer.Exit(code=130)
     if report["status"] not in {"dry_run", "complete"}:
         raise typer.Exit(code=1)
+
+
+@embeddings_app.command("adjudicate")
+def embeddings_adjudicate(
+    vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; use a fixtures-local copy first.")],
+    task: Annotated[str, typer.Option("--task", help="The judgment_ledger task to adjudicate. Slice 2 T1: same_cause.")] = "same_cause",
+    backlog: Annotated[bool, typer.Option("--backlog", help="Judge the shortlisted pairs of the existing history (required).")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Plan pairs, vectors to embed and spend; no client, call or write.")] = False,
+    max_pairs_to_judge: Annotated[int | None, typer.Option("--max-pairs-to-judge", min=1, help="Judge at most this many pairs this run (earliest first).")] = None,
+    max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 300,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0)] = 30,
+    max_tokens: Annotated[int, typer.Option("--max-tokens", min=0)] = 3_000_000,
+    max_cost_usd: Annotated[float, typer.Option("--max-cost-usd", min=0)] = 1.0,
+    price_per_million: Annotated[float | None, typer.Option(
+        "--price-per-million", min=0,
+        help="USD per million tokens for a metered route whose price is unknown (unknown prices fail closed).",
+    )] = None,
+    json_output: Annotated[bool, typer.Option("--json")] = False,
+) -> None:
+    """Embeddings shortlist, the judge decides: adjudicate a task's candidate pairs.
+
+    `--task same_cause --backlog` (Slice 2 T1 §3.1) embeds any hypothesis
+    without a vector for embedding.model, shortlists each learner-state
+    hypothesis's earlier in-scope neighbours (recurrence.top_k, and the B3
+    cutoff when set), skips settled pairs and sends every other pair to the
+    same-cause judge (ai.routing.same_cause_judge, unset: the diagnosis
+    route). Verdicts go to judgment_ledger; groups are refreshed. Nothing is
+    merged or rejected by score. Run --dry-run first.
+    """
+
+    from learnloop.cli.receipts import bind_command_repository, bind_command_vault
+    from learnloop.db.repositories import Repository
+    from learnloop.diagnosis.recurrence.backlog import run_backlog
+    from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.repository import open_vault_repository
+
+    try:
+        if task != "same_cause":
+            raise ValueError(f"unknown task {task!r}: Slice 2 T1 registers same_cause")
+        if not backlog:
+            raise ValueError("pass --backlog: live pairs are judged inside the diagnosis job")
+        if not (vault / "learnloop.toml").is_file():
+            raise ValueError("--vault must name a vault containing learnloop.toml")
+        loaded = load_vault(vault)
+        bind_command_vault(loaded.root)
+        sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+        if dry_run:
+            repository = Repository.attach(sqlite_path, read_only=True)
+        else:
+            repository = open_vault_repository(loaded.root, sqlite_path)
+            bind_command_repository(repository)
+        caps = SpendCaps(
+            max_candidates=max_calls, max_pairs=max_calls, max_retries=max_retries,
+            max_calls=max_calls, max_total_tokens=max_tokens, max_estimated_usd=max_cost_usd,
+        )
+        with _cancellation() as stop:
+            report = run_backlog(
+                loaded, repository, caps=caps, price_per_million=price_per_million,
+                max_pairs=max_pairs_to_judge, dry_run=dry_run, cancelled=stop.is_set,
+            )
+    except ValueError as exc:
+        report = {"status": "invalid", "reason": str(exc)}
+    typer.echo(json.dumps(report, sort_keys=True, default=str, indent=None if json_output else 2))
+    if report["status"] == "cancelled":
+        raise typer.Exit(code=130)
+    if report["status"] not in {"dry_run", "complete"}:
+        raise typer.Exit(code=1)
