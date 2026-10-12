@@ -34,6 +34,8 @@ import { RepairTraceBlocks } from "../components/RepairTrace";
 import type { AttemptTraceDto } from "../api/dto";
 import { algoConfig, masteryTone } from "../app/algoConfig";
 import { useNextQueueItem } from "../app/autoAdvance";
+import { nextPlanKeyLabel, useNextPlanStep } from "../app/dailyPlan";
+import type { PlanStepDto } from "../api/dto";
 import { MarkdownMath } from "../render/MarkdownMath";
 import {
   CausalFeedbackPanel,
@@ -1378,6 +1380,8 @@ export function FeedbackScreen({
   sessionId,
   nextQueue = null,
   onOpenNext,
+  nextPlan = null,
+  onPlanStep,
   onNext,
   onBack,
   onOpenNotes,
@@ -1401,6 +1405,12 @@ export function FeedbackScreen({
    *  Next falls back to `onNext`. */
   nextQueue?: QueueInput | null;
   onOpenNext?: (practiceItemId: string, schedulerCandidateId: string | null) => void;
+  /** Daily-loop DL1 (§6.5): while the finite plan serves, Next follows the plan
+   *  instead of the queue head. The next step is computed while feedback shows;
+   *  `onPlanStep` routes it (an item in the same block opens directly; a new
+   *  block's line, a reading step or the done screen go through the plan). */
+  nextPlan?: { sessionId: string } | null;
+  onPlanStep?: (step: PlanStepDto | null) => void;
   /** Next without auto-advance: back to the list (or the overlay that owns the round). */
   onNext: () => void;
   /** Esc / b: always the list. */
@@ -1450,8 +1460,10 @@ export function FeedbackScreen({
   // bundle is on screen, so it never queues ahead of feedback on the sidecar
   // pipe. A generation counter drops a pending advance when the learner goes
   // back to the list (or the screen unmounts) before the queue lands.
-  const autoAdvance = Boolean(nextQueue && onOpenNext);
+  const planMode = Boolean(nextPlan && onPlanStep);
+  const autoAdvance = Boolean(nextQueue && onOpenNext) && !planMode;
   const nextItem = useNextQueueItem(autoAdvance ? nextQueue : null, feedback !== null);
+  const nextPlanStep = useNextPlanStep(planMode && nextPlan ? nextPlan.sessionId : null, feedback !== null);
   const [advancing, setAdvancing] = useState(false);
   const advanceGeneration = useRef(0);
   const advancingRef = useRef(false);
@@ -1468,7 +1480,27 @@ export function FeedbackScreen({
     return write;
   }, []);
   const resolveNext = nextItem.resolve;
+  const resolvePlanStep = nextPlanStep.resolve;
   const advance = useCallback(async () => {
+    if (planMode && onPlanStep) {
+      if (advancingRef.current) return;
+      advancingRef.current = true;
+      const generation = ++advanceGeneration.current;
+      setAdvancing(true);
+      let step: PlanStepDto | null = null;
+      try {
+        await Promise.all([...pendingQueueWrites.current]);
+        if (generation !== advanceGeneration.current) return;
+        step = await resolvePlanStep();
+      } catch {
+        step = null; // the plan view surfaces its own error
+      }
+      if (generation !== advanceGeneration.current) return;
+      advancingRef.current = false;
+      setAdvancing(false);
+      onPlanStep(step);
+      return;
+    }
     if (!autoAdvance || !onOpenNext) {
       onNext();
       return;
@@ -1490,7 +1522,7 @@ export function FeedbackScreen({
     setAdvancing(false);
     if (head) onOpenNext(head.practiceItemId, head.schedulerCandidateId ?? null);
     else onNext();
-  }, [autoAdvance, onOpenNext, onNext, resolveNext]);
+  }, [autoAdvance, onOpenNext, onNext, resolveNext, planMode, onPlanStep, resolvePlanStep]);
   const goBack = useCallback(() => {
     advanceGeneration.current += 1;
     advancingRef.current = false;
@@ -2691,14 +2723,19 @@ export function FeedbackScreen({
 
       <KeyBar
         keys={[
-          { key: "n / ↵", label: nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty) },
+          {
+            key: "n / ↵",
+            label: planMode
+              ? nextPlanKeyLabel(advancing, nextPlanStep.step)
+              : nextKeyLabel(autoAdvance, advancing, nextItem.head, nextItem.empty)
+          },
           { key: "r", label: regrading ? "regrading…" : "regrade" },
           { key: "⇧D", label: triggeringFollowup ? "triggering…" : "force follow-up" },
           { key: "a", label: "add error" },
           { key: "j", label: "add note" },
           { key: "o", label: "open notes" },
           { key: "?", label: "ask tutor" },
-          { key: "esc / b", label: "back to queue" },
+          { key: "esc / b", label: planMode ? "back to today's plan" : "back to queue" },
           { key: "^p", label: "palette" },
         ]}
       />
