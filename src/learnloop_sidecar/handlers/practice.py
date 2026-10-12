@@ -66,6 +66,10 @@ class PracticeDraftCheckpoint(ParamsModel):
     # client that does not persist one gets no recovery.
     submission_id: str | None = None
     scheduler_candidate_id: str | None = None
+    #: mvp-0.11 (review F2): the draft is being written after "I'm stuck".
+    #: Kept with the draft so a navigation or restart before the grade
+    #: commits restores the stuck answer it was, not an ordinary one.
+    declared_stuck: bool = False
 
 
 class PracticeSubmissionRecoveryInput(ParamsModel):
@@ -424,6 +428,7 @@ def save_practice_draft(ctx: SidecarContext, params: PracticeDraftCheckpoint) ->
             current_answer=params.answer_md,
             hints_used=params.hints_used,
             submission_id=params.submission_id,
+            declared_stuck=params.declared_stuck,
         ),
     )
     return {"ok": True}

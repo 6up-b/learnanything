@@ -35,6 +35,7 @@ import { clearPdfDocuments } from "../components/pdfDocumentCache";
 import { selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
 import { schedulerCandidateForServe, type PracticeOffer } from "./practiceOffer";
+import { restoredPracticeDraft, type PracticeDraftMirror } from "./practiceDraft";
 import { ScreenErrorBoundary } from "./ScreenErrorBoundary";
 import { recordRecentVault, removeRecentVault } from "./recentVaults";
 import { errorMessage } from "../errors";
@@ -148,16 +149,8 @@ export function App() {
   // unmounts. The backend checkpoint is also updated, but `session.checkpoint`
   // is only loaded at startup — without this mirror, esc-ing to Today and
   // re-opening the same question mid-session would show an empty editor.
-  const [localDraft, setLocalDraft] = useState<{
-    practiceItemId: string;
-    answerMd: string;
-    hintsUsed: number;
-    submissionId: string;
-  } | null>(null);
-  const onPracticeDraft = useCallback(
-    (draft: { practiceItemId: string; answerMd: string; hintsUsed: number; submissionId: string }) => setLocalDraft(draft),
-    []
-  );
+  const [localDraft, setLocalDraft] = useState<PracticeDraftMirror | null>(null);
+  const onPracticeDraft = useCallback((draft: PracticeDraftMirror) => setLocalDraft(draft), []);
   const [libraryNoteId, setLibraryNoteId] = useState<string | null>(null);
   // F6 Repair (§4.10): a detail overlay launched with a misconception id. Not a
   // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
@@ -367,26 +360,10 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const restored = useMemo(() => {
-    if (localDraft && localDraft.practiceItemId === practiceItemId) {
-      return {
-        answer: localDraft.answerMd,
-        hints: localDraft.hintsUsed,
-        submissionId: localDraft.submissionId,
-        teachBack: null
-      };
-    }
-    const checkpoint = session?.checkpoint;
-    if (!checkpoint || checkpoint.currentPracticeItemId !== practiceItemId) {
-      return { answer: "", hints: 0, submissionId: null, teachBack: null };
-    }
-    return {
-      answer: checkpoint.currentAnswer ?? "",
-      hints: checkpoint.hintsUsed,
-      submissionId: checkpoint.submissionId ?? null,
-      teachBack: checkpoint.teachBack ?? null
-    };
-  }, [session, practiceItemId, localDraft]);
+  const restored = useMemo(
+    () => restoredPracticeDraft(practiceItemId, localDraft, session?.checkpoint),
+    [session, practiceItemId, localDraft]
+  );
   const subjectOptions = useMemo(
     () => (snapshot?.vault?.subjects ?? []).map((id) => ({ id, title: id })),
     [snapshot?.vault?.subjects]
@@ -838,6 +815,7 @@ export function App() {
             restoredAnswer={restored.answer}
             restoredHints={restored.hints}
             restoredSubmissionId={restored.submissionId}
+            restoredStuck={restored.stuck}
             restoredTeachBack={restored.teachBack}
             onFeedback={openFeedback}
             onBlockEnd={openBlockReview}

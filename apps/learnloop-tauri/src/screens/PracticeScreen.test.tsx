@@ -317,3 +317,62 @@ it("offers I'm stuck inside a diagnostic check, keeping the measurement attempt 
   await waitFor(() => expect(callbacks.onContinueDiagnostic).toHaveBeenCalledWith("next-probe"));
   expect(callbacks.onFeedback).not.toHaveBeenCalled();
 });
+
+// Review F2: the stuck marker survives navigation and restart before grading.
+it("saves and mirrors the stuck marker with the draft", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  const callbacks = props();
+  const view = render(<PracticeScreen {...callbacks} />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  fireEvent.change(answer, { target: { value: "Why is V transposed?" } });
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({
+    answerMd: "Why is V transposed?", declaredStuck: true
+  })));
+  view.unmount();
+  expect(callbacks.onDraftSaved).toHaveBeenLastCalledWith(expect.objectContaining({
+    practiceItemId: "old-item", answerMd: "Why is V transposed?", declaredStuck: true
+  }));
+});
+
+it("saves the cleared marker when the learner steps back out of stuck mode", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  render(<PracticeScreen {...props()} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole("button", { name: /I'm stuck/ }));
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({ declaredStuck: true })));
+  fireEvent.click(screen.getByRole("button", { name: "never mind" }));
+  await waitFor(() => expect(api.savePracticeDraft).toHaveBeenLastCalledWith(expect.objectContaining({ declaredStuck: false })));
+});
+
+it("reopens a restored stuck draft in stuck mode and submits it as a stuck answer", async () => {
+  setAlgoConfig({ practice: { stuckPrompt: true } });
+  api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
+  api.submitAttempt.mockResolvedValue(RESULT);
+  render(
+    <PracticeScreen
+      {...props()}
+      restoredAnswer="Why is V transposed?"
+      restoredSubmissionId="stuck-draft-1"
+      restoredStuck
+    />
+  );
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  await waitFor(() => expect(api.getProbeContract).toHaveBeenCalled());
+  expect(answer.getAttribute("placeholder")).toBe(STUCK);
+  expect(screen.getByRole("status", { name: "stuck prompt" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Submit/ }));
+  await waitFor(() => expect(api.submitAttempt).toHaveBeenCalledWith(expect.objectContaining({
+    answerMd: "Why is V transposed?", declaredStuck: true, submissionId: "stuck-draft-1"
+  })));
+});
+
+it("never restores stuck mode where the vault does not offer it", async () => {
+  api.recoverPracticeSubmission.mockResolvedValue({ status: "pending", result: null });
+  render(<PracticeScreen {...props()} restoredAnswer="old text" restoredSubmissionId="k" restoredStuck />);
+  const answer = await screen.findByRole("textbox", { name: "answer" });
+  expect(answer.getAttribute("placeholder")).not.toBe(STUCK);
+  expect(screen.queryByRole("status", { name: "stuck prompt" })).toBeNull();
+});

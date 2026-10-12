@@ -617,6 +617,9 @@ export interface SessionCheckpoint {
   /** Stable retry key for the in-progress attempt. Reused after app restart so
    *  an outcome-unknown submission cannot be graded twice. */
   submissionId: string | null;
+  /** mvp-0.11: the draft was being written after "I'm stuck" (absent from an
+   *  older sidecar, which never stored one). */
+  declaredStuck?: boolean;
   focusBlockState: Record<string, unknown> | null;
   pendingGradingProposal: unknown | null;
   readiness: Record<string, unknown> | null;

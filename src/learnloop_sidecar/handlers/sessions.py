@@ -33,6 +33,9 @@ class SessionCheckpointInput(ParamsModel):
     current_answer: str | None = None
     hints_used: int | None = None
     submission_id: str | None = None
+    #: mvp-0.11: the draft is a stuck answer ("I'm stuck"); stored in the
+    #: practice envelope beside the retry key (no schema change).
+    declared_stuck: bool | None = None
     focus_block_state: dict[str, Any] | None = None
     pending_grading_proposal: dict[str, Any] | None = None
     readiness: dict[str, Any] | None = None
@@ -152,6 +155,9 @@ def patch_checkpoint(repository, params: SessionCheckpointInput) -> None:
     if "submission_id" in fields:
         focus = _with_submission_id(focus, params.submission_id)
 
+    if "declared_stuck" in fields:
+        focus = _with_declared_stuck(focus, bool(params.declared_stuck))
+
     repository.update_session_checkpoint(
         params.session_id,
         current_practice_item_id=_merged_value(existing, params, fields, "current_practice_item_id"),
@@ -189,6 +195,24 @@ def _with_hints_used(focus: dict[str, Any] | None, hints_used: int) -> dict[str,
     else:
         practice = dict(practice)
     practice["hintsUsed"] = hints_used
+    payload["practice"] = practice
+    return payload
+
+
+def _with_declared_stuck(focus: dict[str, Any] | None, declared_stuck: bool) -> dict[str, Any]:
+    """Store whether the draft is a stuck answer in the practice envelope.
+
+    Only a stuck draft carries the key; anything else clears it, so a later
+    item never inherits an earlier item's stuck mode.
+    """
+
+    payload = dict(focus or {})
+    practice = payload.get("practice")
+    practice = dict(practice) if isinstance(practice, dict) else {}
+    if declared_stuck:
+        practice["declaredStuck"] = True
+    else:
+        practice.pop("declaredStuck", None)
     payload["practice"] = practice
     return payload
 

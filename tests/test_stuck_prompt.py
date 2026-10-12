@@ -877,3 +877,47 @@ def test_tui_empty_stuck_probe_answer_keeps_feedback_deferred(tmp_path, monkeypa
     assert [(draft.attempt_type, draft.declared_stuck, draft.probe_presentation_id) for draft in recorded] == [
         ("diagnostic_probe", True, "pres-1")
     ]
+
+
+# -- review F2: the stuck marker survives draft recovery ------------------------------
+
+
+def test_the_draft_checkpoint_keeps_the_stuck_marker_across_a_restart(tmp_path, monkeypatch):
+    import learnloop_sidecar.handlers.practice as practice
+    from learnloop_sidecar.context import SidecarContext
+
+    paths, _vault, repository = _stuck_vault(tmp_path)
+    ctx, session_id = _sidecar(paths.root)
+    draft = {
+        "sessionId": session_id, "practiceItemId": ITEM, "answerMd": "Why is V transposed?",
+        "hintsUsed": 0, "submissionId": "stuck-draft-1", "declaredStuck": True,
+    }
+    _call(ctx, "save_practice_draft", draft)
+
+    # The app restarts before grading commits: a fresh sidecar reloads it.
+    restarted = SidecarContext()
+    restarted.load(paths.root)
+    checkpoint = _call(restarted, "get_session", {"sessionId": session_id})["checkpoint"]
+    assert checkpoint["currentAnswer"] == "Why is V transposed?"
+    assert checkpoint["submissionId"] == "stuck-draft-1"
+    assert checkpoint["declaredStuck"] is True
+
+    # Submitting the recovered draft records the stuck answer it was.
+    client = StuckFake(reading={"attempts_answer": False, "describes_confusion": True, "confusion_quote": "Why is V transposed?"})
+    monkeypatch.setattr(
+        practice, "ready_grading_provider", lambda vault, override=None: ("fake", ReadyRuntime(), client)
+    )
+    payload = _call(restarted, "submit_attempt", {
+        "sessionId": session_id, "practiceItemId": ITEM, "answerMd": checkpoint["currentAnswer"],
+        "attemptType": "independent_attempt", "declaredStuck": checkpoint["declaredStuck"],
+        "submissionId": checkpoint["submissionId"],
+    })
+    assert repository.fetch_practice_attempt(payload["attemptId"])["declared_stuck"] is True
+
+    # Leaving stuck mode ("never mind") clears the marker on the next save.
+    _call(restarted, "save_practice_draft", {**draft, "practiceItemId": "pi_svd_compute_002", "submissionId": "k2", "declaredStuck": False})
+    assert _call(restarted, "get_session", {"sessionId": session_id})["checkpoint"]["declaredStuck"] is False
+    # An older client that never sends the field reads as not stuck.
+    legacy = {key: value for key, value in draft.items() if key != "declaredStuck"}
+    _call(restarted, "save_practice_draft", {**legacy, "practiceItemId": "pi_svd_compute_002", "submissionId": "k3"})
+    assert _call(restarted, "get_session", {"sessionId": session_id})["checkpoint"]["declaredStuck"] is False

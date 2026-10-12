@@ -99,6 +99,7 @@ export function PracticeScreen({
   restoredAnswer,
   restoredHints,
   restoredSubmissionId,
+  restoredStuck = false,
   restoredTeachBack,
   onFeedback,
   onBlockEnd,
@@ -128,6 +129,9 @@ export function PracticeScreen({
   restoredAnswer?: string;
   restoredHints?: number;
   restoredSubmissionId?: string | null;
+  /** mvp-0.11 (review F2): the restored draft was being written after "I'm
+   *  stuck", so it reopens in stuck mode and submits as a stuck answer. */
+  restoredStuck?: boolean;
   restoredTeachBack?: TeachBackStateDto | null;
   onFeedback: (attemptId: string) => void;
   /** §5.7: a diagnostic block just closed — releasedFeedback covers every
@@ -140,7 +144,13 @@ export function PracticeScreen({
   onCheckpointCleared: (identity?: PracticeCheckpointIdentity) => void;
   /** Mirror of the last flushed draft, so App can restore it if this item is
    *  re-opened before the backend checkpoint is reloaded. */
-  onDraftSaved: (draft: { practiceItemId: string; answerMd: string; hintsUsed: number; submissionId: string }) => void;
+  onDraftSaved: (draft: {
+    practiceItemId: string;
+    answerMd: string;
+    hintsUsed: number;
+    submissionId: string;
+    declaredStuck: boolean;
+  }) => void;
   onTeachBackActive: (active: boolean) => void;
   /** Gate App-level Ask commands while the probe contract is loading or active. */
   onAskAvailabilityChange: (allowed: boolean) => void;
@@ -168,7 +178,9 @@ export function PracticeScreen({
   // box into "write what you can, or what's confusing you"; the same Submit
   // sends it, empty or not. The sidecar decides whether this vault offers it.
   const stuckPrompt = algoConfig().stuckPrompt;
-  const [stuck, setStuck] = useState(false);
+  // Restored with the draft (review F2): a navigation or restart before the
+  // grade commits must not turn a stuck answer into an ordinary one.
+  const [stuck, setStuck] = useState(Boolean(restoredStuck) && stuckPrompt);
   // Probe redesign §12: when the LO has an in-progress diagnostic episode, the
   // sidecar commits a presentation and this contract enforces measurement
   // conditions — forced diagnostic_probe, no hints, no ask-tutor, deferred
@@ -202,7 +214,8 @@ export function PracticeScreen({
     answerMd: answer,
     hintsUsed,
     submissionId: submissionId.current,
-    schedulerCandidateId
+    schedulerCandidateId,
+    declaredStuck: stuck
   });
   const suppressDraftFlush = useRef(false);
   const vaultFrozen = useRef(false);
@@ -284,10 +297,11 @@ export function PracticeScreen({
       answerMd: answer,
       hintsUsed,
       submissionId: submissionId.current,
-      schedulerCandidateId
+      schedulerCandidateId,
+      declaredStuck: stuck
     };
     suppressDraftFlush.current = false;
-  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId]);
+  }, [answer, hintsUsed, practiceItemId, restoredSubmissionId, schedulerCandidateId, session.sessionId, stuck]);
 
   const draftSavingDisabled = () => suppressDraftFlush.current || teachBackRef.current;
 
@@ -344,8 +358,8 @@ export function PracticeScreen({
     setFieldErrors({});
     setSubmitting(false);
     setWhyLine("");
-    setStuck(false);
-  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints]);
+    setStuck(Boolean(restoredStuck) && stuckPrompt);
+  }, [gradingReady, practiceItemId, restoredAnswer, restoredHints, restoredStuck, stuckPrompt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -446,7 +460,7 @@ export function PracticeScreen({
       void flushDraft().catch((error) => onError(errorMessage(error, "Could not save the practice draft.")));
     }, 350);
     return () => clearTimeout(timer);
-  }, [answer, flushDraft, hintsUsed, onError, practiceItemId, session.sessionId]);
+  }, [answer, flushDraft, hintsUsed, onError, practiceItemId, session.sessionId, stuck]);
 
   useEffect(() => {
     return () => {
@@ -457,8 +471,8 @@ export function PracticeScreen({
       // switch then fails, App restores this item from the mirror; if it
       // succeeds, App drops the mirror with the rest of the old vault's state.
       if (!draftSavingDisabled()) {
-        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey } = latestDraft.current;
-        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey });
+        const { practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck } = latestDraft.current;
+        onDraftSaved({ practiceItemId: id, answerMd, hintsUsed: hints, submissionId: retryKey, declaredStuck });
       }
     };
   }, [flushDraft, onError, onDraftSaved]);

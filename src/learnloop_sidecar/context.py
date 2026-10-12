@@ -558,10 +558,12 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
     focus = row.get("focus_block_state")
     hints_used = 0
     submission_id = None
+    declared_stuck = False
     if isinstance(focus, dict):
         practice = focus.get("practice")
         if isinstance(practice, dict):
             hints_used = int(practice.get("hintsUsed") or practice.get("hints_used") or 0)
+            declared_stuck = practice.get("declaredStuck") is True
             candidate_submission_id = practice.get("submissionId") or practice.get("submission_id")
             if isinstance(candidate_submission_id, str) and candidate_submission_id.strip():
                 submission_id = candidate_submission_id.strip()
@@ -572,6 +574,8 @@ def checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]:
             "current_answer": row.get("current_answer"),
             "hints_used": hints_used,
             "submission_id": submission_id,
+            # mvp-0.11: the draft was being written after "I'm stuck".
+            "declared_stuck": declared_stuck,
             "focus_block_state": focus,
             "pending_grading_proposal": row.get("pending_grading_proposal"),
             "readiness": row.get("readiness"),
