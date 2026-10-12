@@ -138,8 +138,9 @@ kill-switch parity; table roles and the single replayer.
 ## As built
 
 Commits on `slice-2/t1` (from `22023ab4`): `67bc38f2` (the stage), `5fd10f4d`
-(fixes found by the live run on a backup copy, the renumber to 172), plus this
-review.
+(fixes found by the live run on a backup copy, the renumber to 172),
+`db59f8ac` (attempt-level verdicts resolve to the two answers' own classes),
+plus this review.
 
 > **Renumbered while finishing.** `main` moved on while this branch was built:
 > mobile M1 merged as `171_mobile_capture.sql` (and T8 merged). This stage's
@@ -398,7 +399,34 @@ What the runs showed:
 
 ## Test results (gate)
 
-See the end of this file (filled in after the final gate run).
+Run on `db59f8ac` (the code as delivered; this review's last commit changes
+only this file).
+
+- `uv sync --extra dev`, `uv pip install pypdfium2`: done (no mobile extra:
+  this stage does not touch `learnloop_mobile`).
+- `uv run lint-imports --no-cache`: **10 kept, 0 broken**.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **7331 passed**,
+  0 failed, 235 s.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **78 passed**, 7253 deselected, 64 s.
+- Frontend (`apps/learnloop-tauri`): `npm install` ok; `npm run typecheck`
+  clean; `npm test` **76 passed in 18 files**.
+- DB reference: `db_generate_reference.py` then `db_validate_reference.py`:
+  `errors: []` (schema head 172, 281 table notes, 590 effective config
+  leaves in 34 sections); `validate_vault.py` passed (1,048 notes).
+- Not in the gate: `cargo check` (no Rust change; the toolchain on this
+  machine is broken, blocker B3).
+
+The gate ran with `TMPDIR` pointed into the worktree: the shared `/tmp` tmpfs
+was full (16 GB, mostly another project's session files), which broke shell
+here-documents and tool output for a while. Nothing of this stage's lives
+there now.
+
+An earlier full-suite run (before `5fd10f4d`) had 9 failures, all fixed: the
+parameter registry did not classify the new `[recurrence]` numeric leaves
+(the registry audit tests and the two registry CLI tests), the CLI help
+snapshot predated the new commands, and the P0 cutover test asserts a clean
+registry audit.
 
 New tests: `test_matching.py` (4), `test_recurrence_groups.py` (15),
 `test_recurrence_live.py` (12), `test_recurrence_deferral.py` (3),
@@ -406,6 +434,28 @@ New tests: `test_matching.py` (4), `test_recurrence_groups.py` (15),
 `test_recurrence_benchmarks.py` (6), vitest `DiagnosisCard.test.tsx` (+3);
 updated `test_recurrence_key.py`, `test_rebuild_orchestrator.py` (stale rows
 for the new tables), the CLI help snapshot, the head-fixture paths.
+
+## Files touched
+
+- **New:** `migrations/172_recurrence_groups.sql`;
+  `src/learnloop/matching/{__init__,kinds,shortlist,judge,union}.py`;
+  `src/learnloop/substrate/recurrence_groups.py`;
+  `src/learnloop/db/stores/recurrence.py`;
+  `src/learnloop/diagnosis/recurrence/{__init__,kind,judging,live,backlog,guard,upgrade,report,benchmarks}.py`;
+  `src/learnloop/cli/recurrence.py`; `tests/recurrence_fakes.py` and the six
+  test files above.
+- **Changed:** `recurrence.py`, `algorithm_versions.py`, `ai/routing.py`,
+  `config/schema.py`, `config/template.py`, `db/repositories.py`,
+  `db/table_roles.py`, `diagnosis/{causal_factor_deferral,error_hunt,misconceptions}.py`,
+  `diagnosis/split/{card,jobs}.py`, `tutor/durable_promotion.py`,
+  `substrate/rebuild_orchestrator.py`, `ops/vault_upgrade.py` (public
+  `rewrite_algorithm_version`), `params/parameter_registry.py`,
+  `cli/{__init__,app,embeddings}.py`; the desktop card
+  (`DiagnosisCard.tsx`, `api/dto.ts`, `api/client.ts`, vitest); the DB
+  reference scripts and regenerated notes; `fixtures/migration_head_170` →
+  `migration_head_172` and its five path references; `tests/test_architecture.py`
+  (SQL owner), `tests/test_recurrence_key.py`, `tests/test_rebuild_orchestrator.py`,
+  `tests/cli_help_snapshot.json`.
 
 ## Owner-run commands
 
