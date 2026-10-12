@@ -826,5 +826,10 @@ def test_resume_recovers_a_committed_verdict_instead_of_paying_again(seeded, tmp
     again = run()
     assert again["status"] == "complete" and again["recovered"] == 0 and again["completed"] == 3
     assert len(decider.states) == before + 4
+    # Every paid call keeps its receipt, including the one whose answer was lost.
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        receipts = connection.execute(
+            "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind=? AND parent_call_id IS NULL", (TASK,)).fetchone()[0]
+    assert receipts == len(decider.states)
     # 3. A finished checkpoint: zero calls.
     assert run()["pending"] == 0 and len(decider.states) == before + 4
