@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 20867,
-    "sha256": "d351c91c300320f53c3715f962c1cda62029ece0ee2292ec231c261b5e8b0f52"
+    "bytes": 21037,
+    "sha256": "452202814d384e277a24f536a5cbcc15ad87741f9508ab52eddd46145a763c20"
   },
   "accept": {
     "bytes": 1593,
@@ -245,11 +245,11 @@
   },
   "embeddings": {
     "bytes": 1587,
-    "sha256": "06c65cc5fd4fa58de73a7538dba27ec25e0c9987651a60fcd34a04f71e4070e7"
+    "sha256": "faed068841889e0a4f17944034582df848dbd8d6b23b29e0ccb1dc459e30c625"
   },
   "embeddings backfill": {
-    "bytes": 3744,
-    "sha256": "323d1d1b749967326456178b1bdb65bf25bec2cddaaec47f36a8ecdf1d135892"
+    "bytes": 3995,
+    "sha256": "8b90782226a2bc39f77df91e72a31c01fad706f02f752721ef62ae4c2b27dc8a"
   },
   "eval": {
     "bytes": 1382,
@@ -442,6 +442,38 @@
   "populate-goal": {
     "bytes": 3856,
     "sha256": "0e49f9bf747895897fe48bb80db5748a8a1ced2ae622d5cc3e3e865a0f3e6681"
+  },
+  "practice-index": {
+    "bytes": 2603,
+    "sha256": "7a7dd5c93a7cfc28ade9323f91c0afc0e67284b2f9acce84623d7e96e67cd133"
+  },
+  "practice-index coverage": {
+    "bytes": 1297,
+    "sha256": "e8c52ed52503ce35884a3edb3e7d55e65388a8f598da0d65e88b3235ac6ec04f"
+  },
+  "practice-index dossiers": {
+    "bytes": 3663,
+    "sha256": "517ba0c15c6526466dcdb447ff1aab14735ab9d9d189d8e61f900b040c545ac1"
+  },
+  "practice-index eval": {
+    "bytes": 4594,
+    "sha256": "b401587121f014563087392ca894a56ba494f36da8da3bf082fe34106c7c69df"
+  },
+  "practice-index find": {
+    "bytes": 2603,
+    "sha256": "0e3ac1ad1c3eeb0ffedf5fd4ab3cff9f53531fa534a0ad1162f196414b1ee7a0"
+  },
+  "practice-index status": {
+    "bytes": 1125,
+    "sha256": "12e619b758d38448cf5e8392efe9d4f3f05c4c14293f8458fbbef249fb64f816"
+  },
+  "practice-index tool-spec": {
+    "bytes": 955,
+    "sha256": "db4395981281127ce6b5b3a4574fc7d72196512f9a6690d410638b629ec771a1"
+  },
+  "practice-index usage": {
+    "bytes": 1465,
+    "sha256": "1a5df599adf948c007b5923b39fef8698f46fee45bc59aa96917562f3e4ed10b"
   },
   "probe-audit": {
     "bytes": 1454,

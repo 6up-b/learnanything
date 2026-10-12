@@ -834,6 +834,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
                 "measurement authority."),
     _ConfigRule(_exact("embedding.dimensions"), "structural", "operational",
                 "Vector representation width; embeddings have no measurement authority."),
+    _ConfigRule(_prefix("practice_index."), "structural", "operational",
+                "find_practice retrieval/proposal sizes, rank-fusion constant, coverage "
+                "threshold and rerank spend; it proposes and never serves, so no "
+                "measurement or serving authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

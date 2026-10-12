@@ -24,6 +24,10 @@ AITask = Literal[
     "pf_closed_book",
     "pf_reference_verifier",
     "pf_solver_panel",
+    "practice_dossier",
+    "practice_rerank",
+    "practice_query_writer",
+    "practice_relevance_judge",
     "grading",
     "canonical_ingest",
     "canonical_ingest_retry",
@@ -68,6 +72,10 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "vault_epigraphs": "canonical_ingest",
     "media_transcription": "transcription",
     "media_markdown": "canonical_ingest",
+    "practice_dossier": "practice_dossier",
+    "practice_rerank": "practice_rerank",
+    "practice_query_writer": "practice_query_writer",
+    "practice_relevance_judge": "practice_relevance_judge",
 }
 
 

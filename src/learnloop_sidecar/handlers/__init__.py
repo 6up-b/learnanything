@@ -28,6 +28,7 @@ from learnloop_sidecar.handlers import (  # noqa: F401
     library,
     measurement,
     practice,
+    practice_index,
     proposals,
     provenance,
     queue,

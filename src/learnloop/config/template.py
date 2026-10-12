@@ -760,6 +760,13 @@ backfill_enabled = false
 model = "qwen/qwen3-embedding-8b"
 dimensions = 4096
 
+# The practice index proposes practice for a request ("find_practice") and
+# never serves it. Writing facet dossiers and running its retrieval
+# evaluation are paid batch work: both stay off until you enable them.
+[practice_index]
+dossiers_enabled = false
+evaluation_enabled = false
+
 [ingest]
 [ingest.pdf]
 engine = "auto" # auto | marker | pypdf | native (send the PDF to the ingest model)
@@ -776,8 +783,10 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
-    # routes only; no scoring, scheduling, projection or serving change.
-    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
+    # routes only; Phase 5b adds the practice index ([practice_index] and four
+    # practice_* routes), which proposes and never serves. No scoring,
+    # scheduling, projection or serving change.
+    "mvp-0.9": "beea7544139b5be78aab35c1d11dcffab7de9ed3e9b17d80cb9b4afa6557e631",
 }
 
 
