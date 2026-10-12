@@ -27,7 +27,7 @@ from learnloop.goals.goal_projection import resolve_goal_scope
 from learnloop.attempts.grading import (
     GradingValidationError,
     build_grading_context,
-    request_grading_proposal,
+    request_vault_grading_proposal,
     validate_codex_grading_proposal,
 )
 from learnloop_sidecar.context import SidecarContext
@@ -181,7 +181,8 @@ def _grade_and_record_exam_answer(
         attempt_id=grading_attempt_id,
         learner_answer_md=answer_md,
     )
-    proposal = request_grading_proposal(client, context)
+    # Slice 1 §4.1: blind and isolated in a split vault.
+    proposal = request_vault_grading_proposal(vault, client, context)
     validated = validate_codex_grading_proposal(
         proposal,
         attempt_id=grading_attempt_id,

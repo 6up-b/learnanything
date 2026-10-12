@@ -8,7 +8,6 @@ from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ai.errors import CodexUnavailable
-from learnloop.attempts.ai_contracts import GRADING_PROMPT_VERSION
 from learnloop.ai.providers.codex import CodexRuntimeReport
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
@@ -18,11 +17,12 @@ from learnloop.attempts.grading import (
     GradingValidationError,
     ValidatedCodexGrade,
     build_grading_context,
-    grading_context_hash,
-    request_grading_proposal,
+    request_vault_grading_proposal,
     resolved_rubric,
     validate_codex_grading_proposal,
+    vault_grading_run_identity,
 )
+from learnloop.attempts.blind_grading import split_grading_active
 from learnloop.diagnosis.error_taxonomy import persist_unknown_error_type_proposals
 from learnloop.substrate.replay import replay_learning_object
 from learnloop.tutor.teach_back import (
@@ -180,15 +180,33 @@ def regrade_attempt(
         if not graded_criteria:
             graded_criteria = core_criteria(rubric)
         context = restrict_grading_context_to_criteria(context, item, rubric, graded_criteria)
-    # Slice 1 §4.1/§6.3: an attempt keeps its grader mode. A blind-graded
-    # attempt is regraded blind (its new grade appends a superseding blind
-    # record and re-queues its diagnosis); a joint one exactly as before.
+    # Slice 1 §4.1/§6.3: every NEW grading execution in a split vault is
+    # learner-blind and runs as an isolated turn (review F2). A practice
+    # attempt is regraded through the practice door's blind contract: its new
+    # grade appends a blind record (superseding the previous one, if any) and
+    # queues its diagnosis in the publication transaction, so a joint or
+    # self-graded attempt regraded after the upgrade becomes blind-graded
+    # (replay reads the mode from that ledger, never from config). An attempt
+    # already graded blind keeps its mode even with the kill switch off.
+    # Teach-back, like its first grading, uses the non-practice door (blind
+    # and isolated in a split vault, no blind record: it is never diagnosed).
+    # A joint vault, or the kill switch, regrades jointly exactly as before.
     prior_blind = repository.latest_blind_grade_record(attempt["id"])
     blind_plan = None
-    if prior_blind is not None:
+    if prior_blind is not None or (
+        split_grading_active(vault) and attempt.get("attempt_type") != TEACH_BACK_ATTEMPT_TYPE
+    ):
         from learnloop.attempts.attempts import _blind_grading_plan
 
         blind_plan = _blind_grading_plan(vault, item, context)
+    if blind_plan is not None:
+        identity = {
+            "prompt_version": blind_plan.prompt_version,
+            "input_context_hash": blind_plan.context_hash,
+            "output_schema": "BlindGradingProposal",
+        }
+    else:
+        identity = vault_grading_run_identity(vault, context)
     now = utc_now_iso(clock)
     agent_run_id = repository.insert_agent_run(
         {
@@ -196,9 +214,7 @@ def regrade_attempt(
             "purpose": purpose,
             **_agent_run_provider_fields(client, runtime),
             "prompt_template": "grading",
-            "prompt_version": blind_plan.prompt_version if blind_plan else GRADING_PROMPT_VERSION,
-            "input_context_hash": blind_plan.context_hash if blind_plan else grading_context_hash(context),
-            "output_schema": "BlindGradingProposal" if blind_plan else "GradingProposal",
+            **identity,
             "started_at": now,
             "status": "running",
         }
@@ -241,7 +257,7 @@ def regrade_attempt(
 
                 validated = replace(validated, manual_review_reason=UNVERIFIED_REVIEW_REASON)
         else:
-            proposal = request_grading_proposal(client, context)
+            proposal = request_vault_grading_proposal(vault, client, context)
             validated = validate_codex_grading_proposal(
                 proposal,
                 attempt_id=attempt["id"],
@@ -408,9 +424,10 @@ def _publish_regrade(
         from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION
 
         # The old diagnosis explained the old grade; it stays a valid ledger
-        # row. A superseding record re-queues the attempt's diagnosis (the
-        # store does it in this transaction), and the re-diagnosis of the new
-        # grade supersedes the old one.
+        # row. The record queues the attempt's (re-)diagnosis in this
+        # transaction (the store does it), and a re-diagnosis of the new grade
+        # supersedes the old one. A first blind record (a joint or
+        # self-graded attempt regraded in a split vault) queues its first.
         repository.insert_blind_grade_record(
             attempt_id=attempt["id"],
             agent_run_id=agent_run_id,
@@ -419,6 +436,7 @@ def _publish_regrade(
             context_hash=blind_context_hash,
             record=blind_record,
             supersedes_id=str(prior_blind["id"]) if prior_blind is not None else None,
+            queue_diagnosis=True,
             clock=clock,
         )
     replay_learning_object(

@@ -112,7 +112,7 @@ def exam_answer_command(
     from learnloop.attempts.grading import (
         GradingValidationError,
         build_grading_context,
-        request_grading_proposal,
+        request_vault_grading_proposal,
         validate_codex_grading_proposal,
     )
 
@@ -122,7 +122,7 @@ def exam_answer_command(
     )
     try:
         validated = validate_codex_grading_proposal(
-            request_grading_proposal(client, context),
+            request_vault_grading_proposal(loaded, client, context),
             attempt_id=grading_attempt_id,
             item=item,
             vault=loaded,

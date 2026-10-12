@@ -462,3 +462,103 @@ def test_regrade_replay_never_reads_the_superseded_diagnosis(tmp_path, monkeypat
     regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
 
     assert seen == [(None, True, ["queued"])]
+
+
+def _enable_split(paths):
+    path = paths.root / "learnloop.toml"
+    text = path.read_text(encoding="utf-8")
+    assert "split_enabled = false" in text
+    path.write_text(text.replace("split_enabled = false", "split_enabled = true"), encoding="utf-8")
+    return load_vault(paths.root)
+
+
+def test_a_joint_attempt_regraded_in_a_split_vault_is_graded_blind_and_isolated(tmp_path):
+    """Review F2: a new grading execution in a split vault is blind and
+    isolated, even for an attempt first graded jointly; the attempt then
+    carries a blind record (replay reads its mode from that ledger) and its
+    diagnosis is queued in the same publication."""
+
+    paths, vault, repository = split_vault(tmp_path, config="[diagnosis]\nsplit_enabled = false")
+    client = ReviewFakeClient()
+    result = submit(vault, repository, client)
+    assert client.calls == ["grading"]
+    assert repository.latest_blind_grade_record(result.attempt_id) is None
+    vault = _enable_split(paths)
+
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
+
+    assert client.calls == ["grading", "blind_grading"]
+    assert client.isolated == [False, True]
+    record = repository.latest_blind_grade_record(result.attempt_id)
+    assert record is not None and record["supersedes_id"] is None and record["record"]["regrade"] is True
+    assert diagnosis_status(repository, result.attempt_id)["status"] == PENDING
+    assert [o.status for o in drain_jobs(vault, repository, client)] == ["completed"]
+    assert diagnosis_status(repository, result.attempt_id)["status"] == DONE
+
+
+def test_a_self_graded_fallback_is_regraded_blind_and_queues_its_diagnosis(tmp_path):
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.attempts.regrade import run_deferred_ai_regrades
+
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
+    attempt = complete_self_graded_attempt(
+        vault,
+        repository,
+        AttemptDraft(practice_item_id="pi_svd_compute_001", learner_answer_md="A = U Sigma V wrong"),
+        SelfGradeInput(criterion_points={"setup": 1, "result": 0}, confidence=3),
+        fallback_reason="provider_timeout",
+    )
+    client = ReviewFakeClient()
+
+    outcome = run_deferred_ai_regrades(vault, repository, runtime=ReadyRuntime(), ai_client=client)
+
+    assert outcome.regraded == 1
+    assert client.calls == ["blind_grading"] and client.isolated == [True]
+    assert repository.latest_blind_grade_record(attempt.attempt_id) is not None
+    assert diagnosis_status(repository, attempt.attempt_id)["status"] == PENDING
+
+
+def test_non_practice_graders_use_the_blind_contract_in_an_isolated_turn(tmp_path):
+    """Review F2: teach-back, exams, the probe audit and the taxonomy regrade
+    share one door; in a split vault it is the blind, isolated contract."""
+
+    from learnloop.attempts.grading import build_grading_context, request_vault_grading_proposal
+    from learnloop.diagnosis.taxonomy_regrade import run_taxonomy_regrade_checks
+
+    _paths, vault, repository = split_vault(tmp_path)
+    item = vault.practice_items["pi_svd_compute_001"]
+    context = build_grading_context(vault, item, attempt_id="exam_answer", learner_answer_md="A = U Sigma V wrong")
+    client = ReviewFakeClient()
+    proposal = request_vault_grading_proposal(vault, client, context)
+    assert client.calls == ["blind_grading"] and client.isolated == [True]
+    assert proposal.repair_suggestions == []
+    assert all(not attribution.candidate_causes for attribution in proposal.error_attributions)
+
+    report = run_taxonomy_regrade_checks(vault, repository, client, limit=2)
+    assert report["checked"] >= 1 and report["prompt_version"] == "mvp-2.0-blind-local-grader"
+    assert set(client.calls) == {"blind_grading"} and all(client.isolated)
+
+    joint_paths, joint_vault, _joint_repository = split_vault(tmp_path / "joint", version="mvp-0.9")
+    joint_client = ReviewFakeClient()
+    request_vault_grading_proposal(joint_vault, joint_client, context)
+    assert joint_client.calls == ["grading"]
+
+
+def test_only_the_joint_doors_call_the_joint_grading_operation():
+    """Review F2 guard: every other grader goes through the vault door."""
+
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "src"
+    callers = {
+        str(path.relative_to(root))
+        for path in root.rglob("*.py")
+        if re.search(r"\brequest_grading_proposal\(", path.read_text(encoding="utf-8"))
+    }
+    assert callers == {
+        "learnloop/attempts/grading.py",  # the definition and the vault door's joint branch
+        "learnloop/diagnosis/diagnostic_augmentation.py",  # joint practice grading (split inactive)
+        "learnloop/diagnosis/offline_review/runner.py",  # M1's joint baseline, on a scratch copy
+    }

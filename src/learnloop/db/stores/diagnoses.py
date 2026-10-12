@@ -107,8 +107,17 @@ class DiagnosisStoreMixin:
         context_hash: str,
         record: Mapping[str, Any],
         supersedes_id: str | None = None,
+        queue_diagnosis: bool | None = None,
         clock: Clock | None = None,
     ) -> str:
+        """Append a blind grade; a regrade's record also queues the diagnosis.
+
+        ``queue_diagnosis`` defaults to "this record supersedes another" (the
+        live practice door enqueues its own job through the post-attempt
+        pipeline). A regrade passes True so its first blind record, too,
+        queues the attempt's diagnosis in the same transaction.
+        """
+
         record_id = new_ulid()
         now = utc_now_iso(clock)
         with self.connection() as connection:
@@ -124,7 +133,7 @@ class DiagnosisStoreMixin:
                     supersedes_id, now,
                 ),
             )
-            if supersedes_id is not None:
+            if queue_diagnosis or (queue_diagnosis is None and supersedes_id is not None):
                 # A superseding blind grade (a regrade) makes the attempt's
                 # diagnosis stale: its diagnosis applies to the grade it read.
                 # Re-queue it in the same transaction; the job decides whether

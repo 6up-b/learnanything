@@ -461,7 +461,7 @@ def run_probe_regrade_checks(
 
     from learnloop.attempts.grading import (
         build_grading_context,
-        request_grading_proposal,
+        request_vault_grading_proposal,
         validate_codex_grading_proposal,
     )
 
@@ -492,7 +492,7 @@ def run_probe_regrade_checks(
                     attempt_id=attempt_id,
                     learner_answer_md=attempt.get("learner_answer_md") or "",
                 )
-                proposal = request_grading_proposal(client, context)
+                proposal = request_vault_grading_proposal(vault, client, context)
                 validated = validate_codex_grading_proposal(
                     proposal, attempt_id=attempt_id, item=item, vault=vault
                 )
