@@ -80,7 +80,6 @@ MinutesPicker:focus {
     align-horizontal: right;
     margin-top: 1;
 }
-#postpone-button,
 #begin-button {
     width: auto;
     margin-left: 2;

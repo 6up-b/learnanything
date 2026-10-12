@@ -954,20 +954,31 @@ class ReaderAuthorQAInput(ParamsModel):
     subject_id: str | None = None
     depth_preset: str = "remember_key_ideas"
     client_idempotency_key: str | None = None
+    learning_object_id: str | None = None
 
 
 @method("reader.author_qa", ReaderAuthorQAInput)
 def reader_author_qa(ctx: SidecarContext, params: ReaderAuthorQAInput) -> dict[str, Any]:
-    _vault, repository = _require_reader(ctx)
+    """Save the learner's Q+A verbatim and adopt it into practice (§9.1).
+
+    ``practiceStatus`` tells the reader the truth: ``scheduled`` (a Practice Item
+    the scheduler serves) or ``reference_only`` (no active Learning Object fits
+    the passage, so it is kept as a reference)."""
+
+    vault, repository = _require_reader(ctx)
     try:
         result = AUTH.author_qa(
             repository, question=params.question, answer=params.answer,
             source_id=params.source_id, revision_id=params.revision_id,
             annotation_id=params.annotation_id, subject_id=params.subject_id,
             depth_preset=params.depth_preset, client_idempotency_key=params.client_idempotency_key,
+            root=vault.root, learning_object_id=params.learning_object_id,
         )
     except (AUTH.AuthoringError, C_ERR) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
+    if result.get("practice_item_id") and result["practice_item_id"] not in vault.practice_items:
+        # The card is vault YAML; reload so it schedules immediately.
+        ctx.reload(maintenance=False)
     return versioned(result)
 
 

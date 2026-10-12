@@ -52,6 +52,7 @@ from learnloop_sidecar.handlers.sessions import SessionCheckpointInput, patch_ch
 from learnloop_sidecar.handlers.teach_back import filter_unready_teach_back_items
 from learnloop_sidecar.logging import debug_enabled, log_event
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.serving import refuse_inactive_learning_object
 
 
 class PracticeDraftCheckpoint(ParamsModel):
@@ -180,6 +181,9 @@ def get_practice_item(ctx: SidecarContext, params: ServePracticeItemInput) -> di
         raise SidecarError("not_found", f"Practice item {params.practice_item_id} not found.")
     if params.session_id is not None:
         item = _require_active_item(vault, params.practice_item_id)
+        # A session serve of a dormant/resolved LO's item is refused; read-only
+        # opens (feedback, inspector) still render it.
+        refuse_inactive_learning_object(vault, item.learning_object_id)
     detail = practice_item_detail(vault, repository, params.practice_item_id)
     detail["elicitation"] = (
         None
@@ -378,6 +382,7 @@ def start_overconfidence_probe(ctx: SidecarContext, params: OverconfidenceProbeI
     vault, repository = ctx.require_vault()
     if params.learning_object_id not in vault.learning_objects:
         raise SidecarError("not_found", f"Unknown Learning Object {params.learning_object_id}.")
+    refuse_inactive_learning_object(vault, params.learning_object_id)
     episode = enter_episode(
         vault,
         repository,

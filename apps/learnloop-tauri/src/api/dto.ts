@@ -659,6 +659,9 @@ export interface QueueSnapshot {
   sections: QueueSection[];
   totalItems: number;
   deferredColdChecks?: DeferredColdCheckDto[];
+  /** Set while the welcome-back panel shows: the re-entry session is capped at
+   *  this many items (owner decision P6). Null/absent: no re-entry cap. */
+  reentryRefresherCap?: number | null;
 }
 
 /** Knowledge-model §5.1: what a rubric criterion actually observes. `role`
@@ -5934,6 +5937,8 @@ export interface ReaderAuthorQAInput {
   subjectId?: string | null;
   depthPreset?: string;
   clientIdempotencyKey?: string | null;
+  /** File the card under this Learning Object instead of the passage's provenance. */
+  learningObjectId?: string | null;
 }
 export interface ReaderAuthoredCardDto {
   version?: number;
@@ -5946,6 +5951,11 @@ export interface ReaderAuthoredCardDto {
   pinned: boolean;
   authoredBeforeAi: boolean;
   contract: Record<string, unknown>;
+  /** `scheduled`: a Practice Item the scheduler serves; `reference_only`: no
+   *  active Learning Object covers the passage, so it is kept as a reference. */
+  practiceStatus: "scheduled" | "reference_only";
+  practiceItemId: string | null;
+  learningObjectId: string | null;
 }
 export interface ReaderCoachSuggestion {
   kind: string;

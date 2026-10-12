@@ -209,7 +209,6 @@ class StartScreen(Screen):
     BINDINGS = [
         ("enter", "begin", "Begin session"),
         ("s", "begin", "Skip warm-up"),
-        ("p", "postpone", "Postpone 1h"),
         ("q", "quit", "Quit"),
     ]
 
@@ -235,14 +234,14 @@ class StartScreen(Screen):
                 yield TextStatic("Today's queue · preview", classes="section-header")
                 yield TextStatic(self._queue_preview(), id="queue-preview")
                 yield TextStatic(self._recap_text(), id="last-session")
+                # No "postpone": nothing can defer a session (no reminder or
+                # deferred start), so the control would only claim one.
                 with Horizontal(id="begin-row"):
-                    yield Button("postpone", id="postpone-button")
                     yield Button("begin session ↵", id="begin-button", variant="primary")
         yield KeyBar(
             keys=[
                 ("↵", "Begin session"),
                 ("←/→", "Adjust"),
-                ("p", "Postpone 1h"),
                 ("s", "Skip warm-up"),
             ],
         )
@@ -288,14 +287,9 @@ class StartScreen(Screen):
     def action_begin(self) -> None:
         self.run_worker(self.begin_session(), exclusive=True)
 
-    def action_postpone(self) -> None:
-        self.notify("Session postponed 1h.", severity="information")
-
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "begin-button":
             self.action_begin()
-        elif event.button.id == "postpone-button":
-            self.action_postpone()
 
     # ── content builders ───────────────────────────────────────────────────
     def _left_head(self) -> Content:

@@ -60,6 +60,7 @@ from learnloop.diagnosis.probes import (
 )
 from learnloop.attempts.outcome_schemas import COARSE_RESPONSE_SLUG
 from learnloop.diagnosis.probe_robust import use_robust_probe
+from learnloop.vault.lifecycle import learning_object_servable
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 FALLBACK_FAMILY_ID = "registry_discrimination_fallback"
@@ -300,7 +301,9 @@ def enter_episode(
     instruments = eligible_instruments(vault, repository, episode, hypothesis_set=locked)
     if instruments:
         repository.update_probe_episode_status(episode_id, status="in_progress", clock=clock)
-    else:
+    elif learning_object_servable(vault, learning_object_id):
+        # A dormant/resolved LO has no eligible pool by lifecycle, not by a
+        # missing surface: commission nothing for it (vault.lifecycle).
         _record_generation_need(vault, repository, episode, locked, clock=clock)
         if vault.config.probe.generation.auto_generate_on_entry:
             from learnloop.diagnosis.probe_instance_generation import generate_instances_for_episode
@@ -556,6 +559,9 @@ def enter_stale_uncertainty_reprobes(
     for lo_id, last_episode in sorted(latest_terminal.items()):
         if lo_id in open_los or lo_id not in vault.learning_objects:
             continue
+        # A dormant/resolved LO is put away by the learner: never re-open probing.
+        if not learning_object_servable(vault, lo_id):
+            continue
         completed = parse_utc(last_episode.completed_at)
         if completed is None:
             continue
@@ -582,6 +588,10 @@ def _record_generation_need(
 ) -> None:
     from learnloop.diagnosis.probe_instance_generation import applicable_families
 
+    # A parked (dormant/resolved) LO's pool is empty by lifecycle, not for want
+    # of a surface: no generation is commissioned for it (vault.lifecycle).
+    if not learning_object_servable(vault, episode.learning_object_id):
+        return
     labels = sorted(hypothesis.label for hypothesis in hypothesis_set.hypotheses if hypothesis.label != H_OTHER)
     target_key = "|".join(labels[:2]) if len(labels) >= 2 else "|".join(labels)
     learning_object = vault.learning_objects.get(episode.learning_object_id)
@@ -647,6 +657,10 @@ def eligible_instruments(
 
     hypothesis_set = hypothesis_set or episode_hypothesis_set(repository, episode)
     if hypothesis_set is None:
+        return []
+    # Learner-set LO lifecycle: no item of a dormant/resolved LO is administered,
+    # as a probe or otherwise (vault.lifecycle).
+    if not learning_object_servable(vault, episode.learning_object_id):
         return []
     # P4 §14.2 step 3 dual-authority (design §A.2 rule 3): the probe path is an
     # administration surface too. A staged-owned P2 commitment's items are the staged

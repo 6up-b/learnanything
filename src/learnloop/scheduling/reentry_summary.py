@@ -6,6 +6,11 @@ solid*, how many *slipped below target* while away (top few named by blueprint
 weight), and a suggested refresher count. Never leads with losses; never
 mentions the streak.
 
+The suggested refresher count is also the size of the re-entry session (owner
+decision P6, daily-loop audit 2026-10-11): while the panel shows,
+:func:`reentry_session_cap` limits the Today queue to that many of the
+scheduler's own top picks, so the session serves exactly the number shown.
+
 Deterministic: clock via ``clock.py``; the same FSRS retention machinery as the
 goal report (``facet_projections_at``), projected to the last session end and to
 now. Held-flat facets (no FSRS history) carry no decay information and are
@@ -63,6 +68,29 @@ class ReentrySummary:
             "refresher_count": self.refresher_count,
             "slipped_top": [facet.as_dict() for facet in self.slipped_top],
         }
+
+
+def reentry_session_cap(
+    vault: LoadedVault,
+    repository: Repository,
+    goal: Goal | None,
+    *,
+    clock: Clock | None = None,
+) -> int | None:
+    """How many items the re-entry session serves, or ``None`` for no cap.
+
+    Owner decision P6: re-entry after a break is a small automatic session of
+    the most useful checks and reviews. While the welcome-back panel shows for
+    ``goal`` and something slipped, that session is the panel's refresher count;
+    with nothing slipped, or no break, nothing is capped. Computed live from the
+    same summary the panel renders, so the two cannot disagree."""
+
+    if goal is None:
+        return None
+    summary = reentry_summary(vault, repository, goal, clock=clock)
+    if not summary.show or summary.refresher_count <= 0:
+        return None
+    return summary.refresher_count
 
 
 def reentry_summary(

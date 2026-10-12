@@ -52,6 +52,7 @@ from learnloop.diagnosis.probe_instance_generation import (
     LLM_GENERATOR_VERSION,
 )
 from learnloop.vault.loader import load_vault
+from learnloop.vault.lifecycle import learning_object_servable
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.writer import upsert_practice_item
 
@@ -154,6 +155,9 @@ def begin_dialogue_block(
 ) -> DialogueBlockState:
     """Open a dialogue block against the LO's in-progress episode (§8.1)."""
 
+    # Learner-set LO lifecycle: a dormant/resolved LO is not probed (vault.lifecycle).
+    if not learning_object_servable(vault, learning_object_id):
+        raise DialogueBlockError(f"{learning_object_id} is not active; its practice is not served")
     episode = repository.open_probe_episode(learning_object_id)
     if episode is None or episode.status != "in_progress":
         raise DialogueBlockError(f"no in-progress diagnostic episode for {learning_object_id}")
@@ -215,6 +219,8 @@ def next_dialogue_turn(
     episode = repository.probe_episode(state.probe_episode_id)
     if episode is None or episode.status != "in_progress":
         return state, None
+    if not learning_object_servable(vault, state.learning_object_id):
+        return state, None  # the LO was put away mid-block: mint no further turn
     hypothesis_set = episode_hypothesis_set(repository, episode)
     if hypothesis_set is None:
         return state, None

@@ -44,6 +44,7 @@ import { youtubeVideoId } from "../components/sourceTail";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../components/PdfReaderPane";
 import { RectUnionOverlay } from "../components/RectUnionOverlay";
 import { errorMessage } from "../errors";
+import { authoredQuestionMessage, type AuthoredQuestionStatus } from "./reader/authoredQuestion";
 import {
   parseRequestError,
   parseRequestResult,
@@ -317,6 +318,7 @@ export function ReaderScreen({
   const [authoredQuestion, setAuthoredQuestion] = useState("");
   const [authoredAnswer, setAuthoredAnswer] = useState("");
   const [authoredCardId, setAuthoredCardId] = useState<string | null>(null);
+  const [authoredStatus, setAuthoredStatus] = useState<AuthoredQuestionStatus | undefined>(undefined);
   const [authoringSpanId, setAuthoringSpanId] = useState<string | null>(null);
   const [authoringQuote, setAuthoringQuote] = useState("");
   const [authoringBusy, setAuthoringBusy] = useState(false);
@@ -1676,6 +1678,7 @@ export function ReaderScreen({
     setAuthoringBusy(true);
     try {
       if (offline) {
+        setAuthoredStatus("offline_demo");
         setAuthoredCardId("offline-demo-card");
       } else {
         const saved = await api.readerAuthorQA({
@@ -1686,6 +1689,7 @@ export function ReaderScreen({
           subjectId: authoringSpanId ? `span:${render.extractionId}/${authoringSpanId}` : render.sourceId,
           clientIdempotencyKey: newKey(),
         });
+        setAuthoredStatus(saved.practiceStatus);
         setAuthoredCardId(saved.cardId);
       }
       setCoach(null);
@@ -2616,7 +2620,9 @@ export function ReaderScreen({
                   ) : null}
                   {authoredCardId ? (
                     <>
-                      <Faint style={{ fontSize: 11, color: COLOR.green }}>✓ Saved in your exact words. It will return as personal practice.</Faint>
+                      <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
+                        {authoredQuestionMessage(authoredStatus).text}
+                      </Faint>
                       {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
                       {coach ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

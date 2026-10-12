@@ -48,6 +48,7 @@ from learnloop.scheduling.selection_rewards import (
     item_demand_vector,
     score_selection_reward,
 )
+from learnloop.vault.lifecycle import learning_object_servable
 from learnloop.vault.models import LoadedVault, PracticeItem
 
 logger = logging.getLogger(__name__)
@@ -253,6 +254,10 @@ def build_due_queue(
         learning_object = vault.learning_object_for_item(item)
         if learning_object is None:
             continue
+        # Learner-set LO lifecycle: a dormant or resolved Learning Object has been
+        # put away, so none of its items is served (vault.lifecycle).
+        if not learning_object_servable(vault, learning_object.id):
+            continue
         mastery = mastery_states.get(learning_object.id)
         episode = open_episodes.get(learning_object.id)
         in_probe = (
@@ -279,8 +284,16 @@ def build_due_queue(
         # frontier's widened semantics put unexamined facets at risk precisely
         # so the goal's untouched material gets scheduled before the due date;
         # skipping those items here would leave "practice at-risk facets"
-        # re-serving the goal's only attempted item.
-        if (mastery is None or mastery.last_evidence_at is None) and episode is None and frontier_entry is None:
+        # re-serving the goal's only attempted item. A learner-requested card
+        # (promotion, rung variant, a question written while reading) is also
+        # exempt: the learner explicitly adopted it, so a never-practised LO must
+        # not swallow it.
+        if (
+            (mastery is None or mastery.last_evidence_at is None)
+            and episode is None
+            and frontier_entry is None
+            and item.id not in requested_id_set
+        ):
             continue
 
         goal_frontier_component = _goal_frontier(vault, item, frontier_entry)
@@ -1145,6 +1158,10 @@ def _insert_pending_followups(
         # reconstruct one by id after that loop. Retirement is terminal even
         # when a stale delayed task still names the card.
         if candidate_item is None or candidate_item.status != "active":
+            continue
+        # Same LO-lifecycle rule as the main loop: a stale task naming a card of
+        # a dormant/resolved LO must not bring it back at maximum priority.
+        if not learning_object_servable(vault, candidate_item.learning_object_id):
             continue
         if candidate_item is not None and unservable_reason(candidate_item) is not None:
             continue

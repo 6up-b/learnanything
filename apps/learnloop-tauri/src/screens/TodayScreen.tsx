@@ -30,6 +30,7 @@ import { WriteCardDialog } from "../components/WriteCardDialog";
 import { masteryTone } from "../app/algoConfig";
 import { MarkdownMath } from "../render/MarkdownMath";
 import type { AskTarget } from "../components/AskOverlay";
+import { reentryRefresherLine, reentryRefreshers } from "./today/reentry";
 
 const HOTKEYS = "123456789abcdef";
 
@@ -544,7 +545,7 @@ export function TodayScreen({
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* F7 welcome-back diff (§4.4): survival-first, BEFORE the hero. */}
-      {reentry ? <ReentryPanel summary={reentry} /> : null}
+      {reentry ? <ReentryPanel summary={reentry} refreshers={reentryRefreshers(reentry, queue)} /> : null}
 
       <TodayHero
         session={session}
@@ -1507,8 +1508,9 @@ function OverconfidenceList({
 
 // F7 welcome-back diff (§4.4): survival-first ordering. Never leads with losses;
 // never mentions the streak.
-function ReentryPanel({ summary }: { summary: ReentrySummaryDto }) {
+function ReentryPanel({ summary, refreshers }: { summary: ReentrySummaryDto; refreshers: number }) {
   const named = summary.slippedTop.map((f) => f.facetId.replace(/^facet_/, "")).join(", ");
+  const sessionLine = reentryRefresherLine(refreshers);
   return (
     <div
       style={{
@@ -1530,7 +1532,7 @@ function ReentryPanel({ summary }: { summary: ReentrySummaryDto }) {
             {named ? <Faint> — {named}</Faint> : null}.{" "}
           </>
         ) : null}
-        <span style={{ color: COLOR.amber }}>Your best next session: {summary.refresherCount} refreshers.</span>
+        {sessionLine ? <span style={{ color: COLOR.amber }}>{sessionLine}</span> : null}
       </div>
     </div>
   );
