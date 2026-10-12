@@ -606,11 +606,14 @@ class DiagnosisStoreMixin:
     ) -> dict[str, Any] | None:
         """Claim the next runnable job, or None.
 
-        ``diagnose`` jobs run strictly in attempt-completion order: only the
-        head of the line can be claimed, and a head that is leased (and not
-        expired) or backing off blocks the jobs behind it. ``embed`` jobs are
-        unordered. ``attempt_id`` restricts the claim to one attempt's job and
-        still respects the line (an earlier unfinished diagnosis blocks it).
+        ``diagnose`` jobs run one at a time, strictly in attempt-completion
+        order: while ANY diagnose job holds an unexpired lease nothing else is
+        claimed (a regrade or retry can queue an earlier attempt ahead of the
+        running one, so the head alone would not show it); otherwise only the
+        head of the line can be claimed, and a head that is backing off blocks
+        the jobs behind it. ``embed`` jobs are unordered. ``attempt_id``
+        restricts the claim to one attempt's job and still respects the line
+        (an earlier unfinished diagnosis blocks it).
         """
 
         now_iso = utc_now_iso(clock)
@@ -622,6 +625,13 @@ class DiagnosisStoreMixin:
                 "ORDER BY attempt_completed_at, attempt_id, created_at, id",
                 (kind,),
             ).fetchall()
+            if kind == "diagnose" and any(
+                row["state"] == "leased"
+                and row["lease_expires_at"]
+                and parse_utc(row["lease_expires_at"]) > now
+                for row in rows
+            ):
+                return None
             chosen = None
             for row in rows:
                 lease_expires = parse_utc(row["lease_expires_at"]) if row["lease_expires_at"] else None

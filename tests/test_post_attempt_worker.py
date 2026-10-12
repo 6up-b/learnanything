@@ -127,3 +127,39 @@ def test_notify_never_starts_threads_when_autostart_is_off(tmp_path):
     worker = _worker(vault, repository, ReviewFakeClient())
     worker.notify()
     assert worker.running is False
+
+
+def test_an_older_job_queued_during_a_live_lease_is_never_leased_concurrently(tmp_path):
+    """Review F6: one diagnose lease at a time, whatever the queue order.
+
+    The sidecar holds attempt B's live lease; a regrade or retry then queues
+    an earlier attempt A ahead of it. A second worker that looked only at the
+    head would lease A while B still runs.
+    """
+
+    from learnloop.diagnosis.split.jobs import enqueue_diagnosis
+
+    _paths, vault, repository = split_vault(tmp_path)
+    client = ReviewFakeClient()
+    first = submit(vault, repository, client, when=at(20))
+    second = submit(vault, repository, client, item_id="pi_svd_compute_002", answer="B = U Sigma V nope", when=at(21))
+    start = FrozenClock(at(22))
+    head = repository.lease_next_post_attempt_job(kind="diagnose", owner="sidecar", lease_seconds=60, clock=start)
+    assert head["attempt_id"] == first.attempt_id
+    assert repository.finish_post_attempt_job(head["id"], epoch=head["lease_epoch"], state="done")
+    running = repository.lease_next_post_attempt_job(kind="diagnose", owner="sidecar", lease_seconds=600, clock=start)
+    assert running["attempt_id"] == second.attempt_id
+
+    requeued = enqueue_diagnosis(vault, repository, attempt_id=first.attempt_id, rediagnose=True, clock=start)
+    assert requeued is not None
+
+    assert repository.lease_next_post_attempt_job(kind="diagnose", owner="cli", lease_seconds=60, clock=start) is None
+    assert repository.lease_next_post_attempt_job(
+        kind="diagnose", owner="cli", lease_seconds=60, clock=start, attempt_id=first.attempt_id
+    ) is None
+    leased = repository.post_attempt_jobs(kind="diagnose", states=("leased",))
+    assert [job["attempt_id"] for job in leased] == [second.attempt_id]
+    # Once the running job settles, the older one runs next.
+    assert repository.finish_post_attempt_job(running["id"], epoch=running["lease_epoch"], state="done")
+    after = repository.lease_next_post_attempt_job(kind="diagnose", owner="cli", lease_seconds=60, clock=start)
+    assert after["id"] == requeued
