@@ -304,14 +304,52 @@ class DiagnosisStoreMixin:
             return row
         return None
 
-    def _live_views(self, connection: Any, attempt_ids: Sequence[str] | None) -> dict[str, tuple[str, dict[str, Any]]]:
-        """The causal view in force per attempt.
+    @staticmethod
+    def _diagnosis_in_force(status: Any, record_id: Any, current_record_id: str | None) -> bool:
+        """THE eligibility rule for a live diagnosis (one rule for every reader).
 
-        A view applies only when the attempt's LATEST live diagnosis completed
-        and diagnosed the attempt's CURRENT blind grade: after a regrade (a
-        superseding blind record) the old explanation no longer applies, and
-        nothing does until the re-diagnosis lands.
+        The row must be the attempt's LATEST live diagnosis (the callers pick
+        it) and it must have completed for the attempt's CURRENT blind grade:
+        after a regrade (a superseding blind record) the old explanation no
+        longer applies, and a later failed or skipped diagnosis retires it too;
+        nothing applies until a new diagnosis of the current grade completes.
         """
+
+        if status != "completed":
+            return False
+        return record_id is None or current_record_id in (None, str(record_id))
+
+    def current_live_diagnosis(self, attempt_id: str) -> dict[str, Any] | None:
+        """The live diagnosis in force for an attempt, decoded, or None.
+
+        Used by ``diagnosis_for_attempt`` and by the overlays (through
+        :meth:`_live_views`), so the public accessor and the serving reads can
+        never disagree.
+        """
+
+        with self.connection() as connection:
+            if not _has_table(connection, "attempt_diagnoses"):
+                return None
+            row = connection.execute(
+                "SELECT * FROM attempt_diagnoses WHERE attempt_id = ? AND mode = 'live' "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            current = connection.execute(
+                "SELECT id FROM blind_grade_records WHERE attempt_id = ? "
+                "ORDER BY created_at DESC, id DESC LIMIT 1",
+                (attempt_id,),
+            ).fetchone()
+        if not self._diagnosis_in_force(
+            row["status"], row["blind_grade_record_id"], str(current[0]) if current is not None else None
+        ):
+            return None
+        return self._decode_diagnosis(row)
+
+    def _live_views(self, connection: Any, attempt_ids: Sequence[str] | None) -> dict[str, tuple[str, dict[str, Any]]]:
+        """The causal view in force per attempt (:meth:`_diagnosis_in_force`)."""
 
         query = (
             "SELECT id, attempt_id, status, blind_grade_record_id, causal_view_json "
@@ -338,9 +376,7 @@ class DiagnosisStoreMixin:
             current[str(row[0])] = str(row[1])
         views: dict[str, tuple[str, dict[str, Any]]] = {}
         for attempt_id, row in latest.items():
-            if row[2] != "completed" or row[4] is None:
-                continue
-            if row[3] is not None and current.get(attempt_id) not in (None, str(row[3])):
+            if row[4] is None or not self._diagnosis_in_force(row[2], row[3], current.get(attempt_id)):
                 continue
             view = _loads(row[4], None)
             if isinstance(view, dict):

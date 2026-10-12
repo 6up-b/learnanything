@@ -169,8 +169,9 @@ def diagnosis_status(repository: Repository, attempt_id: str) -> dict[str, Any]:
         return {"status": PENDING, "diagnosis_id": None, "job_state": open_jobs[-1]["state"]}
     if latest is not None and latest["status"] == "skipped" and latest.get("error") == "not_needed":
         return {"status": NOT_NEEDED, "diagnosis_id": None, "job_state": jobs[-1]["state"] if jobs else None}
-    if latest is not None and latest["status"] == "completed":
-        return {"status": DONE, "diagnosis_id": latest["id"], "job_state": jobs[-1]["state"] if jobs else None}
+    in_force = repository.current_live_diagnosis(attempt_id)
+    if in_force is not None:
+        return {"status": DONE, "diagnosis_id": in_force["id"], "job_state": jobs[-1]["state"] if jobs else None}
     if jobs or latest is not None:
         error = (latest or {}).get("error") or (jobs[-1].get("last_error") if jobs else None)
         return {

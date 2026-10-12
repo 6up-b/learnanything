@@ -339,3 +339,37 @@ def test_regrade_to_full_marks_retires_the_diagnosis(tmp_path):
     assert diagnosis_status(repository, result.attempt_id)["status"] == NOT_NEEDED
     assert repository.live_causal_view(result.attempt_id) is None
     assert repository.fetch_attempt_feedback_metadata(result.attempt_id)["repair_suggestions"] == []
+
+
+def test_the_accessor_and_the_overlays_agree_on_the_diagnosis_in_force(tmp_path):
+    """Review F9: a newer blind grade, or a failed successor, retires the
+    older explanation for ``diagnosis_for_attempt`` exactly as for the overlays."""
+
+    from learnloop.diagnosis.split.jobs import enqueue_diagnosis
+    from learnloop.diagnosis.split.live import diagnosis_for_attempt
+
+    _paths, vault, repository = split_vault(tmp_path, config="[diagnosis]\nmax_attempts = 1")
+    client = ReviewFakeClient()
+    result = submit(vault, repository, client)
+    drain_jobs(vault, repository, client)
+    first = repository.latest_attempt_diagnosis(result.attempt_id)
+    assert diagnosis_for_attempt(repository, result.attempt_id)["diagnosis_id"] == first["id"]
+
+    # Stale grade: a regrade appends a newer blind record.
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
+    assert repository.live_causal_view(result.attempt_id) is None
+    assert diagnosis_for_attempt(repository, result.attempt_id) is None
+    drain_jobs(vault, repository, client)
+    second = repository.latest_attempt_diagnosis(result.attempt_id)
+    assert diagnosis_for_attempt(repository, result.attempt_id)["diagnosis_id"] == second["id"]
+    assert repository.live_causal_view(result.attempt_id)[0] == second["id"]
+
+    # Failed successor: a re-diagnosis of the same grade fails for good.
+    assert enqueue_diagnosis(vault, repository, attempt_id=result.attempt_id, rediagnose=True) is not None
+    failing = ReviewFakeClient(fail_purposes=("diagnosis",))
+    assert [o.state for o in drain_jobs(vault, repository, failing)] == ["failed"]
+    assert repository.latest_attempt_diagnosis(result.attempt_id)["status"] == "failed"
+    assert repository.live_causal_view(result.attempt_id) is None
+    assert diagnosis_for_attempt(repository, result.attempt_id) is None
+    assert diagnosis_status(repository, result.attempt_id)["status"] == FAILED

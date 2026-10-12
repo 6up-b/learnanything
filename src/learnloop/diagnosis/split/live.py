@@ -312,9 +312,16 @@ def build_causal_view(
 # -- the single read path (§6.3) ------------------------------------------------------
 
 def diagnosis_for_attempt(repository: Repository, attempt_id: str) -> dict[str, Any] | None:
-    """The diagnosis every reader uses: live, else a joint legacy view, else None."""
+    """The diagnosis every reader uses: live, else a joint legacy view, else None.
 
-    live = repository.latest_attempt_diagnosis(attempt_id, mode="live", statuses=("completed",))
+    "Live" is the diagnosis IN FORCE: the attempt's latest live diagnosis,
+    completed, for its current blind grade (the same rule the overlays apply,
+    ``Repository.current_live_diagnosis``). A regrade, or a later failed or
+    skipped diagnosis, leaves nothing in force until a new one completes; an
+    older explanation is never served in its place.
+    """
+
+    live = repository.current_live_diagnosis(attempt_id)
     if live is not None and isinstance(live.get("proposal"), Mapping):
         return {
             **dict(live["proposal"]),
