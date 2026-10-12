@@ -12,6 +12,8 @@ from typer.testing import CliRunner
 
 from learnloop.cli import app
 from learnloop.clock import FrozenClock
+from learnloop.config.loader import global_settings_path as ORIGINAL_SETTINGS_PATH
+from learnloop.config.loader import load_dotenv as ORIGINAL_LOAD_DOTENV
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import put_vector
@@ -63,6 +65,19 @@ def _forbid_models(monkeypatch):
     monkeypatch.setattr("learnloop.config.loader.global_settings_path", forbidden)
     monkeypatch.setattr("learnloop.ai.client.make_ai_provider_client", forbidden)
     monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", forbidden)
+
+
+def _allow_environment(monkeypatch):
+    """A paid step loads keys like `embeddings backfill` (isolated config dir)."""
+    loaded = []
+
+    def spy(path):
+        loaded.append(path)
+        return ORIGINAL_LOAD_DOTENV(path)
+
+    monkeypatch.setattr("learnloop.config.loader.load_dotenv", spy)
+    monkeypatch.setattr("learnloop.config.loader.global_settings_path", ORIGINAL_SETTINGS_PATH)
+    return loaded
 
 
 def _digest(paths):
@@ -185,8 +200,10 @@ def test_llm_prepare_dry_run_then_fake_codex_then_cache_only_replay(seeded, monk
     monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", lambda *a, **k: SimpleNamespace(
         client=client, runtime=SimpleNamespace(ready=True)))
     monkeypatch.setattr("learnloop.ai.transport.execute_structured_operation", execute)
+    environment = _allow_environment(monkeypatch)
     result = _invoke(*common, "--prepare-llm", "--bootstrap-samples", "10")
     assert result.exit_code == 0, result.output
+    assert environment  # the paid step lets the app load its keys itself
     assert len(prompts) == len(ITEMS)
     assert all("learner_answer" not in prompt and "An answer." not in prompt for prompt in prompts)
     report = json.loads(result.output)["evaluation"]
@@ -316,8 +333,10 @@ def test_seen_stem_backfill_embeds_retired_and_earlier_texts_only_explicitly(tmp
     fake = FakeEmbedder(vault.config.embedding.model, 64)
     monkeypatch.setattr("learnloop.ops.embedding_backfill.ready_client_for_task",
                         lambda *a, **k: SimpleNamespace(client=fake, runtime=SimpleNamespace(ready=True)))
+    environment = _allow_environment(monkeypatch)
     result = _invoke(*common, "--backfill-seen-stems")
     assert result.exit_code == 0, result.output
+    assert environment
     assert json.loads(result.output)["backfill"]["embedded"] == len(set(ITEMS))
     assert sorted(fake.texts) == sorted(vault.practice_items[i].prompt for i in set(ITEMS))
     _forbid_models(monkeypatch)

@@ -24,6 +24,20 @@ from learnloop.db.connection import connect
 from learnloop.vault.paths import VaultPaths
 
 
+def _load(vault: Path, *, paid: bool):
+    """Replay and dry runs read only the vault TOML; a paid step loads like
+    `learnloop embeddings backfill`, so the app reads its keys and per-machine
+    Codex checkout itself. Neither changes the route settings the cache keys on.
+    """
+    if not paid:
+        return _load_offline(vault)
+    from learnloop.vault.loader import load_vault
+
+    if not (vault / "learnloop.toml").is_file():
+        raise ValueError("--vault must contain learnloop.toml; use a backup-API copy.")
+    return load_vault(vault)
+
+
 def _route_settings(loaded, output_tokens):
     """The explicit offline probability route and its non-secret settings."""
     route = loaded.config.ai.routing.field_llm_probability
@@ -171,7 +185,7 @@ def success_head_eval(
             raise ValueError("--prepare-llm requires --llm-cache outside the vault")
         if prepare_llm and backfill_seen_stems:
             raise ValueError("Run --backfill-seen-stems and --prepare-llm as separate invocations")
-        loaded = _load_offline(vault)
+        loaded = _load(vault, paid=(backfill_seen_stems or prepare_llm) and not dry_run)
         inputs = _replay_inputs(loaded, legacy_fallback=legacy_fallback)
         sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
         if backfill_seen_stems:
