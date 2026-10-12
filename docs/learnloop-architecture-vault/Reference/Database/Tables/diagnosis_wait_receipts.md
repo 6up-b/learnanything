@@ -3,8 +3,8 @@ title: "diagnosis_wait_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "77991b9301f8653a1b3ab653827666f19c92ff9a"
-source_commit_timestamp: "2026-10-12T06:35:42-04:00"
+source_commit: "106be2bf19b344e0407ca2c46adb34d2e413bbcf"
+source_commit_timestamp: "2026-10-12T11:24:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnosis_wait_receipts"
@@ -38,7 +38,7 @@ tags:
 Freezes the inputs and outcome of each diagnosis wait decision so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `session_id`, `waited_seconds`, `served_without_diagnosis`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> E7: one row per item served after a diagnosis-bearing answer in its session; served_without_diagnosis marks a serve while one was pending.
+> E7: one row per item served after a diagnosis-bearing answer in its session; served_without_diagnosis marks a serve while a required diagnosis was not in force (queued, running, failed or budget-skipped), and pending_attempt_ids_json names those attempts.
 
 It belongs to the **operations** navigation family. The family context lives in [[Database Catalog#Operations]]. Its persistence behavior follows [[Table Roles#Receipt]].
 

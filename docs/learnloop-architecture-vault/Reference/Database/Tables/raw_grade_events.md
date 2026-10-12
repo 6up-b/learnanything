@@ -3,8 +3,8 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "77991b9301f8653a1b3ab653827666f19c92ff9a"
-source_commit_timestamp: "2026-10-12T06:35:42-04:00"
+source_commit: "106be2bf19b344e0407ca2c46adb34d2e413bbcf"
+source_commit_timestamp: "2026-10-12T11:24:50-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
@@ -109,6 +109,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.insert_raw_grade_event()`
+- `Repository.latest_raw_grade_identity()`
 - `Repository.raw_grade_event()`
 - `Repository.raw_grade_events_by_ids()`
 - `Repository.raw_grade_events_for_observation()`
@@ -123,6 +124,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/effective_observation.py`
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
@@ -134,9 +136,11 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_attempt_completion.py`
+- `tests/test_exam_session.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grading_cli.py`
 - `tests/test_grading_support.py`
+- `tests/test_teach_back.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`
