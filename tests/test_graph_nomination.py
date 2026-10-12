@@ -32,6 +32,7 @@ from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import (
     IncompleteEmbeddingIndex,
     current_vectors,
+    get_vector,
     get_vector_by_content,
     put_vector,
     retrieve,
@@ -525,3 +526,37 @@ def test_concept_queries_carry_their_linked_definitions(vault):
     assert "concept_mentions_without_definition" in summary["notes"]
 
 
+def test_backfill_reuses_a_vector_paid_at_ingest_under_another_id(vault):
+    """F5: a candidate embedded at ingest under its client id is not bought
+    again by the backfill once apply gives it a canonical id; the canonical
+    identity row is materialized from the paid vector."""
+
+    loaded, repo, paths = vault
+    embedder = BagOfWordsEmbedder()
+    _backfill(loaded, embedder, (CONCEPT_RECIPE,))
+    nominator = GraphNominator.for_ingest(loaded, repo, client_factory=lambda: embedder)
+    candidate = {"title": "Trace", "type": "concept", "aliases": [],
+                 "description": "The sum of the diagonal entries of a square matrix."}
+    query = concept_query(candidate, "client_trace")
+    assert query.content_hash in nominator.vectors([query])
+    paid = len(embedder.calls)
+
+    loaded.concepts["concept_trace"] = Concept(**candidate, created_at=NOW, updated_at=NOW)
+    caps = SpendCaps(max_candidates=1000, max_total_tokens=10**7)
+    plan = backfill_embeddings(loaded, caps=caps, recipes=(CONCEPT_RECIPE,), dry_run=True)
+    assert (plan["pending"], plan["estimate"]["calls"]) == (0, 0)
+    assert plan["reused_by_content"] == 1
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        assert get_vector(connection, record_kind="concept", record_id="concept_trace",
+                          field="definition", content_hash=query.content_hash,
+                          model_id=embedder.model_id, task_prefix="retrieval-document") is None
+    report = backfill_embeddings(loaded, caps=caps, recipes=(CONCEPT_RECIPE,),
+                                 client_factory=ExplodingFactory())
+    assert report["status"] == "complete" and report["reused_by_content"] == 1
+    assert len(embedder.calls) == paid
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        stored = get_vector(connection, record_kind="concept", record_id="concept_trace",
+                            field="definition", content_hash=query.content_hash,
+                            model_id=embedder.model_id, task_prefix="retrieval-document")
+    assert stored is not None
+    assert np.array_equal(stored, nominator.vectors([query])[query.content_hash])

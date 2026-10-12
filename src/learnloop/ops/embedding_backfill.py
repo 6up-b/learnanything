@@ -9,6 +9,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from learnloop.ai.embedding import EMBEDDING_PRICES_PER_MILLION, EmbeddingClient
 from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
 from learnloop.ai.execution import content_key, observe_model_calls
@@ -16,7 +18,7 @@ from learnloop.ai.routing import ready_client_for_task
 from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimitExceeded
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
-from learnloop.db.stores.embedding_vectors import get_vector, put_vector
+from learnloop.db.stores.embedding_vectors import get_vector, get_vector_by_content, put_vector
 from learnloop.ids import new_ulid
 from learnloop.vault.embedding_recipes import EmbeddingRecord, select_recipes
 from learnloop.vault.models import LoadedVault
@@ -51,14 +53,22 @@ def _identity(record: EmbeddingRecord, model_id: str) -> dict[str, str]:
 
 def _pending(
     sqlite_path: Path, records: list[EmbeddingRecord], model_id: str, dims: int,
-) -> list[EmbeddingRecord]:
+) -> tuple[list[EmbeddingRecord], list[tuple[EmbeddingRecord, np.ndarray]]]:
+    """Records still to pay for, and records whose exact input is already paid.
+
+    A recipe's content hash covers its kind, field, version and full text, so
+    a stored vector of the same hash, model and prefix under another record id
+    (an ingest candidate's client id, say) embeds this record's input exactly.
+    Such a record is reused, not bought again; the caller materializes its own
+    identity row from that vector when it runs (a dry run changes nothing).
+    """
     if not sqlite_path.exists():
-        return records
+        return records, []
     with closing(connect(sqlite_path, read_only=True)) as connection:
         if not connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='embedding_vectors'"
         ).fetchone():
-            return records
+            return records, []
         dimensions = {
             row[0] for row in connection.execute(
                 "SELECT DISTINCT dims FROM embedding_vectors WHERE model_id=?", (model_id,),
@@ -69,10 +79,30 @@ def _pending(
                 "This model already has vectors at different dimensions; "
                 "use its existing dimensions. Consumer truncation is query-time."
             )
-        return [
-            record for record in records
-            if get_vector(connection, **_identity(record, model_id)) is None
-        ]
+        pending: list[EmbeddingRecord] = []
+        reusable: list[tuple[EmbeddingRecord, np.ndarray]] = []
+        for record in records:
+            identity = _identity(record, model_id)
+            if get_vector(connection, **identity) is not None:
+                continue
+            vector = get_vector_by_content(connection, **{
+                key: value for key, value in identity.items() if key != "record_id"
+            })
+            if vector is None:
+                pending.append(record)
+            else:
+                reusable.append((record, vector))
+        return pending, reusable
+
+
+def _materialize(repository: Repository, reusable: list[tuple[EmbeddingRecord, np.ndarray]],
+                 model_id: str) -> None:
+    """Give each content-reused record its own identity row (no paid call)."""
+    if not reusable:
+        return
+    with repository.connection() as connection:
+        for record, vector in reusable:
+            put_vector(connection, **_identity(record, model_id), vector=vector)
 
 
 def _estimate(records: list[EmbeddingRecord], calls: int, price: float | None) -> SpendEstimate:
@@ -135,7 +165,7 @@ def backfill_embeddings(
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
     selected = select_recipes(recipes)
     records = [record for recipe in selected for record in recipe.records(loaded)]
-    pending = _pending(sqlite_path, records, model_id, config.dimensions)
+    pending, reusable = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)
     estimate = _estimate(pending, math.ceil(len(pending) / batch_size), price)
     report: dict[str, Any] = {
@@ -143,6 +173,9 @@ def backfill_embeddings(
         "model_id": model_id, "dimensions": config.dimensions,
         "task_prefix": TASK_PREFIX, "recipes": [recipe.name for recipe in selected],
         "records": len(records), "cached": len(records) - len(pending),
+        # Of the cached: records whose identical input was paid for under
+        # another record id (e.g. at ingest); reused, never bought again.
+        "reused_by_content": len(reusable),
         "pending": len(pending), "embedded": 0, "caps": caps.as_dict(),
         "estimate": asdict(estimate), "charged": asdict(budget.used),
         "price_per_million": price,
@@ -177,14 +210,16 @@ def backfill_embeddings(
     if not config.enabled or not config.backfill_enabled:
         report.update(status="disabled", reason="Enable embedding.enabled and embedding.backfill_enabled explicitly.")
         return report
-    if not pending:
+    if not pending and not reusable:
         report["status"] = "complete"
         return report
 
     with _backfill_lock(loaded.root):
         # Another process may have completed between planning and lock acquisition.
-        pending = _pending(sqlite_path, records, model_id, config.dimensions)
-        report.update(pending=len(pending), cached=len(records) - len(pending))
+        pending, reusable = _pending(sqlite_path, records, model_id, config.dimensions)
+        report.update(pending=len(pending), cached=len(records) - len(pending),
+                      reused_by_content=len(reusable))
+        _materialize(Repository(sqlite_path), reusable, model_id)
         if not pending:
             report["status"] = "complete"
             return report

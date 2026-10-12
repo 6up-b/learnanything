@@ -464,3 +464,37 @@ def test_registry_merge_is_declined_when_its_verdict_cannot_be_ledgered(tmp_path
     vault = load_vault(root)
     assert len(vault.concepts) == 2 and REGISTRY_ID in vault.concepts
     assert REGISTRY_ID not in {lo.concept for lo in vault.learning_objects.values()}
+
+
+def test_backfill_after_apply_reuses_the_vectors_paid_at_ingest(tmp_path):
+    """F5 end to end: synthesis embeds each candidate concept under its client
+    id; apply gives it a canonical id; the backfill then buys nothing for a
+    definition apply left unchanged."""
+
+    class KeepEveryCandidate(RegistryStructuringClient):
+        def run_concept_graph_structuring(self, context):
+            self.structuring_contexts.append(context)
+            return ConceptGraphStructuringWithRegistry()
+
+    root, repo = _setup_two_chapters(tmp_path)
+    _registry_concept(root)
+    _enable(root)
+    embedder = BagOfWordsEmbedder()
+    _backfill(root, embedder, ("concept/definition",))
+    _synthesize(root, repo, KeepEveryCandidate(), apply=True,
+                embedding_client_factory=lambda: embedder)
+    minted = set(load_vault(root).concepts) - {REGISTRY_ID}
+    assert len(minted) == 2  # both candidates, under canonical ids
+    paid = len(embedder.calls)
+    report = backfill_embeddings(
+        load_vault(root), caps=SpendCaps(max_candidates=1000, max_total_tokens=10**7),
+        recipes=("concept/definition",), client_factory=ExplodingFactory(),
+    )
+    assert report["status"] == "complete", report
+    assert (report["pending"], report["reused_by_content"]) == (0, len(minted))
+    assert len(embedder.calls) == paid
+    with repo.connection() as connection:
+        rows = {row[0] for row in connection.execute(
+            "SELECT record_id FROM embedding_vectors WHERE record_kind='concept'"
+        )}
+    assert minted <= rows  # canonical identity rows for identity-keyed consumers
