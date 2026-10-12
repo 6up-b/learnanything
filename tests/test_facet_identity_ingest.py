@@ -445,3 +445,60 @@ def test_two_sets_on_one_in_run_survivor_are_one_action_that_undoes_both(tmp_pat
     assert survivor.aliases == [] and DUP2_CLAIM not in survivor.positive_examples
     assert "the matrix is square" not in survivor.preconditions
     assert vault.evidence_facets[DUP2_ID].claim == DUP2_CLAIM
+
+
+# --- review F5: every dry run names the judge's route and caps, and changes nothing --------
+
+
+def test_the_synthesize_dry_run_plans_the_ingest_judge(tmp_path, monkeypatch):
+    import learnloop.cli as cli_module
+    from typer.testing import CliRunner
+
+    from learnloop.cli import app
+    from learnloop.content.synthesis.source_set_synthesis import plan_study_map_embedding
+
+    root, _repo = _setup(tmp_path, with_exam=False)
+    judge = plan_study_map_embedding(root, "set_la")["facet_identity"]
+    assert judge["enabled"] and judge["status"] == "may_judge"
+    assert judge["max_calls"] == 24 and judge["route"]["route"] == "facet_identity_judge"
+    assert judge["caps"]["max_calls"] == 24
+
+    monkeypatch.setattr(cli_module, "_ready_provider_for_task",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("dry run resolved a provider")))
+    text = CliRunner().invoke(app, ["synthesize", "set_la", "--dry-run", "--mode", "bootstrap", "--vault", str(root)])
+    assert text.exit_code == 0, text.output
+    assert "facet-identity judge:" in text.output and "up to 24" in text.output
+
+    append_config_toml(root, "[facet_identity]\nenabled = false")
+    assert plan_study_map_embedding(root, "set_la")["facet_identity"] == {
+        "enabled": False, "status": "off", "max_calls": 0, "max_estimated_usd": 0.0}
+
+
+def test_the_append_dry_run_plans_the_ingest_judge(tmp_path):
+    from learnloop.content.synthesis.source_append import plan_append_embedding
+
+    from tests.test_source_append import _bootstrap_and_add
+
+    root, _repo = _bootstrap_and_add(tmp_path)
+    config = root / "learnloop.toml"
+    config.write_text(config.read_text(encoding="utf-8").replace(
+        "[ai.routing]\n", '[ai.routing]\nfacet_identity_judge = "openrouter_haiku"\n', 1), encoding="utf-8")
+    judge = plan_append_embedding(root, "set_la", new_revision_ids=["rev_alt"])["facet_identity"]
+    assert judge["billing"] == "metered" and judge["max_estimated_usd"] == 0.5
+    assert judge["route"]["model"] == "anthropic/claude-haiku-5.5"
+
+
+def test_the_dedupe_dry_run_never_migrates_the_database(tmp_path, monkeypatch):
+    import learnloop.db.repositories as repositories
+    from learnloop.content.facet_identity.dedupe import run_dedupe
+
+    from tests.test_facet_identity import _regression_vault, _study_judge
+
+    root, repository, data = _regression_vault(tmp_path / "vault")
+
+    def no_migration(*_args, **_kwargs):
+        raise AssertionError("a dry run applied migrations")
+
+    monkeypatch.setattr(repositories, "apply_migrations", no_migration)
+    report = run_dedupe(root, dry_run=True, client=_study_judge(data))
+    assert report["status"] == "dry_run" and report["estimate"]["calls"] == 1

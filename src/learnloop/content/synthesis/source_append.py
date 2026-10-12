@@ -205,7 +205,10 @@ def plan_append_embedding(
     revs = set(new_revision_ids or inputs.selected_revision_ids)
     new_inventories = [entry for entry in inputs.unit_inventories if entry["revision_id"] in revs]
     plan = plan_ingest_embedding(vault, sqlite_path, entry="append", new_inventories=new_inventories)
-    return {"source_set_id": source_set_id, "new_revision_ids": sorted(revs), **plan}
+    from learnloop.content.facet_identity.plan import ingest_dry_run
+
+    return {"source_set_id": source_set_id, "new_revision_ids": sorted(revs), **plan,
+            "facet_identity": ingest_dry_run(vault)}
 
 
 def _append(

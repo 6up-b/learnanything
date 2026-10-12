@@ -1817,7 +1817,9 @@ def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
     plan = plan_ingest_embedding(
         vault, VaultPaths(vault.root, vault.config).sqlite_path, entry="bootstrap",
     )
-    return {"source_set_id": source_set_id, **plan}
+    from learnloop.content.facet_identity.plan import ingest_dry_run
+
+    return {"source_set_id": source_set_id, **plan, "facet_identity": ingest_dry_run(vault)}
 
 
 def _create_study_map(

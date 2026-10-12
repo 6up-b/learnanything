@@ -38,7 +38,6 @@ from learnloop.content.facet_identity.judge import (
     build_judge,
     build_request,
     caps_from_config,
-    plan_estimate,
     resolve_route,
 )
 from learnloop.content.facet_identity.views import judge_view, union_payload
@@ -452,26 +451,34 @@ def _resolve_chains(plan: FacetIdentityPlan) -> None:
             retirement.survivor_client = nxt.survivor_client
 
 
-def dry_run_estimate(synth: Any, *, vault: Any) -> dict[str, Any]:
-    """Planned judge calls for a run's candidates (no client, no embedding)."""
+def ingest_dry_run(vault: Any) -> dict[str, Any]:
+    """The facet-identity judge's part of a synthesis/append dry run (review F5).
+
+    The run writes its candidates, so the calls are bounded by the per-run
+    caps, not counted: one call per concept neighbourhood of the run's new
+    facets, plus one per attach group against registered facets, retries
+    included, never more than ``max_calls``. No client, no call, no change.
+    """
 
     settings = vault.config.facet_identity
     if not settings.enabled:
-        return {"enabled": False}
-    candidates = _candidate_nodes(synth)
-    titles, concept_edges = _concepts(synth, vault)
-    nodes = [FacetNode(key=client, payload=payload, concept=concept, existing=False)
-             for client, payload, concept in candidates]
-    grouping = neighbourhood_groups(nodes, concept_edges=concept_edges, max_group_size=settings.max_group_size)
-    requests = [
-        build_request([Member(label="", key=client, subject_kind=CANDIDATE_KIND, subject_id=client, existing=False,
-                              view=judge_view(next(p for c, p, _ in candidates if c == client)))
-                       for client in group], mode="consolidate")
-        for group in grouping.groups
-    ]
+        return {"enabled": False, "status": "off", "max_calls": 0, "max_estimated_usd": 0.0}
     route = resolve_route(vault.config)
-    return {"enabled": True, "grouping": grouping.summary(), "route": route.as_dict(),
-            "estimate": asdict(plan_estimate(requests, route.pricing, decider=route.decider))}
+    caps = caps_from_config(settings)
+    return {
+        "enabled": True,
+        "status": "unavailable" if route.problem else "may_judge",
+        "route": route.as_dict(),
+        "caps": caps.as_dict(),
+        "max_calls": caps.max_calls,
+        "max_total_tokens": caps.max_total_tokens,
+        # Codex on the subscription: dollars are estimated only, never a cap.
+        "max_estimated_usd": None if route.subscription else caps.max_estimated_usd,
+        "billing": "subscription" if route.subscription else "metered",
+        "cost_basis": route.as_dict()["cost_basis"],
+        "covers": ("one judge call per concept neighbourhood of the run's new facets and one per attach "
+                   "group against registered facets, retries included, bounded by the per-run caps"),
+    }
 
 
 __all__ = [
@@ -482,5 +489,5 @@ __all__ = [
     "Retirement",
     "build_plan",
     "candidate_subject_id",
-    "dry_run_estimate",
+    "ingest_dry_run",
 ]
