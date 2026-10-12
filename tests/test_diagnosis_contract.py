@@ -369,3 +369,58 @@ def test_citation_validity_is_judged_on_the_overlapping_target_itself(world, tmp
     reasons = {issue["attempt_id"]: issue["reason"] for issue in result.report["issues"] if issue["rule"] == "citation_not_valid_for_recurrence"}
     assert reasons == {"att_05_eigen_fail": "not_valid_measurement"}
     assert result.validated_citations == ()
+
+
+def test_nested_cause_targets_and_scopes_pass_the_firewalls(world):
+    """F6: criterion targets on passed criteria and grader-owned cause scopes are rejected."""
+
+    vault, store = world
+    result = _validate(
+        vault, store,
+        {"analysis_md": "a",
+         "event_diagnoses": [_event(candidate_causes=[
+             {"statement": "passed target", "cause_scope": "learner_state",
+              "target_ref": {"kind": "criterion", "criterion_id": "setup"}},
+             {"statement": "the item is broken", "cause_scope": "item_contract"},
+             {"statement": "unknown criterion", "cause_scope": "learner_state",
+              "target_ref": {"kind": "criterion", "criterion_id": "criterion_invented"}},
+             {"statement": "no such step", "cause_scope": "learner_state",
+              "target_ref": {"kind": "item_step", "checkpoint_id": "step_invented"}},
+             {"statement": "unanchored span", "cause_scope": "learner_state",
+              "target_ref": {"kind": "answer_span", "quote": "words the learner never wrote"}},
+         ])]},
+        criteria={"setup": 2, "result": 0},
+    )
+    causes = result.proposal["event_diagnoses"][0]["candidate_causes"]
+    assert [cause["target_ref"] for cause in causes] == [{"kind": "none"}, None, {"kind": "none"}, {"kind": "none"}, {"kind": "none"}]
+    assert causes[1]["cause_scope"] == "unknown"
+    rules = _rules(result)
+    assert "passed_criterion_firewall" in rules
+    assert "cause_scope_firewall" in rules
+    assert {"unknown_criterion", "unknown_checkpoint", "answer_span_unanchored"} <= set(rules)
+
+
+def test_causal_cause_scopes_on_an_invalid_measurement_become_unknown(world):
+    vault, store = world
+    item_contract = {**VALID, "validity_scope": "item_contract"}
+    result = _validate(vault, store, {"analysis_md": "a", "event_diagnoses": [_event(0, causal_class="unknown")]},
+                       attributions=[item_contract])
+    cause = result.proposal["event_diagnoses"][0]["candidate_causes"][0]
+    assert cause["cause_scope"] == "unknown"
+    assert "cause_scope_firewall" in _rules(result)
+
+
+def test_repair_preserve_and_target_refs_are_closed_world(world):
+    vault, store = world
+    result = _validate(vault, store, {"analysis_md": "a", "event_diagnoses": [_event()], "repair_suggestions": [
+        {"practice_mode": "redo", "rationale": "r",
+         "preserve_refs": [{"kind": "facet_capability", "facet_id": "facet_invented"},
+                           {"kind": "facet_capability", "facet_id": "recall"},
+                           {"kind": "criterion", "criterion_id": "criterion_invented"}],
+         "target_refs": [{"kind": "criterion", "criterion_id": "criterion_invented"}]},
+    ]})
+    repair = result.proposal["repair_suggestions"][0]
+    assert [(ref["kind"], ref["facet_id"]) for ref in repair["preserve_refs"]] == [("facet_capability", "recall")]
+    assert repair["target_refs"] == []
+    assert "facet_invented" in result.report["unknown_ids"]["facets"]
+    assert result.unknown_id_count >= 1

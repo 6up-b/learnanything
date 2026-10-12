@@ -15,10 +15,18 @@ dropped. The validated proposal keeps only what passed:
   the hypothesis' targets AND that same observation is a valid measurement
   (a flagged failure on the target next to a valid slip elsewhere does not
   count); validated citations are grouped by surface group for independence;
-* **passed-facet firewall** - diagnoser targets protected by the current blind
-  grade's clean passes are stripped, exactly as for grader targets;
+* **typed references** - every cause ``target_ref`` and repair ``target_refs``
+  / ``preserve_refs`` entry is checked against its permitted ids: known facets
+  (closed world), the item's criteria, checkpoints of an available trace
+  contract, and answer spans that re-anchor in the current answer;
+* **passed-facet firewall** - diagnoser targets (facets AND criteria, in causes
+  and repairs) protected by the current blind grade's clean passes are
+  stripped, exactly as for grader targets; preserve refs are exempt;
 * **scope firewall** - a causal class on an event whose blind validity scope
-  is not ``valid_measurement`` is rejected;
+  is not ``valid_measurement`` is rejected, and so is any nested candidate
+  cause scope the diagnoser does not own (``item_contract``,
+  ``grader_interpretation``, ``interaction_context``) or any causal cause
+  scope on such an event;
 * **repairs** - ``validate_repair_candidate`` plus a repaired-trace id check;
 * **registry match** - the id must be one of the provided candidates; ``new``
   needs a statement; ``abstain`` is always allowed.
@@ -189,6 +197,19 @@ class _Report:
         }
 
 
+#: The only cause scopes the diagnoser may set (§4.2): causal classes or unknown.
+CAUSAL_CAUSE_SCOPES = frozenset({"learner_state", "transient_execution", "unknown"})
+
+
+def _trace_checkpoints(item: PracticeItem) -> dict[str, set[str]]:
+    """Recipe id -> checkpoint ids of the item's AVAILABLE trace contract."""
+
+    contract = item.trace_contract
+    if contract is None or getattr(contract, "status", None) != "available":
+        return {}
+    return {str(recipe.id): {str(value) for value in recipe.checkpoints} for recipe in contract.recipes}
+
+
 def _facet_of(ref: Any) -> str | None:
     if isinstance(ref, Mapping) and ref.get("kind") == "facet_capability" and ref.get("facet_id"):
         return str(ref["facet_id"])
@@ -249,6 +270,9 @@ def validate_diagnosis_proposal(
             facet = _facet_of(cause.get("target_ref"))
             if facet:
                 all_target_facets.add(vault.canonical_facet_id(facet))
+            criterion = _criterion_of(cause.get("target_ref"))
+            if criterion:
+                all_target_criteria.add(criterion)
     for repair in payload.get("repair_suggestions") or []:
         all_target_facets.update(vault.canonical_facet_id(str(value)) for value in repair.get("target_evidence_families") or [])
         all_target_criteria.update(str(value) for value in repair.get("target_criterion_ids") or [])
@@ -267,6 +291,60 @@ def validate_diagnosis_proposal(
         facets=all_target_facets,
         criteria=all_target_criteria,
     )
+    rubric_criteria = {str(row.get("id")) for row in current.rubric}
+    checkpoints = _trace_checkpoints(item)
+
+    def checked_ref(ref: Any, where: str, *, firewall: bool) -> dict[str, Any] | None:
+        """One typed reference against its permitted ids (``None`` drops it).
+
+        Facets must be known (closed world), criteria must be the item's,
+        item steps must name a checkpoint of an available trace contract, and
+        an answer span must re-anchor in the current answer. With
+        ``firewall`` (targets, never ``preserve_refs``) a facet or criterion
+        the current blind grade passed cleanly is stripped as well.
+        """
+
+        if not isinstance(ref, Mapping):
+            return None
+        kind = ref.get("kind")
+        if kind == "facet_capability":
+            facet = str(ref.get("facet_id") or "")
+            canonical = vault.canonical_facet_id(facet)
+            if not facet or not known_facet(facet):
+                report.unknown_id("facets", facet, where)
+                return None
+            if firewall and canonical in protected_facets:
+                report.issue("passed_facet_firewall", where=where, facet=canonical)
+                return None
+            return {**ref, "facet_id": canonical}
+        if kind == "criterion":
+            criterion = str(ref.get("criterion_id") or "")
+            if criterion not in rubric_criteria:
+                report.issue("unknown_criterion", where=where, criterion=criterion)
+                return None
+            if firewall and criterion in passed_criteria:
+                report.issue("passed_criterion_firewall", where=where, criterion=criterion)
+                return None
+            return dict(ref)
+        if kind == "item_step":
+            checkpoint = str(ref.get("checkpoint_id") or "")
+            recipe = ref.get("recipe_id")
+            allowed = checkpoints.get(str(recipe), set()) if recipe is not None else set().union(*checkpoints.values()) if checkpoints else set()
+            if checkpoint not in allowed:
+                report.issue("unknown_checkpoint", where=where, checkpoint_id=checkpoint, recipe_id=recipe)
+                return None
+            return dict(ref)
+        if kind == "answer_span":
+            quote = str(ref.get("quote") or "")
+            anchor = resolve_quote_anchor(current.learner_answer_md, quote, hint_start=ref.get("char_start") if isinstance(ref.get("char_start"), int) else None)
+            if anchor.char_start is None:
+                report.issue("answer_span_unanchored", where=where)
+                return None
+            return {**ref, "char_start": anchor.char_start, "char_end": anchor.char_end}
+        if kind == "none":
+            return {"kind": "none"}
+        report.issue("unknown_ref_kind", where=where, kind=kind)
+        return None
 
     # -- events: index, scope firewall, ids, registry -----------------------------
     registry_ids = {record_id for record_id in known.registry_ids}
@@ -289,20 +367,25 @@ def validate_diagnosis_proposal(
             event["causal_class"] = "unknown"
         causes = []
         for cause_index, cause in enumerate(event.get("candidate_causes") or []):
-            facet = _facet_of(cause.get("target_ref"))
-            if facet is not None:
-                canonical = vault.canonical_facet_id(facet)
-                if not known_facet(facet):
-                    report.unknown_id("facets", facet, f"event:{index}:cause:{cause_index}")
-                    cause["target_ref"] = {"kind": "none"}
-                elif canonical in protected_facets:
-                    report.issue("passed_facet_firewall", where=f"event:{index}:cause:{cause_index}", facet=canonical)
-                    cause["target_ref"] = {"kind": "none"}
-                else:
-                    cause["target_ref"]["facet_id"] = canonical
+            where = f"event:{index}:cause:{cause_index}"
+            scope = str(cause.get("cause_scope") or "unknown")
+            # Validity scopes are grader-owned (§4.2): the diagnoser never
+            # flags item_contract / grader_interpretation / interaction_context,
+            # and on an event the grader did not call a valid measurement it
+            # makes no causal claim at all - nested causes included.
+            if scope not in CAUSAL_CAUSE_SCOPES or (validity != "valid_measurement" and scope != "unknown"):
+                report.issue(
+                    "cause_scope_firewall",
+                    where=where,
+                    validity_scope=validity,
+                    rejected_cause_scope=scope,
+                )
+                cause["cause_scope"] = "unknown"
+            if cause.get("target_ref") is not None:
+                cause["target_ref"] = checked_ref(cause["target_ref"], where, firewall=True) or {"kind": "none"}
             causes.append(cause)
         event["candidate_causes"] = causes
-        criteria_ids = {str(row.get("id")) for row in current.rubric}
+        criteria_ids = rubric_criteria
         claims = []
         for claim in event.get("postdictive_claims") or []:
             if str(claim.get("criterion_id")) in criteria_ids:
@@ -350,7 +433,6 @@ def validate_diagnosis_proposal(
             else:
                 families.append(canonical)
         repair["target_evidence_families"] = families
-        rubric_criteria = {str(row.get("id")) for row in current.rubric}
         kept_criteria = []
         for value in repair.get("target_criterion_ids") or []:
             if value not in rubric_criteria:
@@ -360,24 +442,13 @@ def validate_diagnosis_proposal(
             else:
                 kept_criteria.append(value)
         repair["target_criterion_ids"] = kept_criteria
-        refs = []
-        for ref in repair.get("target_refs") or []:
-            facet = _facet_of(ref)
-            criterion = _criterion_of(ref)
-            if facet is not None:
-                canonical = vault.canonical_facet_id(facet)
-                if not known_facet(facet):
-                    report.unknown_id("facets", facet, f"repair:{repair_index}:target_ref")
-                    continue
-                if canonical in protected_facets:
-                    report.issue("passed_facet_firewall", where=f"repair:{repair_index}:target_ref", facet=canonical)
-                    continue
-                ref = {**ref, "facet_id": canonical}
-            if criterion is not None and criterion in passed_criteria:
-                report.issue("passed_criterion_firewall", where=f"repair:{repair_index}:target_ref", criterion=criterion)
-                continue
-            refs.append(ref)
-        repair["target_refs"] = refs
+        for field_name, firewall in (("target_refs", True), ("preserve_refs", False)):
+            refs = []
+            for ref in repair.get(field_name) or []:
+                kept = checked_ref(ref, f"repair:{repair_index}:{field_name}", firewall=firewall)
+                if kept is not None and kept.get("kind") != "none":
+                    refs.append(kept)
+            repair[field_name] = refs
         candidate = dict(repair)
         trace = next(
             (
