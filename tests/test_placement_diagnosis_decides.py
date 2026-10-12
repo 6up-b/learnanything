@@ -194,6 +194,19 @@ def test_the_decision_waits_while_the_diagnosis_is_pending(tmp_path):
     assert (assumption.status, assumption.resolution_reason, intent.intent) == ("passed", "slip", "maintenance")
 
 
+def test_i_dont_know_this_does_not_wait_on_a_pending_diagnosis(tmp_path):
+    _paths, vault, repository = _assumed(tmp_path)
+    _miss(vault, repository, _Diagnosed(), drain=False)
+    record_self_report(
+        vault, repository, learning_object_ids=[LO], report="dont_know_this", clock=FrozenClock(at(DUE_HOURS + 2)),
+    )
+    state = load_placement_state(vault, repository)
+    (assumption,) = state.assumptions
+    assert (assumption.status, assumption.resolution_reason) == ("returned", "i_dont_know_this")
+    assert LO not in state.open_by_lo and state.intent_by_lo[LO].intent == "learning"
+    assert state.awaiting_diagnosis_learning_object_ids == frozenset()
+
+
 # ── No diagnosis can arrive: today's rule, said so ───────────────────────────
 
 

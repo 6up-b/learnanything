@@ -796,6 +796,13 @@ def _resolve(
             # the diagnosis decides it (owner decision 2026-10-12).
             verdict = decide_miss(answer, graded)
             if verdict.outcome == MISS_PENDING:
+                if returned_at is not None:
+                    # A later "I don't know this" does not wait on the
+                    # diagnosis: the learner returned the LO themselves.
+                    return replace(
+                        base, status="returned", resolved_at=returned_at, resolution_reason="i_dont_know_this",
+                        **counts(),
+                    )
                 # The decision waits on the diagnosis; the LO stays assumed.
                 return replace(base, awaiting_diagnosis_attempt_id=answer.attempt_id, **counts())
             if verdict.outcome == MISS_TO_LEARNING:
