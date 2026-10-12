@@ -6,7 +6,11 @@ matches, in this order:
 1. **scheduled checks -> maintain** (a due assumed-known first review, a due
    project probe under ``plan.project_probes_max_per_day``; DL2 adds "Check
    once"). Never new material, whatever their attempt history;
-2. **repair**: follow-up tasks and items on LOs with recent errors;
+2. **repair**: follow-up tasks, and previously attempted items on LOs with a
+   recent error (the scheduler's ``recent_error`` at or above
+   :data:`REPAIR_MIN_RECENT_ERROR`). A never-attempted item is new material
+   even on such an LO, so it stays under §6.3's admission, out of re-entry and
+   off with ``plan.new_admission_enabled`` (review F1);
 3. **new**: never-attempted items (Phase 6's order), including never-attempted
    learner requests;
 4. **maintain**: items whose (effective) due date has passed, and previously
@@ -21,6 +25,7 @@ into blocks of up to 15 estimated minutes.
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
@@ -43,6 +48,13 @@ _EPS = 1e-9
 
 #: Scheduler components that mark a follow-up (``_insert_pending_followups``).
 FOLLOWUP_COMPONENTS = ("intervention_followup", "negative_surprise_followup")
+
+#: The repair lane's recency bound (review F1). The scheduler's ``recent_error``
+#: is ``severity x exp(-days / 7)`` over every active learner error on the LO,
+#: so it never reaches zero however old the error. An item is repair only at or
+#: above exp(-2): a full-severity error within the last 14 days (two of the
+#: scheduler's 7-day decay constants), a half-severity one within about 9.
+REPAIR_MIN_RECENT_ERROR = math.exp(-2.0)
 
 
 @dataclass(frozen=True)
@@ -165,8 +177,11 @@ def classify_item(
             "check_once": "your one delayed check",
         }
         return PoolItem(lane="maintain", reason=reasons.get(check.kind, "a scheduled check"), check_kind=check.kind, check_priority=check.priority, **base)
-    if followup or float(components.get("recent_error", 0.0) or 0.0) > 0.0:
-        return PoolItem(lane="repair", reason="a follow-up" if followup else "a recent error on this topic", **base)
+    if followup:
+        return PoolItem(lane="repair", reason="a follow-up", **base)
+    recent_error = float(components.get("recent_error", 0.0) or 0.0)
+    if not never_attempted and recent_error >= REPAIR_MIN_RECENT_ERROR - _EPS:
+        return PoolItem(lane="repair", reason="a recent error on this topic", **base)
     if never_attempted:
         return PoolItem(lane="new", reason="your request" if requested else "new material", **base)
     if due or requested:
@@ -445,6 +460,7 @@ __all__ = [
     "FOLLOWUP_COMPONENTS",
     "LegacyLanesSource",
     "PoolItem",
+    "REPAIR_MIN_RECENT_ERROR",
     "SOURCE_NAME",
     "ScheduledCheck",
     "classify_item",

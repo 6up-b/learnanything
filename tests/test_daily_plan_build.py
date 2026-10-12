@@ -80,8 +80,9 @@ def test_each_item_takes_the_first_lane_that_matches():
         "pi_check": "maintain",
         "pi_follow": "repair",
         "pi_err": "repair",
-        # Repair before new: a never-attempted item on an LO with recent errors.
-        "pi_new_err": "repair",
+        # A never-attempted item on an LO with recent errors is still new
+        # material: admission, re-entry and the switch govern it (review F1).
+        "pi_new_err": "new",
         "pi_new": "new",
         # Maintain before push: due items on a goal frontier are maintenance.
         "pi_due": "maintain",
