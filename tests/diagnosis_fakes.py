@@ -292,8 +292,13 @@ class ReviewFakeClient:
 
     def _diagnosis_synthetic_error(self, request, context):
         criterion = context["rubric"][0]["id"]
+        reference = str(context["reference_solution"]).strip()
+        # A numeric reference gets a verifiably wrong final answer; anything
+        # else cannot be shown wrong and is excluded by the verifier.
+        final = str(int(reference) + 2) if reference.isdigit() else f"{reference} (wrong)"
         return SyntheticErrorDraft.model_validate(
-            {"planted_criterion_id": criterion, "error_description": "One planted error.", "answer_md": "almost right but wrong here"}
+            {"planted_criterion_id": criterion, "error_description": "One planted error.",
+             "answer_md": f"almost right but wrong here, so the answer is {final}", "final_answer": final}
         )
 
     def _diagnosis_paraphrase(self, request, context):

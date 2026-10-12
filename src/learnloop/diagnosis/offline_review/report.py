@@ -621,18 +621,27 @@ def _grader_section(data: Mapping[str, Any]) -> dict[str, Any]:
         "statuses": dict(Counter(row["status"] for row in by_probe.get("valid_alternative", []))),
         "false_rejection": wilson(sum(1 for row in valid if float(row["blind_score"]) < float(row["max_points"])), len(valid)),
     }
+    # Synthetic truth is only what was verified: a stated final answer shown to
+    # differ from the reference, so full marks is wrong. The grader errs on a
+    # synthetic answer when it awards full marks anyway; on a real answer when
+    # the owner judged the stored grade right instead of the blind one.
     synthetic = [row for row in by_probe.get("synthetic_error", []) if row["status"] == "graded"]
-    synthetic_errors = [abs(float(row["blind_score"]) - float(row["known_score"])) / float(row["max_points"] or 1) for row in synthetic]
+    synthetic_misses = sum(1 for row in synthetic if float(row["blind_score"]) + 1e-9 >= float(row["max_points"]))
     real_errors = _owner_grade_errors(data, grades)
+    real_wrong = sum(1 for value in real_errors if value > 0)
+    synthetic_rate = wilson(synthetic_misses, len(synthetic))
+    real_rate = wilson(real_wrong, len(real_errors))
     probes["real_vs_synthetic"] = {
         "statuses": dict(Counter(row["status"] for row in by_probe.get("synthetic_error", []))),
-        "synthetic_mean_abs_error_fraction": round(statistics.mean(synthetic_errors), 4) if synthetic_errors else None,
-        "synthetic_n": len(synthetic_errors),
+        "synthetic_miss_rate": synthetic_rate,
+        "synthetic_n": len(synthetic),
+        "synthetic_truth": "verified wrong final answer (full marks is an error); the generator's declared criterion is not used",
+        "real_error_rate": real_rate,
         "real_mean_abs_error_fraction": round(statistics.mean(real_errors), 4) if real_errors else None,
         "real_n": len(real_errors),
         "gap": (
-            round(statistics.mean(real_errors) - statistics.mean(synthetic_errors), 4)
-            if real_errors and synthetic_errors else None
+            round(real_rate["rate"] - synthetic_rate["rate"], 4)
+            if real_rate["rate"] is not None and synthetic_rate["rate"] is not None else None
         ),
         "real_source": "owner spot-check grade verdicts (screen 3)",
     }
@@ -977,8 +986,8 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         "",
         f"- first-divergence anchor accuracy vs adjudicated anchors: {_fmt_rate(grader['first_divergence_anchor_accuracy_vs_adjudicated'])}",
         f"- valid-alternative false rejection: {_fmt_rate(probes['valid_alternative']['false_rejection'])} (statuses {json.dumps(probes['valid_alternative']['statuses'], sort_keys=True)})",
-        f"- real-vs-synthetic: synthetic error {probes['real_vs_synthetic']['synthetic_mean_abs_error_fraction']} (n={probes['real_vs_synthetic']['synthetic_n']}), "
-        f"real error {probes['real_vs_synthetic']['real_mean_abs_error_fraction']} (n={probes['real_vs_synthetic']['real_n']}, from {probes['real_vs_synthetic']['real_source']}), gap {probes['real_vs_synthetic']['gap']}",
+        f"- real-vs-synthetic: synthetic miss rate (full marks on a verified-wrong answer) {_fmt_rate(probes['real_vs_synthetic']['synthetic_miss_rate'])}, "
+        f"real error rate {_fmt_rate(probes['real_vs_synthetic']['real_error_rate'])} (mean abs error {probes['real_vs_synthetic']['real_mean_abs_error_fraction']}, from {probes['real_vs_synthetic']['real_source']}), gap {probes['real_vs_synthetic']['gap']}",
         f"- grade flips under paraphrase: {_fmt_rate(probes['paraphrase']['grade_flip_rate'])}",
     ]
     lines += ["", "## Registry match vs the legacy misconception match (E4)", ""]

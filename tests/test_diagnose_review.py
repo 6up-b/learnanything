@@ -103,8 +103,17 @@ def test_every_arm_and_control_ran(reviewed):
         assert ledger.get(task), task
     judge_models = {row[0] for row in _scratch_rows(run, "SELECT DISTINCT judge_model FROM judgment_ledger WHERE judge = 'llm'")}
     assert judge_models == {"fake-model"}
-    probes = dict(_scratch_rows(run, "SELECT probe, COUNT(*) FROM review_probes WHERE status = 'graded' GROUP BY probe"))
-    assert probes == {"valid_alternative": 2, "synthetic_error": 2, "paraphrase": 2}
+    probes = dict(_scratch_rows(run, "SELECT probe, COUNT(*) FROM review_probes WHERE status = 'graded' AND probe != 'synthetic_error' GROUP BY probe"))
+    assert probes == {"valid_alternative": 2, "paraphrase": 2}
+    # A synthetic error is graded only when its wrongness is verified (a
+    # numeric reference here); otherwise it is excluded, never "known".
+    synthetic = dict(_scratch_rows(run, "SELECT practice_item_id, status FROM review_probes WHERE probe = 'synthetic_error'"))
+    vault = reviewed["vault"]
+    assert len(synthetic) == 2
+    assert synthetic == {
+        item_id: "graded" if str(vault.practice_items[item_id].expected_answer).strip().isdigit() else "unverified"
+        for item_id in synthetic
+    }
     calls = dict(_scratch_rows(run, "SELECT billing, COUNT(*) FROM review_calls GROUP BY billing"))
     assert calls["subscription"] > 0 and calls["metered"] > 0
     basis = {row[0] for row in _scratch_rows(run, "SELECT DISTINCT cost_basis FROM review_calls WHERE billing = 'subscription'")}
@@ -446,3 +455,51 @@ def test_e4_aligns_events_by_localization_and_target_not_list_position():
     extra = _registry_section(_e4_data(extra_blind=True))["b"]
     assert extra["agreement_where_either_linked"]["n"] == 2
     assert extra["unmatched_blind_events"] == 1
+
+
+def _prime_item(tmp_path):
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    return vault, vault.practice_items["pi_unrelated_001"]  # reference "2"
+
+
+def test_a_valid_alternative_is_verified_on_its_submitted_derivation(tmp_path):
+    """F4: the derivation the grader sees must state the verified answer and hold."""
+
+    from learnloop.diagnosis.offline_review.probes import ValidAlternativeDraft, verify_alternative
+
+    _vault, item = _prime_item(tmp_path)
+    wrong = ValidAlternativeDraft(method_note="m", derivation_md="1+1=99. Therefore 99.", final_answer="2")
+    assert verify_alternative(item, wrong)["status"] != "verified"
+    false_step = ValidAlternativeDraft(method_note="m", derivation_md="2*3 = 7, and the smallest prime is\n2", final_answer="2")
+    assert verify_alternative(item, false_step)["status"] != "verified"
+    right = ValidAlternativeDraft(method_note="m", derivation_md="Every even number above 2 is composite, and 1+1 = 2.\nThe answer is 2.", final_answer="2")
+    assert verify_alternative(item, right)["status"] == "verified"
+
+
+def test_a_synthetic_error_is_known_only_when_the_planted_error_is_verified(tmp_path):
+    """F4: a generator's declaration never makes a correct answer score zero."""
+
+    from learnloop.diagnosis.offline_review.probes import SyntheticErrorDraft, verify_synthetic_error
+
+    vault, item = _prime_item(tmp_path)
+    correct = SyntheticErrorDraft(planted_criterion_id="correctness", error_description="d", answer_md="The answer is 2.", final_answer="2")
+    assert verify_synthetic_error(vault, item, correct)["status"] != "verified_wrong"
+    planted = SyntheticErrorDraft(planted_criterion_id="correctness", error_description="d", answer_md="4 has no divisors, so the answer is 4.", final_answer="4")
+    check = verify_synthetic_error(vault, item, planted)
+    assert check["status"] == "verified_wrong"
+    assert check["known_full_marks"] is False
+    unstated = SyntheticErrorDraft(planted_criterion_id="correctness", error_description="d", answer_md="The answer is 2.", final_answer="4")
+    assert verify_synthetic_error(vault, item, unstated)["status"] != "verified_wrong"
+    invalid = SyntheticErrorDraft(planted_criterion_id="nope", error_description="d", answer_md="The answer is 4.", final_answer="4")
+    assert verify_synthetic_error(vault, item, invalid)["status"] == "invalid_criterion"
+
+
+def test_sympy_never_sees_model_text_outside_a_safe_math_alphabet():
+    from learnloop.diagnosis.offline_review.probes import safe_math_text
+
+    assert safe_math_text("2*x + 1")
+    assert safe_math_text("sqrt(2)/2")
+    assert not safe_math_text("__import__('os')")
+    assert not safe_math_text("open(1)")
+    assert not safe_math_text("x.__class__")

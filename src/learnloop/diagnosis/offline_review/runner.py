@@ -1403,16 +1403,19 @@ class ReviewRun:
         if draft is None:
             self._record_probe("synthetic_error", item, status="generation_failed", known=None, maximum=maximum, blind_score=None, detail={})
             return
-        known = probing.synthetic_known_score(self.vault, item, draft)
-        if known is None:
-            self._record_probe("synthetic_error", item, status="invalid_criterion", known=None, maximum=maximum, blind_score=None, detail={"planted_criterion_id": draft.planted_criterion_id})
+        # The outcome is established from the answer itself (a stated final
+        # answer shown to differ from the reference), never from the
+        # generator's declaration; only "not full marks" is known.
+        check = probing.verify_synthetic_error(self.vault, item, draft)
+        if check["status"] != "verified_wrong":
+            self._record_probe("synthetic_error", item, status=check["status"], known=None, maximum=maximum, blind_score=None, detail=check)
             return
         probe_id = f"probe_{new_ulid()}"
         record = self.blind_grade(attempt_id=probe_id, item=item, answer=draft.answer_md, purpose="probe_synthetic_error", stage="probes")
         self._record_probe(
-            "synthetic_error", item, status="graded" if record else "grading_failed", known=known[0], maximum=known[1],
+            "synthetic_error", item, status="graded" if record else "grading_failed", known=None, maximum=maximum,
             blind_score=float(record["rubric_score"]) if record else None,
-            detail={"planted_criterion_id": draft.planted_criterion_id, "probe_attempt_id": probe_id},
+            detail={**check, "probe_attempt_id": probe_id},
         )
 
     def _probe_paraphrase(self, item: PracticeItem, target: Mapping[str, Any], original: Mapping[str, Any]) -> None:
