@@ -133,9 +133,11 @@ sidecar and tool; table roles and the migration head.
 
 **Dossier embeddings.** Four recipes in `vault/embedding_recipes.py`:
 `facet/dossier_scope`, `facet/dossier_moves`, `facet/dossier_errors`,
-`facet/dossier_contrast`. Each reads the newest persisted dossier for the
-facet's current content; the existing `learnloop embeddings backfill` embeds
-them (`--record-kind facet` now selects all five facet recipes).
+`facet/dossier_contrast`. Each offers every persisted dossier revision for
+the facet's current content (one content hash per revision); retrieval reads
+the revision selected for the facet's current sources (review F4). The
+existing `learnloop embeddings backfill` embeds them (`--record-kind facet`
+now selects all five facet recipes).
 
 **`find_practice(query, constraints)`** (`practice_index/retrieval.py`): a
 sidecar RPC (`find_practice`), a CLI command (`learnloop practice-index find`,
@@ -163,7 +165,9 @@ sidecar RPC (`find_practice`), a CLI command (`learnloop practice-index find`,
 4. **Path choice** (`practice_index.retrieval_path = "auto"`): the two-level
    path only when the latest retrieval evaluation on the **current index
    manifest** (embedding model, item recipe, dossier models and prompt
-   versions, recipe versions, fusion and pool settings) chose dossiers.
+   versions, recipe versions, fusion and pool settings, and fingerprints of
+   the indexed item text, item-to-facet mapping, selected dossier revisions
+   and vector content; review F3) chose dossiers.
    Otherwise direct, with the reason returned and receipted. `direct` and
    `dossier` force a path; a forced dossier path falls back to direct while
    dossiers or their vectors are incomplete.
@@ -213,8 +217,9 @@ idempotent sweep that joins proposals to attempts within 72 h (judge
   at least partial), paired differences with seeded percentile-bootstrap 95%
   intervals, split by seed kind and query-writer model; label models counted.
 - **The bar**: dossiers win only if the nDCG@10 difference's interval is above
-  0, the mean Recall@10 difference is not negative, and at least 10 queries are
-  scored. Anything else keeps direct. Complete runs persist the decision in
+  0, the mean Recall@10 difference is not negative, and at least 10 distinct
+  queries are scored (requests are deduplicated by normalized text before
+  scoring; review F5). Anything else keeps direct. Complete runs persist the decision in
   `practice_index_evaluations`, which `auto` reads.
 - The report (`fixtures-local/reports/practice-index-eval-<run>.json`) is
   aggregate only: counts, metrics, intervals, agreement, spend, usage and a
@@ -232,13 +237,18 @@ idempotent sweep that joins proposals to attempts within 72 h (judge
   reported as `estimated_only` (a dollar equivalent appears when the owner
   passes `--price-per-million`). Call, candidate, pair and retry caps still
   apply. **Metered** routes keep every cap, fail closed on an unknown price,
-  and reserve twice each call's estimate (one possible JSON-repair request);
-  reported usage reconciles upward. Root receipts carry the caps plus a
+  and run each admitted attempt under `single_request()`: one physical
+  request, no hidden retry or JSON repair; a retry is a new admitted attempt
+  (review F1). Reported usage reconciles upward. Paid answers are
+  checkpointed before their rows are written, so a crash never pays twice
+  (review F8). Root receipts carry the caps plus a
   `practice_index` block (task, billing, cost basis, prompt version, input
   hash).
 - Paid batch work has its own switches, off in the template:
   `practice_index.dossiers_enabled`, `practice_index.evaluation_enabled`.
-  Dry runs need neither and make no client, migration or data change. The
+  Dry runs need neither and make no client, migration or data change (they
+  attach read-only; review F2). `practice-index find --dry-run` plans the
+  live query embedding and rerank (review F7). The
   evaluation checks its whole plan (query writing, labels, query embeddings)
   against the caps before the first request; its dry run counts exact pending
   label work for queries it can rank now, and a full-pool upper bound only for
@@ -247,7 +257,8 @@ idempotent sweep that joins proposals to attempts within 72 h (judge
 
 **Kill switches and config** (`[practice_index]`): `enabled` (find_practice),
 `retrieval_path`, `rerank_enabled`, `rerank_price_per_million`,
-`rerank_max_cost_usd`, `facet_top_k`, `candidate_pool`, `proposals`, `rrf_k`,
+`rerank_max_cost_usd`, `query_embedding_price_per_million` (review F6),
+`facet_top_k`, `candidate_pool`, `proposals`, `rrf_k`,
 `coverage_min_eligible`, `usage_window_hours`, `dossiers_enabled`,
 `evaluation_enabled`. All classified `structural/operational` in the parameter
 registry: the index proposes and never serves.
@@ -293,13 +304,9 @@ registry: the index proposes and never serves.
    and the unified group exists only on `integrate/slice-a-2-3`. The command
    function is standalone, so integration mounts it with one line:
    `eval_app.command("practice-index")(practice_index_eval)`.
-10. **Metered routes and hidden retries.** Phase 3's `single_request` bound is
-    not on `main`, so a metered `openai_chat`/`openrouter` call may still make
-    transport retries after a failed request (at most three HTTP attempts) in
-    addition to one JSON repair. Each call reserves twice its estimate, and
-    every physical attempt's reported usage reconciles the charge upward, so
-    overspend is bounded and recorded rather than prevented. At integration,
-    wrap metered calls in `single_request()`.
+10. **Metered routes and hidden retries.** Superseded by the Codex review
+    (F1): Phase 3's `single_request()` is ported verbatim (identical hunks, so
+    integration merges cleanly) and every metered attempt runs under it.
 11. **Coverage counts the scheduler's admission**, so exam-reserved and
     parked items do not count as coverage.
 12. **No frontend.** The RPCs exist for the tutor, the daily loop's "practice
@@ -422,8 +429,11 @@ uv run learnloop practice-index coverage --vault "$COPY" --json
 
 If you route a paid role to a metered model instead of Codex, add
 `--price-per-million <USD per million tokens>` to `dossiers` and `eval` (and
-set `practice_index.rerank_price_per_million` for the live rerank); unknown
-prices fail closed. Raise `--queries` (default 40) for a tighter interval; the
+set `practice_index.rerank_price_per_million` for the live rerank); for an
+embedding model other than `qwen/qwen3-embedding-8b`, add
+`--embedding-price-per-million` to `eval` and set
+`practice_index.query_embedding_price_per_million`; unknown prices fail
+closed. `practice-index find --dry-run` shows a live call's cost first. Raise `--queries` (default 40) for a tighter interval; the
 whole plan is checked against the caps before the first request.
 
 ## Open questions
@@ -442,7 +452,7 @@ whole plan is checked against the caps before the first request.
    to neighbour ids only.
 5. **Integration.** Renumber migration 167 when `integrate/slice-a-2-3`
    (167–168) and `mobile/m1` (167) land; mount the eval command under the
-   unified `learnloop eval`; adopt `single_request()` for metered calls;
+   unified `learnloop eval`; `single_request()` is already ported verbatim;
    merge Phase 5a's `item/skeleton` recipe (find_practice picks it up
    automatically once its index is complete).
 
@@ -467,3 +477,9 @@ whole plan is checked against the caps before the first request.
 - Docs: `db_generate_reference.py` / `db_validate_reference.py` (head 167, the
   `practice_index` section and field descriptions), the regenerated database
   and configuration reference, and the two prose counts it validates.
+
+## Codex review
+
+The Codex review's eight findings (one High) and their fixes are recorded in
+`docs/reviews/slice-a-phase-5b-codex-review.md`; the passages above that the
+fixes changed name the finding.
