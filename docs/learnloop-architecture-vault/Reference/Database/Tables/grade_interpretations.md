@@ -3,8 +3,8 @@ title: "grade_interpretations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grade_interpretations"
@@ -25,7 +25,6 @@ source_paths:
   - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/attempts/grade_resolution.py"
   - "src/learnloop/cli/grading.py"
-  - "src/learnloop/substrate/family_memory_rows.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -121,7 +120,6 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
 - `src/learnloop/substrate/compat/card_outcome_replay.py`
-- `src/learnloop/substrate/family_memory_rows.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

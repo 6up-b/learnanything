@@ -3,8 +3,8 @@ title: "activity_card_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_card_state"
@@ -116,8 +116,8 @@ Indexes and uniqueness:
 - `tests/test_commitment_arcs.py`
 - `tests/test_depth_transition.py`
 - `tests/test_event_sufficiency.py`
-- `tests/test_family_evaluation.py`
 - `tests/test_family_memory_projection.py`
+- `tests/test_field_cli.py`
 - `tests/test_journey6.py`
 - `tests/test_progression.py`
 - `tests/test_substrate_cutover.py`

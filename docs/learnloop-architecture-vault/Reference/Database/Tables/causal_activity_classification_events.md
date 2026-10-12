@@ -3,8 +3,8 @@ title: "causal_activity_classification_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_activity_classification_events"
@@ -115,7 +115,6 @@ Database triggers:
 - `src/learnloop/field/outcomes.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/substrate/canonical_projection.py`
-- `src/learnloop/substrate/family_memory_rows.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

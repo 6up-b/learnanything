@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -22,7 +22,6 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
-  - "src/learnloop/substrate/family_memory_rows.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -86,7 +85,6 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/field/outcomes.py`
-- `src/learnloop/substrate/family_memory_rows.py`
 
 ### Direct SQL writers
 
@@ -103,7 +101,6 @@ None found by exact static reference scan.
 
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
-- `tests/test_family_memory_projection.py`
 - `tests/test_migrations.py`
 - `tests/test_probe_episodes.py`
 

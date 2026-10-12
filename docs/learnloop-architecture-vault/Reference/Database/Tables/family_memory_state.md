@@ -3,8 +3,8 @@ title: "family_memory_state"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite family_memory_state"
@@ -19,6 +19,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/168_activity_family_membership.sql"
+  - "src/learnloop/field/memory.py"
   - "src/learnloop/substrate/family_memory.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:

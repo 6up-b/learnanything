@@ -3,8 +3,8 @@ title: "scheduler_offer_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_offer_receipts"
@@ -21,7 +21,6 @@ source_paths:
   - "migrations/161_collection_contract.sql"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
-  - "src/learnloop/substrate/family_memory_rows.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -85,7 +84,6 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
-- `src/learnloop/substrate/family_memory_rows.py`
 
 ### Direct SQL writers
 

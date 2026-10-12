@@ -3,8 +3,8 @@ title: "activity_observations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "907ab33df349a2d8801d63455d6be1d4ed6b809b"
-source_commit_timestamp: "2026-10-12T00:04:31-04:00"
+source_commit: "4d3e2683f213626e63dc30efdbc3df8353a27af9"
+source_commit_timestamp: "2026-10-12T00:38:18-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_observations"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/065_activity_lineage_substrate.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/substrate/compat/activity_backfill.py"
   - "src/learnloop/substrate/compat/card_outcome_replay.py"
   - "src/learnloop/attempts/calibration_streams.py"
@@ -104,6 +105,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/observation_ledger.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -119,7 +121,6 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop/substrate/compat/card_outcome_replay.py`
 - `src/learnloop/substrate/compat/substrate_cutover.py`
-- `src/learnloop/substrate/family_memory_rows.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
 
 > [!note] Static-reference boundary
