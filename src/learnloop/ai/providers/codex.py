@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
@@ -37,7 +38,12 @@ from learnloop.ai.schemas import (
     describe_wire_validation_error,
 )
 from learnloop.ai.strict_schema import strict_output_schema
-from learnloop.ai.transport import INTERRUPT, STRUCTURED_COMPLETION, StructuredRequest
+from learnloop.ai.transport import (
+    INTERRUPT,
+    READ_ONLY_WORKSPACE,
+    STRUCTURED_COMPLETION,
+    StructuredRequest,
+)
 from learnloop.ai.execution import generation_limit, observed_sdk_turn, output_limit, report_call_usage
 from learnloop.ai.usage import TokenUsageAccounting, UsageMeter, receipt_fields_from_codex_turn, usage_from_codex_turn
 from learnloop.config import AIProviderConfig, CodexConfig
@@ -70,6 +76,17 @@ class SdkCodexClient(TokenUsageAccounting):
         self._active_stop_scheduled = False
         self._interrupt_requested = threading.Event()
         self._deadline_expired = threading.Event()
+        self._last_workspace_activity: list[str] | None = None
+
+    def workspace_activity(self) -> list[str] | None:
+        """What the last read-only-workspace turn reported reading, if anything.
+
+        Best effort: populated only when the SDK's turn result exposes the
+        agent's tool items. ``None`` means the transport reported nothing, which
+        receipts must record as unknown rather than as "opened no files".
+        """
+
+        return list(self._last_workspace_activity) if self._last_workspace_activity is not None else None
 
     def interrupt(self) -> bool:
         """Interrupt this client's active SDK turn without killing the sidecar.
@@ -136,6 +153,7 @@ class SdkCodexClient(TokenUsageAccounting):
                     request.prompt,
                     request.result_model,
                     purpose=request.purpose,
+                    workspace=request.workspace,
                 )
         finally:
             if previous_timeout is marker:
@@ -149,6 +167,7 @@ class SdkCodexClient(TokenUsageAccounting):
             "complete",
             "structured",
             INTERRUPT,
+            READ_ONLY_WORKSPACE,
         }
 
     def _complete_validated(
@@ -157,6 +176,7 @@ class SdkCodexClient(TokenUsageAccounting):
         model_type: type[BaseModel],
         *,
         purpose: str,
+        workspace: Path | None = None,
     ) -> Any:
         """Run one structured turn and repair malformed/schema-invalid JSON once.
 
@@ -177,7 +197,12 @@ class SdkCodexClient(TokenUsageAccounting):
             result = None
             try:
                 with generation_limit(remaining):
-                    result = self._run_structured(turn_prompt, output_schema, purpose=turn_purpose)
+                    if workspace is None:
+                        result = self._run_structured(turn_prompt, output_schema, purpose=turn_purpose)
+                    else:
+                        result = self._run_structured(
+                            turn_prompt, output_schema, purpose=turn_purpose, workspace=workspace,
+                        )
                 return result
             finally:
                 if remaining is not None:
@@ -243,7 +268,18 @@ class SdkCodexClient(TokenUsageAccounting):
         *,
         purpose: str,
         timeout_seconds: float | None = None,
+        workspace: Path | None = None,
     ) -> str:
+        """Run one SDK turn.
+
+        With ``workspace`` the app server, thread and turn all start in that
+        directory, which REPLACES ``vault_root`` (Slice 1 §5.6): the model can
+        read the prepared snapshot and nothing of the live vault. The thread
+        runs in Codex's read-only sandbox (no writes, no network) with
+        approvals off, and the turn fails closed when the installed SDK cannot
+        express that sandbox.
+        """
+
         budget = output_limit()
         if budget is not None:
             # The app-server protocol has no hard per-turn output-token cap.
@@ -262,6 +298,12 @@ class SdkCodexClient(TokenUsageAccounting):
         )
         if self._interrupt_requested.is_set():
             raise CodexInterrupted("Codex turn interrupted by the learner.")
+        if workspace is not None:
+            workspace = Path(workspace).resolve()
+            if not workspace.is_dir():
+                raise CodexUnavailable(f"Read-only workspace {workspace} is not a directory.")
+            self._last_workspace_activity = None
+        cwd = str(workspace) if workspace is not None else str(self.vault_root)
         _ensure_sdk_importable(self.sdk_python_path)
         try:
             from openai_codex import Codex
@@ -279,7 +321,7 @@ class SdkCodexClient(TokenUsageAccounting):
             app_config = SdkAppConfig(
                 codex_bin=_resolved_sdk_codex_bin(self.config.sdk_codex_bin),
                 launch_args_override=launch_args,
-                cwd=str(self.vault_root),
+                cwd=cwd,
                 client_name="learnloop",
                 client_title="LearnLoop",
             )
@@ -289,7 +331,8 @@ class SdkCodexClient(TokenUsageAccounting):
                 provider_type=self.provider_type,
                 purpose=purpose,
                 model=self.config.model,
-                cwd=str(self.vault_root),
+                cwd=cwd,
+                read_only_workspace=workspace is not None,
                 service_name=f"learnloop:{purpose}",
                 reasoning_effort=self.config.reasoning_effort,
                 reasoning_summary=self.config.reasoning_summary,
@@ -298,14 +341,17 @@ class SdkCodexClient(TokenUsageAccounting):
                 output_schema=output_schema,
             )
             with Codex(config=app_config) as codex:
-                thread = codex.thread_start(
-                    cwd=str(self.vault_root),
-                    model=self.config.model or None,
-                    service_name=f"learnloop:{purpose}",
-                )
+                thread_options: dict[str, Any] = {
+                    "cwd": cwd,
+                    "model": self.config.model or None,
+                    "service_name": f"learnloop:{purpose}",
+                }
+                if workspace is not None:
+                    thread_options.update(_read_only_sandbox_options(codex.thread_start))
+                thread = codex.thread_start(**thread_options)
                 turn = thread.turn(
                     prompt,
-                    cwd=str(self.vault_root),
+                    cwd=cwd,
                     model=self.config.model or None,
                     effort=effort,
                     output_schema=output_schema,
@@ -358,7 +404,7 @@ class SdkCodexClient(TokenUsageAccounting):
                 provider_type=self.provider_type,
                 purpose=purpose,
                 model=self.config.model,
-                cwd=str(self.vault_root),
+                cwd=cwd,
                 error=str(exc),
             )
             raise CodexUnavailable(str(exc)) from exc
@@ -369,6 +415,8 @@ class SdkCodexClient(TokenUsageAccounting):
         # that only counts clean completions understates every ratio built on it.
         report_call_usage(receipt_fields_from_codex_turn(result))
         self.record_token_usage(*usage_from_codex_turn(result))
+        if workspace is not None:
+            self._last_workspace_activity = _workspace_activity(result)
 
         if self._deadline_expired.is_set():
             raise CodexTurnTimeout(
@@ -384,13 +432,86 @@ class SdkCodexClient(TokenUsageAccounting):
             provider_type=self.provider_type,
             purpose=purpose,
             model=self.config.model,
-            cwd=str(self.vault_root),
+            cwd=cwd,
             response=final_response,
             response_length=len(final_response) if final_response is not None else None,
         )
         if final_response is None:
             raise CodexUnavailable("Codex SDK turn completed without a final response.")
         return final_response.strip()
+
+def _enum_value(enum_type: Any, value: str, *names: str) -> Any:
+    """The SDK enum member for ``value``, or the protocol string itself."""
+
+    if enum_type is None:
+        return value
+    try:
+        return enum_type(value)
+    except Exception:  # noqa: BLE001 - not every SDK enum is value-constructible
+        pass
+    for name in names:
+        member = getattr(enum_type, name, None)
+        if member is not None:
+            return member
+    return value
+
+
+def _read_only_sandbox_options(thread_start: Any) -> dict[str, Any]:
+    """Thread-start options for Codex's read-only sandbox with approvals off.
+
+    The app-server protocol names the thread sandbox ``read-only`` and the
+    approval policy ``never``; the Python SDK takes them as ``sandbox`` and
+    ``approval_policy``. An SDK whose ``thread_start`` cannot accept a
+    sandbox is refused rather than run unsandboxed: the snapshot mode's
+    guarantee is that the diagnoser reads only the snapshot.
+    """
+
+    try:
+        parameters = inspect.signature(thread_start).parameters
+    except (TypeError, ValueError):
+        parameters = None
+    accepts_any = parameters is None or any(
+        parameter.kind is inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+    if not accepts_any and "sandbox" not in (parameters or {}):
+        raise CodexUnavailable(
+            "The installed Codex SDK cannot start a read-only sandbox; "
+            "the read-only workspace capability is unavailable."
+        )
+    try:
+        from openai_codex import types as sdk_types
+    except ImportError:  # pragma: no cover - the SDK import succeeded above
+        sdk_types = None
+    options: dict[str, Any] = {
+        "sandbox": _enum_value(
+            getattr(sdk_types, "SandboxMode", None), "read-only", "read_only", "READ_ONLY",
+        ),
+    }
+    if accepts_any or "approval_policy" in (parameters or {}):
+        approval_type = getattr(sdk_types, "AskForApproval", None) or getattr(
+            sdk_types, "ApprovalPolicy", None
+        )
+        options["approval_policy"] = _enum_value(approval_type, "never", "never", "NEVER")
+    return options
+
+
+def _workspace_activity(result: Any) -> list[str] | None:
+    """Commands or paths the agent's tool items reported, when exposed."""
+
+    items = getattr(result, "items", None)
+    if not isinstance(items, (list, tuple)):
+        return None
+    activity: list[str] = []
+    for item in items:
+        for key in ("command", "path", "file_path"):
+            value = item.get(key) if isinstance(item, dict) else getattr(item, key, None)
+            if isinstance(value, (list, tuple)):
+                value = " ".join(str(part) for part in value)
+            if isinstance(value, str) and value.strip():
+                activity.append(value.strip())
+    return activity
+
 
 def _is_structured_json_transport_error(exc: BaseException) -> bool:
     """Whether app-server failed before returning malformed structured output."""

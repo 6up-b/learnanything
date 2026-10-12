@@ -776,8 +776,10 @@ renderer = "manim" # manim | video_model (OpenRouter text-to-video, see [ai.rout
 
 DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # Slice A Phase 1 adds disabled embedding infrastructure and dormant PF
-    # routes only; no scoring, scheduling, projection or serving change.
-    "mvp-0.9": "0664d44e0a278758060466a65307c05a9c8bbaa1546d748ce04f938675df6128",
+    # routes only; Slice 1 M1 adds the unset diagnosis / diagnosis_judge /
+    # diagnosis_generator routes, consumed only by the offline review. No
+    # scoring, scheduling, projection or serving change.
+    "mvp-0.9": "2d38f1a0165babded339f8e31232fc5d3e4265731420bff5a55b4a78ac7a91c3",
 }
 
 

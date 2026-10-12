@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, is_dataclass
+from pathlib import Path
 from typing import Any, Callable, Generic, Mapping, Protocol, TypeVar, cast, runtime_checkable
 
 from pydantic import BaseModel
@@ -20,6 +21,11 @@ MEDIA_TRANSCRIPTION = "media_transcription"
 MEDIA_MARKDOWN = "media_markdown"
 INTERRUPT = "interrupt"
 EMBEDDING = "embedding"
+# Read-only file access to a prepared directory for the turn (Slice 1 §5.6).
+# The directory REPLACES the transport's default working directory; a
+# transport advertising this capability guarantees the model can read only
+# that directory, cannot write anywhere, and has no network.
+READ_ONLY_WORKSPACE = "read_only_workspace"
 # Text-to-video generation (an async job API, not a chat completion).
 VIDEO_GENERATION = "video_generation"
 
@@ -39,6 +45,9 @@ class StructuredRequest(Generic[WireResult]):
     result_model: type[WireResult]
     timeout_seconds: float | None = None
     output_budget_tokens: int | None = None
+    #: A directory the model may read (never write) during the turn. Only a
+    #: transport that declares :data:`READ_ONLY_WORKSPACE` may receive one.
+    workspace: Path | None = None
 
     @property
     def model_type(self) -> type[WireResult]:
@@ -128,8 +137,14 @@ def execute_structured_operation(
     timeout_seconds: float | None = None,
     legacy_capability: str | None = None,
     legacy_context: object | None = None,
+    workspace: Path | None = None,
 ) -> WireResult:
     """Execute one feature-owned structured operation.
+
+    ``workspace`` asks for read-only file access to one prepared directory.
+    It is refused, before any request, unless the transport declares
+    :data:`READ_ONLY_WORKSPACE`: silently dropping it would run a
+    file-reading prompt with no files, and widening it is never an option.
 
     SDK and chat providers expose one capability and one method:
     :data:`STRUCTURED_COMPLETION` and :meth:`StructuredTransport.complete`.
@@ -140,12 +155,19 @@ def execute_structured_operation(
     feature.
     """
 
+    if workspace is not None and not transport.supports(READ_ONLY_WORKSPACE):
+        provider = getattr(transport, "provider_name", type(transport).__name__)
+        raise AIProviderUnavailable(
+            f"AI provider {provider!r} does not support a read-only workspace "
+            f"for structured operation {purpose!r}"
+        )
     request = StructuredRequest(
         purpose=purpose,
         prompt=prompt,
         result_model=result_model,
         timeout_seconds=timeout_seconds,
         output_budget_tokens=output_limit(),
+        workspace=Path(workspace) if workspace is not None else None,
     )
     with model_call(transport, purpose=purpose, prompt=prompt, schema=result_model.model_json_schema(), budget=request.output_budget_tokens) as metadata:
         result = _execute_request(transport, request, legacy_context, legacy_capability)
@@ -227,6 +249,7 @@ __all__ = [
     "MEDIA_MARKDOWN",
     "MEDIA_TRANSCRIPTION",
     "OperationClient",
+    "READ_ONLY_WORKSPACE",
     "STRUCTURED_COMPLETION",
     "StructuredRequest",
     "StructuredTransport",
