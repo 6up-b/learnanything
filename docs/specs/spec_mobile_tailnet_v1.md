@@ -1,6 +1,14 @@
 # Phone capture and a small mobile client over the tailnet (v1)
 
-**Status:** revision 2, for owner review (2026-10-11). Nothing here is built.
+**Status:** revision 3, for owner review (2026-10-11). Nothing here is built.
+
+**Revision 3 (2026-10-11, owner): sized for a single-user tailnet.** The tailnet is the owner's alone: `carson` (this desktop), `iphone-13-pro-max`, `mimas` and `minty`, all under one login. The owner wants general phone → desktop access over it (SSH and other services), so reachability is a tailnet matter, not a LearnLoop one. The changes:
+- **No LearnLoop-specific tailnet policy.** The phone-only grant, the "remove broad rules" step and the policy tests are gone (D12). Every device on the tailnet is the owner's.
+- **Pairing is one command.** `learnloop-mobile token create` prints a device token once. There is no exchange endpoint, no manual code, no attempt limits and no auto-revoke (§4.2).
+- **One token scope.** The capture/app split is gone (§4.3, D16).
+- **iOS is decided** (D1). The iPhone is the phone. The Android share target is dropped; the Shortcut is the capture path.
+- **`doctor`** checks Serve, Funnel and loopback, and no longer asks the owner to confirm a policy (§4.7).
+- **Stale confirm-step text** from revision 2 is fixed (§4.4, §11).
 
 **Revision 2 (2026-10-11)** folds in an adversarial review (Claude, plus a Codex reviewer) that checked every code citation. The main changes:
 - **M1 is now a narrow capture service.** It no longer loads a `SidecarContext`, because loading one is never passive (§3.1).
@@ -9,12 +17,13 @@
 - **Session handoff is atomic.** It uses a compare-and-swap on the open session plus an ownership check on session-scoped writes (§6.5).
 - **Transcribed answers bind a specific revision** to each grading, and the server derives the graded text from it (§6.6). *Revised 2026-10-11 (owner, frictionless defaults):* there is **no confirm step before grading**. The answer is graded immediately on the transcript, the transcript is shown beside the grade, and one tap corrects a misread and regrades.
 - **HTTP stack decided (D3):** Starlette + uvicorn + `python-multipart` in a `mobile` extra (§3.1).
-- **An explicit HTTP↔JSON-RPC adapter** (§6.2), an endpoint authentication matrix (§6.1), hardened pairing (§4.2), token scopes (§4.3) and browser/HTTP limits (§4.6).
+- **An explicit HTTP↔JSON-RPC adapter** (§6.2), an endpoint authentication matrix (§6.1), hardened pairing (§4.2), token scopes (§4.3) and browser/HTTP limits (§4.6). *Pairing and scopes were simplified away in revision 3.*
 - **Prerequisite changes to shared code** are now listed and gated (§3.3, §9). They cover vault-state sync, the abandoned-synthesis sweep, request origin, device eligibility, and desktop freshness.
 - **Citation corrections.** MathLive is not a dependency. The originals store lives in `ingest/originals.py`. Attempts do not bump `queue_revision`. Tutor promotion can route to review.
 
 **Owner framing (2026-10-11):**
 - The phone and this computer are on the same tailnet. Use that instead of public exposure or a cloud relay.
+- The tailnet is single-user, and the phone has general access to the desktop over it anyway (revision 3). LearnLoop does not narrow tailnet access.
 - Learner text going to model providers is acceptable. The LearnLoop server itself must be reachable **only inside the tailnet**.
 - Phone capture comes first. It then grows into a small mobile LearnLoop: sessions, practice Q&A with feedback, and tutor Q&A. **No reader in this version.**
 
@@ -62,8 +71,8 @@ Every decision and every durable write happens on the desktop, in the same Pytho
 
 **In scope:**
 - **P1.** A headless **LearnLoop mobile host** (`learnloop-mobile serve`). It serves HTTP on `127.0.0.1` behind `tailscale serve`, independently of whether the desktop app is open. In M1 it is a narrow capture service that attaches to the database without migrating and runs no sidecar machinery. From M2 it adds a practice runtime in *secondary attach* mode (§3.1).
-- **P2.** Device pairing, scoped per-device tokens, Tailscale identity checks, and a default-deny RPC allowlist with per-method parameter constraints (§4).
-- **P3.** A capture endpoint and a durable inbox (§6.1, §6.7), fed by an iOS Shortcut or Android share target. The desktop can see the inbox and route its entries.
+- **P2.** Per-device tokens created from the CLI, a Tailscale identity check, and a default-deny RPC allowlist with per-method parameter constraints (§4).
+- **P3.** A capture endpoint and a durable inbox (§6.1, §6.7), fed by an iOS Shortcut. The desktop can see the inbox and route its entries.
 - **P4.** A mobile web client (PWA) for Today, practice, feedback and tutor Q&A (§3.4, §5).
 - **P5.** Answering on a phone:
   - by typing (Markdown plus LaTeX; M2a);
@@ -80,6 +89,8 @@ Every decision and every durable write happens on the desktop, in the same Pytho
 - **Audio capture in M1.** No manual route exists for it; audio arrives with voice answers in M3.
 - Offline practice with immediate feedback (§7).
 - Tailscale Funnel or any public exposure.
+- Tailnet access policy. The tailnet is the owner's alone, and narrowing it is not LearnLoop's job (D12).
+- Android, including the PWA share target (D1).
 - Multi-user use, and more than one phone in a single session at a time.
 - A native app store build. Tauri 2 mobile is an option, not v1 (§5).
 
@@ -91,16 +102,15 @@ Inherited unchanged: plan invariants, the authority model of `spec_causal_attrib
 
 - **T1. One source of truth.** The phone never writes learner state locally beyond what §0 lists. Every durable write goes through shared domain code on the desktop:
   - registered sidecar handlers (`src/learnloop_sidecar/registry.py`, `METHOD_REGISTRY`) for RPC;
-  - the capture module (`src/learnloop/capture/`, new) for the non-RPC capture, pairing and media endpoints.
+  - the capture module (`src/learnloop/capture/`, new) for the non-RPC capture and media endpoints.
 
   The host never writes SQL of its own beyond the mobile tables in §8.
 - **T2. Tailnet-only, honestly bounded.**
   - The host binds loopback only.
   - Exposure is through Serve, never Funnel.
-  - The tailnet policy grants the port only to the phone (§4.7).
-  - Each API request carries a valid scoped device token, and Serve's identity header must name the owner.
+  - Each API request carries a valid device token, and Serve's identity header must name the owner.
 
-  **Trust boundary:** the bearer token is the credential on the loopback port. Any process running on the desktop can forge identity headers to `127.0.0.1`. Code running as the owner's desktop user can read the vault directly, and nothing in this spec defends against that. The layers protect against tailnet-side and network-side callers, not against local compromise (§4.1).
+  **Trust boundary:** the tailnet is single-user, so every device on it is the owner's. The token mainly identifies *which* device is calling, for session ownership and provenance (§6.5, §6.8). It also keeps the API closed if a node is ever shared with someone else. Code running as the owner's desktop user can read the vault directly, and nothing here defends against that (§4.1).
 - **T3. Default-deny RPC.** The phone can call only methods on an explicit allowlist that lives in code, with per-method parameter constraints. A newly registered sidecar method is unreachable from the phone until it is added there (§4.5).
 - **T4. The grader grades exactly the bound transcript revision.** A photo or voice answer is transcribed and graded immediately on that transcript (revision 0). If the learner corrects a misread afterwards, the correction becomes a new revision with a new grading epoch through the existing regrade path. Every grade names the revision it graded (§6.6).
 - **T5. No new evidence semantics.** A phone attempt is an ordinary attempt. Its surface goes in the existing `entry_surface` field, and its modality is recorded through the transcription binding (§6.8). Neither weights evidence in this spec.
@@ -116,15 +126,15 @@ Inherited unchanged: plan invariants, the authority model of `spec_causal_attrib
 ## 3. Architecture
 
 ```
-phone (Shortcut / share target / PWA)
+phone (iOS Shortcut / PWA)
    │  HTTPS  https://<desktop>.<tailnet>.ts.net/        (tailnet only; WireGuard)
    ▼
 tailscaled on the desktop ── tailscale serve --bg --https=443 http://127.0.0.1:<port>
    │  adds Tailscale-User-Login / -Name / -Profile-Pic; strips client-sent copies
    ▼
 learnloop-mobile serve  (127.0.0.1:<port>; systemd --user service; package learnloop_mobile)
-   ├─ edge: Host/Origin check → identity check → token + scope check → limits   (§4)
-   ├─ /pair, /app/*          identity-gated, no bearer (bootstrap only)
+   ├─ edge: Host/Origin check → identity check → token check → limits   (§4)
+   ├─ /app/*                 identity-gated, no bearer (static shell only)
    ├─ /api/v1/capture …      → learnloop.capture (capture_inbox, originals store)   [M1]
    ├─ /api/v1/…/status       → read-only Repository.attach                           [M1+]
    ├─ /rpc  {method, params} → adapter (§6.2) → RPC worker   (SidecarContext #1, secondary)
@@ -138,7 +148,7 @@ desktop app (Tauri) ── its own sidecar process (stdio JSON-RPC), the primary
 ### 3.1 The host process
 
 **Packaging.**
-- The host lives in a new package, `src/learnloop_mobile`, with its own console script, `learnloop-mobile`. Its subcommands are `serve`, `pair`, `devices`, `revoke`, `inbox` and `doctor`.
+- The host lives in a new package, `src/learnloop_mobile`, with its own console script, `learnloop-mobile`. Its subcommands are `serve`, `token` (`create`, `list`, `revoke`), `inbox` and `doctor`.
 - `learnloop.cli` may not import `learnloop_sidecar`. The `entry-points-are-independent` import-linter contract forbids it (`pyproject.toml:123-129`).
 - `learnloop_mobile` is added to that contract as another independent entry point. It may import `learnloop` and `learnloop_sidecar`; nothing imports it.
 - Inbox listing for the desktop user is also exposed as `learnloop inbox list`, through `learnloop.capture`.
@@ -199,10 +209,10 @@ Verified against Tailscale documentation on 2026-10-11; see the References.
 - **Persistent configuration.** `tailscale serve --bg …` "runs persistently in the background until you disable it" and resumes after reboot or `tailscale down`/`up`. Use `tailscale serve status [--json]` to check it, and `tailscale serve --https=443 off` or `tailscale serve reset` to remove it. The proxy note says "only `http://127.0.0.1` is supported for proxies." [Serve CLI]
 - **Identity headers.** Serve adds `Tailscale-User-Login`, `Tailscale-User-Name` and `Tailscale-User-Profile-Pic` to proxied requests and strips client-sent copies. The headers are "not populated for traffic originating from tagged devices" and are absent for Funnel traffic. Serve's documentation recommends that the backend listen only on localhost. That *limits* header forgery to local processes; it does not prevent it. [Serve]
   - **Consequence:** the phone must stay a **user-owned (untagged)** device. The desktop *may* be tagged, because the headers describe the source.
-  - **Consequence:** the identity check is a tailnet-side filter, not a credential. On the loopback port the bearer token is the credential (T2).
-- **Funnel stays off.** Funnel "is disabled by default" and needs a `funnel` node attribute in the policy file. A port's visibility follows the most recent command: if that was `serve`, "the port will be completely private." [Funnel]
-- **Access control is a union.** ACL and grant rules apply to Serve. Grants are deny-by-default, but matching rules *combine*: adding a narrow grant does not revoke an existing broad one, and newly created tailnets typically start with an allow-all policy. [Serve; Grants; default policy]
-- **Peer identity, second source.** `tailscale whois --json <ip[:port]>` returns the machine (name, tags) and user for a tailnet IP. `doctor` uses it to show the owner's devices. The host never sees the phone's tailnet IP, because Serve proxies from loopback. Tokens are therefore application credentials, not device-bound ones.
+  - **Consequence:** in a single-user tailnet every device carries the owner's login, so the identity check only matters if a node is shared with another user. It is one string comparison and stays. The token identifies the device (T2).
+- **Funnel stays off.** Funnel "is disabled by default" and needs a `funnel` node attribute in the policy file. A port's visibility follows the most recent command: if that was `serve`, "the port will be completely private." Funnel traffic also carries no identity headers, so the host would reject it anyway. [Funnel]
+- **Access control.** ACL and grant rules apply to Serve. The owner's tailnet keeps its existing policy: the phone has general access to the desktop, and LearnLoop does not narrow it (D12). [Serve; Grants]
+- **The host never sees the phone's tailnet IP,** because Serve proxies from loopback. Tokens are therefore application credentials, not device-bound ones.
 - **iOS.** VPN On Demand can bring Tailscale up automatically when iOS connects to a `*.ts.net` hostname, so a share-sheet Shortcut works without opening the Tailscale app first. Hostname matching requires the interface rule to be **Do Nothing**. [VPN On Demand]
 - **Sleep and offline (general networking, not doc-verified).** A sleeping or offline desktop is unreachable, because the tailnet has no store-and-forward. §7 designs for this.
 
@@ -259,7 +269,7 @@ Verified against Tailscale documentation on 2026-10-11; see the References.
 The host serves its build at `/app/`.
 
 **Math input, accurately.** `render/MathLiveEditor.tsx` is a KaTeX-rendered `contentEditable` Markdown/LaTeX editor. It does not import MathLive, and MathLive is not a dependency.
-- M2a ships that editor with plain LaTeX entry and a small symbol bar of common commands, tested on iOS Safari and Android Chrome for touch and IME behaviour.
+- M2a ships that editor with plain LaTeX entry and a small symbol bar of common commands, tested on iOS Safari for touch and IME behaviour.
 - A real math keyboard (MathLive or similar) is a later, separately budgeted item. Photo answers (M2b) are the main route for symbol-heavy work.
 
 **Remote resources.** On mobile, `MarkdownMath` renders remote images as links, not `<img>`, to match the CSP in §4.6.
@@ -272,45 +282,35 @@ The host serves its build at `/app/`.
 
 | Layer | Stops | Does not stop |
 |---|---|---|
-| Tailnet grant to the phone only, with overlapping broad rules removed (§4.7) | Other tailnet users or devices reaching :443 | Anything if a broad rule still exists; grants are a union |
+| Tailnet membership (the owner's devices only) | Anyone not on the owner's tailnet | The owner's other devices; that is intended |
 | Serve only, never Funnel; `doctor` checks `tailscale serve status --json` | Public internet exposure | — |
-| Host binds `127.0.0.1` only and refuses any other address (G1) | LAN or Wi-Fi exposure; off-box header forgery | Local processes |
+| Host binds `127.0.0.1` only and refuses any other address (G1) | LAN or Wi-Fi exposure | Local processes |
 | `Host` must equal the configured `<desktop>.<tailnet>.ts.net`; a present `Origin` must be the same origin | DNS-rebinding pages in a desktop browser; cross-origin script | Native local clients that set the header |
-| `Tailscale-User-Login` must equal `owner_login` (always required) | Shared-in users; a mistakenly broad grant | Local processes, which can forge it |
-| Scoped per-device bearer token (§4.3), checked against the database on each request | Local processes without the token; a stolen URL; capture tokens reaching practice RPC | A local process that reads the token from the phone or the database (hashes only) |
-| Allowlist with parameter constraints (§4.5); body, upload, rate and admission limits (§4.6) | A paired-but-compromised phone reaching settings, keys, arbitrary files or unbounded work | Misuse of allowed methods within their constraints |
+| `Tailscale-User-Login` must equal `owner_login` (always required) | Users a node is shared with | Local processes, which can forge it |
+| Per-device bearer token (§4.2), checked against the database on each request | Callers without a token; identifies the device for sessions and provenance | A local process that reads the token from the phone or the database (hashes only) |
+| Allowlist with parameter constraints (§4.5); body, upload and admission limits (§4.6) | A buggy or compromised client reaching settings, keys, arbitrary files or unbounded work | Misuse of allowed methods within their constraints |
 
-The `require_tailscale_identity` switch from revision 1 is removed. The identity check is always on, and tests inject the header with a fake.
+The identity check is always on, and tests inject the header with a fake.
 
-### 4.2 Pairing
+### 4.2 Device tokens
 
-1. **Start on the desktop.** `learnloop-mobile pair --label "phone" --scope app|capture` creates a pairing record, which expires after 5 minutes. It prints two things:
-   - **A QR code** for `https://<desktop>.<tailnet>.ts.net/pair#s=<secret>`. The secret is 256-bit and base64url-encoded. It sits in the URL **fragment**, so it never reaches the server's request line, access logs or `Referer`.
-   - **A manual code** of 10 Crockford base32 characters (about 50 bits), for when scanning isn't possible.
-2. **Open the pairing page.** `GET /pair` is a static page. It is identity-gated (§6.1), consumes nothing, and needs no bearer token. Its script reads the fragment, or asks for the manual code, and then posts.
-3. **Exchange.** `POST /pair {secret | code, device_label}` requires the identity header. In **one transaction**, it checks the record (unexpired, unconsumed, and under its attempt limit), marks it consumed, creates the `mobile_devices` row, and stores the token **hash**. It then returns `{device_id, scope, token}` once.
-   - Each pairing record allows 5 failed attempts.
-   - Failed exchanges across all records are limited to 20 per 10 minutes. Beyond that, pairing is locked until the owner runs `pair` again.
-4. **Store the token.**
-   - The PWA keeps it in IndexedDB, so the service worker can read it for share-target uploads.
-   - A capture-scope token can be copied from the pairing page into the iOS Shortcut's setup prompt. It is entered after installing the Shortcut and never embedded in a Shortcut file that might be shared.
-5. **Lost response.** If the phone never receives the token, the owner pairs again. A device that has not been seen 24 hours after creation is revoked automatically, and `devices` lists it until then.
-6. **Revoke.** `learnloop-mobile devices` lists devices with their scope and last-seen time. `learnloop-mobile revoke <id>` takes effect on the next request (no cache longer than 5 s). A lost phone is handled by revoking its token *and* removing the device from the tailnet. Revocation cannot erase data already cached on the phone (§4.4).
+There is no pairing exchange. The tailnet is the owner's alone, so issuing a token is a local CLI step:
+
+1. **Create.** `learnloop-mobile token create --label "iphone"` creates a `mobile_devices` row, stores the token's **hash**, and prints the token once. The token is 256-bit and base64url-encoded. It also prints a QR code for `https://<desktop>.<tailnet>.ts.net/app/#token=<token>`:
+   - The token sits in the URL **fragment**, so it never reaches the server's request line, access logs or `Referer`.
+   - The PWA's first load reads the fragment, stores the token in IndexedDB and clears the fragment with `history.replaceState`.
+2. **Shortcut.** The same token is pasted into the iOS Shortcut's setup prompt after installing it. It is never embedded in a Shortcut file that might be shared. The PWA and the Shortcut may share one token or each get their own; they are the same device either way.
+3. **List and revoke.** `learnloop-mobile token list` shows each device's label and last-seen time. `learnloop-mobile token revoke <id>` takes effect on the next request (no cache longer than 5 s). A lost phone is handled by revoking its token *and* removing the device from the tailnet. Revocation cannot erase data already cached on the phone (§4.4).
 
 ### 4.3 Token scopes
 
-| Scope | Can reach | Issued to |
-|---|---|---|
-| `capture` | `POST /api/v1/capture`, `GET /api/v1/capture/{id}` | The iOS Shortcut, or an Android share-to-HTTP app |
-| `app` | Everything in §6.1 that needs a token, including capture | The PWA |
-
-A Shortcut token is a plaintext secret that is copied along with the Shortcut's data. That is why it gets the narrow scope.
+Removed in revision 3. Every token can reach every token-gated endpoint in §6.1. The allowlist (§4.5) bounds what any token can do.
 
 ### 4.4 What leaves the machine, and what stays on the phone
 
-**Over the tailnet to the phone (WireGuard-encrypted):** item prompts, feedback, tutor answers, the cached session, and the media of the answer being confirmed. There is no bulk export to the phone.
+**Over the tailnet to the phone (WireGuard-encrypted):** item prompts, feedback, tutor answers, the cached session, and the media of a photo or voice answer shown beside its grade. There is no bulk export to the phone.
 
-**Stays on the phone after revocation:** the token until the client next gets a 401, the outbox (the learner's own unsent captures), and the cached session snapshot. On a 401 the PWA deletes the token and the session cache, keeps the outbox, and shows "re-pair to send N captures". Outbox ids are globally unique, so sending them after re-pairing is safe (§7).
+**Stays on the phone after revocation:** the token until the client next gets a 401, the outbox (the learner's own unsent captures), and the cached session snapshot. On a 401 the PWA deletes the token and the session cache, keeps the outbox, and shows "scan a new token to send N captures". Outbox ids are globally unique, so sending them under a new token is safe (§7).
 
 **To model providers, as on the desktop and accepted by the owner:**
 - capture text;
@@ -319,7 +319,7 @@ A Shortcut token is a plaintext secret that is copied along with the Shortcut's 
 
 **Sanitization before anything is stored or sent (§6.7):**
 - *Images:* the server decodes them with Pillow, which is already installed through manim and is now declared directly, with a decoded-size limit of 40 MP. It applies the EXIF orientation, re-encodes to JPEG or PNG with **all** metadata dropped (EXIF, XMP, ICC beyond sRGB, comments), and hashes the sanitized bytes server-side.
-  - Accepted inputs: JPEG, PNG, WebP. HEIC is rejected with 415 unless D14 adds `pillow-heif`. The iOS Shortcut converts to JPEG before upload, and the PWA re-encodes through a canvas.
+  - Accepted inputs: JPEG, PNG, WebP. HEIC is rejected with 415 unless D14 adds `pillow-heif`. The iOS Shortcut converts to JPEG before upload, and the PWA re-encodes through a canvas. Because the phone is an iPhone, rejecting HEIC depends on those two conversions never being skipped.
 - *Audio (M3):* the server remuxes it with PyAV (already installed through manim; declared directly), drops container metadata, and enforces at most 10 minutes. Accepted inputs: M4A/AAC, MP3, WAV.
 
 ### 4.5 RPC allowlist
@@ -359,10 +359,10 @@ A test enumerates the registry so this list cannot drift (G3). A method-name all
 
 ### 4.6 Browser and HTTP hardening
 
-- **Authentication order.** Host, then identity, then token and scope are checked from the headers **before** any body is read. Expensive work is admitted only after that.
-- **CORS and Origin.** The host never emits CORS headers. A request carrying an `Origin` that is not the host's own origin gets 403. Requests without `Origin` (Shortcuts, share-to-HTTP apps) are accepted only with a valid token. API authentication is bearer-only; there are no cookies, so CSRF does not apply.
-- **CSP on `/app/` and `/pair`:** `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`. `style-src` allows inline styles because KaTeX needs them.
-- **Caching.** API and RPC responses send `Cache-Control: no-store`. The service worker caches only the app shell and never `/api`, `/rpc` or `/pair`.
+- **Authentication order.** Host, then identity, then token are checked from the headers **before** any body is read. Expensive work is admitted only after that.
+- **CORS and Origin.** The host never emits CORS headers. A request carrying an `Origin` that is not the host's own origin gets 403. Requests without `Origin` (the Shortcut) are accepted only with a valid token. API authentication is bearer-only; there are no cookies, so CSRF does not apply.
+- **CSP on `/app/`:** `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'`. `style-src` allows inline styles because KaTeX needs them.
+- **Caching.** API and RPC responses send `Cache-Control: no-store`. The service worker caches only the app shell and never `/api` or `/rpc`.
 - **Limits:**
   - headers ≤ 16 KB;
   - JSON bodies ≤ 256 KB;
@@ -370,11 +370,11 @@ A test enumerates the registry so this list cannot drift (G3). A method-name all
   - media ≤ `max_upload_mb` (default 20), counted while streaming whether or not `Content-Length` is sent;
   - 60 s body read deadline;
   - multipart: exactly one file part plus at most 10 fields;
-  - responses 413, 415, 429 (with `Retry-After`) and 503 (`host_busy`, retryable).
-- **Rate limits.** 120 requests per minute per token overall, and 30 per minute for capture. Pairing is limited as in §4.2.
+  - responses 413, 415 and 503 (`host_busy`, retryable).
+- **No per-token rate limits** (revision 3). Every client is the owner's, and admission below already bounds work.
 - **Admission.** The RPC worker queue holds at most 16 requests and the job queue at most 8; beyond that the host returns 503 `host_busy`.
 - **Static serving.** Only from the packaged app directory. No directory listing, no symlinks resolved outside it, and never a fallback to vault paths.
-- **Logging.** `mobile_request_log` records the endpoint or method, status and duration, never payloads, tokens or pairing secrets. Polling endpoints are not logged. Rows older than 90 days are pruned by the host.
+- **Logging.** `mobile_request_log` records the endpoint or method, status and duration, never payloads or tokens. Polling endpoints are not logged. Rows older than 90 days are pruned by the host.
 
 ### 4.7 `learnloop-mobile doctor`
 
@@ -387,11 +387,9 @@ Run by the owner; it reads local state only. It reports each check as **verified
   - the configured vault exists;
   - the `mobile.env` mode is 0600;
   - grading readiness under the **unit's** environment: doctor reads `EnvironmentFile` and runs the same readiness check as `ready_grading_provider`.
-- **Listed:** paired devices with scope and last-seen time; the owner's tailnet devices from `tailscale status --json` and `whois`, with the phone expected to be untagged.
-- **Owner must confirm: the effective tailnet policy.** LearnLoop never edits the policy and cannot verify it locally. `doctor` prints:
-  - a grant whose `src` is a host alias for the phone's tailnet IP (keeping the phone untagged), whose `dst` is the desktop, and with `"ip": ["tcp:443"]`;
-  - a warning to remove or narrow overlapping broad rules, including the default allow-all;
-  - policy-file tests asserting that the phone is accepted and another of the owner's devices is denied on `<desktop>:443`.
+- **Listed:** devices with their token label and last-seen time.
+- **Not checked:** the tailnet policy. The tailnet is single-user and the phone has general access by design (D12).
+- **Warned:** `tailscale status` health warnings, such as broken MagicDNS on the desktop. These do not stop the phone reaching the host, but they confuse debugging from the desktop.
 
 ---
 
@@ -399,16 +397,16 @@ Run by the owner; it reads local state only. It reports each check as **verified
 
 | Option | Capture friction | Daily-loop UX | Build cost | Platform notes |
 |---|---|---|---|---|
-| **iOS Shortcut / Android share action posting to `/api/v1/capture`** | Lowest: share sheet → "LearnLoop" → done | None | Very low: a Shortcut file plus docs | iOS: a Share Sheet Shortcut that runs "Convert Image" to JPEG, then "Get Contents of URL" (POST, bearer header from the setup prompt). Android: a share-to-HTTP app, or the PWA share target below |
-| **PWA served by the host** | Android: native share target via the manifest `share_target`, received by the service worker (§6.1). iOS: no share target (WebKit bug 194593 still open; listed unsupported) | Good: installable, offline outbox, LaTeX input, camera and microphone through the browser | Moderate: the `apps/learnloop-mobile` screens | Service workers need HTTPS, which Serve provides. On iOS the outbox is durable only once the app is installed to the home screen, because Safari evicts storage of uninstalled sites after inactivity |
+| **iOS Shortcut posting to `/api/v1/capture`** | Lowest: share sheet → "LearnLoop" → done | None | Very low: a Shortcut file plus docs | iOS: a Share Sheet Shortcut that runs "Convert Image" to JPEG, then "Get Contents of URL" (POST, bearer header from the setup prompt) |
+| **PWA served by the host** | No share target on iOS (WebKit bug 194593 still open; listed unsupported). In-app capture box only | Good: installable, offline outbox, LaTeX input, camera and microphone through the browser | Moderate: the `apps/learnloop-mobile` screens | Service workers need HTTPS, which Serve provides. On iOS the outbox is durable only once the app is installed to the home screen, because Safari evicts storage of uninstalled sites after inactivity |
 | Plain responsive web page | Same as the PWA, minus install and offline | Adequate | Low | No outbox when the desktop is unreachable |
-| Tauri 2 mobile (native) | Native share extension on both platforms | Best | High: signing, store or sideload builds, a second native target | Reconsider only if PWA limits bite: iOS share target, background capture, push |
+| Tauri 2 mobile (native) | Native share extension | Best | High: signing, store or sideload builds, a second native target | Reconsider only if PWA limits bite: iOS share target, background capture, push |
 
 **Recommendation.**
-- **M1 ships the Shortcut / share action only.** It works on both platforms before any app exists, and it is the smallest thing that tests whether phone capture gets used.
-- **M2 adds the PWA.** On Android the PWA becomes the share target too; on iOS the Shortcut remains the capture path.
+- **M1 ships the Shortcut only.** It works before any app exists, and it is the smallest thing that tests whether phone capture gets used.
+- **M2 adds the PWA.** The Shortcut remains the share-sheet capture path, because iOS PWAs cannot be share targets.
 - **Tauri mobile is deferred** (D4).
-- **The phone platform is unknown** (D1). M1 is specified to work on both.
+- **The phone is an iPhone** (D1, decided in revision 3).
 
 ---
 
@@ -416,18 +414,15 @@ Run by the owner; it reads local state only. It reports each check as **verified
 
 ### 6.1 Endpoints and authentication
 
-All are under `https://<desktop>.<tailnet>.ts.net`. **Identity** means the Host check plus `Tailscale-User-Login == owner_login`. **Token(s)** means identity plus a bearer token whose scope is `s`.
+All are under `https://<desktop>.<tailnet>.ts.net`. **Identity** means the Host check plus `Tailscale-User-Login == owner_login`. **Token** means identity plus a valid bearer token (§4.2).
 
 | Method and path | Auth | Milestone | Payload | Response | Idempotency |
 |---|---|---|---|---|---|
 | `GET /healthz` | none | M1 | — | `{ok: true}` (liveness only) | — |
-| `GET /api/v1/status` | Token(capture) | M1 | — | `{vault_loaded, schema_ok, grading_ready, host_version}` | — |
-| `GET /pair` | Identity | M1 | — | static pairing page | Consumes nothing |
-| `POST /pair` | Identity | M1 | `{secret}` or `{code}`, plus `device_label` | `{device_id, scope, token}` (token shown once) | One-time record; atomic consume (§4.2) |
-| `POST /api/v1/capture` | Token(capture) | M1 | JSON `{client_capture_id, kind: text\|url\|image, text?, url?, note?, source_app?, captured_at}`, or multipart with those fields plus one `file` (image) | First receipt `201 {capture_id, status:"received"}`; repeat `200` with the same body | `UNIQUE(client_capture_id)` (a ULID, globally unique). Same key with a different request fingerprint → `409 capture_conflict` |
-| `GET /api/v1/capture/{capture_id}` | Token(capture) | M1 | — | `{status, routed_to?}` | — |
+| `GET /api/v1/status` | Token | M1 | — | `{vault_loaded, schema_ok, grading_ready, host_version}` | — |
+| `POST /api/v1/capture` | Token | M1 | JSON `{client_capture_id, kind: text\|url\|image, text?, url?, note?, source_app?, captured_at}`, or multipart with those fields plus one `file` (image) | First receipt `201 {capture_id, status:"received"}`; repeat `200` with the same body | `UNIQUE(client_capture_id)` (a ULID, globally unique). Same key with a different request fingerprint → `409 capture_conflict` |
+| `GET /api/v1/capture/{capture_id}` | Token | M1 | — | `{status, routed_to?}` | — |
 | `GET /app/*` | Identity | M2 | — | app shell, manifest, service worker (non-sensitive static assets) | — |
-| `POST /app/share` | Identity | M2 | Android share-target form post | Intercepted by the service worker, which writes to the outbox; reaching the server returns 303 → `/app/` | — |
 | `POST /rpc` | Token(app) | M2 | `{method, params, request_id?}` (§6.2) | `200 {ok, result}`, `202 {ok, accepted}`, or a typed error | Per method; long methods by `request_id` (§6.3) |
 | `GET /api/v1/jobs/{job_id}` | Token(app) | M2 | — | `{state, result?, error?}` | — |
 | `GET /api/v1/submissions/{submission_id}` | Token(app) | M2 | — | `{state: accepted\|running\|completed\|failed\|unknown, result?, error?}`; covers desktop submissions through `attempt_submission_receipts` | — |
@@ -437,7 +432,7 @@ All are under `https://<desktop>.<tailnet>.ts.net`. **Identity** means the Host 
 | `GET /api/v1/answer-media/{id}/media` | Token(app) | M2b | — | the sanitized bytes | — |
 | `POST /api/v1/answer-media/{id}/correct` | Token(app) | M2b | `{corrected_md, base_revision}` | `{revision, regrade_job_id}`; `409` if `base_revision` is stale | Compare-and-swap on revision. Allowed after grading; it triggers a regrade (§6.6 R1) |
 
-The service worker and pairing page are identity-gated but have no bearer token, because a first navigation cannot attach one. They contain no vault data. Every endpoint that reads or writes vault data needs a token.
+The app shell and service worker are identity-gated but have no bearer token, because a first navigation cannot attach one. They contain no vault data. Every endpoint that reads or writes vault data needs a token.
 
 ### 6.2 The HTTP↔JSON-RPC adapter
 
@@ -648,17 +643,16 @@ It runs as a leased job, and the phone's `GET /capture/{id}` shows its result. T
 | Response | Outbox action |
 |---|---|
 | Network error, timeout, 5xx, 503, 429 | Retry with backoff |
-| 401 | Stop flushing; show "re-pair to send N captures" |
+| 401 | Stop flushing; show "scan a new token to send N captures" |
 | 403 | Stop flushing; show the reason |
 | 409 `capture_conflict` | Keep the record and flag it for the learner |
 | 413, 415, 422 | Mark it permanently failed, show the reason, and keep it until dismissed |
 
   - Quota errors are surfaced, not swallowed.
-- **Android share target:** the service worker writes the shared form data straight into the outbox and then flushes it, so a share works with the desktop asleep.
 - **iOS Shortcut:** on a non-2xx response or a timeout, it saves `Files/LearnLoop/outbox/<client_capture_id>.json` (the manifest) and, for images, `<client_capture_id>.jpg` beside it, and says so.
   - A second Shortcut, "Flush LearnLoop outbox", re-posts each pair and deletes both files only on 2xx.
-  - On 409 it moves them to `outbox/conflict/`. On 401 it stops and says to re-pair.
-- **Re-pairing** issues a new `device_id`, but captures are unique by `client_capture_id` alone, so a capture already received under the old device is not duplicated.
+  - On 409 it moves them to `outbox/conflict/`. On 401 it stops and says to paste a new token.
+- **A new token** issues a new `device_id`, but captures are unique by `client_capture_id` alone, so a capture already received under the old device is not duplicated.
 
 **Practice requires the desktop online** (D9, recommended). Offline practice would mean either delayed grading, so feedback arrives hours later and loses much of its value for learning, or self-grading, which carries lower authority. Neither is worth building before usage data exists. When the desktop is unreachable, the PWA shows "desktop offline", the capture box, and the outbox count.
 
@@ -682,8 +676,7 @@ M1's tables land in one migration; M2's in a second; M2b's and M3's in their own
 
 | Table | Role | Milestone | Contents |
 |---|---|---|---|
-| `mobile_devices` | WORKFLOW | M1 | `id`, `label`, `scope` (`capture`\|`app`), `token_hash`, `tailscale_login`, `created_at`, `claimed_at`, `last_seen_at`, `revoked_at` |
-| `mobile_pairings` | WORKFLOW | M1 | `id`, `secret_hash`, `code_hash`, `scope`, `label`, `expires_at`, `failed_attempts`, `consumed_at`; pruned after expiry |
+| `mobile_devices` | WORKFLOW | M1 | `id`, `label`, `token_hash`, `created_at`, `last_seen_at`, `revoked_at` |
 | `capture_inbox` | RAW_LEDGER | M1 | `id`, `client_capture_id` (UNIQUE), `device_id`, `kind`, `text`, `url`, `note`, `media_sha256`, `media_mime`, `source_app`, `request_sha256`, `captured_at` (client), `received_at`, `purged_at`. Immutable except purge (§6.7) |
 | `capture_routes` | WORKFLOW | M1 | `capture_id`, `state` (`new`\|`routed`\|`dismissed`\|`processing`\|`failed`), `route`, `result_refs_json`, lease fields for the later processor |
 | `mobile_request_log` | WORKFLOW | M1 | `device_id`, `endpoint` or `method`, `status`, `duration_ms`, `at`; no payloads; polling not logged; 90-day pruning |
@@ -716,9 +709,9 @@ Provider keys for the unit go in `mobile.env` (§3.1).
 
 | Milestone | Build | Owner does | Gate to proceed |
 |---|---|---|---|
-| **M1 — Capture** | `learnloop_mobile` package and script; `mobile` extra (Starlette, uvicorn, `python-multipart`); import-linter entry; capture host (no `SidecarContext`; §3.1); pairing (§4.2) with scopes; `/healthz`, `/api/v1/status`, `/pair`, capture endpoints; `learnloop.capture` (sanitization, inbox, routes); M1 migration; desktop Inbox strip with the routing additions in §6.7; `learnloop inbox list`; iOS Shortcut file (JPEG conversion, setup prompt for the token, outbox and flush) and Android instructions; `doctor`; systemd unit and `mobile.env` | Pairs the phone; applies the printed policy and removes broad rules; captures from the share sheet for ~2 weeks; routes from the desktop | G1–G5, G6a, and acceptance checks A1–A3 pass. Report: captures per week, share routed vs dismissed, time to route, outbox flushes, failures. If captures are rare, stop and ask why before M2 |
+| **M1 — Capture** | `learnloop_mobile` package and script; `mobile` extra (Starlette, uvicorn, `python-multipart`); import-linter entry; capture host (no `SidecarContext`; §3.1); `token create/list/revoke` (§4.2); `/healthz`, `/api/v1/status`, capture endpoints; `learnloop.capture` (sanitization, inbox, routes); M1 migration; desktop Inbox strip with the routing additions in §6.7; `learnloop inbox list`; iOS Shortcut file (JPEG conversion, setup prompt for the token, outbox and flush); `doctor`; systemd unit and `mobile.env` | Creates a token and pastes it into the Shortcut; captures from the share sheet for ~2 weeks; routes from the desktop | G1–G5, G6a, and acceptance checks A1–A3 pass. Report: captures per week, share routed vs dismissed, time to route, outbox flushes, failures. If captures are rare, stop and ask why before M2 |
 | **M2 prerequisites** | PR-1 through PR-7 (§3.3), each landed and tested on its own; the probe-presentation check in §6.4 | — | Their tests pass; the full suite and the durability lane are green |
-| **M2a — Typed practice on the phone** | `apps/learnloop-mobile` PWA (Capture, Today, Question, Feedback); service-worker share target; `/rpc` adapter with the M2 allowlist; RPC and job workers in secondary attach; accepted jobs and status endpoints; session handoff; device eligibility; origin provenance | Short phone sessions alongside desktop use | G1–G12 and A4 pass. Report: phone sessions and items per week, completion, submit-to-feedback p50/p95, share of submits returning 202, contest rate on phone vs desktop attempts |
+| **M2a — Typed practice on the phone** | `apps/learnloop-mobile` PWA (Capture, Today, Question, Feedback); `/rpc` adapter with the M2 allowlist; RPC and job workers in secondary attach; accepted jobs and status endpoints; session handoff; device eligibility; origin provenance | Short phone sessions alongside desktop use | G1–G12 and A4 pass. Report: phone sessions and items per week, completion, submit-to-feedback p50/p95, share of submits returning 202, contest rate on phone vs desktop attempts |
 | **M2b — Photo answers** | `answer-media` endpoints, transcription jobs, immediate grading on the transcript, the post-grade "Fix what was read" screen with regrade, binding (§6.6), desktop attachment panel; requires the `image_transcription` route | Photo answers for handwritten work | G8 passes. Report: transcription correction rate (and share after feedback), submit-to-grade time, contest rate on photo attempts |
 | **M3 — Tutor and voice** | M3 allowlist; tutor asks as jobs; promotion runner in the host (§3.1); voice answers; the background capture processor under the daily-loop defaults (save means reference; silent filing and verified solving; one-tap "Practice this") | Asks the tutor from the phone; promotes questions | Report: tutor questions per week, share promoted, promoted items later answered |
 | Later | Offline self-check pack (self-graded, flagged); voice teach-back; a real math keyboard; Tauri mobile if PWA limits bite; the reader (separate spec) | — | Each on its own report |
@@ -732,10 +725,10 @@ Provider keys for the unit go in `mobile.env` (§3.1).
 | Id | Gate |
 |---|---|
 | G1 | The host refuses to start unless its bind address is loopback, and refuses (status 78) on a schema mismatch. `doctor` fails on any non-serve or Funnel exposure of the port |
-| G2 | Endpoint matrix (§6.1). No token → 401. Revoked token → 401 within 5 s. Capture-scope token on `/rpc` → 403. Wrong or missing `Tailscale-User-Login` → 403. Wrong `Host` or a foreign `Origin` → 403. Identity headers sent to the loopback port without a token → 401. `/app/*` and `/pair` contain no vault data |
+| G2 | Endpoint matrix (§6.1). No token → 401. Revoked token → 401 within 5 s. Wrong or missing `Tailscale-User-Login` → 403. Wrong `Host` or a foreign `Origin` → 403. Identity headers sent to the loopback port without a token → 401. `/app/*` contains no vault data |
 | G3 | Every `METHOD_REGISTRY` method outside the allowlist returns 403, checked by enumerating the registry; new methods are denied by default. Batches, extra envelope keys and non-object params → 400. Each parameter constraint in §4.5 is enforced |
 | G4 | Capture: the same `client_capture_id` twice gives one row, 201 then 200 with the same body. The same id with a different payload → 409. The inbox row and initial route commit atomically. Stored media are re-encoded with no EXIF, XMP or GPS, orientation is preserved, and the hash is computed server-side. HEIC → 415 (unless D14). Body, upload and rate limits return 413 or 429 |
-| G5 | Pairing: single use; the 5-per-record and 20-per-10-minute limits; consume and token creation are atomic; the QR secret never appears in request logs; unclaimed devices are auto-revoked |
+| G5 | Tokens: only the hash is stored; the token is printed once; the fragment token never appears in request logs; `revoke` takes effect within 5 s |
 | G6a | Host coexistence (M1, durability lane): starting and stopping the host performs no migration, maintenance, projection refresh, cold-probe scheduling, lease recovery or synthesis sweep. That includes a desktop synchronous synthesis run older than the lease cutoff, which survives a host start. Capture writes interleaved with desktop writes lose nothing; contention surfaces as the retryable `database_busy` |
 | G6b | Two-process practice (M2, durability lane): the desktop sidecar and the host submit, read and sync concurrently with no lost writes. A content sync interleaved with an attempt keeps the attempt's scheduling fields (PR-2). Leased jobs never run twice. The two in-host workers behave as two processes |
 | G7 | Jobs: a dropped connection mid-submit yields exactly one attempt and a `completed` job with the receipt. A host restart while running yields `completed` or a typed `failed`, never indefinite `accepted` or `running`. The same `request_id` with different params → 409. Identical retries make one provider call from the host |
@@ -747,9 +740,9 @@ Provider keys for the unit go in `mobile.env` (§3.1).
 
 **Acceptance checks on real devices (manual, recorded in the milestone report):**
 - **A1.** `tailscale serve` strips a client-sent `Tailscale-User-Login`, and the host sees the real login.
-- **A2.** The policy tests pass, and a non-phone device of the owner gets no response on :443.
+- **A2.** `tailscale serve status --json` shows only the expected 443 → loopback mapping, and the URL does not resolve or connect from a device off the tailnet.
 - **A3.** The iOS Shortcut captures with Tailscale disconnected beforehand (VPN On Demand), and its outbox flushes after the desktop wakes.
-- **A4.** The PWA installs. A share-target capture made while the desktop sleeps arrives later. A submit backgrounded mid-grade shows feedback on return.
+- **A4.** The PWA installs to the home screen. A capture made in the PWA while the desktop sleeps arrives later. A submit backgrounded mid-grade shows feedback on return.
 
 **Usage signals** (report-only, monthly; no thresholds): those listed per milestone in §9, plus:
 - the device split of attempts, by `entry_surface` cohort;
@@ -761,8 +754,8 @@ That last question is the one that matters for the daily loop.
 
 ## 11. Tests
 
-- `test_mobile_host_auth.py`: bind refusal; schema-mismatch exit; the endpoint matrix; token issue, hash, scope and revoke; Host and Origin checks. (G1, G2)
-- `test_mobile_pairing.py`: single use, attempt limits, atomic consume, log redaction, auto-revoke of unclaimed devices. (G5)
+- `test_mobile_host_auth.py`: bind refusal; schema-mismatch exit; the endpoint matrix; token issue, hash and revoke; Host and Origin checks. (G1, G2)
+- `test_mobile_tokens.py`: create, hash-only storage, list, revoke, log redaction of the fragment token. (G5)
 - `test_mobile_allowlist.py`: registry enumeration; envelope rejection; per-method parameter constraints; allowed methods pass through `_handle`, with errors translated as in §6.2. (G3)
 - `test_mobile_capture.py`: JSON and multipart capture; the body-limit middleware (oversized bodies rejected before parsing, with and without `Content-Length`); repeat and conflict; atomic commit; the sanitization corpus (JPEG with GPS EXIF, rotated, PNG with text chunks, WebP, HEIC rejected); size and rate limits; URL validation; routing through each backend `capture_id` path; dismiss and purge. (G4)
 - `test_mobile_host_coexistence.py` (durability lane): host start and stop beside a seeded live synchronous synthesis run and live leases; capture writes interleaved with desktop writes. (G6a)
@@ -774,7 +767,7 @@ That last question is the one that matters for the daily loop.
 - `test_device_eligibility.py`: each ineligibility reason; every application site; probe contract handling; the desktop byte-identical. (G9)
 - `test_session_ownership.py`: interleaved exclusive starts; replace and adopt compare-and-swap; `session_moved` on every session-scoped write; draft preservation; the cap boundary under concurrency. (G10)
 - `test_request_origin.py`: `entry_surface` and offer surfaces from the origin; parameters cannot set them. (G11)
-- Mobile app (vitest): the HTTP `call()` maps commands to `/rpc` and errors to `CommandError`; `202` handling; the retry policy; outbox persistence, response classification and flush; the service-worker share receiver; the confirm screen blocks submit until confirmed.
+- Mobile app (vitest): the HTTP `call()` maps commands to `/rpc` and errors to `CommandError`; `202` handling; the retry policy; outbox persistence, response classification and flush; token pickup from the URL fragment; a photo or voice answer submits without a confirm step and shows its transcript beside the grade.
 - Fakes: a fake identity-header injector and a fake transcription provider. No automated test calls Tailscale; A1–A4 cover the real deployment.
 
 ---
@@ -783,7 +776,7 @@ That last question is the one that matters for the daily loop.
 
 | # | Decision | Recommendation |
 |---|---|---|
-| D1 | Phone platform: iOS, Android, or both? | iOS |
+| D1 | Phone platform: iOS, Android, or both? | **Decided (owner, 2026-10-11): iOS.** The phone is `iphone-13-pro-max` on the owner's tailnet |
 | D2 | Host: a separate `learnloop-mobile serve` user service, or embedded in the desktop sidecar? | Separate. The phone must work with the desktop app closed, and the sidecar is a single-threaded stdio loop |
 | D3 | HTTP stack: standard library, or Starlette, uvicorn and `python-multipart`? | **Decided (owner, 2026-10-11): Starlette + uvicorn + `python-multipart`** as a `mobile` extra (§3.1). The §4.6 limits are still implemented explicitly as middleware |
 | D4 | Client: a separate small mobile app reusing DTOs and render components, responsive desktop screens, or Tauri mobile? | A separate PWA (`apps/learnloop-mobile`). Tauri mobile only if PWA limits bite |
@@ -792,13 +785,13 @@ That last question is the one that matters for the daily loop.
 | D7 | Photo answers: does the grader see transcript text only, or text plus image? | Text only. One canonical answer; the image is shown beside the grade for one-tap correction and kept for contests. *Revised 2026-10-11: no confirm step before grading (§6.6)* |
 | D8 | Capture processing semantics | **Decided (owner, 2026-10-11):** the daily-loop defaults C1–C3 (`docs/specs/daily_loop_frictionless_defaults.md`). Saving makes a reference; filing and verified solving happen silently; one tap adopts. M1 stores and routes manually; the background processor comes in M3 (T6) |
 | D9 | Offline practice? | No. Practice needs the desktop online; capture works offline |
-| D10 | Identity: require both the Tailscale login header and a device token, or the token only? | Both, always. The token is the credential on loopback; the header filters other tailnet users if a grant is broad |
+| D10 | Identity: require both the Tailscale login header and a device token, or the token only? | Both, always. The token identifies the device; the header is one comparison that only matters if a node is ever shared |
 | D11 | Desktop asleep | Accept it in M1. Measure how often captures queue; then choose between a sleep inhibitor during sessions, Wake-on-LAN through an always-on node, or moving the host |
-| D12 | Grant scope: only the phone, or all of the owner's devices? | Only the phone, through a host alias for its tailnet IP, with overlapping broad rules removed and policy tests in place |
+| D12 | Grant scope: only the phone, or all of the owner's devices? | **Decided (owner, 2026-10-11): no LearnLoop-specific policy.** The tailnet is single-user, and the owner wants general phone → desktop access anyway |
 | D13 | Desktop UI for the inbox: a strip on Today, or a separate screen? | A strip on Today, with a count and one-click routes. A separate screen only if volume warrants it |
-| D14 | HEIC input: reject it (the Shortcut converts to JPEG), or add `pillow-heif`? | Reject in M1; revisit if Android or other share paths send HEIC |
+| D14 | HEIC input: reject it (the Shortcut converts to JPEG), or add `pillow-heif`? | Reject in M1; the Shortcut and the PWA convert to JPEG. Revisit if a capture path ever skips conversion |
 | D15 | Host vault: one pinned vault, or follow the desktop's open vault? | Pinned in `mobile.toml`. The desktop shows a banner when they differ |
-| D16 | Capture-scope tokens for the Shortcut: allow `app` scope too? | No. The Shortcut holds a plaintext token and gets capture only |
+| D16 | Capture-scope tokens for the Shortcut | **Removed (revision 3).** One scope; the tailnet is single-user |
 
 ---
 
@@ -808,11 +801,8 @@ That last question is the one that matters for the daily loop.
 - [Serve CLI] `tailscale serve` command reference: https://tailscale.com/kb/1242/tailscale-serve (`--bg` persistence, `status`, `reset`, `off`, the `http://127.0.0.1` proxy note)
 - [Funnel] Tailscale Funnel: https://tailscale.com/kb/1223/funnel (off by default; the `funnel` node attribute; most-recent-command visibility)
 - [Grants] https://tailscale.com/kb/1324/grants (`src`/`dst`/`ip` syntax, deny by default, matching rules combine)
-- [Default policy] https://tailscale.com/docs/reference/examples/acls (new tailnets begin with an allow-all policy)
-- [CLI] Tailscale CLI, `whois`: https://tailscale.com/kb/1080/cli
 - [VPN On Demand] https://tailscale.com/kb/1291/ios-vpn-on-demand (starting Tailscale automatically for `*.ts.net` hostnames; hostname matching needs the interface rule set to Do Nothing)
 - Python `http.server`: https://docs.python.org/3/library/http.server.html ("only implements basic security checks")
 - iOS share target status: WebKit bug 194593 (https://bugs.webkit.org/show_bug.cgi?id=194593), still open; https://firt.dev/notes/pwa-ios/ lists `share_target` as unsupported on iOS
-- Android and web share target: https://web.dev/articles/workbox-share-targets
 
 *Related: `spec_image_dropin_ingest.md` · `spec_blind_grading_diagnosis_split_v1.md` · `spec_embedding_consumers_v1.md` §5 · `spec_project_understanding_v1.md` · [[User intentions]] · [[LearnLoop_User_Intentions_v2]]*
