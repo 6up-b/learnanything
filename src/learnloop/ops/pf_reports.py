@@ -337,6 +337,7 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
                                    single, PILOT_PAIRS)
                    for arm in ("generator", "ensemble") if by_arm[arm] and single}
     report["blind_comparison_plan"] = {arm: len(pairs) for arm, pairs in comparisons.items()}
+    refused = False  # the judge plan failed admission: no request, no report file
     if judge:
         try:
             estimate, report["judge_estimate"], (planner, entry) = _judge_estimate(
@@ -345,11 +346,11 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
             _admit(planner, entry, estimate)
         except SpendLimitExceeded as exc:
             report.update(status="over_budget", reason=str(exc))
-            dry_run = dry_run or "skip_judge"
+            refused = True
         except PFUnavailable as exc:
             report.update(status="unavailable", reason=str(exc))
-            dry_run = dry_run or "skip_judge"
-        if not dry_run:
+            refused = True
+        if not dry_run and not refused:
             try:
                 runner = _Judge(vault, repository, caps=caps, price_per_million=price_per_million,
                                 cancelled=cancelled, clients=clients)
@@ -367,7 +368,7 @@ def pilot_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge: 
             except (AIProviderUnavailable, PFUnavailable) as exc:
                 report.update(status="provider_failed", error_type=type(exc).__name__)
     report["recommendation"] = _recommend(report)
-    if dry_run is False:
+    if not dry_run and not refused:
         report["report_files"] = _write(output_dir, "pf-pilot", report, _pilot_markdown(report))
     return report
 
@@ -456,6 +457,7 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
     pairs = _pair_rows(survivors["frontier"], survivors["cheap"], SCALING_PAIRS,
                        key=lambda row: (*frozen_inputs_key(row), row["generation_path"]))
     report["blind_comparison_plan"] = {"pairs": len(pairs)}
+    refused = False  # the judge plan failed admission: no request, no report file
     if judge:
         try:
             estimate, report["judge_estimate"], (planner, entry) = _judge_estimate(
@@ -464,11 +466,11 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
             _admit(planner, entry, estimate)
         except SpendLimitExceeded as exc:
             report.update(status="over_budget", reason=str(exc))
-            dry_run = dry_run or "skip_judge"
+            refused = True
         except PFUnavailable as exc:
             report.update(status="unavailable", reason=str(exc))
-            dry_run = dry_run or "skip_judge"
-        if not dry_run:
+            refused = True
+        if not dry_run and not refused:
             try:
                 runner = _Judge(vault, repository, caps=caps, price_per_million=price_per_million,
                                 cancelled=cancelled, clients=clients)
@@ -484,7 +486,7 @@ def scaling_report(vault: LoadedVault, *, round_id: str, output_dir: Path, judge
                 report.update(status="provider_failed", error_type=type(exc).__name__)
     report["judge_accuracy_on_labelled_pairs"] = {"freshness": _labelled_judge_accuracy(repository)}
     report["components"] = _components(report)
-    if dry_run is False:
+    if not dry_run and not refused:
         report["report_files"] = _write(output_dir, "pf-scaling", report, _scaling_markdown(report))
     return report
 
