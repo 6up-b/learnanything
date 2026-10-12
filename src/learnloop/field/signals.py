@@ -290,6 +290,21 @@ def enrich_attempts(attempts: Iterable[AttemptRow], signals: Iterable[SignalRow]
     return tuple(result)
 
 
+# Help or confusion on an LO: it is taught first and never fast-tracked on early
+# answers alone (spec §3.1). Curiosity (`other`, `verification`) never blocks.
+FAST_TRACK_BLOCKING_TYPES = frozenset({
+    "prerequisite", "mechanism", "clarification", "strategy", "reader_confusion", "hint",
+})
+
+
+def blocks_fast_track(signal: SignalRow) -> bool:
+    """The one report-2 blocking rule, shared by the harness and the helper below."""
+    return bool(
+        signal.help_before_work or signal.leak_suspected
+        or signal.signal_type in FAST_TRACK_BLOCKING_TYPES
+    )
+
+
 def confusion_blocks_fast_track(
     signals: Iterable[SignalRow], *, lo_id: str, as_of: str,
     subject_id: str = "default", self_report_known: bool = False,
@@ -300,8 +315,6 @@ def confusion_blocks_fast_track(
     return any(
         s.lo_id == lo_id and s.subject_id == subject_id
         and instant(s.observed_at) <= instant(as_of)
-        and (s.help_before_work or s.leak_suspected or s.signal_type in {
-            "prerequisite", "mechanism", "clarification", "reader_confusion", "hint",
-        })
+        and blocks_fast_track(s)
         for s in signals
     )

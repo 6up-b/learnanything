@@ -158,6 +158,26 @@ def test_confusion_blocks_but_curiosity_does_not():
         assert run(rows)["report2"]["arms"]["mastery_ekf"]["assumed_los"] == expected
 
 
+@pytest.mark.parametrize("signal", [
+    SignalRow("s", "lo", "2025-12-31T00:00:00Z", "reader_confusion"),
+    SignalRow("s", "lo", "2025-12-31T00:00:00Z", "hint", outcome=.3),
+    SignalRow("s", "lo", "2025-12-31T00:00:00Z", "strategy"),
+    SignalRow("s", "lo", "2025-12-31T00:00:00Z", "other", help_before_work=True),
+    SignalRow("s", "lo", "2025-12-31T00:00:00Z", "other", leak_suspected=True),
+])
+def test_report2_shares_the_confusion_blocking_predicate(signal):
+    """Review F6: the harness and confusion_blocks_fast_track agree on every signal."""
+    from learnloop.field.signals import confusion_blocks_fast_track
+
+    assert confusion_blocks_fast_track([signal], lo_id="lo", as_of="2026-01-03T00:00:00Z")
+    rows = [signal, attempt(1), attempt(2), attempt(3)]
+    # The spy predictor crosses the threshold; the blocking signal still wins.
+    assert run(rows)["report2"]["arms"]["mastery_ekf"]["assumed_los"] == 0
+    curiosity = replace(signal, signal_type="other", help_before_work=False, leak_suspected=False)
+    assert not confusion_blocks_fast_track([curiosity], lo_id="lo", as_of="2026-01-03T00:00:00Z")
+    assert run([curiosity, *rows[1:]])["report2"]["arms"]["mastery_ekf"]["assumed_los"] == 1
+
+
 def test_ability_threshold_is_not_item_prediction_and_thin_default_is_conservative():
     # N(logit(.75)+.105,.01): tail probability ~.853; q=.8 passes, .9 fails.
     rows = [attempt(1), attempt(2), attempt(3)]

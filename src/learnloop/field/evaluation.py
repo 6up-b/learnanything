@@ -24,6 +24,7 @@ import numpy as np
 from learnloop.clock import parse_utc
 from learnloop.field import memory as _memory_arms  # noqa: F401 - registers the PF-a memory arms
 from learnloop.field.predictors import create_predictor, registered_predictors
+from learnloop.field.signals import blocks_fast_track
 from learnloop.field.types import AttemptRow, FacetRow, ObservationRow, SignalRow
 
 
@@ -275,7 +276,7 @@ def evaluate(
     for row, facets in events:
         if isinstance(row, SignalRow):
             counts["signals"] += 1
-            if row.signal_type in ("prerequisite", "mechanism", "clarification", "strategy") or row.help_before_work or row.leak_suspected:
+            if blocks_fast_track(row):
                 blocked.add(row.lo_id)
             for arm in predictors:
                 arm.observe(row)
