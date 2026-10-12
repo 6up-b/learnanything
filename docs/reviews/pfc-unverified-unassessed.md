@@ -117,6 +117,15 @@ informational line. The inspector's amber "manual review" pill becomes a slate
 
 ## Version
 
+> **Superseded by the Codex review (F5,
+> `docs/reviews/pfc-unverified-unassessed-codex-review.md`).** The claim
+> below that no history exists at `mvp-0.10` is wrong: the Slice 1 M2 live
+> runs graded blind attempts at `mvp-0.10`. The boundary is now per record:
+> every new unverified row and blind record names its interpretation
+> (`unverified_interpretation = "unassessed"`), a record without the mark
+> replays as the M2 implementation wrote it, and a regrade rewrites it under
+> the rule. Open questions 3 and 4 below were fixed there too (F4, F6).
+
 **This lives inside `mvp-0.10`.** No algorithm tag was added, and the
 projection namespace is unchanged.
 
@@ -275,12 +284,12 @@ it).
    `grader_interpretation`, and still show in the feedback's error list, though
    they write no facet evidence. Should the gate drop attributions on
    unverified criteria, or should the feedback hide them?
-3. **Diagnoser history.** `diagnosis/split/history.py` still lists an unverified
+3. **Diagnoser history.** *(Fixed in the Codex review, F4.)* `diagnosis/split/history.py` still lists an unverified
    criterion that carries no attribution as a failed criterion. S4 then accepts
    a citation to it ("You've made this mistake before"). I left it alone so this
    branch merges cleanly with Slice 2 T1 (recurrence groups). T1 could read
    `grading_support.unverified_criterion_ids` there.
-4. **Retention labels.** `outcome_contract.retention_exclusions` still excludes
+4. **Retention labels.** *(Fixed in the Codex review, F6.)* `outcome_contract.retention_exclusions` still excludes
    any `manual_review` attempt as `unresolved_grade`, which includes PF-c's
    non-blocking log. Exempt `valid_alternative_unverified` (a label-contract
    change)?

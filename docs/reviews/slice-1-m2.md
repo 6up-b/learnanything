@@ -418,11 +418,13 @@ Kill switch: `[diagnosis] split_enabled = false`.
    arithmetic-only derivations?
 3. ~~PF-c gate: criteria marked unverified keep their points (manual review
    flag). Keep, or zero them until reviewed?~~ **Decided (owner,
-   2026-10-12): unassessed everywhere, inside `mvp-0.10`.** An unverified
-   criterion is neither credit nor failure: it leaves the score and so the
-   FSRS rating, writes no facet evidence, and the review flag is a
-   non-blocking log. Built on `fix/pfc-unverified-unassessed`
-   (`docs/reviews/pfc-unverified-unassessed.md`).
+   2026-10-12): unassessed everywhere, in `mvp-0.10` with a per-record
+   interpretation boundary.** An unverified criterion is neither credit nor
+   failure: it leaves the score and so the FSRS rating, writes no facet
+   evidence, and the review flag is a non-blocking log. Records written
+   before the rule replay as written; a regrade rewrites them. Built on
+   `fix/pfc-unverified-unassessed` (`docs/reviews/pfc-unverified-unassessed.md`
+   and its Codex review).
 4. The card summary is the diagnoser's `analysis_md`, written for the
    diagnosis (it says things like "withdrawn prior hypothesis"). Add a
    learner-facing summary field to `DiagnosisProposal` (prompt version bump)?
