@@ -3,13 +3,13 @@ title: "discrimination_profile_matches"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "1a0f7a0a9047ce3357f524c3054c7bf1c20bb6b5"
+source_commit_timestamp: "2026-10-11T22:24:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite discrimination_profile_matches"
   - "table discrimination_profile_matches"
-schema_head: 166
+schema_head: 167
 table_name: "discrimination_profile_matches"
 table_role: "receipt"
 functionality_status: "active"

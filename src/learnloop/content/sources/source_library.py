@@ -62,66 +62,70 @@ def register_source_revision(
     to the URL as before.
     """
 
-    digest = asset_hash(raw_bytes)
-    if vault_root is not None:
-        store_original_bytes(vault_root, digest, raw_bytes)
+    # Publish the original and its references under the same writer reservation
+    # as capture purge. Otherwise purge could unlink stored bytes in the gap
+    # before this acquisition publishes its source_revision.
+    with repo.atomic():
+        digest = asset_hash(raw_bytes)
+        if vault_root is not None:
+            store_original_bytes(vault_root, digest, raw_bytes)
 
-    artifact = (
-        repo.source_artifact_by_uri(acquisition_kind, canonical_uri)
-        if canonical_uri is not None
-        else None
-    )
-    reused_artifact = artifact is not None
-    if artifact is None:
-        source_id = f"src_{new_ulid()}"
-        repo.upsert_source_artifact(
-            id=source_id,
-            acquisition_kind=acquisition_kind,
-            canonical_uri=canonical_uri,
-            work_id=work_id,
-            display_title=display_title,
-            reader_enabled=reader_enabled,
+        artifact = (
+            repo.source_artifact_by_uri(acquisition_kind, canonical_uri)
+            if canonical_uri is not None
+            else None
+        )
+        reused_artifact = artifact is not None
+        if artifact is None:
+            source_id = f"src_{new_ulid()}"
+            repo.upsert_source_artifact(
+                id=source_id,
+                acquisition_kind=acquisition_kind,
+                canonical_uri=canonical_uri,
+                work_id=work_id,
+                display_title=display_title,
+                reader_enabled=reader_enabled,
+                clock=clock,
+            )
+        else:
+            source_id = artifact["id"]
+            # An explicit ingest-time choice on a re-import updates the flag; a
+            # re-import with no opinion leaves the earlier choice alone.
+            if reader_enabled is not None:
+                repo.set_source_reader_enabled(source_id, reader_enabled, clock=clock)
+
+        existing = repo.source_revision_by_asset_hash(source_id, digest)
+        if existing is not None:
+            return RegisteredRevision(
+                source_id=source_id,
+                revision_id=existing["id"],
+                asset_hash=digest,
+                reused_revision=True,
+                reused_artifact=reused_artifact,
+            )
+
+        # A newer byte sequence for the same artifact links via supersedes_revision_id.
+        prior_revisions = repo.source_revisions_for(source_id)
+        supersedes = prior_revisions[-1]["id"] if prior_revisions else None
+        revision_id = f"rev_{new_ulid()}"
+        repo.insert_source_revision(
+            id=revision_id,
+            source_id=source_id,
+            asset_hash=digest,
+            note_id=note_id,
+            original_uri=original_uri or canonical_uri,
+            retrieved_at=retrieved_at,
+            supersedes_revision_id=supersedes,
             clock=clock,
         )
-    else:
-        source_id = artifact["id"]
-        # An explicit ingest-time choice on a re-import updates the flag; a
-        # re-import with no opinion leaves the earlier choice alone.
-        if reader_enabled is not None:
-            repo.set_source_reader_enabled(source_id, reader_enabled, clock=clock)
-
-    existing = repo.source_revision_by_asset_hash(source_id, digest)
-    if existing is not None:
+        repo.set_source_current_revision(source_id, revision_id, clock=clock)
         return RegisteredRevision(
             source_id=source_id,
-            revision_id=existing["id"],
+            revision_id=revision_id,
             asset_hash=digest,
-            reused_revision=True,
+            reused_revision=False,
             reused_artifact=reused_artifact,
         )
-
-    # A newer byte sequence for the same artifact links via supersedes_revision_id.
-    prior_revisions = repo.source_revisions_for(source_id)
-    supersedes = prior_revisions[-1]["id"] if prior_revisions else None
-    revision_id = f"rev_{new_ulid()}"
-    repo.insert_source_revision(
-        id=revision_id,
-        source_id=source_id,
-        asset_hash=digest,
-        note_id=note_id,
-        original_uri=original_uri or canonical_uri,
-        retrieved_at=retrieved_at,
-        supersedes_revision_id=supersedes,
-        clock=clock,
-    )
-    repo.set_source_current_revision(source_id, revision_id, clock=clock)
-    return RegisteredRevision(
-        source_id=source_id,
-        revision_id=revision_id,
-        asset_hash=digest,
-        reused_revision=False,
-        reused_artifact=reused_artifact,
-    )
 
 
 def index_legacy_note(

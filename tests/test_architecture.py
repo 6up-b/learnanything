@@ -47,6 +47,11 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/collection.py",
         "src/learnloop/db/stores/embedding_vectors.py",
         "src/learnloop/db/stores/judgments.py",
+        # Shared capture domain owns only the M1 mobile/inbox workflow tables.
+        "src/learnloop/capture/devices.py",
+        "src/learnloop/capture/inbox.py",
+        "src/learnloop/capture/maintenance.py",
+        "src/learnloop/capture/routing.py",
         "src/learnloop/substrate/replay.py",
         "src/learnloop/scheduling/controller_ownership.py",
         "src/learnloop/scheduling/controller_store.py",
