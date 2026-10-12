@@ -3,8 +3,8 @@ title: "router_decisions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8fc4dea3cf9af37970a1a03f0c6064a4e1b37a62"
-source_commit_timestamp: "2026-10-12T18:37:04-04:00"
+source_commit: "b259d03e254f266b16f1eff39e77b2776f4b61cf"
+source_commit_timestamp: "2026-10-12T19:26:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_decisions"
@@ -43,7 +43,7 @@ tags:
 Gives router decision a stable database identity so queue and controller decisions can resume safely and explain why an activity was selected. It supplies replay-stable input rather than a disposable cache. Rows bind `session_id`, `parent_decision_id`, `scheduler_slate_id`, making the operational relationship explicit. ^table-purpose
 
 > [!quote] Migration design note
-> Router R1 (spec_action_router_v1 §9, §11): decision logging on today's paths. One append-only row per Today offer, staged P2 decision and learner pick, with the full candidate set, the chosen candidate and its true propensity (or an explicit 'deterministic'). The outcome table is a derived cache with one replayer; nothing here is evidence, mastery or certification.
+> Router R1 (spec_action_router_v1 §9, §11): decision logging on today's paths. One append-only row per Today offer, staged P2 decision and learner pick, with the full candidate set, the chosen candidate and its true propensity (or an explicit 'deterministic'). A list the learner picks from with no system-served head is logged with propensity_kind 'not_served'. The outcome table is a derived cache with one replayer; nothing here is evidence, mastery or certification.
 
 It belongs to the **scheduling** navigation family. The family context lives in [[Database Catalog#Scheduling]]. Its persistence behavior follows [[Table Roles#Raw Ledger]].
 
@@ -134,7 +134,7 @@ None found by exact static reference scan.
 
 ### Direct SQL writers
 
-None found by exact static reference scan.
+- `src/learnloop/db/stores/router.py`
 
 ### Upstream callers of the repository access surface
 
@@ -186,10 +186,12 @@ CREATE TABLE router_decisions (
   scheduler_slate_id TEXT,
   controller_decision_id TEXT,
   -- Content hash of the decision's inputs (candidates, planner values,
-  -- exclusions and the randomization design).
+  -- exclusions, the randomization design, the session context and the
+  -- configuration that shaped the choice; never the build time).
   snapshot_hash TEXT NOT NULL,
-  -- epsilon_tiebreak when the chosen candidate was drawn; NULL when the
-  -- choice was deterministic.
+  -- The assignment mechanism when the chosen candidate was drawn
+  -- (scheduler_seeded_exploration | epsilon_tiebreak; registered in
+  -- db.stores.router.ROUTER_DESIGNS); NULL when the choice was deterministic.
   design TEXT,
   seed TEXT,
   candidates_json TEXT NOT NULL,
@@ -200,7 +202,7 @@ CREATE TABLE router_decisions (
   chosen_learning_object_id TEXT,
   chosen_scheduler_candidate_id TEXT,
   propensity REAL,
-  propensity_kind TEXT NOT NULL CHECK (propensity_kind IN ('exact', 'deterministic', 'none')),
+  propensity_kind TEXT NOT NULL CHECK (propensity_kind IN ('exact', 'deterministic', 'none', 'not_served')),
   learner_pick INTEGER NOT NULL DEFAULT 0 CHECK (learner_pick IN (0, 1)),
   -- R2 fills these (the Decider and the LLM); NULL while no model chooses.
   fallback TEXT,
@@ -216,13 +218,15 @@ CREATE TABLE router_decisions (
   detail_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
   -- A drawn choice has 0 < p < 1; a deterministic one p = 1; a learner pick
-  -- has no propensity (its choice was not sampled).
+  -- has no propensity (its choice was not sampled); a list that served no
+  -- head (the learner chooses from it) has neither a choice nor a propensity.
   CHECK (
     (propensity_kind = 'exact' AND propensity > 0 AND propensity < 1)
     OR (propensity_kind = 'deterministic' AND propensity = 1)
-    OR (propensity_kind = 'none' AND propensity IS NULL)
+    OR (propensity_kind IN ('none', 'not_served') AND propensity IS NULL)
   ),
-  CHECK ((learner_pick = 1) = (propensity_kind = 'none'))
+  CHECK ((learner_pick = 1) = (propensity_kind = 'none')),
+  CHECK ((chosen_ref IS NULL) = (propensity_kind = 'not_served'))
 );
 ```
 

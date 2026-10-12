@@ -3,8 +3,8 @@ title: "router_outcomes"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8fc4dea3cf9af37970a1a03f0c6064a4e1b37a62"
-source_commit_timestamp: "2026-10-12T18:37:04-04:00"
+source_commit: "b259d03e254f266b16f1eff39e77b2776f4b61cf"
+source_commit_timestamp: "2026-10-12T19:26:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite router_outcomes"
@@ -137,8 +137,9 @@ CREATE TABLE router_outcomes (
   outcome_version TEXT NOT NULL,
   target_practice_item_id TEXT,
   target_learning_object_id TEXT,
+  -- not_taken: the session ended without the chosen candidate attempted.
   action_status TEXT NOT NULL CHECK (
-    action_status IN ('taken', 'open', 'superseded', 'overridden', 'not_applicable')
+    action_status IN ('taken', 'open', 'superseded', 'overridden', 'not_taken', 'not_applicable')
   ),
   action_attempt_id TEXT,
   r_next_status TEXT NOT NULL CHECK (r_next_status IN ('observed', 'pending', 'not_applicable')),

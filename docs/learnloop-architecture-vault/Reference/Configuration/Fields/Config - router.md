@@ -3,8 +3,8 @@ title: "Config - router"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "8fc4dea3cf9af37970a1a03f0c6064a4e1b37a62"
-source_commit_timestamp: "2026-10-12T18:37:04-04:00"
+source_commit: "b259d03e254f266b16f1eff39e77b2776f4b61cf"
+source_commit_timestamp: "2026-10-12T19:26:08-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml router"
@@ -42,7 +42,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
 | `router.log_decisions` | `true` | boolean | modeled default or validator seed | Writes one router_decisions row per Today offer, staged P2 decision and learner pick; not a serving change, acts at every version. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1651` |
-| `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.12 successor: probe near-ties join the Today queue's seeded epsilon tie-break; off serves exactly as mvp-0.11. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1652`; `src/learnloop/scheduling/scheduler.py:869` |
+| `router.probe_tie_admission` | `true` | boolean | modeled default or validator seed | Kill switch for router R1's mvp-0.12 successor: probe near-ties join the Today queue's seeded epsilon tie-break; off serves exactly as mvp-0.11. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:1652`; `src/learnloop/scheduling/scheduler.py:892` |
 
 > [!warning] Omitted does not mean frozen in the file
 > Most values are intentionally absent from `learnloop.toml`. Their reproducibility is protected by the defaults fingerprint keyed to `algorithms.algorithm_version`, not by dumping every default into each vault.
