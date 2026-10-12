@@ -162,6 +162,9 @@ def test_ensemble_publishes_verified_survivors_as_ordinary_family_items(pf):
                for row in receipts if row["budget_json"])
     statuses = {row["status"] for row in rows(repository)}
     assert statuses == {"published", "not_selected"}
+    for row in rows(repository):
+        cost = json.loads(row["cost_json"])
+        assert cost["calls"] > 1 and cost["tokens"] > 0 and cost["metered_usd"] > 0
     assert all(row["verification"] == "verified" for row in rows(repository, "status='published'"))
     assert report["results_by_model"]["fake-a-resolved"]["ensemble"]
 
@@ -466,3 +469,15 @@ def test_source_anchored_items_need_a_quote_verified_span_and_must_not_be_closed
     assert report["published_item_ids"]
     assert {row["verdict"] for row in ledger(repository, "closed_book")} == {"answerable", "not_answerable"}
     assert [row["verdict"] for row in ledger(repository, "provenance")] == ["inferred"]
+
+
+def test_seeding_writes_nothing_until_the_plan_is_admitted(tmp_path):
+    _, _, paths = seed_pf_vault(tmp_path / "vault")
+    fakes = clients()
+    report = run(paths, fakes=fakes, seed_items=("pi_svd_define_001",),
+                 caps=SpendCaps(max_calls=1, max_pairs=2000, max_total_tokens=10**9, max_estimated_usd=10**4))
+    assert report["status"] == "over_budget"
+    assert load_vault(paths.root).practice_items["pi_svd_define_001"].family_id is None
+    assert all_calls(fakes) == 0
+    with pytest.raises(ValueError, match="Unknown seed items"):
+        run(paths, seed_items=("missing",))

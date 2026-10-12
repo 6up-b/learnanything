@@ -43,7 +43,7 @@ from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 import copy
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
@@ -140,6 +140,7 @@ class Candidate:
     difficulty: float | None = None
     panel: dict[str, Any] = field(default_factory=dict)
     selection: dict[str, Any] = field(default_factory=dict)
+    cost: dict[str, Any] = field(default_factory=dict)
 
     @property
     def alive(self) -> bool:
@@ -374,6 +375,7 @@ class _FamilyRun:
                 difficulty_source="solver_panel" if candidate.difficulty is not None else None,
                 panel_json=json.dumps(candidate.panel, sort_keys=True) if candidate.panel else None,
                 selection_json=json.dumps(candidate.selection, sort_keys=True) if candidate.selection else None,
+                cost_json=json.dumps(candidate.cost, sort_keys=True),
                 updated_at=now,
             )
 
@@ -389,6 +391,32 @@ class _FamilyRun:
 
     def _pass(self, candidate: Candidate, filter_name: str, detail: Any = None) -> None:
         candidate.filters[filter_name] = {"passed": True, **({"detail": detail} if detail is not None else {})}
+
+    def _call(self, entry: RoleClient, *, attribute: list[Candidate] | None = None, **kwargs: Any):
+        """One paid call; its usage is shared equally across ``attribute`` (cost_json)."""
+        call = self.ctx.caller.call(entry, **kwargs)
+        for candidate in attribute or ():
+            self._attribute(candidate, call, 1.0 / len(attribute))
+        return call
+
+    def _attribute(self, candidate: Candidate, call: Any, share: float) -> None:
+        usage = call.usage or {}
+        tokens = (usage.get("input_tokens") or 0) + (usage.get("output_tokens") or 0)
+        tokens = tokens or usage.get("estimated_total_tokens") or 0
+        cost = candidate.cost
+        cost["calls"] = round(cost.get("calls", 0.0) + share, 4)
+        cost["tokens"] = round(cost.get("tokens", 0.0) + share * tokens, 1)
+        if call.cached:
+            cost["cached_calls"] = round(cost.get("cached_calls", 0.0) + share, 4)
+        if usage.get("billing") == "subscription":
+            cost["estimated_only_tokens"] = round(cost.get("estimated_only_tokens", 0.0) + share * tokens, 1)
+        else:
+            price = self.ctx.caller.price
+            usd = usage.get("cost")
+            if usd is None and price is not None:
+                usd = tokens * price / 1_000_000
+            if usd is not None:
+                cost["metered_usd"] = round(cost.get("metered_usd", 0.0) + share * usd, 8)
 
     def _skeleton(self, *, subject_kind: str, subject_id: str, prompt: str, expected_answer: Any,
                   techniques: list[str], checkpoints: list[str], operations: list[str],
@@ -457,6 +485,11 @@ class _FamilyRun:
             self._summarize()
             self._resolve_request("failed", reason=type(exc).__name__)
             self.report.update(status="failed", error_type=type(exc).__name__, reason=str(exc)[:300])
+        except Exception as exc:
+            # Never leave the job leased: a failed job is retained for audit and
+            # a rerun of the round reclaims it (paid work stays checkpointed).
+            self._resolve_request("failed", reason=type(exc).__name__)
+            raise
         return self.report
 
     def _parent_skeleton(self) -> dict[str, Any]:
@@ -641,6 +674,7 @@ class _FamilyRun:
                     status="baseline" if single else "generated",
                 )
                 self.candidates.append(candidate)
+                self._attribute(candidate, call, 1.0 / max(1, min(count, len(call.result.candidates))))
                 self._persist(candidate, insert=True)
                 self._skeleton(
                     subject_kind="pf_candidate", subject_id=candidate.id, prompt=payload["stem"],
@@ -694,6 +728,7 @@ class _FamilyRun:
                 prompt_version=C.SOURCE_ANCHORED_PROMPT, declared_relation=self.relation,
             )
             self.candidates.append(candidate)
+            self._attribute(candidate, call, 1.0 / max(1, min(self.count, len(call.result.candidates))))
             self._persist(candidate, insert=True)
 
     @staticmethod
@@ -743,14 +778,15 @@ class _FamilyRun:
                 self._persist(candidate)
                 continue
             closed = self.ctx.role("closed_book")[0]
-            call = self.ctx.caller.call(
-                closed, prompt=C.closed_book_prompt(stem=payload["stem"]), prompt_version=C.CLOSED_BOOK_PROMPT,
-                result_model=C.PanelSolve, output_tokens=OUTPUT_TOKENS["closed_book"],
+            call = self._call(
+                closed, attribute=[candidate], prompt=C.closed_book_prompt(stem=payload["stem"]),
+                prompt_version=C.CLOSED_BOOK_PROMPT, result_model=C.PanelSolve,
+                output_tokens=OUTPUT_TOKENS["closed_book"],
             )
             solve = {"model": call.model, "index": 0, "input_hash": call.input_hash,
                      "final_answer": call.result.final_answer, "answer_kind": call.result.answer_kind}
             outcome = self._agreement("pf_candidate", candidate.id, candidate.content_hash,
-                                      payload["stem"], payload["answer"], [solve])
+                                      payload["stem"], payload["answer"], [solve], attribute=[candidate])
             answerable = outcome["agree"] >= 1
             self.ctx.caller.ledger(
                 task="closed_book", left_kind="pf_candidate", left_id=candidate.id, judge="llm",
@@ -853,12 +889,13 @@ class _FamilyRun:
         )
 
     # verification
-    def _panel_solves(self, stem: str, *, solves_per_model: int) -> list[dict[str, Any]]:
+    def _panel_solves(self, stem: str, *, solves_per_model: int,
+                      attribute: list[Candidate] | None = None) -> list[dict[str, Any]]:
         solves = []
         for entry in self.ctx.role("panel"):
             for index in range(solves_per_model):
-                call = self.ctx.caller.call(
-                    entry, prompt=C.panel_solve_prompt(stem=stem, solve_index=index),
+                call = self._call(
+                    entry, attribute=attribute, prompt=C.panel_solve_prompt(stem=stem, solve_index=index),
                     prompt_version=C.PANEL_SOLVE_PROMPT, result_model=C.PanelSolve,
                     output_tokens=OUTPUT_TOKENS["panel"],
                 )
@@ -867,10 +904,11 @@ class _FamilyRun:
                                "answer_kind": call.result.answer_kind})
         return solves
 
-    def _equivalence(self, stem: str, reference: str, solves: list[dict[str, Any]]) -> tuple[Any, Any]:
+    def _equivalence(self, stem: str, reference: str, solves: list[dict[str, Any]],
+                     attribute: list[Candidate] | None = None) -> tuple[Any, Any]:
         entry = self.ctx.role("equivalence")[0]
-        call = self.ctx.caller.call(
-            entry, prompt=C.equivalence_prompt(stem=stem, reference=reference,
+        call = self._call(
+            entry, attribute=attribute, prompt=C.equivalence_prompt(stem=stem, reference=reference,
                                                answers=[solve["final_answer"] for solve in solves]),
             prompt_version=C.EQUIVALENCE_PROMPT, result_model=C.EquivalenceResult,
             output_tokens=OUTPUT_TOKENS["equivalence"],
@@ -878,9 +916,10 @@ class _FamilyRun:
         return call, call.result
 
     def _agreement(self, subject_kind: str, subject_id: str, input_hash: str, stem: str,
-                   reference: str, solves: list[dict[str, Any]]) -> dict[str, Any]:
+                   reference: str, solves: list[dict[str, Any]],
+                   attribute: list[Candidate] | None = None) -> dict[str, Any]:
         """LLM agreement per solve, confirmed by the sandboxed sympy check where numeric/symbolic."""
-        call, result = self._equivalence(stem, reference, solves)
+        call, result = self._equivalence(stem, reference, solves, attribute=attribute)
         usable = len(result.agreements) == len(solves)
         symbolic = result.answer_kind in {"numeric", "symbolic"}
         confirmations: list[bool | None] = [None] * len(solves)
@@ -942,9 +981,11 @@ class _FamilyRun:
     def _verify_ensemble(self) -> None:
         pf = self.ctx.vault.config.pf
         for candidate in [c for c in self.candidates if c.alive]:
-            solves = self._panel_solves(candidate.payload["stem"], solves_per_model=pf.panel_solves_per_model)
+            solves = self._panel_solves(candidate.payload["stem"], solves_per_model=pf.panel_solves_per_model,
+                                        attribute=[candidate])
             outcome = self._agreement("pf_candidate", candidate.id, candidate.content_hash,
-                                      candidate.payload["stem"], candidate.payload["final_answer"], solves)
+                                      candidate.payload["stem"], candidate.payload["final_answer"], solves,
+                                      attribute=[candidate])
             if outcome["normal_form"]:
                 candidate.payload["sympy_normal_form"] = outcome["normal_form"]
             candidate.panel = outcome
@@ -975,7 +1016,8 @@ class _FamilyRun:
         if not alive or self.program is None:
             return
         k = self.ctx.vault.config.pf.panel_solves_per_model
-        solves_by_candidate = {candidate.id: self._panel_solves(candidate.payload["stem"], solves_per_model=k)
+        solves_by_candidate = {candidate.id: self._panel_solves(candidate.payload["stem"], solves_per_model=k,
+                                                                attribute=[candidate])
                                for candidate in alive}
         pairs = [{"draw": {key: candidate.payload.get(key) for key in (
                     "parameters", "stem", "solution", "final_answer", "checkpoints")},
@@ -1022,8 +1064,8 @@ class _FamilyRun:
         verdicts: dict[str, Any] = {}
         parent_context = {**_item_context(self.parent, self.ctx.vault), "skeleton": self.parent_skeleton}
         for candidate in targets:
-            call = self.ctx.caller.call(
-                entry, prompt=C.structure_prompt(
+            call = self._call(
+                entry, attribute=[candidate], prompt=C.structure_prompt(
                     parent=parent_context,
                     candidate={"stem": candidate.payload["stem"], "solution": candidate.payload["solution"],
                                "final_answer": candidate.payload["final_answer"],
@@ -1095,8 +1137,8 @@ class _FamilyRun:
             comparisons = [{"ref": ref, "prompt": self.ctx.vault.practice_items[item_id].prompt,
                             "is_parent": item_id == self.parent.id}
                            for ref, item_id in refs.items()]
-            call = self.ctx.caller.call(
-                entry, prompt=C.freshness_prompt(
+            call = self._call(
+                entry, attribute=[candidate], prompt=C.freshness_prompt(
                     candidate={"stem": candidate.payload["stem"],
                                "final_answer": candidate.payload["final_answer"],
                                "relation": candidate.final_relation or candidate.declared_relation},
@@ -1180,8 +1222,8 @@ class _FamilyRun:
                 "vendi_contribution": by_id[cid].selection["vendi_contribution"],
             } for ref, cid in refs.items()]
             entry = self.ctx.role("selection")[0]
-            call = self.ctx.caller.call(
-                entry, prompt=C.selection_prompt(family=_family_context(self.family),
+            call = self._call(
+                entry, attribute=offered, prompt=C.selection_prompt(family=_family_context(self.family),
                                                  survivors=survivors_context, slots=self.slots),
                 prompt_version=C.SELECTION_PROMPT, result_model=C.SelectionVerdict,
                 output_tokens=OUTPUT_TOKENS["selection"],
@@ -1424,19 +1466,20 @@ def generate_practice(
         report.update(status="sandbox_unavailable",
                       reason="PF generation requires bubblewrap and fails closed without it")
         return report
-    if options.seed_items and dry_run:
-        report["seed_items_planned"] = list(options.seed_items)
-    elif options.seed_items:
-        vault = _seed_families(vault, repository, options.seed_items, clock)
+    # Plan seeded families with placeholders: nothing is written until the
+    # routes resolve and the whole plan is admitted under the caps.
+    unknown_seeds = [item_id for item_id in options.seed_items if item_id not in vault.practice_items]
+    if unknown_seeds:
+        raise ValueError(f"Unknown seed items: {', '.join(unknown_seeds)}")
+    report["seed_items"] = list(options.seed_items)
     targets = family_targets(vault, options)
-    if options.seed_items and dry_run:
-        seeded = [vault.practice_items[item_id] for item_id in options.seed_items if item_id in vault.practice_items]
-        for item in seeded:
-            if not item.family_id:
-                placeholder = ActivityFamily(
-                    id=f"(seed:{item.id})", learning_object_id=item.learning_object_id,
-                    idea_statement="seed", retrieval_target="seed", created_at="", updated_at="")
-                targets.append((placeholder, item))
+    for item_id in options.seed_items:
+        item = vault.practice_items[item_id]
+        if not item.family_id:
+            placeholder = ActivityFamily(
+                id=f"(seed:{item.id})", learning_object_id=item.learning_object_id,
+                idea_statement="seed", retrieval_target="seed", created_at="", updated_at="")
+            targets.append((placeholder, item))
     paths = {family.id: _resolve_path(vault, family, options.path) for family, _ in targets}
     used_roles = {"skeleton", "panel", "structure", "freshness"}
     if "generator" in paths.values():
@@ -1492,6 +1535,14 @@ def generate_practice(
     except SandboxUnavailable as exc:
         report.update(status="sandbox_unavailable", reason=str(exc))
         return report
+    if options.seed_items:
+        vault = _seed_families(vault, repository, options.seed_items, clock)
+        seeded = tuple(vault.practice_items[item_id].family_id for item_id in options.seed_items)
+        if options.family_ids:
+            options = replace(options, family_ids=tuple(dict.fromkeys(options.family_ids + seeded)))
+        targets = family_targets(vault, options)
+        paths = {family.id: paths.get(family.id) or _resolve_path(vault, family, options.path)
+                 for family, _parent in targets}
     ctx = _Context(vault, repository, caller, options, round_id, tier_routes, clients, clock)
     ctx._roles.update({role: entries for role, entries in roles.items() if role in used_roles})
     with _run_lock(vault.root):
