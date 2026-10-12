@@ -373,3 +373,92 @@ def test_the_accessor_and_the_overlays_agree_on_the_diagnosis_in_force(tmp_path)
     assert repository.live_causal_view(result.attempt_id) is None
     assert diagnosis_for_attempt(repository, result.attempt_id) is None
     assert diagnosis_status(repository, result.attempt_id)["status"] == FAILED
+
+
+def _regrade_state(repository, attempt_id):
+    with repository.connection() as connection:
+        canonical = [tuple(row) for row in connection.execute("SELECT * FROM facet_capability_evidence ORDER BY facet_id, capability")]
+        jobs = [tuple(row) for row in connection.execute("SELECT id, state FROM post_attempt_jobs WHERE attempt_id = ? ORDER BY id", (attempt_id,))]
+    attempt = repository.fetch_practice_attempt(attempt_id)
+    return {
+        "evidence": [(row.id, row.superseded_at) for row in repository.fetch_grading_evidence(attempt_id, include_superseded=True)],
+        "grade": (attempt["rubric_score"], attempt["manual_review_reason"]),
+        "blind": repository.latest_blind_grade_record(attempt_id)["id"],
+        "jobs": jobs,
+        "in_force": (repository.live_causal_view(attempt_id) or (None,))[0],
+        "events": [event["id"] for event in repository.raw_error_events_for_attempt(attempt_id)],
+        "canonical": canonical,
+    }
+
+
+_PUBLICATION_STEPS = (
+    ("repository", "insert_regrade_evidence"),
+    ("repository", "update_attempt_grade"),
+    ("repository", "insert_blind_grade_record"),
+    ("module", "replay_learning_object"),
+    ("module", "persist_unknown_error_type_proposals"),
+)
+
+
+@pytest.mark.parametrize("where,step", _PUBLICATION_STEPS)
+def test_a_crash_between_regrade_publication_steps_publishes_nothing(tmp_path, monkeypatch, where, step):
+    """Review F4: the regrade's grading revision, attempt grade, superseding
+    blind record (with its re-diagnosis job) and replayed projection commit
+    together; a crash after any one step leaves the old grade and its
+    diagnosis exactly in force."""
+
+    from learnloop.attempts import regrade as regrade_module
+
+    _paths, vault, repository = split_vault(tmp_path)
+    client = _CorrectOnRegrade()
+    result = submit(vault, repository, client)
+    drain_jobs(vault, repository, client)
+    before = _regrade_state(repository, result.attempt_id)
+    assert before["in_force"] is not None
+
+    target = repository if where == "repository" else regrade_module
+    real = getattr(target, step)
+
+    def crash_after(*args, **kwargs):
+        real(*args, **kwargs)
+        raise RuntimeError(f"process died after {step}")
+
+    monkeypatch.setattr(target, step, crash_after)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    with pytest.raises(RuntimeError, match="process died"):
+        regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
+    monkeypatch.setattr(target, step, real)
+
+    assert _regrade_state(repository, result.attempt_id) == before
+    with repository.connection() as connection:
+        statuses = [row[0] for row in connection.execute("SELECT status FROM agent_runs WHERE purpose = 'grading_regrade'")]
+    assert statuses == ["failed"]
+
+
+def test_regrade_replay_never_reads_the_superseded_diagnosis(tmp_path, monkeypatch):
+    """Review F4: the new blind record is in before replay reads the grade."""
+
+    from learnloop.attempts import regrade as regrade_module
+
+    _paths, vault, repository = split_vault(tmp_path)
+    client = ReviewFakeClient()
+    result = submit(vault, repository, client)
+    drain_jobs(vault, repository, client)
+    real = regrade_module.replay_learning_object
+    seen = []
+
+    def watching(*args, **kwargs):
+        seen.append(
+            (
+                repository.live_causal_view(result.attempt_id),
+                repository.latest_blind_grade_record(result.attempt_id)["supersedes_id"] is not None,
+                [job["state"] for job in repository.post_attempt_jobs(attempt_id=result.attempt_id) if job["state"] == "queued"],
+            )
+        )
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(regrade_module, "replay_learning_object", watching)
+    attempt = repository.fetch_practice_attempt(result.attempt_id)
+    regrade_attempt(vault, repository, attempt, runtime=ReadyRuntime(), client=client, grading_source="ai", clock=None)
+
+    assert seen == [(None, True, ["queued"])]

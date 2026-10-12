@@ -316,6 +316,69 @@ def regrade_attempt(
                 "created_at": now,
             }
         )
+    try:
+        # One publication (review F4): the grading revision, the attempt's
+        # grade, the superseding blind record (which retires the old
+        # diagnosis and queues the re-diagnosis in the same transaction) and
+        # the replayed projection commit together or not at all. The blind
+        # record goes in BEFORE replay, so replay already reads the new grade
+        # and no stale explanation is in force while it runs.
+        with repository.atomic():
+            _publish_regrade(
+                vault,
+                repository,
+                attempt,
+                item=item,
+                learning_object=learning_object,
+                validated=validated,
+                agent_run_id=agent_run_id,
+                new_evidence_rows=new_evidence_rows,
+                first_new_evidence_id=first_new_evidence_id,
+                supersede_tiers=(
+                    (1, 3) if graded_criteria is not None or clarification_exchange else (1,)
+                ),
+                new_score=new_score,
+                rubric=rubric,
+                primary_error_type=primary_error_type,
+                content_events=content_events,
+                blind_record=blind_record,
+                prior_blind=prior_blind,
+                blind_context_hash=blind_plan.context_hash if blind_plan is not None else None,
+                clock=clock,
+            )
+    except Exception as exc:
+        finish_agent_run(
+            repository, agent_run_id, client,
+            status="failed", error_message=str(exc), clock=clock,
+        )
+        raise
+    finish_agent_run(repository, agent_run_id, client, clock=clock)
+    return validated
+
+
+def _publish_regrade(
+    vault: LoadedVault,
+    repository: Repository,
+    attempt: dict,
+    *,
+    item,
+    learning_object,
+    validated: ValidatedCodexGrade,
+    agent_run_id: str,
+    new_evidence_rows: list[dict],
+    first_new_evidence_id: str,
+    supersede_tiers: tuple[int, ...],
+    new_score: int,
+    rubric,
+    primary_error_type: str | None,
+    content_events: list[dict],
+    blind_record: dict | None,
+    prior_blind: dict | None,
+    blind_context_hash: str | None,
+    clock: Clock | None,
+) -> None:
+    """Every write of one regrade, in order, inside the caller's transaction."""
+
     repository.insert_regrade_evidence(
         attempt_id=attempt["id"],
         new_evidence_rows=new_evidence_rows,
@@ -326,9 +389,7 @@ def regrade_attempt(
         # the grade it replaces was itself a model grade, and leaving it live
         # would put two gradings of one criterion in the replay log — the
         # provisional one the question existed to fix, and the resolved one.
-        supersede_tiers=(
-            (1, 3) if graded_criteria is not None or clarification_exchange else (1,)
-        ),
+        supersede_tiers=supersede_tiers,
         clock=clock,
     )
     repository.update_attempt_grade(
@@ -343,6 +404,23 @@ def regrade_attempt(
     )
     if content_events:
         repository.record_content_events(content_events)
+    if blind_record is not None and blind_context_hash is not None:
+        from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION
+
+        # The old diagnosis explained the old grade; it stays a valid ledger
+        # row. A superseding record re-queues the attempt's diagnosis (the
+        # store does it in this transaction), and the re-diagnosis of the new
+        # grade supersedes the old one.
+        repository.insert_blind_grade_record(
+            attempt_id=attempt["id"],
+            agent_run_id=agent_run_id,
+            grading_prompt_version=str(blind_record["prompt_version"]),
+            output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
+            context_hash=blind_context_hash,
+            record=blind_record,
+            supersedes_id=str(prior_blind["id"]) if prior_blind is not None else None,
+            clock=clock,
+        )
     replay_learning_object(
         vault,
         repository,
@@ -418,25 +496,6 @@ def regrade_attempt(
                 attempt["id"],
                 exc_info=True,
             )
-    if blind_record is not None and prior_blind is not None and blind_plan is not None:
-        from learnloop.attempts.blind_grading import BLIND_GRADER_OUTPUT_SCHEMA_VERSION
-
-        repository.insert_blind_grade_record(
-            attempt_id=attempt["id"],
-            agent_run_id=agent_run_id,
-            grading_prompt_version=str(blind_record["prompt_version"]),
-            output_schema_version=BLIND_GRADER_OUTPUT_SCHEMA_VERSION,
-            context_hash=blind_plan.context_hash,
-            record=blind_record,
-            supersedes_id=str(prior_blind["id"]),
-            clock=clock,
-        )
-        # The old diagnosis explained the old grade; it stays a valid ledger
-        # row. The superseding record re-queues the attempt's diagnosis (the
-        # store does it in the same transaction), and the re-diagnosis of the
-        # new grade supersedes the old one.
-    finish_agent_run(repository, agent_run_id, client, clock=clock)
-    return validated
 
 
 def _agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]:
