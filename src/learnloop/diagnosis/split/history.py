@@ -19,17 +19,24 @@ Two stores implement :class:`HistoryStore`:
 Both apply the same as-of cutoff: only attempts completed strictly before the
 diagnosed attempt, only hypotheses/registry rows whose source attempt
 precedes it, and repair classes aggregated from only the owning hypotheses
-and cold verifications that precede it. Status is read as of now (status history is not versioned; the
-receipt discloses ``lagged_attempts``).
+and cold verifications that precede it. In a vault every such record must
+also have been WRITTEN before the diagnosed attempt (its ``created_at``), so
+a record about an old attempt but written later never shows; a versioned
+causal hypothesis is shown in its latest version written before the cutoff.
+The status of mutable rows (factors, misconceptions, candidates) is read as
+of now (their status history is not versioned; the receipt discloses
+``lagged_attempts``), and their ``last_updated`` never shows a later time.
 """
 
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from typing import Any, Iterable, Mapping, Protocol, Sequence
 
 from learnloop.attempts.grading import resolved_rubric
+from learnloop.clock import parse_utc
 from learnloop.db.repositories import Repository
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem
@@ -386,6 +393,35 @@ class HistoryStore(Protocol):
         ...
 
 
+def _instant(value: Any) -> datetime | None:
+    """A stored timestamp as an aware UTC instant; unparseable -> None."""
+
+    if not value:
+        return None
+    try:
+        return parse_utc(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclass(frozen=True)
+class _Written:
+    """A history record with the instant it was written (F5, as of a cutoff).
+
+    ``episode``/``version`` identify a causal hypothesis version: as of a
+    cutoff only the latest version written before it is shown.
+    ``updated_at`` is a mutable row's last update, shown only when it, too,
+    precedes the cutoff.
+    """
+
+    record: Any
+    written: datetime | None
+    episode: str | None = None
+    version: int = 1
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 def _decode_json(value: Any, default: Any) -> Any:
     if value is None:
         return default
@@ -573,8 +609,10 @@ class VaultHistoryStore:
         self._by_id: dict[str, HistoryAttempt] = {}
         self._order: dict[str, tuple[str, str]] = {}
         self._error_event_attempt: dict[str, str] = {}
-        self._hypotheses: list[HypothesisRecord] = []
-        self._registry: list[RegistryRecord] = []
+        #: Every hypothesis record (every causal-hypothesis VERSION) with the
+        #: instant it was written; the as-of view is chosen per cutoff.
+        self._hypotheses: list[_Written] = []
+        self._registry: list[_Written] = []
         self._repair_classes: list[tuple[Any, ...]] = []
 
     def with_blind_grades(self, blind_grades: Mapping[str, Mapping[str, Any]]) -> "VaultHistoryStore":
@@ -616,10 +654,10 @@ class VaultHistoryStore:
                     "SELECT attempt_id, fatal_errors_json FROM attempt_feedback_metadata"
                 )
             }
+            # Every version (immutable audit rows): the as-of view picks the
+            # latest version written before each cutoff.
             hypotheses = [dict(row) for row in connection.execute(
-                "SELECT h.* FROM causal_hypotheses h WHERE h.version = ("
-                "SELECT MAX(head.version) FROM causal_hypotheses head "
-                "WHERE head.episode_key = h.episode_key) ORDER BY h.created_at, h.id"
+                "SELECT * FROM causal_hypotheses ORDER BY created_at, id"
             )]
             factors = [dict(row) for row in connection.execute(
                 "SELECT * FROM unresolved_cause_factors ORDER BY created_at, id"
@@ -675,19 +713,24 @@ class VaultHistoryStore:
             evidence_rows = _decode_json(row.get("evidence_json"), [])
             status = str(row.get("status") or "candidate")
             self._hypotheses.append(
-                HypothesisRecord(
-                    id=str(row["id"]),
-                    kind="causal_hypothesis",
-                    statement=str(row.get("statement") or ""),
-                    scope=str(row.get("cause_scope") or "unknown"),
-                    status=status,
-                    lifecycle=_HYPOTHESIS_LIFECYCLE.get(status, status),
-                    learning_object_id=str(row.get("learning_object_id") or "") or None,
-                    source_attempt_id=str(row.get("attempt_id") or "") or None,
-                    validated_evidence_count=len(evidence_rows) if isinstance(evidence_rows, list) else 0,
-                    last_updated=str(row.get("created_at") or "") or None,
-                    target_facets=facets,
-                    repair_class_id=str(row.get("repair_class_id") or "") or None,
+                _Written(
+                    HypothesisRecord(
+                        id=str(row["id"]),
+                        kind="causal_hypothesis",
+                        statement=str(row.get("statement") or ""),
+                        scope=str(row.get("cause_scope") or "unknown"),
+                        status=status,
+                        lifecycle=_HYPOTHESIS_LIFECYCLE.get(status, status),
+                        learning_object_id=str(row.get("learning_object_id") or "") or None,
+                        source_attempt_id=str(row.get("attempt_id") or "") or None,
+                        validated_evidence_count=len(evidence_rows) if isinstance(evidence_rows, list) else 0,
+                        last_updated=str(row.get("created_at") or "") or None,
+                        target_facets=facets,
+                        repair_class_id=str(row.get("repair_class_id") or "") or None,
+                    ),
+                    _instant(row.get("created_at")),
+                    episode=str(row.get("episode_key") or row["id"]),
+                    version=int(row.get("version") or 1),
                 )
             )
         for row in factors:
@@ -701,17 +744,22 @@ class VaultHistoryStore:
             source = self._by_id.get(attempt_id)
             status = str(row.get("status") or "open")
             self._hypotheses.append(
-                HypothesisRecord(
-                    id=str(row["id"]),
-                    kind="unresolved_factor",
-                    statement=" | ".join(statements),
-                    scope="learner_state",
-                    status=status,
-                    lifecycle=_FACTOR_LIFECYCLE.get(status, status),
-                    learning_object_id=source.learning_object_id if source else None,
-                    source_attempt_id=attempt_id or None,
-                    validated_evidence_count=len(_decode_json(row.get("resolution_observation_ids_json"), []) or []),
-                    last_updated=str(row.get("updated_at") or row.get("created_at") or "") or None,
+                _Written(
+                    HypothesisRecord(
+                        id=str(row["id"]),
+                        kind="unresolved_factor",
+                        statement=" | ".join(statements),
+                        scope="learner_state",
+                        status=status,
+                        lifecycle=_FACTOR_LIFECYCLE.get(status, status),
+                        learning_object_id=source.learning_object_id if source else None,
+                        source_attempt_id=attempt_id or None,
+                        validated_evidence_count=len(_decode_json(row.get("resolution_observation_ids_json"), []) or []),
+                        last_updated=str(row.get("updated_at") or row.get("created_at") or "") or None,
+                    ),
+                    _instant(row.get("created_at")),
+                    created_at=str(row.get("created_at") or "") or None,
+                    updated_at=str(row.get("updated_at") or "") or None,
                 )
             )
         for row in misconceptions:
@@ -733,17 +781,27 @@ class VaultHistoryStore:
                     for value in _decode_json(row.get("facet_ids_json"), []) or []
                 ),
             )
-            self._hypotheses.append(record)
+            written = _instant(row.get("created_at"))
+            self._hypotheses.append(
+                _Written(
+                    record, written,
+                    created_at=str(row.get("created_at") or "") or None,
+                    updated_at=str(row.get("updated_at") or "") or None,
+                )
+            )
             self._registry.append(
-                RegistryRecord(
-                    id=record.id,
-                    kind="durable",
-                    statement=record.statement,
-                    learning_object_id=record.learning_object_id,
-                    status=status,
-                    facet_ids=record.target_facets,
-                    occurrence_count=len(sources),
-                    source_attempt_id=record.source_attempt_id,
+                _Written(
+                    RegistryRecord(
+                        id=record.id,
+                        kind="durable",
+                        statement=record.statement,
+                        learning_object_id=record.learning_object_id,
+                        status=status,
+                        facet_ids=record.target_facets,
+                        occurrence_count=len(sources),
+                        source_attempt_id=record.source_attempt_id,
+                    ),
+                    written,
                 )
             )
         for row in candidates:
@@ -751,32 +809,33 @@ class VaultHistoryStore:
                 continue
             sources = [str(value) for value in _decode_json(row.get("source_error_event_ids_json"), []) or []]
             self._registry.append(
-                RegistryRecord(
-                    id=str(row["id"]),
-                    kind="candidate",
-                    statement=str(row.get("statement") or ""),
-                    learning_object_id=str(row.get("learning_object_id") or "") or None,
-                    status="candidate",
-                    facet_ids=tuple(
-                        vault.canonical_facet_id(str(value))
-                        for value in _decode_json(row.get("facet_ids_json"), []) or []
+                _Written(
+                    RegistryRecord(
+                        id=str(row["id"]),
+                        kind="candidate",
+                        statement=str(row.get("statement") or ""),
+                        learning_object_id=str(row.get("learning_object_id") or "") or None,
+                        status="candidate",
+                        facet_ids=tuple(
+                            vault.canonical_facet_id(str(value))
+                            for value in _decode_json(row.get("facet_ids_json"), []) or []
+                        ),
+                        occurrence_count=int(row.get("occurrence_count") or 0),
+                        source_attempt_id=self._earliest_source(sources),
                     ),
-                    occurrence_count=int(row.get("occurrence_count") or 0),
-                    source_attempt_id=self._earliest_source(sources),
+                    _instant(row.get("created_at")),
                 )
             )
-        # Raw per-class owners and cold observations: the as-of view is
-        # aggregated per cutoff in ``repairs_before``, never across all time.
-        observations: dict[str, list[tuple[str, str, int]]] = {}
+        # Raw cold observations per class: the as-of view picks the owners
+        # (hypotheses as of the cutoff) and the observations written before
+        # it in ``repairs_before``, never aggregating across all time.
+        observations: dict[str, list[tuple[str, datetime | None, int]]] = {}
         for row in cold:
             observations.setdefault(str(row["repair_class_id"]), []).append(
-                (str(row.get("cold_attempt_id") or ""), str(row.get("created_at") or ""), int(row["success"] or 0))
+                (str(row.get("cold_attempt_id") or ""), _instant(row.get("created_at")), int(row["success"] or 0))
             )
-        by_class: dict[str, list[HypothesisRecord]] = {}
-        for record in self._hypotheses:
-            if record.repair_class_id:
-                by_class.setdefault(record.repair_class_id, []).append(record)
-        for repair_class_id, owners in sorted(by_class.items()):
+        class_ids = sorted({entry.record.repair_class_id for entry in self._hypotheses if entry.record.repair_class_id})
+        for repair_class_id in class_ids:
             definition = definitions.get(repair_class_id) or {}
             refs = definition.get("target_refs") or []
             defined_facets = tuple(
@@ -791,26 +850,69 @@ class VaultHistoryStore:
                     repair_class_id,
                     str(definition.get("operator") or ""),
                     defined_facets,
-                    tuple(owners),
                     tuple(observations.get(repair_class_id, [])),
                 )
             )
         self._loaded = True
 
-    def _observed_before(self, cold_attempt_id: str, created_at: str, before: AttemptRef) -> bool:
-        """A cold verification counts as of ``before`` when its cold attempt precedes it."""
+    @staticmethod
+    def _written_before(written: datetime | None, before: AttemptRef) -> bool:
+        """Whether a record was written strictly before the cutoff attempt.
 
+        An unknown or unparseable time is never "before": as-of history fails
+        closed rather than leak a record that may postdate the cutoff.
+        """
+
+        cutoff = _instant(before.completed_at)
+        return written is not None and cutoff is not None and written < cutoff
+
+    def _visible(self, entry: _Written, before: AttemptRef) -> bool:
+        return self._source_before(entry.record.source_attempt_id, before) and self._written_before(entry.written, before)
+
+    def _hypotheses_as_of(self, before: AttemptRef) -> list[HypothesisRecord]:
+        """Every hypothesis as it stood at ``before``.
+
+        A record shows only when its source attempt precedes the cutoff AND it
+        was written before it; a causal hypothesis shows its latest version
+        written before the cutoff; a mutable row's ``last_updated`` falls back
+        to its creation time when the last update postdates the cutoff.
+        """
+
+        latest: dict[str, tuple[int, _Written]] = {}
+        chosen: list[tuple[int, _Written]] = []
+        for position, entry in enumerate(self._hypotheses):
+            if not self._visible(entry, before):
+                continue
+            if entry.episode is None:
+                chosen.append((position, entry))
+                continue
+            current = latest.get(entry.episode)
+            if current is None or entry.version > current[1].version:
+                latest[entry.episode] = (position, entry)
+        chosen.extend(latest.values())
+        records = []
+        for _position, entry in sorted(chosen, key=lambda pair: pair[0]):
+            record = entry.record
+            if entry.updated_at and not self._written_before(_instant(entry.updated_at), before):
+                record = replace(record, last_updated=entry.created_at)
+            records.append(record)
+        return records
+
+    def _observed_before(self, cold_attempt_id: str, written: datetime | None, before: AttemptRef) -> bool:
+        """A cold verification counts as of ``before`` only when it was
+        recorded before it AND its cold attempt (when known) precedes it."""
+
+        if not self._written_before(written, before):
+            return False
         order = self._order.get(cold_attempt_id)
-        if order is not None:
-            return order < before.key()
-        return bool(created_at) and created_at < before.completed_at
+        return order is None or order < before.key()
 
-    def _repair_as_of(self, entry: tuple[Any, ...], before: AttemptRef) -> RepairRecord | None:
-        repair_class_id, operator, defined_facets, owners, observations = entry
-        visible = [owner for owner in owners if self._source_before(owner.source_attempt_id, before)]
+    def _repair_as_of(self, entry: tuple[Any, ...], visible_hypotheses: Sequence[HypothesisRecord], before: AttemptRef) -> RepairRecord | None:
+        repair_class_id, operator, defined_facets, observations = entry
+        visible = [owner for owner in visible_hypotheses if owner.repair_class_id == repair_class_id]
         if not visible:
             return None
-        results = [success for cold_attempt_id, created_at, success in observations if self._observed_before(cold_attempt_id, created_at, before)]
+        results = [success for cold_attempt_id, written, success in observations if self._observed_before(cold_attempt_id, written, before)]
         facets = defined_facets or tuple(dict.fromkeys(facet for owner in visible for facet in owner.target_facets))
         sources = [owner.source_attempt_id for owner in visible if owner.source_attempt_id]
         return RepairRecord(
@@ -943,12 +1045,7 @@ class VaultHistoryStore:
     ) -> list[HypothesisRecord]:
         self._load()
         wanted = set(learning_object_ids)
-        return [
-            record
-            for record in self._hypotheses
-            if record.learning_object_id in wanted
-            and self._source_before(record.source_attempt_id, before)
-        ]
+        return [record for record in self._hypotheses_as_of(before) if record.learning_object_id in wanted]
 
     def registry_before(
         self, before: AttemptRef, learning_object_ids: Sequence[str] | None
@@ -956,10 +1053,10 @@ class VaultHistoryStore:
         self._load()
         wanted = set(learning_object_ids) if learning_object_ids is not None else None
         return [
-            record
-            for record in self._registry
-            if (wanted is None or record.learning_object_id in wanted)
-            and self._source_before(record.source_attempt_id, before)
+            entry.record
+            for entry in self._registry
+            if (wanted is None or entry.record.learning_object_id in wanted)
+            and self._visible(entry, before)
         ]
 
     def repairs_before(
@@ -967,7 +1064,8 @@ class VaultHistoryStore:
     ) -> list[RepairRecord]:
         self._load()
         wanted = set(facets) if facets is not None else None
-        records = [record for entry in self._repair_classes if (record := self._repair_as_of(entry, before)) is not None]
+        visible = self._hypotheses_as_of(before)
+        records = [record for entry in self._repair_classes if (record := self._repair_as_of(entry, visible, before)) is not None]
         return [
             record
             for record in records

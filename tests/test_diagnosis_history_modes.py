@@ -305,3 +305,66 @@ def test_repairs_before_filters_owners_and_cold_outcomes_by_the_cutoff(tmp_path)
     (late,) = store.repairs_before(store.ref("att_07_svd_future"), None)
     assert late.hypothesis_ids == (owners["att_02_svd_fail"],)
     assert (late.cold_successes, late.cold_failures) == (1, 0)
+
+
+def test_as_of_history_needs_each_record_written_before_the_cutoff(tmp_path):
+    """F5 (re-review): a record written after the cutoff is invisible at it,
+    whatever earlier attempt it references: a cold observation, a repair
+    owner, a new hypothesis episode or a later version of an earlier one."""
+
+    import sqlite3
+    from contextlib import closing
+
+    from tests.diagnosis_split_helpers import at
+
+    def iso(hours: float) -> str:
+        return at(hours).isoformat().replace("+00:00", "Z")
+
+    paths = build_diagnosis_vault(tmp_path / "vault")
+    _vault, repository = seed_history(paths)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection, connection:
+        connection.row_factory = sqlite3.Row
+        first = dict(connection.execute(
+            "SELECT * FROM causal_hypotheses WHERE attempt_id = 'att_02_svd_fail' ORDER BY version LIMIT 1"
+        ).fetchone())
+        connection.execute("DROP TRIGGER causal_hypotheses_no_update")
+        # The att_02 hypothesis (written at hour 1) owns the repair class.
+        connection.execute("UPDATE causal_hypotheses SET repair_class_id = 'rc_transpose' WHERE id = ?", (first["id"],))
+        columns = list(first)
+
+        def insert(**changes):
+            row = {**first, "repair_class_id": "rc_transpose", **changes}
+            connection.execute(
+                f"INSERT INTO causal_hypotheses ({', '.join(columns)}) VALUES ({', '.join('?' for _ in columns)})",
+                [row[name] for name in columns],
+            )
+
+        # Written at hour 7 (after att_06 at hour 5), about att_02 (hour 1):
+        # a second version of the same episode, and a brand-new episode.
+        insert(id="ch_v2_late", version=first["version"] + 1, supersedes_id=first["id"], status="validated", created_at=iso(7))
+        insert(id="ch_new_late", episode_key="episode_written_late", version=1, supersedes_id=None, created_at=iso(7))
+        # A cold verification on att_03 (hour 2), recorded at hour 7.
+        connection.execute(
+            "INSERT INTO causal_cold_verifications (id, source_attempt_id, cold_attempt_id, repair_class_id, hypothesis_ids_json, "
+            "source_surface_family, cold_surface_family, avoided_affordances_json, success, capability_update_json, "
+            "diagnosis_support_update_json, repair_effect_support_json, created_at) "
+            "VALUES ('ccv_late', 'att_02_svd_fail', 'att_03_svd_pass', 'rc_transpose', '[]', 'svd_compute', 'svd_compute_b', "
+            "'[]', 1, '{}', '{}', '{}', ?)",
+            (iso(7),),
+        )
+    vault = load_vault(paths.root)
+    store = VaultHistoryStore(vault, repository)
+    cutoff = store.ref("att_06_svd_fail")
+    (record,) = store.repairs_before(cutoff, None)
+    assert record.hypothesis_ids == (first["id"],)
+    assert (record.cold_successes, record.cold_failures) == (0, 0)
+    visible = {row.id: row for row in store.hypotheses_before(cutoff, list(vault.learning_objects))}
+    assert "ch_new_late" not in visible and "ch_v2_late" not in visible
+    assert visible[first["id"]].status == first["status"]
+    # Once the cutoff passes hour 7, the later records are all visible.
+    later = store.ref("att_07_svd_future")
+    (late,) = store.repairs_before(later, None)
+    assert set(late.hypothesis_ids) == {"ch_v2_late", "ch_new_late"}
+    assert (late.cold_successes, late.cold_failures) == (1, 0)
+    visible_late = {row.id for row in store.hypotheses_before(later, list(vault.learning_objects))}
+    assert {"ch_v2_late", "ch_new_late"} <= visible_late and first["id"] not in visible_late
