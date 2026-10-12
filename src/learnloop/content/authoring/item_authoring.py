@@ -27,7 +27,8 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import LoadedVault, PracticeItem
-from learnloop.vault.writer import upsert_practice_item
+from learnloop.vault.writer import current_practice_item, upsert_practice_item
+from learnloop.vault_lock import vault_mutation_lock
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -165,29 +166,33 @@ def edit_item(
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Reword a card in place. Only prompt / expected answer / hints are
-    learner-editable; measurement plumbing (facets, weights, rubric) is not."""
+    learner-editable; measurement plumbing (facets, weights, rubric) is not.
 
-    vault = load_vault(root)
-    item = _require_item(vault, practice_item_id)
-    changes: dict[str, Any] = {}
-    if prompt is not None and prompt.strip() and prompt.strip() != item.prompt:
-        changes["prompt"] = prompt.strip()
-    if (
-        expected_answer is not None
-        and expected_answer.strip()
-        and isinstance(item.expected_answer, str)
-        and expected_answer.strip() != item.expected_answer
-    ):
-        changes["expected_answer"] = expected_answer.strip()
-    if hints is not None and list(hints) != list(item.hints):
-        changes["hints"] = list(hints)
-    if not changes:
-        raise ItemAuthoringError("no changes to apply")
-    # The writer validates the full payload up front, so start from the item's dump.
-    payload = item.model_dump(mode="json", exclude_none=False)
-    payload.update(changes)
-    payload["updated_at"] = utc_now_iso(clock)
-    upsert_practice_item(root, payload, clock=clock)
+    The item is read and written inside the vault mutation lock, so a family
+    apply/undo cannot interleave and drop either write (review F1)."""
+
+    with vault_mutation_lock(root, purpose="learner_item_edit"):
+        vault = load_vault(root)
+        item = _require_item(vault, practice_item_id)
+        changes: dict[str, Any] = {}
+        if prompt is not None and prompt.strip() and prompt.strip() != item.prompt:
+            changes["prompt"] = prompt.strip()
+        if (
+            expected_answer is not None
+            and expected_answer.strip()
+            and isinstance(item.expected_answer, str)
+            and expected_answer.strip() != item.expected_answer
+        ):
+            changes["expected_answer"] = expected_answer.strip()
+        if hints is not None and list(hints) != list(item.hints):
+            changes["hints"] = list(hints)
+        if not changes:
+            raise ItemAuthoringError("no changes to apply")
+        # The writer validates the full payload up front, so start from the item's dump.
+        payload = item.model_dump(mode="json", exclude_none=False)
+        payload.update(changes)
+        payload["updated_at"] = utc_now_iso(clock)
+        upsert_practice_item(root, payload, clock=clock, loaded_vault=vault)
     _record(
         repository,
         kind="learner_item_edited",
@@ -215,19 +220,29 @@ def retire_item(
         raise ItemAuthoringError(
             f"unknown retirement reason {reason!r}; one of: {', '.join(RETIREMENT_REASONS)}"
         )
-    vault = loaded_vault or load_vault(root)
-    item = _require_item(vault, practice_item_id)
-    if item.status == "retired":
-        # Self-heal derived serving state without repeating the durable
-        # retirement ledgers or bumping the queue for an idempotent request.
-        repository.deactivate_practice_item_serving(practice_item_id, clock=clock)
-        return {"id": practice_item_id, "status": "retired", "item": item}
-    status_reason = reason if not (note or "").strip() else f"{reason}: {note.strip()}"  # type: ignore[union-attr]
-    payload = item.model_dump(mode="json", exclude_none=False)
-    payload.update(
-        status="retired", status_reason=status_reason, updated_at=utc_now_iso(clock)
-    )
-    upsert_practice_item(root, payload, clock=clock, loaded_vault=vault)
+    with vault_mutation_lock(root, purpose="learner_item_retire"):
+        if loaded_vault is None:
+            vault = load_vault(root)
+            item = _require_item(vault, practice_item_id)
+        else:
+            # The caller's snapshot may predate another writer (a family
+            # apply/undo): write back the item as it is on disk now (review F1).
+            vault = loaded_vault
+            _require_item(vault, practice_item_id)
+            item = current_practice_item(root, practice_item_id, loaded_vault=vault)
+            if item is None:
+                raise ItemAuthoringError(f"unknown practice item {practice_item_id!r}")
+        if item.status == "retired":
+            # Self-heal derived serving state without repeating the durable
+            # retirement ledgers or bumping the queue for an idempotent request.
+            repository.deactivate_practice_item_serving(practice_item_id, clock=clock)
+            return {"id": practice_item_id, "status": "retired", "item": item}
+        status_reason = reason if not (note or "").strip() else f"{reason}: {note.strip()}"  # type: ignore[union-attr]
+        payload = item.model_dump(mode="json", exclude_none=False)
+        payload.update(
+            status="retired", status_reason=status_reason, updated_at=utc_now_iso(clock)
+        )
+        upsert_practice_item(root, payload, clock=clock, loaded_vault=vault)
     retired_item = PracticeItem.model_validate(payload)
     # The YAML status is authoritative and already makes every ordinary serving
     # path reject the item. Bring the narrow derived state into agreement here;

@@ -251,13 +251,29 @@ def test_a_busy_vault_lock_defers_lease_work_instead_of_failing(tmp_path, monkey
     batch = runner.enqueue_batch('import', [JobSpec('fake')])
     stale = _claim(runner.repo, 'previous', 0)
     host = DurableIngestJobs()
-    with vault_mutation_lock(tmp_path, purpose='long_apply'):
+    import threading
+
+    held, release = threading.Event(), threading.Event()
+
+    def long_apply():
+        # Another writer (the lock is re-entrant only within one thread).
+        with vault_mutation_lock(tmp_path, purpose='long_apply'):
+            held.set()
+            release.wait(30)
+
+    holder = threading.Thread(target=long_apply)
+    holder.start()
+    assert held.wait(10)
+    try:
         # Opening the vault, draining and resuming all tolerate the busy lock.
         host.bind(runner.repo, tmp_path, clock=_clock(180), background=False)
         host._runner.handlers['fake'] = _ok_handler({})
         assert host._runner.run_next() is False
         host._runner.resume_batch(batch)
         assert runner.repo.get_ingest_job(stale['id'])['status'] == 'running'
+    finally:
+        release.set()
+        holder.join(10)
     host._runner.resume_batch(batch)
     assert host.drain_foreground() == 1
     assert runner.repo.get_ingest_job(stale['id'])['status'] == 'completed'

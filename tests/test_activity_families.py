@@ -406,3 +406,99 @@ def test_ensemble_source_kind_loads_and_round_trips(tmp_path):
     loaded = load_vault(paths.root)
     assert loaded.activity_families[family.id].source_kind == "ensemble"
     assert not [issue for issue in loaded.issues if family.id in str(issue)]
+
+
+def test_learner_edit_during_family_publication_is_not_lost(tmp_path, monkeypatch):
+    """Review F1: a sidecar edit waits for the family's read-validate-publish section."""
+    import threading
+
+    from learnloop.content.authoring.item_authoring import edit_item
+    from learnloop.substrate import families
+
+    paths, vault, repository, item, family = setup_family(tmp_path)
+    paused, release, edited = threading.Event(), threading.Event(), threading.Event()
+    original = families._write_atomic
+
+    def paused_write(path, data):
+        if not paused.is_set():  # the item patch is already computed here
+            paused.set()
+            assert release.wait(20)
+        original(path, data)
+
+    monkeypatch.setattr(families, "_write_atomic", paused_write)
+    errors = []
+
+    def run(target):
+        try:
+            target()
+        except BaseException as exc:  # noqa: BLE001 - surfaced by the assertion below
+            errors.append(exc)
+
+    def apply():
+        apply_family(vault, repository, family, {item.id: "same_target"}, proposal_id="p")
+
+    def edit():
+        edit_item(paths.root, Repository(paths.sqlite_path), practice_item_id=item.id,
+                  prompt="The learner's revised prompt")
+        edited.set()
+
+    apply_thread = threading.Thread(target=run, args=(apply,))
+    apply_thread.start()
+    assert paused.wait(20)
+    edit_thread = threading.Thread(target=run, args=(edit,))
+    edit_thread.start()
+    try:
+        # The save must wait for the family's critical section, not race it.
+        assert not edited.wait(0.5)
+    finally:
+        release.set()
+        apply_thread.join(30)
+        edit_thread.join(30)
+    assert not errors and edited.is_set()
+    data = read_yaml(paths.practice_item_path("linear-algebra", item.id))
+    assert data["prompt"] == "The learner's revised prompt"
+    assert (data["family_id"], data["variant_relation"]) == (family.id, "same_target")
+
+
+def test_retire_from_a_stale_snapshot_keeps_family_membership(tmp_path):
+    """The sidecar retires from a vault snapshot that may predate a family write."""
+    from learnloop.content.authoring.item_authoring import retire_item
+
+    paths, vault, repository, item, family = setup_family(tmp_path)
+    stale = load_vault(paths.root)
+    apply_family(vault, repository, family, {item.id: "same_target"}, proposal_id="p")
+    result = retire_item(paths.root, repository, practice_item_id=item.id,
+                         reason="ambiguous", loaded_vault=stale)
+    path = paths.practice_item_path("linear-algebra", item.id)
+    data = read_yaml(path)
+    assert data["status"] == "retired" and result["item"].family_id == family.id
+    assert (data["family_id"], data["variant_relation"]) == (family.id, "same_target")
+    undo_family(vault, repository, "p")  # membership fields still agree with the ledger
+    data = read_yaml(path)
+    assert data["status"] == "retired" and data.get("family_id") is None
+
+
+def test_vault_mutation_lock_is_reentrant_per_thread_only(tmp_path):
+    import threading
+
+    from learnloop.vault_lock import VaultLockTimeout, vault_mutation_lock
+
+    root = tmp_path / "vault"
+    root.mkdir()
+    outcome = []
+
+    def contend():
+        try:
+            with vault_mutation_lock(root, purpose="other_thread", timeout_s=0.2):
+                outcome.append("acquired")
+        except VaultLockTimeout:
+            outcome.append("timeout")
+
+    with vault_mutation_lock(root, purpose="outer"):
+        with vault_mutation_lock(root, purpose="nested"):  # same thread: re-entrant
+            thread = threading.Thread(target=contend)
+            thread.start()
+            thread.join(5)
+        assert outcome == ["timeout"]  # another thread is still excluded
+    contend()
+    assert outcome == ["timeout", "acquired"]

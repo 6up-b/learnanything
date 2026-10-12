@@ -7,7 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
-from learnloop.vault.loader import load_vault
+from learnloop.vault.loader import load_practice_item_file, load_vault
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.models import (
     ActivityFamily,
@@ -22,6 +22,7 @@ from learnloop.vault.models import (
 )
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml, write_yaml
+from learnloop.vault_lock import vault_mutation_lock
 
 
 class VaultWriterError(ValueError):
@@ -280,15 +281,33 @@ def upsert_practice_item(
     if primary_subject not in vault.subjects:
         raise VaultWriterError(f"Unknown primary subject {primary_subject}")
     target_path = paths.practice_item_path(primary_subject, practice_item_id)
-    current_path = _locate_entity_path(vault.root, "practice-items", practice_item_id)
-    if current_path is not None and current_path.resolve() != target_path.resolve():
-        raise VaultWriterError(f"Refusing to move {practice_item_id} from {current_path} to {target_path}")
-    existing = _read_yaml_or(target_path, {})
-    merged = _merge_entity(existing, raw, PRACTICE_ITEM_ORDER, clock=clock)
-    validated = PracticeItem.model_validate(merged).model_dump(mode="json", exclude_none=False)
-    _ensure_subject_path(paths, primary_subject, target_path)
-    write_yaml(target_path, validated)
+    # Read, merge, validate and publish inside the vault mutation lock, the
+    # critical section family apply/undo also holds: neither can publish a file
+    # read before the other's write (review F1). Re-entrant for callers that
+    # already hold it (proposal accept, family operations).
+    with vault_mutation_lock(vault.root, purpose="practice_item_write"):
+        current_path = _locate_entity_path(vault.root, "practice-items", practice_item_id)
+        if current_path is not None and current_path.resolve() != target_path.resolve():
+            raise VaultWriterError(f"Refusing to move {practice_item_id} from {current_path} to {target_path}")
+        existing = _read_yaml_or(target_path, {})
+        merged = _merge_entity(existing, raw, PRACTICE_ITEM_ORDER, clock=clock)
+        validated = PracticeItem.model_validate(merged).model_dump(mode="json", exclude_none=False)
+        _ensure_subject_path(paths, primary_subject, target_path)
+        write_yaml(target_path, validated)
     return target_path
+
+
+def current_practice_item(root: Path, practice_item_id: str, *, loaded_vault: LoadedVault) -> PracticeItem | None:
+    """The item as written on disk now, parsed like the full loader.
+
+    For callers holding a possibly stale vault snapshot; call it inside the
+    vault mutation lock so the read and the following write form one section.
+    """
+
+    path = _locate_entity_path(Path(root), "practice-items", practice_item_id)
+    if path is None:
+        return None
+    return load_practice_item_file(path, loaded_vault, issues=[])
 
 
 def upsert_error_type(
