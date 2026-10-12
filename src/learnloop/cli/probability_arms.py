@@ -24,8 +24,8 @@ from learnloop.ai.transport import BOUNDED_STRUCTURED_COMPLETION
 from learnloop.db.connection import connect
 from learnloop.field.probability_arms import JUDGES, arm_name
 from learnloop.field.probability_prep import (
-    DECIDER_OUTPUT_TOKENS, JudgeRoute, check_cache_location, load_arms, prediction_points,
-    prepare_judge, render_plan,
+    DECIDER_OUTPUT_TOKENS, JudgeRoute, check_cache_location, committed_judgments, load_arms,
+    prediction_points, prepare_judge, render_plan,
 )
 from learnloop.field.probability_states import StateRenderer
 from learnloop.vault.paths import VaultPaths
@@ -163,14 +163,24 @@ def prepare_or_load_probability_arms(
         "config": loaded.config.mastery,
         "general_means": inputs.get("general_means"), "lo_priors": inputs.get("lo_priors"),
     }
-    points = prediction_points((*inputs["attempts"], *inputs["signals"]), incumbent=incumbent)
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     # Render everything from one read-only snapshot, then close it before
     # any write: receipts and judgments need the database unlocked.
     with closing(connect(sqlite_path, read_only=True)) as connection:
         connection.execute("BEGIN")
-        plan = render_plan(points, variants, StateRenderer(loaded, connection))
-    report.update(predictions=len(points), cache_dir_outside_vault=True)
+        renderer = StateRenderer(loaded, connection, rows=inputs["attempts"])
+        # The incumbent's numbers are fitted on what preceded each attempt's
+        # start, the same cutoff the states use (review F2).
+        points = prediction_points(
+            (*inputs["attempts"], *inputs["signals"]), incumbent=incumbent, start_of=renderer.cutoff,
+        )
+        plan = render_plan(points, variants, renderer)
+        committed = committed_judgments(connection)
+        established = sum(1 for point in points if renderer.cutoff(point.row.attempt_id) is not None)
+    report.update(
+        predictions=len(points), cache_dir_outside_vault=True,
+        history={"start_established": established, "start_unknown_history_withheld": len(points) - established},
+    )
     if prepare or dry_run:
         from learnloop.db.repositories import Repository
 
@@ -180,6 +190,7 @@ def prepare_or_load_probability_arms(
             report["judges"][judge] = prepare_judge(
                 plan, route=routes[judge], variants=judge_variants, cache_dir=directory,
                 repository=repository, caps=caps, dry_run=dry_run, cancelled=cancelled,
+                committed=committed,
             )
         statuses = {value["status"] for value in report["judges"].values()}
         if dry_run:
@@ -284,6 +295,66 @@ def judge_readiness(loaded, *, probe: bool = False, http=None) -> dict[str, Any]
     return {"version": 1, "routes": routes}
 
 
+READINESS_STATE = "LearnLoop readiness check. This text contains no learner data."
+#: The readiness call's fixed caps: one call, a few hundred tokens, under $0.001.
+READINESS_CAPS = SpendCaps(max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
+                           max_total_tokens=4_000, max_estimated_usd=0.001)
+
+
+def _readiness_request(loaded, task: str):
+    """The readiness call fully resolved without credentials, a client or a write."""
+
+    from learnloop.ai.decisions import ChoiceQuestion, NoulQuestion, ScoreQuestion, request_body
+    from learnloop.ai.providers.decider import estimate_input_tokens, resolved_decider_settings
+    from learnloop.ai.spend import SpendEstimate
+
+    name = provider_for_task(loaded.config, task).provider_name  # type: ignore[arg-type]
+    mismatch = route_profile_mismatch(loaded.config, name, task)  # type: ignore[arg-type]
+    if mismatch:
+        raise ValueError(mismatch)
+    profile = loaded.config.ai.providers[name]
+    settings = resolved_decider_settings(profile)
+    questions = {
+        "is_check": NoulQuestion(instructions="Is this text a software readiness check?"),
+        "kind": ChoiceQuestion(
+            instructions="What kind of text is this?",
+            options={"readiness_check": "A test message from software", "learner_answer": None},
+        ),
+        "clarity": ScoreQuestion(instructions="How clear is the text?", levels=("unclear", "clear")),
+    }
+    tokens = estimate_input_tokens(request_body(settings.model, READINESS_STATE, questions))
+    estimate = SpendEstimate(
+        candidates=1, calls=1, total_tokens=tokens + DECIDER_OUTPUT_TOKENS,
+        estimated_usd=tokens * settings.price_per_million_input / 1_000_000,
+    )
+    return name, profile, settings, questions, tokens, estimate
+
+
+def live_decider_estimate(loaded, *, task: str = "llm_probability_decider") -> dict[str, Any]:
+    """``--live-decider --dry-run``: the call's estimate, with nothing sent.
+
+    It loads no key, builds no authenticated client and writes no receipt.
+    """
+
+    from dataclasses import asdict
+
+    from learnloop.ai.spend import SpendBudget, SpendLimitExceeded
+
+    name, _profile, settings, questions, tokens, estimate = _readiness_request(loaded, task)
+    report = {
+        "status": "dry_run", "provider": name, "url": settings.url, "requested_model": settings.model,
+        "questions": sorted(questions), "learner_data": False,
+        "estimate": {**asdict(estimate), "input_tokens": tokens,
+                     "price_per_million_input": settings.price_per_million_input},
+        "caps": READINESS_CAPS.as_dict(),
+    }
+    try:
+        SpendBudget(READINESS_CAPS).check(estimate)
+    except SpendLimitExceeded as exc:
+        report.update(status="over_budget", reason=str(exc))
+    return report
+
+
 def live_decider_check(loaded, *, task: str = "llm_probability_decider", http=None) -> dict[str, Any]:
     """One minimal, spend-capped Decider call that carries no learner data.
 
@@ -294,42 +365,24 @@ def live_decider_check(loaded, *, task: str = "llm_probability_decider", http=No
 
     from dataclasses import asdict
 
-    from learnloop.ai.decisions import NoulQuestion, ScoreQuestion, ChoiceQuestion, request_body
     from learnloop.ai.execution import call_labels, observe_model_calls
-    from learnloop.ai.providers.decider import DeciderProviderClient, estimate_input_tokens
-    from learnloop.ai.spend import SpendBudget, SpendEstimate
+    from learnloop.ai.providers.decider import DeciderProviderClient
+    from learnloop.ai.spend import SpendBudget
     from learnloop.db.repositories import Repository
     from learnloop.ids import new_ulid
 
+    name, profile, _settings, questions, _tokens, estimate = _readiness_request(loaded, task)
     load_machine_environment(loaded.root)
-    name = provider_for_task(loaded.config, task).provider_name  # type: ignore[arg-type]
-    mismatch = route_profile_mismatch(loaded.config, name, task)  # type: ignore[arg-type]
-    if mismatch:
-        raise ValueError(mismatch)
-    profile = loaded.config.ai.providers[name]
     client = DeciderProviderClient(name, profile, http=http)
-    state = "LearnLoop readiness check. This text contains no learner data."
-    questions = {
-        "is_check": NoulQuestion(instructions="Is this text a software readiness check?"),
-        "kind": ChoiceQuestion(
-            instructions="What kind of text is this?",
-            options={"readiness_check": "A test message from software", "learner_answer": None},
-        ),
-        "clarity": ScoreQuestion(instructions="How clear is the text?", levels=("unclear", "clear")),
-    }
-    tokens = estimate_input_tokens(request_body(client.model, state, questions))
-    caps = SpendCaps(max_candidates=1, max_pairs=0, max_retries=0, max_calls=1,
-                     max_total_tokens=4_000, max_estimated_usd=0.001)
+    caps = READINESS_CAPS
     budget = SpendBudget(caps)
-    estimate = SpendEstimate(candidates=1, calls=1, total_tokens=tokens + DECIDER_OUTPUT_TOKENS,
-                             estimated_usd=client.estimated_cost(tokens))
     repository = Repository(VaultPaths(loaded.root, loaded.config).sqlite_path)
     owner_id = new_ulid()
     with budget.request(estimate) as charge, observe_model_calls(
         lambda action, event: repository.record_model_event(
             action, event, owner_kind="judge_readiness", owner_id=owner_id)
     ), call_labels(judge="decider", question_set_version=READINESS_QUESTION_SET):
-        result = client.decide(state, questions, purpose="judge_readiness")
+        result = client.decide(READINESS_STATE, questions, purpose="judge_readiness")
         charge.reconcile(total_tokens=result.input_tokens + result.output_tokens,
                          estimated_usd=result.cost if result.cost is not None else client.estimated_cost(result.input_tokens))
     answers = {}
@@ -355,5 +408,6 @@ __all__ = [
     "prepare_or_load_probability_arms",
     "judge_readiness",
     "live_decider_check",
+    "live_decider_estimate",
     "resolve_route",
 ]

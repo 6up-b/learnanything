@@ -50,6 +50,8 @@ def test_dry_run_estimates_both_judges_without_secrets_or_clients(seeded, tmp_pa
     )
     assert code == 0, report
     assert report["status"] == "dry_run" and report["predictions"] == 7
+    # No attempt here recorded its pre-grading timing: every state says so.
+    assert report["history"] == {"start_established": 0, "start_unknown_history_withheld": 7}
     decider, llm = report["judges"]["decider"], report["judges"]["llm"]
     assert decider["status"] == llm["status"] == "dry_run"
     assert decider["billing"] == "metered" and decider["price_source"] == "listed_input_price"
@@ -152,3 +154,27 @@ def test_judges_live_check_is_one_capped_call_with_no_learner_data(seeded, monke
     assert set(live["answers"]) == {"is_check", "kind", "clarity"}
     assert len(server.requests) == 1
     assert "no learner data" in server.requests[0]["body"]["state"]
+
+
+def test_judges_live_check_dry_run_estimates_without_a_key_client_or_receipt(seeded, monkeypatch):
+    """Review F6: the paid readiness call has a dry run like every paid command."""
+
+    import socket
+    import sqlite3
+
+    monkeypatch.setattr("learnloop.cli.probability_arms.load_machine_environment", forbidden)
+    monkeypatch.setattr("learnloop.ai.providers.decider.DeciderProviderClient.__init__", forbidden)
+    monkeypatch.setattr(socket, "socket", lambda *a, **k: pytest.fail("network"))
+    code, report = run("eval", "judges", "--vault", str(seeded.root), "--live-decider", "--dry-run", "--json")
+    assert code == 0, report
+    live = report["live_decider"]
+    assert live["status"] == "dry_run" and live["learner_data"] is False
+    assert live["requested_model"] == "perplexity/pplx-decider-v1.1-27b"
+    assert live["url"] == "https://openrouter.ai/api/alpha/decisions"
+    assert live["estimate"]["calls"] == 1 and live["estimate"]["input_tokens"] > 0
+    assert 0 < live["estimate"]["estimated_usd"] < live["caps"]["max_estimated_usd"]
+    with sqlite3.connect(seeded.sqlite_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM model_call_receipts WHERE owner_kind='judge_readiness'").fetchone()[0] == 0
+    code, report = run("eval", "judges", "--vault", str(seeded.root), "--dry-run", "--json")
+    assert code == 1 and "--live-decider" in report["reason"]

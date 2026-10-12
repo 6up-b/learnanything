@@ -27,6 +27,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime
 from hashlib import sha256
 import json
 import math
@@ -45,6 +46,7 @@ from learnloop.ai.spend import (
     subscription_usage_estimate,
 )
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
+from learnloop.clock import parse_utc
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.field.evaluation import _eligible, _groups
 from learnloop.field.predictors import create_predictor
@@ -52,7 +54,7 @@ from learnloop.field.probability_arms import (
     CachedProbabilityArm, JUDGES, VARIANTS, clip, position_key,
 )
 from learnloop.field.probability_states import (
-    PredictionPoint, STATE_VERSION, StateRenderer, canonical_json, history_pairs, state_hash,
+    PredictionPoint, STATE_VERSION, StateRenderer, canonical_json, history_pairs, start_index, state_hash,
 )
 from learnloop.field.types import AttemptRow, SignalRow
 
@@ -96,49 +98,78 @@ def _digest(value: Any) -> str:
 # -- the harness's past ---------------------------------------------------
 
 
-def prediction_points(rows: Iterable[Any], *, incumbent: Mapping[str, Any] | None = None) -> list[PredictionPoint]:
+def _observes(row: Any) -> bool:
+    """What the incumbent folds: every signal and every scored attempt."""
+
+    return isinstance(row, SignalRow) or _eligible(row)
+
+
+def _incumbent_numbers(ekf: Any, row: AttemptRow, observations: int) -> dict[str, Any]:
+    prediction = ekf.predict_item(row.features)
+    spread = 1.959963984540054 * math.sqrt(max(0.0, prediction.logit_variance))
+    logit = math.log(prediction.p_success / (1 - prediction.p_success))
+    return {
+        "name": "mastery_ekf",
+        "p_success": round(prediction.p_success, 4),
+        "p_success_interval95": [
+            round(1 / (1 + math.exp(-(logit - spread))), 4),
+            round(1 / (1 + math.exp(-(logit + spread))), 4),
+        ],
+        "observations_before_start": observations,
+        "regions": {
+            lo: {"mean": region.mean, "variance": region.variance, "n_eff": region.n_eff,
+                 "untested": region.untested}
+            for lo, region in ekf.region_estimates().items()
+        },
+    }
+
+
+def prediction_points(
+    rows: Iterable[Any], *, incumbent: Mapping[str, Any] | None = None,
+    start_of: Callable[[str], datetime | None] | None = None,
+) -> list[PredictionPoint]:
     """Every prediction the harness will ask an attempt arm for, in order.
 
     Mirrors ``evaluate``: signals and attempts in ``_groups`` order; an
     attempt arm predicts and then observes exactly the rows the harness
-    scores for ability (``_eligible``). The incumbent (``mastery_ekf``)
-    folds the same sequence so its numbers are past-only too.
+    scores for ability (``_eligible``). ``history`` is that harness past (it
+    keys the cache).
+
+    The incumbent's numbers (``mastery_ekf``) are fitted only on the
+    observations made strictly before the attempt's start, ``start_of(id)``
+    (the renderer's cutoff), never on the harness past: an attempt that
+    completed after this one began must not move them (review F2). An
+    unknown start folds nothing, so the numbers are the frozen priors alone.
     """
 
-    ekf = create_predictor("mastery_ekf", **dict(incumbent or {}))
+    events = [row for row, _facets in _groups(tuple(rows))]
+    times = [parse_utc(row.observed_at) for row in events]
     history: list[AttemptRow] = []
-    points: list[PredictionPoint] = []
-    for row, _facets in _groups(tuple(rows)):
-        if isinstance(row, SignalRow):
-            ekf.observe(row)
+    staged: list[tuple[int, int, AttemptRow, tuple[AttemptRow, ...], str]] = []
+    for index, row in enumerate(events):
+        if isinstance(row, SignalRow) or not _eligible(row):
             continue
-        if not _eligible(row):
-            continue
-        prediction = ekf.predict_item(row.features)
-        spread = 1.959963984540054 * math.sqrt(max(0.0, prediction.logit_variance))
-        logit = math.log(prediction.p_success / (1 - prediction.p_success))
-        regions = {
-            lo: {"mean": region.mean, "variance": region.variance, "n_eff": region.n_eff,
-                 "untested": region.untested}
-            for lo, region in ekf.region_estimates().items()
-        }
-        points.append(PredictionPoint(
-            position_key=position_key(row.features, history_pairs(history)),
-            row=row,
-            history=tuple(history),
-            incumbent={
-                "name": "mastery_ekf",
-                "p_success": round(prediction.p_success, 4),
-                "p_success_interval95": [
-                    round(1 / (1 + math.exp(-(logit - spread))), 4),
-                    round(1 / (1 + math.exp(-(logit + spread))), 4),
-                ],
-                "regions": regions,
-            },
-        ))
-        ekf.observe(row)
+        cutoff = start_of(row.attempt_id) if start_of is not None else None
+        prefix = min(start_index(times, cutoff), index)
+        staged.append((prefix, len(staged), row, tuple(history),
+                       position_key(row.features, history_pairs(history))))
         history.append(row)
-    return points
+    # One incumbent walks the time-ordered stream once; each prediction reads
+    # it at its own prefix (shorter prefixes first).
+    ekf = create_predictor("mastery_ekf", **dict(incumbent or {}))
+    folded = observations = 0
+    numbers: dict[int, dict[str, Any]] = {}
+    for prefix, order, row, _past, _key in sorted(staged, key=lambda entry: (entry[0], entry[1])):
+        while folded < prefix:
+            if _observes(events[folded]):
+                ekf.observe(events[folded])
+                observations += 1
+            folded += 1
+        numbers[order] = _incumbent_numbers(ekf, row, observations)
+    return [
+        PredictionPoint(position_key=key, row=row, history=past, incumbent=numbers[order])
+        for _prefix, order, row, past, key in staged
+    ]
 
 
 @dataclass(frozen=True)
@@ -260,6 +291,59 @@ def _read_cached(directory: Path, route: JudgeRoute, request: RenderedRequest) -
     return cached
 
 
+def _write_checkpoint(path: Path, checkpoint: Mapping[str, Any]) -> None:
+    """One completed prediction per file; an interruption never corrupts a finished entry."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(dict(checkpoint), sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _valid_probability(value: Any) -> bool:
+    return (not isinstance(value, bool) and isinstance(value, (int, float))
+            and math.isfinite(value) and 0 <= value <= 1)
+
+
+def _identity(judge: str, version: str, settings_hash: str, request_digest: str, state_hash_: str,
+              state_version: str = STATE_VERSION) -> tuple[str, ...]:
+    return (judge, version, settings_hash, request_digest, state_hash_, state_version)
+
+
+def committed_judgments(connection: Any) -> dict[tuple[str, ...], dict[str, Any]]:
+    """Valid verdicts already committed to ``judgment_ledger``, by request identity.
+
+    A paid answer is durable once its judgment commits, even if the run
+    stopped before the cache file was renamed into place. The ledger row
+    carries the whole identity (judge, question-set version, route settings
+    hash, request digest, state hash, state version), so resuming recovers
+    the checkpoint from it instead of paying again (review F4). The earliest
+    valid verdict wins; invalid ones (no score) are never recovered.
+    """
+
+    found: dict[tuple[str, ...], dict[str, Any]] = {}
+    for identifier, left_id, judge, judge_model, version, input_hash, score, rationale in connection.execute(
+        "SELECT id, left_id, judge, judge_model, prompt_version, input_hash, score, rationale "
+        "FROM judgment_ledger WHERE task=? AND left_kind='probability_request' ORDER BY created_at, id",
+        (TASK,),
+    ):
+        if not _valid_probability(score):
+            continue
+        try:
+            context = json.loads(rationale or "{}")
+        except ValueError:
+            continue
+        if not isinstance(context, dict) or not context.get("settings_hash"):
+            continue
+        key = _identity(str(judge), str(version or ""), str(context["settings_hash"]), str(left_id),
+                        str(input_hash), str(context.get("state_version") or ""))
+        found.setdefault(key, {
+            "judgment_id": str(identifier), "p": float(score), "resolved_model": judge_model,
+            "requested_model": context.get("requested_model"),
+        })
+    return found
+
+
 def check_cache_location(cache_dir: Path, vault_root: Path) -> Path:
     directory, vault = Path(cache_dir).resolve(), Path(vault_root).resolve()
     if directory == vault or vault in directory.parents:
@@ -340,23 +424,55 @@ def _call_llm(client: Any, route: JudgeRoute, request: RenderedRequest) -> tuple
     value = verdict.get("p_correct")
     # 0 and 1 are valid (overconfident) answers; the arm clips them, as it
     # clips the Decider's. Anything else is ledgered as invalid, not cached.
-    valid = (not isinstance(value, bool) and isinstance(value, (int, float))
-             and math.isfinite(value) and 0 <= value <= 1)
-    return (float(value) if valid else None), verdict
+    return (float(value) if _valid_probability(value) else None), verdict
 
 
 def prepare_judge(
     plan: RenderedPlan, *, route: JudgeRoute, variants: Sequence[str], cache_dir: Path,
     repository: Any, caps: SpendCaps, dry_run: bool = False,
     cancelled: Callable[[], bool] | None = None, sleep: Callable[[float], None] = time.sleep,
+    committed: Mapping[tuple[str, ...], Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Prepare one judge's uncached requests; returns an aggregate-only report."""
+    """Prepare one judge's uncached requests; returns an aggregate-only report.
+
+    ``committed`` is :func:`committed_judgments` read from the caller's
+    snapshot (read from ``repository`` when omitted). A request whose verdict
+    already committed is recovered into the cache with no call; a dry run
+    only counts it.
+    """
 
     requests: dict[str, RenderedRequest] = {}
     for variant in variants:
         for request in plan.for_variant(variant):
             requests.setdefault(request.request_digest, request)
-    pending = [r for r in requests.values() if _read_cached(cache_dir, route, r) is None]
+    if committed is None:
+        committed = {}
+        if repository is not None:
+            with repository.connection() as connection:
+                committed = committed_judgments(connection)
+    directory = Path(cache_dir)
+    uncached = [r for r in requests.values() if _read_cached(cache_dir, route, r) is None]
+    recoverable: list[tuple[RenderedRequest, Mapping[str, Any]]] = []
+    pending: list[RenderedRequest] = []
+    for request in uncached:
+        verdict = committed.get(_identity(route.judge, route.version, route.settings_hash,
+                                          request.request_digest, request.state_hash))
+        if verdict is not None and verdict.get("requested_model") in (None, route.model):
+            recoverable.append((request, verdict))
+        else:
+            pending.append(request)
+    if not dry_run:
+        for request, verdict in recoverable:
+            _write_checkpoint(_cache_path(directory, route, request.request_digest), {
+                "judge": route.judge, "model": route.model,
+                "resolved_model": verdict.get("resolved_model") or route.model,
+                "settings_hash": route.settings_hash, "version": route.version,
+                "state_version": STATE_VERSION, "variant": request.variant,
+                "request_digest": request.request_digest, "state_hash": request.state_hash,
+                "p": float(verdict["p"]), "judgment_id": verdict["judgment_id"],
+                "usage": {"input_tokens": None, "output_tokens": None, "cost": None},
+                "recovered_from": "judgment_ledger",
+            })
     per_request = {r.request_digest: request_estimate(route, r) for r in pending}
     estimate = _sum(per_request.values())
     budget = SpendBudget(caps, cancelled=cancelled, subscription=route.subscription)
@@ -364,7 +480,8 @@ def prepare_judge(
         "judge": route.judge, "provider": route.provider, "model": route.model,
         "version": route.version, "state_version": STATE_VERSION,
         "settings_hash": route.settings_hash, "requests": len(requests),
-        "cached": len(requests) - len(pending), "pending": len(pending),
+        "cached": len(requests) - len(uncached), "pending": len(pending),
+        ("recoverable" if dry_run else "recovered"): len(recoverable),
         "completed": 0, "invalid": 0, "retries": 0,
         "estimate": asdict(estimate),
         "price_per_million": route.price_per_million,
@@ -423,7 +540,6 @@ def prepare_judge(
                 }, sort_keys=True)}
         repository.record_model_event(action, event, owner_kind=TASK, owner_id=current_digest)
 
-    directory = Path(cache_dir)
     try:
         for request in pending:
             current_digest = request.request_digest
@@ -482,7 +598,8 @@ def prepare_judge(
                     input_hash=request.state_hash, verdict=json.dumps(verdict, sort_keys=True),
                     score=p, rationale=json.dumps({
                         "variant": request.variant, "state_version": STATE_VERSION,
-                        "settings_hash": route.settings_hash, "question": QUESTION_TEXT,
+                        "settings_hash": route.settings_hash, "requested_model": route.model,
+                        "question": QUESTION_TEXT,
                     }, sort_keys=True),
                 )
             if p is None:
@@ -496,13 +613,9 @@ def prepare_judge(
                 "p": p, "judgment_id": judgment_id,
                 "usage": {key: current.usage.get(key) for key in ("input_tokens", "output_tokens", "cost")},
             }
-            path = _cache_path(directory, route, request.request_digest)
-            path.parent.mkdir(parents=True, exist_ok=True)
-            # One completed prediction per checkpoint; an interruption never
-            # corrupts a finished entry.
-            temporary = path.with_suffix(".tmp")
-            temporary.write_text(json.dumps(checkpoint, sort_keys=True), encoding="utf-8")
-            temporary.replace(path)
+            # The verdict is already durable in the ledger: an interruption
+            # here is recovered from it on resume, never paid for again.
+            _write_checkpoint(_cache_path(directory, route, request.request_digest), checkpoint)
             report["completed"] += 1
         report["status"] = "complete" if not report["invalid"] else "incomplete"
     except (AIInterrupted, KeyboardInterrupt):
@@ -529,6 +642,7 @@ __all__ = [
     "RenderedRequest",
     "TASK",
     "check_cache_location",
+    "committed_judgments",
     "llm_prompt",
     "load_arms",
     "prediction_points",

@@ -70,6 +70,7 @@ def judges(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root (use a copy for --live-decider).")],
     probe: Annotated[bool, typer.Option("--probe", help="Free reachability check: OpenRouter's public listing for the Decider. No key, no learner text, no cost.")] = False,
     live_decider: Annotated[bool, typer.Option("--live-decider", help="One paid, spend-capped Decider call (under $0.001) with no learner data, to confirm the endpoint and typed answers.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="With --live-decider: resolve the call and print its token and cost estimate; no key is loaded, nothing is sent or written.")] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Emit stable JSON.")] = False,
 ) -> None:
     """The judgment routes: resolution, readiness and privacy disclosures (router spec §6.2)."""
@@ -78,7 +79,7 @@ def judges(
 
     from learnloop.ai.errors import AIProviderUnavailable
     from learnloop.ai.spend import SpendLimitExceeded
-    from learnloop.cli.probability_arms import judge_readiness, live_decider_check
+    from learnloop.cli.probability_arms import judge_readiness, live_decider_check, live_decider_estimate
     from learnloop.vault.loader import load_vault
 
     def emit(payload: dict) -> None:
@@ -92,8 +93,12 @@ def judges(
         loaded = load_vault(root)
         report = judge_readiness(loaded, probe=probe)
         if live_decider:
-            report["live_decider"] = live_decider_check(loaded)
+            report["live_decider"] = live_decider_estimate(loaded) if dry_run else live_decider_check(loaded)
+        elif dry_run:
+            raise ValueError("--dry-run applies to --live-decider (readiness alone sends nothing)")
         emit(report)
+        if live_decider and dry_run and report["live_decider"]["status"] != "dry_run":
+            raise typer.Exit(code=1)
     except (AIProviderUnavailable, SpendLimitExceeded) as exc:
         emit({"status": "unavailable", "error_type": type(exc).__name__, "reason": str(exc)[:300]})
         raise typer.Exit(code=1) from exc
