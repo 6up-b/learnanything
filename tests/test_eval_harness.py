@@ -1,11 +1,15 @@
 """Synthetic store-free tests; never open a working fixture or a model route."""
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 import json
 from math import log
 
+import numpy as np
 import pytest
 
-from learnloop.field.evaluation import evaluate, paired_bootstrap, write_reports
+from learnloop.field.evaluation import (
+    evaluate, family_arms, paired_bootstrap, report_digest, write_reports,
+)
 from learnloop.field.types import AttemptRow, FacetRow, ItemFeatures, RegionEstimate, SignalRow
 
 
@@ -130,6 +134,81 @@ def test_paired_bootstrap_is_deterministic_and_keeps_attempt_differences_paired(
     a = paired_bootstrap([.1, .1, .1], samples=100, seed=2)
     assert a["ci95"] == pytest.approx([.1, .1])
     assert a == paired_bootstrap([.1, .1, .1], samples=100, seed=2)
+
+
+def _rich_stream(n=90, seed=11):
+    """Repeats, fractional outcomes, hints, zero mass, retrievals, families, facets, signals."""
+    rng = np.random.default_rng(seed)
+    start = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    rows = []
+    for k in range(n):
+        item = int(rng.integers(12))
+        at = (start + timedelta(hours=7 * k)).isoformat().replace("+00:00", "Z")
+        family = f"fam{item % 4}" if item % 3 else None
+        features = ItemFeatures(
+            f"item{item}", f"lo{item % 4}", at, capability="apply" if item % 2 else "recall",
+            family_id=family,
+            variant_relation=("same_target", "isomorph", "near")[item % 3] if family else None,
+            retrievability=float(rng.uniform(.3, .95)) if k % 2 else None,
+        )
+        outcome = float(rng.choice([0.0, 0.5, 1.0], p=[.3, .2, .5]))
+        rows.append(AttemptRow(
+            f"a{k:03}", features, outcome, 0.0 if k % 17 == 5 else 1.0,
+            hints_used=int(k % 9 == 4), mass_without_assistance=1.0 if k % 9 == 4 else None,
+            fsrs_rating=int(rng.integers(1, 5)) if k % 3 == 0 else None, retrieval_cold=k % 3 == 0,
+            preceded_by_question=k % 11 == 3,
+        ))
+        if k % 10 == 7:
+            rows.append(FacetRow(f"a{k:03}", features, outcome, 1.0, facet_id="f1", facet_share=.6))
+            rows.append(FacetRow(f"a{k:03}", features, outcome, 1.0, facet_id="f2", facet_share=.4))
+        if k % 13 == 2:
+            rows.append(SignalRow(f"s{k:03}", f"lo{item % 4}", at, "question"))
+    return rows
+
+
+def test_the_cluster_option_leaves_every_other_report_byte_identical():
+    # Digests and the interval recorded on the pre-change harness (d154f85e):
+    # the item-cluster bootstrap is additive and only T8 passes clusters.
+    rows = _rich_stream()
+    assert report_digest(evaluate(rows, bootstrap_samples=50, seed=3)) == (
+        "06818d9c2536a66097d342d9b7bccdd86a948951c3b3f056199f38296e05dd96")
+    assert report_digest(evaluate(rows, arms=family_arms(), bootstrap_samples=50, seed=3)) == (
+        "f2f30485ff38a9bd9c8d5360579a2e502542c60cb83fc289a5f08e452960c74e")
+    values = np.random.default_rng(4).normal(size=37)
+    recorded = {"n": 37, "mean": -0.07428148868918777,
+                "ci95": [-0.40560308393180383, 0.26478138828214304]}
+    assert paired_bootstrap(values, samples=200, seed=9) == recorded
+    assert paired_bootstrap(values, samples=200, seed=9, clusters=None) == recorded
+
+
+def test_cluster_bootstrap_is_at_least_as_wide_as_the_attempt_bootstrap_on_clustered_data():
+    rng = np.random.default_rng(7)
+    items = np.repeat(np.arange(30), 8)
+    # A shared per-item effect: attempts on one item are not independent.
+    values = rng.normal(0, .1, 30)[items] + rng.normal(0, .02, len(items))
+    attempt = paired_bootstrap(values, samples=1000, seed=0)
+    cluster = paired_bootstrap(values, samples=1000, seed=0, clusters=items)
+    width = lambda result: result["ci95"][1] - result["ci95"][0]  # noqa: E731
+    assert (cluster["n"], cluster["clusters"], cluster["degenerate"]) == (240, 30, None)
+    assert cluster["mean"] == attempt["mean"]
+    assert width(cluster) >= width(attempt)
+    assert width(cluster) > 2 * width(attempt)  # the design effect, here about sqrt(8)
+    # Singleton clusters in attempt order reproduce the attempt bootstrap.
+    singletons = paired_bootstrap(values, samples=1000, seed=0, clusters=np.arange(len(values)))
+    assert singletons["ci95"] == pytest.approx(attempt["ci95"], abs=1e-12)
+
+
+def test_cluster_bootstrap_reports_no_interval_when_it_cannot_be_computed():
+    one = paired_bootstrap([.1, .3, .2], samples=50, clusters=["i", "i", "i"])
+    assert one["ci95"] is None and one["degenerate"].startswith("1 clusters, fewer than 6")
+    five = paired_bootstrap([.1, .2, .3, .4, .5], samples=50, clusters=[0, 1, 2, 3, 4])
+    assert five["ci95"] is None and five["clusters"] == 5
+    assert paired_bootstrap([.1, .2, .3, .4, .5, .6], samples=50, clusters=range(6))["ci95"] is not None
+    flat = paired_bootstrap([.1] * 12, samples=50, clusters=np.arange(12) // 2)
+    assert flat["ci95"] is None and flat["degenerate"] == "zero variance across clusters"
+    assert paired_bootstrap([], clusters=[])["mean"] is None
+    with pytest.raises(ValueError, match="one label per difference"):
+        paired_bootstrap([.1, .2], clusters=[0])
 
 
 def test_fast_track_requires_two_initial_clean_correct_and_scores_only_later():

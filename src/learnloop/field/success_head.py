@@ -60,9 +60,12 @@ class HeadPriors:
 
 
 PREREGISTRATION: Mapping[str, object] = MappingProxyType({
-    "version": "t8-preregistration-v2",
+    "version": "t8-preregistration-v3",
     # v2 (2026-10-12, before any run on owner data): embedding block variance
     # 1.0 -> 0.25 per dimension, after a synthetic-only check; see the review.
+    # v3 (owner, 2026-10-12, before any run on owner data): no fixed minimum
+    # sample; a three-way interval rule with the smallest worthwhile gain, and
+    # an item-cluster bootstrap. See docs/reviews/slice-2-t8.md.
     "registered": "2026-10-12",
     "question": "Does a frozen-embedding success predictor add held-out value over explicit arms?",
     "primary_arm": PRIMARY_ARM,
@@ -70,11 +73,22 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
     "baseline_rule": "lowest mean log loss in explicit_arms on the common attempts",
     "gated_arms": list(GATED_ARMS),
     "descriptive_arms": [*LLM_ARMS, "emb_ridge_vs_tag_logistic"],
+    "statistic": "per-attempt loss(e*) - loss(arm) on the common attempts",
+    # m (D9) and delta: the smallest gain worth building the success head for,
+    # T8's own weak-signal scale (the v2 synthetic check).
     "margin_nats_per_attempt": 0.0,
-    "min_common_attempts": 100,
+    "smallest_worthwhile_gain_nats_per_attempt": 0.005,
+    "decision_rule": {
+        "embeddings_add_value": "ci95 lower bound > margin",
+        "kill": "ci95 upper bound < smallest_worthwhile_gain",
+        "insufficient_data": "otherwise, or no interval",
+    },
+    # No 95% interval exists below 6 clusters (1 - 2**(1 - G) < 0.95 for the
+    # full range of G cluster means) or with numerically equal cluster means.
+    "no_interval": {"min_clusters": 6, "zero_spread_nats": 1e-12},
     "coverage_caveat_below": 0.8,
-    "bootstrap": {"samples": 1000, "seed": 0, "unit": "attempt", "paired": True,
-                  "interval": "percentile_95"},
+    "bootstrap": {"samples": 1000, "seed": 0, "unit": "item", "paired": True,
+                  "interval": "percentile_95", "statistic": "mean over the drawn attempts"},
     "embedding_view": {"dimensions": EMBEDDING_DIMENSIONS, "projection": "mrl_prefix_l2",
                        "centering": "mean_of_previously_observed_attempts", "renormalize": True},
     "priors": asdict(HeadPriors()),

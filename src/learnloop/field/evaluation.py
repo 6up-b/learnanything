@@ -46,7 +46,9 @@ class ReplayArrays:
     """In-memory scored rows handed to report analyses; never exported.
 
     ``predictions[name][i]`` is NaN where the arm abstained or did not score.
-    ``labels[i]`` holds the split values of scored row ``i``.
+    ``labels[i]`` holds the split values of scored row ``i``. ``item_clusters[i]``
+    is an opaque integer naming row ``i``'s item (first-appearance order), for
+    analyses that resample whole items; no item id is held.
     """
 
     outcomes: np.ndarray
@@ -55,6 +57,7 @@ class ReplayArrays:
     ability: np.ndarray
     bootstrap_samples: int
     seed: int
+    item_clusters: np.ndarray | None = None
 
 
 def family_arms() -> tuple[str, ...]:
@@ -107,15 +110,77 @@ def _interval(values):
     return [float(x) for x in np.quantile(values, [0.025, 0.975])]
 
 
-def paired_bootstrap(differences, *, samples=1000, seed=0):
-    """One difference per attempt: the same sampled attempt indexes pair arms."""
+# Cluster means closer than this (nats) are numerically equal: every resample
+# would give the same mean, so there is no interval to report.
+ZERO_SPREAD = 1e-12
+
+
+def _min_clusters(level=0.95):
+    """Fewest clusters for which any distribution-free interval reaches ``level``.
+
+    Even the widest interval, the full range of G cluster means, misses their
+    median with probability 2 ** (1 - G). Below this count no 95% interval
+    exists, whatever the data (6 at 95%; a derived bound, not a chosen one).
+    """
+    count = 2
+    while 1 - 2.0 ** (1 - count) < level:
+        count += 1
+    return count
+
+
+MIN_CLUSTERS = _min_clusters()
+
+
+def paired_bootstrap(differences, *, samples=1000, seed=0, clusters=None):
+    """One difference per attempt: the same sampled attempt indexes pair arms.
+
+    ``clusters`` (optional, one label per difference) resamples whole clusters
+    instead; see :func:`_cluster_bootstrap`. Without it, nothing changes.
+    """
     values = np.asarray(differences, dtype=float)
+    if clusters is not None:
+        return _cluster_bootstrap(values, clusters, samples=samples, seed=seed)
     if not len(values):
         return {"n": 0, "mean": None, "ci95": None}
     rng = np.random.default_rng(seed)
     means = [float(values[rng.integers(0, len(values), len(values))].mean())
              for _ in range(samples)]
     return {"n": len(values), "mean": float(values.mean()), "ci95": _interval(means)}
+
+
+def _cluster_bootstrap(values, clusters, *, samples, seed):
+    """Paired percentile bootstrap over clusters (for example items).
+
+    Each draw takes as many clusters as there are, with replacement, and every
+    drawn cluster brings all its attempts; the statistic is the mean over the
+    drawn attempts. ``ci95`` is None, and ``degenerate`` says why, where no
+    95% interval can be computed: fewer than :data:`MIN_CLUSTERS` clusters, or
+    numerically equal cluster means (every draw gives the same mean).
+    Singleton clusters in attempt order reproduce the attempt bootstrap's draws.
+    """
+    labels = np.asarray(clusters)
+    if labels.shape != values.shape:
+        raise ValueError("Cluster labels must give one label per difference")
+    if not len(values):
+        return {"n": 0, "clusters": 0, "mean": None, "ci95": None, "degenerate": "no attempts"}
+    _, members = np.unique(labels, return_inverse=True)
+    sums, sizes = np.bincount(members, weights=values), np.bincount(members)
+    count, cluster_means = len(sizes), sums / sizes
+    result = {"n": len(values), "clusters": count, "mean": float(values.mean()), "ci95": None,
+              "degenerate": None}
+    if count < MIN_CLUSTERS:
+        result["degenerate"] = (f"{count} clusters, fewer than {MIN_CLUSTERS}: no distribution-free "
+                                "95% interval exists")
+    elif float(cluster_means.max() - cluster_means.min()) <= ZERO_SPREAD:
+        result["degenerate"] = "zero variance across clusters"
+    else:
+        rng = np.random.default_rng(seed)
+        draws = []
+        for _ in range(samples):
+            drawn = rng.integers(0, count, count)
+            draws.append(float(sums[drawn].sum() / sizes[drawn].sum()))
+        result["ci95"] = _interval(draws)
+    return result
 
 
 def _auc(y, p):
@@ -290,6 +355,7 @@ def evaluate(
 
     seen, seen_items, blocked, initial_correct = set(), set(), set(), Counter()
     predictions, outcomes, labels, ability_rows = defaultdict(list), [], [], []
+    item_clusters, item_index = [], {}
     assumed = {name: set() for name in names}
     later = {name: [] for name in names}
     counts, revisions = Counter(), Counter()
@@ -358,6 +424,7 @@ def evaluate(
         family_id = row.features.family_id
         # Outcomes are not handed to ANY arm until EVERY prediction has completed.
         outcomes.append(row.outcome)
+        item_clusters.append(item_index.setdefault(row.features.item_id, len(item_index)))
         labels.append({
             "attempt_position": "first_unseen_lo" if first else "later",
             "item_position": "first_unseen_item" if first_item else "repeat_item",
@@ -508,6 +575,7 @@ def evaluate(
             outcomes=y, predictions={name: np.asarray(predictions[name]) for name in names},
             labels=tuple(labels), ability=ability_mask,
             bootstrap_samples=bootstrap_samples, seed=seed,
+            item_clusters=np.asarray(item_clusters, dtype=np.int64),
         )
         analysis_reports = {name: analysis(arrays) for name, analysis in sorted(analyses.items())}
     return {
