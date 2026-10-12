@@ -57,6 +57,7 @@ from learnloop.content.synthesis.graph_nomination import (
     GraphNominator,
     annotate_mint_report,
     concept_query,
+    plan_ingest_embedding,
 )
 from learnloop.content.synthesis.facet_mint_gate import (
     MintDisposition,
@@ -1500,6 +1501,24 @@ def create_study_map(
         progress=progress,
         embedding_client_factory=embedding_client_factory,
     )
+
+
+def plan_study_map_embedding(root: Path, source_set_id: str) -> dict[str, Any]:
+    """Dry run of one bootstrap synthesis's Slice 2 T5 embedding spend.
+
+    Loads the vault and reads stored vectors only: no client, manifest, agent
+    run or other data change. The candidates a synthesis embeds are written by
+    its paid model call, so the plan bounds them by the per-run cap
+    (:func:`plan_ingest_embedding`).
+    """
+
+    vault = load_vault(root)
+    if not any(s.id == source_set_id for s in vault.source_sets):
+        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
+    plan = plan_ingest_embedding(
+        vault, VaultPaths(vault.root, vault.config).sqlite_path, entry="bootstrap",
+    )
+    return {"source_set_id": source_set_id, **plan}
 
 
 def _create_study_map(

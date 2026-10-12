@@ -776,8 +776,8 @@
     "sha256": "e199df2406912181caade3d61375e83c6c601841278d1bc1e4dde21ceb91bcfb"
   },
   "synthesize": {
-    "bytes": 2764,
-    "sha256": "d24d54d5754428e0224c46aff3f74175451abf1a770a66924ab56e20d4204134"
+    "bytes": 2934,
+    "sha256": "74ff98c58b42b73c86a0569e74bea4e600f78518e772faba3002c8e05a63febe"
   },
   "synthesize-repair": {
     "bytes": 3089,

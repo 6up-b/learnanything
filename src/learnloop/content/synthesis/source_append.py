@@ -44,7 +44,7 @@ from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.ai.runs import finish_agent_run
 from learnloop.content.synthesis.append_neighborhood import Neighborhood, select_neighborhood
-from learnloop.content.synthesis.graph_nomination import GraphNominator
+from learnloop.content.synthesis.graph_nomination import GraphNominator, plan_ingest_embedding
 from learnloop.content.proposals.patches import compute_target_hash
 from learnloop.content.synthesis.source_set_synthesis import (
     StudyMapError,
@@ -174,6 +174,30 @@ def append_source(
         unlimited_token_budget=unlimited_token_budget,
         embedding_client_factory=embedding_client_factory,
     )
+
+
+def plan_append_embedding(
+    root: Path, source_set_id: str, *, new_revision_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Dry run of one append's Slice 2 T5 embedding spend.
+
+    Reads the new inventories through a read-only connection and stored
+    vectors only: no client, manifest, agent run or other data change. The new
+    inventory's claim and concept queries are priced exactly (less those
+    already stored); the candidates the reconciliation writes are bounded by
+    the per-run cap (:func:`plan_ingest_embedding`).
+    """
+
+    vault = load_vault(root)
+    source_set = next((s for s in vault.source_sets if s.id == source_set_id), None)
+    if source_set is None:
+        raise StudyMapError("source_set_not_found", f"Source set '{source_set_id}' does not exist.")
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    inputs = _collect_inputs(Repository.attach(sqlite_path, read_only=True), vault, source_set)
+    revs = set(new_revision_ids or inputs.selected_revision_ids)
+    new_inventories = [entry for entry in inputs.unit_inventories if entry["revision_id"] in revs]
+    plan = plan_ingest_embedding(vault, sqlite_path, entry="append", new_inventories=new_inventories)
+    return {"source_set_id": source_set_id, "new_revision_ids": sorted(revs), **plan}
 
 
 def _append(

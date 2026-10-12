@@ -787,6 +787,105 @@ class GraphNominator:
         return {"cosine": None, "cosine_status": "record_missing" if status == "complete" else status}
 
 
+# --- dry run: one ingest run's embedding spend --------------------------------
+
+
+def _text_tokens(queries: Iterable[QueryText]) -> int:
+    # The same conservative bound `_embed` reserves per text.
+    return sum(len(query.text.encode("utf-8")) + 128 for query in queries)
+
+
+def plan_ingest_embedding(
+    vault: LoadedVault, sqlite_path: Path, *, entry: str,
+    new_inventories: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    """What one synthesis (``entry='bootstrap'``) or append run may pay to embed.
+
+    The ``--dry-run`` of ingest-time nominations: it constructs no client,
+    resolves no route and writes nothing. Known queries (append: the new
+    inventory's claims and defined concept mentions) are priced exactly as
+    the run reserves them, less those already stored by content. Text the run
+    itself generates (candidate concepts at structuring, candidate facets and
+    their repairs for the mint shadow) does not exist before the paid model
+    call, so its bound is what the per-run cap leaves: the nominator's spend
+    budget refuses any batch past ``[graph_nomination]``'s caps. Covers the
+    embedding route only, never the synthesis or reconciliation model.
+    """
+
+    config = vault.config
+    caps = config.graph_nomination
+    model_id = config.embedding.model
+    price = EMBEDDING_PRICES_PER_MILLION.get(model_id)
+    report: dict[str, Any] = {
+        "version": NOMINATION_VERSION,
+        "dry_run": True,
+        "entry": entry,
+        "covers": "graph_nomination embeddings only; the synthesis or reconciliation model is not priced here",
+        "model_id": model_id,
+        "dimensions": config.embedding.dimensions,
+        "route": config.ai.routing.embedding,
+        "price_per_million": price,
+        "price_source": "spec_estimate" if price is not None else "unknown",
+        "caps": {
+            "max_query_texts": caps.max_query_texts, "max_query_calls": caps.max_query_calls,
+            "max_query_tokens": caps.max_query_tokens, "max_query_cost_usd": caps.max_query_cost_usd,
+        },
+        "indexes": {},
+        "known_queries": {"texts": 0, "stored": 0, "pending": 0, "estimated_tokens": 0, "estimated_usd": 0.0},
+        "generated_text": {"paid_when": [], "bound_usd": 0.0},
+        "max_estimated_usd": 0.0,
+    }
+    if not is_active(config):
+        switch = "graph_nomination.enabled" if not caps.enabled else "embedding.enabled"
+        report.update(status="off", reason=f"{switch} is false: lexical only, nothing is embedded")
+        return report
+    nominator = GraphNominator(vault, sqlite_path, allow_new_text=False)  # stored vectors only
+    facet_index, concept_index = nominator.index(FACET_RECIPE), nominator.index(CONCEPT_RECIPE)
+    report["indexes"] = nominator.summary()["indexes"]
+    facet_ready = facet_index is not None and len(facet_index) > 0
+    concept_ready = concept_index is not None and len(concept_index) > 0
+
+    claims, concepts = inventory_queries(new_inventories)
+    known = [*(claims if facet_ready else []), *(concepts if concept_ready else [])]
+    stored = nominator.vectors(known) if known else {}
+    pending = [query for query in known if query.content_hash not in stored]
+    tokens = _text_tokens(pending)
+    report["known_queries"] = {
+        "texts": len(known), "stored": len(known) - len(pending), "pending": len(pending),
+        "estimated_tokens": tokens,
+        "estimated_usd": tokens * price / 1_000_000 if price is not None else None,
+        "lexical_only_concept_mentions": undefined_concept_mentions(new_inventories),
+    }
+    paid_when = []
+    if entry == "bootstrap" and concept_ready:
+        paid_when.append("structuring: each candidate concept's definition vs the registry concepts")
+    if facet_ready:
+        paid_when.append("mint shadow: candidate facet definitions and their repairs vs the registered facets")
+    report["generated_text"]["paid_when"] = paid_when
+
+    reason = None
+    if not caps.embed_new_text:
+        reason = ("stored_only", "graph_nomination.embed_new_text is false: stored vectors only")
+    elif price is None:
+        reason = ("unknown_price", f"no price for {model_id}: ingest degrades to lexical instead of embedding")
+    elif not config.ai.routing.embedding:
+        reason = ("route_unset", "ai.routing.embedding is unset (it never falls back): nothing is embedded")
+    elif not (facet_ready or concept_ready):
+        reason = ("lexical_only", "no complete, non-empty registry index to compare with: nothing is embedded")
+    if reason is not None:
+        report.update(status=reason[0], reason=reason[1])
+        return report
+    cap_usd = min(caps.max_query_cost_usd, caps.max_query_tokens * price / 1_000_000)
+    known_usd = min(report["known_queries"]["estimated_usd"], cap_usd)
+    generated_usd = cap_usd - known_usd if paid_when else 0.0
+    report["generated_text"]["bound_usd"] = generated_usd
+    report.update(
+        status="may_embed" if (pending or paid_when) else "nothing_to_embed",
+        max_estimated_usd=known_usd + generated_usd,
+    )
+    return report
+
+
 # --- D2 mint gate: embedding neighbours and the repair-equivalence shadow ----
 
 
@@ -926,6 +1025,7 @@ __all__ = [
     "facet_query",
     "inventory_queries",
     "is_active",
+    "plan_ingest_embedding",
     "raw_cosine",
     "repair_query",
     "undefined_concept_mentions",
