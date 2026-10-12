@@ -271,6 +271,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 **After an import or study-map apply:**
 - **No opening probe per topic.**
   - `_enter_initial_probes` (`substrate/state_sync.py:175-211`) no longer opens an initial diagnostic episode for every new LO (`placement.initial_probes = false`).
+  - *Owner decision 2026-10-12:* an opening episode an earlier version opened and the learner never answered is ignored for serving and for instrument generation while placement is on. It is not rewritten or closed, so `placement.enabled = false` (or `placement.initial_probes = true`) serves it again exactly; its never-practised LO starts as learning.
   - Diagnostic episodes still open when a wrong answer leaves a real choice of repair (existing probe machinery; intentions §11).
 - **New material starts as learning.** It is ordered by prerequisites and by the active predictor's predicted difficulty, easiest first within a prerequisite layer. The first practice answers on each LO update the predictor: **practice is the placement.**
 - **Your questions are the rest of the placement** (§3.1).
@@ -284,6 +285,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 - **What "assumed known" does:**
   - The LO's remaining learning items are not served as new material.
   - The LO enters maintenance with a long first interval (`placement.assumed_first_interval_days`, default 14). **That first review is the check:** a normal cold item. A pass keeps the LO in maintenance, now demonstrated. A failure quietly returns it to learning.
+  - *Owner decision 2026-10-12: the check, and later lapses in maintenance, are decided by the diagnosis, not by full marks.* A miss returns the LO to learning only when the Slice 1 diagnosis attributes it to a knowledge gap (`causal_class = learner_state` on a `valid_measurement` attribution). A slip, an item-contract or grader-interpretation problem (the question did not make clear what a full answer had to state), an unassessed PF-c criterion, or no gap attributed keeps the LO (assumed before the due date, in maintenance from it on), with the reason on the receipt. While the diagnosis is pending the decision waits; when none can arrive (`diagnosis.split_enabled = false`, a joint grade, the diagnoser failed or was budget-skipped) today's full-marks rule applies and the receipt says so. Learner-side help (hints, priming, "don't know") keeps today's rule. Report 3 counts outcomes by reason.
   - The map shows "assumed (not tested)" (§5.1).
   - Nothing assumed is certified or written as evidence (F2).
 - **"I don't know this"** on an assumed LO returns it to learning immediately.
@@ -492,13 +494,13 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | D3 | Extension-arm constants | `γ = 0.2`; capability `N(0, 0.5²)`; relation means 0 / −0.25 / −0.5 (sd 0.5); retrievability `β = 0.5` (sweep 0, 0.5, 1). Versioned, never fitted to the owner |
 | D4 | Quick check | Optional, never prompted; k ≤ 4, ≤ 8 minutes, adaptive with an early stop |
 | D5 | Self-report | "I know this" or "too easy" marks an LO assumed known immediately; "I don't know this" returns it to learning immediately. No triage screen |
-| D6 | Fast-track and first review | ≥ 2 cold correct first answers and `P(θ_L > θ_known) ≥ q`, with `q = 0.8` at `θ_known = logit(0.75)` (0.9 if report 2 lacked data); first review after 14 days. Tune from report 3 |
+| D6 | Fast-track and first review | ≥ 2 cold correct first answers and `P(θ_L > θ_known) ≥ q`, with `q = 0.8` at `θ_known = logit(0.75)` (0.9 if report 2 lacked data); first review after 14 days. Tune from report 3. *Owner 2026-10-12:* `q` stays 0.8 for now and is to become a learned parameter (§11); the first review is decided by the diagnosis (§5.2) |
 | D7 | Wait for Slice 1's grader probes before F2? | No, per the owner's live-with-kill-switch preference. Confirm probes are the safety net; review E1 when Slice 1 produces it |
 | D8 | `llm_probability` | Off by default. The V1–V3 comparison (§7.2) runs once, offline, owner-run and spend-capped, on both Perplexity Decider v1.1 (via OpenRouter) and a frontier LLM |
 | D9 | Switching margin | The attempt-level log-loss improvement's bootstrap interval excludes 0, overall and on first attempts, and the miss rate is no worse. Fixed before running |
 | D10 | Revisions missing from snapshots | `exclude` by default; `current_content` only by explicit config, flagged |
 | D12 | Interaction-signal constants | Hint depth: `1 − 0.2k` (floor 0.2), and help before any work caps at 0.3. Typed-question masses: 0.15 (prerequisite), 0.1 (mechanism or clarification after a correct answer); capped per LO per day. A priori and versioned, and the harness reports a sweep. Routing use (§5.2) is live with F2; predictor use waits for §7.4 activation |
-| D11 | Opening probes for new LOs | Off by default (`placement.initial_probes = false`). Diagnosis happens when a wrong answer leaves a real choice of repair |
+| D11 | Opening probes for new LOs | Off by default (`placement.initial_probes = false`). Diagnosis happens when a wrong answer leaves a real choice of repair. *Owner 2026-10-12:* unanswered opening episodes from earlier versions are ignored under placement (§5.2) |
 
 ---
 
@@ -516,6 +518,7 @@ The full design for everything below is preserved at commit `936813f` (`docs/spe
 | **Public-data benchmark** (time-to-useful-vault, kernel fits, transfer guard) | A specific question the owner's replay can't answer, such as whether a deferred facet-level design is worth reviving |
 | **Learned action router** (frozen or fine-tuned embeddings, LoRA) | The non-learned router is specified in `spec_action_router_v1.md`: Perplexity Decider v1.1 and a frontier LLM competing inside the P4 staged frame, with exact propensities. A learned scorer's trigger is in that spec's §13 |
 | **Facet dossiers** | Not deferred: **moved** to the practice-family track as the practice index (`spec_embedding_consumers_v1.md` §5.9) |
+| **Learned fast-track threshold `q`** (owner 2026-10-12). `placement.fast_track_q` is a hard-coded 0.8 for now (D6); it should become a learned parameter: the `q` per source that keeps the first-review miss rate at a chosen target, with the active predictor's `P(θ_L > θ_known)` as the input | Report 3 has enough first-review outcomes by source to fit it: for the source being tuned (fast-track first), at least 30 resolved first reviews whose decisions recorded `p`, so the 95% Wilson interval on its miss rate is about ±0.15 or narrower. Report 3 v3 counts those outcomes by reason; a fitted `q` is a default change, so it takes a version or fingerprint decision (`docs/algorithm-change-playbook.md`) |
 
 ---
 

@@ -36,6 +36,13 @@ DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 # order; "assumed known (not tested)" LOs wait for their first review. It
 # changes what is SERVED, not the projection, so it is another successor tag on
 # the mvp-0.8 namespace. Kill switch: ``placement.enabled``.
+# Amended before any vault ran it (owner decisions 2026-10-12, as the PF-c fix
+# amended mvp-0.10): the first-review check and lapses in maintenance are
+# decided by the diagnosis (only a knowledge gap returns an LO to learning; the
+# decision waits while the diagnosis is pending; today's rule when none can
+# arrive), and unanswered opening episodes from earlier versions are ignored
+# for serving and instrument generation (never rewritten, so the kill switch
+# stays exact). No projection or default change; new vaults start here.
 PLACEMENT_ALGORITHM_VERSION = "mvp-0.11"
 
 # Versions at which practice grading is split (kill switch
@@ -74,5 +81,7 @@ CANONICAL_STATE_VERSIONS: frozenset[str] = (
 PLACEMENT_VERSIONS: frozenset[str] = frozenset({PLACEMENT_ALGORITHM_VERSION})
 
 # The newest successor in the linear chain mvp-0.9 -> mvp-0.10 -> mvp-0.11.
-# ``learnloop upgrade`` with no ``--to`` targets it.
+# ``learnloop upgrade`` with no ``--to`` targets it, and new vaults start at it
+# (``config.template.default_config_text``; owner decision 2026-10-12). A
+# successor merge moves this one line (and records its defaults snapshot).
 LATEST_ALGORITHM_VERSION: str = PLACEMENT_ALGORITHM_VERSION
