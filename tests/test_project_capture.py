@@ -311,3 +311,33 @@ def test_a_single_repo_sweep_keeps_other_repos_pending_entries(isolated_git, tmp
     assert store.unattributed() == []
     sweep(vault, config, clock=clock_at(0))
     assert [entry["sha"] for entry in store.unattributed()] == [sha]
+
+
+def _many_agent_commits(tmp_path, count):
+    repo = TempRepo(tmp_path / "repo")
+    repo.write("base.py", "x = 0\n")
+    repo.commit("init", trailer=None)
+    for index in range(count):
+        repo.write(f"m{index}.py", "".join(f"value_{index}_{line} = {line}\n" for line in range(6)))
+        repo.commit(f"Add module {index}")
+    return repo
+
+
+def test_the_sweep_pages_through_history_beyond_one_git_log_page(isolated_git, tmp_path, vault, monkeypatch):
+    monkeypatch.setattr(capture, "SWEEP_PAGE_COMMITS", 2)
+    repo = _many_agent_commits(tmp_path, 6)
+    row, store, config = _enroll(vault, repo)
+    report = sweep(vault, config, clock=clock_at(0))
+    assert report.status == "ok" and report.captured == 6
+    assert len(store.diffs()) == 6
+
+
+def test_history_beyond_the_scan_limit_is_reported_not_silently_skipped(isolated_git, tmp_path, vault, monkeypatch):
+    monkeypatch.setattr(capture, "SWEEP_PAGE_COMMITS", 2)
+    monkeypatch.setattr(capture, "SWEEP_MAX_SCANNED_COMMITS", 4)
+    repo = _many_agent_commits(tmp_path, 6)
+    row, store, config = _enroll(vault, repo)
+    report = sweep(vault, config, clock=clock_at(0))
+    assert report.status == "partial"
+    assert report.repos[0]["history_incomplete"] is True
+    assert "not scanned" in store.repo(row["id"])["last_sweep_error"]

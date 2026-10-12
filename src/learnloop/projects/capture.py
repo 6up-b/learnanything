@@ -64,7 +64,11 @@ MAX_FILES_PER_CAPTURE = 200
 MAX_UNTRACKED_FILE_BYTES = 512 * 1024
 MAX_EXCERPT_FILE_BYTES = 2 * 1024 * 1024
 MAX_SCOPE_LINES = 400
-SWEEP_MAX_COMMITS = 5000
+# git log is read in pages so a long capture window is never cut off silently;
+# beyond SWEEP_MAX_SCANNED_COMMITS the sweep stops and reports the repo's
+# history as incomplete.
+SWEEP_PAGE_COMMITS = 2_000
+SWEEP_MAX_SCANNED_COMMITS = 200_000
 AGENT_TRAILER_KEYS = ("co-authored-by", "assisted-by", "generated-by")
 _DIFF_FLAGS = ("--no-color", "--no-ext-diff", "--no-textconv", "--find-renames")
 AGENTS = ("claude_code", "codex", "other", "unknown")
@@ -919,20 +923,36 @@ def capture_working_tree(
 # --- sweep ---------------------------------------------------------------------
 
 
-def _agent_commits(repo: Path, since_iso: str) -> list[dict[str, Any]]:
+def _agent_commits(repo: Path, since_iso: str) -> tuple[list[dict[str, Any]], bool]:
+    """Agent commits in the capture window (oldest first), and whether all were scanned."""
+
     if head_sha(repo) is None:
-        return []
+        return [], True
     fmt = "%H%x1f%P%x1f%cI%x1f%(trailers:only,unfold,separator=%x1e)%x1f%B"
-    raw = git_text(
-        repo,
-        [
-            "log", "--branches", "HEAD", "--no-merges", f"--since={since_iso}",
-            f"--max-count={SWEEP_MAX_COMMITS}", "-z", f"--format=format:{fmt}", "--",
-        ],
-    )
-    commits = [_parse_commit_record(record) for record in raw.split("\0") if record.strip()]
+    found: dict[str, dict[str, Any]] = {}
+    scanned = 0
+    while True:
+        raw = git_text(
+            repo,
+            [
+                "log", "--branches", "HEAD", "--no-merges", f"--since={since_iso}",
+                f"--max-count={SWEEP_PAGE_COMMITS}", f"--skip={scanned}", "-z", f"--format=format:{fmt}", "--",
+            ],
+        )
+        page = [_parse_commit_record(record) for record in raw.split("\0") if record.strip()]
+        for commit in page:
+            if detect_agent(commit["trailers"], commit["message"]):
+                found.setdefault(commit["sha"], commit)
+        scanned += len(page)
+        if len(page) < SWEEP_PAGE_COMMITS:
+            complete = True
+            break
+        if scanned >= SWEEP_MAX_SCANNED_COMMITS:
+            complete = False
+            break
+    commits = list(found.values())
     commits.reverse()  # oldest first
-    return [commit for commit in commits if detect_agent(commit["trailers"], commit["message"])]
+    return commits, complete
 
 
 @dataclass
@@ -1079,13 +1099,16 @@ def sweep(
     if entries or new_offset != int(store.meta("pending_offset") or 0):
         store.enqueue_pending(known_entries, offset=new_offset, received_at=report.swept_at or utc_now_iso(clock))
     for repo_row in repos:
-        summary = {"repo_id": repo_row["id"], "name": repo_row["name"], "captured": 0, "error": None}
+        summary = {"repo_id": repo_row["id"], "name": repo_row["name"], "captured": 0, "error": None,
+                   "history_incomplete": False}
         repo = Path(repo_row["path"])
         try:
             if repo_toplevel(repo) != repo:
                 raise GitError(f"{repo} is no longer the root of a git work tree")
             known = store.known_commit_shas(repo_row["id"])
-            for commit in _agent_commits(repo, repo_row["capture_since"]):
+            commits, complete = _agent_commits(repo, repo_row["capture_since"])
+            summary["history_incomplete"] = not complete
+            for commit in commits:
                 if commit["sha"] in known:
                     continue
                 result = capture_commit(
@@ -1099,7 +1122,14 @@ def sweep(
                 _process_pending(store, vault_root, config, repo_row, repo, entry["sha"], known, report, summary,
                                  trigger=trigger, clock=clock)
                 store.dequeue_pending(repo_row["id"], entry["sha"])
-            store.record_repo_sweep(repo_row["id"], swept_at=report.swept_at, error=None)
+            note = None
+            if not complete:
+                # Coverage is reported, never assumed (capture coverage is an M1 report).
+                note = (f"history beyond the newest {SWEEP_MAX_SCANNED_COMMITS} commits in the capture window "
+                        "was not scanned; older agent commits there can be captured with `project accept --commit`")
+                summary["error"] = note
+                report.errors.append(f"{repo_row['name']}: {note}")
+            store.record_repo_sweep(repo_row["id"], swept_at=report.swept_at, error=note)
         except (GitError, OSError, ValueError) as exc:
             summary["error"] = str(exc)
             report.errors.append(f"{repo_row['name']}: {exc}")
@@ -1141,9 +1171,10 @@ def discover_captures(
                 raise GitError(f"{repo} is no longer the root of a git work tree")
             known = store.known_commit_shas(repo_row["id"])
             patches: set[str] = set()
-            candidates: list[tuple[str, dict[str, Any]]] = [
-                (commit["sha"], commit) for commit in _agent_commits(repo, repo_row["capture_since"])
-            ]
+            commits, complete = _agent_commits(repo, repo_row["capture_since"])
+            if not complete:
+                errors.append(f"{repo_row['name']}: history beyond {SWEEP_MAX_SCANNED_COMMITS} commits not scanned")
+            candidates: list[tuple[str, dict[str, Any]]] = [(commit["sha"], commit) for commit in commits]
             for sha in queued.get(repo_row["id"], []):
                 try:
                     info = _commit_info(repo, sha)
