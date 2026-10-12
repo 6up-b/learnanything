@@ -180,8 +180,10 @@ def panel_difficulty(parent_difficulty: float | None, parent_rate: tuple[int, in
     return round(min(high, max(low, base + offset)), 4)
 
 
-def _item_context(item: PracticeItem) -> dict[str, Any]:
-    rubric = item.grading_rubric.model_dump(mode="json") if item.grading_rubric is not None else None
+def _item_context(item: PracticeItem, vault: LoadedVault | None = None) -> dict[str, Any]:
+    """Item-side material only; the resolved rubric (item or practice-mode default)."""
+    resolved = vault.rubric_for_item(item) if vault is not None else item.grading_rubric
+    rubric = resolved.model_dump(mode="json") if resolved is not None else None
     return {"id": item.id, "prompt": item.prompt, "expected_answer": item.expected_answer,
             "practice_mode": item.practice_mode, "rubric": rubric,
             "trace_contract": item.trace_contract.model_dump(mode="json") if item.trace_contract else None}
@@ -515,7 +517,7 @@ class _FamilyRun:
         while True:
             call = self.ctx.caller.call(
                 entry, prompt=C.generator_program_prompt(
-                    parent=_item_context(self.parent), family=_family_context(self.family),
+                    parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family),
                     skeleton=self.parent_skeleton or {}, relation="isomorph", previous_failure=failure,
                     attempt=attempts),
                 prompt_version=C.GENERATOR_PROGRAM_PROMPT, result_model=C.GeneratorProgramResult,
@@ -624,7 +626,7 @@ class _FamilyRun:
                 continue
             call = self.ctx.caller.call(
                 entry, prompt=C.proposer_prompt(
-                    parent=_item_context(self.parent), family=_family_context(self.family),
+                    parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family),
                     skeleton=self.parent_skeleton or {}, relation=self.relation, count=count,
                     single_shot=single),
                 prompt_version=C.SINGLE_SHOT_PROMPT if single else C.PROPOSER_PROMPT,
@@ -672,7 +674,7 @@ class _FamilyRun:
         call = self.ctx.caller.call(
             entry, prompt=C.source_anchored_prompt(
                 passages=[{"ref": passage["ref"], "text": passage["text"]} for passage in passages],
-                parent=_item_context(self.parent), family=_family_context(self.family), count=self.count),
+                parent=_item_context(self.parent, self.ctx.vault), family=_family_context(self.family), count=self.count),
             prompt_version=C.SOURCE_ANCHORED_PROMPT, result_model=C.SourceAnchoredBatch,
             output_tokens=OUTPUT_TOKENS["source"], candidates=self.count,
         )
@@ -924,7 +926,7 @@ class _FamilyRun:
             k = self.ctx.vault.config.pf.panel_solves_per_model
             solves = self._panel_solves(self.parent.prompt, solves_per_model=k)
             outcome = self._agreement(
-                "practice_item", self.parent.id, content_key(_item_context(self.parent)),
+                "practice_item", self.parent.id, content_key(_item_context(self.parent, self.ctx.vault)),
                 self.parent.prompt, final_answer_text(self.parent.expected_answer), solves,
             )
             self.parent_rate = (outcome["agree"], outcome["total"])
@@ -1018,7 +1020,7 @@ class _FamilyRun:
         targets = alive[:1] if self.path == "generator" else alive
         entry = self.ctx.role("structure")[0]
         verdicts: dict[str, Any] = {}
-        parent_context = {**_item_context(self.parent), "skeleton": self.parent_skeleton}
+        parent_context = {**_item_context(self.parent, self.ctx.vault), "skeleton": self.parent_skeleton}
         for candidate in targets:
             call = self.ctx.caller.call(
                 entry, prompt=C.structure_prompt(
@@ -1262,7 +1264,7 @@ def _plan_family(vault: LoadedVault, family: ActivityFamily, parent: PracticeIte
     panel = len(roles["panel"])
     lo_items = sum(1 for item in vault.practice_items.values() if item.learning_object_id == parent.learning_object_id)
     compare = lo_items if lo_items <= vault.config.families.max_exhaustive_items else min(lo_items, pf.freshness_top_k + 2)
-    context = _item_context(parent)
+    context = _item_context(parent, vault)
     stem_proxy = parent.prompt
     prompts = {
         "skeleton": C.skeleton_prompt(prompt=parent.prompt, expected_answer=parent.expected_answer),
