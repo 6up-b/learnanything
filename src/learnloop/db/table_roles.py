@@ -139,6 +139,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("diagnostic_surface_generation_needs", TableRole.WORKFLOW),
     ("discrimination_profile_matches", TableRole.RECEIPT),
     ("elicitation_events", TableRole.COMPAT),
+    ("embedding_vectors", TableRole.WORKFLOW),
     ("entity_source_links", TableRole.RAW_LEDGER),
     # Normalized per-attempt evidence; replay consumes the structured
     # attribution stored here because older grading rows do not contain it.
@@ -188,6 +189,7 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # observed evidence.  The deterministic backfill is not its full source.
     ("item_misconception_discrimination", TableRole.RAW_LEDGER),
     ("item_parameter_state", TableRole.DERIVED),
+    ("judgment_ledger", TableRole.RAW_LEDGER),
     ("lapse_episodes", TableRole.WORKFLOW),
     ("learner_claims", TableRole.RAW_LEDGER),
     ("learner_state_beliefs", TableRole.COMPAT),

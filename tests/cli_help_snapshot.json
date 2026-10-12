@@ -1,7 +1,7 @@
 {
   "<root>": {
-    "bytes": 20782,
-    "sha256": "36c4ca75e85ee51e998d109207b3aff5c8d8777710b586d04be88f78bcc24698"
+    "bytes": 20867,
+    "sha256": "d351c91c300320f53c3715f962c1cda62029ece0ee2292ec231c261b5e8b0f52"
   },
   "accept": {
     "bytes": 1593,
@@ -242,6 +242,14 @@
   "edit-proposal-item": {
     "bytes": 1678,
     "sha256": "c87d9f038c2a9e26925aac07c2ece0d4292c693b4eb9fa52b9ea1b89f77d2608"
+  },
+  "embeddings": {
+    "bytes": 1587,
+    "sha256": "06c65cc5fd4fa58de73a7538dba27ec25e0c9987651a60fcd34a04f71e4070e7"
+  },
+  "embeddings backfill": {
+    "bytes": 3489,
+    "sha256": "cc893aa8fc810d9ec3673b11c056c01fb9dbff596737f62b81f5ae569532d5e2"
   },
   "eval": {
     "bytes": 1382,

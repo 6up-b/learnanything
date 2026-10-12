@@ -832,6 +832,8 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_prefix("ai.", "codex.", "ingest.", "animation."), "structural", "operational",
                 "AI/codex/ingest/animation infra knob (timeout/port/token ceiling); no "
                 "measurement authority."),
+    _ConfigRule(_exact("embedding.dimensions"), "structural", "operational",
+                "Vector representation width; embeddings have no measurement authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

@@ -16,6 +16,13 @@ if TYPE_CHECKING:  # pragma: no cover
 MANUAL_PROVIDER = "manual"
 
 AITask = Literal[
+    "embedding",
+    "pf_generator",
+    "pf_family_judge",
+    "pf_isomorph_judge",
+    "pf_closed_book",
+    "pf_reference_verifier",
+    "pf_solver_panel",
     "grading",
     "canonical_ingest",
     "canonical_ingest_retry",
@@ -109,6 +116,9 @@ def provider_for_task(
 
     if explicit_provider:
         return AIProviderSelection(provider_name=explicit_provider, explicit=True)
+    if task == "embedding":
+        # A global chat override must never redirect learner text or select Codex.
+        return AIProviderSelection(provider_name=config.ai.routing.embedding or "", explicit=True)
     env_provider = os.environ.get("LEARNLOOP_AI_PROVIDER") if allow_env else None
     if env_provider:
         return AIProviderSelection(provider_name=env_provider, from_env=True)
@@ -209,6 +219,21 @@ def ready_client_for_task(
     if selection.provider_name in {"", MANUAL_PROVIDER}:
         return _manual_resolution(selection)
 
+    if task == "embedding":
+        from learnloop.ai.runtime import AIRuntimeReport
+
+        profile = config.ai.providers.get(selection.provider_name)
+        if profile is not None and profile.type != "openai_embedding":
+            return ResolvedClient(
+                selection=selection,
+                provider_name=selection.provider_name,
+                runtime=AIRuntimeReport(
+                    status="provider_unavailable",
+                    active_provider=selection.provider_name,
+                    message="Embedding requires an openai_embedding profile.",
+                ),
+                client=None,
+            )
     primary = _resolve_selected_provider(
         vault_root,
         config,
@@ -216,7 +241,7 @@ def ready_client_for_task(
         selection.provider_name,
         timeout_seconds=timeout_seconds,
     )
-    if primary.runtime.ready:
+    if primary.runtime.ready or task == "embedding":
         return primary
 
     fallback = fallback_provider_for(config, selection)

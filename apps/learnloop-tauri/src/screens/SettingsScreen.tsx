@@ -180,11 +180,12 @@ export function SettingsScreen({
     return map;
   }, [settings]);
 
-  // Selectable backends: configured providers minus the materialized
+  // Selectable backends: generation providers minus the materialized
   // per-use-case openrouter_<usecase> profiles (implementation detail).
   const providerOptions = useMemo(
     () =>
       (settings?.ai.providers ?? [])
+        .filter((provider) => provider.type !== "openai_embedding")
         .map((provider) => provider.name)
         .filter((name) => name === "openrouter" || !name.startsWith("openrouter_")),
     [settings]
@@ -425,6 +426,29 @@ export function SettingsScreen({
           profile so different tasks can run different models.
         </span>
       </div>
+
+      <section aria-label="Embeddings">
+        <SectionHeader>Embeddings</SectionHeader>
+        <div style={rowStyle}>
+          <span style={labelStyle}>status</span>
+          <span>{settings.embedding.enabled ? "enabled" : "disabled"}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>backfill</span>
+          <span>{settings.embedding.backfillEnabled ? "enabled" : "disabled"}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>model</span>
+          <span>{settings.embedding.model}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>dimensions</span>
+          <span>{settings.embedding.dimensions}</span>
+        </div>
+        <div style={{ ...rowStyle, borderBottom: "none" }}>
+          <span style={hintStyle}>{settings.embedding.privacyDisclosure}</span>
+        </div>
+      </section>
 
       <SectionHeader>OpenRouter API key</SectionHeader>
       <div style={rowStyle}>

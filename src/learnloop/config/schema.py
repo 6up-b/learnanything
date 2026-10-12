@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 if TYPE_CHECKING:
     from learnloop.config.compat import CodexConfig
@@ -950,16 +950,34 @@ class OpenRouterProviderConfig(OpenAICompatibleProviderConfig):
     x_title: str | None = None
 
 
+class OpenAIEmbeddingProviderConfig(OpenAICompatibleProviderConfig):
+    type: Literal["openai_embedding"] = "openai_embedding"
+    model: str = "qwen/qwen3-embedding-8b"
+    base_url: str = "https://openrouter.ai/api/v1"
+    api_key_env: str = "OPENROUTER_API_KEY"
+    dimensions: int = Field(default=4096, gt=0)
+    max_input_tokens: int = Field(default=32768, gt=0)
+
+
 AIProviderProfile = Annotated[
     CodexSDKProviderConfig
     | CodexHTTPProviderConfig
     | OpenAICompatibleProviderConfig
-    | OpenRouterProviderConfig,
+    | OpenRouterProviderConfig
+    | OpenAIEmbeddingProviderConfig,
     Field(discriminator="type"),
 ]
 
 
 class AIRoutingConfig(BaseModel):
+    # Explicit opt-in only: never inherit active_provider or its fallback.
+    embedding: str | None = None
+    pf_generator: str | None = None
+    pf_family_judge: str | None = None
+    pf_isomorph_judge: str | None = None
+    pf_closed_book: str | None = None
+    pf_reference_verifier: str | None = None
+    pf_solver_panel: str | None = None
     grading: str | None = None
     canonical_ingest: str | None = None
     canonical_ingest_retry: str | None = None
@@ -1264,6 +1282,25 @@ class DiagnosticAugmentationConfig(BaseModel):
     history_limit: int = Field(default=4, ge=0, le=20)
 
 
+class EmbeddingConfig(BaseModel):
+    enabled: bool = False
+    backfill_enabled: bool = False
+    model: str = Field(default="qwen/qwen3-embedding-8b", min_length=1)
+    dimensions: int = Field(default=4096, gt=0)
+
+    @computed_field
+    @property
+    def privacy_disclosure(self) -> str:
+        return (
+            "When enabled, remote embeddings send canonical or learner-derived text "
+            "to the configured endpoint (by default OpenRouter and its upstream provider). "
+            "Requests ask for OpenRouter data_collection=deny; custom endpoints may ignore "
+            "that option, so verify their retention policy. Vectors approximate "
+            "plaintext: protect them like practice attempts in backups, exports and sync; "
+            "never share them across vaults."
+        )
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1288,6 +1325,7 @@ class LearnLoopConfig(BaseModel):
     animation: AnimationConfig = Field(default_factory=AnimationConfig)
     ingest: IngestConfig = Field(default_factory=IngestConfig)
     ai: AIConfig = Field(default_factory=AIConfig)
+    embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

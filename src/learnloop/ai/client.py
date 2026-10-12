@@ -25,6 +25,11 @@ def make_ai_provider_client(
     profile = config.ai.providers.get(selected)
     if profile is None:
         raise AIProviderUnavailable(f"AI provider {selected!r} is not configured")
+    if profile.type == "openai_embedding":
+        profile = profile.model_copy(update={
+            "model": config.embedding.model,
+            "dimensions": config.embedding.dimensions,
+        })
     if timeout_seconds is not None:
         profile = profile.model_copy(update={"timeout_seconds": timeout_seconds})
     elif profile.timeout_seconds is None:
@@ -38,6 +43,10 @@ def make_ai_provider_client_from_profile(
     vault_root: Path,
 ) -> AIProviderClient:
     provider_type = profile.type.lower()
+    if provider_type == "openai_embedding":
+        from learnloop.ai.providers.openai_embedding import OpenAIEmbeddingProviderClient
+
+        return OpenAIEmbeddingProviderClient(provider_name, profile)
     if provider_type == "openai_chat":
         from learnloop.ai.providers.openai_chat import OpenAIChatProviderClient
 

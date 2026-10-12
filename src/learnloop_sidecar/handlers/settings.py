@@ -70,6 +70,13 @@ _ROUTING_TASKS = (
     "animation",
     "transcription",
     "video_generation",
+    "embedding",
+    "pf_generator",
+    "pf_family_judge",
+    "pf_isomorph_judge",
+    "pf_closed_book",
+    "pf_reference_verifier",
+    "pf_solver_panel",
 )
 
 
@@ -91,7 +98,7 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
         {
             "name": name,
             "type": profile.type,
-            "model": profile.model,
+            "model": config.embedding.model if profile.type == "openai_embedding" else profile.model,
             "base_url": profile.base_url,
             "api_key_env": profile.api_key_env,
             "input_modalities": list(profile.input_modalities or []),
@@ -111,6 +118,7 @@ def _settings_payload(ctx: SidecarContext) -> dict[str, Any]:
             **_key_state(OPENROUTER_KEY_ENV),
             "settings_env_path": str(global_settings_path()),
         },
+        "embedding": config.embedding.model_dump(),
         "ingest": {
             "pdf_engine": config.ingest.pdf.engine,
             "audio_mode": config.ingest.audio.mode,
