@@ -221,6 +221,79 @@ def test_llm_prepare_dry_run_then_fake_codex_then_cache_only_replay(seeded, monk
     assert _digest(paths) == before
 
 
+class _Transport:
+    """A structured transport seen through the real execute_structured_operation."""
+
+    provider_name, provider_type, model = "codex", "codex_sdk", "fake-codex"
+
+    def __init__(self, *capabilities):
+        self.capabilities, self.requests = set(capabilities), []
+
+    def supports(self, capability):
+        return capability in self.capabilities
+
+    def complete(self, request):
+        self.requests.append(request)
+        return request.result_model(p_success=.6)
+
+
+def _route_transport(monkeypatch, transport):
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", lambda *a, **k: SimpleNamespace(
+        client=transport, runtime=SimpleNamespace(ready=True)))
+
+
+def test_codex_predictions_are_isolated_turns_and_older_caches_are_not_reused(seeded, monkeypatch, tmp_path):
+    from learnloop.ai.transport import ISOLATED_TURN, STRUCTURED_COMPLETION
+    from learnloop.cli.field import _replay_inputs
+    from learnloop.cli.success_head import _route_settings
+    from learnloop.field.evaluation import _hash
+
+    paths, _ = seeded
+    _enable_codex_field_routes(paths.root)
+    cache = tmp_path / "cache"
+    common = ("--vault", str(paths.root), "--legacy-fallback", "current_content",
+              "--llm-cache", str(cache), "--output", str(tmp_path / "out"), "--json")
+    # Checkpoints prepared before turns were isolated (settings without the
+    # isolation key) must not be replayed: they are re-asked, isolated.
+    loaded = load_vault(paths.root)
+    profile, settings, _ = _route_settings(loaded, 256)
+    legacy = {key: value for key, value in settings.items() if key != "turn"}
+    inputs = _replay_inputs(loaded, legacy_fallback="current_content")
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        connection.execute("BEGIN")
+        content, _ = load_content_index(connection, loaded, inputs["attempts"])
+    cache.mkdir()
+    for digest in zero.prediction_requests(inputs["attempts"], content):
+        zero._cache_path(cache, profile.model, _hash(legacy), digest).write_text(json.dumps({
+            "model": profile.model, "input_hash": digest, "prompt_version": zero.PROMPT_VERSION,
+            "settings_hash": _hash(legacy), "p_success": .9, "judgment_id": "unisolated",
+        }), encoding="utf-8")
+    transport = _Transport(STRUCTURED_COMPLETION, ISOLATED_TURN)
+    _route_transport(monkeypatch, transport)
+    _allow_environment(monkeypatch)
+    result = _invoke(*common, "--prepare-llm", "--bootstrap-samples", "5")
+    assert result.exit_code == 0, result.output
+    assert len(transport.requests) == len(ITEMS)
+    assert all(request.isolated for request in transport.requests)
+
+
+def test_a_transport_that_cannot_isolate_the_turn_is_refused_before_any_call(seeded, monkeypatch, tmp_path):
+    from learnloop.ai.transport import STRUCTURED_COMPLETION
+
+    paths, _ = seeded
+    _enable_codex_field_routes(paths.root)
+    transport = _Transport(STRUCTURED_COMPLETION)
+    _route_transport(monkeypatch, transport)
+    _allow_environment(monkeypatch)
+    result = _invoke("--vault", str(paths.root), "--legacy-fallback", "current_content",
+                     "--llm-cache", str(tmp_path / "cache"), "--prepare-llm", "--json")
+    assert result.exit_code == 1 and json.loads(result.output)["status"] == "unavailable"
+    assert not transport.requests
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM judgment_ledger WHERE task=?", (zero.TASK,)).fetchone()[0] == 0
+
+
 def _row(item_id, at, *, status, digest=None):
     return AttemptRow(f"a-{item_id}-{at}", ItemFeatures(item_id, "lo_svd", at), 1.0, 1.0,
                       revision_status=status, item_snapshot_hash=digest)

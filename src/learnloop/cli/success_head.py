@@ -62,6 +62,9 @@ def _route_settings(loaded, output_tokens):
         "response_format": getattr(profile, "response_format", None),
         "provider_output_tokens": getattr(profile, "max_tokens", None),
         "output_tokens": output_tokens,
+        # Every prediction is an isolated turn (no files, tools or vault); a
+        # cache prepared before that keys differently and is never replayed.
+        "turn": "isolated",
     }
     return profile, settings, subscription
 
@@ -127,8 +130,12 @@ def prepare_or_load_zero_data(
                     "Field probability model resolved to a different billing transport")
             client = resolved.client
         with generation_limit(output_tokens):
+            # Isolated: an agentic transport (Codex) must not start in the vault,
+            # where stored outcomes would break the past-only contract. A
+            # transport that cannot isolate the turn is refused before sending.
             result = execute_structured_operation(
                 client, purpose=zero.TASK, prompt=prompt(request), result_model=ProbabilityResult,
+                isolated=True,
             )
         return result.model_dump(mode="json")
 
