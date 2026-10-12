@@ -254,3 +254,42 @@ def test_paid_labels_and_queries_survive_a_failed_write(indexed, monkeypatch):
     assert report["spend"]["relevance_judge"]["usage"]["recovered"] == 1
     assert sum(1 for purpose, _ in llm.calls if purpose == "practice_relevance_judge") == (
         judged + report["label_calls"] - 1)
+
+
+def test_duplicate_queries_cannot_manufacture_a_winning_evaluation(indexed, monkeypatch):
+    """F5: one request written by ten seeds is one observation, not ten."""
+    from learnloop.db.stores.practice_index import insert_eval_query
+    from learnloop.practice_index import evaluation as evaluation_module
+
+    _paths, vault, repository, llm, embedder = indexed
+    variants = ["eigenvalues characteristic polynomial", "Eigenvalues  characteristic polynomial",
+                "eigenvalues characteristic polynomial "]
+    with repository.connection() as connection:
+        for index in range(10):
+            insert_eval_query(
+                connection, id=f"peq_dup{index}", query_text=variants[index % 3].strip(),
+                seed_kind="item" if index % 2 else "facet", seed_id=f"seed_{index}",
+                model_id="fake-practice-model", prompt_version=evaluation_module.QUERY_PROMPT_VERSION,
+                input_hash="h", run_id=None, created_at="2026-10-12T00:00:00Z",
+            )
+    eigen = ["pi_eigen_3", "pi_eigen_1", "pi_eigen_2"]
+    others = sorted(item for item in vault.practice_items
+                    if item.startswith(("pi_span", "pi_independence", "pi_orthogonal")))
+
+    def rankings(snapshot, repository, text, vector, corpus):
+        # This one request favours dossiers: a real win, but a single observation.
+        return {"direct": others[:10], "dossier": (eigen + others)[:10]}
+
+    monkeypatch.setattr(evaluation_module, "_rankings", rankings)
+    report = run_retrieval_evaluation(vault, caps=CAPS, queries=0, logged_queries=0,
+                                      query_client=llm, judge_client=llm, embedder=embedder)
+    assert report["status"] == "complete", report
+    metrics = report["metrics"]
+    assert metrics["scored_queries"] == 1
+    assert metrics["duplicate_query_rows"] == 9
+    assert metrics["summary"]["ndcg@10"]["difference"]["n"] == 1
+    assert metrics["summary"]["ndcg@10"]["difference"]["mean"] > 0
+    assert report["decision"]["winner"] == "direct"
+    assert "insufficient evidence" in report["decision"]["reason"]
+    # Provenance is kept: the one query came from both seed kinds.
+    assert metrics["query_provenance"] == {"facet": 5, "item": 5}

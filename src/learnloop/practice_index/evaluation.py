@@ -69,6 +69,7 @@ from learnloop.practice_index.paid import (
 from learnloop.practice_index.query_vectors import (
     cached_query_vectors,
     embed_queries,
+    normalize_query,
     plan_query_embedding,
     query_id,
 )
@@ -232,6 +233,17 @@ def _query_row_id(kind: str, seed_id: str) -> str:
     return "peq_" + content_key([QUERY_PROMPT_VERSION, kind, seed_id])[:32]
 
 
+def distinct_queries(query_set: Sequence[Mapping[str, Any]]) -> list[tuple[dict[str, Any], list[dict[str, Any]]]]:
+    """One representative row per normalized request (whitespace and case), with
+    every row that wrote it. Several seeds can produce the same request; it is
+    one observation, so ranking, labels, the minimum count and the bootstrap
+    all run over distinct requests. Seed provenance is kept per group."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for row in query_set:
+        groups.setdefault(normalize_query(row["query_text"]).casefold(), []).append(dict(row))
+    return [(rows[0], rows) for rows in groups.values()]
+
+
 # -- labels ----------------------------------------------------------------
 
 
@@ -305,7 +317,7 @@ def _label_plan(vault, repository, snapshot, corpus, query_set, new_queries: int
     if snapshot.uses_vectors:
         vectors = cached_query_vectors(repository, snapshot.embedding_model,
                                        {row["id"]: row["query_text"] for row in query_set})
-    for row in query_set if snapshot.dossier_available else []:
+    for row, _rows in distinct_queries(query_set) if snapshot.dossier_available else []:
         if snapshot.uses_vectors and row["id"] not in vectors:
             new_queries += 1
             continue
@@ -567,10 +579,11 @@ def _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer
             vectors = embedded.vectors
             if embedded.status not in {"cached", "embedded"}:
                 raise _Stop(embedded.status, embedded.reason or "query embedding failed")
+        groups = distinct_queries(query_set)
         rankings = {
             row["id"]: _rankings(snapshot, repository, row["query_text"],
                                  vectors.get(row["id"]) if snapshot.uses_vectors else None, corpus)
-            for row in query_set
+            for row, _rows in groups
         }
         if judge_client is None:
             judge_client, reason = resolve_client(vault, judge_route)
@@ -578,9 +591,9 @@ def _run(vault, repository, snapshot, corpus, batches, recovered, logged, writer
             reason = transport_problem(judge_route, judge_client)
         if judge_client is None or reason is not None:
             raise _Stop("unavailable", reason or "relevance judge unavailable")
-        labels = _label_all(vault, repository, query_set, rankings, judge, judge_client,
-                            judge_model, report, clock)
-        _score(vault, repository, query_set, rankings, labels, snapshot, report,
+        labels = _label_all(vault, repository, [row for row, _rows in groups], rankings, judge,
+                            judge_client, judge_model, report, clock)
+        _score(vault, repository, query_set, groups, rankings, labels, snapshot, report,
                bootstrap_samples=bootstrap_samples, seed=seed, run_id=run_id, clock=clock)
     except _Stop as stop:
         report.update(status=stop.status, reason=stop.reason)
@@ -725,13 +738,13 @@ def _label_all(vault, repository, query_set, rankings, judge, client, judge_mode
     return labels
 
 
-def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
+def _score(vault, repository, query_set, groups, rankings, labels, snapshot, report, *,
            bootstrap_samples, seed, run_id, clock) -> None:
     per_query = []
     pairs: list[tuple[str, str]] = []
     incomplete = 0
     label_models: Counter[str] = Counter()
-    for row in query_set:
+    for row, rows in groups:
         pool = _pool(rankings[row["id"]])
         gains: dict[str, float] = {}
         relevant: set[str] = set()
@@ -751,8 +764,10 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
             incomplete += 1
             continue
         per_query.append({
-            "seed_kind": row["seed_kind"],
-            "query_model": row["model_id"] or "logged",
+            # Provenance of every row that wrote this request; descriptive splits
+            # count it under each, the summary and the bar count it once.
+            "seed_kind": sorted({entry["seed_kind"] for entry in rows}),
+            "query_model": sorted({entry["model_id"] or "logged" for entry in rows}),
             "direct": query_metrics(rankings[row["id"]]["direct"], gains, relevant),
             "dossier": query_metrics(rankings[row["id"]]["dossier"], gains, relevant),
             "pool": len(pool), "relevant": len(relevant),
@@ -770,8 +785,8 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
         }
     def split(key: str) -> dict[str, dict[str, Any]]:
         groups: dict[str, dict[str, Any]] = defaultdict(dict)
-        for value in sorted({q[key] for q in per_query}):
-            rows = [q for q in per_query if q[key] == value]
+        for value in sorted({value for q in per_query for value in q[key]}):
+            rows = [q for q in per_query if value in q[key]]
             for metric in ("ndcg@10", "recall@10"):
                 scored = [q for q in rows if q["direct"][metric] is not None]
                 groups[value][metric] = {
@@ -783,7 +798,10 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
 
     winner, reason = decide(summaries["ndcg@10"]["difference"], summaries["recall@10"]["difference"])
     metrics = {
-        "queries": len(query_set), "scored_queries": len(per_query),
+        "queries": len(query_set), "distinct_queries": len(groups),
+        "duplicate_query_rows": len(query_set) - len(groups),
+        "query_provenance": dict(sorted(Counter(row["seed_kind"] for row in query_set).items())),
+        "scored_queries": len(per_query),
         "incomplete_queries": incomplete,
         "mean_pool": _mean([q["pool"] for q in per_query]),
         "mean_relevant_in_pool": _mean([q["relevant"] for q in per_query]),
@@ -807,6 +825,8 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
         method={
             "held_out": "all queries; no parameter is fitted on them",
             "prequential": "not applicable: retrieval over the current admissible items, not prediction",
+            "distinct": ("requests are deduplicated by normalized text (whitespace and case); "
+                         "each distinct request is one observation for the minimum and the bootstrap"),
             "pooling": f"union of each system's top {TOP_K}",
             "relevant": "both label passes at least partial; gain = mean grade (0-2)",
             "bar": (f"dossier wins only if the nDCG@10 difference's 95% bootstrap interval is above 0, "
@@ -819,8 +839,8 @@ def _score(vault, repository, query_set, rankings, labels, snapshot, report, *,
             insert_evaluation(
                 connection, id="pie_" + run_id, created_at=utc_now_iso(clock), winner=winner,
                 reason=reason, manifest_hash=snapshot.manifest_hash(), manifest=manifest,
-                metrics={key: metrics[key] for key in ("queries", "scored_queries", "summary",
-                                                       "label_agreement", "label_models")},
+                metrics={key: metrics[key] for key in ("queries", "distinct_queries", "scored_queries",
+                                                       "summary", "label_agreement", "label_models")},
                 run_id=run_id,
             )
 
