@@ -175,3 +175,14 @@ def test_current_attempt_renders_last_with_its_blind_grade(seeded):
     current = json.loads(tail[len(', "current_attempt": '):-1])
     assert current["blind_grade"]["local_analysis_md"] == "Blind local reading of this answer."
     assert current["attempt_id"] == "att_06_svd_fail"
+
+
+def test_a_stored_grade_without_criterion_rows_is_still_a_non_pass(seeded):
+    vault, repository = seeded
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM grading_evidence WHERE attempt_id = 'att_05_eigen_fail'")
+    store = VaultHistoryStore(vault, repository)
+    attempt = store.attempt("att_05_eigen_fail")
+    assert attempt.non_pass
+    assert attempt.failed_criteria == ("correctness",)
+    assert attempt.failed_criterion_facets == ("recall",)

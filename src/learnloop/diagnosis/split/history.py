@@ -721,6 +721,12 @@ class VaultHistoryStore:
         attempt_type = str(row.get("attempt_type") or "")
         if attempt_type == "dont_know" and not failed:
             failed = sorted(maxima) or ["dont_know"]
+        correctness = row.get("correctness")
+        if not points and correctness is not None and float(correctness) < 1.0 - 1e-9:
+            # No criterion rows (deterministic or legacy grades): the stored
+            # score is the only measurement, so the attempt is a non-pass on
+            # every criterion rather than silently a pass.
+            failed = sorted(maxima) or ["score"]
         plans = [event.get("repair_plan") or {} for event in events]
         validity = []
         for plan in plans:

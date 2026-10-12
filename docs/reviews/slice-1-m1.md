@@ -229,7 +229,7 @@ reports are kept as best-effort "files opened".
 Recorded on the final commit (see "Gates" below).
 
 New test files: `test_blind_grading_contract.py` (10),
-`test_diagnosis_contract.py` (12), `test_diagnosis_context.py` (7),
+`test_diagnosis_contract.py` (12), `test_diagnosis_context.py` (8),
 `test_diagnosis_history_modes.py` (14), `test_diagnose_review.py` (17, one
 in the durability lane). Shared fakes: `tests/diagnosis_fakes.py`,
 `tests/diagnosis_split_helpers.py`; `tests/structured_ai.py` gains the
