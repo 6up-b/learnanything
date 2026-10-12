@@ -5,6 +5,11 @@ Spec: `docs/specs/spec_project_understanding_v1.md` §3, §4, §5.2, §5.3, §6.
 §8.2 (G1–G3, G5–G7), §9 (M1 row), §10 (M1 tests), §11 (D1–D10 defaults).
 The opt-in explanation gate (M1b: §5.1 gate arm, G4, G8, §8.1) is out of scope.
 
+> **Codex review (2026-10-12).** Fifteen findings were fixed after this file was
+> written; see `docs/reviews/projects-m1-codex-review.md`. The "Built",
+> "Decisions" and "Open questions" sections below are updated where a fix changed
+> them (isolation, small diffs, store schema 2, grading effort, retries).
+
 ## Plan (written before coding)
 
 ### Files to add
@@ -68,14 +73,14 @@ M1 cannot write `state.sqlite` (G6), so verdicts append to the store's `judgment
 
 **Capture (§3, D1, D5).** Once a repo is enrolled, capture needs nothing from the owner.
 - `auto_sweep` runs at app start (`ops/startup.run_startup_maintenance`, which the sidecar, TUI and `learnloop review`/`why` all call) and at plan build (the sidecar's `get_today_queue`, throttled to once per `project.plan_sweep_min_interval_minutes`, default 15). It only runs git: it never calls a model, never raises, and returns at once without creating anything when no repo is enrolled. `project.auto_sweep = false` is the kill switch.
-- A sweep lists local branches and `HEAD` since the repo's `capture_since` (enrollment minus `project.enroll_backfill_days`, default 7). Merges are skipped. Every commit with an agent trailer (`Co-Authored-By`/`Assisted-by`/`Generated-by` naming Claude, Codex, Copilot, Cursor, Aider and others, or Claude Code's "Generated with" line) that isn't stored yet is captured. Duplicates are recognised by sha and by `git patch-id`, so rebased or cherry-picked copies, and a working-tree capture that is later committed, are not captured twice.
-- The optional `post-commit` hook (`project install-hook`, or `enroll --install-hook`) only appends `{"repo_id","sha","at"}` to `projects/pending.jsonl` and always exits 0. The next sweep captures agent-trailer commits from the list. Trailer-less commits become an *unattributed* list in `status`, and one command (`accept --commit <sha> [--agent codex]`) marks them as AI-written.
+- A sweep lists local branches and `HEAD` since the repo's `capture_since` (enrollment minus `project.enroll_backfill_days`, default 7), paging through `git log`; past 200,000 commits it stops and reports the repo's history as incomplete. Merges are skipped. Every commit with an agent trailer (`Co-Authored-By`/`Assisted-by`/`Generated-by` naming Claude, Codex, Copilot, Cursor, Aider and others, or Claude Code's "Generated with" line) that isn't stored yet is captured. Duplicates are recognised by sha and by `git patch-id`, so rebased or cherry-picked copies, and a working-tree capture that is later committed, are not captured twice.
+- The optional `post-commit` hook (`project install-hook`, or `enroll --install-hook`) only appends `{"repo_id","sha","at"}` to `projects/pending.jsonl` and always exits 0. Each enrolled work tree has its own block, guarded by its top-level path, because linked worktrees share one hooks directory. The next sweep moves the list into a durable queue in the store and captures agent-trailer commits from it; an entry leaves the queue only once its repo was swept. Trailer-less commits become an *unattributed* list in `status`, and one command (`accept --commit <sha> [--agent codex]`) marks them as AI-written.
 - `accept` captures trailer-less agent work: the working tree (`pre_commit`), specific commits (`post_commit`), and `--include-untracked` (`git ls-files --others --exclude-standard`).
-- Each capture stores a content-addressed bundle in the originals store (`canonical-sources/raw/`): per included file, its redacted diff and redacted head-side excerpts. Excerpts cover ±`project.context_lines` (40) around each hunk, extended to the enclosing function or class (an indentation heuristic) while the bundle fits `project.context_token_budget` (12,000 estimated tokens). Bundles over budget shrink to hunk-only excerpts, then drop trailing files, then truncate, and are marked `truncated`. Diffs with fewer than `project.min_diff_lines` (5) changed lines are captured but excluded from probing.
+- Each capture stores a content-addressed bundle in the originals store (`canonical-sources/raw/`): per included file, its redacted diff and redacted head-side excerpts. Excerpts cover ±`project.context_lines` (40) around each hunk, extended to the enclosing function or class (an indentation heuristic) while the bundle fits `project.context_token_budget` (12,000 estimated tokens). Bundles over budget shrink to hunk-only excerpts, then drop trailing files, then truncate, and are marked `truncated`. Every capture with probe-able content is probed, however small (`project.min_diff_lines` is the M1b randomization threshold only).
 
 **Disclosure (§4, D7, G2).**
 - **Files never read into a bundle:** secret-pattern files (`.env*`, `*.pem`, `*.key`, `id_rsa*`, `*.p12`, `*credential*`, `*secret*`), `.learnloopignore` matches, noise files (lockfiles, minified bundles, source maps) and binaries.
-- **Lines replaced with `[REDACTED:<kind>]`:** diff, excerpt and commit-message lines that match a key prefix (`sk-`, `AKIA`/`ASIA`, `gh*_`/`github_pat_`, `xox*-`, `AIza`), a PEM block (every line of it), a credential assignment, or a long high-entropy token. This happens before storage, and models only ever see stored text.
+- **Lines replaced with `[REDACTED:<kind>]`:** diff, excerpt and commit-message lines (and the source text git repeats after a hunk header's coordinates) that match a key prefix (`sk-`, `AKIA`/`ASIA`, `gh*_`/`github_pat_`, `xox*-`, `AIza`), a PEM block (every line of it), a credential assignment, or a long high-entropy token. This happens before storage, and models only ever see stored text.
 - **What models are sent:** the diff hunks with their context and the commit message, with agent trailers stripped (the generator must not learn who wrote the code).
 - **Receipts:** every call records its files, hunks, bytes, scope, provider and model. `project status --disclosure` summarises them per repo.
 - **Remotes:** credentials are stripped from remote URLs.
@@ -83,14 +88,14 @@ M1 cannot write `state.sqlite` (G6), so verdicts append to the store's `judgment
 
 **Probes (§5.2, D4).** Generation runs in stages, and each stage is persisted before the next paid call, so a resumed run never pays twice:
 1. **Answer-first authoring.** The wire model's field order puts `reference_answer` and `citations` before `question`.
-2. **Deterministic validity check**, recorded as a `verifier` verdict. Each `file:line` citation must lie inside a stored excerpt, quotes must match verbatim, redacted lines can't be quoted, and a `why` needs a citation that states the reason (P4). Uncited rationale is never used as a key.
-3. **Closed-book check.** A model gets the questions only; the probe grader grades its answers, and a `correct` verdict rejects the candidate as generic.
+2. **Deterministic validity check**, recorded as a `verifier` verdict. Each `file:line` citation must lie inside a stored excerpt, quotes must match verbatim, redacted lines can't be quoted, and a `why` needs a cited span that itself states the reason (P4): prose (commit message or code comment), a reason cue, and terms shared with the reference answer. The generator's `rationale` flag is not trusted, and the check is stored in the verdict. Uncited rationale is never used as a key.
+3. **Closed-book check.** A model gets the questions only; the probe grader grades its answers, and a `correct` verdict rejects the candidate as generic. A reply missing, duplicating or inventing an answer id fails the stage instead of inventing empty answers.
 4. **Selection.** Two probes are chosen at random with the diff's stored seed. Fewer survivors leave the diff `under_probed`.
 
 Probes are sealed until `captured_at + 7 days`.
 - **Sealing (G5).** No command renders a sealed question. A sealed, unselected or unknown probe gets the same refusal, and error messages never echo model output.
 - **Answers.** An answer is unassisted unless the owner taps `/looked` or `/ai`. Don't know, unfair and skip are the other responses; skip and don't know are outcomes, never negative evidence, and lateness is recorded.
-- **Grading (G3).** One blind, high-effort grading pass per answer. The owner can contest: the adjudication becomes the outcome of record, the grade is kept, and the owner verdict supersedes the LLM verdict in the judgment log.
+- **Grading (G3).** One blind grading pass per answer, at `project.grading_reasoning_effort` (default `high`). Grading is claimed with a lock before any call, and each outcome commits with its judgment in one transaction. The owner can contest: the adjudication becomes the outcome of record, the grade is kept, and the owner verdict supersedes the LLM verdict in the judgment log.
 - **Practice only (D6).** `evidence_class = 'practice'` and `exposure_isolation = 'unknown'` are SQL CHECK constraints on `probe_responses`.
 
 **Provenance (§5.3).** Three signals are recorded:
@@ -100,7 +105,7 @@ Probes are sealed until `captured_at + 7 days`.
 
 The report breaks out accuracy and the don't-know/skip rates by each label. Provenance never changes a grade.
 
-**Store (§6.1, D2).** `<vault>/projects/project_store.sqlite`, in WAL mode with `synchronous=FULL` (ADR-015), with `PRAGMA user_version` 1. A store from a newer LearnLoop is refused. Tables:
+**Store (§6.1, D2).** `<vault>/projects/project_store.sqlite`, in WAL mode with `synchronous=FULL` (ADR-015), with `PRAGMA user_version` 2 (2 added `pending_commits`; a version-1 store is upgraded in place). A store from a newer LearnLoop is refused. Tables:
 - `repos`, `diffs`, `provenance_reports`, `probes`, `probe_responses`, `unattributed_commits`, `store_meta`;
 - `judgments`: the same columns and append-only and supersession triggers as `judgment_ledger`;
 - `call_receipts`: the vault receipt columns plus `diff_id`, `disclosure_json`, `cost_label` and `estimated_usd`.
@@ -109,10 +114,11 @@ The report breaks out accuracy and the don't-know/skip rates by each label. Prov
 
 **Routing and spend (§7, rule 6).**
 - **Routes.** `AITask` gains `project`, and `ai.routing.project` falls back to `ai.routing.grading`, then the active provider. The operations are `project_probe_authoring` and `project_closed_book_check` (on the `project` route) and `project_probe_grading` (on the `grading` route).
-- **Isolated working directory.** Model clients are built against an empty temporary directory instead of the vault root, so an agentic transport (Codex works in its cwd) doesn't start inside the vault that holds the reference answers.
+- **Tool isolation.** Model clients are built around an empty temporary directory instead of the vault root. A directory alone does not stop an agentic transport reading absolute paths, so with `project.require_tool_isolation` (default) Codex runs its app-server in a bubblewrap sandbox (`learnloop.ai.isolation`): no home, vault or repo, an in-memory agent home with only its credentials and config, its own PID namespace. Chat transports are tool-free; any other transport is refused. Receipts record `tool_isolation`.
 - **Spend.** Every paid command has caps and `--dry-run`: `sweep`, `probes`, `answer` and `grade`. On the Codex subscription (`codex_sdk`) there is no physical-request bound and no token or dollar cap. Cost is the reported tokens × a $10/M reference rate, labelled `estimated_only`, and the call and candidate caps still stop runaway loops.
-- **Metered routes** keep every cap. An unknown price fails closed (`--price-per-million`), and a hidden provider retry is admitted only against `--max-retries`.
-- **No double paying.** A non-blocking lock stops two commands from generating for the same diff.
+- **Metered routes** keep every cap, and each request carries its admitted output budget as the provider's limit. An unknown price fails closed (`--price-per-million`), and a hidden provider retry is admitted only against `--max-retries`. `project probes` spends one budget across generation and grading.
+- **No double paying.** Non-blocking locks stop two commands from generating for the same diff or grading the same answers. A crash after a completed call but before its outcome commits re-pays that one call on resume (the paid output stays in the receipt).
+- **Retries.** `sweep --retry-failed` and `grade --retry-failed` take failed items back under the same caps and dry-run.
 
 **Report (§8.3 M1).** `project report` (text or `--json`) covers:
 - capture coverage: by source, timing, agent and agent source, exclusions, truncations, redactions, unattributed commits, and repos with sweep errors;
@@ -139,9 +145,9 @@ Every rate carries its n and a small-sample flag. M1 sets no numeric gate.
 ## Decisions and deviations
 
 1. **Generation is decoupled from capture.** Automatic sweeps run only git, so app start and plan build stay fast and never spend. Generation runs in `project sweep` (unless `--capture-only`) and, for diffs already due, just before `project probes` serves (`project.generate_before_serving`). The spec's "generate at capture" exists for M1b's arm-blindness (P3), which doesn't apply without the gate. Probes are still generated from the stored snapshot, before anything about the answer exists.
-2. **M1b tables aren't created.** `assignments`, `gate_events`, `preregistration`, `gate.py` and the `project_gate_judge`, `project_session_classify` and `project_defense_question` operations are left out. The store is versioned, so M1b adds them with `user_version` 2. `repos.gate_policy` exists and is always `off`.
+2. **M1b tables aren't created.** `assignments`, `gate_events`, `preregistration`, `gate.py` and the `project_gate_judge`, `project_session_classify` and `project_defense_question` operations are left out. The store is versioned, so M1b adds them with `user_version` 3 (2 is the pending queue). `repos.gate_policy` exists and is always `off`.
 3. **Verdicts and receipts live in the project store** (G6). The `judgments` columns are identical to `judgment_ledger`, for M2's import. The receipts table is named `call_receipts`, not `model_call_receipts`, so the generated database docs don't list the project store as a writer of the vault table. Owner adjudication uses the same task as the LLM grade (`project_probe_grade`, judge `owner`, `supersedes_id`), because `judgment_ledger`'s supersession rule requires the same task. The plan above named it `project_probe_adjudication`.
-4. **Trivial diffs aren't probed.** The spec applies `project.min_diff_lines` only to M1b randomization. M1 also excludes such diffs from probing (`excluded_reason = trivial`), so typo fixes don't consume probes.
+4. **Small diffs are probed** (reversed after the Codex review, F14). The spec applies `project.min_diff_lines` only to M1b randomization; a two-line change can flip a comparison. Only captures with no probe-able file are excluded.
 5. **A capture window with patch-id dedupe replaces "commits since the last sweep".** It is robust to branch switches, rebases and concurrent sweeps.
 6. **Noise files** (lockfiles, minified bundles, source maps) are skipped like secrets, to keep context minimal (P5).
 7. **The question header shows repo, files and commit date, never the commit message**, which often states the rationale a `why` probe asks for. The reference shown after answering labels a cited reason `agent_stated` when the agent wrote it: added lines, or the commit message of an agent-committed diff.
@@ -248,7 +254,7 @@ learnloop project report --vault <vault>        # or --json
 1. **Authoring route.** By default, `project` follows the grading route (`codex_low`, low reasoning effort). Answer-first authoring with verbatim citations may need `codex_medium`; the commands above suggest the override. Should the template route `project` there by default?
 2. **Background generation in the desktop app.** Generation runs in the CLI (`sweep`, or just before `probes` serves). For probes to be ready without waiting, M2's sidecar handler could generate in the background for subscription routes. Is that acceptable?
 3. **Other people's agent commits.** In shared repos, commits with agent trailers written by other people (merged from a remote) are captured too. That is fine for single-owner repos. Should M2 filter by author email?
-4. **Closed-book isolation is cwd-level only.** Codex runs in an empty temporary directory, but its sandbox may still read absolute paths. A truly closed-book check needs a transport with no tool access.
+4. ~~Closed-book isolation is cwd-level only.~~ Resolved (F2): Codex runs in a bubblewrap sandbox. If bubblewrap can't create a sandbox on a host, project calls on Codex are refused; `project.require_tool_isolation = false` is the kill switch.
 5. **The `.learnloopignore` used is the working tree's current file**, not the file at `head_sha`. This follows the owner's latest intent, and the hash is recorded per capture.
 6. **M2 import mapping.** `judgments` → `judgment_ledger` unchanged. `call_receipts` → `model_call_receipts` needs a home for the disclosure and cost-label fields: new columns, or a side table.
-7. **The trivial-diff threshold for probing** reuses `project.min_diff_lines = 5`. Keep it or lower it?
+7. ~~The trivial-diff threshold for probing.~~ Resolved (F14): M1 probes every diff with probe-able content.
