@@ -8,7 +8,7 @@ import { clear } from "../api/queryCache";
 const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
 
-import { nextPlanKeyLabel, planStepAction, readerTargetForReading } from "./dailyPlan";
+import { minutesPerDay, nextPlanKeyLabel, planStepAction, readerTargetForReading } from "./dailyPlan";
 import { PlanReadingBanner } from "../components/PlanReadingBanner";
 
 afterEach(() => { cleanup(); clear(); vi.clearAllMocks(); });
@@ -66,4 +66,13 @@ it("returns to the plan from the reader and records that the learner left it", a
   });
   await waitFor(() => expect(onBack).toHaveBeenCalledOnce());
   expect(invoke).toHaveBeenCalledWith("plan_reading_ended", { input: { outcome: "left_reader", sessionId: "s1" } });
+});
+
+it("rounds minutes a day honestly: whole from 1, a decimal below, never up to 1", () => {
+  expect(minutesPerDay(3.75)).toBe("4");
+  expect(minutesPerDay(1)).toBe("1");
+  expect(minutesPerDay(0.32)).toBe("0.3");
+  expect(minutesPerDay(0.96)).toBe("1");
+  expect(minutesPerDay(0.02)).toBe("less than 0.1");
+  expect(minutesPerDay(0)).toBe("0");
 });

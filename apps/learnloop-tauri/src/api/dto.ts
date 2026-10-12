@@ -6679,7 +6679,14 @@ export interface DailyPlanDto {
   /** next_plan_item / plan_learner_pick / plan_reading_ended: the typed step. */
   step?: PlanStepDto;
   /** plan_more_new: the trade-off shown before anything is added. */
-  preview?: { items: number; estMinutes: number; addsMinutesPerDay: number; horizonDays: number; available: boolean };
+  preview?: {
+    items: number;
+    estMinutes: number;
+    addsMinutesPerDay: number;
+    horizonDays: number;
+    available: boolean;
+    practiceItemIds?: string[];
+  };
 }
 
 export interface TodayHeadlineDto {

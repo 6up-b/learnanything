@@ -18,6 +18,17 @@ export function aboutMinutes(minutes: number | null | undefined): string {
   return `about ${value} min`;
 }
 
+/**
+ * Minutes a day as computed, rounded honestly (L1): whole minutes from 1 up,
+ * one decimal below ("0.3"), never rounded up to 1.
+ */
+export function minutesPerDay(minutes: number | null | undefined): string {
+  const value = Math.max(0, minutes ?? 0);
+  if (value >= 1) return String(Math.round(value));
+  if (value > 0 && value < 0.05) return "less than 0.1";
+  return String(Math.round(value * 10) / 10);
+}
+
 /** Whole minutes for actual time ("26 min"), never below zero. */
 export function wholeMinutes(minutes: number | null | undefined): number {
   return Math.max(0, Math.round(minutes ?? 0));

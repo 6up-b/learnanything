@@ -206,6 +206,12 @@ it("shows the more-new trade-off before adding anything", () => {
   expect(onMoreNew).toHaveBeenCalledWith(true);
 });
 
+it("shows a small trade-off as computed, never rounded up to a minute (DL1 review F9)", () => {
+  const done = plan({ status: "complete", currentBlockId: null, projected: [] });
+  show(data(done), { moreNewPreview: { items: 1, estMinutes: 1.5, addsMinutesPerDay: 0.32, horizonDays: 14, available: true } });
+  expect(screen.getByTestId("plan-more-new").textContent).toContain("adds about 0.3 min/day of reviews");
+});
+
 it("says nothing is due on an empty plan, and offers keep going", () => {
   const empty = plan({ status: "complete", currentBlockId: null, blocks: [], projected: [], totals: { plannedMinutes: 0, plannedItems: 0, doneItems: 0, skippedItems: 0, displacedItems: 0, readingBlocks: 0, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 0 } });
   show(data(empty));

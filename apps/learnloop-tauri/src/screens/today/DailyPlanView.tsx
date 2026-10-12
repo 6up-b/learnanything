@@ -8,7 +8,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { DailyPlanDto, PlanBlockDto, PlanLane, TodayHeadlineDto } from "../../api/dto";
 import { COLOR, FONT_MONO, KeyBar } from "../../components/term";
-import { aboutMinutes, wholeMinutes } from "../../app/dailyPlan";
+import { aboutMinutes, minutesPerDay, wholeMinutes } from "../../app/dailyPlan";
 
 const LANE_COLOR: Record<PlanLane, string> = {
   repair: COLOR.red,
@@ -396,7 +396,7 @@ export function PlanDone({
           {moreNewPreview.available ? (
             <>
               {moreNewPreview.items} new item{moreNewPreview.items === 1 ? "" : "s"}, {aboutMinutes(moreNewPreview.estMinutes)} today ·
-              adds about {Math.max(1, Math.round(moreNewPreview.addsMinutesPerDay))} min/day of reviews for two weeks.{" "}
+              adds about {minutesPerDay(moreNewPreview.addsMinutesPerDay)} min/day of reviews for two weeks.{" "}
               <button type="button" style={linkButton} onClick={() => onMoreNew(true)} disabled={busy}>
                 add them
               </button>
