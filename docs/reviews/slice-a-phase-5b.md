@@ -311,7 +311,27 @@ registry: the index proposes and never serves.
 Run in this worktree with `uv sync --extra dev` and `uv pip install pypdfium2`.
 `LEARNLOOP_CONFIG_DIR` was isolated under `fixtures-local/` for manual runs.
 
-GATE_RESULTS_PLACEHOLDER
+Final gate on `928c6f25` (all code and the regenerated reference committed):
+
+| Command / check | Result |
+|---|---|
+| `uv sync --extra dev`; `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **6 contracts kept, 0 broken** |
+| `uv run pytest -n auto` | **6,199 passed**, 14 existing warnings, 199 s |
+| `uv run pytest -m durability` | **63 passed**, 6,136 deselected |
+| Practice-index modules (`tests/test_practice_index_*.py`) | **47 passed** |
+| `db_generate_reference.py` / `db_validate_reference.py` | schema **167**, **265** table notes, **536** config leaves in 29 sections, **0 errors** |
+| Migration head | `fixtures/migration_head_167`: rollback journal (`DELETE`), `integrity_check` ok, no foreign-key violations |
+| `learnloop doctor` on the manual-run copy | the same single pre-existing error (missing `rubrics/` directory) and 104 warnings as an untouched copy |
+| Frontend (`npm`) | not applicable: no frontend change |
+
+An earlier full run (`9c73eae0`) also passed (6,197). Failures met while
+building and fixed before commit: the recipe lists, CLI help snapshot, SQL
+owner registry, mvp-0.9 defaults fingerprint and parameter registry that the
+new recipes, commands and config change by design; an import cycle
+(`scheduling → diagnosis`) that moved admission into `practice_index`; and
+three bugs the tests caught (a `logged_queries=0` that still added one query,
+a missing usage block on a no-op dossier run, and a test-only id collision).
 
 ## Manual run on a fixtures-local copy (fakes only)
 
