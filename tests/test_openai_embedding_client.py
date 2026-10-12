@@ -210,3 +210,11 @@ def test_privacy_disclosure_is_effective_config_and_settings(tmp_path):
     settings = _settings_rpc(vault.root, ("get_settings", {}))[0]["result"]
     assert settings["embedding"]["privacyDisclosure"] == disclosure
     assert settings["embedding"]["enabled"] is False
+
+
+def test_template_keeps_ai_comments_on_ai_and_no_project_jargon():
+    text = DEFAULT_CONFIG_TEXT
+    assert "# Exception: embeddings use only their explicit route, never env/active/fallback.\n[ai]\n" in text
+    assert text.index("[embedding]") > text.index("[ai.routing]")
+    assert "Phase 1" not in text and "pf_" not in text
+    assert "data_collection=deny" in text

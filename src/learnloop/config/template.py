@@ -711,15 +711,6 @@ algorithm_version = "mvp-0.9"
 # AI is optional; an unavailable provider keeps today's manual workflow.
 # Precedence: explicit flag > LEARNLOOP_AI_PROVIDER > task route > active provider.
 # Exception: embeddings use only their explicit route, never env/active/fallback.
-[embedding]
-enabled = false
-backfill_enabled = false
-model = "qwen/qwen3-embedding-8b"
-dimensions = 4096
-# Remote embeddings send learner-derived text to OpenRouter and its upstream
-# provider, with data_collection=deny. Vectors approximate plaintext: protect
-# them like practice attempts in backups/exports/sync; never share across vaults.
-
 [ai]
 active_provider = "codex"
 fallback_provider = ""
@@ -758,13 +749,16 @@ animation = "codex_medium"
 transcription = ""
 video_generation = ""
 embedding = "openrouter_embedding"
-# Future PF components use independent routes; Phase 1 has no PF consumers.
-# pf_generator = ""
-# pf_family_judge = ""
-# pf_isomorph_judge = ""
-# pf_closed_book = ""
-# pf_reference_verifier = ""
-# pf_solver_panel = ""
+
+# Embeddings are opt-in: both switches stay off until you enable them.
+# Remote embeddings send learner-derived text to OpenRouter and its upstream
+# provider, with data_collection=deny. Vectors approximate plaintext: protect
+# them like practice attempts in backups/exports/sync; never share across vaults.
+[embedding]
+enabled = false
+backfill_enabled = false
+model = "qwen/qwen3-embedding-8b"
+dimensions = 4096
 
 [ingest]
 [ingest.pdf]
