@@ -485,7 +485,9 @@ def test_a_valid_alternative_is_verified_on_its_submitted_derivation(tmp_path):
     assert verify_alternative(item, wrong)["status"] != "verified"
     false_step = ValidAlternativeDraft(method_note="m", derivation_md="2*3 = 7, and the smallest prime is\n2", final_answer="2")
     assert verify_alternative(item, false_step)["status"] != "verified"
-    right = ValidAlternativeDraft(method_note="m", derivation_md="Every even number above 2 is composite, and 1+1 = 2.\nThe answer is 2.", final_answer="2")
+    # (Re-review: "and" may be arithmetic in English, so it no longer counts
+    # as a connective next to an equation; "so" does.)
+    right = ValidAlternativeDraft(method_note="m", derivation_md="Every even number above 2 is composite, so 1+1 = 2.\nThe answer is 2.", final_answer="2")
     assert verify_alternative(item, right)["status"] == "verified"
 
 
@@ -515,6 +517,79 @@ def test_sympy_never_sees_model_text_outside_a_safe_math_alphabet():
     assert not safe_math_text("__import__('os')")
     assert not safe_math_text("open(1)")
     assert not safe_math_text("x.__class__")
+    # Power towers would make SymPy compute huge integers: refused.
+    assert not safe_math_text("9^9^9^9")
+    assert not safe_math_text("2**(999*999*999)")
+
+
+def test_every_relation_in_an_alternative_is_checked_never_skipped(tmp_path):
+    """F4 (re-review): an equation the checker cannot decide excludes the draft."""
+
+    from learnloop.diagnosis.offline_review.probes import ValidAlternativeDraft, verify_alternative
+
+    _vault, item = _prime_item(tmp_path)  # reference "2"
+
+    def check(text: str, final: str = "2") -> dict:
+        return verify_alternative(item, ValidAlternativeDraft(method_note="m", derivation_md=text, final_answer=final))
+
+    # The reviewer's case: x is defined as 1, so x+x=99 is false, not skipped.
+    assert check("Let x=1. Then x+x=99.\nTherefore 2.")["status"] != "verified"
+    # A free-symbol equation that is not an identity cannot be checked.
+    assert check("Then x+x=99.\nTherefore 2.")["reason"] == "unchecked_relation"
+    # Prose operators next to an equation would truncate it: unchecked.
+    assert check("3 times 2 = 2, so\nFinal answer: 2")["status"] != "verified"
+    assert check("We get 1 + 1 = 2 times 2.\nFinal answer: 2")["status"] != "verified"
+    # Relations other than equality, tuple assignments and LaTeX are not checked.
+    assert check("1 < 3, so\nFinal answer: 2")["status"] != "verified"
+    assert check("x, y = 2, 1. Then y + 1 = 3.\nFinal answer: 2")["status"] != "verified"
+    assert check("We use \\frac{4}{2} = 2.\nFinal answer: 2")["status"] != "verified"
+    # Checked definitions, arithmetic and identities verify.
+    assert check("Let x = 1. Then x + x = 2.\nTherefore 2.")["status"] == "verified"
+    assert check("Since (a+b)^2 = a^2 + 2a*b + b^2, we get (1+1)^2 = 4, so 4/2 = 2.\nFinal answer: 2")["status"] == "verified"
+
+
+def test_the_asserted_conclusion_is_parsed_not_found_as_a_token(tmp_path):
+    """F4 (re-review): "2, not 3" asserts 2; it never establishes 3."""
+
+    from learnloop.diagnosis.offline_review.probes import (
+        SyntheticErrorDraft,
+        ValidAlternativeDraft,
+        verify_alternative,
+        verify_synthetic_error,
+    )
+
+    vault, item = _prime_item(tmp_path)
+
+    def synthetic(text: str, final: str) -> dict:
+        return verify_synthetic_error(vault, item, SyntheticErrorDraft(planted_criterion_id="correctness", error_description="d", answer_md=text, final_answer=final))
+
+    # The reviewer's case: a correct answer with a wrong declared final answer.
+    assert synthetic("1+1=2.\nThe answer is 2, not 3.", "3")["status"] != "verified_wrong"
+    assert synthetic("The answer is 4 or 2.", "4")["status"] != "verified_wrong"
+    assert synthetic("So the answer is not 4.", "4")["status"] != "verified_wrong"
+    wrong = synthetic("2+2 = 4.\nFinal answer: 4", "4")
+    assert wrong["status"] == "verified_wrong" and wrong["asserted_answer"] == "4"
+    assert synthetic("Therefore x = 4.", "4")["status"] == "verified_wrong"
+    # The valid alternative is held to its asserted conclusion the same way.
+    alternative = ValidAlternativeDraft(method_note="m", derivation_md="1+1 = 2.\nThe answer is 2, not 3.", final_answer="2")
+    assert verify_alternative(item, alternative)["status"] != "verified"
+
+
+def test_numeric_checks_keep_unary_signs_and_whole_expressions(tmp_path):
+    """F17: "-1 + 3 = 2" holds; the old regex checked "1 + 3 = 2" and excluded it."""
+
+    from learnloop.diagnosis.offline_review.probes import ValidAlternativeDraft, check_relations, verify_alternative
+
+    for holds in ("-1 + 3 = 2", "2 * (-1) = -2", "-(1 - 3) = 2", "(1 + 3) / 2 = 2", "10 - 1 = 9", "-2^2 = -4",
+                  "2^-1 = 0.5", "1/3 = 0.333", "2(1 + 2) = 6", "x = -1 + 3, so x - 2 = 0"):
+        result = check_relations(holds)
+        assert (result.false, result.unchecked) == ([], []), holds
+        assert result.checked >= 1, holds
+    for false in ("-1 + 3 = -2", "1 + 3 = 2", "(1 + 3) / 2 = 1", "1/3 = 0.4", "-(1 - 3) = -2"):
+        assert check_relations(false).false, false
+    _vault, item = _prime_item(tmp_path)
+    draft = ValidAlternativeDraft(method_note="m", derivation_md="Start from -1 + 3 = 2.\nTherefore 2.", final_answer="2")
+    assert verify_alternative(item, draft)["status"] == "verified"
 
 
 PROBE_OPTIONS = ReviewOptions(sample_size=6, arms=("b",), planted_per_shape=0, generate_planted=False, judge=False, sweep=False,

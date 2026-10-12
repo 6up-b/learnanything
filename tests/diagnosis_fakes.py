@@ -293,7 +293,8 @@ class ReviewFakeClient:
 
     def _diagnosis_valid_alternative(self, request, context):
         return ValidAlternativeDraft.model_validate(
-            {"method_note": "Different route.", "derivation_md": f"By another route: {context['reference_solution']}", "final_answer": context["reference_solution"]}
+            {"method_note": "Different route.", "derivation_md": f"By another route we reach it.\nFinal answer: {context['reference_solution']}",
+             "final_answer": context["reference_solution"]}
         )
 
     def _diagnosis_synthetic_error(self, request, context):
