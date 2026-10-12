@@ -48,9 +48,23 @@ MAIN_SIDECAR_RPCS = (
 # "Decision models" disclosures (judges) and update_ai_settings refuses
 # decision-model profiles. Desktop only.
 ROUTER_R0_SETTINGS_RPCS = ("get_settings", "update_ai_settings")
+# Router R1 adds no RPC. It extends these: a published Today offer (and a skip's
+# requeue) writes a router decision, and a first bind of a submission to an
+# offered candidate other than the head writes a learner pick. Desktop only.
+ROUTER_R1_LOGGING_RPCS = (
+    "get_today_queue",
+    "skip_practice_item",
+    "save_practice_draft",
+    "submit_attempt",
+    "submit_dont_know",
+    "start_teach_back",
+)
 
 
-@pytest.mark.parametrize("method", DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS)
+@pytest.mark.parametrize(
+    "method",
+    DESKTOP_ONLY_CAPTURE_RPCS + MAIN_SIDECAR_RPCS + ROUTER_R0_SETTINGS_RPCS + ROUTER_R1_LOGGING_RPCS,
+)
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry
     from learnloop_sidecar.registry import METHOD_REGISTRY

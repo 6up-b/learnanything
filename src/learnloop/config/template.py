@@ -838,7 +838,12 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # embedding.enabled = false. All three snapshots were recomputed then
     # (mvp-0.10 and mvp-0.11 from DEFAULT_CONFIG_TEXT with only
     # algorithm_version replaced); no serving change.
-    "mvp-0.9": "499d442dcf92b543f7f1f9e4c343b529d41292804319931488b6e40f00ba9cf1",
+    # Router R1 adds the [router] section (modelled defaults only, left out of
+    # the decision-only template): log_decisions (decision logging, not a
+    # serving change, acts at every version) and probe_tie_admission (the
+    # mvp-0.12 kill switch, dormant below mvp-0.12). Every snapshot was
+    # recomputed for it; mvp-0.9 serving is unchanged.
+    "mvp-0.9": "34507fce3a6bcec730305ab0f9572887ebd124146c040670f23f918d8629c79a",
     # mvp-0.10 (Slice 1 M2): the same effective defaults with the split live:
     # blind grading, the asynchronous diagnoser (history_mode = "full", O16),
     # the diagnosis card and PF-c grading support. Reached by
@@ -848,7 +853,8 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # too (modelled defaults, nominations only; no serving change).
     # Phase 5a's [pf] section and routes move it too (no serving change).
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.10": "cdf9d100616ff76dab8c311f418f768abf83243228f1d76d3d7f0c92f3c604d3",
+    # Router R1's [router] section moves it too (see mvp-0.9).
+    "mvp-0.10": "a2f1ff08bce5fa38af66660ea65b3803b2b0c2cfad4a3337dbe7be4d1eec4e39",
     # mvp-0.11 (Slice A Phase 6, learner field F2): mvp-0.10's split plus
     # placement (the [placement] section, modelled defaults only, left out of
     # the decision-only template): no opening probes, assumed-known checked in
@@ -862,7 +868,16 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # All three were recomputed again at the Phase 5a merge for [pf] and the
     # two PF routes (content generation behind pf.generation_enabled, off).
     # Router R0's merge moves it too (see mvp-0.9; no serving change).
-    "mvp-0.11": "5054e83db3136b7869fed191723e76843f3cd54785c158d5c6e3da27722eaff7",
+    # Router R1's [router] section moves it too (see mvp-0.9).
+    "mvp-0.11": "2c7fe753b463ef505f1e0260418faa46853ff7bde9d19ee2da693041cedfcce9",
+    # mvp-0.12 (router R1): mvp-0.11's split and placement plus probe
+    # near-ties admitted to the Today queue's seeded epsilon tie-break with a
+    # logged propensity. Kill switch router.probe_tie_admission (default on).
+    # Reached by `learnloop upgrade` (default target) from mvp-0.11, or through
+    # it from mvp-0.9 / mvp-0.10; the template stays at mvp-0.9. Computed from
+    # DEFAULT_CONFIG_TEXT with only algorithm_version changed. The label is
+    # provisional: expect relabelling when it lands (DL1 and T1 also claim it).
+    "mvp-0.12": "82d64e7e404331f84bb38b83541c3a6c7b45bff9db88419cf4e6ff9af830dc5f",
 }
 
 

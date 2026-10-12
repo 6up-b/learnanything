@@ -48,13 +48,22 @@ DIAGNOSIS_SPLIT_ALGORITHM_VERSION = "mvp-0.10"
 # the mvp-0.8 namespace. Kill switch: ``placement.enabled``.
 PLACEMENT_ALGORITHM_VERSION = "mvp-0.11"
 
+# mvp-0.12 (router R1, spec_action_router_v1 §11): mvp-0.11's split and
+# placement PLUS probe near-ties admitted to the Today queue's seeded epsilon
+# tie-break, so probe decisions carry a true propensity instead of 1 or 0. It
+# changes what is SERVED (which near-tie leads the offer), not the projection,
+# so it is another successor tag on the mvp-0.8 namespace. Kill switch:
+# ``router.probe_tie_admission``. The label is the next free one on R1's base;
+# expect relabelling at landing (DL1 and T1 also claim mvp-0.12).
+PROBE_TIE_ALGORITHM_VERSION = "mvp-0.12"
+
 # Versions at which practice grading is split (kill switch
 # ``diagnosis.split_enabled`` restores joint grading for NEW attempts; an
 # attempt's grader mode is recorded per attempt and replay never reads the
 # switch). Every later successor keeps the split, so gates must use this set,
 # never equality against DIAGNOSIS_SPLIT_ALGORITHM_VERSION.
 DIAGNOSIS_SPLIT_VERSIONS: frozenset[str] = frozenset(
-    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION, PLACEMENT_ALGORITHM_VERSION}
+    {DIAGNOSIS_SPLIT_ALGORITHM_VERSION, PLACEMENT_ALGORITHM_VERSION, PROBE_TIE_ALGORITHM_VERSION}
 )
 
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
@@ -65,6 +74,7 @@ P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(
         REVEAL_LEDGER_ALGORITHM_VERSION,
         DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
         PLACEMENT_ALGORITHM_VERSION,
+        PROBE_TIE_ALGORITHM_VERSION,
     }
 )
 P0_PROJECTION_VERSIONS: frozenset[str] = (
@@ -81,8 +91,16 @@ CANONICAL_STATE_VERSIONS: frozenset[str] = (
 # Versions whose serving includes F2 placement (behind ``placement.enabled``).
 # A later successor that keeps placement adds itself here; gates must use this
 # set, never equality against PLACEMENT_ALGORITHM_VERSION.
-PLACEMENT_VERSIONS: frozenset[str] = frozenset({PLACEMENT_ALGORITHM_VERSION})
+PLACEMENT_VERSIONS: frozenset[str] = frozenset(
+    {PLACEMENT_ALGORITHM_VERSION, PROBE_TIE_ALGORITHM_VERSION}
+)
 
-# The newest successor in the linear chain mvp-0.9 -> mvp-0.10 -> mvp-0.11.
+# Versions whose Today queue admits probe near-ties to the seeded epsilon
+# tie-break (behind ``router.probe_tie_admission``). A later successor that
+# keeps it adds itself here; gates must use this set.
+PROBE_TIE_VERSIONS: frozenset[str] = frozenset({PROBE_TIE_ALGORITHM_VERSION})
+
+# The newest successor in the linear chain
+# mvp-0.9 -> mvp-0.10 -> mvp-0.11 -> mvp-0.12.
 # ``learnloop upgrade`` with no ``--to`` targets it.
-LATEST_ALGORITHM_VERSION: str = PLACEMENT_ALGORITHM_VERSION
+LATEST_ALGORITHM_VERSION: str = PROBE_TIE_ALGORITHM_VERSION

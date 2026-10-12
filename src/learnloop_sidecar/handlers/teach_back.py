@@ -282,14 +282,22 @@ def filter_unready_teach_back_items(vault, queue: list, *, grading_provider_over
 
     if not any(is_teach_back(entry) for entry in queue):
         return list(queue)
+    if teach_back_offerable(vault, grading_provider_override=grading_provider_override):
+        return list(queue)
+    return [entry for entry in queue if not is_teach_back(entry)]
+
+
+def teach_back_offerable(vault, *, grading_provider_override: str | None = None) -> bool:
+    """Both halves of a teach-back are available: the naive student and an AI grader."""
+
     _provider, runtime, client = ready_teach_back_provider(vault)
     if runtime.ready and client is not None:
         _grader, grading_runtime, grading_client = ready_grading_provider(
             vault, override=grading_provider_override
         )
         if grading_runtime.ready and grading_client is not None:
-            return list(queue)
-    return [entry for entry in queue if not is_teach_back(entry)]
+            return True
+    return False
 
 
 def _finish(

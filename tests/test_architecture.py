@@ -65,6 +65,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/placement.py",
         # Slice A Phase 5a (PF-b): candidates, skeletons and DERIVED fingerprints.
         "src/learnloop/db/stores/pf.py",
+        # Router R1: append-only decision rows and the DERIVED outcome cache.
+        "src/learnloop/db/stores/router.py",
         "src/learnloop/substrate/replay.py",
         # Sole derived shadow-family FSRS writer; never a serving cache.
         "src/learnloop/substrate/family_memory.py",

@@ -283,6 +283,88 @@ def evaluate_staged_rule(
     )
 
 
+#: §7.1 of the router spec: actions only the staged rule may choose, never a draw.
+IRREVERSIBLE_RUNGS = frozenset(
+    {"terminal_required_with_reserve", "depth_progression_edge_feasible", "model_misspecification"}
+)
+
+
+def ladder_eligibility(
+    snapshot: cs.ControllerSnapshot, signals: StateSignals, *, short_circuited: bool = False
+) -> list[dict[str, Any]]:
+    """Every §4.2 rung with whether its condition holds (router R1's staged eligibility).
+
+    Read-only reporting for decision logs: :func:`evaluate_staged_rule` still
+    picks the first eligible rung, which ``fired`` marks. A short-circuited
+    block (continuation, explicit choice, served administration) fires none.
+    Within-block selection may still turn the fired action into a typed stop
+    (no feasible activity, an EVSI stop); the decision's own ``staged_rule``
+    records that.
+    """
+
+    commitment = _pick_commitment(snapshot)
+    route = signals.pending_triage_route
+    triage_stage = (route or {}).get("first_intervention") or (route or {}).get("ladder_entry_stage")
+    triage_instruct = triage_stage in ("instruct", "explain", "compare")
+    edge = None
+    if signals.milestone_reached and commitment is not None:
+        auto = _pick_commitment(snapshot, want_auto=True)
+        if auto is not None:
+            edge = _feasible_reviewed_edge(auto, signals.milestone_reached)
+    rungs: list[tuple[str, str, str | None, bool, dict[str, Any]]] = [
+        (
+            "triage_determined_instruct" if triage_instruct else "triage_determined_repair",
+            A.INSTRUCT if triage_instruct else A.PRACTICE,
+            None if triage_instruct else A.COMPLETION_OR_REPAIR,
+            bool(route),
+            {},
+        ),
+        ("model_misspecification", A.EXPAND_MODEL, None, bool(signals.model_misspecified), {}),
+        (
+            "positive_robust_measurement_value",
+            A.MEASURE_DIAGNOSTIC,
+            None,
+            signals.decision_relevant_robust_value > 0.0,
+            {"decision_relevant_robust_value": float(signals.decision_relevant_robust_value)},
+        ),
+        ("target_not_acquired", A.INSTRUCT, None, not signals.target_acquired, {}),
+        ("capability_fragile", A.PRACTICE, A.COMPLETION_OR_REPAIR, bool(signals.capability_fragile), {}),
+        ("integration_failing", A.PRACTICE, A.INTEGRATION, bool(signals.integration_failing), {}),
+        (
+            "terminal_required_with_reserve",
+            A.ASSESS_TERMINAL,
+            None,
+            bool(signals.terminal_required_unshown and signals.terminal_reserve_valid),
+            {},
+        ),
+        ("depth_progression_edge_feasible", A.PRACTICE, A.DEPTH_PROGRESSION, edge is not None, {}),
+        ("retention_near_limit", A.MAINTAIN, None, bool(signals.retention_near_limit), {}),
+        (
+            "goal_satisfied" if signals.goal_satisfied else "no_positive_value_stop",
+            A.STOP,
+            A.STOP_GOAL_SATISFIED if signals.goal_satisfied else A.STOP_NO_POSITIVE_ROBUST_VALUE,
+            True,
+            {},
+        ),
+    ]
+    fired_index = None if short_circuited else next(
+        index for index, rung in enumerate(rungs, start=1) if rung[3]
+    )
+    return [
+        {
+            "rung": index,
+            "staged_rule": rule,
+            "action": action,
+            "subtype": subtype,
+            "eligible": eligible,
+            "fired": index == fired_index,
+            "reversible": rule not in IRREVERSIBLE_RUNGS,
+            "planner": planner,
+        }
+        for index, (rule, action, subtype, eligible, planner) in enumerate(rungs, start=1)
+    ]
+
+
 def choose_block(
     snapshot: cs.ControllerSnapshot,
     signals: StateSignals,

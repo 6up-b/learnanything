@@ -39,20 +39,21 @@ from learnloop.vault.loader import load_vault
 
 from tests.helpers import NOW, create_placement_vault, set_algorithm_version
 
-HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_175"
+HEAD = Path(__file__).resolve().parents[1] / "fixtures" / "migration_head_176"
 CLOCK = FrozenClock(datetime(2026, 9, 1, 12, 0, tzinfo=UTC))
 
 
 def test_placement_successor_keeps_the_split_and_the_p0_projection_namespace():
     assert PLACEMENT_ALGORITHM_VERSION == "mvp-0.11"
-    assert LATEST_ALGORITHM_VERSION == "mvp-0.11"
+    # Router R1's probe-tie successor (mvp-0.12) is now the latest link.
+    assert LATEST_ALGORITHM_VERSION == "mvp-0.12"
     assert PLACEMENT_ALGORITHM_VERSION in P0_SUCCESSOR_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in P0_PROJECTION_VERSIONS
     assert PLACEMENT_ALGORITHM_VERSION in CANONICAL_STATE_VERSIONS
-    # A linear chain: the split is live at mvp-0.10 and later, placement only
-    # at mvp-0.11; mvp-0.9 has neither.
-    assert DIAGNOSIS_SPLIT_VERSIONS == frozenset({"mvp-0.10", "mvp-0.11"})
-    assert PLACEMENT_VERSIONS == frozenset({"mvp-0.11"})
+    # A linear chain: the split is live at mvp-0.10 and later, placement at
+    # mvp-0.11 and later; mvp-0.9 has neither.
+    assert DIAGNOSIS_SPLIT_VERSIONS == frozenset({"mvp-0.10", "mvp-0.11", "mvp-0.12"})
+    assert PLACEMENT_VERSIONS == frozenset({"mvp-0.11", "mvp-0.12"})
 
 
 def test_split_and_placement_activate_at_the_right_versions(tmp_path):
@@ -128,9 +129,11 @@ def test_upgrade_refuses_older_versions_and_is_idempotent(tmp_path):
     assert already.upgraded is False and already.problems == ["vault is already mvp-0.11"]
 
 
-def test_upgrade_command_defaults_to_mvp011(tmp_path):
+def test_upgrade_command_reaches_mvp011_explicitly(tmp_path):
+    # The default target moved on to mvp-0.12 (router R1); mvp-0.11 is still
+    # reached explicitly, chaining from mvp-0.9 through the split.
     paths = create_placement_vault(tmp_path / "vault", version="mvp-0.9")
-    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    result = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root), "--to", "mvp-0.11"])
     assert result.exit_code == 0, result.output
     assert "mvp-0.9 -> mvp-0.11" in result.output
     assert load_vault(paths.root).config.algorithms.algorithm_version == "mvp-0.11"

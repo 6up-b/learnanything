@@ -313,6 +313,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("remediation_episodes", TableRole.WORKFLOW),
     ("retirement_records", TableRole.RECEIPT),
     ("reveal_events", TableRole.RAW_LEDGER),
+    # Router R1: append-only decision facts (candidate sets, chosen candidate,
+    # true propensity). Replay reads them and never re-decides.
+    ("router_decisions", TableRole.RAW_LEDGER),
+    # Router R1: R_next / R_cold / S per decision, one replayer
+    # (rebuild_orchestrator "router_outcomes"); pending outcomes right-censored.
+    ("router_outcomes", TableRole.DERIVED),
     ("rung_variant_requests", TableRole.WORKFLOW),
     ("scheduler_explanations", TableRole.RECEIPT),
     ("scheduler_offer_receipts", TableRole.RECEIPT),

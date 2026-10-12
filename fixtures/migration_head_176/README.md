@@ -1,7 +1,7 @@
 # Migration-head fixture
 
 This is a copy of the small conic-sections vault upgraded through migration
-175. Migration 167 adds the learner-field F1 read model
+176. Migration 167 adds the learner-field F1 read model
 (`facet_outcome_observations`, `question_classifications`); migration 168 adds
 PF-a activity-family membership events, proposals and family memory state;
 migration 169 adds the practice index (`facet_dossiers`,
@@ -22,7 +22,10 @@ Phase 5a's PF-b generation tables (`pf_candidates`, `item_skeletons`,
 `item_fingerprints`); migration 175 (router R0) labels judgment-call receipts
 (`model_call_receipts.judge`, `question_set_version`, `state_hash`) and
 rebuilds `judgment_ledger` so it records the Decider's verdicts as
-`judge = 'decider'`. It pins current-head schema coverage
+`judge = 'decider'`; migration 176 (router R1) adds the append-only
+`router_decisions` ledger (Today offers, staged P2 decisions and learner
+picks with their candidate sets and propensities) and the derived
+`router_outcomes` (R_next, R_cold and S per decision). It pins current-head schema coverage
 while the original populated fixture and the other vaults remain at
 historical versions for upgrade-path tests.
 

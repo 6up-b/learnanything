@@ -95,6 +95,33 @@ forbidden_modules = [
     "learnloop.params",
     "learnloop.sim",
     "learnloop.projects",
+    "learnloop.router",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "router-log-is-a-leaf"
+name = "Router R1 logging and outcomes stay a leaf below scheduling and substrate"
+type = "forbidden"
+source_modules = ["learnloop.router"]
+forbidden_modules = [
+    "learnloop.attempts",
+    "learnloop.learner",
+    "learnloop.scheduling",
+    "learnloop.goals",
+    "learnloop.diagnosis",
+    "learnloop.curriculum",
+    "learnloop.substrate",
+    "learnloop.content",
+    "learnloop.reader",
+    "learnloop.tutor",
+    "learnloop.ops",
+    "learnloop.params",
+    "learnloop.sim",
+    "learnloop.projects",
+    "learnloop.ai",
+    "learnloop.cli",
+    "learnloop_sidecar",
 ]
 allow_indirect_imports = true
 
@@ -138,6 +165,7 @@ source_modules = [
     "learnloop.scheduling",
     "learnloop.goals",
     "learnloop.diagnosis",
+    "learnloop.router",
 ]
 forbidden_modules = ["learnloop.projects"]
 allow_indirect_imports = false

@@ -5,7 +5,7 @@ This script intentionally reads the checked-in migration-head fixture rather
 than attempting to reconstruct a schema from prose.  It combines four live
 authorities:
 
-* ``fixtures/migration_head_175/state.sqlite`` for columns, keys, indexes,
+* ``fixtures/migration_head_176/state.sqlite`` for columns, keys, indexes,
   triggers, and foreign keys;
 * ``learnloop.db.table_roles`` for rebuild policy;
 * ``learnloop.substrate.rebuild_orchestrator`` for DERIVED-table ownership;
@@ -37,7 +37,7 @@ REPOSITORY_ROOT = SCRIPT_PATH.parents[3]
 SRC_ROOT = REPOSITORY_ROOT / "src"
 TABLES_ROOT = VAULT_ROOT / "Reference" / "Database" / "Tables"
 CONFIG_FIELDS_ROOT = VAULT_ROOT / "Reference" / "Configuration" / "Fields"
-SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_175" / "state.sqlite"
+SCHEMA_PATH = REPOSITORY_ROOT / "fixtures" / "migration_head_176" / "state.sqlite"
 MIGRATIONS_ROOT = REPOSITORY_ROOT / "migrations"
 
 sys.path.insert(0, str(SRC_ROOT))
@@ -58,7 +58,7 @@ COMMIT_TIMESTAMP = subprocess.check_output(
     ["git", "log", "-1", "--format=%cI"], cwd=REPOSITORY_ROOT, text=True
 ).strip()
 VERIFIED_DATE = "2026-09-23"
-SCHEMA_HEAD = 175
+SCHEMA_HEAD = 176
 
 
 DOMAIN_DESCRIPTIONS: dict[str, str] = {
@@ -227,7 +227,7 @@ def table_domain(table: str) -> str:
         return "reader"
     if table.startswith(("probe_", "causal_", "diagnostic_", "misconception", "coldness_", "discrimination_", "contrast_pair", "error_hunt", "unresolved_cause", "persona_realism")):
         return "diagnosis"
-    if table.startswith(("scheduler_", "controller_", "attention_", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector")):
+    if table.startswith(("scheduler_", "controller_", "attention_", "session", "queue_state", "decision_features", "practice_item_snapshots", "policy_experiment", "familiarity_kernel", "shadow_component", "composed_selector", "router_")):
         return "scheduling"
     if table.startswith(("commitment", "depth_", "task_blueprint", "golden_path", "progression_", "angle_inventor", "p2_ladder", "lapse_episode", "family_evidence", "target_exemplar")):
         return "curriculum"
@@ -853,6 +853,7 @@ CONFIG_SECTION_FUNCTIONS: dict[str, str] = {
     "families": "explicit-command offline family authoring, not live scheduling",
     "diagnosis": "Slice 1 learner-blind grading and the asynchronous history-aware diagnoser (mvp-0.10): kill switch, history mode, queue limits, diagnosis card, and PF-c grading support",
     "placement": "learner field F2 (mvp-0.11): starting new material without ceremony, assumed-known receipts, and the optional quick check",
+    "router": "action router R1: decision logging on today's serving paths and the mvp-0.12 probe-tie admission kill switch",
     "pf": "PF-b generation, verification and capped publication of verified practice items (kill switch off by default)",
 }
 
@@ -981,6 +982,8 @@ CONFIG_FUNCTION_OVERRIDES: dict[str, str] = {
     "placement.known_probability": "Success probability whose logit is the known threshold theta_known (D6: logit(0.75)).",
     "placement.quick_check_k": "Most answers one optional quick check serves (D4).",
     "placement.quick_check_budget_minutes": "Time budget of one optional quick check (D4).",
+    "router.log_decisions": "Writes one router_decisions row per Today offer, staged P2 decision and learner pick; not a serving change, acts at every version.",
+    "router.probe_tie_admission": "Kill switch for router R1's mvp-0.12 successor: probe near-ties join the Today queue's seeded epsilon tie-break; off serves exactly as mvp-0.11.",
     "ingest.audio.mode": (
         "Selects the audio path: `transcription` (the `ai.routing.transcription` chat route when set, "
         "else the transcription endpoint) or `native` (mp3/wav sent as input_audio parts to the "
@@ -1698,7 +1701,7 @@ def generate_table_catalog(grouped: dict[str, list[str]]) -> None:
             ],
             source_paths=[
                 "src/learnloop/db/table_roles.py",
-                "fixtures/migration_head_175/state.sqlite",
+                "fixtures/migration_head_176/state.sqlite",
                 "migrations/",
                 "tests/test_table_roles.py",
                 "tests/test_migrations.py",

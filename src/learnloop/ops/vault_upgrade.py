@@ -18,6 +18,7 @@ from typing import Any
 from learnloop.algorithm_versions import (
     DIAGNOSIS_SPLIT_ALGORITHM_VERSION,
     PLACEMENT_ALGORITHM_VERSION,
+    PROBE_TIE_ALGORITHM_VERSION,
 )
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
@@ -400,6 +401,94 @@ def upgrade_to_mvp011(root: Path, *, clock: Clock | None = None) -> UpgradeResul
         upgraded=True,
         from_version=original,
         to_version=PLACEMENT_ALGORITHM_VERSION,
+    )
+
+
+def upgrade_to_mvp012(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """Activate router R1's probe-tie admission.
+
+    ``mvp-0.12`` is the next link of the linear chain: ``mvp-0.11``'s split and
+    placement PLUS probe near-ties admitted to the Today queue's seeded epsilon
+    tie-break with their true propensity. It changes which near-tie leads an
+    offer, not the authority-propagation projection, so like its predecessors
+    it is an immediate-successor tag plus an idempotent rebuild of the same
+    projection namespace, prepared before the atomic config rename. The kill
+    switch ``router.probe_tie_admission`` (default on) restores the
+    predecessor's serving exactly.
+
+    The immediate predecessor is ``mvp-0.11``. ``mvp-0.9`` and ``mvp-0.10`` are
+    accepted by running :func:`upgrade_to_mvp011` first (a refusal there refuses
+    this upgrade too; if this step then fails, the vault is left at the valid
+    ``mvp-0.11``). Anything older is refused. Nothing is rewritten; router
+    decision logging (migration 176) acts at every version and is unchanged.
+    """
+
+    from learnloop.params import parameter_registry as registry_service
+    from learnloop.substrate.p0_projection import activate_p0_projection
+
+    vault = load_vault(root)
+    original = vault.config.algorithms.algorithm_version
+    if original == PROBE_TIE_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=original,
+            to_version=PROBE_TIE_ALGORITHM_VERSION,
+            problems=[f"vault is already {PROBE_TIE_ALGORITHM_VERSION}"],
+        )
+    chainable = {REVEAL_LEDGER_ALGORITHM_VERSION, DIAGNOSIS_SPLIT_ALGORITHM_VERSION}
+    if original not in chainable | {PLACEMENT_ALGORITHM_VERSION}:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=original,
+            to_version=PROBE_TIE_ALGORITHM_VERSION,
+            problems=[
+                f"cannot upgrade from {original!r}; only {PLACEMENT_ALGORITHM_VERSION!r} "
+                f"(or {REVEAL_LEDGER_ALGORITHM_VERSION!r} / {DIAGNOSIS_SPLIT_ALGORITHM_VERSION!r}, "
+                f"through it) may activate {PROBE_TIE_ALGORITHM_VERSION}"
+            ],
+        )
+    if original in chainable:
+        chained = upgrade_to_mvp011(root, clock=clock)
+        if not chained.upgraded:
+            return UpgradeResult(
+                upgraded=False,
+                from_version=original,
+                to_version=PROBE_TIE_ALGORITHM_VERSION,
+                problems=[
+                    f"{PLACEMENT_ALGORITHM_VERSION} step refused: {problem}"
+                    for problem in chained.problems
+                ],
+            )
+        vault = load_vault(root)
+    current = vault.config.algorithms.algorithm_version
+
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    # Repository construction applies the additive migrations (176's router
+    # tables) before anything reads them.
+    repository = Repository(sqlite_path)
+    registry_service.freeze_manifest(
+        vault,
+        repository,
+        algorithm_version=PLACEMENT_ALGORITHM_VERSION,
+        clock=clock,
+    )
+    vault.config.algorithms.algorithm_version = PROBE_TIE_ALGORITHM_VERSION
+    activate_p0_projection(
+        vault,
+        repository,
+        from_version=current,
+        clock=clock,
+    )
+    registry_service.refresh(vault, repository, clock=clock)
+    _rewrite_algorithm_version(
+        root / "learnloop.toml",
+        current,
+        PROBE_TIE_ALGORITHM_VERSION,
+    )
+    return UpgradeResult(
+        upgraded=True,
+        from_version=original,
+        to_version=PROBE_TIE_ALGORITHM_VERSION,
     )
 
 

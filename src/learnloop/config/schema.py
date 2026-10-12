@@ -1637,6 +1637,21 @@ class PlacementConfig(BaseModel):
     quick_check_budget_minutes: int = Field(default=8, ge=1, le=8)
 
 
+class RouterConfig(BaseModel):
+    """Action router (spec_action_router_v1). R1: decision logging on today's paths.
+
+    ``log_decisions`` writes one ``router_decisions`` row per Today offer, staged
+    P2 decision and learner pick. It is not a serving change and acts at every
+    algorithm version; off stops the rows and nothing else.
+    ``probe_tie_admission`` is the kill switch of the ``mvp-0.12`` successor:
+    probe near-ties join the Today queue's seeded epsilon tie-break. Off (or
+    below ``mvp-0.12``) serves exactly as ``mvp-0.11``.
+    """
+
+    log_decisions: bool = True
+    probe_tie_admission: bool = True
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1668,6 +1683,7 @@ class LearnLoopConfig(BaseModel):
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
     practice_index: PracticeIndexConfig = Field(default_factory=PracticeIndexConfig)
     placement: PlacementConfig = Field(default_factory=PlacementConfig)
+    router: RouterConfig = Field(default_factory=RouterConfig)
     pf: PFConfig = Field(default_factory=PFConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)

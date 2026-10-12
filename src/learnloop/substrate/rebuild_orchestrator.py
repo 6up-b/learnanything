@@ -154,6 +154,9 @@ DERIVED_STATE_REPLAYERS: tuple[DerivedStateReplayer, ...] = (
     # PF-b symbolic fingerprints of family members: vault content plus persisted
     # skeletons and sandbox outputs; never a model call or a generator run.
     DerivedStateReplayer("item_fingerprints", frozenset({"item_fingerprints"})),
+    # Router R1: R_next / R_cold / S per logged decision, from router_decisions,
+    # the attempt and reveal ledgers and PF-c states (raw inputs only).
+    DerivedStateReplayer("router_outcomes", frozenset({"router_outcomes"})),
 )
 
 # A shorter public alias is useful to introspection/CI without obscuring the
@@ -435,6 +438,27 @@ def _run_item_fingerprints(
                           rows_processed=report["written"], details=report)
 
 
+def _run_router_outcomes(
+    spec: DerivedStateReplayer, context: _ReplayContext
+) -> ReplayerResult:
+    from learnloop.router.outcomes import rebuild_router_outcomes
+    from learnloop.substrate.canonical_projection import pfc_assessments
+
+    # Whole-vault: a decision's outcome can come from any later attempt on its
+    # learning object, so the requested LO subset never narrows it.
+    with context.repository.connection() as connection:
+        logged = connection.execute("SELECT 1 FROM router_decisions LIMIT 1").fetchone()
+        attempt_ids = (
+            [row[0] for row in connection.execute("SELECT id FROM practice_attempts")]
+            if logged
+            else []
+        )
+        written = rebuild_router_outcomes(
+            connection, pfc_states=pfc_assessments(connection, attempt_ids)
+        )
+    return ReplayerResult(spec.name, tuple(sorted(spec.owned_tables)), rows_processed=written)
+
+
 _RUNNERS = {
     "activity_substrate": _run_activity_substrate,
     "learning_state": _run_learning_state,
@@ -443,6 +467,7 @@ _RUNNERS = {
     "field_outcomes": _run_field_outcomes,
     "family_memory": _run_family_memory,
     "item_fingerprints": _run_item_fingerprints,
+    "router_outcomes": _run_router_outcomes,
 }
 
 
