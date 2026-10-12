@@ -332,13 +332,16 @@ def test_append_neighbourhood_without_vectors_is_the_lexical_selection(vault):
 
 def test_inventory_queries_are_deterministic_and_deduplicated():
     inventories = [
-        {"inventory": {"claims": [{"statement": "B"}, {"statement": "A"}, {"statement": "B"}],
-                       "concept_mentions": [{"name": "X", "aliases": ["x1"]}],
+        {"inventory": {"claims": [{"statement": "B"}, {"statement": "A", "concept_mention_ids": ["m1"]},
+                                  {"statement": "B"}],
+                       "concept_mentions": [{"mention_id": "m1", "name": "X", "aliases": ["x1"]},
+                                            {"mention_id": "m2", "name": "Y"}],
                        "procedure_signals": [{"contract": "do the thing"}]}},
     ]
     claims, concepts = inventory_queries(inventories)
     assert [q.text for q in claims] == ["Claim: B", "Claim: A", "Claim: do the thing"]
-    assert [q.text for q in concepts] == ["Title: X\nAliases: x1"]
+    # Y has no defining claim, so it has no query (lexical only).
+    assert [q.text for q in concepts] == ["Title: X\nDescription: A\nAliases: x1"]
     assert claims == inventory_queries(inventories)[0]
 
 
@@ -464,3 +467,61 @@ def test_synthesis_gate_and_facet_candidates_show_cosine_beside_jaccard(vault):
         if {pair["left"], pair["right"]} <= {c["candidate_id"] for c in on["candidates"] if c["source_kind"] == "registry"}
     ]
     assert registry_pairs and all(pair["cosine"] is not None for pair in registry_pairs)
+
+
+# --- Codex review regressions -------------------------------------------------
+
+
+_RING_ALGEBRA = ("A ring is a set with addition and multiplication where "
+                 "multiplication distributes over addition")
+_RING_NETWORK = ("A ring network connects each node to exactly two neighbours "
+                 "forming a single cycle")
+
+
+def _ring_inventory(statement: str, *, kind: str = "definition") -> dict:
+    return {"inventory": {
+        "concept_mentions": [{"mention_id": "m1", "name": "ring"}],
+        "claims": [{"kind": kind, "statement": statement, "concept_mention_ids": ["m1"]}],
+    }}
+
+
+def test_concept_queries_carry_their_linked_definitions(vault):
+    """F4: a concept mention is embedded with the claims that define it (§8:
+    definitions, not bare labels); the same name with two meanings is two
+    queries, and a mention with no linked claim stays lexical."""
+
+    loaded, repo, _paths = vault
+    _claims, concepts = inventory_queries([_ring_inventory(_RING_ALGEBRA), _ring_inventory(_RING_NETWORK)])
+    assert [q.text for q in concepts] == [
+        f"Title: ring\nDescription: {_RING_ALGEBRA}",
+        f"Title: ring\nDescription: {_RING_NETWORK}",
+    ]
+    assert concepts[0].content_hash != concepts[1].content_hash
+    bare = {"inventory": {"concept_mentions": [{"mention_id": "m9", "name": "ring", "aliases": ["rng"]}]}}
+    assert inventory_queries([bare])[1] == []
+    # A definition claim is preferred; other linked claims serve when there is none.
+    theorem = _ring_inventory("Every ring has a unique additive identity", kind="theorem")
+    assert inventory_queries([theorem])[1][0].text.endswith("unique additive identity")
+
+    loaded.concepts["concept_ring_algebra"] = Concept(
+        title="Ring", type="concept", created_at=NOW, updated_at=NOW,
+        description="A set with addition and multiplication; multiplication distributes over addition.",
+    )
+    loaded.concepts["concept_ring_network"] = Concept(
+        title="Ring topology", type="concept", created_at=NOW, updated_at=NOW,
+        description="A network in which each node connects to two neighbours, forming a single cycle.",
+    )
+    embedder = BagOfWordsEmbedder()
+    _backfill(loaded, embedder, (CONCEPT_RECIPE,))
+    nominator = GraphNominator.for_ingest(loaded, repo, client_factory=lambda: embedder)
+    nominated = nominator.nominate(CONCEPT_RECIPE, concepts)
+    assert nominated[concepts[0].record_id][0].record_id == "concept_ring_algebra"
+    assert nominated[concepts[1].record_id][0].record_id == "concept_ring_network"
+    # The undefined mention is reported as lexical-only, not silently dropped.
+    honest = GraphNominator.for_ingest(loaded, repo, client_factory=lambda: embedder)
+    select_neighborhood(loaded, repo, [bare], budget_tokens=10_000, nominator=honest)
+    summary = honest.summary()
+    assert summary["counts"]["concept_mentions_without_definition"] == 1
+    assert "concept_mentions_without_definition" in summary["notes"]
+
+

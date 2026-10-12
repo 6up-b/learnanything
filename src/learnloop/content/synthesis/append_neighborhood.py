@@ -319,9 +319,13 @@ def _embedding_reasons(nominator: Any, new_inventories: list[dict[str, Any]]) ->
         CONCEPT_RECIPE,
         FACET_RECIPE,
         inventory_queries,
+        undefined_concept_mentions,
     )
 
     claims, concepts = inventory_queries(new_inventories)
+    # A mention no claim defines has no definition to embed (§8: never a bare
+    # label); it keeps the lexical concept-name match only, and says so.
+    nominator.lexical_only("concept_mentions_without_definition", undefined_concept_mentions(new_inventories))
     best: dict[str, tuple[float, int, str]] = {}
     for recipe, prefix, queries, label in (
         (FACET_RECIPE, "facet", claims, "new claim"),

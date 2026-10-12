@@ -73,6 +73,11 @@ REPAIR_RECIPE = "facet_repair/text"
 INVENTORY_CLAIM_KIND = "inventory_claim"
 INVENTORY_CONCEPT_KIND = "inventory_concept"
 INVENTORY_QUERY_VERSION = 1
+# Concept queries compose the mention with its linked claims (v2); v1 embedded
+# the bare name and aliases, which §8 rules out.
+INVENTORY_CONCEPT_QUERY_VERSION = 2
+# At most this many linked claim statements define one concept mention.
+_MAX_DEFINING_CLAIMS = 3
 OWNER_KIND = "graph_nomination"
 _BATCH = 32
 
@@ -138,22 +143,66 @@ def repair_query(text: str) -> QueryText | None:
     return _recipe_query(REPAIR_RECIPE, repair_record_id(text), text)
 
 
-def _inventory_query(kind: str, text: str) -> QueryText | None:
+def _inventory_query(kind: str, text: str, version: int = INVENTORY_QUERY_VERSION) -> QueryText | None:
     if not text.strip():
         return None
     digest = hashlib.sha256(json.dumps(
-        [kind, "definition", INVENTORY_QUERY_VERSION, text],
+        [kind, "definition", version, text],
         ensure_ascii=False, separators=(",", ":"),
     ).encode("utf-8")).hexdigest()
     return QueryText(kind, "definition", digest, text, digest)
+
+
+def _mention_definitions(inventory: Mapping[str, Any]) -> dict[str, str]:
+    """``mention_id -> definition`` from the LLM-written claims linked to it.
+
+    A claim names the mentions it is about (``concept_mention_ids``); its
+    statement is the inventory's own wording of what the concept is.
+    Definition claims are preferred; other linked claims serve when a mention
+    has none. A mention no claim links to has no definition here.
+    """
+
+    linked: dict[str, list[tuple[str, str]]] = {}
+    for claim in inventory.get("claims", []) or []:
+        statement = str(claim.get("statement") or "").strip()
+        if not statement:
+            continue
+        for mention_id in claim.get("concept_mention_ids") or []:
+            if str(mention_id):
+                linked.setdefault(str(mention_id), []).append((str(claim.get("kind") or ""), statement))
+    definitions: dict[str, str] = {}
+    for mention_id, statements in linked.items():
+        chosen = [text for kind, text in statements if kind == "definition"] or [text for _kind, text in statements]
+        definitions[mention_id] = " ".join(list(dict.fromkeys(chosen))[:_MAX_DEFINING_CLAIMS])
+    return definitions
+
+
+def undefined_concept_mentions(new_inventories: Iterable[Mapping[str, Any]]) -> int:
+    """Concept mentions no claim defines: they stay lexical-only (no query)."""
+
+    count = 0
+    for entry in new_inventories:
+        inventory = entry.get("inventory") if "inventory" in entry else entry
+        if not isinstance(inventory, Mapping):
+            continue
+        definitions = _mention_definitions(inventory)
+        count += sum(
+            1 for mention in inventory.get("concept_mentions", []) or []
+            if str(mention.get("name") or "").strip()
+            and str(mention.get("mention_id") or "") not in definitions
+        )
+    return count
 
 
 def inventory_queries(new_inventories: Iterable[Mapping[str, Any]]) -> tuple[list[QueryText], list[QueryText]]:
     """LLM-written inventory claims (vs facets) and concept mentions (vs concepts).
 
     Claims and procedure contracts are composed in the ``facet/definition``
-    layout; concept mentions in the ``concept/definition`` layout. Order is
-    deterministic (inventory order, de-duplicated by text).
+    layout. A concept mention is composed in the ``concept/definition`` layout
+    from its name, aliases and the claims that define it (§8: definitions, not
+    bare labels), so one name with two meanings is two queries; a mention no
+    claim defines has no query and keeps today's lexical matching only. Order
+    is deterministic (inventory order, de-duplicated by text).
     """
 
     claims: dict[str, QueryText] = {}
@@ -162,6 +211,7 @@ def inventory_queries(new_inventories: Iterable[Mapping[str, Any]]) -> tuple[lis
         inventory = entry.get("inventory") if "inventory" in entry else entry
         if not isinstance(inventory, Mapping):
             continue
+        definitions = _mention_definitions(inventory)
         for claim in inventory.get("claims", []) or []:
             query = _inventory_query(INVENTORY_CLAIM_KIND, facet_definition_text({
                 "claim": claim.get("statement") or "",
@@ -182,10 +232,15 @@ def inventory_queries(new_inventories: Iterable[Mapping[str, Any]]) -> tuple[lis
             if query is not None:
                 claims.setdefault(query.content_hash, query)
         for mention in inventory.get("concept_mentions", []) or []:
+            name = str(mention.get("name") or "").strip()
+            definition = definitions.get(str(mention.get("mention_id") or ""))
+            if not name or not definition:
+                continue
             query = _inventory_query(INVENTORY_CONCEPT_KIND, concept_definition_text({
-                "title": mention.get("name") or "",
+                "title": name,
+                "description": definition,
                 "aliases": mention.get("aliases") or [],
-            }))
+            }), INVENTORY_CONCEPT_QUERY_VERSION)
             if query is not None:
                 concepts.setdefault(query.content_hash, query)
     return list(claims.values()), list(concepts.values())
@@ -328,6 +383,13 @@ class GraphNominator:
             max_estimated_usd=config.graph_nomination.max_query_cost_usd,
         ))
         self.counts = {"queries": 0, "cached": 0, "embedded": 0, "calls": 0, "not_embedded": 0}
+
+    def lexical_only(self, reason: str, count: int) -> None:
+        """Record new material that had nothing to embed and stays lexical."""
+
+        if count:
+            self.counts[reason] = self.counts.get(reason, 0) + count
+            self._note(reason)
 
     # -- construction -----------------------------------------------------
 
@@ -866,4 +928,5 @@ __all__ = [
     "is_active",
     "raw_cosine",
     "repair_query",
+    "undefined_concept_mentions",
 ]
