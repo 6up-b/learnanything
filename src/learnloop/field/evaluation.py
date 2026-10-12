@@ -12,7 +12,7 @@ Reports contain aggregates, not rows, prompts, answers, or readable topic names.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 import json
 from math import erf, isfinite, log, sqrt
@@ -39,6 +39,22 @@ MEMORY_LIMITATIONS = (
     "Missing skeleton distances receive no invented discount; compare distance coverage before "
     "interpreting the distance arms.",
 )
+
+
+@dataclass(frozen=True)
+class ReplayArrays:
+    """In-memory scored rows handed to report analyses; never exported.
+
+    ``predictions[name][i]`` is NaN where the arm abstained or did not score.
+    ``labels[i]`` holds the split values of scored row ``i``.
+    """
+
+    outcomes: np.ndarray
+    predictions: Mapping[str, np.ndarray]
+    labels: tuple[Mapping[str, str], ...]
+    ability: np.ndarray
+    bootstrap_samples: int
+    seed: int
 
 
 def family_arms() -> tuple[str, ...]:
@@ -232,7 +248,7 @@ def evaluate(
     rows: Iterable[ObservationRow], *, arms=None, bootstrap_samples=1000, seed=0,
     config: Mapping | None = None, general_means=None, lo_priors=None,
     fast_track_q=0.9, fast_track_min_correct=2, switching_margin=0.0,
-    fsrs_weights=None, fsrs_fit_id=None,
+    fsrs_weights=None, fsrs_fit_id=None, analyses=None,
 ):
     """Return JSON-ready report1/report2/manifest/recommendation aggregates.
 
@@ -243,6 +259,10 @@ def evaluate(
     prior decision that report-2 evidence is sufficient, never fitting this run.
     ``fsrs_weights`` is the caller-resolved current FSRS fit for the memory
     arms (``fsrs_fit_id`` its provenance); without it they use the defaults.
+    ``analyses`` maps a name to a callable that receives the in-memory
+    :class:`ReplayArrays` after replay and returns JSON-ready aggregates only;
+    they appear under ``report["analyses"]``. An attempt arm may abstain on a
+    row through an optional ``covers(features)``; it still observes the row.
     """
     if bootstrap_samples < 1:
         raise ValueError("bootstrap_samples must be positive")
@@ -268,7 +288,7 @@ def evaluate(
     if any(predictors[names.index(name)].granularity != "attempt" for name in memory_names):
         raise ValueError("Memory arms review attempts, not facets")
 
-    seen, blocked, initial_correct = set(), set(), Counter()
+    seen, seen_items, blocked, initial_correct = set(), set(), set(), Counter()
     predictions, outcomes, labels, ability_rows = defaultdict(list), [], [], []
     assumed = {name: set() for name in names}
     later = {name: [] for name in names}
@@ -292,6 +312,8 @@ def evaluate(
         )
         first = row.lo_id not in seen
         seen.add(row.lo_id)
+        first_item = row.features.item_id not in seen_items
+        seen_items.add(row.features.item_id)
         ability = _eligible(row)
         memory = bool(memory_names) and row.memory_scored
         if not ability and not memory:
@@ -322,6 +344,12 @@ def evaluate(
                     raise ValueError("Arms must predict finite probabilities in (0, 1)")
                 p = sum(f.facet_share * p for f, p in zip(facets, ps))
             else:
+                covers = getattr(arm, "covers", None)
+                if covers is not None and not covers(row.features):
+                    # Abstention (e.g. no stored vector for the seen text) is
+                    # never a synthetic prediction; pairs use common attempts.
+                    values[arm.name] = float("nan")
+                    continue
                 p = arm.predict(row.features)
             if not isfinite(p) or not 0 < p < 1:
                 raise ValueError("Arms must predict finite probabilities in (0, 1)")
@@ -332,6 +360,7 @@ def evaluate(
         outcomes.append(row.outcome)
         labels.append({
             "attempt_position": "first_unseen_lo" if first else "later",
+            "item_position": "first_unseen_item" if first_item else "repeat_item",
             "serving_origin": row.serving_origin if row.serving_origin in {
                 "learner_pick", "system_probe", "forced_followup", "requested", "unknown"
             } else "unknown",
@@ -473,6 +502,14 @@ def evaluate(
     }
     if memory_manifest is not None:
         manifest["memory"] = memory_manifest
+    analysis_reports = {}
+    if analyses:
+        arrays = ReplayArrays(
+            outcomes=y, predictions={name: np.asarray(predictions[name]) for name in names},
+            labels=tuple(labels), ability=ability_mask,
+            bootstrap_samples=bootstrap_samples, seed=seed,
+        )
+        analysis_reports = {name: analysis(arrays) for name, analysis in sorted(analyses.items())}
     return {
         "manifest": manifest,
         "counts": {"attempts": counts["attempts"], "scored_attempts": len(y),
@@ -492,11 +529,16 @@ def evaluate(
         "recommendation": {"decision": "review_challenger" if candidates else "keep_incumbent",
                            "candidates": candidates, "activates": False,
                            "requires": "Owner review, algorithm successor and kill switch; this report never activates."},
+        **({"analyses": analysis_reports} if analyses else {}),
     }
 
 
-def write_reports(report, output_dir, *, stem="evaluation", title="Learner-field evaluation"):
-    """Write the aggregate report to the caller's explicitly chosen directory."""
+def write_reports(report, output_dir, *, stem="evaluation", title="Learner-field evaluation",
+                  preamble=()):
+    """Write the aggregate report to the caller's explicitly chosen directory.
+
+    ``preamble`` is optional aggregate-only markdown placed under the title.
+    """
     directory = Path(output_dir)
     directory.mkdir(parents=True, exist_ok=True)
     json_path, markdown_path = directory / f"{stem}.json", directory / f"{stem}.md"
@@ -505,6 +547,7 @@ def write_reports(report, output_dir, *, stem="evaluation", title="Learner-field
     lines = [
         f"# {title}", "",
         "Prequential: only past observations predict each outcome. No activation is performed.", "",
+        *preamble, *([""] if preamble else []),
         "## Report 1: prequential replay", "",
         "| Arm | Scores | Attempts | Log loss | Brier | AUC (binary outcomes) |",
         "|---|---|---:|---:|---:|---:|",

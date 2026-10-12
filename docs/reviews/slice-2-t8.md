@@ -168,7 +168,7 @@ success add held-out predictive value over explicit learner-state predictors?
 | Recency | 1-day half-life recency of all outcomes, shrunk | 0 | 0.25 |
 | Flags | primed; warm | 0 | 0.25 each |
 | Tags | one-hot LO, capability and variant relation | 0 | 0.25 each |
-| Embedding | each stem (and skeleton) dimension | 0 | 1.0 |
+| Embedding | each stem (and skeleton) dimension | 0 | 0.25 (revision v2; was 1.0) |
 | Difficulty | solver-panel `b` | −1 | 0.25 |
 
 *Fitting:*
@@ -180,6 +180,25 @@ success add held-out predictive value over explicit learner-state predictors?
 - stems are capped at 6000 characters;
 - recalibration is a one-parameter logit intercept, MAP under N(0, 1) on past
   predictions only.
+
+**Revision v2 (2026-10-12, before any run on owner data).**
+- **The change:** the embedding block's prior variance per dimension drops
+  from 1.0 to 0.25. With unit-norm features, that bounds the block's a-priori
+  logit spread at sd 0.5 instead of 1.
+- **Why:**
+  - Text barely predicts item difficulty (R2: BEA'24, 0.299 vs 0.311 for a
+    dummy), so a block sd of 0.5 is still a generous prior.
+  - At sd 1, 32 dimensions overfit at n ≈ 600. A synthetic-only check (three
+    seeds; no owner data) showed:
+
+    | Signal | Block variance 1.0 | Block variance 0.25 |
+    |---|---|---|
+    | None | costs 0.025 nats per attempt vs `tag_logistic` | costs 0.007 |
+    | Weak | worse than `tag_logistic` | gains 0.005 |
+    | Strong | gains 0.047 | gains 0.038 |
+
+- **What else changed:** nothing else. The version is now
+  `t8-preregistration-v2`.
 
 **Primary endpoint and kill rule** (spec §11 `emb_ridge`).
 - **Common rows:** attempts that `emb_ridge` and every arm in E scored.

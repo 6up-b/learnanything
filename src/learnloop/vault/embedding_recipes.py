@@ -38,19 +38,21 @@ class EmbeddingRecipe:
     def name(self) -> str:
         return f"{self.record_kind}/{self.field}"
 
+    def content_hash(self, text: str) -> str:
+        # Version the composition, not just the authored text: a future
+        # recipe change must not silently reuse the former representation.
+        payload = json.dumps(
+            [self.record_kind, self.field, self.version, text],
+            ensure_ascii=False, separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
     def records(self, loaded: LoadedVault) -> Iterator[EmbeddingRecord]:
         for record_id, text in self.texts(loaded):
             if not text.strip():
                 continue
-            # Version the composition, not just the authored text: a future
-            # recipe change must not silently reuse the former representation.
-            payload = json.dumps(
-                [self.record_kind, self.field, self.version, text],
-                ensure_ascii=False, separators=(",", ":"),
-            )
             yield EmbeddingRecord(
-                self.record_kind, record_id, self.field, text,
-                hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+                self.record_kind, record_id, self.field, text, self.content_hash(text),
             )
 
 
