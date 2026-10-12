@@ -36,6 +36,11 @@ from typing import Any, Mapping
 from learnloop.attempts.reveal_ledger import record_repair_display_reveals
 from learnloop.clock import Clock, parse_utc
 from learnloop.db.repositories import Repository
+from learnloop.diagnosis.recurrence.display import (
+    displayed_repair_suggestions,
+    generated_repair,
+    is_escalation_suggestion,
+)
 from learnloop.diagnosis.split.validation import primary_cause
 from learnloop.substrate.recurrence_groups import refresh_recurrence_groups
 from learnloop.vault.models import LoadedVault
@@ -163,10 +168,13 @@ def escalation_block(
     headline = f"{_ordinal(count)} time with this one"
     if escalation["different_approach"]:
         headline += " - trying a different approach"
-    if escalation.get("repair_source") == "generated" and isinstance(escalation.get("repair"), Mapping):
+    generated = generated_repair(escalation)
+    if generated is not None:
         # Written at escalation time with an operator none of the earlier
-        # repairs used (§3.7); it is not one of the diagnosis's own.
-        repair: dict[str, Any] | None = dict(escalation["repair"])
+        # repairs used (§3.7). It is one of the attempt's repair suggestions
+        # (shown first, with its eliciting question and response box), not
+        # just a rationale (second review F4).
+        repair: dict[str, Any] | None = generated
     else:
         repair = next(
             (
@@ -232,7 +240,8 @@ def diagnosis_card(vault: LoadedVault, repository: Repository, attempt_id: str) 
     proposal = diagnosis.get("proposal") or {}
     metadata = repository.fetch_attempt_feedback_metadata(attempt_id) or {}
     taps = repository.diagnosis_feedback_rows(str(diagnosis.get("id")))
-    repair_suggestions = list(metadata.get("repair_suggestions") or [])
+    # The escalated repair, when one was written, leads (second review F4).
+    repair_suggestions = displayed_repair_suggestions(vault, repository, attempt_id, metadata.get("repair_suggestions"))
     card.update(
         diagnosis_id=diagnosis.get("id"),
         created_at=diagnosis.get("created_at"),
@@ -398,22 +407,62 @@ def debit_displayed_repairs(
     and once per diagnosis: whichever surface shows them first (the card, or a
     feedback screen first opened after the diagnosis landed) debits them, and
     the other finds the rows (their basis names the diagnosis) and charges
-    nothing.
+    nothing. An escalated repair written at escalation time is charged once
+    on its own (second review F4): it may appear after the diagnosis's own
+    repairs were already charged.
     """
 
+    escalated = [row for row in repair_suggestions if is_escalation_suggestion(row)]
+    own = [row for row in repair_suggestions if not is_escalation_suggestion(row)]
+    written = debit_escalated_repairs(
+        repository, attempt=attempt, repair_suggestions=escalated, learning_object_id=learning_object_id,
+    )
     if diagnosis_repairs_debited(repository, str(attempt["id"]), str(diagnosis["id"])):
-        return 0
+        return written
     try:
-        return record_repair_display_reveals(
+        return written + record_repair_display_reveals(
             repository,
             attempt_id=str(attempt["id"]),
             practice_item_id=str(attempt.get("practice_item_id") or "") or None,
             learning_object_id=learning_object_id,
-            repair_suggestions=repair_suggestions,
+            repair_suggestions=own,
         )
     except Exception:  # pragma: no cover - bookkeeping never costs the card
         LOG.warning("failed to debit diagnosis repair reveals for %s", attempt.get("id"), exc_info=True)
-        return 0
+        return written
+
+
+def debit_escalated_repairs(
+    repository: Repository,
+    *,
+    attempt: Mapping[str, Any],
+    repair_suggestions: list[Mapping[str, Any]],
+    learning_object_id: str | None,
+) -> int:
+    """Charge each shown escalated repair once (basis ``repair_display:escalation:<diagnosis>``)."""
+
+    written = 0
+    for suggestion in repair_suggestions:
+        if not is_escalation_suggestion(suggestion):
+            continue
+        with repository.connection() as connection:
+            charged = connection.execute(
+                "SELECT 1 FROM reveal_events WHERE attempt_id = ? AND basis = ? LIMIT 1",
+                (str(attempt["id"]), f"repair_display:{suggestion['id']}"),
+            ).fetchone() is not None
+        if charged:
+            continue
+        try:
+            written += record_repair_display_reveals(
+                repository,
+                attempt_id=str(attempt["id"]),
+                practice_item_id=str(attempt.get("practice_item_id") or "") or None,
+                learning_object_id=learning_object_id,
+                repair_suggestions=[suggestion],
+            )
+        except Exception:  # pragma: no cover - bookkeeping never costs the card
+            LOG.warning("failed to debit an escalated repair for %s", attempt.get("id"), exc_info=True)
+    return written
 
 
 __all__ = [
@@ -425,6 +474,7 @@ __all__ = [
     "NOT_SAME_MISTAKE",
     "PREREQUISITE_LABEL",
     "debit_displayed_repairs",
+    "debit_escalated_repairs",
     "diagnosis_card",
     "diagnosis_repairs_debited",
     "escalation_block",

@@ -2274,9 +2274,16 @@ export interface FollowupGateDiagnosticsDto {
 }
 
 export interface RepairSuggestionDto {
+  /** e.g. `diagnosis:<id>:<n>`; `escalation:<diagnosis id>` for a repair
+   *  written at a recurrence group's K-th answer (Slice 2 T1), which leads. */
+  id?: string | null;
   practiceMode: string;
   learningObjectId: string | null;
   rationale: string;
+  /** An escalated repair's representation (worked contrast, counterexample, ...). */
+  representation?: string | null;
+  /** True for the repair written at escalation time (not the diagnosis's own). */
+  generated?: boolean;
   targetEvidenceFamilies?: string[];
   targetCriterionIds?: string[];
   operator?: string | null;

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from datetime import UTC
 from typing import Any
 
@@ -709,6 +710,12 @@ def _cold_check_result(
 
 
 @pinned_repository_call
+def _displayed_repairs(vault: LoadedVault, repository: Repository, attempt_id: str, metadata: Mapping[str, Any]) -> list[dict[str, Any]]:
+    from learnloop.diagnosis.recurrence.display import displayed_repair_suggestions
+
+    return displayed_repair_suggestions(vault, repository, attempt_id, metadata.get("repair_suggestions"))
+
+
 def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str) -> dict[str, Any]:
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
@@ -810,7 +817,9 @@ def feedback_bundle(vault: LoadedVault, repository: Repository, attempt_id: str)
             "feedback_shown_count": metadata.get("shown_count", 0),
             "feedback_first_shown_at": metadata.get("first_shown_at"),
             "feedback_last_shown_at": metadata.get("last_shown_at"),
-            "repair_suggestions": metadata.get("repair_suggestions") or [],
+            # Slice 2 T1: an escalated repair written at a recurrence group's
+            # K-th answer leads (its eliciting question gets the response box).
+            "repair_suggestions": _displayed_repairs(vault, repository, attempt_id, metadata),
             # Server truth for the "redo the part you missed" button: computed
             # with the same rule `start_guided_redo` enforces (the SELECTED
             # repair preserves a prefix), so a visible button cannot fail with

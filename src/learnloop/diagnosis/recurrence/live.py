@@ -44,9 +44,11 @@ from learnloop.algorithm_versions import RECURRENCE_GROUP_ALGORITHM_VERSION
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.recurrence import insert_escalation
+from learnloop.diagnosis.causal_attribution import validate_repair_candidate
 from learnloop.diagnosis.causal_factor_deferral import ESCALATION_RECURRENCE_K
 from learnloop.diagnosis.misconceptions import materialize_attempt_episode
 from learnloop.diagnosis.offline_review.spend import ReviewSpend
+from learnloop.diagnosis.recurrence.display import escalation_suggestion_id
 from learnloop.diagnosis.recurrence.escalation import per_job_spend, repair_key, request_different_repair
 from learnloop.diagnosis.recurrence.judging import (
     Heartbeat,
@@ -373,6 +375,16 @@ def record_escalation(
             # Another worker holds the job now and writes the receipt (with
             # its own request); this one writes nothing (second review F7).
             return None
+        if generated is not None:
+            # A repair like any other (second review F4): aimed at the
+            # recurring cause, validated, shown first with its question.
+            generated, validation = _as_repair_suggestion(
+                vault, repository, generated, attempt_id=attempt_id, diagnosis_id=str(diagnosis["id"]),
+                rows=classes.get(statement) or [], current_repairs=repairs,
+            )
+            if validation.get("status") == "invalid":
+                generation = {**generation, "status": "invalid_repair", "validation": validation}
+                generated = None
     different = chosen is not None or generated is not None
     if generated is not None:
         source = "generated"
@@ -400,6 +412,63 @@ def record_escalation(
         "escalation_id": escalation_id, "group_key": key, "recurrence_count": count,
         "different_approach": different, "repair_source": source, "generation": generation,
     }
+
+
+_SUGGESTION_FIELDS = (
+    "operator", "representation", "practice_mode", "rationale", "eliciting_question",
+    "expected_response_contract",
+)
+
+
+def _as_repair_suggestion(
+    vault: LoadedVault,
+    repository: Repository,
+    repair: Mapping[str, Any],
+    *,
+    attempt_id: str,
+    diagnosis_id: str,
+    rows: list[dict[str, Any]],
+    current_repairs: list[dict[str, Any]] = (),  # type: ignore[assignment]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The generated repair as a repair suggestion, and its validation.
+
+    It targets the recurring cause's own target (the escalated class's
+    learner-state head; else what this answer's own repairs target), names
+    its learning object and carries every field the feedback screen renders
+    (the eliciting question gets the response box). ``validate_repair_candidate``
+    runs on it exactly as on the diagnosis's repairs; an ``invalid`` one is
+    never shown.
+    """
+
+    attempt = repository.fetch_practice_attempt(attempt_id) or {}
+    item = vault.practice_items.get(str(attempt.get("practice_item_id") or ""))
+    head = next((row for row in rows if row.get("cause_scope") == "learner_state"), rows[0] if rows else {})
+    target = head.get("target_ref")
+    targets = [dict(target)] if isinstance(target, Mapping) else next(
+        (
+            [dict(ref) for ref in repair.get("target_refs") or [] if isinstance(ref, Mapping)]
+            for repair in current_repairs
+            if any(isinstance(ref, Mapping) for ref in repair.get("target_refs") or [])
+        ),
+        [],
+    )
+    suggestion: dict[str, Any] = {
+        "id": escalation_suggestion_id(diagnosis_id),
+        **{key: repair[key] for key in _SUGGESTION_FIELDS if repair.get(key) not in (None, "")},
+        "answer_reveal_budget": float(repair.get("answer_reveal_budget") or 0.0),
+        "learning_object_id": str(attempt.get("learning_object_id") or "") or None,
+        "target_refs": targets,
+        "generated": True,
+        "source": "recurrence_escalation",
+    }
+    suggestion.setdefault("practice_mode", "unspecified")
+    validation = validate_repair_candidate(
+        dict(suggestion),
+        expected_answer=getattr(item, "expected_answer", None),
+        trace_contract=getattr(item, "trace_contract", None),
+    ).as_dict()
+    suggestion["repair_validation"] = validation
+    return suggestion, validation
 
 
 def _request_repair(

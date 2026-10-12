@@ -43,7 +43,10 @@ const link = { color: COLOR.amberLink, textDecoration: "underline", cursor: "poi
  * with the escalated repair, its earlier answers (each openable) and its own
  * one-tap usefulness rating. The headline says "trying a different approach"
  * only when the backend found a repair whose operator differs from the ones
- * shown before; otherwise it says so plainly.
+ * shown before; otherwise it says so plainly. The repair is shown whole (its
+ * representation, practice mode and question); it is also the feedback
+ * screen's lead repair suggestion, so an eliciting question is answered in
+ * the "one question, unaided" box right below this card.
  */
 export function DiagnosisCard({
   attemptId,
@@ -165,10 +168,14 @@ export function DiagnosisCard({
     );
   }
   if (!card || card.cardEnabled === false) return null;
-  const repairs = card.repairSuggestions ?? [];
+  const escalation = card.escalation ?? null;
+  const escalatedRepair = escalation?.repair ?? null;
+  // The escalated repair is shown in its own block, not again in the list.
+  const repairs = (card.repairSuggestions ?? []).filter(
+    (repair) => !(escalatedRepair?.id && repair.id === escalatedRepair.id),
+  );
   const madeBefore = card.madeBefore ?? [];
   const disowned = new Set(card.notSameMistakeAttemptIds ?? []);
-  const escalation = card.escalation ?? null;
   return (
     <div style={box} data-testid="diagnosis-card">
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -198,9 +205,24 @@ export function DiagnosisCard({
               ))}
             </div>
           ) : null}
-          {escalation.repair ? (
-            <div style={{ color: COLOR.text }} data-testid="escalation-repair">
-              · {escalation.repair.rationale}
+          {escalatedRepair ? (
+            <div data-testid="escalation-repair">
+              <div style={{ color: COLOR.text }}>· {escalatedRepair.rationale}</div>
+              {escalatedRepair.representation || escalatedRepair.practiceMode ? (
+                <div data-testid="escalation-repair-mode">
+                  <Faint>
+                    {[escalatedRepair.representation, escalatedRepair.practiceMode]
+                      .filter((value) => value && value !== "unspecified")
+                      .join(" · ")}
+                  </Faint>
+                </div>
+              ) : null}
+              {escalatedRepair.elicitingQuestion?.trim() ? (
+                <div style={{ color: COLOR.text }} data-testid="escalation-repair-question">
+                  {escalatedRepair.elicitingQuestion}{" "}
+                  <Faint>(answer it in "one question, unaided" below)</Faint>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {escalation.approachNote ? <Faint>{escalation.approachNote}</Faint> : null}

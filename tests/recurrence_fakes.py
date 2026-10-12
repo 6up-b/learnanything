@@ -39,6 +39,7 @@ class StatementFake(ReviewFakeClient):
 
     def __init__(self, statements: Mapping[str, str], *, cite: bool = False, decide: Decide = different,
                  operators: Mapping[str, str] | None = None, escalation_operator: str = "elicit_rule",
+                 escalation_reveal_budget: float = 0.0,
                  on_diagnosis: Callable[[str], None] | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.statements = dict(statements)
@@ -49,6 +50,7 @@ class StatementFake(ReviewFakeClient):
         #: The operator the escalated-repair request answers with (the
         #: default repeats the diagnoser's: a model ignoring the instruction).
         self.escalation_operator = escalation_operator
+        self.escalation_reveal_budget = escalation_reveal_budget
         #: Every escalated-repair request's context, in order.
         self.escalation_requests: list[dict[str, Any]] = []
         #: Called with the answer text on every diagnosis (e.g. to cancel a command).
@@ -113,6 +115,7 @@ class StatementFake(ReviewFakeClient):
             practice_mode="contrast",
             rationale="Put the wrong and the right reasoning side by side.",
             eliciting_question="Which step differs?" if operator.startswith("elicit_") else None,
+            answer_reveal_budget=self.escalation_reveal_budget,
         )
 
 

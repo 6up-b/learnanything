@@ -599,3 +599,102 @@ def test_a_lost_lease_stops_the_t1_calls_of_the_old_worker(tmp_path):
     assert [outcome.state for outcome in outcomes if outcome.kind == DIAGNOSE_KIND] == ["lease_lost"]
     diagnosis = repository.current_live_diagnosis(third.attempt_id)
     assert repository.recurrence_escalation(diagnosis["id"]) is None, "the new lease holder writes the receipt"
+
+
+# -- second review F4: a generated escalated repair is a real, usable repair ---------------
+
+
+def test_a_generated_escalated_repair_is_validated_shown_like_any_repair_and_debited_once(tmp_path):
+    """The repair written at escalation time carries the eliciting question,
+    representation and practice mode to the learner, leads the attempt's
+    repair suggestions (so the feedback screen's response box asks ITS
+    question), is validated like any repair and is charged to the reveal
+    ledger once when shown, even if the diagnosis's own repairs were charged
+    before the escalation existed."""
+
+    from learnloop.diagnosis.split.card import debit_displayed_repairs
+    from learnloop_sidecar.handlers.serializers import feedback_bundle
+
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"),
+                           escalation_operator="elicit_minimal_counterexample", escalation_reveal_budget=0.2)
+    *_rest, third = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS)
+    diagnosis = repository.current_live_diagnosis(third.attempt_id)
+    escalation = repository.recurrence_escalation(diagnosis["id"])
+    assert escalation["repair_source"] == "generated"
+    repair = escalation["repair"]
+    assert repair["id"] == f"escalation:{diagnosis['id']}"
+    assert repair["repair_validation"]["authority"] == "learnloop_validator"
+
+    bundle = feedback_bundle(vault, repository, third.attempt_id)
+    lead = bundle["repairSuggestions"][0]
+    assert lead["id"] == repair["id"] and lead["elicitingQuestion"] == "Which step differs?"
+    assert lead["practiceMode"] == "contrast" and lead["representation"] == "worked contrast"
+    assert [row["id"] for row in bundle["repairSuggestions"]].count(repair["id"]) == 1
+
+    card = diagnosis_card(vault, repository, third.attempt_id)
+    assert card["escalation"]["repair"]["eliciting_question"] == "Which step differs?"
+    assert card["repair_suggestions"][0]["id"] == repair["id"]
+
+    attempt = repository.fetch_practice_attempt(third.attempt_id)
+    own = [row for row in card["repair_suggestions"] if row["id"] != repair["id"]]
+    for shown in (own, card["repair_suggestions"], card["repair_suggestions"]):
+        debit_displayed_repairs(repository, attempt=attempt, diagnosis=diagnosis, repair_suggestions=shown,
+                                learning_object_id=str(attempt["learning_object_id"]))
+    with repository.connection() as connection:
+        debited = connection.execute(
+            "SELECT amount FROM reveal_events WHERE attempt_id = ? AND basis = ?",
+            (third.attempt_id, f"repair_display:{repair['id']}"),
+        ).fetchall()
+    assert [row[0] for row in debited] == [0.2]
+
+
+def test_an_invalid_generated_repair_is_never_shown_as_a_different_approach(tmp_path, monkeypatch):
+    from learnloop.diagnosis.causal_attribution import validate_repair_candidate as original
+
+    def reject(suggestion, **kwargs):
+        result = original(suggestion, **kwargs).as_dict()
+        result["status"] = "invalid"
+        result["reasons"] = ["unverifiable_checkpoint_claim"]
+
+        class _Result:
+            def as_dict(self):
+                return result
+
+        return _Result()
+
+    monkeypatch.setattr("learnloop.diagnosis.recurrence.live.validate_repair_candidate", reject)
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), escalation_operator="worked_contrast")
+    *_rest, third = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS)
+    escalation = repository.recurrence_escalation(repository.current_live_diagnosis(third.attempt_id)["id"])
+    assert escalation["generation"]["status"] == "invalid_repair" and escalation["repair_source"] == "diagnosis"
+    block = diagnosis_card(vault, repository, third.attempt_id)["escalation"]
+    assert block["different_approach"] is False and "same kind of repair" in block["approach_note"]
+
+
+def test_the_generated_repair_aims_at_the_recurring_causes_target(tmp_path):
+    from learnloop.diagnosis.recurrence.live import _as_repair_suggestion
+
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS)
+    (first,) = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS[:1])
+    target = {"kind": "facet_capability", "facet_id": "svd_transpose", "capability": "apply"}
+    generated = {"operator": "worked_contrast", "representation": "worked contrast", "practice_mode": "contrast",
+                 "rationale": "Side by side.", "answer_reveal_budget": 0.1}
+    suggestion, validation = _as_repair_suggestion(
+        vault, repository, generated, attempt_id=first.attempt_id, diagnosis_id="d1",
+        rows=[{"cause_scope": "transient_execution", "target_ref": None},
+              {"cause_scope": "learner_state", "target_ref": target}],
+    )
+    assert suggestion["id"] == "escalation:d1" and suggestion["target_refs"] == [target]
+    assert suggestion["learning_object_id"] == "lo_svd_compute" and suggestion["generated"] is True
+    assert validation["structural_checks"]["target_declared"] is True
+    assert validation["structural_checks"]["operator_declared"] is True
+    # No target on the cause: what this answer's own repairs aim at.
+    fallback, _ = _as_repair_suggestion(
+        vault, repository, generated, attempt_id=first.attempt_id, diagnosis_id="d1",
+        rows=[{"cause_scope": "learner_state", "target_ref": None}],
+        current_repairs=[{"operator": "elicit_rule", "target_refs": [target]}],
+    )
+    assert fallback["target_refs"] == [target]

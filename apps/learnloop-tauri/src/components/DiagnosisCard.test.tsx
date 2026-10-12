@@ -198,6 +198,35 @@ it("leads with an escalated repair, its earlier answers and one usefulness tap",
   expect(api.recordDiagnosisFeedback).toHaveBeenCalledTimes(2);
 });
 
+it("shows a generated escalated repair whole and only once (second review F4)", async () => {
+  const generated = {
+    id: "escalation:diag_1",
+    practiceMode: "counterexample_construction",
+    learningObjectId: null,
+    rationale: "Build a matrix where the swap visibly fails.",
+    representation: "concrete counterexample",
+    operator: "elicit_minimal_counterexample",
+    elicitingQuestion: "Which 2x2 matrix shows V and its transpose differ?",
+    generated: true,
+  };
+  api.diagnosisStatus.mockResolvedValue({
+    ...ESCALATED,
+    repairSuggestions: [generated, ...(DONE.repairSuggestions ?? [])],
+    escalation: { ...ESCALATED.escalation!, repair: generated },
+  });
+  render(<DiagnosisCard attemptId="att_1" initialStatus="done" onError={vi.fn()} />);
+  await act(async () => {});
+  expect(screen.getByTestId("escalation-repair").textContent).toContain("Build a matrix");
+  expect(screen.getByTestId("escalation-repair-mode").textContent).toContain("concrete counterexample");
+  expect(screen.getByTestId("escalation-repair-question").textContent).toContain(
+    "Which 2x2 matrix shows V and its transpose differ?",
+  );
+  // The plain list keeps the diagnosis's own repair and not the escalated one.
+  const list = screen.getByTestId("diagnosis-repairs").textContent ?? "";
+  expect(list).toContain("Say what the transpose does.");
+  expect(list).not.toContain("Build a matrix");
+});
+
 it("says plainly when the escalated repair is the same kind as before", async () => {
   api.diagnosisStatus.mockResolvedValue({
     ...ESCALATED,

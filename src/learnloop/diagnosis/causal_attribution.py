@@ -2786,6 +2786,20 @@ def record_eliciting_response(
     )
     report_id = new_ulid()
     observation_id = f"eliciting_response:{report_id}"
+    # The index is into the suggestions the screen SHOWED (an escalated
+    # repair leads them, Slice 2 T1); record which repair it named.
+    suggestion_id = None
+    try:
+        from learnloop.diagnosis.recurrence.display import displayed_repair_suggestions
+
+        shown = displayed_repair_suggestions(
+            vault, repository, attempt_id,
+            (repository.fetch_attempt_feedback_metadata(attempt_id) or {}).get("repair_suggestions"),
+        )
+        if 0 <= int(suggestion_index) < len(shown):
+            suggestion_id = shown[int(suggestion_index)].get("id")
+    except Exception:  # noqa: BLE001 - the response is recorded either way
+        suggestion_id = None
     repository.insert_causal_attribution_report(
         report_id=report_id,
         factor_id=str(factor["id"]),
@@ -2795,6 +2809,7 @@ def record_eliciting_response(
         payload={
             "observation_id": observation_id,
             "suggestion_index": suggestion_index,
+            "suggestion_id": suggestion_id,
             "response_md": response_md,
             "admissible_as_independent": admissibility.admissible,
             "inadmissibility_reason": admissibility.reason,
