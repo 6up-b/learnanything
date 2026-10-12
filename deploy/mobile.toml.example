@@ -1,0 +1,8 @@
+# Install as $LEARNLOOP_CONFIG_DIR/mobile.toml (default ~/.config/learnloop).
+# Keep disabled until the vault is migrated and Serve/policy have been checked.
+enabled = false
+vault = "/ABSOLUTE/PATH/TO/VAULT"
+hostname = "desktop.example-tailnet.ts.net"
+port = 8765
+owner_login = "owner@example.com"
+max_upload_mb = 20

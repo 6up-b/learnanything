@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pair LearnLoop</title>
+<h1>Pair this device</h1>
+<p>Run learnloop-mobile pair on your desktop. Scan its QR code or enter the manual code here.</p>
+<form id="pair">
+<label>Manual code <input id="code" autocomplete="off" maxlength="10"></label>
+<label>Device label <input id="label" value="Phone" maxlength="80"></label>
+<button type="submit">Pair</button>
+</form>
+<p id="message" role="status"></p>
+<label id="token-label" hidden>Copy this token into your private Shortcut setup:
+<textarea id="token" readonly autocomplete="off"></textarea></label>
+<script src="/pair.js" defer></script>
+</html>

@@ -1,0 +1,21 @@
+[Unit]
+Description=LearnLoop tailnet capture host (M1)
+After=network.target
+
+[Service]
+Type=simple
+# Replace /ABSOLUTE/PATH/learnanything with the installed checkout.
+# Use the venv executable directly: login shells and uv are not required at boot.
+ExecStart=/ABSOLUTE/PATH/learnanything/.venv/bin/learnloop-mobile serve
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=%h/.config/learnloop/mobile.env
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=78
+TimeoutStopSec=300
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

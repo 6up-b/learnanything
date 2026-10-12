@@ -24,9 +24,16 @@ dependencies = [
   "tomlkit>=0.12",
   "manim>=0.19.1",
   "pyyaml>=6.0",
+  "Pillow>=10.4",
 ]
 
 [project.optional-dependencies]
+mobile = [
+  "starlette==1.7.0",
+  "uvicorn==0.54.0",
+  "python-multipart==0.0.32",
+  "qrcode==8.2",
+]
 dev = [
   "pytest>=8.0",
   "pytest-xdist>=3.6",
@@ -40,9 +47,10 @@ pdf = [
 
 [project.scripts]
 learnloop = "learnloop.cli:app"
+learnloop-mobile = "learnloop_mobile.cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/learnloop", "src/learnloop_sidecar"]
+packages = ["src/learnloop", "src/learnloop_sidecar", "src/learnloop_mobile"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -58,7 +66,7 @@ dev = [
 ]
 
 [tool.importlinter]
-root_packages = ["learnloop", "learnloop_sidecar"]
+root_packages = ["learnloop", "learnloop_sidecar", "learnloop_mobile"]
 include_external_packages = false
 
 [[tool.importlinter.contracts]]
@@ -126,7 +134,7 @@ id = "entry-points-are-independent"
 name = "CLI, TUI, and sidecar do not depend on one another"
 type = "forbidden"
 source_modules = ["learnloop.cli"]
-forbidden_modules = ["learnloop.tui", "learnloop_sidecar"]
+forbidden_modules = ["learnloop.tui", "learnloop_sidecar", "learnloop_mobile"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -134,7 +142,7 @@ id = "tui-is-independent"
 name = "TUI does not depend on other adapters"
 type = "forbidden"
 source_modules = ["learnloop.tui"]
-forbidden_modules = ["learnloop.cli", "learnloop_sidecar"]
+forbidden_modules = ["learnloop.cli", "learnloop_sidecar", "learnloop_mobile"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -142,7 +150,23 @@ id = "sidecar-is-independent"
 name = "Sidecar does not depend on other adapters"
 type = "forbidden"
 source_modules = ["learnloop_sidecar"]
-forbidden_modules = ["learnloop.cli", "learnloop.tui"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_mobile"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "mobile-is-independent"
+name = "Mobile is a secondary capture adapter, not a desktop runtime"
+type = "forbidden"
+source_modules = ["learnloop_mobile"]
+forbidden_modules = ["learnloop.cli", "learnloop.tui", "learnloop_sidecar"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+id = "domain-does-not-import-mobile"
+name = "Domain does not import the mobile adapter"
+type = "forbidden"
+source_modules = ["learnloop"]
+forbidden_modules = ["learnloop_mobile"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
