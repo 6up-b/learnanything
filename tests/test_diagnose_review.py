@@ -419,8 +419,13 @@ def test_one_judge_pass_is_never_reported_as_a_confirmed_link():
     assert (both["judged_same_both_passes"], both["incomplete_pairs"], both["confirmed_links_unique_to_arm"]) == (1, 0, 1)
 
 
+#: The learner answer every E4 anchor below is validated against.
+E4_ANSWER = "first wrong step -- second wrong step" + " " * 13 + "elsewhere"
+
+
 def _e4_data(*, blind_order=("B", "A"), extra_blind=False):
     spans = {"A": ("first wrong step", 0, 16, "recall", "mc_a"), "B": ("second wrong step", 20, 37, "compute", "mc_b")}
+    assert E4_ANSWER[0:16] == "first wrong step" and E4_ANSWER[20:37] == "second wrong step" and E4_ANSWER[50:59] == "elsewhere"
 
     def divergence(key):
         quote, start, end, _facet, _mc = spans[key]
@@ -452,7 +457,38 @@ def _e4_data(*, blind_order=("B", "A"), extra_blind=False):
         "review_blind_grades": [{"attempt_id": "att_t", "purpose": "primary", "status": "completed", "record": {"error_attributions": attributions}}],
         "stored_misconceptions": {"att_t": [row["misconception_id"] for row in stored]},
         "stored_error_events": {"att_t": stored},
+        "stored_answers": {"att_t": E4_ANSWER},
     }
+
+
+def test_e4_aligns_only_on_localization_validated_in_the_answer():
+    """F14 (re-review): two whole-answer anchors with null offsets and the
+    same invented text never align; nor do ambiguous or misplaced quotes."""
+
+    from learnloop.diagnosis.offline_review.report import _registry_section, align_events
+
+    def event(quote, start=None, end=None, kind="whole_answer"):
+        return {"first_divergence": {"anchor_kind": kind, "quote": quote, "char_start": start, "char_end": end},
+                "target_evidence_families": ["recall"]}
+
+    invented = event("an invented sentence")
+    data = _e4_data()
+    data["review_blind_grades"][0]["record"]["error_attributions"] = [{"index": 0, **invented}]
+    data["stored_error_events"]["att_t"] = [{"misconception_id": "mc_a", "error_type": "x", "repair_plan": invented}]
+    data["review_diagnoses"][0]["proposal"]["event_diagnoses"] = [{"event_index": 0, "registry_match": {"kind": "durable", "id": "mc_a"}}]
+    section = _registry_section(data)["b"]
+    assert section["agreement_where_either_linked"]["n"] == 0
+    assert (section["unlocalized_blind_events"], section["unlocalized_stored_events"]) == (1, 1)
+    # A quote that occurs twice, with offsets that do not hold it, is ambiguous.
+    answer = "x = 2 then x = 2 again"
+    ambiguous = event("x = 2", 3, 9, kind="span")
+    assert align_events([ambiguous], [{"repair_plan": ambiguous}], answer)["aligned"] == {}
+    # Offsets that hold the quote, or a unique quote, localize and align.
+    held = event("x = 2", 11, 16, kind="span")
+    assert align_events([held], [{"repair_plan": held}], answer)["aligned"] == {0: 0}
+    unique = event("second wrong step")
+    assert align_events([unique], [{"repair_plan": event("wrong step", kind="span")}], E4_ANSWER)["aligned"] == {}
+    assert align_events([unique], [{"repair_plan": event("second wrong step", 20, 37, kind="span")}], E4_ANSWER)["aligned"] == {0: 0}
 
 
 def test_e4_aligns_events_by_localization_and_target_not_list_position():

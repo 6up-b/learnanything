@@ -17,7 +17,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-from learnloop.attempts.grading import resolved_rubric
+from learnloop.attempts.grading import resolve_quote_anchor, resolved_rubric
 from learnloop.db.connection import connect
 from learnloop.db.stores.diagnosis_review import review_rows
 from learnloop.diagnosis.offline_review import judge as judging
@@ -158,20 +158,22 @@ def load_run(run_dir: Path) -> dict[str, Any]:
                     real_ids,
                 )
             }
-            scores = {
-                str(row[0]): row[1]
-                for row in connection.execute(
-                    f"SELECT id, rubric_score FROM practice_attempts WHERE id IN ({placeholders})", real_ids
-                )
-            }
+            scores, answers = {}, {}
+            for row in connection.execute(
+                f"SELECT id, rubric_score, learner_answer_md FROM practice_attempts WHERE id IN ({placeholders})", real_ids
+            ):
+                scores[str(row[0])] = row[1]
+                answers[str(row[0])] = str(row[2] or "")
         else:
-            fatal, scores = {}, {}
+            fatal, scores, answers = {}, {}, {}
         data["stored_evidence"] = dict(evidence)
         data["stored_misconceptions"] = dict(misconceptions)
         data["stored_error_events"] = dict(stored_events)
         data["stored_adjudicated_anchor"] = adjudicated
         data["stored_fatal"] = fatal
         data["stored_score"] = scores
+        # E4 validates every error event's localization against the answer.
+        data["stored_answers"] = answers
     return data
 
 
@@ -697,13 +699,49 @@ def _owner_grade_errors(data: Mapping[str, Any], grades: Mapping[str, Mapping[st
     return errors
 
 
-def _event_anchor(attribution: Mapping[str, Any]) -> dict[str, Any]:
-    """Localization and targets of one error event (blind attribution or stored plan)."""
+def _occurrences(haystack: str, needle: str) -> list[int]:
+    starts, position = [], haystack.find(needle)
+    while position != -1:
+        starts.append(position)
+        position = haystack.find(needle, position + 1)
+    return starts
+
+
+def validated_span(divergence: Mapping[str, Any], answer: str | None) -> tuple[int, int] | None:
+    """Where a first divergence sits in the learner's answer, VALIDATED, or None.
+
+    Offsets count only when the answer text there is the quote (up to
+    whitespace); otherwise the quote must occur in the answer exactly once
+    (exactly, else after collapsing whitespace). An invented quote, an empty
+    one, a quote that occurs several times without offsets that hold it, and
+    any anchor without the answer to check against are unlocalized.
+    """
+
+    quote = str(divergence.get("quote") or "")
+    if not answer or not quote.strip():
+        return None
+    start, end = divergence.get("char_start"), divergence.get("char_end")
+    if (
+        isinstance(start, int) and isinstance(end, int) and 0 <= start < end <= len(answer)
+        and " ".join(answer[start:end].split()) == " ".join(quote.split())
+    ):
+        return start, end
+    exact = _occurrences(answer, quote)
+    if exact:
+        return (exact[0], exact[0] + len(quote)) if len(exact) == 1 else None
+    if len(_occurrences(" ".join(answer.split()), " ".join(quote.split()))) != 1:
+        return None
+    resolution = resolve_quote_anchor(answer, quote)
+    if resolution.char_start is None or resolution.char_end is None:
+        return None
+    return resolution.char_start, resolution.char_end
+
+
+def _event_anchor(attribution: Mapping[str, Any], answer: str | None) -> dict[str, Any]:
+    """Validated localization and targets of one error event (blind attribution or stored plan)."""
 
     divergence = attribution.get("first_divergence")
     divergence = divergence if isinstance(divergence, Mapping) else {}
-    start, end = divergence.get("char_start"), divergence.get("char_end")
-    quote = " ".join(str(divergence.get("quote") or divergence.get("normalized_quote") or "").split()).casefold()
     facets = {str(value) for value in attribution.get("target_evidence_families") or []}
     ref = attribution.get("target_ref")
     if isinstance(ref, Mapping) and ref.get("kind") == "facet_capability" and ref.get("facet_id"):
@@ -711,44 +749,39 @@ def _event_anchor(attribution: Mapping[str, Any]) -> dict[str, Any]:
     criteria = {str(value) for value in attribution.get("target_criterion_ids") or []}
     if isinstance(ref, Mapping) and ref.get("kind") == "criterion" and ref.get("criterion_id"):
         criteria.add(str(ref["criterion_id"]))
-    return {
-        "span": (int(start), int(end)) if isinstance(start, int) and isinstance(end, int) and end > start else None,
-        "quote": quote,
-        "facets": facets,
-        "criteria": criteria,
-    }
+    return {"span": validated_span(divergence, answer), "facets": facets, "criteria": criteria}
 
 
 def _events_correspond(blind: Mapping[str, Any], stored: Mapping[str, Any]) -> bool:
-    """Same localization (overlapping validated spans, else equal or nested
-    quotes) AND compatible targets (overlapping when both name any)."""
+    """Overlapping VALIDATED spans AND compatible targets (overlapping when
+    both name any). An unlocalized event corresponds to nothing."""
 
-    if blind["span"] is not None and stored["span"] is not None:
-        localized = blind["span"][0] < stored["span"][1] and stored["span"][0] < blind["span"][1]
-    elif blind["quote"] and stored["quote"]:
-        localized = blind["quote"] in stored["quote"] or stored["quote"] in blind["quote"]
-    else:
-        localized = False
-    if not localized:
+    if blind["span"] is None or stored["span"] is None:
+        return False
+    if not (blind["span"][0] < stored["span"][1] and stored["span"][0] < blind["span"][1]):
         return False
     blind_targets = blind["facets"] | {f"criterion:{value}" for value in blind["criteria"]}
     stored_targets = stored["facets"] | {f"criterion:{value}" for value in stored["criteria"]}
     return not blind_targets or not stored_targets or bool(blind_targets & stored_targets)
 
 
-def align_events(blind: Sequence[Mapping[str, Any]], stored: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
-    """One-to-one blind -> stored event alignment by localization and target.
+def align_events(blind: Sequence[Mapping[str, Any]], stored: Sequence[Mapping[str, Any]], answer: str | None) -> dict[str, Any]:
+    """One-to-one blind -> stored event alignment by validated localization and target.
 
-    A blind event aligns only when it corresponds to exactly one stored event
-    that corresponds to no other blind event; everything else is unmatched or
-    ambiguous and is reported, never compared by list position.
+    Every anchor is validated against the learner's ``answer``
+    (:func:`validated_span`); an unvalidated one is ``unlocalized`` and
+    never aligns. A localized blind event aligns only when it corresponds to
+    exactly one stored event that corresponds to no other blind event;
+    everything else is unmatched or ambiguous and is reported, never
+    compared by list position.
     """
 
-    blind_anchors = [_event_anchor(row) for row in blind]
-    stored_anchors = [_event_anchor(row.get("repair_plan") or {}) for row in stored]
+    blind_anchors = [_event_anchor(row, answer) for row in blind]
+    stored_anchors = [_event_anchor(row.get("repair_plan") or {}, answer) for row in stored]
     matches = {
         index: [j for j, other in enumerate(stored_anchors) if _events_correspond(anchor, other)]
         for index, anchor in enumerate(blind_anchors)
+        if anchor["span"] is not None
     }
     claimed: Counter = Counter(j for candidates in matches.values() for j in candidates)
     aligned: dict[int, int] = {}
@@ -765,7 +798,9 @@ def align_events(blind: Sequence[Mapping[str, Any]], stored: Sequence[Mapping[st
         "aligned": aligned,
         "unmatched_blind": unmatched_blind,
         "ambiguous_blind": ambiguous_blind,
-        "unmatched_stored": sum(1 for j in range(len(stored)) if claimed[j] == 0),
+        "unlocalized_blind": sum(1 for anchor in blind_anchors if anchor["span"] is None),
+        "unmatched_stored": sum(1 for j, anchor in enumerate(stored_anchors) if anchor["span"] is not None and claimed[j] == 0),
+        "unlocalized_stored": sum(1 for anchor in stored_anchors if anchor["span"] is None),
     }
 
 
@@ -774,8 +809,9 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
 
     A diagnosis event is keyed by its index into the BLIND grade's
     attributions; the legacy match lives on the stored JOINT grade's error
-    events. The two lists are aligned by validated localization and targets
-    (:func:`align_events`), never by position; unmatched and ambiguous events
+    events. The two lists are aligned by localization validated in the
+    learner's answer, and targets (:func:`align_events`), never by position
+    or by an unvalidated quote; unlocalized, unmatched and ambiguous events
     are counted separately and excluded from agreement.
     """
 
@@ -786,6 +822,7 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
         if row.get("purpose") == "primary" and row.get("status") == "completed"
     }
     stored_events = data.get("stored_error_events") or {}
+    answers = data.get("stored_answers") or {}
     out: dict[str, Any] = {}
     for arm in ("b", "c", "d", "e"):
         agree = 0
@@ -793,6 +830,8 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
         both_abstain = 0
         unmatched_blind = 0
         unmatched_stored = 0
+        unlocalized_blind = 0
+        unlocalized_stored = 0
         ambiguous = 0
         disagreements = []
         for row in data["review_diagnoses"]:
@@ -802,9 +841,11 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
             if target is None or target["kind"] != "real":
                 continue
             stored = stored_events.get(target["attempt_id"]) or []
-            alignment = align_events(blind_by_attempt.get(target["attempt_id"]) or [], stored)
+            alignment = align_events(blind_by_attempt.get(target["attempt_id"]) or [], stored, answers.get(target["attempt_id"]))
             unmatched_blind += alignment["unmatched_blind"]
             unmatched_stored += alignment["unmatched_stored"]
+            unlocalized_blind += alignment["unlocalized_blind"]
+            unlocalized_stored += alignment["unlocalized_stored"]
             ambiguous += alignment["ambiguous_blind"]
             for event in (row.get("proposal") or {}).get("event_diagnoses") or []:
                 index = int(event.get("event_index", -1))
@@ -827,6 +868,8 @@ def _registry_section(data: Mapping[str, Any]) -> dict[str, Any]:
             "both_unlinked": both_abstain,
             "unmatched_blind_events": unmatched_blind,
             "unmatched_stored_events": unmatched_stored,
+            "unlocalized_blind_events": unlocalized_blind,
+            "unlocalized_stored_events": unlocalized_stored,
             "ambiguous_events": ambiguous,
             "disagreements": disagreements,
         }
@@ -995,8 +1038,9 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         lines.append(
             f"- {ARM_LABELS.get(arm, arm)}: agreement where either linked a registry row {_fmt_rate(row['agreement_where_either_linked'])}; "
             f"both unlinked {row['both_unlinked']}; disagreements to audit {len(row['disagreements'])} (ids in report.json); "
-            f"events not aligned to a stored event: {row['unmatched_blind_events']} unmatched, {row['ambiguous_events']} ambiguous "
-            f"({row['unmatched_stored_events']} stored events unmatched)"
+            f"events not aligned to a stored event: {row['unmatched_blind_events']} unmatched, {row['ambiguous_events']} ambiguous, "
+            f"{row['unlocalized_blind_events']} not localized in the answer "
+            f"({row['unmatched_stored_events']} stored events unmatched, {row['unlocalized_stored_events']} not localized)"
         )
     spot = report["spot_check"]
     lines += ["", "## Owner spot-check", ""]
