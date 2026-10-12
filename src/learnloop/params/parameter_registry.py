@@ -841,6 +841,10 @@ _CONFIG_RULES: list[_ConfigRule] = [
     _ConfigRule(_prefix("families."), "structural", "operational",
                 "Explicit-command authoring candidate bounds; judges decide identity, "
                 "with no live measurement or scheduling authority."),
+    _ConfigRule(_prefix("graph_nomination."), "structural", "operational",
+                "Slice 2 T5 nomination rank limit and ingest-time embedding caps; "
+                "nominations only (the structuring/append model or the owner decides), "
+                "with no measurement or scheduling authority."),
     _ConfigRule(_exact(
         "scheduler.candidate_log_retention_limit",
         "probe.episode.presentation_ttl_minutes",

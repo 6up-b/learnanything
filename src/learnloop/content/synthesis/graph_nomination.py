@@ -671,14 +671,6 @@ class GraphNominator:
         return {"cosine": None, "cosine_status": "record_missing" if status == "complete" else status}
 
 
-def cosine_suffix(column: Mapping[str, Any] | None) -> str:
-    """``", cosine 0.91"`` for a message, or nothing when there is no value."""
-
-    if not column or column.get("cosine") is None:
-        return ""
-    return f", cosine {float(column['cosine']):.2f}"
-
-
 # --- D2 mint gate: embedding neighbours and the repair-equivalence shadow ----
 
 
@@ -815,7 +807,6 @@ __all__ = [
     "RegistryIndex",
     "annotate_mint_report",
     "concept_query",
-    "cosine_suffix",
     "facet_query",
     "inventory_queries",
     "is_active",

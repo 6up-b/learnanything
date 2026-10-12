@@ -903,8 +903,11 @@ def source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str:
     )
 
 
-def concept_graph_has_registry_nominations(context: ConceptGraphContext) -> bool:
-    return bool(context.registry_concept_details and context.registry_nominations)
+def concept_graph_has_registry_nominations(context: ConceptGraphContext | None) -> bool:
+    return bool(
+        getattr(context, "registry_concept_details", None)
+        and getattr(context, "registry_nominations", None)
+    )
 
 
 def concept_graph_structuring_prompt(context: ConceptGraphContext) -> str:
