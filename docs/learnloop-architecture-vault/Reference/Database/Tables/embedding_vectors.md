@@ -3,8 +3,8 @@ title: "embedding_vectors"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "1a91aa1e383243b2893a756fe860d578075b210f"
+source_commit_timestamp: "2026-10-12T12:46:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite embedding_vectors"
@@ -23,9 +23,9 @@ source_paths:
   - "src/learnloop/db/stores/practice_index.py"
   - "src/learnloop/diagnosis/split/embeddings.py"
   - "src/learnloop/diagnosis/split/retrieval.py"
+  - "src/learnloop/field/item_content.py"
   - "src/learnloop/ops/embedding_backfill.py"
   - "src/learnloop/ops/family_proposals.py"
-  - "src/learnloop/practice_index/query_vectors.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -119,6 +119,7 @@ None found by exact static reference scan.
 - `tests/test_family_proposals.py`
 - `tests/test_knowledge_map_text_neighbors.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_success_head_cli.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

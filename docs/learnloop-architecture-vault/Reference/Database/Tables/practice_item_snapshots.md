@@ -3,8 +3,8 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "22023ab4b1ea026ef099fb3cc842034689397276"
-source_commit_timestamp: "2026-10-12T12:14:39-04:00"
+source_commit: "1a91aa1e383243b2893a756fe860d578075b210f"
+source_commit_timestamp: "2026-10-12T12:46:47-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/164_item_snapshots_and_adjudication_fk.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/item_content.py"
   - "src/learnloop/field/outcomes.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
@@ -84,6 +85,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
@@ -102,6 +104,7 @@ None found by exact static reference scan.
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
+- `tests/test_success_head_cli.py`
 - `tests/test_probe_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

@@ -2,7 +2,8 @@
 
 The group callback keeps `learnloop eval --vault ...` as the legacy decision
 calibration report; `--section field` adds learner-field reports 1-2. The
-`families` subcommand is the PF-a arm set over the same harness. None of these
+`families` subcommand is the PF-a arm set over the same harness, and
+`success-head` is Slice 2 T8's pre-registered replay. None of these
 initialize or migrate a vault, and replay never calls a model.
 
 `practice-index` is Phase 5b's retrieval evaluation (dossier two-level search
@@ -22,6 +23,7 @@ import typer
 from learnloop.cli.field import _LEGACY_FALLBACK_HELP, families_eval, field_eval
 from learnloop.cli.practice_index import practice_index_eval
 from learnloop.cli.runtime import _root
+from learnloop.cli.success_head import success_head_eval
 
 eval_app = typer.Typer(
     invoke_without_command=True,
@@ -68,3 +70,4 @@ def evaluate_existing(
 
 eval_app.command("families")(families_eval)
 eval_app.command("practice-index")(practice_index_eval)
+eval_app.command("success-head")(success_head_eval)

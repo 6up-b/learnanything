@@ -218,7 +218,7 @@ allow_indirect_imports = true
 id = "field-predictors-are-pure"
 name = "Learner predictors cannot access stores, models, graphs or evidence writers"
 type = "forbidden"
-source_modules = ["learnloop.field.predictors", "learnloop.field.memory"]
+source_modules = ["learnloop.field.predictors", "learnloop.field.memory", "learnloop.field.success_head"]
 forbidden_modules = [
     "learnloop.db",
     "learnloop.ai",
