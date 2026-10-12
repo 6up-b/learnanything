@@ -218,3 +218,21 @@ def test_quick_add_ranks_units_by_their_text_not_only_their_labels(tmp_path):
 
 def test_split_record_id_round_trips():
     assert split_record_id("ext_1/s2") == ("ext_1", "s2")
+
+
+def test_with_embeddings_off_the_index_is_not_read_and_nothing_is_embedded(tmp_path):
+    paths, repository = build_retrieval_vault(tmp_path / "vault", embeddings=False)
+    result = search_spans(loaded(paths), repository, "orthogonal vectors", library_scope(repository),
+                          deep=True, rewrite=False)
+    assert result.dense == {"status": "disabled", "reason": "embeddings are disabled (embedding.enabled = false)",
+                            "model_id": None, "expected": 0, "covered": 0}
+    assert result.lists == ["keyword"]
+
+
+def test_a_query_vector_of_another_width_is_noted_not_ranked(tmp_path):
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    backfill(paths)
+    result = search_spans(loaded(paths), repository, "orthogonal vectors", library_scope(repository),
+                          deep=True, rewrite=False, query_vectors={"query": np.ones(7)})
+    assert "meaning" not in result.lists
+    assert any("does not match the index width" in note for note in result.notes)

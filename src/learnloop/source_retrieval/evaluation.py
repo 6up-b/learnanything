@@ -71,7 +71,8 @@ SEED_CHARS = 1200
 LABEL_PASSAGE_CHARS = 900
 EMBED_BATCH = 32
 COMPARISONS = (("keyword", "substring"), ("meaning", "substring"), ("hybrid", "substring"),
-               ("hybrid_rewrite", "substring"), ("hybrid", "keyword"), ("hybrid_rewrite", "hybrid"))
+               ("hybrid_rewrite", "substring"), ("hybrid", "keyword"), ("hybrid", "meaning"),
+               ("hybrid_rewrite", "hybrid"), ("hybrid_rewrite", "meaning"))
 
 
 @dataclass

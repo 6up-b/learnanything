@@ -35,7 +35,7 @@ from learnloop.db.stores.source_block_fts import (
 from learnloop.practice_index.query_vectors import normalize_query
 from learnloop.practice_index.text import reciprocal_rank_fusion
 from learnloop.source_retrieval.corpus import Scope
-from learnloop.source_retrieval.dense import load_dense_index
+from learnloop.source_retrieval.dense import DenseIndex, load_dense_index
 from learnloop.source_retrieval.queries import (
     MAX_QUERY_CHARS,
     Rewrite,
@@ -189,7 +189,11 @@ def search_spans(
                     limit=LIST_DEPTH)])
             if rewritten_keyword:
                 lists["rewrite_keyword"] = rewritten_keyword
-        index = load_dense_index(vault, repository, scope)
+        if query_vectors is None and embedder is None and not vault.config.embedding.enabled:
+            # No query can be embedded, so the stored index is not even read.
+            index = DenseIndex("disabled", "embeddings are disabled (embedding.enabled = false)")
+        else:
+            index = load_dense_index(vault, repository, scope)
         result.dense = index.describe()
         if index.ready:
             texts = {"query": retrieval_text}
@@ -209,8 +213,12 @@ def search_spans(
                 vector = vectors.get(key)
                 if vector is None:
                     continue
-                ranked = [split_record_id(record_id) for record_id, _score in
-                          index.rank(vector, limit=LIST_DEPTH, allow=permit)]
+                try:
+                    ranked = [split_record_id(record_id) for record_id, _score in
+                              index.rank(vector, limit=LIST_DEPTH, allow=permit)]
+                except ValueError:  # a query vector of another width: never ranked
+                    result.notes.append(f"{name}: the query vector does not match the index width")
+                    continue
                 if ranked:
                     lists[name] = ranked
         elif index.reason:

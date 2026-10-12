@@ -101,3 +101,22 @@ def test_the_index_is_derived_with_one_owner_and_its_shadow_tables_are_not_table
     assert {"source_block_fts_data", "source_block_fts_idx", "source_block_fts_docsize",
             "source_block_fts_config", "source_block_fts_content"} == shadows
     assert "source_block_fts" in names and not (names & shadows)
+
+
+def test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_call(tmp_path, monkeypatch):
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+    from learnloop.vault.loader import load_vault
+    from tests.source_retrieval_fakes import build_retrieval_vault
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("replay must not build a model or embedding client")
+
+    paths, repository = build_retrieval_vault(tmp_path / "vault")
+    before = _rows(repository.sqlite_path)
+    with repository.connection() as connection:
+        connection.execute("DELETE FROM source_block_fts")
+        connection.commit()
+    monkeypatch.setattr("learnloop.ai.routing.ready_client_for_task", refuse)
+    result = rebuild_all_derived_state(load_vault(paths.root), repository)
+    fts = next(r for r in result.replayers if r.name == "source_block_fts")
+    assert fts.rows_processed == len(before) and _rows(repository.sqlite_path) == before
