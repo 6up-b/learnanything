@@ -35,13 +35,6 @@ StartScreen {
 }
 #warmup-intro { height: auto; margin-bottom: 1; }
 
-Slider {
-    height: 1;
-}
-Slider:focus {
-    background: $surface;
-}
-
 #minutes-row { height: 1; }
 #minutes-label {
     width: 16;

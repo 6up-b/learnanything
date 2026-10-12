@@ -1,15 +1,27 @@
 // Warm-up / Session start screen — ported from the LearnLoop handoff prototype.
 // Left: a switchable animated ASCII / canvas backdrop (lorenz · waves · fluid ·
-// torus · axes · tesseract) with a hero overlay. Right: the session-readiness
-// form (energy / sleep / minutes), a derived scheduler-mode card, a live queue
-// preview, and the begin action. The readiness controls feed the real
-// get_today_queue / start_session commands.
+// torus · axes · tesseract) with a hero overlay. Right: today's minutes, a
+// derived scheduler-mode card, a live queue preview, and the begin action.
+//
+// Daily-loop DL0 (spec_daily_loop_v1.md §6.6, §8): no readiness form. The
+// minutes are remembered from the last session (25 on a fresh vault), change
+// with one tap, and are the only thing Begin sends; the streak badge says what
+// it counts.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import { useCachedQuery } from "../api/useCachedQuery";
+import { peek } from "../api/queryCache";
 import { TAG } from "../api/queryTags";
-import type { QueueSnapshot, ScheduledItemDto, SessionSnapshot, StreakSummary, VaultSummary } from "../api/dto";
+import type {
+  QueueInput,
+  QueueSnapshot,
+  ScheduledItemDto,
+  SessionSnapshot,
+  StartSummaryDto,
+  StreakSummary,
+  VaultSummary
+} from "../api/dto";
 import { EmptyPlaceholder, KeyBar, SectionHeader } from "../components/ui";
 // Palette-aware colors: every token is a var(--…) string that retints with the
 // selected palette (styles/palettes.css) — replaces the old hardcoded hex map.
@@ -1509,38 +1521,30 @@ function BackdropPanel({
   );
 }
 
-// ── Slider with block-character fill ───────────────────────────────────────
-function MonoSlider({ label, value, onChange, width = 14 }: { label: string; value: number; onChange: (v: number) => void; width?: number }) {
-  const filled = Math.round(value * width);
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 40px", alignItems: "center", gap: 12, padding: "4px 0" }}>
-      <span style={{ fontSize: 12, color: COLOR.textFaint }}>{label}</span>
-      <div style={{ fontFamily: FONT_MONO, fontSize: 14, cursor: "pointer", userSelect: "none" }}>
-        {Array.from({ length: width }).map((_, i) => (
-          <span
-            key={i}
-            onClick={() => onChange((i + 1) / width)}
-            style={{ color: i < filled ? COLOR.amber : COLOR.borderStrong, padding: "0 1px" }}
-          >
-            ▓
-          </span>
-        ))}
-      </div>
-      <span style={{ textAlign: "right", fontSize: 12, color: COLOR.textDim }}>{(value * 10).toFixed(1)}</span>
-    </div>
-  );
+// ── One-tap minute chips (daily-loop §6.6) ─────────────────────────────────
+// Used only when the sidecar's summary is unavailable; it sends the same list.
+const DEFAULT_MINUTE_PRESETS = [10, 15, 25, 40, 60];
+// D1: the minutes on a vault with no session yet.
+const FIRST_RUN_MINUTES = 25;
+
+/** The chips to show: the presets plus the minutes in force, ascending. */
+export function minuteChoicesFor(summary: StartSummaryDto | null, minutes: number | null): number[] {
+  const base = summary?.minuteChoices ?? summary?.minutesPresets ?? DEFAULT_MINUTE_PRESETS;
+  const values = new Set(base);
+  if (minutes != null) values.add(minutes);
+  return [...values].sort((a, b) => a - b);
 }
 
-// ── Available-minutes preset chips ─────────────────────────────────────────
-function MinutesPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const presets = [10, 20, 30, 45, 60];
+function MinutesPicker({ value, choices, onChange }: { value: number; choices: number[]; onChange: (v: number) => void }) {
   return (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {presets.map((m) => {
+    <div role="radiogroup" aria-label="minutes today" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {choices.map((m) => {
         const sel = m === value;
         return (
           <span
             key={m}
+            role="radio"
+            aria-checked={sel}
             onClick={() => onChange(m)}
             style={{
               padding: "4px 12px",
@@ -1560,20 +1564,6 @@ function MinutesPicker({ value, onChange }: { value: number; onChange: (v: numbe
   );
 }
 
-function energyBucket(value: number): "low" | "medium" | "high" {
-  return value < 0.4 ? "low" : value < 0.7 ? "medium" : "high";
-}
-
-function readinessScore(energy: number, sleep: number, minutes: number): number {
-  return 0.5 * energy + 0.3 * sleep + 0.2 * Math.min(1, minutes / 60);
-}
-
-function readinessQueueLimit(energy: number, sleep: number, minutes: number): number {
-  const score = readinessScore(energy, sleep, minutes);
-  const timeSlots = Math.max(1, Math.ceil(minutes / 5));
-  return Math.max(1, Math.min(50, Math.ceil(timeSlots * score)));
-}
-
 function titleCase(value: string): string {
   return value
     .replace(/[-_]+/g, " ")
@@ -1589,28 +1579,33 @@ function vaultAlias(vault: VaultSummary | null): string {
 }
 
 // Compact day-streak indicator for the footer key bar. Amber accent + lowercase
-// mono labels match the rest of the start screen; a filled dot means today is
-// already logged, a hollow dot means the streak is still waiting on today.
+// mono labels match the rest of the start screen; a filled dot means today
+// already counts, a hollow dot means the streak is still waiting on today.
+//
+// Daily-loop §8 (D8): the streak counts local days on which a session was
+// started, so the label names exactly that — beginning a session, not
+// "practice". DL1 says "today's plan" once a plan is what Begin starts.
+export const STREAK_KEEP_LABEL = "begin a session today to keep your streak";
+const STREAK_COUNTS_TITLE = "counts the days on which you began a session";
+
 function StreakBadge({ streak }: { streak: StreakSummary }) {
   const { current, activeToday, longest } = streak;
   if (current <= 0) {
     return (
-      <span style={{ color: COLOR.textFaint, display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span title={STREAK_COUNTS_TITLE} style={{ color: COLOR.textFaint, display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{ color: COLOR.borderStrong }}>○</span>
-        no streak yet · begin today
+        no streak yet · begin a session to start one
       </span>
     );
   }
   return (
-    <span style={{ color: COLOR.textDim, display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span
-        title={activeToday ? "logged today" : "practice today to keep your streak"}
-        style={{ color: activeToday ? COLOR.amber : COLOR.borderStrong }}
-      >
-        {activeToday ? "●" : "○"}
-      </span>
+    <span title={STREAK_COUNTS_TITLE} style={{ color: COLOR.textDim, display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span style={{ color: activeToday ? COLOR.amber : COLOR.borderStrong }}>{activeToday ? "●" : "○"}</span>
       <span>
         <b style={{ color: COLOR.amber }}>{current}</b> day{current === 1 ? "" : "s"} streak
+      </span>
+      <span style={{ color: activeToday ? COLOR.amber : COLOR.textFaint }}>
+        · {activeToday ? "today ✓" : STREAK_KEEP_LABEL}
       </span>
       {longest > current ? <span style={{ color: COLOR.textFaint }}>· best {longest}</span> : null}
     </span>
@@ -1653,12 +1648,13 @@ export function StartScreen({
   onBegin,
   onError,
   vault,
-  streak,
+  streak: snapshotStreak,
   onNewVault
 }: {
   onBegin: (session: SessionSnapshot) => void;
   onError: (message: string) => void;
   vault: VaultSummary | null;
+  /** The streak as of vault load; the start summary's fresher copy wins. */
   streak: StreakSummary;
   onNewVault: () => void;
 }) {
@@ -1666,26 +1662,45 @@ export function StartScreen({
     const stored = localStorage.getItem("learnloop.startBackdrop");
     return BACKDROP_ORDER.includes(stored as BackdropName) ? (stored as BackdropName) : "axes";
   });
-  const [energy, setEnergy] = useState(0.7);
-  const [sleep, setSleep] = useState(0.5);
-  const [minutes, setMinutes] = useState(30);
   const [loading, setLoading] = useState(false);
 
-  const energyValue = energyBucket(energy);
-  const queueLimit = readinessQueueLimit(energy, sleep, minutes);
-  const readinessFactor = readinessScore(energy, sleep, minutes).toFixed(2);
+  // Remembered minutes and the streak, re-read whenever the queue is
+  // invalidated (start_session does), so neither is left over from before.
+  const summaryQuery = useCachedQuery(["get_start_summary"], () => api.getStartSummary(), { tags: [TAG.queue] });
+  const summary: StartSummaryDto | null = summaryQuery.data ?? null;
+  // A summary cached before the last session began names that session's
+  // predecessor's minutes: wait for the re-read rather than preview twice.
+  const summaryState = peek<StartSummaryDto>(["get_start_summary"]);
+  const summaryCurrent = summary !== null && summaryState.invalidatedAt <= summaryState.updatedAt;
+  const streak = summary?.streak ?? snapshotStreak;
+  // A chip tap wins for this visit; otherwise the remembered value. Begin
+  // stores the minutes on the session, which is what the next visit remembers.
+  const [chosenMinutes, setChosenMinutes] = useState<number | null>(null);
+  const rememberedMinutes = summaryCurrent
+    ? summary.rememberedMinutes
+    : summaryQuery.error
+      ? FIRST_RUN_MINUTES
+      : null;
+  const minutes = chosenMinutes ?? rememberedMinutes;
+  const choices = minuteChoicesFor(summaryCurrent ? summary : null, minutes);
 
-  // The queue preview is keyed by its scheduler inputs, so dragging a slider
-  // back to a value already previewed repaints instantly, and returning to
-  // Start after a session shows the last preview while it revalidates. The
-  // store also dedupes a request that is still in flight for the same inputs.
+  // The preview asks for Today's queue with the same scheduler inputs Begin
+  // will start: these minutes, no energy, and no readiness limit (Today never
+  // applied one). Keyed by its inputs, so a chip already previewed repaints
+  // instantly; the last preview stays on screen, dimmed, while a new one loads.
+  const previewInput: QueueInput | null = minutes == null ? null : { availableMinutes: minutes };
   const previewQuery = useCachedQuery(
-    ["get_today_queue", { energy: energyValue, availableMinutes: minutes, limit: queueLimit }],
-    () => api.getTodayQueue({ energy: energyValue, availableMinutes: minutes, limit: queueLimit }),
+    previewInput ? ["get_today_queue", previewInput] : null,
+    () => api.getTodayQueue(previewInput as QueueInput),
     { tags: [TAG.queue] }
   );
-  const preview: QueueSnapshot | null = previewQuery.data ?? null;
-  const previewLoading = previewQuery.loading;
+  const [lastPreview, setLastPreview] = useState<QueueSnapshot | null>(null);
+  useEffect(() => {
+    if (previewQuery.data) setLastPreview(previewQuery.data);
+  }, [previewQuery.data]);
+  const preview: QueueSnapshot | null = previewQuery.data ?? lastPreview;
+  const previewIsPrevious = previewQuery.data === undefined && lastPreview !== null;
+  const previewLoading = minutes == null || previewQuery.loading;
 
   useEffect(() => {
     localStorage.setItem("learnloop.startBackdrop", backdrop);
@@ -1696,12 +1711,28 @@ export function StartScreen({
   }, [previewQuery.error, onError]);
 
   useEffect(() => {
+    if (summaryQuery.error) onError(summaryQuery.error.message);
+  }, [summaryQuery.error, onError]);
+
+  function stepMinutes(delta: number) {
+    if (minutes == null) return;
+    const index = choices.indexOf(minutes);
+    const next = choices[Math.max(0, Math.min(choices.length - 1, (index < 0 ? 0 : index) + delta))];
+    if (next !== undefined) setChosenMinutes(next);
+  }
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase();
       if (tag === "input" || tag === "textarea") return;
+      // A key an overlay already handled (the inspector's ←/→) is not ours.
+      if (event.defaultPrevented) return;
       if (event.key === "Enter") {
         event.preventDefault();
         void begin();
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        stepMinutes(event.key === "ArrowLeft" ? -1 : 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1709,10 +1740,11 @@ export function StartScreen({
   });
 
   async function begin() {
-    if (loading) return;
+    if (loading || minutes == null) return;
     setLoading(true);
     try {
-      const session = await api.startSession({ energy: energyValue, sleepQuality: sleep, availableMinutes: minutes });
+      // Minutes only (§6.6): energy and sleep are no longer asked for or sent.
+      const session = await api.startSession({ availableMinutes: minutes });
       onBegin(session);
     } catch (error) {
       onError((error as Error).message);
@@ -1736,9 +1768,10 @@ export function StartScreen({
 
   // Mirror the scheduler's ACTUAL rule (scheduler.py): probe_eig is suppressed
   // when available_minutes <= scheduler.short_session_minutes (default 20).
-  // Energy feeds the readiness factor, not probe suppression.
   const recommendedBudget =
-    minutes <= 20
+    minutes == null
+      ? "—"
+      : minutes <= 20
       ? "short_session — probe_eig suppressed (≤20 min)"
       : minutes >= 45
       ? "full_loop — probe_eig active"
@@ -1757,6 +1790,10 @@ export function StartScreen({
   if (previewLoading && !preview) {
     return <EmptyPlaceholder title="Loading today's queue" />;
   }
+  const minutesNote =
+    summary?.minutesSource === "last_session" && chosenMinutes == null
+      ? "minutes from your last session · one tap changes them"
+      : "pick today's minutes · they are remembered next time";
 
   return (
     <div className="screen">
@@ -1772,39 +1809,31 @@ export function StartScreen({
           goalMeta={goalMeta}
         />
 
-        {/* RIGHT — readiness form + queue preview */}
+        {/* RIGHT — today's minutes + queue preview */}
         <div style={{ padding: "24px 30px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 18, color: COLOR.text, fontWeight: 600 }}>ready to practice?</div>
               <span style={{ fontStyle: "italic", color: COLOR.textItalic, fontSize: 12 }}>
-                tell the scheduler about today; it adjusts the queue, not your goals
+                {minutesNote}
               </span>
             </div>
             <NewVaultAffordance fresh={freshInstall} onClick={onNewVault} />
           </div>
 
-          <SectionHeader>Readiness</SectionHeader>
-          <div style={{ padding: "4px 0" }}>
-            <MonoSlider label="energy" value={energy} onChange={setEnergy} />
-            <MonoSlider label="sleep quality" value={sleep} onChange={setSleep} />
-          </div>
-
+          <SectionHeader>Time today</SectionHeader>
           <div style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 12, alignItems: "center", marginTop: 4 }}>
             <span style={{ fontSize: 12, color: COLOR.textFaint }}>available time</span>
-            <MinutesPicker value={minutes} onChange={setMinutes} />
+            {minutes != null ? <MinutesPicker value={minutes} choices={choices} onChange={setChosenMinutes} /> : null}
           </div>
 
           <div style={{ marginTop: 6, padding: "10px 12px", borderLeft: `3px solid ${COLOR.cyan}`, background: "var(--wash-cyan)", fontSize: 12 }}>
             <span style={{ color: COLOR.cyan, fontWeight: 600 }}>scheduler mode</span>{"  "}
-            <span style={{ color: COLOR.textDim }}>{recommendedBudget}</span>{"  "}
-            <span style={{ color: COLOR.textFaint }}>·</span>{"  "}
-            <span style={{ color: COLOR.textFaint }}>readiness_factor</span>{" "}
-            <span style={{ color: COLOR.amber }}>{readinessFactor}</span>
+            <span style={{ color: COLOR.textDim }}>{recommendedBudget}</span>
           </div>
 
           <SectionHeader>Today's queue · preview</SectionHeader>
-          <div style={{ border: `1px solid ${COLOR.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+          <div style={{ border: `1px solid ${COLOR.border}`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, opacity: previewIsPrevious ? 0.45 : 1 }}>
             {queueSummary.map((q, i) => (
               <div
                 key={q.label}
@@ -1823,7 +1852,7 @@ export function StartScreen({
           <div style={{ marginTop: 4, padding: "10px 12px", border: `1px dashed ${COLOR.border}`, fontSize: 12, color: COLOR.textDim }}>
             <span style={{ color: COLOR.amber }}>queue</span>
             {"  ·  "}
-            {preview ? `${preview.totalItems} item${preview.totalItems === 1 ? "" : "s"} scheduled - ${queueLimit} readiness slot${queueLimit === 1 ? "" : "s"}` : "loading scheduled items…"}
+            {preview ? `${preview.totalItems} item${preview.totalItems === 1 ? "" : "s"} in today's queue` : "loading scheduled items…"}
           </div>
 
           <div style={{ flex: 1 }} />
@@ -1847,7 +1876,7 @@ export function StartScreen({
                 opacity: loading ? 0.7 : 1
               }}
             >
-              {loading ? "starting…" : "begin session"}
+              {loading ? "starting…" : `begin session · ${minutes ?? "—"} min`}
               <span style={{ color: COLOR.amber }}>↵</span>
             </span>
           </div>
@@ -1857,7 +1886,7 @@ export function StartScreen({
       <KeyBar
         keys={[
           { key: "↵", label: "begin session" },
-          { key: "←/→", label: "adjust" },
+          { key: "←/→", label: "minutes" },
           { key: "alt+1..8", label: "tabs" },
           { key: "^p", label: "palette" }
         ]}

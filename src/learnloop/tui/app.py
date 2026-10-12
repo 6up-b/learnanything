@@ -21,7 +21,11 @@ class ErrorScreen(Screen):
 
 
 class LearnLoopApp(App):
-    CSS_PATH = "learnloop.tcss"
+    # Textual loads a screen's own CSS_PATH only when the screen is pushed, never
+    # for the default screen, so Start's sheet is loaded here. Without it the
+    # minute chips (Start's only control since daily-loop DL0) were laid out
+    # off-screen. Its selectors are Start's own ids and widget types.
+    CSS_PATH = ["learnloop.tcss", "screens/start.tcss"]
 
     BINDINGS = [
         ("q", "quit", "Quit"),

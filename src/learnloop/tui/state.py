@@ -26,6 +26,9 @@ class TuiState:
     queue: list[ScheduledItem] = field(default_factory=list)
     state_sync: StateSyncResult | None = None
     startup_maintenance: StartupMaintenanceResult | None = None
+    # Minutes chosen on Start (daily-loop DL0). Display only: queue refreshes
+    # after the first build use the default session, as before.
+    available_minutes: int | None = None
     # One owner for every model call this TUI session makes.
     receipt_owner_id: str = field(default_factory=lambda: f"session:{new_ulid()}")
 

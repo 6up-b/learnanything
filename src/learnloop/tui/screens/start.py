@@ -12,8 +12,9 @@ from textual.screen import Screen
 from textual.widgets import Button, Static
 
 from learnloop.scheduling.scheduler import SchedulerSession
+from learnloop.scheduling.session_minutes import minute_choices, remembered_session_minutes
 from learnloop.tui.state import TuiState
-from learnloop.tui.widgets import KeyBar, TextStatic, block_bar
+from learnloop.tui.widgets import KeyBar, TextStatic
 
 # Density ramp (dim → bright). ASCII only; the warm tint comes from theme
 # tokens, bucketed by luminance (no literal hex — see theme.py).
@@ -108,80 +109,53 @@ class Torus(Static):
         return Content.assemble(*spans)
 
 
-class Slider(Static):
-    """Focusable block-fill slider in [0, 1]; ←/→ adjust by 0.1, click to set."""
-
-    can_focus = True
-    BINDINGS = [("left", "step(-0.1)", "Lower"), ("right", "step(0.1)", "Raise")]
-
-    _LABEL_W = 14
-    _BAR_W = 14
-
-    value: reactive[float] = reactive(0.5)
-
-    class Changed(Message):
-        def __init__(self, slider: "Slider") -> None:
-            self.slider = slider
-            super().__init__()
-
-    def __init__(self, label: str, value: float = 0.5, **kwargs) -> None:
-        super().__init__("", **kwargs)
-        self._label = label
-        self.set_reactive(Slider.value, value)
-
-    def on_mount(self) -> None:
-        self.update(self._render())
-
-    def action_step(self, delta: float) -> None:
-        self.value = max(0.0, min(1.0, round(self.value + delta, 2)))
-
-    def on_click(self, event) -> None:
-        self.focus()
-        col = event.x - self._LABEL_W
-        value = col / (self._BAR_W - 1) if self._BAR_W > 1 else 0.0
-        self.value = max(0.0, min(1.0, round(value, 1)))
-
-    def watch_value(self, _value: float) -> None:
-        if self.is_mounted:
-            self.update(self._render())
-            self.post_message(self.Changed(self))
-
-    def _render(self) -> Content:
-        return Content.assemble(
-            (f"{self._label:<{self._LABEL_W}}", "$text-disabled"),
-            block_bar(self.value, self._BAR_W, "$primary"),
-            (f"  {self.value * 10:.1f}", "$text-muted"),
-        )
-
-
 class MinutesPicker(Static):
-    """Focusable preset chips for available session minutes; ←/→ cycle."""
+    """Focusable one-tap minute chips; ←/→ cycle (daily-loop §6.6).
+
+    The chips are the presets plus the remembered value when it isn't one, so
+    the minutes Begin uses are always the selected, visible chip.
+    """
 
     can_focus = True
     BINDINGS = [("left", "step(-1)", "Less"), ("right", "step(1)", "More")]
 
-    _PRESETS = (10, 20, 30, 45, 60)
-    index: reactive[int] = reactive(2)
+    index: reactive[int] = reactive(0)
+    _SEPARATOR = " "
 
     class Changed(Message):
         def __init__(self, minutes: int) -> None:
             self.minutes = minutes
             super().__init__()
 
-    def __init__(self, minutes: int = 30, **kwargs) -> None:
+    def __init__(self, minutes: int, **kwargs) -> None:
         super().__init__("", **kwargs)
-        start = self._PRESETS.index(minutes) if minutes in self._PRESETS else 2
-        self.set_reactive(MinutesPicker.index, start)
+        self._choices = minute_choices(minutes)
+        self.set_reactive(MinutesPicker.index, self._choices.index(minutes))
 
     def on_mount(self) -> None:
         self.update(self._render())
 
     @property
+    def choices(self) -> tuple[int, ...]:
+        return self._choices
+
+    @property
     def minutes(self) -> int:
-        return self._PRESETS[self.index]
+        return self._choices[self.index]
 
     def action_step(self, delta: int) -> None:
-        self.index = max(0, min(len(self._PRESETS) - 1, self.index + delta))
+        self.index = max(0, min(len(self._choices) - 1, self.index + delta))
+
+    def on_click(self, event) -> None:
+        # One tap: map the click column onto the chip under it.
+        self.focus()
+        column = 0
+        for i, preset in enumerate(self._choices):
+            width = len(f" {preset}m ")
+            if column <= event.x < column + width:
+                self.index = i
+                return
+            column += width + len(self._SEPARATOR)
 
     def watch_index(self, _index: int) -> None:
         if self.is_mounted:
@@ -190,9 +164,9 @@ class MinutesPicker(Static):
 
     def _render(self) -> Content:
         parts: list = []
-        for i, preset in enumerate(self._PRESETS):
+        for i, preset in enumerate(self._choices):
             if i:
-                parts.append("  ")
+                parts.append(self._SEPARATOR)
             label = f" {preset}m "
             if i == self.index:
                 parts.append((label, "$text-primary on $primary-muted"))
@@ -202,7 +176,11 @@ class MinutesPicker(Static):
 
 
 class StartScreen(Screen):
-    """Session warm-up: readiness inputs + queue preview, then begin."""
+    """Session warm-up: minutes only, a queue preview, then begin.
+
+    Daily-loop DL0 (§6.6): no readiness form. The minutes default to the last
+    session's (25 on a fresh vault) and change with one tap.
+    """
 
     CSS_PATH = "start.tcss"
 
@@ -215,6 +193,7 @@ class StartScreen(Screen):
     def __init__(self, state: TuiState):
         super().__init__()
         self.state = state
+        self.remembered_minutes = remembered_session_minutes(state.repository)
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="warmup-body"):
@@ -224,12 +203,10 @@ class StartScreen(Screen):
                 yield TextStatic(self._scope_text(), id="warmup-scope")
             with VerticalScroll(id="warmup-right"):
                 yield TextStatic(self._intro_text(), id="warmup-intro")
-                yield TextStatic("Readiness", classes="section-header")
-                yield Slider("energy", 0.7, id="energy")
-                yield Slider("sleep quality", 0.5, id="sleep")
+                yield TextStatic("Time today", classes="section-header")
                 with Horizontal(id="minutes-row"):
                     yield TextStatic("available time", id="minutes-label")
-                    yield MinutesPicker(30, id="minutes")
+                    yield MinutesPicker(self.remembered_minutes.minutes, id="minutes")
                 yield TextStatic(self._mode_text(), id="scheduler-mode")
                 yield TextStatic("Today's queue · preview", classes="section-header")
                 yield TextStatic(self._queue_preview(), id="queue-preview")
@@ -241,45 +218,37 @@ class StartScreen(Screen):
         yield KeyBar(
             keys=[
                 ("↵", "Begin session"),
-                ("←/→", "Adjust"),
+                ("←/→", "Minutes"),
                 ("s", "Skip warm-up"),
             ],
         )
 
     def on_mount(self) -> None:
-        self.query_one("#energy", Slider).focus()
+        self.query_one("#minutes", MinutesPicker).focus()
 
-    # ── session readiness ──────────────────────────────────────────────────
-    def on_slider_changed(self, _event: Slider.Changed) -> None:
-        self._refresh_mode()
-
+    # ── session minutes ────────────────────────────────────────────────────
     def on_minutes_picker_changed(self, _event: MinutesPicker.Changed) -> None:
         self._refresh_mode()
 
     def _refresh_mode(self) -> None:
         self.query_one("#scheduler-mode", TextStatic).update(self._mode_text())
 
-    def _energy(self) -> float:
-        return self.query_one("#energy", Slider).value if self.is_mounted else 0.7
-
-    def _sleep(self) -> float:
-        return self.query_one("#sleep", Slider).value if self.is_mounted else 0.5
-
     def _minutes(self) -> int:
-        return self.query_one("#minutes", MinutesPicker).minutes if self.is_mounted else 30
-
-    def _energy_bucket(self) -> str:
-        energy = self._energy()
-        return "low" if energy < 0.4 else "high" if energy >= 0.75 else "medium"
+        if self.is_mounted:
+            return self.query_one("#minutes", MinutesPicker).minutes
+        return self.remembered_minutes.minutes
 
     def _session(self) -> SchedulerSession:
-        return SchedulerSession(available_minutes=self._minutes(), energy=self._energy_bucket())
+        # Minutes only: no energy is asked for or sent (the scheduler logs None).
+        return SchedulerSession(available_minutes=self._minutes())
 
     # ── navigation ───────────────────────────────────────────────────────────
     async def begin_session(self):
         from learnloop.tui.screens.today import TodayScreen
 
-        self.state.refresh(session=self._session())
+        session = self._session()
+        self.state.available_minutes = session.available_minutes
+        self.state.refresh(session=session)
         today = TodayScreen(self.state)
         await self.app.push_screen(today)
         return today
@@ -310,26 +279,29 @@ class StartScreen(Screen):
         )
 
     def _intro_text(self) -> Content:
+        if self.remembered_minutes.source == "last_session":
+            note = "minutes from your last session; one tap changes them"
+        else:
+            note = "pick today's minutes; they are remembered next time"
         return Content.assemble(
             ("ready to practice?\n", "$foreground bold"),
-            ("tell the scheduler about today; it adjusts the queue, not your goals", "$text-muted italic"),
+            (note, "$text-muted italic"),
         )
 
     def _mode_text(self) -> Content:
-        energy = self._energy()
+        # Mirrors the scheduler's actual rule: probe_eig is suppressed when
+        # available_minutes <= scheduler.short_session_minutes.
         minutes = self._minutes()
-        if energy < 0.4:
-            mode = "short_session — probe_eig suppressed"
+        short_minutes = self.state.vault.config.scheduler.short_session_minutes
+        if minutes <= short_minutes:
+            mode = f"short_session — probe_eig suppressed (≤{short_minutes} min)"
         elif minutes >= 45:
             mode = "full_loop — probe_eig active"
         else:
-            mode = "standard_loop"
-        factor = 0.5 * energy + 0.3 * self._sleep() + 0.2 * min(1.0, minutes / 60)
+            mode = "standard_loop — probe_eig active"
         return Content.assemble(
             ("scheduler mode  ", "$accent bold"),
             (mode, "$text-muted"),
-            ("   readiness_factor ", "$text-disabled"),
-            (f"{factor:.2f}", "$primary"),
         )
 
     def _queue_preview(self) -> Content:
