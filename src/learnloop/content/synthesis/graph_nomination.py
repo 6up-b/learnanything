@@ -425,7 +425,10 @@ class GraphNominator:
             self._notes.append(reason)
 
     def summary(self) -> dict[str, Any]:
-        """Honest label for manifests and reports: what was and was not nominated."""
+        """Honest label for run records and reports: what was and was not nominated.
+
+        Execution detail (counts, charges, notes): it goes to coverage records,
+        never into manifest identity (:meth:`identity`)."""
 
         statuses = dict(sorted(self._index_status.items()))
         return {
