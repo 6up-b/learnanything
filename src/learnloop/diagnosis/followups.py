@@ -800,6 +800,24 @@ def _run_causal_orchestrator_hooks(
         )
 
 
+def enqueue_post_attempt_diagnosis(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    attempt_id: str,
+    clock: Clock | None = None,
+) -> str | None:
+    """Slice 1 §11: the last sync post-attempt step queues the diagnosis.
+
+    The post-attempt pipeline's seam into the diagnosis domain (the job
+    itself lives in ``diagnosis.split.jobs``); returns the new job id.
+    """
+
+    from learnloop.diagnosis.split.jobs import enqueue_diagnosis
+
+    return enqueue_diagnosis(vault, repository, attempt_id=attempt_id, clock=clock)
+
+
 def run_post_diagnosis_hooks(
     vault: LoadedVault,
     repository: Repository,

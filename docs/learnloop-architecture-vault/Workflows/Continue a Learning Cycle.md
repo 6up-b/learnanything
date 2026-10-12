@@ -66,6 +66,7 @@ Do not change the answer and immediately submit a second time.
 |---|---|
 | A row in `attempt_submission_receipts` | The stored response is returned unchanged (`status: "recovered"` from recovery). |
 | An attempt with a pending `attempt_completion_work` row | The saved result is completed: no regrade, only misconception normalization may call the grading provider, and follow-ups are inserted only while the attempt's session is still open. The response and its receipt are then written. |
+| A blind-graded attempt (`mvp-0.10`) whose diagnosis is still queued or leased | The grade is final. The `diagnose` job sits in `post_attempt_jobs`; the sidecar worker resumes it on the next start (an expired lease is reclaimed), and `learnloop diagnose drain` runs it from the CLI. The feedback view shows "analyzing your pattern" until it lands. |
 | An attempt with no completion work, or pending work that does not record its probe episode | Fails closed with the non-retryable `submission_committed` error, carrying the attempt id; the attempt is never graded or applied again. |
 | No attempt | Recovery reports `status: "pending"`, and the original request can be applied once. |
 

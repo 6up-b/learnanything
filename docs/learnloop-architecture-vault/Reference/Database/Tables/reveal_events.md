@@ -3,13 +3,13 @@ title: "reveal_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reveal_events"
   - "table reveal_events"
-schema_head: 166
+schema_head: 167
 table_name: "reveal_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -24,6 +24,7 @@ source_paths:
   - "src/learnloop/attempts/reveal_ledger.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/remediation.py"
+  - "src/learnloop/diagnosis/split/card.py"
   - "src/learnloop/tutor/tutor_qa.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
@@ -96,6 +97,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/card.py`
 
 ### Direct SQL writers
 
@@ -115,6 +117,7 @@ Database triggers:
 ## Tests that define behavior
 
 - `tests/test_coldness_receipt.py`
+- `tests/test_diagnosis_card.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_remediation_cold_retry.py`

@@ -3,13 +3,13 @@ title: "agent_runs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite agent_runs"
   - "table agent_runs"
-schema_head: 166
+schema_head: 167
 table_name: "agent_runs"
 table_role: "receipt"
 functionality_status: "active"
@@ -105,6 +105,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/reports.py`
 
 ### Direct SQL writers
 
@@ -130,8 +131,8 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/diagnosis_adjudication.py`
 - `src/learnloop/diagnosis/missing_vocabulary.py`
 - `src/learnloop/diagnosis/scoreboard.py`
+- `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/goals/certification_cold_probe.py`
-- `src/learnloop/tutor/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -141,6 +142,7 @@ Indexes and uniqueness:
 - `tests/test_agent_run_tokens.py`
 - `tests/test_attempt_completion.py`
 - `tests/test_deferred_regrade.py`
+- `tests/test_diagnosis_pipeline.py`
 - `tests/test_ingest_m3.py`
 - `tests/test_migrations.py`
 - `tests/test_proposal_dependencies.py`
@@ -157,7 +159,6 @@ Indexes and uniqueness:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_graph_edit_proposals.py`
 - `tests/test_missing_vocabulary_notes.py`
-- `tests/test_patch_applier.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

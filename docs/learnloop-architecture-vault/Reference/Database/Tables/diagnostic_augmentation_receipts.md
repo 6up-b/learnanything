@@ -3,13 +3,13 @@ title: "diagnostic_augmentation_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite diagnostic_augmentation_receipts"
   - "table diagnostic_augmentation_receipts"
-schema_head: 166
+schema_head: 167
 table_name: "diagnostic_augmentation_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/diagnostic_augmentation.py"
 tags:
   - "learnloop/database/table"
@@ -49,7 +50,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/144_diagnostic_augmentation.sql`.
-- **Schema touched by:** `144_diagnostic_augmentation.sql`.
+- **Schema touched by:** `144_diagnostic_augmentation.sql`, `167_blind_grading_diagnosis_split.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -72,6 +73,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `hypotheses_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `revert_criteria_json` | `TEXT` | yes | — | — | JSON-encoded structured payload |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
+| `grader_mode` | `TEXT` | no | — | — | Stored value |
 
 ## Relationships and access paths
 
@@ -106,6 +108,7 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/diagnosis/diagnostic_augmentation.py`
 
@@ -116,6 +119,7 @@ None found by exact static reference scan.
 
 - `tests/test_agent_run_tokens.py`
 - `tests/test_coldness_receipt.py`
+- `tests/test_diagnosis_pipeline.py`
 - `tests/test_diagnostic_augmentation.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
@@ -150,7 +154,8 @@ CREATE TABLE diagnostic_augmentation_receipts (
   hypotheses_json TEXT NOT NULL,
   revert_criteria_json TEXT NOT NULL,
   created_at TEXT NOT NULL
-);
+, grader_mode TEXT
+  CHECK (grader_mode IS NULL OR grader_mode IN ('joint', 'blind')));
 ```
 
 ## Related notes

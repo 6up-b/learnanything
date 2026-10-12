@@ -3,8 +3,8 @@ title: "Config - storage"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml storage"
@@ -23,6 +23,7 @@ source_paths:
   - "tests/conftest.py"
   - "tests/diagnosis_split_helpers.py"
   - "tests/helpers.py"
+  - "tests/split_live_helpers.py"
   - "tests/test_activity_backfill.py"
   - "tests/test_activity_substrate.py"
   - "tests/test_agent_run_tokens.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_anti_double_count.py"
   - "tests/test_apply_write_ahead.py"
   - "tests/test_assessment_contracts.py"
-  - "tests/test_assessment_enforcement.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/storage"
@@ -64,6 +64,7 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/conftest.py`
 - `tests/diagnosis_split_helpers.py`
 - `tests/helpers.py`
+- `tests/split_live_helpers.py`
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_agent_run_tokens.py`
@@ -72,7 +73,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_anti_double_count.py`
 - `tests/test_apply_write_ahead.py`
 - `tests/test_assessment_contracts.py`
-- `tests/test_assessment_enforcement.py`
 
 ## Extension and modification guidance
 

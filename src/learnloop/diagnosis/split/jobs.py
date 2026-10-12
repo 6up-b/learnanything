@@ -167,6 +167,8 @@ def diagnosis_status(repository: Repository, attempt_id: str) -> dict[str, Any]:
     open_jobs = [job for job in jobs if job["state"] in ("queued", "leased")]
     if open_jobs:
         return {"status": PENDING, "diagnosis_id": None, "job_state": open_jobs[-1]["state"]}
+    if latest is not None and latest["status"] == "skipped" and latest.get("error") == "not_needed":
+        return {"status": NOT_NEEDED, "diagnosis_id": None, "job_state": jobs[-1]["state"] if jobs else None}
     if latest is not None and latest["status"] == "completed":
         return {"status": DONE, "diagnosis_id": latest["id"], "job_state": jobs[-1]["state"] if jobs else None}
     if jobs or latest is not None:
@@ -264,16 +266,26 @@ def process_next_job(
 
 
 def _existing_diagnosis(repository: Repository, job: Mapping[str, Any]) -> dict[str, Any] | None:
-    """A diagnosis this job already wrote before a crash (resume, no new call)."""
+    """A COMPLETED diagnosis this job already wrote before a crash.
+
+    That is the resume case (the row committed, the post-diagnosis steps or
+    the settle did not): no second model call, the idempotent steps rerun. A
+    failed or skipped row is never reused, so an owner retry runs fresh.
+    """
 
     payload = job.get("payload") or {}
     if payload.get("diagnosis_id"):
-        return repository.attempt_diagnosis(str(payload["diagnosis_id"]))
+        row = repository.attempt_diagnosis(str(payload["diagnosis_id"]))
+        return row if row is not None and row.get("status") == "completed" else None
     for row in reversed(repository.attempt_diagnoses_for_attempt(str(job["attempt_id"]))):
-        if str(row.get("created_at") or "") < str(job.get("created_at") or ""):
+        # Only rows minted after this job (ULIDs order creation; the timestamp
+        # alone ties within a second).
+        if str(row.get("created_at") or "") < str(job.get("created_at") or "") or str(row["id"]) < str(job["id"]):
             break
-        if row.get("mode") == payload.get("mode", "live") and row.get("blind_grade_record_id") == payload.get(
-            "blind_grade_record_id"
+        if (
+            row.get("status") == "completed"
+            and row.get("mode") == payload.get("mode", "live")
+            and row.get("blind_grade_record_id") == payload.get("blind_grade_record_id")
         ):
             return row
     return None
@@ -394,6 +406,21 @@ def run_diagnose_job(
                 _release(repository, job, not_before=_later(SPLIT_OFF_RECHECK_SECONDS, clock),
                          error="split_disabled", refund=True, clock=clock)
                 outcome.state, outcome.error = "released", "split_disabled"
+                return outcome
+            record_row = repository.latest_blind_grade_record(attempt_id) if mode == "live" else None
+            if record_row is not None and not needs_diagnosis(record_row.get("record") or {}):
+                # A regrade left nothing to explain (§5.1): record that, so the
+                # previous explanation stops being shown for the new grade.
+                diagnosis_id = _persist(repository, job, diagnosis_id=new_ulid(), values={
+                    "attempt_id": attempt_id, "diagnosis_prompt_version": DIAGNOSIS_PROMPT_VERSION,
+                    "mode": mode, "history_mode": settings_from_config(vault).history_mode,
+                    "status": "skipped", "proposal": None, "causal_view": None,
+                    "validation_report": {"skip_reason": "not_needed"}, "receipt": None,
+                    "blind_grade_record_id": str(record_row["id"]), "error": "not_needed",
+                    "supersedes_id": _superseded(repository, attempt_id, mode, payload),
+                }, clock=clock)
+                _finish(repository, job, "skipped", error="not_needed", clock=clock)
+                outcome.state, outcome.error, outcome.diagnosis_id = "skipped", "not_needed", diagnosis_id
                 return outcome
             limit = int(getattr(config, "max_calls_per_day", 500))
             if repository.diagnosis_calls_since(_day_start(clock)) >= limit:

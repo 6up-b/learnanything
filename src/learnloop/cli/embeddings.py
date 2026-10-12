@@ -63,7 +63,7 @@ def embeddings_backfill(
     Reports contain only counts, limits and model metadata, never vault text.
     """
     # Imported here: the vector store needs numpy, which no other command loads.
-    from learnloop.ops.embedding_backfill import backfill_embeddings
+    from learnloop.diagnosis.split.embeddings import backfill_with_db_recipes
 
     try:
         if not (vault / "learnloop.toml").is_file():
@@ -79,7 +79,7 @@ def embeddings_backfill(
                 f"Vault has {len(loaded.issues)} validation issues; run doctor before embedding."
             )
         with _cancellation() as stop:
-            report = backfill_embeddings(
+            report = backfill_with_db_recipes(
                 loaded, caps=caps, dry_run=dry_run,
                 recipes=tuple(record_kind) if record_kind else None,
                 batch_size=batch_size, price_per_million=price_per_million,

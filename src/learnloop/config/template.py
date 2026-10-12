@@ -750,6 +750,7 @@ transcription = ""
 video_generation = ""
 embedding = "openrouter_embedding"
 # project = ""  # project understanding: probe authoring + closed-book check (empty = the grading route)
+# diagnosis = ""  # Slice 1 history-aware diagnoser (empty = the grading route)
 
 # Embeddings are opt-in: both switches stay off until you enable them.
 # Remote embeddings send learner-derived text to OpenRouter and its upstream
@@ -760,6 +761,12 @@ enabled = false
 backfill_enabled = false
 model = "qwen/qwen3-embedding-8b"
 dimensions = 4096
+
+# Slice 1 (algorithm_version mvp-0.10, via `learnloop upgrade --to mvp-0.10`):
+# a learner-blind grader measures each answer and an asynchronous diagnoser
+# explains it across your history. Defaults live under [diagnosis]; see
+# `learnloop config effective`. split_enabled = false is the kill switch, and
+# history_mode (exact | full | snapshot | hybrid) defaults to full.
 
 [ingest]
 [ingest.pdf]

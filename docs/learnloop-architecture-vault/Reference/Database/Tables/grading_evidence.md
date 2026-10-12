@@ -3,13 +3,13 @@ title: "grading_evidence"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite grading_evidence"
   - "table grading_evidence"
-schema_head: 166
+schema_head: 167
 table_name: "grading_evidence"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/split/history.py`
+- `src/learnloop/diagnosis/split/reports.py`
 
 ### Direct SQL writers
 
@@ -141,13 +142,13 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
+- `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
 - `src/learnloop/learner/learner_review_feed.py`
 - `src/learnloop/tui/screens/feedback.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/inspector.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
-- `src/learnloop_sidecar/handlers/teach_back.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

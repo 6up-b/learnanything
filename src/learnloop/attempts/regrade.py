@@ -4,7 +4,6 @@ import logging
 
 from dataclasses import dataclass, replace
 
-from learnloop.diagnosis.split.jobs import enqueue_diagnosis
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport
 from learnloop.clock import Clock, utc_now_iso
@@ -420,8 +419,9 @@ def regrade_attempt(
             clock=clock,
         )
         # The old diagnosis explained the old grade; it stays a valid ledger
-        # row, and a re-diagnosis of the new grade supersedes it.
-        enqueue_diagnosis(vault, repository, attempt_id=attempt["id"], rediagnose=True, clock=clock)
+        # row. The superseding record re-queues the attempt's diagnosis (the
+        # store does it in the same transaction), and the re-diagnosis of the
+        # new grade supersedes the old one.
     finish_agent_run(repository, agent_run_id, client, clock=clock)
     return validated
 

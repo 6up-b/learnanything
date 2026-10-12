@@ -3,13 +3,13 @@ title: "causal_attribution_reports"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_attribution_reports"
   - "table causal_attribution_reports"
-schema_head: 166
+schema_head: 167
 table_name: "causal_attribution_reports"
 table_role: "receipt"
 functionality_status: "active"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/followups.py`
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_targeting.py`
+- `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/tutor/tutor_qa.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 
@@ -121,6 +122,8 @@ Indexes and uniqueness:
 - `tests/test_causal_factor_deferral.py`
 - `tests/test_causal_orchestrator.py`
 - `tests/test_common_repair_delivery.py`
+- `tests/test_diagnosis_async_router.py`
+- `tests/test_diagnosis_card.py`
 - `tests/test_dialogue_causal_join.py`
 - `tests/test_durable_promotion_arms.py`
 - `tests/test_probe_block_end.py`

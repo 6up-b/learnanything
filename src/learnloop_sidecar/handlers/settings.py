@@ -62,6 +62,7 @@ ANIMATION_TIMEOUT_BOUNDS = (60, 3600)
 
 _ROUTING_TASKS = (
     "grading",
+    "diagnosis",
     "canonical_ingest",
     "canonical_ingest_retry",
     "authoring",

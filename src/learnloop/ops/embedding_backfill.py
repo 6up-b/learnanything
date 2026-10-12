@@ -1,7 +1,7 @@
 """Explicit, bounded embedding work. Never called by sync or rebuild."""
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import closing, contextmanager
 from dataclasses import asdict
 import json
@@ -17,7 +17,6 @@ from learnloop.ai.spend import SpendBudget, SpendCaps, SpendEstimate, SpendLimit
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
-from learnloop.diagnosis.split.embeddings import db_records, is_db_selector
 from learnloop.ids import new_ulid
 from learnloop.vault.embedding_recipes import EmbeddingRecord, select_recipes
 from learnloop.vault.models import LoadedVault
@@ -114,6 +113,8 @@ def backfill_embeddings(
     price_per_million: float | None = None,
     cancelled: Callable[[], bool] | None = None,
     client_factory: Callable[[], EmbeddingClient] | None = None,
+    extra_records: Sequence[EmbeddingRecord] = (),
+    extra_recipes: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Plan without data changes, or checkpoint successful batches before continuing.
 
@@ -135,19 +136,14 @@ def backfill_embeddings(
     model_id = config.model
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
     # Slice 1 S1.4a: hypothesis/misconception (and, for hybrid, attempt
-    # divergence) records live in the database, not the vault files. They are
-    # embedded only when named, so the default backfill is unchanged.
-    db_selectors = [value for value in (recipes or ()) if is_db_selector(value)]
-    vault_selectors = [value for value in (recipes or ()) if not is_db_selector(value)]
-    if recipes is None:
-        selected = select_recipes(None)
-    else:
-        selected = select_recipes(vault_selectors) if vault_selectors else ()
+    # divergence) records live in the database, not the vault files; the
+    # diagnosis domain builds them and passes them in as ``extra_records``
+    # (named ``extra_recipes``). An explicitly empty ``recipes`` selects no
+    # vault recipe, so the default backfill is unchanged.
+    selected = select_recipes(recipes) if recipes is None or len(recipes) else ()
     records = [record for recipe in selected for record in recipe.records(loaded)]
-    if db_selectors:
-        if not sqlite_path.exists():
-            raise ValueError("The vault has no state database to read hypotheses from")
-        records.extend(db_records(loaded, Repository.attach(sqlite_path, read_only=True), db_selectors))
+    records.extend(extra_records)
+    db_selectors = list(extra_recipes)
     pending = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)
     estimate = _estimate(pending, math.ceil(len(pending) / batch_size), price)

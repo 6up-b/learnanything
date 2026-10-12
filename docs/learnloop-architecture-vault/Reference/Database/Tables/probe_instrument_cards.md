@@ -3,13 +3,13 @@ title: "probe_instrument_cards"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_instrument_cards"
   - "table probe_instrument_cards"
-schema_head: 166
+schema_head: 167
 table_name: "probe_instrument_cards"
 table_role: "raw_ledger"
 functionality_status: "active"

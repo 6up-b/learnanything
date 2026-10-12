@@ -3,13 +3,13 @@ title: "attempt_feedback_metadata"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite attempt_feedback_metadata"
   - "table attempt_feedback_metadata"
-schema_head: 166
+schema_head: 167
 table_name: "attempt_feedback_metadata"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -26,9 +26,8 @@ source_paths:
   - "src/learnloop/diagnosis/offline_review/runner.py"
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
-  - "src/learnloop/attempts/grading.py"
   - "src/learnloop/attempts/post_attempt.py"
-  - "src/learnloop/cli/runtime.py"
+  - "src/learnloop/diagnosis/split/jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -91,7 +90,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.attempts_with_feedback_shown_between()`
-- `Repository.fetch_attempt_feedback_metadata()`
+- `Repository.raw_attempt_feedback_metadata()`
 - `Repository.record_feedback_shown()`
 - `Repository.upsert_attempt_feedback_metadata()`
 
@@ -110,24 +109,12 @@ Indexes and uniqueness:
 
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/coldness_receipt.py`
-- `src/learnloop/attempts/grading.py`
 - `src/learnloop/attempts/post_attempt.py`
-- `src/learnloop/cli/runtime.py`
-- `src/learnloop/content/authoring/practice_generation.py`
-- `src/learnloop/diagnosis/causal_attribution.py`
-- `src/learnloop/diagnosis/diagnosis_adjudication.py`
-- `src/learnloop/diagnosis/followups.py`
-- `src/learnloop/diagnosis/misconceptions.py`
-- `src/learnloop/diagnosis/missing_vocabulary.py`
-- `src/learnloop/diagnosis/probe_blocks.py`
-- `src/learnloop/diagnosis/scoreboard.py`
+- `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/legacy_view.py`
-- `src/learnloop/goals/certification_cold_probe.py`
-- `src/learnloop/tutor/tutor_qa.py`
-- `src/learnloop_sidecar/handlers/adjudication.py`
+- `src/learnloop/diagnosis/split/live.py`
 - `src/learnloop_sidecar/handlers/feedback.py`
-- `src/learnloop_sidecar/handlers/practice.py`
-- `src/learnloop_sidecar/handlers/serializers.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -138,18 +125,12 @@ Indexes and uniqueness:
 - `tests/test_coldness_receipt.py`
 - `tests/test_migrations.py`
 - `tests/test_sim_teach_back.py`
-- `tests/test_attempt_completion.py`
 - `tests/test_causal_attribution_p1.py`
-- `tests/test_common_repair_delivery.py`
+- `tests/test_diagnosis_pipeline.py`
+- `tests/test_diagnosis_replay.py`
 - `tests/test_facet_diagnostics_v03.py`
-- `tests/test_post_attempt_pipeline.py`
 - `tests/test_reveal_ledger.py`
 - `tests/test_scoreboard.py`
-- `tests/test_sidecar_contract.py`
-- `tests/test_sidecar_teach_back.py`
-- `tests/test_teach_back.py`
-- `tests/test_tui_feedback.py`
-- `tests/test_tui_practice.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

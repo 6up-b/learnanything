@@ -3,13 +3,13 @@ title: "raw_grade_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite raw_grade_events"
   - "table raw_grade_events"
-schema_head: 166
+schema_head: 167
 table_name: "raw_grade_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/066_grader_channel.sql"
   - "src/learnloop/ai/schemas.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/blind_grading.py"
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/db/repositories.py"
@@ -135,6 +136,7 @@ Indexes and uniqueness:
 - `tests/test_attempt_completion.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_grading_cli.py`
+- `tests/test_grading_support.py`
 - `tests/test_event_sufficiency.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`

@@ -1351,3 +1351,76 @@ def test_coldness_receipts_are_append_only(tmp_path):
         clock=FrozenClock(NOW),
     )
     assert again is not None and again["id"] == "cr_test"
+
+
+# -- Slice 1 M2 §10: cold-verification blinding with the blind grader ---------------
+
+
+def test_blind_cold_grade_passes_context_blinding_and_reports_the_diagnoser_view(tmp_path):
+    from learnloop.attempts.coldness_receipt import _context_blinding, _verification_blinding
+
+    from tests.diagnosis_fakes import ReviewFakeClient
+    from tests.split_live_helpers import at, drain_jobs, split_vault, submit
+
+    _paths, vault, repository = split_vault(tmp_path)
+    client = ReviewFakeClient()
+    source = submit(vault, repository, client, when=at(20))
+    cold = submit(vault, repository, client, item_id="pi_svd_compute_002", answer="B = U Sigma V cold", when=at(30))
+    drain_jobs(vault, repository, client, clock=FrozenClock(at(31)))
+
+    blinding = _context_blinding(repository, source_attempt_id=source.attempt_id, cold_attempt_id=cold.attempt_id)
+    assert blinding["status"] == "pass" and blinding["reason"] == "blind_grader"
+    assert blinding["grader_mode"] == "blind"
+    # Informational and expected true: the cold attempt's diagnoser saw the source.
+    assert blinding["diagnoser_saw_source"] is True
+    verdict = _verification_blinding(
+        repository,
+        source_attempt_id=source.attempt_id,
+        cold_attempt_id=cold.attempt_id,
+        cold_attempt=repository.fetch_practice_attempt(cold.attempt_id),
+    )
+    separation = verdict["evidence"]["run_separation"]
+    source_diagnosis_runs = {
+        row["agent_run_id"] for row in repository.attempt_diagnoses_for_attempt(source.attempt_id)
+    }
+    assert source_diagnosis_runs and source_diagnosis_runs <= set(separation["source_agent_run_ids"])
+    assert verdict["status"] == "pass"
+
+
+def test_null_grader_mode_reads_as_joint_and_keeps_the_joint_receipt_shape(tmp_path):
+    from learnloop.attempts.coldness_receipt import _context_blinding
+
+    class _Receipts:
+        def __init__(self, receipt):
+            self.receipt = receipt
+
+        def diagnostic_augmentation_receipt_for_attempt(self, _attempt_id):
+            return self.receipt
+
+    joint_clean = _context_blinding(
+        _Receipts({"c4_history_attempt_ids": ["other"], "grader_mode": None}),
+        source_attempt_id="src",
+        cold_attempt_id="cold",
+    )
+    assert joint_clean["status"] == "pass"
+    assert "grader_mode" not in joint_clean and "diagnoser_saw_source" not in joint_clean
+    joint_leak = _context_blinding(
+        _Receipts({"c4_history_attempt_ids": ["src"], "grader_mode": None}),
+        source_attempt_id="src",
+        cold_attempt_id="cold",
+    )
+    assert joint_leak["status"] == "fail"
+    # A "blind" label never excuses a receipt that actually carries history.
+    mislabeled = _context_blinding(
+        _Receipts({"c4_history_attempt_ids": ["src"], "grader_mode": "blind"}),
+        source_attempt_id="src",
+        cold_attempt_id="cold",
+    )
+    assert mislabeled["status"] == "fail"
+
+
+def test_run_separation_fails_when_the_cold_grader_shares_a_diagnosis_run():
+    from learnloop.attempts.coldness_receipt import _run_separation
+
+    shared = _run_separation({"agent_run_ids": ["grade_src", "diag_src"]}, {"agent_run_ids": ["diag_src"]})
+    assert shared["status"] == "fail" and shared["shared_agent_run_ids"] == ["diag_src"]

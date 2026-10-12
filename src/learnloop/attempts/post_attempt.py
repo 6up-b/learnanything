@@ -36,9 +36,9 @@ from typing import Any
 from learnloop.attempts.completion_lock import attempt_completion_lock
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
-from learnloop.diagnosis.split.jobs import enqueue_diagnosis
 from learnloop.diagnosis.followups import (
     FollowupDecision,
+    enqueue_post_attempt_diagnosis,
     evaluate_attempt_intervention_followup,
     normalize_and_resolve_attempt,
 )
@@ -150,7 +150,7 @@ def run_post_attempt_pipeline(
             if not deferred and (blind or _shadow_diagnosis_enabled(vault)):
                 # A diagnostic block still measuring is diagnosed at block end
                 # (``probe_blocks``), exactly as it is normalized there today.
-                enqueue_diagnosis(vault, repository, attempt_id=result.attempt_id, clock=clock)
+                enqueue_post_attempt_diagnosis(vault, repository, attempt_id=result.attempt_id, clock=clock)
             repository.complete_attempt_work(
                 result.attempt_id,
                 result=result.as_dict(),

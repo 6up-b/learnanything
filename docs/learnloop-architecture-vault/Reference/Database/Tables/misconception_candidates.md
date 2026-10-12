@@ -3,13 +3,13 @@ title: "misconception_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_candidates"
   - "table misconception_candidates"
-schema_head: 166
+schema_head: 167
 table_name: "misconception_candidates"
 table_role: "workflow"
 functionality_status: "active"
@@ -23,6 +23,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/diagnosis/error_hunt.py"
+  - "src/learnloop/diagnosis/split/embeddings.py"
   - "src/learnloop/diagnosis/split/history.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/diagnosis/split/embeddings.py`
 - `src/learnloop/diagnosis/split/history.py`
 
 ### Direct SQL writers
@@ -138,6 +140,7 @@ Indexes and uniqueness:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_error_hunt_items.py`
 - `tests/test_km4_taxonomy.py`
+- `tests/test_recurrence_key.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

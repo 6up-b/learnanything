@@ -110,6 +110,7 @@ class DiagnosisStoreMixin:
         clock: Clock | None = None,
     ) -> str:
         record_id = new_ulid()
+        now = utc_now_iso(clock)
         with self.connection() as connection:
             connection.execute(
                 """INSERT INTO blind_grade_records(
@@ -120,9 +121,29 @@ class DiagnosisStoreMixin:
                 (
                     record_id, attempt_id, agent_run_id, grading_prompt_version,
                     output_schema_version, context_hash, _dumps(dict(record)),
-                    supersedes_id, utc_now_iso(clock),
+                    supersedes_id, now,
                 ),
             )
+            if supersedes_id is not None:
+                # A superseding blind grade (a regrade) makes the attempt's
+                # diagnosis stale: its diagnosis applies to the grade it read.
+                # Re-queue it in the same transaction; the job decides whether
+                # the new grade still needs one.
+                completed = connection.execute(
+                    "SELECT created_at FROM practice_attempts WHERE id = ?", (attempt_id,)
+                ).fetchone()
+                connection.execute(
+                    """INSERT OR IGNORE INTO post_attempt_jobs(
+                        id, attempt_id, kind, job_key, attempt_completed_at, state,
+                        payload_json, created_at, updated_at
+                    ) VALUES (?, ?, 'diagnose', ?, ?, 'queued', ?, ?, ?)""",
+                    (
+                        new_ulid(), attempt_id, f"{attempt_id}:{record_id}",
+                        str(completed[0]) if completed is not None else now,
+                        _dumps({"mode": "live", "blind_grade_record_id": record_id, "rediagnose": True}),
+                        now, now,
+                    ),
+                )
             connection.commit()
         return record_id
 
@@ -284,9 +305,17 @@ class DiagnosisStoreMixin:
         return None
 
     def _live_views(self, connection: Any, attempt_ids: Sequence[str] | None) -> dict[str, tuple[str, dict[str, Any]]]:
+        """The causal view in force per attempt.
+
+        A view applies only when the attempt's LATEST live diagnosis completed
+        and diagnosed the attempt's CURRENT blind grade: after a regrade (a
+        superseding blind record) the old explanation no longer applies, and
+        nothing does until the re-diagnosis lands.
+        """
+
         query = (
-            "SELECT id, attempt_id, causal_view_json FROM attempt_diagnoses "
-            "WHERE mode = 'live' AND status = 'completed' AND causal_view_json IS NOT NULL"
+            "SELECT id, attempt_id, status, blind_grade_record_id, causal_view_json "
+            "FROM attempt_diagnoses WHERE mode = 'live'"
         )
         params: tuple[Any, ...] = ()
         if attempt_ids is not None:
@@ -294,11 +323,28 @@ class DiagnosisStoreMixin:
                 return {}
             query += f" AND attempt_id IN ({', '.join('?' for _ in attempt_ids)})"
             params = tuple(attempt_ids)
-        views: dict[str, tuple[str, dict[str, Any]]] = {}
+        latest: dict[str, Any] = {}
         for row in connection.execute(query + " ORDER BY attempt_id, created_at, id", params):
-            view = _loads(row[2], None)
+            latest[str(row[1])] = row
+        if not latest:
+            return {}
+        current: dict[str, str] = {}
+        placeholders = ", ".join("?" for _ in latest)
+        for row in connection.execute(
+            f"SELECT attempt_id, id FROM blind_grade_records WHERE attempt_id IN ({placeholders}) "
+            "ORDER BY attempt_id, created_at, id",
+            tuple(latest),
+        ):
+            current[str(row[0])] = str(row[1])
+        views: dict[str, tuple[str, dict[str, Any]]] = {}
+        for attempt_id, row in latest.items():
+            if row[2] != "completed" or row[4] is None:
+                continue
+            if row[3] is not None and current.get(attempt_id) not in (None, str(row[3])):
+                continue
+            view = _loads(row[4], None)
             if isinstance(view, dict):
-                views[str(row[1])] = (str(row[0]), view)
+                views[attempt_id] = (str(row[0]), view)
         return views
 
     def live_causal_view(self, attempt_id: str) -> tuple[str, dict[str, Any]] | None:

@@ -3,8 +3,8 @@ title: "Config - animation"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml animation"
@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/content/authoring/concept_animation.py"
   - "src/learnloop_sidecar/handlers/animation.py"
   - "src/learnloop_sidecar/handlers/settings.py"
+  - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
   - "tests/test_cli_generate_practice.py"
@@ -31,7 +32,6 @@ source_paths:
   - "tests/test_concept_animation_validator.py"
   - "tests/test_diagnosis_isolation.py"
   - "tests/test_doctor.py"
-  - "tests/test_document_ir.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/animation"
@@ -54,15 +54,15 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 |---|---|---|---|---|---|---|
 | `animation.enabled` | `true` | boolean | explicit template decision | Turns animation behavior on or off within consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:650`; `src/learnloop/content/authoring/concept_animation.py:686`; `src/learnloop_sidecar/handlers/animation.py:85` |
 | `animation.renderer` | `"manim"` | string | explicit template decision | Controls renderer in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:655`; `src/learnloop/content/authoring/concept_animation.py:697`; `src/learnloop_sidecar/handlers/animation.py:74` |
-| `animation.video_resolution` | `"720p"` | string | modeled default or validator seed | Controls video resolution in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:658`; `src/learnloop_sidecar/handlers/settings.py:163` |
+| `animation.video_resolution` | `"720p"` | string | modeled default or validator seed | Controls video resolution in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:658`; `src/learnloop_sidecar/handlers/settings.py:164` |
 | `animation.video_aspect_ratio` | `"16:9"` | string | modeled default or validator seed | Sets the video aspect ratio used by consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:659` |
 | `animation.video_generate_audio` | `false` | boolean | modeled default or validator seed | Turns video generate audio behavior on or off within consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:660` |
 | `animation.video_max_shots` | `4` | integer | modeled default or validator seed | Controls video max shots in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:661`; `src/learnloop/content/authoring/concept_animation.py:773`; `src/learnloop_sidecar/handlers/animation.py:101` |
-| `animation.video_timeout_seconds` | `1800` | integer | modeled default or validator seed | Sets the video timeout duration in seconds for consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:663`; `src/learnloop_sidecar/handlers/animation.py:93`; `src/learnloop_sidecar/handlers/settings.py:162` |
-| `animation.quality` | `"qm"` | string | modeled default or validator seed | Controls quality in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:666`; `src/learnloop/content/authoring/concept_animation.py:730`; `src/learnloop_sidecar/handlers/settings.py:165` |
+| `animation.video_timeout_seconds` | `1800` | integer | modeled default or validator seed | Sets the video timeout duration in seconds for consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:663`; `src/learnloop_sidecar/handlers/animation.py:93`; `src/learnloop_sidecar/handlers/settings.py:163` |
+| `animation.quality` | `"qm"` | string | modeled default or validator seed | Controls quality in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:666`; `src/learnloop/content/authoring/concept_animation.py:730`; `src/learnloop_sidecar/handlers/settings.py:166` |
 | `animation.timeout_seconds` | `600` | integer | modeled default or validator seed | Sets the timeout duration in seconds for consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:667`; `src/learnloop/content/authoring/concept_animation.py:1070`; `src/learnloop_sidecar/handlers/animation.py:95` |
-| `animation.min_duration_seconds` | `30` | integer | modeled default or validator seed | Sets the minimum duration seconds required by consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:670`; `src/learnloop_sidecar/handlers/settings.py:167` |
-| `animation.max_duration_seconds` | `60` | integer | modeled default or validator seed | Caps duration seconds allowed by consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:671`; `src/learnloop/content/authoring/concept_animation.py:784`; `src/learnloop_sidecar/handlers/settings.py:168` |
+| `animation.min_duration_seconds` | `30` | integer | modeled default or validator seed | Sets the minimum duration seconds required by consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:670`; `src/learnloop_sidecar/handlers/settings.py:168` |
+| `animation.max_duration_seconds` | `60` | integer | modeled default or validator seed | Caps duration seconds allowed by consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:671`; `src/learnloop/content/authoring/concept_animation.py:784`; `src/learnloop_sidecar/handlers/settings.py:169` |
 | `animation.latex_enabled` | `false` | boolean | modeled default or validator seed | Turns latex behavior on or off within consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:673`; `src/learnloop/content/authoring/concept_animation.py:858` |
 | `animation.auto_repair` | `true` | boolean | modeled default or validator seed | Turns auto repair behavior on or off within consented concept-animation generation and sandboxed rendering. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:675`; `src/learnloop/content/authoring/concept_animation.py:1074` |
 | `animation.manim_executable` | `null` | nullable | modeled default or validator seed | Controls manim executable in consented concept-animation generation and sandboxed rendering, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:677`; `src/learnloop/content/authoring/concept_animation.py:1071` |
@@ -76,6 +76,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
 - `tests/test_cli_generate_practice.py`
@@ -87,7 +88,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_config_refactor.py`
 - `tests/test_diagnosis_isolation.py`
 - `tests/test_doctor.py`
-- `tests/test_document_ir.py`
 
 ## Extension and modification guidance
 

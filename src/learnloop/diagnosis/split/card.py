@@ -248,6 +248,16 @@ def record_card_tap(
     return {"feedback_id": feedback_id, "forwarded_factor_id": forwarded_factor_id, "forwarding": note}
 
 
+def diagnosis_repairs_debited(repository: Repository, attempt_id: str, diagnosis_id: str) -> bool:
+    """Were this diagnosis's displayed repairs already charged to the ledger?"""
+
+    with repository.connection() as connection:
+        return connection.execute(
+            "SELECT 1 FROM reveal_events WHERE attempt_id = ? AND basis LIKE ? LIMIT 1",
+            (attempt_id, f"repair_display:diagnosis:{diagnosis_id}:%"),
+        ).fetchone() is not None
+
+
 def debit_displayed_repairs(
     repository: Repository,
     *,
@@ -256,27 +266,16 @@ def debit_displayed_repairs(
     repair_suggestions: list[Mapping[str, Any]],
     learning_object_id: str | None,
 ) -> int:
-    """Reveal accounting when the CARD displays the diagnosis's repairs (§8).
+    """Reveal accounting when the diagnosis's repairs are displayed (§8).
 
-    The feedback screen debits the repairs it shows on its first open. When
-    that first open came BEFORE the diagnosis existed, the repairs it shows
-    later are displayed here for the first time: debit them once per
-    diagnosis. When the first open came after, the feedback screen already
-    debited them, and nothing is charged twice.
+    Charged when the repair is displayed, not when the attempt is submitted,
+    and once per diagnosis: whichever surface shows them first (the card, or a
+    feedback screen first opened after the diagnosis landed) debits them, and
+    the other finds the rows (their basis names the diagnosis) and charges
+    nothing.
     """
 
-    metadata = repository.raw_attempt_feedback_metadata(str(attempt["id"])) or {}
-    first_shown = parse_utc(metadata.get("first_shown_at")) if metadata.get("first_shown_at") else None
-    created = parse_utc(str(diagnosis.get("created_at") or "")) if diagnosis.get("created_at") else None
-    if first_shown is None or created is None or first_shown >= created:
-        return 0
-    prefix = f"repair_display:diagnosis:{diagnosis['id']}:"
-    with repository.connection() as connection:
-        already = connection.execute(
-            "SELECT 1 FROM reveal_events WHERE attempt_id = ? AND basis LIKE ? LIMIT 1",
-            (str(attempt["id"]), prefix + "%"),
-        ).fetchone()
-    if already is not None:
+    if diagnosis_repairs_debited(repository, str(attempt["id"]), str(diagnosis["id"])):
         return 0
     try:
         return record_repair_display_reveals(
@@ -299,5 +298,6 @@ __all__ = [
     "PREREQUISITE_LABEL",
     "debit_displayed_repairs",
     "diagnosis_card",
+    "diagnosis_repairs_debited",
     "record_card_tap",
 ]

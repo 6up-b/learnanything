@@ -31,8 +31,10 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector, retrieve
 from learnloop.recurrence import recurrence_key
+from learnloop.ops.embedding_backfill import backfill_embeddings
 from learnloop.vault.embedding_recipes import EmbeddingRecord
 from learnloop.vault.models import LoadedVault
+from learnloop.vault.paths import VaultPaths
 
 TASK_PREFIX = "retrieval-document"
 HYPOTHESIS_KIND, HYPOTHESIS_FIELD, HYPOTHESIS_VERSION = "hypothesis", "statement", 1
@@ -165,6 +167,34 @@ def db_records(vault: LoadedVault, repository: Repository, selectors: Sequence[s
 
 def is_db_selector(selector: str) -> bool:
     return selector in {*DB_RECIPES, "hypothesis", "misconception", "attempt"}
+
+
+def backfill_with_db_recipes(
+    loaded: LoadedVault, *, recipes: Sequence[str] | None = None, **kwargs: Any
+) -> dict[str, Any]:
+    """``learnloop embeddings backfill`` with Slice 1's DB-backed recipes.
+
+    Vault recipes (facet, item) go through the Phase 1 path unchanged; the
+    hypothesis/misconception/attempt selectors are built here from the
+    database and embedded under the same caps, checkpoints and receipts.
+    """
+
+    selectors = list(recipes or ())
+    db_selectors = [value for value in selectors if is_db_selector(value)]
+    vault_selectors = [value for value in selectors if not is_db_selector(value)]
+    if not db_selectors:
+        return backfill_embeddings(loaded, recipes=tuple(selectors) if recipes is not None else None, **kwargs)
+    sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
+    if not sqlite_path.exists():
+        raise ValueError("The vault has no state database to read hypotheses from")
+    records = db_records(loaded, Repository.attach(sqlite_path, read_only=True), db_selectors)
+    return backfill_embeddings(
+        loaded,
+        recipes=tuple(vault_selectors),
+        extra_records=records,
+        extra_recipes=db_selectors,
+        **kwargs,
+    )
 
 
 def _identity(record: EmbeddingRecord, model_id: str) -> dict[str, str]:
@@ -360,6 +390,7 @@ __all__ = [
     "embed_records",
     "hypothesis_records",
     "hypothesis_text",
+    "backfill_with_db_recipes",
     "is_db_selector",
     "misconception_records",
     "pending_records",

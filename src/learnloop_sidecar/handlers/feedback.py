@@ -117,12 +117,25 @@ def _debit_repair_display_reveals(
     try:
         practice_item_id = str(attempt.get("practice_item_id") or "") or None
         item = vault.practice_items.get(practice_item_id) if practice_item_id else None
+        suggestions = list(stored_feedback.get("repair_suggestions") or [])
+        diagnosis_ids = {
+            str(value.get("id")).split(":")[1]
+            for value in suggestions
+            if isinstance(value, dict) and str(value.get("id") or "").startswith("diagnosis:")
+        }
+        if diagnosis_ids:
+            # Slice 1 M2: a diagnosis's repairs are charged once, by whichever
+            # surface displays them first (the card may already have).
+            from learnloop.diagnosis.split.card import diagnosis_repairs_debited
+
+            if any(diagnosis_repairs_debited(repository, str(attempt["id"]), value) for value in diagnosis_ids):
+                return
         record_repair_display_reveals(
             repository,
             attempt_id=str(attempt["id"]),
             practice_item_id=practice_item_id,
             learning_object_id=item.learning_object_id if item is not None else None,
-            repair_suggestions=stored_feedback.get("repair_suggestions") or [],
+            repair_suggestions=suggestions,
         )
     except Exception:  # pragma: no cover - defensive
         logging.getLogger(__name__).warning(

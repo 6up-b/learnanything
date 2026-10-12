@@ -67,7 +67,7 @@ Paths are relative to `src/learnloop/` unless noted. "Hot" means the code runs o
 
 ### Tier 1: diagnosis and grading (hot; strongest evidence; feeds learner state)
 
-**1. Misconception and hypothesis recurrence**
+**1. Misconception and hypothesis recurrence** *(Slice 1: the would-merge log, S1.4a; authority waits for Slice 2 T1)*
 
 Current behavior:
 - `db/repositories.py:2360` (`_projected_causal_candidates`) and `:2488` (`misconception_candidate_by_normalized`) group candidate beliefs by `normalize_text(statement)`.
@@ -87,7 +87,7 @@ The change:
 - Merges stay proposal-only: `error_taxonomy_map.py:164-174` records that content-based diagnosis coercion shipped and was removed twice.
 - Evidence: generate-retrieve-rerank (Mitton L@S'26 [PR]); the Eedi winners; Chaudhary 2025.
 
-**2. Widen `_match_misconception`'s candidate set and gate its LLM call**
+**2. Widen `_match_misconception`'s candidate set and gate its LLM call** *(Slice 1: via the diagnoser's `registry_match`, which retires the call in split vaults)*
 
 Current behavior:
 - `diagnosis/misconceptions.py:97-138` makes a full LLM call per misconception event, purely to decide same vs new.
@@ -98,7 +98,7 @@ The change:
 - Log embedding/LLM agreement.
 - Later, skip the call when a calibrated top-1 margin is unambiguous. That is the first instance of the flywheel above.
 
-**3. Grader history context**
+**3. Grader history context** *(Slice 1: moved to the diagnoser; kNN context is `history_mode = "hybrid"`, S1.4b)*
 
 Current behavior:
 - `diagnosis/diagnostic_augmentation.py:331-378` (`diagnostic_history_context`) passes prior traces only when facets intersect **and** `surface_family` matches exactly.

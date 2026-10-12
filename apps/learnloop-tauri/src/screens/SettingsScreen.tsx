@@ -18,8 +18,11 @@ import { SectionHeader } from "../components/ui";
 // UI metadata for the backend's use-case -> [ai.routing] expansion
 // (services/settings_store.USE_CASE_ROUTES). primaryRoute is the camelized
 // routing key the current selection is derived from.
-const USE_CASES: Array<{ id: string; label: string; hint: string; primaryRoute: string }> = [
+const USE_CASES: Array<{ id: string; label: string; hint: string; primaryRoute: string; fallbackRoute?: string }> = [
   { id: "grading", label: "grading", hint: "attempt grading + misconception match", primaryRoute: "grading" },
+  // Slice 1 M2: the history-aware diagnoser (blind-graded vaults). Unset, it
+  // follows the grading route, which is what the selector shows.
+  { id: "diagnosis", label: "diagnosis", hint: "why an answer went wrong, across your history (split vaults)", primaryRoute: "diagnosis", fallbackRoute: "grading" },
   { id: "ingest", label: "ingest / synthesis", hint: "canonical ingest, study-map synthesis, authoring", primaryRoute: "canonicalIngest" },
   { id: "tutor", label: "tutor", hint: "tutor Q&A, teach-back, rung variants", primaryRoute: "tutorQa" },
   { id: "animation", label: "animation", hint: "explainer-scene authoring model (render settings below)", primaryRoute: "animation" }
@@ -193,7 +196,11 @@ export function SettingsScreen({
 
   const currentForUseCase = useCallback(
     (useCase: (typeof USE_CASES)[number]): UseCaseDraft => {
-      const routed = settings?.ai.routing[useCase.primaryRoute] ?? settings?.ai.activeProvider ?? "codex";
+      const routed =
+        settings?.ai.routing[useCase.primaryRoute] ??
+        (useCase.fallbackRoute ? settings?.ai.routing[useCase.fallbackRoute] : undefined) ??
+        settings?.ai.activeProvider ??
+        "codex";
       if (routed && routed.startsWith("openrouter")) {
         const model = providerByName.get(routed)?.model ?? providerByName.get("openrouter")?.model ?? "";
         return { provider: "openrouter", model: model ?? "" };

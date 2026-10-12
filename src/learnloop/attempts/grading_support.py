@@ -56,7 +56,7 @@ from learnloop.attempts.blind_grading import (
     BlindRepairedTrace,
     blind_grading_prompt,
 )
-from learnloop.diagnosis.offline_review.probes import final_answer_check
+from learnloop.attempts.answer_check import final_answer_check
 from learnloop.substrate.canonical_projection import surface_group_id
 from learnloop.vault.models import LoadedVault, PracticeItem, Rubric
 

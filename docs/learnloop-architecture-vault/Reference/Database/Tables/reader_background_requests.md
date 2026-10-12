@@ -3,13 +3,13 @@ title: "reader_background_requests"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite reader_background_requests"
   - "table reader_background_requests"
-schema_head: 166
+schema_head: 167
 table_name: "reader_background_requests"
 table_role: "workflow"
 functionality_status: "active"
@@ -47,7 +47,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/093_reader_background_requests.sql`.
-- **Schema touched by:** `093_reader_background_requests.sql`, `131_agent_run_tokens.sql`.
+- **Schema touched by:** `093_reader_background_requests.sql`, `131_agent_run_tokens.sql`, `167_blind_grading_diagnosis_split.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

@@ -3,8 +3,8 @@ title: "Config - probe"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "learnloop.toml probe"
@@ -30,6 +30,7 @@ source_paths:
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/probe_lifecycle.py"
   - "src/learnloop/scheduling/scheduler.py"
+  - "tests/split_live_helpers.py"
   - "tests/test_ai_config.py"
   - "tests/test_capability_residual.py"
   - "tests/test_cli_ingest.py"
@@ -40,7 +41,6 @@ source_paths:
   - "tests/test_goal_intent.py"
   - "tests/test_goal_scope_material.py"
   - "tests/test_graph_correction.py"
-  - "tests/test_hypothesis_claim_dispatcher.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/probe"
@@ -61,10 +61,10 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 | Dotted path | Effective value | Shape | Origin | Function | Runtime/refactor status | Consumer/source anchors |
 |---|---|---|---|---|---|---|
-| `probe.attempts_target_default` | `3` | integer | modeled default or validator seed | Controls attempts target default in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:354`; `src/learnloop/diagnosis/probes.py:282`; `src/learnloop_sidecar/context.py:336` |
-| `probe.attempts_target_with_strong_claim` | `1` | integer | modeled default or validator seed | Controls attempts target with strong claim in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:355`; `src/learnloop/diagnosis/probes.py:287`; `src/learnloop_sidecar/context.py:337` |
-| `probe.claim_skip_threshold` | `0.75` | number | modeled default or validator seed | Sets the decision cutoff for claim skip in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:356`; `src/learnloop/diagnosis/probes.py:286`; `src/learnloop_sidecar/context.py:338` |
-| `probe.variance_convergence_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for variance convergence in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:357`; `src/learnloop/diagnosis/probes.py:1381`; `src/learnloop_sidecar/context.py:339` |
+| `probe.attempts_target_default` | `3` | integer | modeled default or validator seed | Controls attempts target default in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:354`; `src/learnloop/diagnosis/probes.py:282`; `src/learnloop_sidecar/context.py:358` |
+| `probe.attempts_target_with_strong_claim` | `1` | integer | modeled default or validator seed | Controls attempts target with strong claim in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:355`; `src/learnloop/diagnosis/probes.py:287`; `src/learnloop_sidecar/context.py:359` |
+| `probe.claim_skip_threshold` | `0.75` | number | modeled default or validator seed | Sets the decision cutoff for claim skip in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:356`; `src/learnloop/diagnosis/probes.py:286`; `src/learnloop_sidecar/context.py:360` |
+| `probe.variance_convergence_threshold` | `0.1` | number | modeled default or validator seed | Sets the decision cutoff for variance convergence in diagnostic episodes, instruments, calibration, and lifecycle. | **LEGACY** — Consumed only by the frozen pre-redesign replay path; live diagnostic policy uses probe.episode. | `src/learnloop/config/schema.py:357`; `src/learnloop/diagnosis/probes.py:1381`; `src/learnloop_sidecar/context.py:361` |
 | `probe.hypothesis_set_max_size` | `5` | integer | modeled default or validator seed | Controls hypothesis set max size in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Kept by the refactor and consumed by current hypothesis construction to cap each live diagnostic hypothesis set. | `src/learnloop/config/schema.py:358`; `src/learnloop/diagnosis/probe_hypotheses.py:231`; `src/learnloop/diagnosis/probes.py:250` |
 | `probe.irt.theta_mastered` | `2.0` | number | modeled default or validator seed | Sets the decision cutoff for mastered in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:158`; `src/learnloop/diagnosis/probe_hypotheses.py:116`; `src/learnloop/diagnosis/probes.py:547` |
 | `probe.irt.theta_unfamiliar` | `-2.0` | number | modeled default or validator seed | Sets the decision cutoff for unfamiliar in diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:159`; `src/learnloop/diagnosis/probe_hypotheses.py:117`; `src/learnloop/diagnosis/probes.py:566` |
@@ -104,7 +104,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 | `probe.episode.reprobe_stale_uncertainty_days` | `30` | integer | modeled default or validator seed | Sets the reprobe stale uncertainty duration in days for diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:254`; `src/learnloop/diagnosis/probe_episodes.py:546` |
 | `probe.generation.instances_per_need` | `2` | integer | modeled default or validator seed | Controls instances per need in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:260`; `src/learnloop/diagnosis/probe_instance_generation.py:996` |
 | `probe.generation.auto_generate_on_entry` | `false` | boolean | modeled default or validator seed | Turns auto generate on entry behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:261`; `src/learnloop/diagnosis/probe_episodes.py:173` |
-| `probe.generation.llm_surfaces` | `true` | boolean | modeled default or validator seed | Turns language-model surfaces behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:265`; `src/learnloop/cli/app.py:3095`; `src/learnloop/diagnosis/probe_instance_generation.py:1036` |
+| `probe.generation.llm_surfaces` | `true` | boolean | modeled default or validator seed | Turns language-model surfaces behavior on or off within diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:265`; `src/learnloop/cli/app.py:3121`; `src/learnloop/diagnosis/probe_instance_generation.py:1036` |
 | `probe.dialogue.planned_turns` | `3` | integer | modeled default or validator seed | Controls planned turns in diagnostic episodes, instruments, calibration, and lifecycle, using the typed value shown here as the fresh-vault default. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:271`; `src/learnloop/diagnosis/probe_dialogue.py:172`; `src/learnloop/diagnosis/probe_episodes.py:1233` |
 | `probe.calibration.default_time_budget_minutes` | `20` | integer | modeled default or validator seed | Sets the default time budget duration in minutes for diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:277`; `src/learnloop/diagnosis/calibration_sessions.py:179` |
 | `probe.calibration.max_planned_episodes` | `8` | integer | modeled default or validator seed | Caps planned episodes allowed by diagnostic episodes, instruments, calibration, and lifecycle. | **ACTIVE** — Declared by the canonical typed configuration; exact runtime consumers are cited when a statically resolvable path exists. | `src/learnloop/config/schema.py:278`; `src/learnloop/diagnosis/calibration_sessions.py:243` |
@@ -141,6 +141,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
+- `tests/split_live_helpers.py`
 - `tests/test_ai_config.py`
 - `tests/test_capability_residual.py`
 - `tests/test_cli_ingest.py`
@@ -152,7 +153,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_goal_intent.py`
 - `tests/test_goal_scope_material.py`
 - `tests/test_graph_correction.py`
-- `tests/test_hypothesis_claim_dispatcher.py`
 
 ## Extension and modification guidance
 

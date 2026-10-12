@@ -3,13 +3,13 @@ title: "model_call_receipts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "5f1c4515250887564c14266b3219c03ed6309d3a"
-source_commit_timestamp: "2026-10-12T02:44:25-04:00"
+source_commit: "b71017782b0ebb640e116763383205f72a1826b6"
+source_commit_timestamp: "2026-10-12T04:42:11-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite model_call_receipts"
   - "table model_call_receipts"
-schema_head: 166
+schema_head: 167
 table_name: "model_call_receipts"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/cli/receipts.py"
   - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/diagnosis/split/legacy_view.py"
+  - "src/learnloop/diagnosis/split/reports.py"
   - "src/learnloop/substrate/data_quality.py"
   - "src/learnloop/substrate/model_usage.py"
 tags:
@@ -110,6 +111,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/diagnosis/split/legacy_view.py`
+- `src/learnloop/diagnosis/split/reports.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
 
@@ -127,6 +129,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_diagnose_review.py`
+- `tests/test_diagnosis_pipeline.py`
 - `tests/test_embedding_backfill.py`
 - `tests/test_ingest_jobs.py`
 - `tests/test_ingest_ownership.py`
@@ -134,6 +137,7 @@ None found by exact static reference scan.
 - `tests/test_model_call_receipt_owners.py`
 - `tests/test_model_usage_report.py`
 - `tests/test_openai_embedding_client.py`
+- `tests/test_post_attempt_worker.py`
 - `tests/test_spend_controls.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
