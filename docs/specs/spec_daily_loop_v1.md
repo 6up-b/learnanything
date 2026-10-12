@@ -288,7 +288,7 @@ One segmented control on an LO, a subject, a source, a capture and an item. It s
 | *(none)* | no commitment | Today's behaviour | 0.90 |
 
 - **The projected cost** is shown as "about N min/day of reviews", computed from §6.4's estimates and §5.3's targets.
-- **How "Check once" is served.** The covered items are held back until `capture.test_me_later_days` (7) after the commitment. Then one item becomes a dated learner request: the commitment's item target if it has one, otherwise the scheduler's top-ranked item of the LO. It is served once, in the lane its state implies (§6.1), and its attempt satisfies the commitment.
+- **How "Check once" is served.** The covered items are held back until `capture.test_me_later_days` (7) after the commitment. Then one item becomes a dated learner request: the commitment's item target if it has one, otherwise the scheduler's top-ranked item of the LO. It is served once, as a scheduled check in the maintain lane (§6.1), and its attempt satisfies the commitment.
   - The request uses one new branch in `requested_practice_item_ids` (`learnloop/db/repositories.py:4574`), dated `created_at + test_me_later_days`. That is the same queue-time derivation `fix/daily-loop-bugs` used for written questions, so nothing new is persisted. The existing branch counts only `help_me_remember` commitments.
   - `followup_tasks` is not used, because its `kind` CHECK admits only `cold_retry` and `certification_cold_probe` (`migrations/139_certification_cold_probes.sql:52`).
 - **Lane eligibility never blocks a learner request (L3).** An item the learner adopted or asked for is served under Keep or Light touch too; "no new material" means the system adds none on its own. **Disposition does block it:** a Pause, Reference or Let go chosen after the request excludes the item, request or not (§5.3).
@@ -370,11 +370,18 @@ A **daily plan** belongs to one local calendar date (D9) and one vault, and is s
 | Lane | Canonical action | Items |
 |---|---|---|
 | `repair` | `practice(completion_or_repair)` | Follow-up tasks (cold retries, intervention follow-ups) and items on LOs with recent errors |
-| `maintain` | `maintain` | Items whose effective due (§5.3) has passed; previously attempted learner requests, such as a due "Check once" (§5.2); assumed-known first reviews; due project probes (§6.9) |
+| `maintain` | `maintain` | **Scheduled checks**, attempted or not: a due "Check once" (§5.2), assumed-known first reviews (§5.6) and due project probes (§6.9). Items whose effective due (§5.3) has passed. Previously attempted learner requests |
 | `new` | `instruct` | Never-attempted items on learning-eligible LOs, in Phase 6's order (opening probes, before Phase 6); never-attempted learner requests; reading blocks (§6.10) |
 | `push` | `practice(transfer \| integration \| fluency)` | Items on goal frontiers or under Learn and Master commitments that are not yet due |
 
-- **Classifying items.** Each eligible item from the scheduler's ranked list takes the first lane that matches, in the order repair, new, maintain, push. An item that matches none stays in the full list as "later".
+- **Classifying items.** Each eligible item from the scheduler's ranked list takes the first lane that matches, in this order:
+  1. repair;
+  2. **scheduled checks → maintain.** They come before `new` because many have never been attempted (a project probe always, an assumed-known item or a "Check once" card often). They are never new material: they don't count toward §6.3's admission or item cap, and re-entry admits them (§7). Due project probes beyond `plan.project_probes_max_per_day` stay in the full list as "later", never in `new`;
+  3. new;
+  4. maintain (effective due passed, previously attempted requests);
+  5. push.
+
+  An item that matches none stays in the full list as "later".
 - **Not planned.** `practice(depth_progression)` and `assess_terminal` are never planned blocks. They stay with the staged rule, as in router §7.1.
 
 **Rules:**
@@ -408,7 +415,7 @@ The system sets the split, shows it, and asks nothing. Rule `split_v1`, with M t
   - **Cap:** at most `plan.max_new_items_per_day` = 10 a day, across the day's plans and extensions. The count is of new items actually planned.
   - **Floor:** at least `plan.min_new_items_per_day` = 1 when learning-eligible new material exists and the plan isn't re-entry.
   - **Reading blocks** (§6.10) use new-lane minutes but don't count toward the item cap.
-- **Exempt (L3):** learner requests (Practice this, written questions, tutor promotions, rung variants, a due "Check once"). Never-attempted ones take the first new-lane slots.
+- **Exempt (L3):** learner requests (Practice this, written questions, tutor promotions, rung variants). Never-attempted ones take the first new-lane slots. Scheduled checks (a due "Check once", assumed-known first reviews, project probes) are not new material at all (§6.1).
 - **"More new material"** on the done screen bypasses the ceiling and the cap once. It shows the trade-off first: "adds about N min/day of reviews for two weeks" (intentions §10).
 - **PF's `pf.max_published_per_day`** (10) stays as a generation-volume guard. Serving pace is this admission, not that cap.
 - **Before Phase 6,** the new lane carries the opening-probe items (§3.1) under the same admission.
@@ -555,7 +562,7 @@ class BlockChooser(Protocol):
 
 ### 6.9 Other item sources in the plan
 
-- **Project understanding's delayed probes** (project M2 onward) are ordinary PF items. Due ones go in the maintain lane, at most `plan.project_probes_max_per_day` = 4. Diffs labelled `automation` or `all_at_once` come first (project §5.3).
+- **Project understanding's delayed probes** (project M2 onward) are ordinary PF items. Due ones are scheduled checks in the maintain lane (§6.1), although they have never been attempted, at most `plan.project_probes_max_per_day` = 4 a day. Diffs labelled `automation` or `all_at_once` come first (project §5.3).
 - **Assumed-known first reviews** (Phase 6) go in the maintain lane.
 - **"Practice on…"** is a box on Today. A typed query ("conditional independence") goes to `find_practice` (Phase 5b); the learner chooses items from its proposals, and they become a learner-pick block. Before Phase 5b, a plain text search over item prompts stands in.
 
@@ -698,7 +705,7 @@ The daily-loop implementation is Wave 2 of `implementation_goal.md` §3. Every p
 - **DL0:** `StartScreen.test.tsx` (no sliders; remembered minutes; chips); `FeedbackScreen` (Next opens the next item; Esc and `b` still open the list); `tests/test_daily_loop_start_minutes.py` (`start_session` without energy; TUI has no sliders; streak label).
 - **DL1:**
   - `tests/test_daily_plan_split.py` (shares, flow-on, re-entry lanes);
-  - `test_daily_plan_build.py` (lane classification; block packing, including a single due item of 3.5 minutes as a complete block, several small maintain groups merged into one block, and a 3.5-minute item served with 4 minutes left; finiteness; request deduction before the split; displacement; learner picks);
+  - `test_daily_plan_build.py` (lane classification, including a never-attempted due project probe on an uncommitted, learning-eligible LO landing in maintain under the probe cap and outside the new-item cap, and the fifth due probe staying "later"; block packing, including a single due item of 3.5 minutes as a complete block, several small maintain groups merged into one block, and a 3.5-minute item served with 4 minutes left; finiteness; request deduction before the split; displacement; learner picks);
   - `test_daily_plan_admission.py` (ceiling, cap, floor, exemptions, "more new");
   - `test_duration_estimates.py` (shrinkage, winsorizing, fallbacks, reading estimate);
   - `test_daily_plan_reentry.py`;
