@@ -28,7 +28,7 @@ from learnloop.diagnosis.recurrence.benchmarks import (
 from learnloop.vault.loader import load_vault
 
 from tests.diagnosis_fakes import FakeEmbeddingClient
-from tests.recurrence_fakes import JudgeFake, StatementFake, shares_word
+from tests.recurrence_fakes import JudgeFake, StatementFake, record_verdict, shares_word
 from tests.split_live_helpers import at, drain_jobs, enable_embeddings, split_vault, submit
 
 CAPS = SpendCaps(max_candidates=200, max_pairs=0, max_retries=10, max_calls=200, max_total_tokens=2_000_000, max_estimated_usd=1.0)
@@ -171,6 +171,8 @@ def test_b3_replays_the_vaults_labelled_pairs(tmp_path):
         drain_jobs(vault, repository, client, embedding=embedder, clock=FrozenClock(at(11 + 2 * offset)))
     backlog_caps = SpendCaps(max_candidates=50, max_pairs=50, max_retries=10, max_calls=50, max_total_tokens=500_000, max_estimated_usd=1.0)
     run_backlog(vault, repository, caps=backlog_caps, judge_client=JudgeFake(shares_word("transpos")), embedding_client=embedder)
+    # The owner's verdicts (independent of the shortlist) are what B3 measures.
+    _owner_labels(repository, ("same", "different"))
     request = BenchRequest(suite="b3", output_dir=tmp_path / "b3", models=("qwen/qwen3-embedding-8b",), target_recall=1.0)
     report = run_bench(vault, request=request, caps=CAPS, embedding_clients={"qwen/qwen3-embedding-8b": embedder})
     assert report["status"] == "complete", report
@@ -185,8 +187,10 @@ def test_b3_replays_the_vaults_labelled_pairs(tmp_path):
     assert model["serving_width"] is True
     assert model["blocking_cutoff"]["dims"] == 16 and model["blocking_cutoff"]["recipe"] == "hypothesis/statement@v1"
     assert model["blocking_cutoff"]["task_prefix"] == "retrieval-document"
-    assert report["results"]["merge_replay"]["label_judge"] == "llm"
+    assert report["results"]["merge_replay"]["label_judge"] == "owner"
     assert report["results"]["merge_replay"]["exact_only"]["merged_label_pairs"] == 0
+    # Owner labels from M1's link review are on diagnoser-linked pairs: P6 says so.
+    assert report["results"]["merge_replay"]["label_nominations"] == {"m1_link": 2}
 
 
 def _b3_history(tmp_path):
@@ -214,6 +218,48 @@ def _b3_history(tmp_path):
     return paths, vault, repository, embedder
 
 
+def _owner_labels(repository, verdicts=("same",)):
+    """Owner verdicts (independent of the shortlist) on consecutive answers:
+    the second vs the first, then the third vs the first, ..."""
+
+    with repository.connection() as connection:
+        attempts = [str(row[0]) for row in connection.execute(
+            "SELECT attempt_id FROM causal_hypotheses GROUP BY attempt_id ORDER BY MIN(created_at)"
+        )]
+    for later, verdict in zip(attempts[1:], verdicts):
+        record_verdict(repository, left=later, right=attempts[0], verdict=verdict, judge="owner", kind="attempt")
+
+
+def test_b3_measures_the_shortlist_only_on_labels_the_shortlist_did_not_select(tmp_path):
+    """Second review F3: the live and backlog judge only ever see pairs the
+    shortlist nominated (top-k, above any cutoff), so their verdicts cannot
+    measure the shortlist's recall, set its top_k or cutoff, or grade P6.
+    They are reported apart; an owner verdict (independent) is measured."""
+
+    _paths, vault, repository, embedder = _b3_history(tmp_path)
+    request = BenchRequest(suite="b3", output_dir=tmp_path / "b3", models=("qwen/qwen3-embedding-8b",), target_recall=1.0)
+    report = run_bench(vault, request=request, caps=CAPS, embedding_clients={"qwen/qwen3-embedding-8b": embedder})
+    assert report["status"] == "complete", report
+    assert report["plan"]["labels_by_nomination"].get("shortlist", 0) >= 1
+    model = report["results"]["models"]["qwen/qwen3-embedding-8b"]
+    assert model["positives"] == 0 and model["recommended_top_k"] is None
+    assert model["blocking_cutoff"]["cutoff"] is None and model["blocking_cutoff"]["confirmed_matches"] == 0
+    assert model["shortlist_nominated"]["positives"] >= 1, "reported apart, never used to calibrate"
+    replay = report["results"]["merge_replay"]
+    assert replay["label_judge"] is None and replay["labels"] == 0
+
+    # An owner verdict on two answers is independent of the shortlist.
+    with repository.connection() as connection:
+        first, second = (str(row[0]) for row in connection.execute(
+            "SELECT attempt_id FROM causal_hypotheses GROUP BY attempt_id ORDER BY MIN(created_at) LIMIT 2"
+        ))
+    record_verdict(repository, left=second, right=first, verdict="same", judge="owner", kind="attempt")
+    report = run_bench(vault, request=request, caps=CAPS, embedding_clients={"qwen/qwen3-embedding-8b": embedder})
+    model = report["results"]["models"]["qwen/qwen3-embedding-8b"]
+    assert model["positives"] == 1 and model["recall@10"] == 1.0
+    assert report["results"]["merge_replay"]["label_judge"] == "owner"
+
+
 def test_b3_recommends_only_at_the_serving_width_with_its_provenance(tmp_path, monkeypatch):
     """Review F7: the recommendation is bound to model, width, recipe and
     prefix; the shortlist applies it to matching vectors and refuses others."""
@@ -224,7 +270,8 @@ def test_b3_recommends_only_at_the_serving_width_with_its_provenance(tmp_path, m
     from learnloop.diagnosis.recurrence.judging import blocking_cutoff as configured_cutoff
 
     monkeypatch.setattr("learnloop.diagnosis.recurrence.benchmarks.MIN_CONFIRMED_FOR_RECOMMENDATION", 1)
-    _paths, vault, _repository, embedder = _b3_history(tmp_path)
+    _paths, vault, repository, embedder = _b3_history(tmp_path)
+    _owner_labels(repository, ("same", "same"))
     request = BenchRequest(suite="b3", output_dir=tmp_path / "b3", models=("qwen/qwen3-embedding-8b",),
                            dims=(8, 16), target_recall=1.0)
     report = run_bench(vault, request=request, caps=CAPS, embedding_clients={"qwen/qwen3-embedding-8b": embedder})
@@ -386,7 +433,8 @@ def _five_a_compare(vault, request, *, suites, roles, clients, embedding_clients
 
 
 def test_b1_and_b3_run_through_phase_5as_harness_contract(tmp_path):
-    _paths, vault, _repository, embedder = _b3_history(tmp_path)
+    _paths, vault, repository, embedder = _b3_history(tmp_path)
+    _owner_labels(repository)
     _eedi(tmp_path / "eedi")
     suites, roles = {}, dict(_FIVE_A_ROLE_TASKS)
     # Registration of the suites alone leaves B1's writer role unresolvable.
@@ -413,7 +461,8 @@ def test_b1_and_b3_run_through_phase_5as_harness_contract(tmp_path):
 def test_b1_and_b3_run_through_the_real_phase_5a_harness_once_merged(tmp_path):
     compare = pytest.importorskip("learnloop.ops.embedding_compare")
     pf_calls = pytest.importorskip("learnloop.ops.pf_calls")
-    _paths, vault, _repository, embedder = _b3_history(tmp_path)
+    _paths, vault, repository, embedder = _b3_history(tmp_path)
+    _owner_labels(repository)
     _eedi(tmp_path / "eedi")
     register_suites(compare.SUITES, role_tasks=pf_calls.ROLE_TASKS)
     caps = SpendCaps(max_candidates=200, max_pairs=10, max_retries=10, max_calls=200, max_total_tokens=2_000_000,

@@ -65,6 +65,16 @@ BUILDER_VERSION = GROUP_RECURRENCE_KEY_VERSION
 #: Authority when verdicts conflict (§3.1). ``exact_key`` verdicts never join
 #: classes: the exact key is the base, not an edge.
 AUTHORITY = {"owner": 4, "verifier": 3, "llm": 2, "diagnoser": 2, "learner_card": 1}
+#: How a labelled pair came to be judged (B3, second review F3). A label is
+#: evidence about the embedding shortlist only when the shortlist did not
+#: choose the pair: the same-cause judge (live and backlog) only ever sees
+#: pairs the shortlist nominated, so its verdicts measure nothing about the
+#: shortlist's recall. Citations and taps were nominated by the diagnoser's
+#: links, M1's attempt-level verdicts by the M1 diagnoser's links.
+NOMINATED_BY_SHORTLIST = "shortlist"
+NOMINATED_BY_CITATION = "diagnoser_citation"
+NOMINATED_BY_M1_LINK = "m1_link"
+NOMINATED_OTHERWISE = "other"
 _VERDICTS = {"same": "same", "different": "different", "not_sure": "unsure", "unsure": "unsure"}
 CAUSE_REF_PREFIX = "cause:"
 
@@ -292,18 +302,19 @@ class _Build:
         )
 
     def edge(self, left_class: str, right_class: str, *, verdict: str, judge: str, source: str, ref: str,
-             occurred_at: str, left_episode: str | None, right_episode: str | None) -> None:
+             occurred_at: str, left_episode: str | None, right_episode: str | None, nominated_by: str) -> None:
         self.labelled.append(
             {
                 "left_episode": left_episode, "right_episode": right_episode, "left_class": left_class,
                 "right_class": right_class, "verdict": verdict, "judge": judge, "source": source, "ref": ref,
-                "occurred_at": occurred_at,
+                "occurred_at": occurred_at, "nominated_by": nominated_by,
             }
         )
         self.edges.append(
             UnionEdge(
                 left=left_class, right=right_class, verdict=verdict, authority=AUTHORITY[judge], judge=judge,
                 source=source, ref=ref, occurred_at=occurred_at, left_ref=left_episode, right_ref=right_episode,
+                detail={"nominated_by": nominated_by},
             )
         )
 
@@ -377,7 +388,7 @@ def _source_citations(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> 
                 build.edge(
                     anchor, target, verdict="same", judge="diagnoser", source="citation", ref=ref,
                     occurred_at=str(diagnosis.get("created_at") or ""),
-                    left_episode=anchor_episode, right_episode=target_episode,
+                    left_episode=anchor_episode, right_episode=target_episode, nominated_by=NOMINATED_BY_CITATION,
                 )
 
 
@@ -408,6 +419,7 @@ def _source_taps(build: _Build, connection: Any) -> None:
             build.edge(
                 anchor, target, verdict="different", judge="learner_card", source="learner_card", ref=ref,
                 occurred_at=str(tap.get("responded_at") or ""), left_episode=anchor_episode, right_episode=target_episode,
+                nominated_by=NOMINATED_BY_CITATION,
             )
 
 
@@ -430,8 +442,15 @@ def _source_judgments(build: _Build, connection: Any) -> None:
                 build.review("unresolved_link", left=str(row["left_id"]), right=row.get("right_id"), source=ref,
                              occurred_at=occurred, detail={"source": "judgment", "reason": "hypothesis_unknown", "judge": judge})
                 continue
+            # Hypothesis-level llm verdicts come from the same-cause judge,
+            # which only sees shortlisted pairs (live step and backlog).
+            nominated = (
+                NOMINATED_BY_SHORTLIST if judge == "llm"
+                else NOMINATED_BY_CITATION if judge == "diagnoser" else NOMINATED_OTHERWISE
+            )
             build.edge(left.statement_normalized, right.statement_normalized, verdict=verdict, judge=judge,
-                       source="judgment", ref=ref, occurred_at=occurred, left_episode=left.key, right_episode=right.key)
+                       source="judgment", ref=ref, occurred_at=occurred, left_episode=left.key, right_episode=right.key,
+                       nominated_by=nominated)
             continue
         if left_kind != "attempt" or right_kind != "attempt":
             continue  # planted subjects and other kinds never touch vault groups
@@ -455,8 +474,11 @@ def _source_judgments(build: _Build, connection: Any) -> None:
             pairs = [(left_class, right_class, build.index.representative(left_attempt, left_class),
                       build.index.representative(right_attempt, right_class))]
         for left_class, right_class, left_episode, right_episode in pairs:
+            # Attempt-level verdicts are M1's (import-links): on the links the
+            # M1 diagnoser wrote, never on embedding-shortlisted pairs.
             build.edge(left_class, right_class, verdict=verdict, judge=judge, source="judgment", ref=ref,
-                       occurred_at=occurred, left_episode=left_episode, right_episode=right_episode)
+                       occurred_at=occurred, left_episode=left_episode, right_episode=right_episode,
+                       nominated_by=NOMINATED_BY_M1_LINK)
 
 
 def _source_registry_disagreements(build: _Build, diagnoses: Sequence[Mapping[str, Any]]) -> None:
@@ -676,6 +698,10 @@ def _has_projection(connection: Any) -> bool:
 
 __all__ = [
     "AUTHORITY",
+    "NOMINATED_BY_CITATION",
+    "NOMINATED_BY_M1_LINK",
+    "NOMINATED_BY_SHORTLIST",
+    "NOMINATED_OTHERWISE",
     "activate_recurrence_groups",
     "active_group_map",
     "BUILDER_VERSION",

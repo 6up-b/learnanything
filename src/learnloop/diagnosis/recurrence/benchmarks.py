@@ -35,7 +35,11 @@ joins 5a's ``ROLE_TASKS``, so 5a's whole-plan admission prices it and
   under the production shortlist rule, the recall-oriented blocking cutoff and
   its judge load (this sets ``recurrence.blocking_cutoffs`` and ``top_k``),
   and merge precision/recall when the groups are replayed from a subset of
-  sources. No LLM call; embeddings only. It embeds the PRODUCTION recipe
+  sources. Every label carries how its pair was nominated (second review F3):
+  the same-cause judge only ever sees pairs the embedding shortlist chose, so
+  its verdicts are reported apart and never measure the shortlist's recall,
+  set its top_k or cutoff, or grade the P6 replay (they would ratchet the
+  cutoff up and top_k down run after run). No LLM call; embeddings only. It embeds the PRODUCTION recipe
   (the hypothesis text and task prefix the shortlist ranks) at the SERVING
   width (``embedding.dimensions``) by default, and every recommended cutoff
   names the model, width, recipe and prefix it was measured on; the
@@ -73,7 +77,13 @@ from learnloop.diagnosis.offline_review.spend import ReviewSpend, RouteInfo
 from learnloop.diagnosis.recurrence.judging import estimate_tokens, sum_estimates
 from learnloop.diagnosis.recurrence.kind import SAME_CAUSE, compatible, hypothesis_subjects, scope_of
 from learnloop.matching.union import UnionEdge, effective_verdicts, union_with_refusals
-from learnloop.substrate.recurrence_groups import AUTHORITY, compute_groups
+from learnloop.substrate.recurrence_groups import (
+    AUTHORITY,
+    NOMINATED_BY_CITATION,
+    NOMINATED_BY_M1_LINK,
+    NOMINATED_BY_SHORTLIST,
+    compute_groups,
+)
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
@@ -624,6 +634,7 @@ class B1Suite:
 @dataclass
 class B3Data:
     subjects: list[Any]
+    #: Labels the shortlist did NOT select: the only ones that measure it.
     pairs: list[dict[str, Any]]
     groups: Any
     models: tuple[str, ...]
@@ -631,23 +642,31 @@ class B3Data:
     #: The width the shortlist serves (``embedding.dimensions``): only a
     #: cutoff measured there is recommended for the config.
     serving_dims: int = 0
+    #: Labels on pairs the shortlist nominated (the judge's), reported apart.
+    shortlist_pairs: list[dict[str, Any]] = field(default_factory=list)
+    #: Effective labels per nomination, over every label.
+    labels_by_nomination: dict[str, int] = field(default_factory=dict)
 
 
-def _episode_labels(build: Any) -> list[dict[str, Any]]:
-    """One effective verdict per episode pair (highest authority, latest)."""
+def _episode_labels(build: Any, *, exclude_nominations: Sequence[str] = (), only_nominations: Sequence[str] = ()) -> list[dict[str, Any]]:
+    """One effective verdict per episode pair (highest authority; a tie is
+    ``different``), over the labels of the chosen nominations."""
 
     edges = [
         UnionEdge(
             left=row["left_episode"], right=row["right_episode"], verdict=row["verdict"],
             authority=AUTHORITY[row["judge"]], judge=row["judge"], source=row["source"], ref=row["ref"],
-            occurred_at=row["occurred_at"],
+            occurred_at=row["occurred_at"], detail={"nominated_by": row.get("nominated_by")},
         )
         for row in build.labelled
         if row.get("left_episode") and row.get("right_episode") and row["left_episode"] != row["right_episode"]
+        and row.get("nominated_by") not in exclude_nominations
+        and (not only_nominations or row.get("nominated_by") in only_nominations)
     ]
     effective, _conflicts = effective_verdicts(edges)
     return [
-        {"left": edge.left, "right": edge.right, "same": edge.verdict == "same", "judge": edge.judge, "source": edge.source}
+        {"left": edge.left, "right": edge.right, "same": edge.verdict == "same", "judge": edge.judge,
+         "source": edge.source, "nominated_by": edge.detail.get("nominated_by")}
         for edge in sorted(effective.values(), key=UnionEdge.order)
     ]
 
@@ -663,19 +682,28 @@ class B3Suite:
         with closing(connect(sqlite_path, read_only=True)) as connection:
             build = compute_groups(connection)
         known = {subject.id for subject in subjects}
-        pairs = [pair for pair in _episode_labels(build) if pair["left"] in known and pair["right"] in known]
+
+        def labels(**kwargs: Any) -> list[dict[str, Any]]:
+            return [pair for pair in _episode_labels(build, **kwargs) if pair["left"] in known and pair["right"] in known]
+
+        pairs = labels(exclude_nominations=(NOMINATED_BY_SHORTLIST,))
+        nominated = labels(only_nominations=(NOMINATED_BY_SHORTLIST,))
         serving = int(vault.config.embedding.dimensions)
         return B3Data(subjects, pairs, build, tuple(request.models or (vault.config.embedding.model,)),
-                      requested_dims(request, serving), serving)
+                      requested_dims(request, serving), serving, shortlist_pairs=nominated,
+                      labels_by_nomination=dict(Counter(str(pair["nominated_by"]) for pair in labels())))
 
     def plan(self, vault: LoadedVault, data: B3Data, request: BenchRequest) -> dict[str, Any]:
         tokens = sum(estimate_tokens(subject.text) + 32 for subject in data.subjects)
         return {
             "hypotheses": len(data.subjects),
+            # Labels independent of the shortlist (the ones that calibrate it).
             "labelled_pairs": len(data.pairs),
             "positives": sum(1 for pair in data.pairs if pair["same"]),
             "negatives": sum(1 for pair in data.pairs if not pair["same"]),
             "labels_by_judge": dict(Counter(pair["judge"] for pair in data.pairs)),
+            "labels_by_nomination": dict(data.labels_by_nomination),
+            "shortlist_nominated_pairs": len(data.shortlist_pairs),
             "models": list(data.models),
             "dims": list(data.dims),
             "serving_dims": data.serving_dims,
@@ -718,25 +746,32 @@ class B3Suite:
 
         labels = [pair["same"] for pair in data.pairs]
         scores = [score(pair["left"], pair["right"]) for pair in data.pairs]
-        ranks: list[int | None] = []
-        out_of_scope = 0
-        for pair in data.pairs:
-            if not pair["same"]:
-                continue
-            left, right = by_id[pair["left"]], by_id[pair["right"]]
-            query, candidate = (left, right) if scope_of(right).attempt_order < scope_of(left).attempt_order else (right, left)
-            if not compatible(query, candidate):
-                out_of_scope += 1
-                ranks.append(None)
-                continue
-            pool = [
-                other for other in data.subjects
-                if other.id != query.id and compatible(query, other)
-                and scope_of(other).statement_normalized != scope_of(query).statement_normalized
-            ]
-            ordered = sorted(pool, key=lambda other: (-score(query.id, other.id), other.id))
-            ranks.append(next((position for position, other in enumerate(ordered, start=1) if other.id == candidate.id), None))
+
+        def positive_ranks(pairs: Sequence[Mapping[str, Any]]) -> tuple[list[int | None], int]:
+            ranks: list[int | None] = []
+            out_of_scope = 0
+            for pair in pairs:
+                if not pair["same"]:
+                    continue
+                left, right = by_id[pair["left"]], by_id[pair["right"]]
+                query, candidate = (left, right) if scope_of(right).attempt_order < scope_of(left).attempt_order else (right, left)
+                if not compatible(query, candidate):
+                    out_of_scope += 1
+                    ranks.append(None)
+                    continue
+                pool = [
+                    other for other in data.subjects
+                    if other.id != query.id and compatible(query, other)
+                    and scope_of(other).statement_normalized != scope_of(query).statement_normalized
+                ]
+                ordered = sorted(pool, key=lambda other: (-score(query.id, other.id), other.id))
+                ranks.append(next((position for position, other in enumerate(ordered, start=1) if other.id == candidate.id), None))
+            return ranks, out_of_scope
+
+        # Only labels the shortlist did not select measure it (second review F3).
+        ranks, out_of_scope = positive_ranks(data.pairs)
         recall_at = {f"recall@{k}": rank_metrics(ranks, k)[f"recall@{k}"] for k in (1, 2, 3, 5, 10)}
+        nominated_ranks, _nominated_out = positive_ranks(data.shortlist_pairs)
         recommended_k = next(
             (k for k in range(1, 21) if (rank_metrics(ranks, k)[f"recall@{k}"] or 0.0) >= target_recall),
             None,
@@ -765,6 +800,15 @@ class B3Suite:
             "auc": roc_auc(scores, labels),
             "positives": sum(labels),
             "positives_out_of_scope": out_of_scope,
+            # The judge's verdicts: pairs the shortlist chose. Never used to
+            # set top_k or the cutoff (their recall is ~1 by construction).
+            "shortlist_nominated": {
+                "pairs": len(data.shortlist_pairs),
+                "positives": sum(1 for pair in data.shortlist_pairs if pair["same"]),
+                "recall@3": rank_metrics(nominated_ranks, 3)["recall@3"],
+                "note": "pairs the embedding shortlist nominated (same-cause judge verdicts); "
+                "reported only: they cannot measure the shortlist's recall",
+            },
             **recall_at,
             "recommended_top_k": recommended_k,
             "blocking_cutoff": {**cutoff, **provenance},
@@ -815,21 +859,41 @@ def _config_lines(provenance: Mapping[str, Any], cutoff: float | None, top_k: in
 
 
 def _merge_replay(build: Any) -> dict[str, Any]:
-    """Merge precision/recall when the union is replayed from a subset of sources.
+    """Merge precision/recall when the union is replayed from a subset of sources (P6).
 
-    Labels are the owner's verdicts when there are any, else the judge's; the
-    label source is held out of every replay so it never grades itself.
+    Labels are the owner's verdicts only, held out of every replay so they
+    never grade themselves. The same-cause judge's verdicts are never labels
+    (second review F3): the judge only sees pairs the citations did NOT
+    settle, so citation recall graded by them is near zero by construction.
+    The report names how the labelled pairs were nominated: owner labels on
+    pairs a diagnoser linked (M1's link review) favour ``exact_plus_citations``,
+    so P6 is decided only on labels nominated by neither component.
     """
 
-    owner = [edge for edge in build.edges if edge.judge == "owner"]
-    label_judge = "owner" if owner else "llm"
-    labels = [edge for edge in build.edges if edge.judge == label_judge and edge.verdict in ("same", "different") and edge.left != edge.right]
+    labels = [
+        edge for edge in build.edges
+        if edge.judge == "owner" and edge.verdict in ("same", "different") and edge.left != edge.right
+    ]
+    if not labels:
+        return {
+            "label_judge": None, "labels": 0,
+            "note": "no owner verdicts: P6 needs labels independent of the judge and of the citations; "
+            "the judge's own verdicts are never used (it only sees pairs the citations left open)",
+        }
+    nominations = Counter(str((edge.detail or {}).get("nominated_by")) for edge in labels)
+    neither = sum(count for name, count in nominations.items() if name not in (NOMINATED_BY_SHORTLIST, NOMINATED_BY_CITATION, NOMINATED_BY_M1_LINK))
+    label_judge = "owner"
     variants = {
         "exact_only": [],
         "exact_plus_citations": [edge for edge in build.edges if edge.source == "citation"],
         "all_but_labels": [edge for edge in build.edges if edge.judge != label_judge],
     }
-    out: dict[str, Any] = {"label_judge": label_judge, "labels": len(labels)}
+    out: dict[str, Any] = {
+        "label_judge": label_judge, "labels": len(labels), "label_nominations": dict(nominations),
+        "p6_decidable": neither > 0,
+        "note": None if neither else "every owner label is on a pair a diagnoser linked: the replay favours "
+        "exact_plus_citations; decide P6 only on labels nominated by neither component",
+    }
     for name, edges in variants.items():
         result = union_with_refusals(build.classes, edges, order=build.class_order)
         merged = [edge for edge in labels if result.root_of.get(edge.left) == result.root_of.get(edge.right)]
