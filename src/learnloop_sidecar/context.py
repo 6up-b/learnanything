@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.routing import ready_client_for_task, runtime_for_provider
+from learnloop.ai.routing import is_embedding_profile, ready_client_for_task, runtime_for_provider
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
@@ -360,7 +360,8 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
                 "providers": {
                     name: {
                         "type": profile.type,
-                        "model": profile.model,
+                        # embedding.model is authoritative for embedding profiles.
+                        "model": config.embedding.model if is_embedding_profile(config, name) else profile.model,
                         "base_url": profile.base_url,
                         "api_key_env": profile.api_key_env,
                     }
@@ -372,10 +373,14 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
 
 
 def available_grading_providers(vault: LoadedVault) -> list[str]:
-    """Selectable grading backends: configured AI providers, legacy codex, manual."""
+    """Selectable grading backends: configured AI providers, legacy codex, manual.
 
-    providers = set(vault.config.ai.providers) | {"codex"}
-    return sorted(providers) + ["manual"]
+    Embedding-only profiles have no completion transport and are never offered.
+    """
+
+    config = vault.config
+    providers = {name for name in config.ai.providers if not is_embedding_profile(config, name)}
+    return sorted(providers | {"codex"}) + ["manual"]
 
 
 def runtime_health(
@@ -416,16 +421,22 @@ def _settings_ready(vault: LoadedVault) -> bool:
     work through the per-task routing providers, so a vault that routes to a
     configured OpenRouter backend reads as healthy even when active_provider
     still names an unconfigured codex. Checks are cheap (config/key presence, no
-    network) and independent of the grading override."""
+    network) and independent of the grading override. The embedding route counts
+    only once embeddings are enabled: a disabled opt-in feature is not a missing
+    setting. Each route is checked under its own task, so an embedding profile on
+    a generation route (or the reverse) reads as not ready."""
 
     config = vault.config
     routing = config.ai.routing
-    names = {getattr(routing, field) for field in type(routing).model_fields}
-    names = {name for name in names if name}
-    if not names:
-        names = {config.ai.active_provider}
+    routes = {
+        (task, getattr(routing, task))
+        for task in type(routing).model_fields
+        if getattr(routing, task) and (task != "embedding" or config.embedding.enabled)
+    }
+    if not any(task != "embedding" for task, _name in routes):
+        routes.add(("grading", config.ai.active_provider))
     return all(
-        runtime_for_provider(vault.root, config, name).ready for name in names
+        runtime_for_provider(vault.root, config, name, task=task).ready for task, name in routes
     )
 
 

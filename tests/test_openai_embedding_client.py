@@ -127,6 +127,7 @@ def test_only_known_mrl_models_can_truncate(monkeypatch):
 def test_custom_key_and_endpoint(tmp_path, monkeypatch):
     module = install_fake_openai(monkeypatch)
     config = LearnLoopConfig.model_validate({
+        "embedding": {"enabled": True},
         "ai": {
             "routing": {"embedding": "private"},
             "providers": {"private": {
@@ -157,6 +158,7 @@ def test_receipt_admission_failure_prevents_request(monkeypatch):
 def test_explicit_embedding_route_never_uses_env_active_or_fallback(tmp_path, monkeypatch):
     monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "codex")
     config = LearnLoopConfig()
+    config.embedding.enabled = True
     config.ai.fallback_provider = "codex"
     assert provider_for_task(config, "embedding").provider_name == ""
     assert not ready_client_for_task(tmp_path, config, "embedding").ready
@@ -165,7 +167,9 @@ def test_explicit_embedding_route_never_uses_env_active_or_fallback(tmp_path, mo
     assert resolution.provider_name == "missing"
     assert resolution.fallback_from is None
     config.ai.routing.embedding = "codex"
-    assert not ready_client_for_task(tmp_path, config, "embedding").ready
+    refused = ready_client_for_task(tmp_path, config, "embedding")
+    assert not refused.ready
+    assert "openai_embedding" in refused.runtime.message
 
 
 def test_readiness_factory_and_authoritative_embedding_model(tmp_path, monkeypatch):
@@ -173,6 +177,10 @@ def test_readiness_factory_and_authoritative_embedding_model(tmp_path, monkeypat
     config = LearnLoopConfig.model_validate(tomllib.loads(DEFAULT_CONFIG_TEXT))
     assert not config.embedding.enabled
     assert not config.embedding.backfill_enabled
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    assert not ready_client_for_task(tmp_path, config, "embedding").ready
+    assert module.instances == []
+    config.embedding.enabled = True
     config.embedding.model = "qwen/qwen3-embedding-4b"
     config.embedding.dimensions = 1024
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)

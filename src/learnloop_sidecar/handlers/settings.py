@@ -25,6 +25,7 @@ from learnloop.ai.providers.openrouter_catalog import (
     load_catalog,
     model_input_modalities,
 )
+from learnloop.ai.routing import is_embedding_profile
 from learnloop.ai.runtime import check_ai_runtime
 from learnloop.content.authoring.concept_animation import video_generation_readiness
 from learnloop.config import CODEX_PROVIDER_NAMES, global_ai_defaults_path, global_settings_path
@@ -231,11 +232,18 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
     known_providers = set(config.ai.providers) | CODEX_PROVIDER_NAMES
     updates: dict[tuple[str, ...], Any] = {}
 
+    # Embedding-only profiles have no completion transport; they serve only
+    # [ai.routing] embedding, which this generation-settings RPC never edits.
+    generation_providers = {
+        name for name in known_providers if not is_embedding_profile(config, name)
+    }
+
     if params.active_provider is not None:
-        if params.active_provider not in known_providers:
+        if params.active_provider not in generation_providers:
             raise SidecarError(
                 "invalid_provider",
-                f"Unknown provider {params.active_provider!r}. Configured: {', '.join(sorted(known_providers))}.",
+                f"Unknown or embedding-only provider {params.active_provider!r}. "
+                f"Generation providers: {', '.join(sorted(generation_providers))}.",
             )
         updates[("ai", "active_provider")] = params.active_provider
 
@@ -268,10 +276,10 @@ def update_ai_settings(ctx: SidecarContext, params: UpdateAiSettingsParams) -> d
                 updates[("ai", "providers", profile_name, key)] = value
             target = profile_name
         else:
-            if choice.provider not in known_providers:
+            if choice.provider not in generation_providers:
                 raise SidecarError(
                     "invalid_provider",
-                    f"Unknown provider {choice.provider!r} for use case {use_case!r}.",
+                    f"Unknown or embedding-only provider {choice.provider!r} for use case {use_case!r}.",
                 )
             target = choice.provider
         for task in routes:

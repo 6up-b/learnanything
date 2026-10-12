@@ -126,7 +126,7 @@ def test_provider_resolution_config_matrix_is_uniform(
 ) -> None:
     config = LearnLoopConfig.model_validate(payload)
 
-    def runtime_for_provider(_root, parsed, name):
+    def runtime_for_provider(_root, parsed, name, **_kwargs):
         profile = parsed.ai.providers[name]
         ready = name not in unavailable
         return AIRuntimeReport(
@@ -237,7 +237,7 @@ def test_config_matrix_executes_all_six_production_resolution_paths(
     config = LearnLoopConfig.model_validate(payload)
     vault = SimpleNamespace(root=tmp_path, config=config)
 
-    def runtime_for_provider(_root, parsed, name):
+    def runtime_for_provider(_root, parsed, name, **_kwargs):
         profile = parsed.ai.providers[name]
         ready = name not in unavailable
         return AIRuntimeReport(
@@ -363,7 +363,7 @@ def test_composition_root_uses_fallback_and_preserves_requested_selection(tmp_pa
     monkeypatch.setattr(
         routing,
         "runtime_for_provider",
-        lambda _root, _config, name: reports[name],
+        lambda _root, _config, name, **_kwargs: reports[name],
     )
     monkeypatch.setattr(
         routing,
@@ -387,7 +387,7 @@ def test_explicit_and_environment_selections_suppress_fallback(tmp_path, monkeyp
     monkeypatch.setattr(
         routing,
         "runtime_for_provider",
-        lambda _root, _config, name: _runtime(name, ready=False),
+        lambda _root, _config, name, **_kwargs: _runtime(name, ready=False),
     )
     built: list[str] = []
     monkeypatch.setattr(
