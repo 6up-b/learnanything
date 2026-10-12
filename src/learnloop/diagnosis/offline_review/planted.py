@@ -415,6 +415,9 @@ def _history_attempt(vault: LoadedVault, attempt: PlantedAttempt) -> HistoryAtte
         item_facets=facets,
         failed_criterion_facets=facets if attempt.failed else (),
         grader_mode="blind",
+        attribution_facets=(facets,) if attempt.failed else (),
+        attribution_criteria=(tuple(criteria),) if attempt.failed else (),
+        failed_criterion_facet_sets=tuple(facets for _criterion in criteria) if attempt.failed else (),
     )
 
 

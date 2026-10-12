@@ -11,9 +11,10 @@ dropped. The validated proposal keeps only what passed:
 * **verbatim quotes** - each citation re-anchors against the cited attempt's
   answer with the grader's first-divergence anchoring; a failure drops it;
 * **citation validity (S4)** - a citation counts toward recurrence only when
-  the cited attempt's BLIND grade shows a non-pass overlapping the hypothesis'
-  targets and is a valid measurement; validated citations are grouped by
-  surface group for independence;
+  the cited attempt's BLIND grade shows a non-pass on a target overlapping
+  the hypothesis' targets AND that same observation is a valid measurement
+  (a flagged failure on the target next to a valid slip elsewhere does not
+  count); validated citations are grouped by surface group for independence;
 * **passed-facet firewall** - diagnoser targets protected by the current blind
   grade's clean passes are stripped, exactly as for grader targets;
 * **scope firewall** - a causal class on an event whose blind validity scope
@@ -551,13 +552,9 @@ def validate_diagnosis_proposal(
 
 
 def _citation_invalid_reason(prior: HistoryAttempt, targets: set[str]) -> str | None:
-    if not prior.non_pass:
-        return "cited_attempt_passed"
-    if not prior.valid_measurement:
-        return "not_valid_measurement"
-    if targets and not (prior.failure_facets() & targets):
-        return "no_target_overlap"
-    return None
+    """S4: a valid non-pass on an overlapping target, judged per observation."""
+
+    return prior.recurrence_invalid_reason(targets)
 
 
 def primary_cause(payload: Mapping[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:

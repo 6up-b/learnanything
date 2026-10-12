@@ -331,3 +331,41 @@ def test_a_stored_unanchored_divergence_quote_is_not_verbatim_evidence(world):
     assert result.validated_citations == ()
     assert result.proposal["pattern_claims"][0]["cited"] == []
     assert "citation_quote_unanchored" in _rules(result)
+
+
+def test_citation_validity_is_judged_on_the_overlapping_target_itself(world, tmp_path):
+    """F8: an item_contract failure on A plus a valid slip on B is no valid evidence about A."""
+
+    from learnloop.diagnosis.split.history import history_attempt_from_blind_record
+
+    vault, store = world
+    prior = store.attempt("att_05_eigen_fail")
+    item = vault.practice_items[prior.practice_item_id]
+    mixed = history_attempt_from_blind_record(
+        vault, attempt_id=prior.attempt_id, item=item, learning_object_id=prior.learning_object_id,
+        practice_item_id=prior.practice_item_id, completed_at=prior.completed_at,
+        learner_answer_md=prior.learner_answer_md, attempt_type=prior.attempt_type,
+        record=blind_record(
+            score=4, max_points=4, criteria={"correctness": 4},
+            attributions=[
+                {"error_type": "conceptual_slip", "target_evidence_families": ["recall"], "validity_scope": "item_contract",
+                 "first_divergence": {"anchor_kind": "span", "quote": "P D P"}},
+                {"error_type": "conceptual_slip", "target_evidence_families": ["compute"], "validity_scope": "valid_measurement",
+                 "first_divergence": {"anchor_kind": "span", "quote": "P D P"}},
+            ],
+        ),
+    )
+    store.replace_attempt(mixed)
+    result = _validate(vault, store, {
+        "analysis_md": "a",
+        "evidence_attempt_ids": ["att_05_eigen_fail"],
+        "event_diagnoses": [_event(candidate_causes=[{"statement": "s", "cause_scope": "learner_state",
+                                                      "target_ref": {"kind": "facet_capability", "facet_id": "recall"}}])],
+        "pattern_claims": [
+            {"hypothesis_ref": "cause:0:0", "relation": "same_mechanism",
+             "cited": [{"attempt_id": "att_05_eigen_fail", "quote": "P D P"}]},
+        ],
+    })
+    reasons = {issue["attempt_id"]: issue["reason"] for issue in result.report["issues"] if issue["rule"] == "citation_not_valid_for_recurrence"}
+    assert reasons == {"att_05_eigen_fail": "not_valid_measurement"}
+    assert result.validated_citations == ()

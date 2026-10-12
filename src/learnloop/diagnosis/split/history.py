@@ -105,9 +105,83 @@ class HistoryAttempt:
     #: Divergence-recipe input for hybrid retrieval only; never rendered into
     #: a context (it is grader prose, and only blind grades carry it).
     local_analysis_md: str | None = None
+    #: Per error attribution, aligned with ``validity_scopes``: the facets it
+    #: bears on (its facet targets plus the facets its target criteria
+    #: measure) and its target criteria. S4 keeps every target WITH its own
+    #: validity scope instead of unioning targets and scopes separately.
+    attribution_facets: tuple[tuple[str, ...], ...] = ()
+    attribution_criteria: tuple[tuple[str, ...], ...] = ()
+    #: Per failed criterion, aligned with ``failed_criteria``: its facets.
+    failed_criterion_facet_sets: tuple[tuple[str, ...], ...] = ()
 
     def key(self) -> tuple[str, str]:
         return (self.completed_at, self.attempt_id)
+
+    def evidence_units(self) -> list[tuple[frozenset[str], bool]]:
+        """Each non-pass observation as (facets it bears on, valid measurement?).
+
+        An attribution is valid only under ``valid_measurement``. A failed
+        criterion or fatal error is valid unless a grader-flagged attribution
+        (``item_contract``, ``grader_interpretation``, ...) targets that
+        criterion or overlaps its facets. An attempt built without the
+        per-attribution alignment collapses to one unit that is valid only when
+        every attribution is.
+        """
+
+        scopes = list(self.validity_scopes)
+        if len(self.attribution_facets) != len(scopes):
+            facets = frozenset((*self.target_facets, *self.failed_criterion_facets))
+            return [(facets, all(scope == "valid_measurement" for scope in scopes))]
+        criteria = (
+            list(self.attribution_criteria)
+            if len(self.attribution_criteria) == len(scopes)
+            else [tuple(self.target_criteria)] * len(scopes)
+        )
+        units: list[tuple[frozenset[str], bool]] = []
+        flagged: list[tuple[frozenset[str], frozenset[str]]] = []
+        for facets, targeted, scope in zip(self.attribution_facets, criteria, scopes):
+            valid = scope == "valid_measurement"
+            units.append((frozenset(facets), valid))
+            if not valid:
+                flagged.append((frozenset(facets), frozenset(targeted)))
+
+        def unflagged(criterion: str | None, facets: frozenset[str]) -> bool:
+            return not any(
+                (criterion is not None and criterion in targeted) or (facets & flagged_facets)
+                for flagged_facets, targeted in flagged
+            )
+
+        sets = (
+            list(self.failed_criterion_facet_sets)
+            if len(self.failed_criterion_facet_sets) == len(self.failed_criteria)
+            else [tuple(self.failed_criterion_facets)] * len(self.failed_criteria)
+        )
+        for criterion, facets in zip(self.failed_criteria, sets):
+            unit = frozenset(facets)
+            units.append((unit, unflagged(criterion, unit)))
+        if self.fatal_errors:
+            unit = frozenset(self.item_facets)
+            units.append((unit, unflagged(None, unit)))
+        return units
+
+    def recurrence_invalid_reason(self, targets: Iterable[str]) -> str | None:
+        """S4 on the overlapping target itself; ``None`` when a citation counts.
+
+        The cited attempt needs a non-pass that overlaps ``targets`` AND is a
+        valid measurement - the same observation, not a valid slip elsewhere
+        next to a flagged failure here. Empty ``targets`` accepts any valid
+        non-pass.
+        """
+
+        if not self.non_pass:
+            return "cited_attempt_passed"
+        wanted = frozenset(targets)
+        overlapping = [valid for facets, valid in self.evidence_units() if not wanted or facets & wanted]
+        if wanted and not overlapping:
+            return "no_target_overlap"
+        if not any(overlapping):
+            return "not_valid_measurement"
+        return None
 
     @property
     def non_pass(self) -> bool:
@@ -358,6 +432,35 @@ def _failed_facets(vault: LoadedVault, item: PracticeItem | None, failed: Sequen
     return tuple(dict.fromkeys(facet for criterion in failed for facet in mapping.get(criterion, fallback)))
 
 
+def _criterion_facet_sets(vault: LoadedVault, item: PracticeItem | None, criteria: Sequence[str]) -> tuple[tuple[str, ...], ...]:
+    """Per criterion (in order), the facets it measures."""
+
+    mapping = criterion_facets(vault, item)
+    fallback = tuple(vault.canonical_facet_id(str(value)) for value in (item.evidence_facets if item else []))
+    return tuple(tuple(mapping.get(criterion, fallback)) for criterion in criteria)
+
+
+def _attribution_alignment(
+    vault: LoadedVault, item: PracticeItem | None, attributions: Sequence[Mapping[str, Any]]
+) -> tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...]]:
+    """Per attribution: (facets it bears on, criteria it targets)."""
+
+    mapping = criterion_facets(vault, item)
+    facets: list[tuple[str, ...]] = []
+    criteria: list[tuple[str, ...]] = []
+    for row in attributions:
+        targeted = tuple(dict.fromkeys(str(value) for value in row.get("target_criterion_ids") or []))
+        ref = row.get("target_ref")
+        if isinstance(ref, Mapping) and ref.get("kind") == "criterion" and ref.get("criterion_id"):
+            targeted = tuple(dict.fromkeys((*targeted, str(ref["criterion_id"]))))
+        bearing = list(_target_facets_from(row, vault))
+        for criterion in targeted:
+            bearing.extend(mapping.get(criterion, ()))
+        facets.append(tuple(dict.fromkeys(bearing)))
+        criteria.append(targeted)
+    return tuple(facets), tuple(criteria)
+
+
 def _target_facets_from(attribution: Mapping[str, Any], vault: LoadedVault) -> list[str]:
     facets = [
         vault.canonical_facet_id(str(value))
@@ -404,6 +507,7 @@ def history_attempt_from_blind_record(
         else:
             failed.append(criterion_id)
     attributions = [row for row in record.get("error_attributions") or [] if isinstance(row, Mapping)]
+    alignment = _attribution_alignment(vault, item, attributions)
     return HistoryAttempt(
         attempt_id=attempt_id,
         learning_object_id=learning_object_id,
@@ -439,6 +543,9 @@ def history_attempt_from_blind_record(
         primed=bool(primed),
         grader_mode="blind",
         local_analysis_md=str(record.get("local_analysis_md") or "") or None,
+        attribution_facets=alignment[0],
+        attribution_criteria=alignment[1],
+        failed_criterion_facet_sets=_criterion_facet_sets(vault, item, failed),
     )
 
 
@@ -728,6 +835,7 @@ class VaultHistoryStore:
             # every criterion rather than silently a pass.
             failed = sorted(maxima) or ["score"]
         plans = [event.get("repair_plan") or {} for event in events]
+        alignment = _attribution_alignment(vault, item, plans)
         validity = []
         for plan in plans:
             scope = str(plan.get("cause_scope") or "")
@@ -764,6 +872,9 @@ class VaultHistoryStore:
             assisted=bool(row.get("hints_used")) or attempt_type in ASSISTED_ATTEMPT_TYPES,
             primed=bool(row.get("primed")),
             grader_mode="joint",
+            attribution_facets=alignment[0],
+            attribution_criteria=alignment[1],
+            failed_criterion_facet_sets=_criterion_facet_sets(vault, item, sorted(failed)),
         )
 
     # -- HistoryStore -------------------------------------------------------
