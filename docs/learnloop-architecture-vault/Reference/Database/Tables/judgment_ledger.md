@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
-source_commit_timestamp: "2026-10-12T16:11:05-04:00"
+source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
+source_commit_timestamp: "2026-10-12T16:53:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 174
+schema_head: 175
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -23,10 +23,10 @@ source_paths:
   - "src/learnloop/cli/embeddings.py"
   - "src/learnloop/cli/families.py"
   - "src/learnloop/cli/practice_index.py"
+  - "src/learnloop/cli/probability_arms.py"
   - "src/learnloop/content/synthesis/source_set_synthesis.py"
   - "src/learnloop/db/stores/families.py"
   - "src/learnloop/db/stores/judgments.py"
-  - "src/learnloop/db/stores/pf.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/166_embedding_substrate_and_judgments.sql`.
-- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`.
+- **Schema touched by:** `166_embedding_substrate_and_judgments.sql`, `168_activity_family_membership.sql`, `169_practice_index.sql`, `174_pf_generation.sql`, `175_decider_judgments_and_receipt_labels.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -109,7 +109,7 @@ None found by exact static reference scan.
 - `src/learnloop/diagnosis/offline_review/runner.py`
 - `src/learnloop/diagnosis/split/jobs.py`
 - `src/learnloop/diagnosis/split/reports.py`
-- `src/learnloop/field/zero_data_llm.py`
+- `src/learnloop/field/probability_prep.py`
 - `src/learnloop/ops/contamination/judge.py`
 - `src/learnloop/ops/contamination/report.py`
 - `src/learnloop/ops/family_proposals.py`
@@ -141,17 +141,17 @@ None found by exact static reference scan.
 - `tests/test_diagnosis_reports.py`
 - `tests/test_embedding_compare.py`
 - `tests/test_embedding_store.py`
-- `tests/test_eval_harness.py`
 - `tests/test_family_proposals.py`
 - `tests/test_graph_nomination_ingest.py`
 - `tests/test_interaction_signals.py`
+- `tests/test_judge_routes.py`
 - `tests/test_judgment_ledger.py`
 - `tests/test_pf_generation.py`
 - `tests/test_pf_reports.py`
 - `tests/test_practice_index_evaluation.py`
 - `tests/test_practice_index_find.py`
+- `tests/test_probability_prep.py`
 - `tests/test_success_head_cli.py`
-- `tests/test_zero_data_llm.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -168,7 +168,7 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE judgment_ledger (
+CREATE TABLE "judgment_ledger" (
     id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL,
     supersedes_id TEXT REFERENCES judgment_ledger(id),
@@ -177,7 +177,7 @@ CREATE TABLE judgment_ledger (
     left_id TEXT NOT NULL,
     right_kind TEXT,
     right_id TEXT,
-    judge TEXT NOT NULL CHECK(judge IN ('llm', 'verifier', 'owner', 'diagnoser', 'learner_card', 'exact_key')),
+    judge TEXT NOT NULL CHECK(judge IN ('llm', 'verifier', 'owner', 'diagnoser', 'learner_card', 'exact_key', 'decider')),
     judge_model TEXT,
     prompt_version TEXT,
     input_hash TEXT NOT NULL,

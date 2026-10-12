@@ -3,13 +3,13 @@ title: "activity_cards"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
-source_commit_timestamp: "2026-10-12T16:11:05-04:00"
+source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
+source_commit_timestamp: "2026-10-12T16:53:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_cards"
   - "table activity_cards"
-schema_head: 174
+schema_head: 175
 table_name: "activity_cards"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -112,6 +112,7 @@ Indexes and uniqueness:
 - `tests/test_activity_backfill.py`
 - `tests/test_activity_substrate.py`
 - `tests/test_goal_contracts.py`
+- `tests/test_judge_routes.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_card_lineage.py`

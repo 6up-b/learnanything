@@ -9,6 +9,9 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal
 
 from learnloop.ai.errors import AIProviderUnavailable
 from learnloop.config import LearnLoopConfig
+from learnloop.config.schema import (
+    DECIDER_PROFILE_TYPE, DEFAULT_DECIDER_PROVIDER, DEFAULT_EMBEDDING_PROVIDER,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from learnloop.ai.runtime import AIRuntimeReport
@@ -19,7 +22,6 @@ EMBEDDING_PROFILE_TYPE = "openai_embedding"
 AITask = Literal[
     "embedding",
     "field_question_classifier",
-    "field_llm_probability",
     "pf_generator",
     "pf_proposers",
     "pf_selection_judge",
@@ -51,14 +53,25 @@ AITask = Literal[
     "transcription",
     "video_generation",
     "project",
+    # Action router and the learner field's llm_probability arms (router spec
+    # §6.2): the decider routes reach a decision model, the LLM routes a chat
+    # transport with structured output.
+    "router_decider",
+    "router_llm",
+    "llm_probability_decider",
+    "llm_probability_llm",
 ]
+
+#: Routes served only by a ``decider`` profile. They never fall back to a chat
+#: provider (the interface differs) and ``LEARNLOOP_AI_PROVIDER`` never
+#: overrides them, the same rule as ``ai.routing.embedding``.
+DECIDER_TASKS: frozenset[str] = frozenset({"router_decider", "llm_probability_decider"})
 
 # Every structured operation explicitly inherits one configured task route.
 # This is documentation as executable data: feature callers no longer invent
 # provider-routing policy from the operation's method name.
 ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "field_question_classification": "field_question_classifier",
-    "field_llm_probability": "field_llm_probability",
     "authoring_proposal": "authoring",
     "canonical_ingest": "canonical_ingest",
     "grading_proposal": "grading",
@@ -108,6 +121,8 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     # Slice 2 T4 shadow contamination flags (owner-run report only).
     "contamination_leak_judgment": "contamination_judge",
     "contamination_reveal_judgment": "contamination_judge",
+    # Router R0: the learner field's llm_probability LLM judge (field §7.2).
+    "llm_probability_prediction": "llm_probability_llm",
 }
 
 
@@ -159,8 +174,17 @@ def provider_for_task(
         return AIProviderSelection(provider_name=explicit_provider, explicit=True)
     if task == "embedding":
         # A global chat override must never redirect learner text or select Codex.
-        return AIProviderSelection(provider_name=config.ai.routing.embedding or "", explicit=True)
-    if task in {"field_question_classifier", "field_llm_probability"}:
+        # Unset is the code-default embedding profile; embedding.enabled still
+        # gates every client (ready_client_for_task).
+        return AIProviderSelection(
+            provider_name=config.ai.routing.embedding or DEFAULT_EMBEDDING_PROVIDER, explicit=True,
+        )
+    if task in DECIDER_TASKS:
+        # A decision model is not a chat transport: an unset route names the
+        # code-default decider profile, never the active provider or the env.
+        routed = getattr(config.ai.routing, task, None)
+        return AIProviderSelection(provider_name=routed or DEFAULT_DECIDER_PROVIDER, explicit=True)
+    if task == "field_question_classifier":
         # Offline experiments must not silently inherit a paid serving route.
         return AIProviderSelection(provider_name=getattr(config.ai.routing, task) or "", explicit=True)
     env_provider = os.environ.get("LEARNLOOP_AI_PROVIDER") if allow_env else None
@@ -269,13 +293,25 @@ def route_profile_mismatch(
     profile = config.ai.providers.get(provider_name)
     if profile is None:
         return None
-    embedding_profile = profile.type.strip().lower() == EMBEDDING_PROFILE_TYPE
+    profile_type = profile.type.strip().lower()
+    embedding_profile = profile_type == EMBEDDING_PROFILE_TYPE
+    decider_profile = profile_type == DECIDER_PROFILE_TYPE
     if task == "embedding" and not embedding_profile:
         return f"Embedding requires an {EMBEDDING_PROFILE_TYPE} profile; {provider_name!r} is {profile.type!r}."
+    if task in DECIDER_TASKS and not decider_profile:
+        return (
+            f"{task} requires a {DECIDER_PROFILE_TYPE} profile; {provider_name!r} is "
+            f"{profile.type!r}. A decision route never falls back to a chat provider."
+        )
     if task != "embedding" and embedding_profile:
         return (
             f"{provider_name!r} is an embedding-only profile; it cannot serve "
             f"{task or 'generation'} work."
+        )
+    if task not in DECIDER_TASKS and decider_profile:
+        return (
+            f"{provider_name!r} is a decision-model profile; it answers typed questions "
+            f"only and cannot serve {task or 'generation'} work."
         )
     return None
 
@@ -283,6 +319,22 @@ def route_profile_mismatch(
 def is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool:
     profile = config.ai.providers.get(provider_name)
     return profile is not None and profile.type.strip().lower() == EMBEDDING_PROFILE_TYPE
+
+
+def is_decider_profile(config: LearnLoopConfig, provider_name: str) -> bool:
+    profile = config.ai.providers.get(provider_name)
+    return profile is not None and profile.type.strip().lower() == DECIDER_PROFILE_TYPE
+
+
+def is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool:
+    """Whether a configured name can serve a chat/generation route.
+
+    Embedding and decision-model profiles have no completion transport, so
+    no generation selector (active provider, grading, use cases) offers them.
+    Unknown names are left to the caller's own validation.
+    """
+
+    return not (is_embedding_profile(config, provider_name) or is_decider_profile(config, provider_name))
 
 
 def runtime_for_provider(
@@ -383,7 +435,7 @@ def ready_client_for_task(
         task=task,
         timeout_seconds=timeout_seconds,
     )
-    if primary.runtime.ready or task == "embedding":
+    if primary.runtime.ready or task == "embedding" or task in DECIDER_TASKS:
         return primary
 
     fallback = fallback_provider_for(config, selection)
@@ -469,6 +521,7 @@ def _manual_resolution(
 
 
 __all__ = [
+    "DECIDER_TASKS",
     "EMBEDDING_PROFILE_TYPE",
     "MANUAL_PROVIDER",
     "LIST_ROUTE_TASKS",
@@ -478,7 +531,9 @@ __all__ = [
     "ResolvedClient",
     "client_for_provider",
     "fallback_provider_for",
+    "is_decider_profile",
     "is_embedding_profile",
+    "is_generation_profile",
     "provider_for_operation",
     "provider_for_task",
     "provider_list_for_task",

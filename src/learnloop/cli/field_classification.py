@@ -57,7 +57,11 @@ def classify_questions(
 
     Requires both field switches and an explicit field_question_classifier route.
     No automatic retries/JSON repairs: a new command re-admits unfinished work.
-    Dry runs load no .env/global config, construct no client and migrate nothing.
+    Dry runs load no .env/global config, construct no client and migrate nothing;
+    a paid run loads them the way T8's success-head paid steps do (the vault
+    .env, settings.env and the per-machine Codex checkout). Every request is an
+    isolated turn: the model sees the prompt only, never the vault or its files,
+    and a transport that cannot isolate it is refused before sending.
     A Codex route runs without a physical-request bound and records its cost as
     estimated_only; the candidate and call caps still apply.
     """
@@ -66,7 +70,9 @@ def classify_questions(
             raise ValueError("--vault must contain learnloop.toml")
         if price_per_million is not None and (not math.isfinite(price_per_million) or price_per_million <= 0):
             raise ValueError("--price-per-million must be finite and positive")
-        loaded = load_vault(vault, load_environment=False)
+        # As T8's success-head paid steps load (cli.field._load_for_step): a dry
+        # run reads only the vault TOML, a paid run loads keys like the app.
+        loaded = load_vault(vault, load_environment=not dry_run)
         route = loaded.config.ai.routing.field_question_classifier
         profile = loaded.config.ai.providers.get(route) if route else None
         if profile is None or not profile.model:
@@ -126,8 +132,11 @@ def classify_questions(
                     raise AIProviderUnavailable("Field classifier resolved to a different billing transport")
                 client = resolved.client
             with generation_limit(output_tokens):
+                # Isolated: an agentic transport (Codex) must not start in the
+                # vault. One that cannot isolate the turn is refused unsent.
                 result = execute_structured_operation(
                     client, purpose=TASK, prompt=prompt(row), result_model=QuestionClassification,
+                    isolated=True,
                 )
             raw = result.model_dump(mode="json")
             # Preserve invalid ID verdicts in the ledger, but never cache them.

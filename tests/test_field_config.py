@@ -21,7 +21,7 @@ def test_field_defaults_are_offline_and_incumbent_only():
             LearnLoopConfig.model_validate({"field": {"active_predictor": challenger}})
 
 
-@pytest.mark.parametrize("task", ["field_question_classifier", "field_llm_probability"])
+@pytest.mark.parametrize("task", ["field_question_classifier"])
 def test_field_paid_routes_are_explicit_not_global(task, monkeypatch):
     config = LearnLoopConfig()
     monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "unrelated-provider")
@@ -53,3 +53,32 @@ def test_offline_vault_load_uses_only_explicit_vault_config(tmp_path, monkeypatc
 
     monkeypatch.setattr("learnloop.config.loader.load_dotenv", forbidden)
     assert load_vault(paths.root, load_environment=False).config.field.legacy_fallback == "exclude"
+
+
+def test_retired_numeric_probability_route_loads_with_a_deprecation_note(tmp_path):
+    """Owner decision 2026-10-12: ai.routing.field_llm_probability is retired.
+
+    An old vault that still sets it loads (the value is ignored) and doctor
+    reports a warning, never an error.
+    """
+    from learnloop.ai.routing import ROUTE_FOR_OPERATION
+    from learnloop.config.schema import AIRoutingConfig
+    from learnloop.ops.doctor import run_doctor
+
+    paths = create_basic_vault(tmp_path)
+    toml = paths.root / "learnloop.toml"
+    assert "field_llm_probability" not in toml.read_text(encoding="utf-8")
+    text = toml.read_text(encoding="utf-8").replace(
+        'field_question_classifier = ""',
+        'field_question_classifier = ""\nfield_llm_probability = "openrouter"', 1,
+    )
+    toml.write_text(text, encoding="utf-8")
+    config = load_vault(paths.root, load_environment=False).config
+    assert "field_llm_probability" not in AIRoutingConfig.model_fields
+    assert "field_llm_probability" not in config.ai.routing.model_dump()
+    assert "field_llm_probability" not in ROUTE_FOR_OPERATION
+    report = run_doctor(paths.root)
+    retired = [issue for issue in report.issues if issue.code == "config:retired_route"]
+    assert len(retired) == 1 and retired[0].severity == "warning"
+    assert "field_llm_probability" in retired[0].message
+    assert "llm_probability_llm" in retired[0].message

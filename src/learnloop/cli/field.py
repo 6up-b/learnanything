@@ -26,6 +26,19 @@ def _load_offline(vault: Path):
     return load_vault(vault, load_environment=False)
 
 
+def _load_for_step(vault: Path, *, paid: bool):
+    """Replay and dry runs read only the vault TOML; a paid step loads like
+    `learnloop embeddings backfill`, so the app reads its keys and per-machine
+    Codex checkout itself. Neither changes the route settings a cache keys on.
+    (T8's success-head paid steps and `field classify-questions` share this.)
+    """
+    if not paid:
+        return _load_offline(vault)
+    if not (vault / "learnloop.toml").is_file():
+        raise ValueError("--vault must contain learnloop.toml; use a backup-API copy.")
+    return load_vault(vault)
+
+
 def _emit(report: dict, json_output: bool) -> None:
     typer.echo(json.dumps(report, sort_keys=True, indent=None if json_output else 2))
 
@@ -36,6 +49,20 @@ _LEGACY_FALLBACK_HELP = (
     "Revision policy for attempts without a verified graded snapshot: exclude "
     "(default), or explicit, labelled current_content reconstruction. Defaults to "
     "the vault's field.legacy_fallback."
+)
+
+
+_PROBABILITY_ARM_HELP = (
+    "Prepare or load the llm_probability V1-V3 arms: all, v1|v2|v3, decider|llm, or "
+    "v<n>/<judge>; repeatable. Needs --llm-cache and field.enabled + "
+    "field.llm_probability_enabled. Caps apply per judge."
+)
+#: Owner decision 2026-10-12: Phase 2's numeric llm_probability arm (route
+#: ai.routing.field_llm_probability) is retired; --llm-cache and --prepare-llm
+#: now serve only the V1-V3 arms.
+_NUMERIC_ARM_RETIRED = (
+    "Phase 2's numeric llm_probability arm is retired: pass --probability-arm "
+    "(all, v1|v2|v3, decider|llm or v<n>/<judge>) with --llm-cache"
 )
 
 
@@ -98,7 +125,7 @@ def _replay_inputs(loaded, *, legacy_fallback):
     }
 
 
-def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extra_arms=()):
+def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extra_arms=(), pairwise=()):
     from learnloop.field.evaluation import evaluate
 
     if extra_arms:
@@ -111,6 +138,7 @@ def _replay(loaded, inputs, *, arms, bootstrap_samples, seed, fast_track_q, extr
         general_means=inputs["general_means"], lo_priors=inputs["lo_priors"],
         config=loaded.config.model_dump(mode="json"),
         fsrs_weights=inputs["fsrs_weights"], fsrs_fit_id=inputs["fsrs_fit_id"],
+        pairwise=pairwise,
     )
     report["data_check"] = inputs["data_check"]
     report["claim_priors"] = inputs["claim_priors"]
@@ -128,8 +156,8 @@ def field_eval(
     bootstrap_samples: Annotated[int, typer.Option("--bootstrap-samples", min=1)] = 1000,
     seed: Annotated[int, typer.Option("--seed")] = 0,
     fast_track_q: Annotated[float, typer.Option("--fast-track-q", min=0.5, max=1.0, help="Frozen simulation threshold; conservative 0.9 until report 2 supports 0.8.")] = 0.9,
-    llm_cache: Annotated[Path | None, typer.Option("--llm-cache", help="Optional prepared probability cache outside the vault; replay makes zero model calls.")] = None,
-    prepare_llm: Annotated[bool, typer.Option("--prepare-llm", help="Explicit paid preparation step before replay; requires --llm-cache and opt-in config.")] = False,
+    llm_cache: Annotated[Path | None, typer.Option("--llm-cache", help="The --probability-arm cache outside the vault; replay makes zero model calls.")] = None,
+    prepare_llm: Annotated[bool, typer.Option("--prepare-llm", help="Explicit paid preparation of the --probability-arm arms before replay; requires --llm-cache and opt-in config.")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate optional paid preparation without requests or report writes.")] = False,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,
     max_calls: Annotated[int, typer.Option("--max-calls", min=0)] = 100,
@@ -138,6 +166,8 @@ def field_eval(
     price_per_million: Annotated[float | None, typer.Option("--price-per-million", min=0, help="Conservative combined input/output-token USD rate for paid preparation. Unknown prices fail closed on metered routes; a Codex route runs on the subscription and only estimates cost.")] = None,
     output_tokens: Annotated[int, typer.Option("--output-tokens", min=1)] = 256,
     json_output: Annotated[bool, typer.Option("--json")] = False,
+    max_retries: Annotated[int, typer.Option("--max-retries", min=0, help="Probability arms only: counted retries per judge (a 429, 5xx or failed turn).")] = 2,
+    probability_arm: Annotated[list[str] | None, typer.Option("--probability-arm", help=_PROBABILITY_ARM_HELP)] = None,
 ) -> None:
     """Legacy calibration report by default; `--section field` adds reports 1-2."""
     try:
@@ -148,6 +178,10 @@ def field_eval(
             raise typer.Exit(code=2)
         if prepare_llm and llm_cache is None:
             raise ValueError("--prepare-llm requires --llm-cache outside the vault")
+        if (llm_cache is not None or prepare_llm) and not probability_arm:
+            raise ValueError(_NUMERIC_ARM_RETIRED)
+        if probability_arm and FIELD_SECTION not in sections:
+            raise ValueError("--probability-arm needs --section field")
         loaded = _load_offline(vault)
         legacy_report = None
         if sections - {FIELD_SECTION}:
@@ -169,18 +203,25 @@ def field_eval(
         arms = tuple(arm) if arm else None
         spend_report = None
         extra_arms = ()
-        if llm_cache is not None:
+        pairwise = ()
+        if probability_arm:
             from learnloop.ai.spend import SpendCaps
             from learnloop.cli.embeddings import _cancellation
-            from learnloop.cli.field_llm import prepare_or_load_llm
+            from learnloop.cli.probability_arms import (
+                pairwise_comparisons, prepare_or_load_probability_arms,
+            )
+            from learnloop.field.probability_arms import parse_arm_selection
 
+            if llm_cache is None:
+                raise ValueError("--probability-arm requires --llm-cache outside the vault")
+            selection = parse_arm_selection(probability_arm)
             with _cancellation() as stop:
-                llm_arm, spend_report = prepare_or_load_llm(
-                    loaded, inputs["attempts"], cache_dir=llm_cache, prepare=prepare_llm,
-                    dry_run=dry_run,
+                probability_arms, spend_report = prepare_or_load_probability_arms(
+                    loaded, inputs, cache_dir=llm_cache, selection=selection,
+                    prepare=prepare_llm, dry_run=dry_run,
                     caps=SpendCaps(
-                        max_candidates=max_candidates, max_calls=max_calls,
-                        max_pairs=0, max_retries=0, max_total_tokens=max_tokens,
+                        max_candidates=max_candidates, max_calls=max_calls, max_pairs=0,
+                        max_retries=max_retries, max_total_tokens=max_tokens,
                         max_estimated_usd=max_cost_usd,
                     ),
                     price_per_million=price_per_million, output_tokens=output_tokens,
@@ -191,15 +232,17 @@ def field_eval(
                 if spend_report["status"] != "dry_run":
                     raise typer.Exit(code=1)
                 return
-            if llm_arm is None:
+            if not probability_arms:
                 _emit(spend_report, json_output)
                 raise typer.Exit(code=130 if spend_report["status"] == "cancelled" else 1)
-            extra_arms = (llm_arm,)
+            extra_arms = tuple(probability_arms)
+            pairwise = tuple(pairwise_comparisons(selection))
         elif dry_run:
             _emit({"status": "dry_run", "calls": 0, "data_check": inputs["data_check"]}, json_output)
             return
         report = _replay(loaded, inputs, arms=arms, bootstrap_samples=bootstrap_samples,
-                         seed=seed, fast_track_q=fast_track_q, extra_arms=extra_arms)
+                         seed=seed, fast_track_q=fast_track_q, extra_arms=extra_arms,
+                         pairwise=pairwise)
         if spend_report is not None:
             report["offline_preparation"] = spend_report
         from learnloop.field.evaluation import write_reports

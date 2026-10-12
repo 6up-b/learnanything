@@ -6,6 +6,10 @@ import math
 import sqlite3
 from uuid import uuid4
 
+#: Model producers: each verdict names its model and prompt (question-set)
+#: version. ``decider`` is a decision model (router spec §6), migration 175.
+MODEL_JUDGES = frozenset({"llm", "diagnoser", "decider"})
+
 
 def append_judgment(connection: sqlite3.Connection, *, task: str, left_kind: str,
                     left_id: str, judge: str, input_hash: str, verdict: str,
@@ -21,8 +25,8 @@ def append_judgment(connection: sqlite3.Connection, *, task: str, left_kind: str
     """
     if not all((task, left_kind, left_id, judge, input_hash, verdict)):
         raise ValueError("judgment identity, producer and verdict must be nonempty")
-    if judge in {"llm", "diagnoser"} and not (judge_model and prompt_version):
-        raise ValueError("llm/diagnoser judgments require nonempty judge_model and prompt_version")
+    if judge in MODEL_JUDGES and not (judge_model and prompt_version):
+        raise ValueError("llm/diagnoser/decider judgments require nonempty judge_model and prompt_version")
     if score is not None and not math.isfinite(score):
         raise ValueError("score must be finite")
     judgment_id = id or str(uuid4())

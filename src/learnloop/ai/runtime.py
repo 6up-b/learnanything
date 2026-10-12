@@ -133,6 +133,28 @@ def check_ai_runtime(
             model=profile.model,
             message="AI provider is ready.",
         )
+    if provider_type == "decider":
+        # Key presence only: readiness never sends learner text or pays. The
+        # model's reachability is a separate, explicit network probe
+        # (ai.providers.decider.probe_decider_endpoint).
+        from learnloop.ai.providers.decider import resolved_decider_settings
+
+        settings = resolved_decider_settings(profile)
+        if not os.environ.get(settings.api_key_env):
+            return AIRuntimeReport(
+                status="provider_auth_required",
+                active_provider=selected,
+                provider_type=provider_type,
+                model=settings.model,
+                message=f"Environment variable {settings.api_key_env} is required.",
+            )
+        return AIRuntimeReport(
+            status="ready",
+            active_provider=selected,
+            provider_type=provider_type,
+            model=settings.model,
+            message="Decision model key is present.",
+        )
     return AIRuntimeReport(
         status="provider_unavailable",
         active_provider=selected,

@@ -965,21 +965,68 @@ class OpenAIEmbeddingProviderConfig(OpenAICompatibleProviderConfig):
     max_input_tokens: int = Field(default=32768, gt=0)
 
 
+DECIDER_PROFILE_TYPE = "decider"
+DEFAULT_DECIDER_PROVIDER = "openrouter_decider"
+DEFAULT_EMBEDDING_PROVIDER = "openrouter_embedding"
+DEFAULT_DECIDER_MODEL = "perplexity/pplx-decider-v1.1-27b"
+# OpenRouter's listing for the model (checked 2026-10-12): $0.02 per million
+# input tokens, output free. Used for estimates; OpenRouter also reports cost.
+DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT = 0.02
+
+
+class DeciderProviderConfig(AIProviderConfig):
+    """A decision model (router spec §6): typed questions in, probabilities out.
+
+    It has no chat transport, so it never serves a generation route, and the
+    decider routes accept nothing else. ``api`` selects the wire dialect and
+    path: ``openrouter`` posts to ``<base_url>/alpha/decisions`` (OpenRouter's
+    Decisions API, the owner's route), ``perplexity`` to
+    ``<base_url>/v1/decisions`` (Perplexity's direct API, the documented
+    reference shape). Unset fields resolve from ``api`` in the client.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    type: Literal["decider"] = "decider"
+    api: Literal["openrouter", "perplexity"] = "openrouter"
+    api_key_env: str | None = None
+    http_referer: str | None = None
+    x_title: str | None = None
+    price_per_million_input: float = Field(default=DEFAULT_DECIDER_PRICE_PER_MILLION_INPUT, ge=0)
+    max_input_tokens: int = Field(default=262_144, gt=0)
+
+
 AIProviderProfile = Annotated[
     CodexSDKProviderConfig
     | CodexHTTPProviderConfig
     | OpenAICompatibleProviderConfig
     | OpenRouterProviderConfig
-    | OpenAIEmbeddingProviderConfig,
+    | OpenAIEmbeddingProviderConfig
+    | DeciderProviderConfig,
     Field(discriminator="type"),
 ]
 
 
+#: Routes removed from the schema. A vault that still sets one loads (the
+#: value is ignored) and `learnloop doctor` warns that it should be removed.
+RETIRED_ROUTES: dict[str, str] = {
+    # Phase 2's numeric llm_probability arm, retired by the owner on
+    # 2026-10-12 in favour of router R0's V1-V3 arms (llm_probability_llm,
+    # llm_probability_decider).
+    "field_llm_probability": (
+        "Phase 2's numeric llm_probability arm is retired; the V1-V3 arms "
+        "(`learnloop eval --section field --probability-arm ...`) use "
+        "ai.routing.llm_probability_llm and ai.routing.llm_probability_decider."
+    ),
+}
+
+
 class AIRoutingConfig(BaseModel):
-    # Explicit opt-in only: never inherit active_provider or its fallback.
-    embedding: str | None = None
+    # Never inherits active_provider, its fallback or LEARNLOOP_AI_PROVIDER.
+    # Empty = the code-default openrouter_embedding profile (owner, 2026-10-12);
+    # nothing is sent unless embedding.enabled (default false) is also on.
+    embedding: str | None = DEFAULT_EMBEDDING_PROVIDER
     field_question_classifier: str | None = None
-    field_llm_probability: str | None = None
     pf_generator: str | None = None
     # Ensemble proposers: profile names whose models must be at least two
     # distinct slugs, else generation is refused (Slice 2 §5.3, §13).
@@ -1033,6 +1080,30 @@ class AIRoutingConfig(BaseModel):
     # authoring and the closed-book check. Empty = follow the grading route,
     # then ai.active_provider. Probe grading itself uses the grading route.
     project: str | None = None
+    # Action router and the learner field's llm_probability arms (router spec
+    # §6.2). The decider routes accept only a `decider` profile: empty = the
+    # code-default openrouter_decider profile; never a chat fallback and never
+    # LEARNLOOP_AI_PROVIDER. The LLM routes are ordinary chat routes: empty =
+    # ai.active_provider (Codex on the subscription is allowed).
+    router_decider: str | None = None
+    router_llm: str | None = None
+    llm_probability_decider: str | None = None
+    llm_probability_llm: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_retired_routes(cls, data: Any) -> Any:
+        # Backwards compatible: a retired route key is ignored, never an error.
+        if isinstance(data, dict) and any(name in data for name in RETIRED_ROUTES):
+            return {key: value for key, value in data.items() if key not in RETIRED_ROUTES}
+        return data
+
+    @model_validator(mode="after")
+    def _default_embedding_route(self) -> "AIRoutingConfig":
+        # Empty is unset, as for every other route: the code-default profile.
+        if not (self.embedding or "").strip():
+            self.embedding = DEFAULT_EMBEDDING_PROVIDER
+        return self
 
 
 class AIConfig(BaseModel):
@@ -1637,6 +1708,11 @@ class LearnLoopConfig(BaseModel):
         self.ai.providers.setdefault("deepseek_flash", deepseek_flash_provider())
         self.ai.providers.setdefault("deepseek_pro", deepseek_pro_provider())
         self.ai.providers.setdefault("openrouter", openrouter_provider())
+        # Profiles from code defaults (implementation_goal §5 B6): a vault
+        # whose learnloop.toml predates them still resolves routes that name
+        # them. An explicit vault profile of the same name stays authoritative.
+        self.ai.providers.setdefault(DEFAULT_EMBEDDING_PROVIDER, openrouter_embedding_provider())
+        self.ai.providers.setdefault(DEFAULT_DECIDER_PROVIDER, openrouter_decider_provider())
         for task, default_provider in DEFAULT_CODEX_TASK_ROUTES.items():
             if task == "canonical_ingest_retry":
                 # Resolved after the loop so it can mirror the (possibly
@@ -1741,4 +1817,32 @@ def openrouter_provider() -> AIProviderConfig:
         api_key_env="OPENROUTER_API_KEY",
         response_format="json_object",
         timeout_seconds=180,
+    )
+
+
+def openrouter_embedding_provider() -> AIProviderConfig:
+    """The template's embedding profile, for vaults whose config predates it.
+
+    ``embedding.model`` and ``embedding.dimensions`` stay authoritative for
+    the route. ``ai.routing.embedding`` defaults to this profile, and
+    ``embedding.enabled`` (default false) still gates every request.
+    """
+
+    return OpenAIEmbeddingProviderConfig(
+        base_url="https://openrouter.ai/api/v1",
+        api_key_env="OPENROUTER_API_KEY",
+        max_input_tokens=32768,
+        timeout_seconds=180,
+    )
+
+
+def openrouter_decider_provider() -> AIProviderConfig:
+    """Perplexity Decider v1.1 through OpenRouter (router spec D4, owner)."""
+
+    return DeciderProviderConfig(
+        api="openrouter",
+        model=DEFAULT_DECIDER_MODEL,
+        base_url="https://openrouter.ai/api",
+        api_key_env="OPENROUTER_API_KEY",
+        timeout_seconds=30,
     )

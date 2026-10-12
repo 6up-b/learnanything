@@ -350,6 +350,27 @@ means, reports no interval.
   T8 duplicates that loop in its own module on purpose, so as not to edit
   `offline_llm.py` while R0 is changing it.
 
+**Resolved at the router R0 merge (owner decision, 2026-10-12).**
+`llm_zero_data` and `llm_zero_data:recalibrated` are now aliases of R0's
+`llm_probability/v2/llm` and `llm_probability/v2/llm+recal`: one
+implementation (R0's preparation, cache and ledger), so the two are comparable
+and paid for once. `field/zero_data_llm.py`, its task
+`t8_zero_data_probability` and `tests/test_zero_data_llm.py` are gone, and so
+is Phase 2's `offline_llm.py` with the route `ai.routing.field_llm_probability`
+(the LLM judge is `ai.routing.llm_probability_llm`; unset is the active
+provider). `learnloop eval success-head --llm-cache DIR [--prepare-llm]` takes
+the same cache as `learnloop eval --section field --probability-arm v2/llm`
+(or `all`); a verdict paid for by either is reused by the other, also from
+`judgment_ledger` across caches. Use the same `--legacy-fallback` and
+`--output-tokens` (default 256) in both, or the cache keys differ. The
+pre-registration below is unchanged (its names, window and recalibration; the
+LLM arms are descriptive only), and the report records the alias
+(`t8_inputs.llm_aliases`, `llm_alias_note`). Differences from the registered
+arm: V2 adds the difficulty prior, caps the stem at 1,500 characters
+(registered 6,000), names earlier items by an excerpt instead of an opaque
+reference, shows history only before a provable start (none when the start
+is unknown), and predicts every scored attempt.
+
 ## What was built
 
 ### Arms (`field/success_head.py`, pure)

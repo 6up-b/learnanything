@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from learnloop.ai.routing import is_embedding_profile, ready_client_for_task, route_names, runtime_for_provider
+from learnloop.ai.routing import (
+    is_embedding_profile, is_generation_profile, ready_client_for_task, route_names, runtime_for_provider,
+)
 from learnloop.clock import utc_now_iso
 from learnloop.db.migrate import applied_versions, discover_migrations
 from learnloop.db.repositories import Repository
@@ -420,11 +422,12 @@ def config_dto(vault: LoadedVault) -> dict[str, Any]:
 def available_grading_providers(vault: LoadedVault) -> list[str]:
     """Selectable grading backends: configured AI providers, legacy codex, manual.
 
-    Embedding-only profiles have no completion transport and are never offered.
+    Embedding-only and decision-model profiles have no completion transport
+    and are never offered.
     """
 
     config = vault.config
-    providers = {name for name in config.ai.providers if not is_embedding_profile(config, name)}
+    providers = {name for name in config.ai.providers if is_generation_profile(config, name)}
     return sorted(providers | {"codex"}) + ["manual"]
 
 
@@ -470,14 +473,22 @@ def _settings_ready(vault: LoadedVault) -> bool:
     only once embeddings are enabled: a disabled opt-in feature is not a missing
     setting. Each route is checked under its own task, so an embedding profile on
     a generation route (or the reverse) reads as not ready. A list route (PF-b's
-    ``pf_proposers`` and ``pf_solver_panel``) is checked profile by profile."""
+    ``pf_proposers`` and ``pf_solver_panel``) is checked profile by profile.
+    The same holds for the judgment routes: the router routes count once the
+    router has a consumer (R2), the llm_probability routes once the offline
+    harness is on."""
 
     config = vault.config
     routing = config.ai.routing
+    probability_on = bool(config.field.enabled and config.field.llm_probability_enabled)
     routes = {
         (task, name)
         for task in type(routing).model_fields
-        if task != "embedding" or config.embedding.enabled
+        if (task != "embedding" or config.embedding.enabled)
+        # The router routes have no consumer until router R2, and the
+        # llm_probability routes serve only the opt-in offline harness.
+        and task not in {"router_decider", "router_llm"}
+        and (task not in {"llm_probability_decider", "llm_probability_llm"} or probability_on)
         for name in route_names(getattr(routing, task))
     }
     if not any(task != "embedding" for task, _name in routes):

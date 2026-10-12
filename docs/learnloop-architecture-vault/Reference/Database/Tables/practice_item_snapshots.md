@@ -3,13 +3,13 @@ title: "practice_item_snapshots"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
-source_commit_timestamp: "2026-10-12T16:11:05-04:00"
+source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
+source_commit_timestamp: "2026-10-12T16:53:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite practice_item_snapshots"
   - "table practice_item_snapshots"
-schema_head: 174
+schema_head: 175
 table_name: "practice_item_snapshots"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/field/item_content.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/scheduling/scheduler.py"
 tags:
   - "learnloop/database/table"
@@ -87,6 +88,7 @@ Database triggers:
 
 - `src/learnloop/field/item_content.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -104,6 +106,7 @@ None found by exact static reference scan.
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
+- `tests/test_probability_prep.py`
 - `tests/test_success_head_cli.py`
 - `tests/test_probe_episodes.py`
 

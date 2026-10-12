@@ -157,11 +157,20 @@ def test_receipt_admission_failure_prevents_request(monkeypatch):
 
 def test_explicit_embedding_route_never_uses_env_active_or_fallback(tmp_path, monkeypatch):
     monkeypatch.setenv("LEARNLOOP_AI_PROVIDER", "codex")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     config = LearnLoopConfig()
     config.embedding.enabled = True
     config.ai.fallback_provider = "codex"
-    assert provider_for_task(config, "embedding").provider_name == ""
-    assert not ready_client_for_task(tmp_path, config, "embedding").ready
+    # Unset is the code-default embedding profile (owner, 2026-10-12), never
+    # LEARNLOOP_AI_PROVIDER, the active provider or the fallback.
+    assert config.ai.routing.embedding == "openrouter_embedding"
+    selection = provider_for_task(config, "embedding")
+    assert selection.provider_name == "openrouter_embedding" and selection.explicit
+    unready = ready_client_for_task(tmp_path, config, "embedding")
+    assert not unready.ready and unready.provider_name == "openrouter_embedding"
+    assert unready.fallback_from is None
+    config.ai.routing.embedding = None
+    assert provider_for_task(config, "embedding").provider_name == "openrouter_embedding"
     config.ai.routing.embedding = "missing"
     resolution = ready_client_for_task(tmp_path, config, "embedding")
     assert resolution.provider_name == "missing"
@@ -214,7 +223,28 @@ def test_privacy_disclosure_is_effective_config_and_settings(tmp_path):
 
 def test_template_keeps_ai_comments_on_ai_and_no_project_jargon():
     text = DEFAULT_CONFIG_TEXT
-    assert "# Exception: embeddings use only their explicit route, never env/active/fallback.\n[ai]\n" in text
+    assert "# Exception: embeddings use only their own route, never env/active/fallback.\n[ai]\n" in text
     assert text.index("[embedding]") > text.index("[ai.routing]")
     assert "Phase 1" not in text and "pf_" not in text
     assert "data_collection=deny" in text
+
+
+def test_embedding_route_defaults_but_a_vault_that_never_enables_embeddings_sends_nothing(tmp_path, monkeypatch):
+    """Owner decision 2026-10-12: the route defaults to openrouter_embedding,
+    still gated by embedding.enabled (default false)."""
+    from learnloop.config.schema import AIRoutingConfig
+
+    module = install_fake_openai(monkeypatch)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "offline-test-key")
+    for routing in ({}, {"embedding": ""}, {"embedding": None}):
+        config = LearnLoopConfig.model_validate({"ai": {"routing": routing}})
+        assert config.ai.routing.embedding == "openrouter_embedding"
+        assert config.ai.providers["openrouter_embedding"].type == "openai_embedding"
+        resolution = ready_client_for_task(tmp_path, config, "embedding")
+        assert resolution.manual and not resolution.ready and resolution.client is None
+        assert "embedding.enabled" in resolution.runtime.message
+    assert module.instances == []
+    assert AIRoutingConfig.model_validate({"embedding": "manual"}).embedding == "manual"
+    config = LearnLoopConfig.model_validate({"ai": {"routing": {}}, "embedding": {"enabled": True}})
+    assert ready_client_for_task(tmp_path, config, "embedding").ready
+    assert len(module.instances) == 1

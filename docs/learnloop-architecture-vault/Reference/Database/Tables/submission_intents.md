@@ -3,13 +3,13 @@ title: "submission_intents"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
-source_commit_timestamp: "2026-10-12T16:11:05-04:00"
+source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
+source_commit_timestamp: "2026-10-12T16:53:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite submission_intents"
   - "table submission_intents"
-schema_head: 174
+schema_head: 175
 table_name: "submission_intents"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/161_collection_contract.sql"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/field/outcomes.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/substrate/data_quality.py"
 tags:
   - "learnloop/database/table"
@@ -89,6 +90,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/collection.py`
 - `src/learnloop/field/outcomes.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -105,6 +107,7 @@ None found by exact static reference scan.
 
 - `tests/test_collection_dataset.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_probability_prep.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -27,6 +27,35 @@ _output_limit: ContextVar[int | None] = ContextVar("model_output_limit", default
 _metadata: ContextVar[dict[str, Any] | None] = ContextVar("model_call_metadata", default=None)
 _budgets: ContextVar[dict[str, Any] | None] = ContextVar("model_call_budgets", default=None)
 _single_request: ContextVar[bool] = ContextVar("model_single_request", default=False)
+_labels: ContextVar[dict[str, str] | None] = ContextVar("model_call_labels", default=None)
+
+#: Receipt labels a caller may attach to the calls in its context (router
+#: spec §6.2): which judge answered, the versioned question set, and the hash
+#: of the state it was given. Unknown labels are refused, never stored.
+CALL_LABELS = frozenset({"judge", "question_set_version", "state_hash"})
+JUDGE_LABELS = frozenset({"decider", "llm"})
+
+
+@contextmanager
+def call_labels(**labels: str | None):
+    """Label every model call started in this context on its receipt.
+
+    ``judge`` is ``decider`` or ``llm``. Labels nest: an inner context adds to
+    or replaces the outer one's values.
+    """
+
+    unknown = set(labels) - CALL_LABELS
+    if unknown:
+        raise ValueError(f"Unknown receipt labels: {', '.join(sorted(unknown))}")
+    judge = labels.get("judge")
+    if judge is not None and judge not in JUDGE_LABELS:
+        raise ValueError(f"judge must be one of {sorted(JUDGE_LABELS)}")
+    merged = {**(_labels.get() or {}), **{k: v for k, v in labels.items() if v is not None}}
+    token = _labels.set(merged)
+    try:
+        yield
+    finally:
+        _labels.reset(token)
 
 
 @contextmanager
@@ -172,6 +201,7 @@ def model_call(client: Any, *, purpose: str, prompt: Any = None, schema: Any = N
         "schema_json": json.dumps(schema, sort_keys=True) if is_root else None,
         "budget_json": json.dumps(budgets, sort_keys=True) if is_root and budgets is not None else None,
         "output_budget_tokens": budget, "started_at": datetime.now(timezone.utc).isoformat(),
+        **(_labels.get() or {}),
     })
     token = _parent.set(call_id)
     metadata_token = _metadata.set(metadata)

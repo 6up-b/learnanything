@@ -3,13 +3,13 @@ title: "misconception_transition_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "e9ced35e32ffb2bb533ea1845f5dc3794720857b"
-source_commit_timestamp: "2026-10-12T16:11:05-04:00"
+source_commit: "8ef3ecd9be6bad4cf8d8686b8afa9b025616410e"
+source_commit_timestamp: "2026-10-12T16:53:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite misconception_transition_events"
   - "table misconception_transition_events"
-schema_head: 174
+schema_head: 175
 table_name: "misconception_transition_events"
 table_role: "receipt"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/056_misconception_transitions.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/remediation.py"
+  - "src/learnloop/field/probability_states.py"
   - "src/learnloop/diagnosis/misconceptions.py"
   - "src/learnloop/learner/session_learning_diff.py"
 tags:
@@ -85,6 +86,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/probability_states.py`
 
 ### Direct SQL writers
 
@@ -102,6 +104,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_misconception_transitions_intake.py`
+- `tests/test_probability_prep.py`
 - `tests/test_causal_cold_outcomes.py`
 - `tests/test_cli_json.py`
 - `tests/test_coldness_receipt.py`
@@ -120,7 +123,6 @@ Indexes and uniqueness:
 - `tests/test_misconception_routing.py`
 - `tests/test_persona_gate.py`
 - `tests/test_probe_remint.py`
-- `tests/test_remediation_cold_retry.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

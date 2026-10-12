@@ -471,6 +471,24 @@ def _check_retired_config(root: Path, issues: list[HealthIssue]) -> None:
             )
         )
 
+    ai = data.get("ai")
+    routing = ai.get("routing") if isinstance(ai, dict) else None
+    if isinstance(routing, dict):
+        from learnloop.config.schema import RETIRED_ROUTES
+
+        for route, reason in RETIRED_ROUTES.items():
+            if route in routing:
+                issues.append(
+                    _issue(
+                        "warning",
+                        "config:retired_route",
+                        f"learnloop.toml sets retired 'ai.routing.{route}'; the value is "
+                        f"ignored and should be removed. {reason}",
+                        path,
+                        details={"setting": f"ai.routing.{route}", "action": "remove"},
+                    )
+                )
+
     retired_setting_paths = (
         ("forecasts",),
         ("probe", "episode", "self_graded_evidence_weight"),
