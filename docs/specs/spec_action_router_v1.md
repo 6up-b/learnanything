@@ -176,7 +176,7 @@ Each retrieved decision is shown to both models with its candidate set, the chos
 - **Endpoints.**
   - **OpenRouter (owner's choice):** base URL `https://openrouter.ai/api`, with `OPENROUTER_API_KEY`. OpenRouter lists it at $0.02 per million input tokens and $0 output. The model doesn't appear in OpenRouter's public `/api/v1/models` chat list (checked 2026-10-12). Third-party sources describe it as reachable through OpenRouter's decision ("System One") interface rather than chat completions.
   - **The exact path and body on OpenRouter are unverified.** R0's first task is to confirm them from OpenRouter's docs and pin them in the client.
-  - **Perplexity's direct endpoint** is `POST https://api.perplexity.ai/v1/decisions` with `PERPLEXITY_API_KEY`. It is the documented reference for the request shape and a fallback if OpenRouter's interface differs (D4).
+  - **Perplexity's direct endpoint** (`POST https://api.perplexity.ai/v1/decisions`) is the documented reference for the request shape only. The owner's route is OpenRouter (D4).
 - **Request.**
   - `model`;
   - `state`: a string, an object, or an array (text plus base64 images);
@@ -207,7 +207,7 @@ These facts are pinned per receipt by model id. If Perplexity changes the API, t
   - **Provider routing.** Don't set OpenRouter's `data_collection: "deny"` unless OpenRouter lists a compliant provider for this model. Otherwise every request fails. D6 covers the privacy side.
 - **The LLM.**
   - **Routes:** `ai.routing.router_llm` and `ai.routing.llm_probability_llm`, using existing chat providers with structured output. An unset route falls back to the active provider, and receipts record the resolved model (handoff rule 6).
-  - **Transport.** It must be bounded (one physical request per call), as Phase 3 required for the family judge. Codex's app-server transport is refused for these routes.
+  - **Transport.** Any chat transport, including Codex on the owner's ChatGPT subscription (owner, 2026-10-12). Codex's cost is estimated from reported token usage, with no physical-request bound (Slice A plan §5 rule 6).
 - **Readiness** checks keys and model reachability for both.
 - **Settings** shows a privacy disclosure for each provider that receives learner text.
 - **Receipts.** `model_call(purpose = "router_decision" | "llm_probability", judge = "decider" | "llm")` records tokens, cost, model id, the question-set version and the state-card hash.
@@ -378,7 +378,7 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 | D1 | Launch mode | `mixture` with equal weights (1/3 each), `ties_only = false` (owner, 2026-10-12: see what works best) |
 | D2 | Switching margin for §10.4 | Fixed before the first report at 0.03 in mean `S` |
 | D3 | `router.k` (candidates shown) | 6 |
-| D4 | Route: Perplexity direct or OpenRouter | **Decided (owner, 2026-10-12): OpenRouter.** Perplexity direct only if OpenRouter's interface lacks typed answers |
+| D4 | Route: Perplexity direct or OpenRouter | **Decided (owner, 2026-10-12): OpenRouter, `perplexity/pplx-decider-v1.1-27b`** |
 | D5 | Local hosting of the open weights | Not now. Revisit if API cost or availability becomes a problem; it would be evaluated as its own model id |
 | D6 | Privacy | Learner text goes to Perplexity (via OpenRouter) and to the LLM route's provider. The owner accepts text leaving the machine, and checks retention terms before R2 |
 | D7 | Label when a model chose | "LearnLoop's model picked this among N close options" (Decider), or the labelled rationale (LLM) |

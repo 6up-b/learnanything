@@ -182,6 +182,11 @@ Phase 1 merges first. Phases 2 and 3 then run in parallel, each branched from th
    - **Unknown prices** are treated as over budget unless the owner raises the cap.
    - **Separate switches:** embedding backfill and PF generation have independent switches, off in the template.
    - **Recording:** receipts record the caps in force (migration 165's `budget_json`).
+   - **Subscription transports** (owner, 2026-10-12). Codex is billed to the owner's ChatGPT subscription, so it has no marginal dollar cost. Paid LLM roles may run on it without restraint: the family judge, generators, solver panel, router LLM and LLM probability arms.
+     - **No cap on physical requests.** Codex's app-server turns don't expose a physical-request bound, so that check doesn't apply.
+     - **Estimates still run.** Cost and tokens are estimated from the token usage Codex reports, falling back to a token estimate of input plus output. The estimate is shown in the dry-run and recorded on receipts as `estimated_only`.
+     - **Caps still apply** to call count, candidates and pairs, so a runaway loop stops.
+     - **Metered routes keep the full cap set:** OpenRouter, OpenAI API keys and the embedding route.
 7. **Verification before calling a phase done:**
    - the spec's listed tests;
    - `uv run pytest` on the touched and new test files, plus `uv run pytest -m durability` when a migration is added;

@@ -363,7 +363,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 - **`llm_probability` variants** (added 2026-10-11, owner). They test whether the model predicts better from the learner's rich history than from the item alone. JevKT (2610.11135) fed only a 25-item right/wrong window and found more marks added nothing, but never tested answer text, error traces or diagnoses.
   - **Models: two, each running every variant** (owner, 2026-10-12: see which works best). That makes six arms.
     - **Perplexity Decider v1.1** (`perplexity/pplx-decider-v1.1-27b` via OpenRouter; route `ai.routing.llm_probability_decider`). Its prediction is P(yes) on one `noul` question.
-    - **A frontier LLM** (route `ai.routing.llm_probability_llm`; unset falls back to the active provider, and it needs a bounded transport). Its prediction is a verbalized probability, returned through structured output.
+    - **A frontier LLM** (route `ai.routing.llm_probability_llm`; unset falls back to the active provider, and Codex on the owner's subscription is allowed). Its prediction is a verbalized probability, returned through structured output.
 
     Router spec §6 has the client details. Jev is not used.
   - **The question:** "Will the learner answer this item correctly on this attempt?"

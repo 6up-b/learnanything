@@ -53,6 +53,7 @@ These are the prompts for the agents that build the rest of Slice A and the slic
    - **Spend controls.** Every command that calls a paid model uses the Phase 1 spend framework (`src/learnloop/ai/spend.py`): caps, plus a `--dry-run` that prints a cost estimate.
    - **Verdicts.** Every LLM, verifier or owner verdict appends to `judgment_ledger`.
    - **Routes.** Each paid component is its own `ai.routing.*` route. An unset route falls back to the active provider, and receipts record the resolved model. `ai.routing.embedding` never falls back.
+   - **Subscription transports.** Codex (the owner's ChatGPT subscription) is allowed for every LLM role without a physical-request bound. Its cost is estimated from reported token usage and labelled `estimated_only` (Slice A plan §5 rule 6).
 7. **Owner principles: honest labels, generous defaults** (`docs/specs/daily_loop_frictionless_defaults.md`).
    - Never add a learner step to protect the model.
    - Never let the UI claim something that doesn't happen.
@@ -718,8 +719,8 @@ OpenRouter's documentation:
 - the request body (state and named questions);
 - how typed answers and probabilities come back.
 Use Perplexity's Decisions API docs (https://docs.perplexity.ai/docs/decisions/quickstart)
-as the reference shape. Record what you found in the review file. If OpenRouter
-doesn't expose typed answers, stop and report; that is router D4.
+as the reference shape. The model is perplexity/pplx-decider-v1.1-27b on OpenRouter
+(owner decision). Record what you found in the review file.
 
 Branch router/r0 from origin/main after the Phase 2/3 integration has merged.
 
@@ -732,8 +733,9 @@ Must hold:
   - ai.routing.router_decider and ai.routing.llm_probability_decider never fall back
     to a chat provider, and LEARNLOOP_AI_PROVIDER doesn't override them;
   - ai.routing.router_llm and ai.routing.llm_probability_llm use existing chat
-    providers with structured output, through a bounded transport only. Codex's
-    app-server transport is refused, as Phase 3 did for the family judge.
+    providers with structured output. Codex (the owner's ChatGPT subscription)
+    is allowed, with cost estimated from reported token usage (Slice A plan §5
+    rule 6).
 - Readiness, receipts (purpose plus judge = decider | llm), the Slice A spend
   controls with --dry-run, and privacy disclosures.
 - Harness: arms V1, V2 and V3 × {decider, llm}, exactly as the field spec defines

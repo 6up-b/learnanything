@@ -153,10 +153,10 @@ Keep at most three or four branches open at once. Waves overlap where their depe
 
 | # | Decision | Recommendation |
 |---|---|---|
-| O-1 | **Mobile M1 was built to revision 2** (QR pairing, capture and app token scopes), not revision 3 (one-command tokens) | Keep what's built. It works, it's tested, and pairing is a one-time step. Update the spec's §4.2–4.3 to match the build, and keep revision 3's other simplifications |
-| O-2 | **Push `main`** (10+ local commits) | Yes. Remote agents branch from `origin/main` |
-| O-3 | **"Defaults" for stages whose prompts assume them:**<ul><li>Phase 5: P10 (solver panel), the two scaling-check tiers, the retrieval bar</li><li>Phase 6: D4–D7, D11</li><li>Router: D2, D3 and D5–D9</li><li>Project understanding: D1–D10</li><li>Slice 1: O1–O3, O5, O8, O9 and O11–O17</li><li>Mobile: D2, D4–D7, D9–D11 and D13–D15</li></ul> | Accept the defaults. Each is the spec's recommendation |
-| O-4 | **A bounded chat route** for the paid LLM roles (`pf_family_judge` and the other `pf_*` routes, `router_llm`, `llm_probability_llm`). Phase 3 refuses Codex here because Codex can't bound physical requests | An OpenRouter chat model on the existing key, pinned per receipt |
+| O-1 | Mobile M1 was built to revision 2 (QR pairing, token scopes) | **Decided (owner, 2026-10-12):** the spec follows the build (mobile spec revision 4) |
+| O-2 | Push `main` | **Done (2026-10-12)** |
+| O-3 | Defaults for stages whose prompts assume them | **Decided (owner, 2026-10-12): accepted** ("most defaults"). The owner may override any one at its checkpoint |
+| O-4 | Route for the paid LLM roles | **Decided (owner, 2026-10-12): Codex on the ChatGPT subscription, without restraint**, with cost estimated from token usage (Slice A plan §5 rule 6). The Decider is `perplexity/pplx-decider-v1.1-27b` on OpenRouter |
 
 **Needed at checkpoints:**
 - **Phase 2:** read reports 1–2 once, on a copy of the vault.
@@ -180,7 +180,8 @@ Keep at most three or four branches open at once. Waves overlap where their depe
 | B3 | **Broken Rust toolchain on carson.** `rustc -vV` fails with a symbol lookup error in `librustc_driver` against LLVM 23.1 (reported by the Phase 2 and mobile agents) | `cargo check` fails, so the Tauri shell can't be rebuilt, and new desktop UI can't be run in the app | Owner: reinstall or upgrade Rust (system `rust` package or rustup) so `rustc -vV` works, then run `cargo check --manifest-path apps/learnloop-tauri/src-tauri/Cargo.toml` |
 | B4 | **The daily-loop spec doesn't exist yet** | Blocks daily-loop implementation, router R2 and mobile M2 | Launch the spec agent now. It is docs only, so it causes no merge conflicts |
 | B5 | **Unverified external interfaces:**<ul><li>the Decider on OpenRouter (exact path and body);</li><li>the Eedi dataset (likely needs a Kaggle login, for T1's B1);</li><li>srs-benchmark pretrained weights (optional arm)</li></ul> | R0, T1 and the optional arm can stall | R0 confirms the Decider first, falling back to Perplexity's direct API. The owner downloads Eedi if it needs a login. The memory-model arm is skipped if no weights are published |
-| B6 | **Keys and config.**<ul><li>`OPENROUTER_API_KEY` must be in `~/.config/learnloop/settings.env`. The repo-root `.env` isn't read, and Phase 0's checkbox is still open.</li><li>The O-4 chat route</li></ul> | Paid owner runs (backfill, the family judge, harness arms) fail | Owner: `! grep '^OPENROUTER_API_KEY=' .env >> ~/.config/learnloop/settings.env`, then pick the O-4 route |
+| B6 | **Keys and config.** `OPENROUTER_API_KEY` must be in `~/.config/learnloop/settings.env`. The repo-root `.env` isn't read, and Phase 0's checkbox is still open | Paid owner runs (backfill, the Decider) fail | Owner: `! grep '^OPENROUTER_API_KEY=' .env >> ~/.config/learnloop/settings.env` |
+| B9 | **Phase 3 refuses Codex for the family judge** (as built) | `families propose` can't run on the subscription | An owner-directed fix in Wave 0, per Slice A plan §5 rule 6 |
 | B7 | **Codex capacity.** Every stage adds a review, and High findings add a re-review | ChatGPT subscription rate limits can queue reviews | Review one stage at a time. Don't fan out more than two Codex reviews at once |
 | B8 | **Frontend dependency audit.** `npm install` reports 14 findings (2 critical, 6 high) | Not blocking | A small maintenance stage after Wave 1, also run through the loop |
 
