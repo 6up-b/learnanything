@@ -54,10 +54,17 @@ def normalize_question(event: Mapping[str, Any], *, reader: bool = False) -> dic
     if not (row.get("lo_ids") or row.get("lo_ids_json") or row.get("lo_id")):
         row["lo_ids"] = _list(source.get("candidate_learning_object_ids"))
     # Question-time facet -> LO mapping, persisted with the tutor's answer
-    # (review F4). Immutable once logged; never today's facet membership.
+    # (review F4) and grounded in the question's own item, note or declared
+    # prerequisites (review F11). Immutable once logged; never today's facet
+    # membership. Each mapped target carries its subject as of the question.
     mapping = source.get("facet_learning_object_ids")
     row["_question_time_facet_los"] = (
         {str(f): _list(los) for f, los in mapping.items()} if isinstance(mapping, Mapping) else {}
+    )
+    subjects = source.get("learning_object_subject_ids")
+    row["_question_time_lo_subjects"] = (
+        {str(lo): str(subject) for lo, subject in subjects.items() if isinstance(subject, str) and subject}
+        if isinstance(subjects, Mapping) else {}
     )
     row["event_kind"] = "interaction_event" if reader or row.get("kind") == "learner_question_asked" else "question_event"
     row["context"] = row.get("context") or ("library" if row["event_kind"] == "interaction_event" else "")
@@ -210,9 +217,7 @@ def derive_interaction_signals(
                 signal_id=f"{kind}:{event_id}:{lo}", lo_id=lo,
                 observed_at=observed, signal_type=signal_type, outcome=outcome,
                 effective_mass=mass / len(los),
-                subject_id=attempt.features.subject_id if attempt else (
-                    event.get("learner_subject_id") or event.get("subject_id") or "default"
-                ),
+                subject_id=_target_subject(event, lo, attempt),
                 facet_id=next((f for f in facets if lo in _facet_los(lookup, f)), None),
                 attempt_id=event.get("attempt_id"), help_before_work=before,
                 leak_suspected=leak,
@@ -250,6 +255,24 @@ def derive_interaction_signals(
             cache_entries_considered=len(cache), daily_mass_cap=daily_mass_cap,
         )
     return tuple(result)
+
+
+def _target_subject(event: Mapping[str, Any], lo: str, attempt: AttemptRow | None) -> str:
+    """A mapped target keeps its own subject, not the asking item's (review F11).
+
+    The linked attempt's own LO keeps the attempt's subject, so its rows meet the
+    attempt rows. Another target uses the subject recorded with the question's
+    mapping. Without one (an explicit or classifier-supplied LO), the logged
+    fallback is unchanged: the linked attempt's subject, else the event's own.
+    """
+    if attempt is not None and lo == attempt.lo_id:
+        return attempt.features.subject_id
+    recorded = event["_question_time_lo_subjects"].get(lo)
+    if recorded:
+        return recorded
+    return attempt.features.subject_id if attempt else (
+        event.get("learner_subject_id") or event.get("subject_id") or "default"
+    )
 
 
 def load_interaction_signals(

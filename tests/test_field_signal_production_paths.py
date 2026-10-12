@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.tutor.ai_contracts import TutorAnswer
@@ -42,12 +44,13 @@ def _setup(tmp_path):
     return load_vault(paths.root), Repository(paths.sqlite_path)
 
 
-def _attempt(repository, attempt_id, *, at, session_id="sess_1", hints_used=0, score=4):
+def _attempt(repository, attempt_id, *, at, session_id="sess_1", hints_used=0, score=4,
+             subject="linear-algebra"):
     repository.insert_practice_attempt({
         "id": attempt_id, "practice_item_id": ITEM, "learning_object_id": LO,
         "practice_mode": "define", "attempt_type": "independent_attempt",
         "rubric_score": score, "hints_used": hints_used, "session_id": session_id,
-        "created_at": at.isoformat(), "learner_answer_md": "A = U S V^T",
+        "created_at": at.isoformat(), "learner_answer_md": "A = U S V^T", "subject": subject,
     })
     with repository.connection() as connection:
         connection.execute(
@@ -113,14 +116,32 @@ def test_mid_attempt_question_is_linked_but_not_early_help(tmp_path):
     assert next(s for s in inputs["signals"] if s.signal_id == "hint:a1").outcome == 0.8
 
 
-def _add_prerequisite_lo(vault, facets=("recall",)):
-    """In-memory LO with an active item measuring the given facets."""
-    lo = vault.learning_objects[LO].model_copy(update={"id": "lo_prereq"})
+def _add_lo(vault, lo_id, *, concept, subjects=("linear-algebra",), facets=("recall",)):
+    """In-memory LO on its own concept, with one active item measuring ``facets``."""
+    lo = vault.learning_objects[LO].model_copy(update={
+        "id": lo_id, "concept": concept, "subjects": list(subjects), "prerequisites": [],
+    })
     vault.learning_objects[lo.id] = lo
     item = vault.practice_items[ITEM].model_copy(update={
-        "id": "pi_prereq", "learning_object_id": lo.id, "evidence_facets": list(facets),
+        "id": f"pi_{lo_id}", "learning_object_id": lo.id, "evidence_facets": list(facets),
+        "subjects": None,
     })
     vault.practice_items[item.id] = item
+    return lo
+
+
+def _declare_prerequisite(vault, concept):
+    """The SVD LO now lists ``concept`` among its prerequisites."""
+    svd = vault.learning_objects[LO]
+    vault.learning_objects[LO] = svd.model_copy(update={"prerequisites": [*svd.prerequisites, concept]})
+
+
+def _add_prerequisite_lo(vault, facets=("recall",)):
+    """In-memory LO on a concept the SVD LO declares as a prerequisite."""
+    _add_lo(vault, "lo_prereq", concept="orthogonal_matrices", facets=facets)
+    vault.practice_items["pi_prereq"] = vault.practice_items.pop("pi_lo_prereq").model_copy(
+        update={"id": "pi_prereq"})
+    _declare_prerequisite(vault, "orthogonal_matrices")
 
 
 def test_logged_tutor_facets_map_through_the_question_time_mapping(tmp_path):
@@ -150,6 +171,109 @@ def test_prerequisite_question_never_targets_its_own_item_lo(tmp_path):
     prerequisite, = [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite"]
     assert (prerequisite.lo_id, prerequisite.outcome, prerequisite.effective_mass) == (
         "lo_prereq", 0.0, 0.15)
+
+
+# Review F11: a facet two LOs both measure is not a relationship between them.
+# `recall` is required by SVD and by contract law alike; the question-time
+# mapping is drawn only from LOs this question is grounded in.
+CONTRACT = "lo_contract_formation"
+
+
+def _prerequisite_rows(vault):
+    return [s for s in _inputs(vault)["signals"] if s.signal_type == "prerequisite" and s.effective_mass > 0]
+
+
+def test_shared_generic_facet_never_maps_a_prerequisite_question_across_subjects(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    event = repository.question_event(result["event_id"])
+    assert event["facets"] == ["recall"]
+    # Unresolved: SVD declares no prerequisite, and the shared facet is not one.
+    assert event["source_context"]["facet_learning_object_ids"] == {}
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3))
+    signals = _inputs(vault)["signals"]
+    assert not [s for s in signals if s.lo_id == CONTRACT]
+    assert not _prerequisite_rows(vault)
+    # It is left to the opt-in classifier with its logged type and facets.
+    report, calls = _classify(repository, {"question_type": "other", "facets": [], "lo_ids": []})
+    assert report["pending"] == 1
+    assert [(row["question_type"], row["facets"], row["lo_ids"]) for row in calls] == [
+        ("prerequisite", ["recall"], [])]
+
+
+def _prerequisite_edge(vault):
+    from learnloop.vault.models import ConceptEdge
+
+    vault.edges.append(ConceptEdge(
+        id="edge_orthogonal_svd", relation_type="prerequisite", source="orthogonal_matrices",
+        target="singular_value_decomposition", created_at=NOW.isoformat(), updated_at=NOW.isoformat(),
+    ))
+
+
+@pytest.mark.parametrize("declared_by", ["learning_object", "relation_edge"])
+def test_prerequisite_question_maps_to_a_declared_prerequisite_keeping_its_subject(tmp_path, declared_by):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    _add_lo(vault, "lo_orthogonal", concept="orthogonal_matrices", subjects=("matrix-basics",))
+    if declared_by == "learning_object":
+        _declare_prerequisite(vault, "orthogonal_matrices")
+    else:
+        _prerequisite_edge(vault)
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    context = repository.question_event(result["event_id"])["source_context"]
+    assert context["facet_learning_object_ids"] == {"recall": ["lo_orthogonal"]}
+    assert context["learning_object_subject_ids"] == {"lo_orthogonal": "matrix-basics"}
+    # The linked attempt is in linear-algebra; the target keeps its own subject.
+    _attempt(repository, "a1", at=NOW + timedelta(minutes=3))
+    row, = _prerequisite_rows(vault)
+    assert (row.lo_id, row.subject_id, row.outcome, row.effective_mass) == (
+        "lo_orthogonal", "matrix-basics", 0.0, 0.15)
+    assert not [s for s in _inputs(vault)["signals"] if s.lo_id == CONTRACT]
+
+
+def test_ambiguous_prerequisite_targets_are_left_unresolved(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, "lo_orthogonal", concept="orthogonal_matrices")
+    _add_lo(vault, "lo_eigen", concept="eigendecomposition")
+    _declare_prerequisite(vault, "orthogonal_matrices")
+    _declare_prerequisite(vault, "eigendecomposition")
+    result = _ask(vault, repository, "prerequisite", at=NOW, session_id="sess_1")
+    assert repository.question_event(result["event_id"])["source_context"][
+        "facet_learning_object_ids"] == {}
+    assert not _prerequisite_rows(vault)
+    assert _classify(repository, {"question_type": "other", "facets": [], "lo_ids": []})[0]["pending"] == 1
+
+
+def test_feedback_question_targets_only_its_own_item_lo(tmp_path):
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    _attempt(repository, "a1", at=NOW)
+    result = _ask(vault, repository, "mechanism", at=NOW + timedelta(minutes=1),
+                  context="feedback", attempt_id="a1", seconds=None)
+    context = repository.question_event(result["event_id"])["source_context"]
+    assert context["facet_learning_object_ids"] == {"recall": [LO]}
+    assert context["learning_object_subject_ids"] == {LO: "linear-algebra"}
+    mechanism, = [s for s in _inputs(vault)["signals"] if s.signal_type == "mechanism"]
+    # Not split with the contract-law LO that merely shares the facet.
+    assert (mechanism.lo_id, mechanism.subject_id, mechanism.effective_mass) == (
+        LO, "linear-algebra", 0.1)
+
+
+def test_library_question_targets_only_its_notes_learning_objects(tmp_path):
+    from learnloop.vault.models import Note
+
+    vault, repository = _setup(tmp_path)
+    _add_lo(vault, CONTRACT, concept="contract_formation", subjects=("contract-law",))
+    vault.notes["note_svd"] = Note(id="note_svd", title="SVD", related_los=[LO])
+    result = ask_question(
+        vault, repository, FakeTutor("clarification"), context="library",
+        question_md="Which factor is orthogonal?", note_id="note_svd", clock=FrozenClock(NOW),
+    )
+    context = repository.question_event(result["event_id"])["source_context"]
+    assert context["facet_learning_object_ids"] == {"recall": [LO]}
+    rows = [s for s in _inputs(vault)["signals"] if s.signal_type == "reader_confusion"]
+    assert [s.lo_id for s in rows] == [LO]
 
 
 def _classify(repository, verdict):
