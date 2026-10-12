@@ -449,6 +449,61 @@ parameter registry did not classify the new `[recurrence]` numeric leaves
 snapshot predated the new commands, and the P0 cutover test asserts a clean
 registry audit.
 
+### Final gate (re-run on `7fd49163`, after the Codex review fixes)
+
+These numbers supersede the two runs above and the one in
+`slice-2-t1-codex-review.md`; the code is unchanged since `e4f8aa26`.
+
+- `uv sync --extra dev --extra mobile` **fails on this branch**: `Extra
+  'mobile' is not defined`. Mobile M1 (`learnloop_mobile`, the `mobile`
+  extra, migration 171) merged into `main` after this branch's base
+  `22023ab4`, so the phone-host tests are not on the branch at all. The
+  earlier "this stage does not touch `learnloop_mobile`" was the wrong reason.
+  They run at merge. The gate therefore used `uv sync --extra dev` plus
+  `uv pip install pypdfium2`.
+- `uv run lint-imports --no-cache`: **10 kept, 0 broken**.
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto`: **7356 passed,
+  1 skipped**, 0 failed, 240 s (the skip is the Phase 5a real-harness test,
+  below).
+- `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability`:
+  **78 passed**, 7279 deselected, 62 s.
+- DB reference: `db_generate_reference.py` changes only the `source_commit`
+  stamps (638 lines in 319 notes, no content), so they were not committed;
+  `db_validate_reference.py` gives `errors: []` (schema head 172) on both the
+  regenerated and the committed notes; `validate_vault.py` passed (1,050
+  notes).
+- Frontend (`apps/learnloop-tauri`, changed on this branch): `npm install` ok,
+  `npm run typecheck` clean, `npm test` **76 passed in 18 files**.
+- `TMPDIR` pointed at the gitignored `fixtures-local/.gate-tmp` (`/tmp` was
+  77% full).
+
+**Phase 5a re-check.** 5a's tip moved to `d460f644` (`HARNESS_VERSION`
+`embeddings-compare-v2`). Its two new commits change only B2's scoring
+(abstentions, case identity) and `binary_metrics`; `CompareSuite`,
+`CompareRequest`, `CompareContext`, `SUITES`, `ROLE_TASKS` and `run_compare`
+are unchanged. In a throwaway copy of this branch's tree, with 5a's
+`ops/embedding_compare.py`, `ops/pf_calls.py`, `content/authoring/pf_contracts.py`,
+`pf_sandbox.py`, `substrate/item_fingerprints.py` and `db/stores/pf.py` plus its
+`provider_list_for_task` / `LIST_ROUTE_TASKS` / `_route_list` and
+`skeleton_content_hash` laid on top, `tests/test_recurrence_benchmarks.py` gave
+**10 passed, 0 skipped**, so
+`test_b1_and_b3_run_through_the_real_phase_5a_harness_once_merged` ran B1 and
+B3 through 5a's actual v2 `run_compare`. The copy was deleted and nothing of
+5a was committed. `HARNESS_CONTRACT = "embeddings-compare-v1"` labels only the
+interim local runner's report; under 5a, 5a's own version is reported.
+
+**Merge outlook.** `main` (`13029ed2`) still ends at migration 171 and label
+`mvp-0.10`, so 172 and `mvp-0.11` are still the next free ones. A ref-less
+trial merge with `slice-a/phase-5a` (`git merge-tree`) conflicts mostly
+because 5a's base predates migrations 170 and 171: the head-fixture
+renames (`migration_head_169` vs `_172`), the regenerated reference notes and
+their two scripts, `cli/{__init__,embeddings,evaluation}.py`,
+`config/{schema,template}.py`, `params/parameter_registry.py`,
+`vault/embedding_recipes.py`, and the CLI help snapshot, architecture,
+migration, rebuild-orchestrator, shadow-rebuild and embedding-backfill tests.
+Whichever branch merges second resolves these and wires
+`register_suites(SUITES, role_tasks=ROLE_TASKS)` into `embeddings_compare`.
+
 New tests: `test_matching.py` (4), `test_recurrence_groups.py` (15),
 `test_recurrence_live.py` (12), `test_recurrence_deferral.py` (3),
 `test_recurrence_commands.py` (20, two in the durability lane),
