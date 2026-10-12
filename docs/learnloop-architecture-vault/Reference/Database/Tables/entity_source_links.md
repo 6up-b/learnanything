@@ -3,8 +3,8 @@ title: "entity_source_links"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
-source_commit_timestamp: "2026-10-12T17:32:08-04:00"
+source_commit: "ea1b0a12d3d146afa401604edc24256de01cb841"
+source_commit_timestamp: "2026-10-12T17:46:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite entity_source_links"
@@ -149,6 +149,7 @@ Indexes and uniqueness:
 - `tests/test_provenance_service.py`
 - `tests/test_revision_refresh.py`
 - `tests/test_source_deletion.py`
+- `tests/test_source_retrieval_guards.py`
 - `tests/test_source_retrieval_tutor.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

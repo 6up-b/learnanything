@@ -106,7 +106,7 @@ ROLE_OUTCOMES: dict[TableRole, str] = {
 
 
 PURPOSE_OVERRIDES: dict[str, str] = {
-    "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not.",
+    "source_block_fts": "Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity, and `learnloop doctor` reports stale or missing rows.",
     "attempt_completion_work": "Coordinates resumable post-attempt work and freezes its completed route so recovery never needs to regrade an acknowledged answer.",
     "model_call_receipts": "Captures each started model operation and physical request, preserving returned text, failures and available provider usage for later cost and quality analysis.",
     "model_work_checkpoints": "Preserves validated inventory windows and synthesis passes under content hashes so interrupted jobs reuse completed model work.",

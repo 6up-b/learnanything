@@ -3,8 +3,8 @@ title: "source_block_fts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "61c436bb1dbaa09df802cf478bd0b5a055c2885a"
-source_commit_timestamp: "2026-10-12T17:32:08-04:00"
+source_commit: "ea1b0a12d3d146afa401604edc24256de01cb841"
+source_commit_timestamp: "2026-10-12T17:46:55-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
@@ -22,10 +22,10 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/content/pipeline/quick_add.py"
   - "src/learnloop/db/stores/source_block_fts.py"
+  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/source_retrieval/__init__.py"
   - "src/learnloop/source_retrieval/b4.py"
   - "src/learnloop/source_retrieval/bench.py"
-  - "src/learnloop/source_retrieval/corpus.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
 tags:
   - "learnloop/database/table"
@@ -41,7 +41,7 @@ tags:
 
 ## Why it exists
 
-Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit. ^table-purpose
+Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity, and `learnloop doctor` reports stale or missing rows. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **sources and ingest** navigation family. The family context lives in [[Database Catalog#Sources And Ingest]]. Its persistence behavior follows [[Table Roles#Derived]].
 
