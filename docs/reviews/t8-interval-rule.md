@@ -20,6 +20,13 @@ legitimate. It is recorded as v3, the same way v1 became v2.
 analysis block, now resamples items (F1). Where this file disagrees with the
 review, the review wins.
 
+**Superseded in part by pre-registration v4** (`t8-t-interval.md`, owner,
+2026-10-12). The verdict intervals are now cluster-robust t intervals over
+items (CR1, df = items − 1), not the percentile item bootstrap, which stays
+for descriptive intervals only. An interval wholly inside (0, δ) is now
+`kill` (`real_gain_below_delta`), which answers open question 2 below. Open
+questions 3 and 5 are answered there too.
+
 ## What changed
 
 ### The rule (`field/success_head_analysis.py`, `field/success_head.py`)

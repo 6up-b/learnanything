@@ -10,6 +10,7 @@ from learnloop.numeric import (
     percentiles,
     regularized_incomplete_beta,
     sigmoid,
+    student_t_quantile,
 )
 
 
@@ -115,3 +116,22 @@ def test_beta_quantile_rejects_bad_inputs() -> None:
         beta_quantile(1.5, 1.0, 1.0)
     with pytest.raises(ValueError):
         beta_quantile(0.5, 0.0, 1.0)
+
+
+@pytest.mark.parametrize(("df", "expected"), [
+    # Two-sided 95% critical values (R: qt(.975, df); scipy.stats.t.ppf).
+    (1, 12.7062047361747), (2, 4.30265272974946), (3, 3.18244630528371),
+    (5, 2.57058183563631), (19, 2.09302405440831), (36, 2.02809400098045),
+    (1000, 1.96233908082641),
+])
+def test_student_t_quantile_matches_tables(df, expected) -> None:
+    assert student_t_quantile(0.975, df) == pytest.approx(expected, abs=1e-9)
+    assert student_t_quantile(0.025, df) == pytest.approx(-expected, abs=1e-9)
+
+
+def test_student_t_quantile_approaches_the_normal_and_rejects_bad_inputs() -> None:
+    assert student_t_quantile(0.5, 4) == 0.0
+    assert student_t_quantile(0.975, 1e7) == pytest.approx(1.959963984540054, abs=1e-6)
+    for p, df in ((0.0, 3), (1.0, 3), (0.5, 0), (0.9, math.inf), (0.9, math.nan)):
+        with pytest.raises(ValueError):
+            student_t_quantile(p, df)

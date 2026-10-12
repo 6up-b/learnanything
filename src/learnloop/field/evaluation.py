@@ -26,6 +26,7 @@ from learnloop.field import memory as _memory_arms  # noqa: F401 - registers the
 from learnloop.field.predictors import create_predictor, registered_predictors
 from learnloop.field.signals import blocks_fast_track
 from learnloop.field.types import AttemptRow, FacetRow, ObservationRow, SignalRow
+from learnloop.numeric import student_t_quantile
 
 
 HARNESS_VERSION = "field-prequential-v2"
@@ -180,6 +181,51 @@ def _cluster_bootstrap(values, clusters, *, samples, seed):
     return result
 
 
+CLUSTER_T_METHOD = "cluster_robust_t_cr1"
+
+
+def cluster_t_interval(differences, clusters):
+    """Cluster-robust 95% t interval for the mean over attempts (CR1, df = G − 1).
+
+    The estimate is the attempt-weighted mean d̄. Its standard error is the
+    cluster-robust sandwich of an intercept-only fit, with the CR1
+    small-sample factor G/(G − 1):
+    ``se² = G/(G − 1) · Σ_g (Σ_{i∈g} (dᵢ − d̄))² / n²``, and the interval is
+    ``d̄ ± t_{0.975, G − 1} · se``. With singleton clusters this is the
+    ordinary one-sample t interval; with equal-sized clusters, the t interval
+    on the cluster means. There is no minimum cluster count: t widens on its
+    own as G falls. ``ci95`` is None, with the reason in ``degenerate``, only
+    for no attempts, one cluster (no degrees of freedom), or zero variance
+    across clusters. Deterministic: no resampling.
+    """
+    values = np.asarray(differences, dtype=float)
+    labels = np.asarray(clusters)
+    if labels.shape != values.shape:
+        raise ValueError("Cluster labels must give one label per difference")
+    result = {"n": len(values), "clusters": 0, "mean": None, "se": None, "df": None,
+              "t_critical": None, "ci95": None, "degenerate": None, "method": CLUSTER_T_METHOD}
+    if not len(values):
+        result["degenerate"] = "no attempts"
+        return result
+    _, members = np.unique(labels, return_inverse=True)
+    sizes = np.bincount(members)
+    count, mean = len(sizes), float(values.mean())
+    cluster_means = np.bincount(members, weights=values) / sizes
+    result.update(clusters=count, mean=mean)
+    if count < 2:
+        result["degenerate"] = "one cluster: no between-cluster variance (df = 0)"
+        return result
+    if float(cluster_means.max() - cluster_means.min()) <= ZERO_SPREAD:
+        result["degenerate"] = "zero variance across clusters"
+        return result
+    residual_sums = np.bincount(members, weights=values - mean)
+    se = sqrt(count / (count - 1) * float(residual_sums @ residual_sums)) / len(values)
+    critical = student_t_quantile(0.975, count - 1)
+    result.update(se=se, df=count - 1, t_critical=critical,
+                  ci95=[mean - critical * se, mean + critical * se])
+    return result
+
+
 def _auc(y, p):
     # AUC has no unambiguous binary interpretation for fractional rubric scores.
     binary = (y == 0) | (y == 1)
@@ -323,9 +369,11 @@ def _bootstrap_manifest(unit, samples, seed):
     if unit == "item":
         manifest["resample"] = ("whole items: each drawn item brings all its scored attempts; the "
                                 "statistic is the mean over the drawn attempts")
+        manifest["interval"] = "percentile_95"
         manifest["scope"] = ("every bootstrap interval in this report: report 1 metrics, splits and "
-                             "comparisons, report 2 miss rates, and the analyses; the Wilson "
-                             "intervals are analytic")
+                             "comparisons, report 2 miss rates, and the analyses' descriptive "
+                             "intervals; the Wilson intervals are analytic, and an analysis's "
+                             "verdict intervals name their method")
     return manifest
 
 

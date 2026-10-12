@@ -202,6 +202,11 @@ def success_head_eval(
         report["manifest"]["t8"] = {
             "preregistration_hash": preregistration_hash(), "content_digest": content.digest,
             "views": coverage["views"], "dimensions": coverage["dimensions"],
+            # The delta in force, so the owner can monitor whether it needs changing.
+            "smallest_worthwhile_gain_nats_per_attempt": PREREGISTRATION[
+                "smallest_worthwhile_gain_nats_per_attempt"],
+            "margin_nats_per_attempt": PREREGISTRATION["margin_nats_per_attempt"],
+            "decision_interval": PREREGISTRATION["decision_interval"]["method"],
         }
         report["data_check"] = inputs["data_check"]
         report["claim_priors"] = inputs["claim_priors"]

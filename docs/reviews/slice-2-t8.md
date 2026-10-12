@@ -118,13 +118,16 @@ Recorded here before any report run. It is also frozen in code as
 manifest. A run that changes the bootstrap settings is flagged as a deviation
 in the report.
 
-**Current version: `t8-preregistration-v3`**, hash
-`a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372`. Two
-revisions were made, both before any run on owner data: v2 (the embedding
-prior) and v3 (the decision rule). Each is recorded below. v3 was amended in
-its Codex review before merge (no item minimum; items resampled in every
-interval of the report), which changed its hash; see
-`docs/reviews/t8-interval-rule-codex-review.md`.
+**Current version: `t8-preregistration-v4`**, hash
+`9f686a23048ea1403b233ee15983c83a93f38f0af75da219f31c53f1f087866b`. Three
+revisions were made, all before any run on owner data: v2 (the embedding
+prior), v3 (the decision rule) and v4 (the verdict interval, and a real gain
+below δ). Each is recorded below. v3 was amended in its Codex review before
+merge (no item minimum; items resampled in every interval of the report),
+which changed its hash; see `docs/reviews/t8-interval-rule-codex-review.md`.
+v4 is recorded in `docs/reviews/t8-t-interval.md`, and was amended in its own
+review before merge, which changed its hash too; see
+`docs/reviews/t8-t-interval-codex-review.md`.
 
 **Question (§11).** For this one learner, does a frozen-embedding predictor of
 success add held-out predictive value over explicit learner-state predictors?
@@ -191,17 +194,18 @@ success add held-out predictive value over explicit learner-state predictors?
 - recalibration is a one-parameter logit intercept, MAP under N(0, 1) on past
   predictions only.
 
-*Decision rule (revision v3):*
+*Decision rule (revision v4):*
 
 | Constant | Value |
 |---|---|
 | Margin m (D9) | 0.0 nats per attempt |
-| Smallest worthwhile gain δ | 0.005 nats per attempt |
-| Bootstrap | paired percentile, 95%, B = 1000, seed 0, resampling **items** (each drawn item brings all its attempts) |
-| No interval | only where every resample gives the same mean: no common attempts, one item cluster, or cluster means within 1e-12 nats of each other. There is no minimum item count |
+| Smallest worthwhile gain δ | 0.005 nats per attempt, recorded in every report |
+| Verdict interval | cluster-robust t over **items**, 95%: the attempt-weighted mean gain ± t(0.975, items − 1) × its CR1 standard error |
+| Descriptive intervals | paired percentile item bootstrap, 95%, B = 1000, seed 0 (each drawn item brings all its attempts). Exception: `emb_ridge_vs_tag_logistic` takes the verdict interval, since it is the primary comparison itself whenever e* is `tag_logistic` |
+| No interval | no common attempts, one item cluster, or cluster means within 1e-12 nats of each other. There is no minimum item count |
 | Coverage caveat | below 80% of ability-scored attempts |
 
-There is no minimum number of attempts.
+There is no minimum number of attempts or items.
 
 **Revision v2 (2026-10-12, before any run on owner data).**
 - **The change:** the embedding block's prior variance per dimension drops
@@ -274,36 +278,120 @@ There is no minimum number of attempts.
   `e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976`; v2 was
   `746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee`).
 
-**Primary endpoint and decision rule** (spec §11 `emb_ridge`; v3).
+**Revision v4 (owner decision, 2026-10-12, before any run on owner data).**
+- **No run happened under v3.** v3 merged to `main` and ran only on fakes:
+  the synthetic tests and the fake-vector `fixtures-local` copies. No
+  owner-data report exists under v3, v2 or v1, so the change cannot be fitted
+  to a result.
+- **What changed:**
+  - **A cluster-robust t interval decides.** It replaces the percentile item
+    bootstrap for the verdict intervals: the primary `emb_ridge` comparison
+    and the gated secondaries.
+    - *Estimate:* the attempt-weighted mean of Δᵢ = loss(e*)ᵢ −
+      loss(arm)ᵢ, as before.
+    - *Standard error:* the cluster-robust sandwich over items with the CR1
+      small-sample factor, se² = G/(G − 1) · Σ_g (Σ_{i∈g} (Δᵢ − Δ̄))² / n².
+    - *Critical value:* Student t with G − 1 degrees of freedom (G items),
+      95%.
+  - **No interval only for degenerate inputs:** no common attempts, one item
+    (no degrees of freedom), or zero variance across items. The verdict is
+    then `insufficient_data` with the reason. There is still no item minimum.
+  - **A real gain below δ is `kill`.** An interval wholly inside (m, δ) is
+    `kill` with reason code `real_gain_below_delta`. Under v3 it was
+    `embeddings_add_value`. The rule now checks δ first: `kill` if the upper
+    bound is below δ; otherwise `embeddings_add_value` if the lower bound is
+    above m; otherwise `insufficient_data`.
+  - **δ is recorded.** Every report records δ, m, n, the item count, the
+    interval and its method, in the JSON (`analyses.t8.decision_rule`, each
+    verdict, `manifest.t8`) and the markdown preamble. The owner monitors
+    whether δ itself needs changing. A `real_gain_below_delta` reason also
+    names the largest δ at which the verdict would have been
+    `embeddings_add_value`.
+  - **The bootstrap stays descriptive.** The splits, the descriptive
+    comparisons, report 1 and report 2 keep the percentile item bootstrap.
+    Every interval in the analysis names its `method`
+    (`cluster_robust_t_cr1` or `item_bootstrap_percentile`).
+- **Why** (owner, 2026-10-12):
+  - **Coverage with few items.** Percentile cluster intervals under-cover
+    with few items: about 75% at 3 items and 86% at 6 on T8-shaped synthetic
+    data. Because t has G − 1 degrees of freedom, it widens on its own as
+    items run out (about 95% at 3 items), with no minimum-cluster constant.
+    See `t8-t-interval.md` for the coverage table.
+  - **A gain too small to build on is not worth building**, however
+    certain. The owner wants to see such kills, logged with the δ in force.
+- **CR1, not CR2.** CR1 is Stata's standard factor and the owner's named
+  choice. For the intercept-only fit, CR2 (Bell–McCaffrey) weights each
+  item's squared residual sum by 1/(1 − n_g/n) instead of G/(G − 1). The two
+  are identical for equal-sized items, and their coverage differed by at most
+  0.008 in the synthetic grid (`t8-t-interval.md`). So CR2 doesn't justify the
+  extra term.
+- **The verdict names are unchanged, but `kill` means more.** It now also
+  covers a real gain below δ, which v3 called `embeddings_add_value`. That
+  changes what the name means to a downstream consumer: the learned-router
+  trigger (`spec_action_router_v1.md` §13, condition 3) asks whether
+  embeddings add held-out predictive value at all, and δ is the bar for the
+  success head only. Condition 3 therefore reads the lower bound: it is met by
+  `embeddings_add_value` or by a `real_gain_below_delta` kill (router D10, a
+  recommended default the owner may narrow). A consumer must read
+  `reason_code`, not the verdict name alone (review F1).
+- **Unchanged:** m, δ, the arms, e*, the priors, the statistic, the gate, the
+  coverage caveat, and B and the seed for the descriptive intervals.
+- **Amended in review** (`t8-t-interval-codex-review.md`, before merge and
+  before any owner-data run):
+  - **`emb_ridge_vs_tag_logistic` takes the t interval** (F4). Whenever e* is
+    `tag_logistic` it is the primary comparison itself, so the report
+    carried the same Δ with two intervals, and the percentile one is
+    narrower. It now always uses the verdict's interval. The splits and the
+    LLM comparisons stay percentile item bootstraps.
+  - **A `real_gain_below_delta` kill is provisional** (F2). The realized
+    prequential gain includes the period in which the embedding block is
+    still learning, so a real gain grows with data: rerun when the data has
+    grown; such a kill is not terminal. The synthetic nested-baseline grid
+    was rerun under v4 (see the review).
+  - **The δ at which the verdict changes is a field** (F3):
+    `flipping_delta`, the upper bound, on every verdict
+    (`verdict_flipping_delta` on each gated comparison). The verdict is
+    `kill` exactly when δ > `flipping_delta`. The reason prints each bound
+    with enough digits to sit on the side of m or δ that the rule says.
+- **Version:** `t8-preregistration-v4`, hash
+  `9f686a23048ea1403b233ee15983c83a93f38f0af75da219f31c53f1f087866b` as amended in review (first staged as
+  `6c7223178ce70c10b83364e356fc5bafea7e7c799c6bed8f60f213fa97717e18`; v3 was
+  `a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372`).
+
+**Primary endpoint and decision rule** (spec §11 `emb_ridge`; v4).
 - **Common rows:** attempts that `emb_ridge` and every arm in E scored.
 - **Baseline:** `e*` is the arm in E with the lowest mean log loss on those
   rows. Choosing it on the same data favours the explicit side, so the
   selection is conservative.
 - **Test statistic:** the per-attempt difference
   Δᵢ = loss(e*)ᵢ − loss(`emb_ridge`)ᵢ and its mean.
-- **Interval:** a paired percentile 95% bootstrap that resamples items (each
-  drawn item brings all its attempts; the statistic is the mean over the drawn
-  attempts). B = 1000, seed 0, the harness's `paired_bootstrap` with
-  `clusters`.
+- **Interval:** a cluster-robust 95% t interval over items: the mean Δ̄ ±
+  t(0.975, G − 1) × se, with the CR1 standard error
+  se² = G/(G − 1) · Σ_g (Σ_{i∈g} (Δᵢ − Δ̄))² / n² over the G items. It is the
+  harness's `cluster_t_interval`. It has no resampling, so it does not depend
+  on B or the seed.
 - **Margin:** m = 0.0 nats per attempt (D9).
 - **Smallest worthwhile gain:** δ = 0.005 nats per attempt.
-- **Verdict:**
-  - `embeddings_add_value` if the interval's lower bound is above m. If the
-    whole interval is also below δ, the reason says the gain is real but
-    smaller than the smallest worth building.
+- **Verdict** (reason codes in brackets):
   - `kill` if the interval's upper bound is below δ: any held-out gain is
     smaller than the smallest worth building, and the GP success head is not
-    pursued.
+    pursued. If the lower bound is also above m, the gain is real but too
+    small (`real_gain_below_delta`); otherwise (`upper_bound_below_delta`).
+    A `real_gain_below_delta` kill is provisional: rerun when the data has
+    grown.
+  - `embeddings_add_value` otherwise, if the interval's lower bound is above
+    m (`lower_bound_above_margin`).
   - `insufficient_data` otherwise: the interval reaches both m and δ, so no
-    decision. Rerun with more data.
-  - `insufficient_data` also when there is no interval (no common attempts,
-    one item cluster, or cluster means within 1e-12 nats), with the reason.
+    decision (`undecided`). Rerun with more data.
+  - `insufficient_data` also when there is no interval (`no_interval`: no
+    common attempts, one item cluster, or cluster means within 1e-12 nats),
+    with the reason.
   - Coverage below 80% of ability-scored attempts adds a `partial_coverage`
     caveat but does not change the verdict.
 
 **Gated secondary** (hierarchical, so no multiplicity correction is needed).
 These are read only if the primary verdict is `embeddings_add_value`:
-- `success_head` against e*, with the same three-way rule;
+- `success_head` against e*, with the same three-way rule and interval;
 - then `success_head+difficulty` against e*, if available, read only if
   `success_head` was `embeddings_add_value`.
 
@@ -313,20 +401,28 @@ with their verdict and reason, but labelled `not_interpreted` once the gate
 is closed.
 
 **Descriptive only (no decision):**
-- `emb_ridge` against `tag_logistic` (the pure embedding increment);
+- `emb_ridge` against `tag_logistic` (the pure embedding increment), with
+  the verdict's t interval: it is the primary comparison itself whenever e*
+  is `tag_logistic`;
 - every comparison split by `item_position` (first attempt on a never-seen
   item vs a repeat) and by `attempt_position` (first unseen LO vs later);
 - `llm_zero_data`, raw and recalibrated, against e* and against `emb_ridge`;
 - log loss, Brier, AUC and reliability bins for every arm.
 
-Every T8 interval, descriptive ones included, uses the same item-cluster
-bootstrap. That covers the whole T8 report, not only the T8 analysis block:
-the harness runs with `bootstrap_unit="item"`, so report 1's log loss and
-Brier (overall and split), its comparisons against the incumbent and
-report 2's miss rates resample items too. The manifest records it as
-`bootstrap.unit = "item"`, with the resampling method and its scope. The
-Wilson intervals are analytic. A split on a single item, or with equal item
-means, reports no interval.
+Every T8 interval clusters on items, across the whole T8 report, not only
+the T8 analysis block. The verdict intervals (primary and gated) and
+`emb_ridge_vs_tag_logistic` are the cluster-robust t intervals above. Every
+other interval is a paired percentile item bootstrap (B = 1000, seed 0; each
+drawn item brings all its attempts):
+- the LLM comparisons and the splits in the analysis;
+- report 1's log loss and Brier (overall and split) and its comparisons
+  against the incumbent, and report 2's miss rates. The harness runs with
+  `bootstrap_unit="item"` for these.
+
+Every interval in the analysis names its `method` (`cluster_robust_t_cr1` or
+`item_bootstrap_percentile`). The manifest records `bootstrap.unit = "item"`,
+the percentile method and its scope. The Wilson intervals are analytic. A
+split on a single item, or with equal item means, reports no interval.
 
 ## Overlap with router R0 (for the merge)
 
@@ -401,8 +497,8 @@ is unknown), and predicts every scored attempt.
 ### Pre-registered analysis (`field/success_head_analysis.py`)
 
 - **What it computes:**
-  - the decision rule (v3: three-way, on the item-cluster interval), with e*
-    chosen from E;
+  - the decision rule (v4: three-way, on the cluster-robust t interval over
+    items, with a real gain below δ a `kill`), with e* chosen from E;
   - the hierarchical gate;
   - the descriptive comparisons, split by `item_position` and
     `attempt_position`;
@@ -491,11 +587,12 @@ is unknown), and predicts every scored attempt.
    - Replay and dry runs stay environment-free.
    - The loaded settings only add process keys and the Codex checkout path,
      which are not in the cache's settings hash.
-4. **Pre-registration v2 and v3:** see "Revision v2" and "Revision v3"
-   above. Both were made before any run on owner data. v3 departs from the
-   letter of §11's kill rule ("the interval includes 0 at the margin"): an
-   interval that includes 0 is now a kill only if it also lies below δ
-   (owner, 2026-10-12).
+4. **Pre-registration v2, v3 and v4:** see "Revision v2", "Revision v3" and
+   "Revision v4" above. All were made before any run on owner data. v3
+   departed from the letter of §11's kill rule ("the interval includes 0 at
+   the margin"): an interval that includes 0 is a kill only if it also lies
+   below δ (owner, 2026-10-12). v4 makes any interval below δ a kill, a real
+   gain included. Spec §11 now states the v4 rule.
 5. **The §11 "GP classifier (or Bayesian logistic)" is built as the Bayesian
    logistic.** `success_head` shares `emb_ridge`'s MAP fit and differs only in
    its moderated predictive variance.
@@ -555,6 +652,16 @@ real model id and fake ledger rows. It was renamed
 [−0.00586, 0.00017] against `tag_logistic`. Noise vectors barely move
 `emb_ridge` from its nested baseline, so the interval is narrow. The numbers
 still carry no meaning. See `docs/reviews/t8-interval-rule.md`.
+
+**Under v4** (stage `t8-t-interval`, a fresh fake-vector copy): the mean gain
+is again −0.002221 over 53 attempts in 37 items (identical, so the noise
+vectors coincide). The cluster-robust t interval (df = 36, t = 2.028) is
+[−0.005297, 0.0008547], against v3's [−0.00586, 0.00017]. Both are `kill`
+(`upper_bound_below_delta`). The numbers still carry no meaning. See
+`docs/reviews/t8-t-interval.md`. After the v4 review the descriptive
+`emb_ridge_vs_tag_logistic` carries the same t interval, so v3's percentile
+interval no longer appears in the report
+(`docs/reviews/t8-t-interval-codex-review.md`).
 
 ## Real paid calls and cost
 
@@ -616,27 +723,44 @@ uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallbac
 
 **6. The report.** Replay makes zero calls. Leave out `--llm-cache` to skip the
 LLM arms. The dry run and the report both print the pre-registration; check
-that it reads `t8-preregistration-v3` (hash `a2beed27c4ee19db…`). A copy
-prepared under v2 can be reused: the stored vectors and the LLM cache don't
-depend on the decision rule.
+that it reads `t8-preregistration-v4` (hash `9f686a23048ea140…`). A copy
+prepared under v2 or v3 can be reused: the stored vectors and the LLM cache
+don't depend on the decision rule.
 
 ```fish
 uv run learnloop eval success-head --vault fixtures-local/t8-la --legacy-fallback current_content --llm-cache fixtures-local/t8-llm-cache
 ```
 
 **Reading the report.** The markdown starts with the pre-registered verdict.
-It shows n, the number of item clusters, the 95% item-cluster interval of the
-gain, m = 0.0, δ = 0.005, the verdict and its reason:
-- `embeddings_add_value` (lower bound above m) opens the gated heads;
-- `kill` (upper bound below δ) means the GP success head is not pursued;
+It shows:
+- the δ in force (0.005) and m (0.0);
+- n and the number of item clusters;
+- the 95% cluster-robust t interval of the gain, with its degrees of freedom,
+  t value and standard error;
+- the verdict, its reason code and its reason.
+
+The verdicts:
+- `embeddings_add_value` (lower bound above m, upper bound at or above δ)
+  opens the gated heads;
+- `kill` (upper bound below δ) means the GP success head is not pursued.
+  `real_gain_below_delta` marks a real gain smaller than δ; its reason names
+  the δ at which it would have counted. That kill is provisional: rerun when
+  the data has grown;
 - `insufficient_data` is no decision. Either the interval reaches both m and
-  δ, or there is no interval (one item, or no variation). Rerun the
-  same command when more attempts exist. The distance from the interval's
-  bounds to m and δ shows how far the data is from a decision; there is no
-  fixed attempt count to wait for.
+  δ, or there is no interval (one item, or no variation). Rerun the same
+  command when more attempts exist. The distance from the interval's bounds
+  to m and δ shows how far the data is from a decision; there is no fixed
+  attempt count to wait for. With few items, t's G − 1 degrees of freedom
+  keep the interval wide.
+
+Every verdict also carries `flipping_delta`, its interval's upper bound: the
+verdict is `kill` exactly when δ is above it. That is the number to watch if
+δ needs revisiting.
 
 The verdict also feeds condition 3 of the learned-router trigger
-(`spec_action_router_v1.md` §13).
+(`spec_action_router_v1.md` §13). That condition reads the lower bound, not
+the verdict name: `embeddings_add_value` or a `real_gain_below_delta` kill
+meets it (router D10).
 
 ## Migrations
 
@@ -705,9 +829,10 @@ All run in this worktree at the final code commit.
      with `b` on the ability scale.
 
    Both are wired by name here and untested against the real producers.
-6. **Minimum data.** Resolved by pre-registration v3 (owner, 2026-10-12):
-   there is no attempt floor. The verdict comes from the item-cluster
-   interval, and it is `insufficient_data` only while the interval reaches
-   both m and δ, or where no interval exists (one item, or no variation).
-   There is no item minimum either (review F2). The tracked fixture has 53
-   attempts in 37 items, so it can reach a decision.
+6. **Minimum data.** Resolved by pre-registrations v3 and v4 (owner,
+   2026-10-12): there is no attempt floor and no item minimum. The verdict
+   comes from the cluster-robust t interval over items, whose G − 1 degrees
+   of freedom widen it with few items. It is `insufficient_data` only while
+   the interval reaches both m and δ, or where no interval exists (one item,
+   or no variation). The tracked fixture has 53 attempts in 37 items, so it
+   can reach a decision.

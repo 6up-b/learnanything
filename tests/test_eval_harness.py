@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from learnloop.field.evaluation import (
-    evaluate, family_arms, paired_bootstrap, report_digest, write_reports,
+    cluster_t_interval, evaluate, family_arms, paired_bootstrap, report_digest, write_reports,
 )
 from learnloop.field.types import AttemptRow, FacetRow, ItemFeatures, RegionEstimate, SignalRow
 
@@ -217,6 +217,86 @@ def test_cluster_bootstrap_reports_no_interval_only_when_every_draw_is_the_same(
     assert (empty["mean"], empty["ci95"], empty["degenerate"]) == (None, None, "no attempts")
     with pytest.raises(ValueError, match="one label per difference"):
         paired_bootstrap([.1, .2], clusters=[0])
+
+
+
+# -- the cluster-robust t interval (T8 pre-registration v4) --------------------
+
+def test_cluster_t_interval_is_the_cr1_sandwich_with_items_minus_one_degrees_of_freedom():
+    values = np.array([1., 2., 4., 3., 5., 7.])
+    clusters = ["a", "a", "b", "c", "c", "c"]
+    result = cluster_t_interval(values, clusters)
+    mean = values.mean()
+    # The sandwich for an intercept-only fit: residuals summed within each
+    # cluster, then the CR1 factor G / (G - 1) (Stata's, with k = 1).
+    sums = np.array([1 + 2 - 2 * mean, 4 - mean, 3 + 5 + 7 - 3 * mean])
+    se = np.sqrt(3 / 2 * float(sums @ sums)) / 6
+    assert (result["n"], result["clusters"], result["df"]) == (6, 3, 2)
+    assert result["mean"] == pytest.approx(mean) and result["se"] == pytest.approx(se)
+    assert result["t_critical"] == pytest.approx(4.30265272974946, abs=1e-9)
+    assert result["ci95"] == pytest.approx([mean - 4.30265272974946 * se, mean + 4.30265272974946 * se])
+    assert (result["method"], result["degenerate"]) == ("cluster_robust_t_cr1", None)
+
+
+def test_cluster_t_interval_reduces_to_the_one_sample_t_interval():
+    rng = np.random.default_rng(3)
+    values = rng.normal(.02, .1, 24)
+    # Singleton clusters: the ordinary t interval on attempts, df = n - 1.
+    singletons = cluster_t_interval(values, np.arange(24))
+    half = 2.06865761041905 * values.std(ddof=1) / np.sqrt(24)  # qt(.975, 23)
+    assert singletons["ci95"] == pytest.approx([values.mean() - half, values.mean() + half])
+    # Balanced clusters: the ordinary t interval on the cluster means, df = G - 1.
+    balanced = cluster_t_interval(values, np.arange(24) // 4)
+    means = values.reshape(6, 4).mean(axis=1)
+    half = 2.57058183563631 * means.std(ddof=1) / np.sqrt(6)  # qt(.975, 5)
+    assert balanced["ci95"] == pytest.approx([means.mean() - half, means.mean() + half])
+
+
+def test_cluster_t_interval_has_no_cluster_minimum_only_degenerate_guards():
+    two = cluster_t_interval([.1, .2, .3, .4], [0, 0, 1, 1])
+    assert two["degenerate"] is None and two["df"] == 1
+    assert two["ci95"] == pytest.approx([.25 - 12.7062047361747 * .1, .25 + 12.7062047361747 * .1])
+    one = cluster_t_interval([.1, .3, .2], ["i", "i", "i"])
+    assert (one["clusters"], one["ci95"], one["df"]) == (1, None, None)
+    assert one["degenerate"] == "one cluster: no between-cluster variance (df = 0)"
+    flat = cluster_t_interval([.1] * 12, np.arange(12) // 2)
+    assert flat["ci95"] is None and flat["degenerate"] == "zero variance across clusters"
+    empty = cluster_t_interval([], [])
+    assert (empty["mean"], empty["ci95"], empty["degenerate"]) == (None, None, "no attempts")
+    with pytest.raises(ValueError, match="one label per difference"):
+        cluster_t_interval([.1, .2], [0])
+
+
+def _clustered(rng, items):
+    """T8-shaped differences: a shared effect per item, 1-4 attempts per item."""
+    # Attempts per item as on the tracked linear_algebra fixture (37 items:
+    # 25 seen once, 9 twice, 2 three times, 1 four times).
+    sizes = rng.choice([1, 2, 3, 4], size=items, p=[25 / 37, 9 / 37, 2 / 37, 1 / 37])
+    labels = np.repeat(np.arange(items), sizes)
+    return rng.normal(0, .1, items)[labels] + rng.normal(0, .1, len(labels)), labels
+
+
+def test_the_t_interval_covers_where_the_v3_percentile_item_bootstrap_does_not():
+    # 400 replications per item count; the true mean gain is 0. v3's interval
+    # is the harness's own percentile item bootstrap (B = 1000).
+    replications, table = 400, {}
+    for items in (3, 6, 20):
+        rng = np.random.default_rng(items)
+        hits = {"percentile": 0, "t": 0}
+        for replication in range(replications):
+            values, labels = _clustered(rng, items)
+            for name, result in (
+                ("percentile", paired_bootstrap(values, samples=1000, seed=replication, clusters=labels)),
+                ("t", cluster_t_interval(values, labels)),
+            ):
+                hits[name] += result["ci95"][0] <= 0 <= result["ci95"][1]
+        table[items] = {name: count / replications for name, count in hits.items()}
+    print("95% coverage by item count:", table)
+    for items, coverage in table.items():
+        assert coverage["t"] >= .92, (items, coverage)  # nominal .95, MC sd about .011
+        assert coverage["t"] >= coverage["percentile"], (items, coverage)
+    assert table[3]["percentile"] < .80 and table[6]["percentile"] < .90
+    assert table[3]["t"] - table[3]["percentile"] > .1
 
 
 def _intervals(value):
