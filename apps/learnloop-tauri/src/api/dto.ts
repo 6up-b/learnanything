@@ -2613,10 +2613,20 @@ export interface FacetIdentityActionDto {
   retired: FacetIdentityFacetRef[];
   rationale: string;
   locked: boolean;
+  /** Why a facet's identity is locked: attempts, probe, goal_certified_scope, independent_surface_groups, ... */
+  lockSources?: string[];
+  /** Why an attach left a registered facet's contract as it was. */
+  contractNote?: string | null;
+  /** What an undo does not move back (rows graded while the merge stood). */
+  undoLimits?: string | null;
   judge: string;
   judgeModel: string | null;
-  /** proposed = applies with its proposal; applied = undoable now; undone. */
-  status: "proposed" | "applied" | "undone";
+  /**
+   * proposed = applies with its proposal; applied = undoable now; undone.
+   * applying/undoing = interrupted mid-write (doctor --fix-state finishes it);
+   * abandoned = withdrawn before it was written.
+   */
+  status: "proposed" | "applying" | "applied" | "undoing" | "undone" | "abandoned";
   undoable: boolean;
   /** Why this merge has no undo, when it has none by construction. */
   note?: string | null;
@@ -2627,6 +2637,8 @@ export interface FacetIdentityActionDto {
 /** The facet-identity block of a synthesis/append job result (absent when switched off). */
 export interface FacetIdentitySummaryDto {
   status: string;
+  /** The run whose actions the panel re-reads for their live undo state. */
+  runId?: string | null;
   groups: number;
   groupsJudged: number;
   inRunRetired: number;

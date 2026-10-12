@@ -453,8 +453,16 @@ def describe(record: Mapping[str, Any], vault: LoadedVault | None = None) -> dic
         "retired": [{"id": facet_id, "claim": claim(facet_id)} for facet_id in record.get("retired_facet_ids") or []],
         "rationale": detail.get("rationale") or "",
         "locked": bool(detail.get("lock_reasons")),
+        # Why each locked facet is locked (attempts, probe, goal_certified_scope, ...).
+        "lock_sources": sorted({
+            str(reason.get("source") or "")
+            for reasons in (detail.get("lock_reasons") or {}).values() for reason in reasons or []
+            if isinstance(reason, Mapping) and reason.get("source")
+        }),
         # Why an attach left a registered facet's contract as it was.
         "contract_note": detail.get("contract_note"),
+        # What an undo does not move back (review F9).
+        "undo_limits": UNDO_LIMITS,
         "judge": record["judge"],
         "judge_model": record.get("judge_model"),
         "status": status,

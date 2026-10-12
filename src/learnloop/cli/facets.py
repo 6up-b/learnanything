@@ -108,7 +108,11 @@ def facets_undo(
     vault: Annotated[Path, typer.Option("--vault", help="Vault root.")],
     json_output: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Restore the facets (and their evidence) one merge or absorb replaced."""
+    """Restore the facets one merge or absorb replaced; re-fold their evidence.
+
+    Rows graded while the merge stood (exercised facets, notes, error events)
+    stay with the surviving facet; the result says so (not_restored).
+    """
     from learnloop.content.facet_identity.actions import FacetIdentityActionError, undo_action
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault

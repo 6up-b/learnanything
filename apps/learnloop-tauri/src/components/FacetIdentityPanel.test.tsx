@@ -1,14 +1,16 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { FacetIdentityActionDto, FacetIdentitySummaryDto } from "../api/dto";
-import { FacetIdentityPanel, facetIdentityOf } from "./FacetIdentityPanel";
+import { FacetIdentityPanel, facetIdentityOf, lockLabel } from "./FacetIdentityPanel";
 
-const { api } = vi.hoisted(() => ({ api: { undoFacetIdentityAction: vi.fn() } }));
+const { api } = vi.hoisted(() => ({
+  api: { undoFacetIdentityAction: vi.fn(), listFacetIdentityActions: vi.fn() }
+}));
 vi.mock("../api/client", () => ({ api }));
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 function action(overrides: Partial<FacetIdentityActionDto> = {}): FacetIdentityActionDto {
@@ -94,4 +96,53 @@ it("reports an undo refusal", async () => {
   });
   expect(onError).toHaveBeenCalledWith("Facet facet_a changed after action act_1");
   expect(screen.getByRole("button", { name: "undo" })).toBeTruthy();
+});
+
+// Review F6: the job result is a snapshot; the panel shows the live undo state.
+
+it("re-reads the run's actions when it mounts: an action undone elsewhere shows undone", async () => {
+  api.listFacetIdentityActions.mockResolvedValue({
+    version: 1, actions: [action({ status: "undone", undoable: false, undoneAt: "2026-10-12T13:00:00Z" })]
+  });
+  await act(async () => {
+    render(<FacetIdentityPanel summary={{ ...summary([action()]), runId: "run_1" }} onError={vi.fn()} />);
+  });
+  expect(api.listFacetIdentityActions).toHaveBeenCalledWith("run_1");
+  expect(screen.queryByRole("button", { name: "undo" })).toBeNull();
+  expect(screen.getByText("undone")).toBeTruthy();
+});
+
+it("offers the undo once a merge's proposal has been applied since the job ran", async () => {
+  api.listFacetIdentityActions.mockResolvedValue({ version: 1, actions: [action()] });
+  await act(async () => {
+    render(<FacetIdentityPanel summary={summary([action({ status: "proposed", undoable: false })])} onError={vi.fn()} />);
+  });
+  expect(screen.getByRole("button", { name: "undo" })).toBeTruthy();
+  expect(screen.queryByText("applies with the proposal")).toBeNull();
+});
+
+it("names why a facet is locked instead of claiming practice history", () => {
+  expect(lockLabel(action({ locked: true, lockSources: ["goal_certified_scope"] }))).toBe(
+    "identity locked: it is in an active goal's certified scope"
+  );
+  expect(lockLabel(action({ locked: true, lockSources: ["probe"] }))).toContain("probes");
+  expect(lockLabel(action())).toBeNull();
+  render(
+    <FacetIdentityPanel
+      summary={summary([action({ locked: true, lockSources: ["goal_certified_scope"] })])}
+      onError={vi.fn()}
+    />
+  );
+  const text = screen.getByTestId("facet-identity").textContent ?? "";
+  expect(text).not.toContain("practice history");
+  expect(text).toContain("certified scope");
+  // Undo is honest about what it does not move back (review F9).
+  expect(text).toContain("stays with the survivor");
+});
+
+it("marks an interrupted merge and says how to finish it", () => {
+  render(<FacetIdentityPanel summary={summary([action({ status: "applying", undoable: false })])} onError={vi.fn()} />);
+  expect(screen.queryByRole("button", { name: "undo" })).toBeNull();
+  expect(screen.getByText("interrupted")).toBeTruthy();
+  expect(screen.getByTestId("facet-identity").textContent).toContain("doctor --fix-state");
 });

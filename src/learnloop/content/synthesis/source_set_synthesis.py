@@ -1798,6 +1798,8 @@ def facet_identity_result(
     vault = load_vault(root)
     return {
         **plan.summary(),
+        # The desktop re-reads the run's actions by this id (their live undo state).
+        "run_id": run_id,
         "actions": [describe(record, vault) for record in list_actions(repository, run_id=run_id, limit=None)],
     }
 

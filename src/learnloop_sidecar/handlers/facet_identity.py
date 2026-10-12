@@ -38,7 +38,10 @@ def list_facet_identity_actions(ctx: SidecarContext, params: ListFacetIdentityAc
 
 @method("undo_facet_identity_action", FacetIdentityActionInput)
 def undo_facet_identity_action(ctx: SidecarContext, params: FacetIdentityActionInput) -> dict[str, Any]:
-    """One-tap undo: restore the facets (and their evidence) one action replaced."""
+    """One-tap undo: restore the facets one action replaced, and re-fold their evidence.
+
+    Rows graded while the merge stood stay with the survivor (``not_restored``).
+    """
 
     vault, repository = ctx.require_vault()
     try:

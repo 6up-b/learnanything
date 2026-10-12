@@ -551,3 +551,26 @@ def test_the_gate_knows_aliases_only_while_facet_identity_is_on():
                                             payload={"id": "facet_b", "aliases": ["cand_b2"]})])
     assert {"facet_old_name", "cand_b2"} <= _known_facet_references(proposal, ctx(True))
     assert _known_facet_references(proposal, ctx(False)) == {"facet_a", "facet_b"}
+
+
+# --- review F6/F9: what the desktop needs to show live, accurate state --------------------
+
+
+def test_the_run_summary_names_its_run_and_each_action_its_lock_and_undo_limits(tmp_path):
+    from learnloop.content.facet_identity.actions import describe
+
+    root, repo = _setup(tmp_path, with_exam=False)
+    result = create_study_map(root, "set_la", client=FakeSynthesisClient(builder=_with_duplicate), repository=repo,
+                              clock=_CLOCK, apply=True,
+                              facet_identity_client=FakeFacetJudge(clusters=[[DEF_CLAIM, DUP_CLAIM]]))
+    block = result.facet_identity
+    assert block["run_id"] == result.synthesis_run_id
+    (action,) = block["actions"]
+    assert "stay with it" in action["undo_limits"] and action["lock_sources"] == []
+    record = dict(list_actions(repo)[0])
+    record["detail"] = {**record["detail"], "lock_reasons": {"facet_x": [
+        {"source": "goal_certified_scope", "entity_type": "facet", "entity_id": "facet_x", "detail": "goal"}]}}
+    view = describe(record, load_vault(root))
+    assert view["locked"] and view["lock_sources"] == ["goal_certified_scope"]
+    undone = undo_action(root, repo, action["id"], clock=_CLOCK)
+    assert "stay with it" in undone["not_restored"]
