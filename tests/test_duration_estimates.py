@@ -112,3 +112,11 @@ def test_vault_items_carry_expected_minutes_into_the_estimate(tmp_path):
     assert vault.practice_items["pi_x1"].expected_minutes == 6.0
     assert Estimator(DurationEvidence()).item_minutes(vault, "pi_x1") == pytest.approx(6.5)
     assert Estimator(DurationEvidence()).item_minutes(vault, "pi_diag_mid") == pytest.approx(3.5)
+
+
+def test_generated_items_carry_expected_minutes_through_the_wire_payload():
+    from learnloop.content.proposals.ai_contracts import PracticeItemPatchPayload
+
+    payload = PracticeItemPatchPayload.model_validate({"prompt": "p", "expected_minutes": 4.0})
+    assert payload.model_dump(exclude_none=True)["expected_minutes"] == 4.0
+    assert PracticeItemPatchPayload.model_validate({"prompt": "p"}).expected_minutes is None
