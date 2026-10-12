@@ -146,6 +146,37 @@ forbidden_modules = ["learnloop.cli", "learnloop.tui"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
+id = "field-predictors-are-pure"
+name = "Learner predictors cannot access stores, models, graphs or evidence writers"
+type = "forbidden"
+source_modules = ["learnloop.field.predictors"]
+forbidden_modules = [
+    "learnloop.db",
+    "learnloop.ai",
+    "learnloop.attempts",
+    "learnloop.substrate",
+    "learnloop.scheduling",
+    "learnloop.diagnosis",
+    "learnloop.learner.recall_coverage",
+]
+# The incumbent adapter reuses only mastery.py's pure arithmetic. A symbol-level
+# test restricts that import, whose module also contains historical DB helpers.
+ignore_imports = ["learnloop.field.predictors -> learnloop.learner.mastery"]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
+id = "field-consumers-use-interface"
+name = "Placement and map consumers do not import predictor implementations"
+type = "forbidden"
+source_modules = [
+    "learnloop_sidecar.handlers.knowledge_map",
+    "learnloop.diagnosis.calibration_sessions",
+    "learnloop.substrate.state_sync",
+]
+forbidden_modules = ["learnloop.field.predictors"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
 id = "frozen-cross-package-cycles"
 name = "Existing deferred cross-package cycles are frozen"
 type = "acyclic_siblings"
