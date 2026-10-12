@@ -248,8 +248,8 @@
     "sha256": "06c65cc5fd4fa58de73a7538dba27ec25e0c9987651a60fcd34a04f71e4070e7"
   },
   "embeddings backfill": {
-    "bytes": 3489,
-    "sha256": "cc893aa8fc810d9ec3673b11c056c01fb9dbff596737f62b81f5ae569532d5e2"
+    "bytes": 3744,
+    "sha256": "323d1d1b749967326456178b1bdb65bf25bec2cddaaec47f36a8ecdf1d135892"
   },
   "eval": {
     "bytes": 1382,

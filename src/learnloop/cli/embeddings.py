@@ -11,7 +11,6 @@ from typing import Annotated, Iterator
 import typer
 
 from learnloop.ai.spend import SpendCaps
-from learnloop.ops.embedding_backfill import backfill_embeddings
 from learnloop.vault.loader import load_vault
 
 
@@ -36,7 +35,10 @@ def _cancellation() -> Iterator[threading.Event]:
 def embeddings_backfill(
     vault: Annotated[Path, typer.Option("--vault", help="Explicit vault root; use a fixtures-local copy.")],
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Estimate calls, tokens and cost; no client, migration or data changes.")] = False,
-    record_kind: Annotated[list[str] | None, typer.Option("--record-kind", help="facet or item; repeat to select kinds.")] = None,
+    record_kind: Annotated[list[str] | None, typer.Option(
+        "--record-kind",
+        help="A record kind (facet, item) or one recipe (facet/definition, item/stem); repeatable. Default: all.",
+    )] = None,
     batch_size: Annotated[int, typer.Option("--batch-size", min=1, max=256)] = 32,
     max_candidates: Annotated[int, typer.Option("--max-candidates", min=0)] = 100,
     max_pairs: Annotated[int, typer.Option("--max-pairs", min=0, help="Backfill uses no pairs.")] = 0,
@@ -56,6 +58,9 @@ def embeddings_backfill(
     finishes and saves the current batch, then stops before the next request.
     Reports contain only counts, limits and model metadata, never vault text.
     """
+    # Imported here: the vector store needs numpy, which no other command loads.
+    from learnloop.ops.embedding_backfill import backfill_embeddings
+
     try:
         if not (vault / "learnloop.toml").is_file():
             raise ValueError("--vault must name a vault containing learnloop.toml")
@@ -72,7 +77,7 @@ def embeddings_backfill(
         with _cancellation() as stop:
             report = backfill_embeddings(
                 loaded, caps=caps, dry_run=dry_run,
-                record_kinds=tuple(record_kind or ("facet", "item")),
+                recipes=tuple(record_kind) if record_kind else None,
                 batch_size=batch_size, price_per_million=price_per_million,
                 cancelled=stop.is_set,
             )

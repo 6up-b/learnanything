@@ -18,7 +18,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import get_vector, put_vector
 from learnloop.ids import new_ulid
-from learnloop.vault.embedding_recipes import RECORD_KIND_RECIPES, EmbeddingRecord, embedding_records
+from learnloop.vault.embedding_recipes import EmbeddingRecord, select_recipes
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
 
@@ -100,7 +100,7 @@ def backfill_embeddings(
     *,
     caps: SpendCaps,
     dry_run: bool = False,
-    record_kinds: tuple[str, ...] = ("facet", "item"),
+    recipes: tuple[str, ...] | None = None,
     batch_size: int = 32,
     price_per_million: float | None = None,
     cancelled: Callable[[], bool] | None = None,
@@ -125,14 +125,15 @@ def backfill_embeddings(
     sqlite_path = VaultPaths(loaded.root, loaded.config).sqlite_path
     model_id = config.model
     price = price_per_million if price_per_million is not None else PRICES_PER_MILLION.get(model_id)
-    records = embedding_records(loaded, record_kinds)
+    selected = select_recipes(recipes)
+    records = [record for recipe in selected for record in recipe.records(loaded)]
     pending = _pending(sqlite_path, records, model_id, config.dimensions)
     budget = SpendBudget(caps, cancelled=cancelled)
     estimate = _estimate(pending, math.ceil(len(pending) / batch_size), price)
     report: dict[str, Any] = {
         "status": "dry_run" if dry_run else "pending", "dry_run": dry_run,
         "model_id": model_id, "dimensions": config.dimensions,
-        "task_prefix": TASK_PREFIX, "record_kinds": sorted(set(record_kinds)),
+        "task_prefix": TASK_PREFIX, "recipes": [recipe.name for recipe in selected],
         "records": len(records), "cached": len(records) - len(pending),
         "pending": len(pending), "embedded": 0, "caps": caps.as_dict(),
         "estimate": asdict(estimate), "charged": asdict(budget.used),
@@ -146,9 +147,7 @@ def backfill_embeddings(
         "manifest": {
             "algorithm_version": loaded.config.algorithms.algorithm_version,
             "config_hash": content_key(loaded.config.model_dump(mode="json")),
-            "recipe_versions": {
-                kind: RECORD_KIND_RECIPES[kind].version for kind in sorted(set(record_kinds))
-            },
+            "recipe_versions": {recipe.name: recipe.version for recipe in selected},
         },
     }
     try:

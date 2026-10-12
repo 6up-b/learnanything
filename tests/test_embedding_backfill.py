@@ -12,7 +12,7 @@ from learnloop.ai.spend import SpendCaps
 from learnloop.cli import app
 from learnloop.db.repositories import Repository
 from learnloop.ops.embedding_backfill import _backfill_lock, backfill_embeddings, estimated_tokens
-from learnloop.vault.embedding_recipes import RECORD_KIND_RECIPES, embedding_records
+from learnloop.vault.embedding_recipes import EMBEDDING_RECIPES, embedding_records, select_recipes
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import EvidenceFacet
 from tests.helpers import create_basic_vault
@@ -65,10 +65,10 @@ def run(loaded, client, **kwargs):
 
 def test_recipes_declare_canonical_text_and_hash_only_their_inputs(vault):
     loaded, _ = vault
-    assert set(RECORD_KIND_RECIPES) == {"facet", "item"}
+    assert set(EMBEDDING_RECIPES) == {"facet/definition", "item/stem"}
     records = embedding_records(loaded)
     assert {(r.record_kind, r.field) for r in records} == {("facet", "definition"), ("item", "stem")}
-    assert all(RECORD_KIND_RECIPES[r.record_kind].text_recipe for r in records)
+    assert all(EMBEDDING_RECIPES[f"{r.record_kind}/{r.field}"].text_recipe for r in records)
     item = next(iter(loaded.practice_items.values()))
     before = next(r for r in records if r.record_kind == "item")
     item.expected_answer = "SECRET ANSWER"
@@ -81,6 +81,19 @@ def test_recipes_declare_canonical_text_and_hash_only_their_inputs(vault):
     assert all(r.record_kind != "item" for r in embedding_records(loaded))
     with pytest.raises(ValueError, match="Unknown"):
         embedding_records(loaded, ("attempt",))
+
+
+def test_recipes_are_selected_by_kind_or_by_kind_and_field():
+    # Slice 2 R3 adds fields per kind (item/skeleton, facet/dossier_*); a bare
+    # kind selects all of its fields, kind/field exactly one.
+    assert [r.name for r in select_recipes()] == ["facet/definition", "item/stem"]
+    assert [r.name for r in select_recipes(["item"])] == ["item/stem"]
+    assert [r.name for r in select_recipes(["facet/definition", "facet"])] == ["facet/definition"]
+    for selectors in (["item/skeleton"], ["facet/stem"], ["attempt"]):
+        with pytest.raises(ValueError, match="Unknown embedding recipes"):
+            select_recipes(selectors)
+    with pytest.raises(ValueError, match="at least one"):
+        select_recipes([])
 
 
 def test_backfill_is_batched_and_idempotent_with_receipts(vault):
@@ -102,7 +115,7 @@ def test_backfill_is_batched_and_idempotent_with_receipts(vault):
         budget = json.loads(row[3])
         manifest = budget.pop("embedding")
         assert budget == SpendCaps().as_dict()
-        assert manifest["recipe_versions"] == {"facet": 1, "item": 1}
+        assert manifest["recipe_versions"] == {"facet/definition": 1, "item/stem": 1}
         assert manifest["prompt_version"] == "embedding-v1"
         assert connection.execute(
             "SELECT owner_id FROM model_call_receipts WHERE owner_kind='embedding_backfill'"
@@ -317,9 +330,29 @@ def test_cli_dry_run_on_disabled_vault_needs_no_provider(tmp_path, monkeypatch):
     assert report["status"] == "dry_run"
     assert not report["embedding_enabled"]
     assert not report["backfill_enabled"]
+    assert report["recipes"] == ["facet/definition", "item/stem"]
     assert paths.sqlite_path.read_bytes() == before
+    narrowed = CliRunner().invoke(app, [
+        "embeddings", "backfill", "--vault", str(paths.root), "--dry-run", "--json",
+        "--record-kind", "item/stem",
+    ])
+    assert narrowed.exit_code == 0, narrowed.output
+    assert json.loads(narrowed.stdout)["recipes"] == ["item/stem"]
+    assert json.loads(narrowed.stdout)["manifest"]["recipe_versions"] == {"item/stem": 1}
 
 
 def test_cli_requires_explicit_vault():
     result = CliRunner().invoke(app, ["embeddings", "backfill", "--dry-run"])
     assert result.exit_code == 2
+
+
+def test_cli_registration_does_not_load_the_vector_store():
+    # numpy-backed storage is imported only when the backfill command runs.
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, learnloop.cli; "
+        "assert 'learnloop.db.stores.embedding_vectors' not in sys.modules"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True)
