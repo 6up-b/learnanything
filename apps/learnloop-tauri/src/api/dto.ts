@@ -407,11 +407,17 @@ export type KnowledgeNeighborBasis = "item_text" | "facet_graph";
 export interface KnowledgeItemTextNeighbors {
   /** `embedding.map_neighbors_enabled`; false keeps every item on facet/graph neighbours. */
   enabled: boolean;
+  /** The model whose stored vectors rank the spokes (`embedding.model` when none is stored). */
   modelId: string;
   /** Items with a current stem that could be embedded (retired items excluded). */
   stems: number;
   /** Items whose current stem has a stored vector for `modelId`. */
   embedded: number;
+  /**
+   * `embedding.model` while its re-embed has not caught up with `modelId`: the
+   * spokes move to it once it covers every stem `modelId` covers (Slice 2 §4).
+   */
+  pendingModel: { modelId: string; embedded: number } | null;
 }
 
 export interface KnowledgeMapSnapshot {

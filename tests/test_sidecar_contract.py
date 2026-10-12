@@ -2542,6 +2542,7 @@ def test_sidecar_get_knowledge_map_shape_on_fixture_vault(tmp_path):
             [item for item in loaded.practice_items.values() if item.status != "retired" and item.prompt.strip()]
         ),
         "embedded": 0,
+        "pendingModel": None,
     }
 
     for point in points:

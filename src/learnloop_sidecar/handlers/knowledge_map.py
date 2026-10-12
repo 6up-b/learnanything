@@ -70,8 +70,10 @@ def get_knowledge_map(ctx: SidecarContext, _params) -> dict[str, Any]:
     Each point's ``neighbors`` are its nearest items by the blended distance,
     or, where its current stem has a stored vector, by item-text similarity
     (Slice 2 T7, display only); ``neighbor_basis`` names which, and
-    ``item_text_neighbors`` reports the model and coverage. Reads stored
-    vectors only: no model or embedding call happens here.
+    ``item_text_neighbors`` reports the ranking model, its coverage and any
+    replacement ``embedding.model`` whose re-embed has not caught up yet
+    (``item_text_neighbors.py``). Reads stored vectors only: no model or
+    embedding call happens here.
 
     The ``facet_field`` companion object carries the facet-native dual field;
     each of its ``points`` also carries lock state for the padlock UI:

@@ -10,8 +10,8 @@ from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.migrate import apply_migrations
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.embedding_vectors import (
-    EmbeddingVectorStore, IncompleteEmbeddingIndex, get_vector, nearest_among_current, put_vector,
-    retrieve,
+    EmbeddingVectorStore, IncompleteEmbeddingIndex, current_records_by_model, get_vector,
+    nearest_among_current, put_vector, retrieve,
 )
 from learnloop.db.stores.judgments import append_judgment
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
@@ -223,6 +223,27 @@ def test_nearest_among_current_edges(connection):
     assert nearest_among_current(connection, **args, expected_records=covered, limit=0) == {
         "a": [], "b": [], "c": [],
     }
+
+
+def test_current_records_by_model_counts_current_identities_per_model(connection):
+    # Slice 2 T7: coverage per model, so a consumer can count a singleton and
+    # tell an active model from a replacement still being backfilled.
+    put_vector(connection, **identity(record_id="a"), vector=[1, 0])
+    put_vector(connection, **identity(record_id="b"), vector=[0, 1])
+    put_vector(connection, **identity(record_id="c", content_hash="old"), vector=[1, 1])
+    put_vector(connection, **identity(record_id="a", model_id="next"), vector=[1, 0, 0])
+    put_vector(connection, **identity(record_id="b", model_id="stale", content_hash="old"), vector=[1])
+    put_vector(connection, **identity(record_id="b", task_prefix="retrieval-query"), vector=[1, 0])
+    put_vector(connection, **identity(record_id="z"), vector=[1, 0])
+    args = dict(record_kind="item", field="stem", task_prefix="similarity")
+    expected = dict.fromkeys("abc", "h")
+    assert current_records_by_model(connection, **args, expected_records=expected) == {
+        "fake": frozenset("ab"), "next": frozenset("a"),
+    }
+    assert current_records_by_model(connection, **args, expected_records={"a": "h"}) == {
+        "fake": frozenset("a"), "next": frozenset("a"),
+    }
+    assert current_records_by_model(connection, **args, expected_records={}) == {}
 
 
 def _migration_head_fixture() -> Path:

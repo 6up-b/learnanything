@@ -206,3 +206,24 @@ def nearest_among_current(connection: sqlite3.Connection, *, record_kind: str, f
                 EmbeddingMatch(ids[j], expected_records[ids[j]], float(row[j])) for j in order
             ]
     return neighbours
+
+
+def current_records_by_model(connection: sqlite3.Connection, *, record_kind: str, field: str,
+                             task_prefix: str,
+                             expected_records: Mapping[str, str]) -> dict[str, frozenset[str]]:
+    """Per stored model, the records of ``expected_records`` whose vector is current.
+
+    Reads identities only, never vectors. A model with no current vector is
+    absent. Lets a partial-coverage consumer count coverage and tell an
+    already-active model from a replacement whose backfill is still running
+    (Slice 2 §4).
+    """
+    coverage: dict[str, set[str]] = {}
+    for model_id, record_id, content_hash in connection.execute(
+        "SELECT model_id,record_id,content_hash FROM embedding_vectors "
+        "WHERE record_kind=? AND field=? AND task_prefix=?",
+        (record_kind, field, task_prefix),
+    ):
+        if expected_records.get(str(record_id)) == content_hash:
+            coverage.setdefault(str(model_id), set()).add(str(record_id))
+    return {model_id: frozenset(ids) for model_id, ids in sorted(coverage.items())}

@@ -21,6 +21,7 @@ from learnloop.vault.embedding_recipes import embedding_records
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.context import SidecarContext
+from learnloop_sidecar.handlers.item_text_neighbors import ranking_model
 from learnloop_sidecar.handlers.knowledge_map import (
     _item_map_geometry,
     _vault_edge_tuples,
@@ -38,11 +39,12 @@ EXTRA_ITEMS = {
 }
 
 
-def _add_item(root, item_id: str, prompt: str, facets: list[str]) -> None:
+def _add_item(root, item_id: str, prompt: str, facets: list[str], *, status: str = "active") -> None:
     upsert_practice_item(
         root,
         {
             "id": item_id,
+            "status": status,
             "learning_object_id": "lo_svd_definition",
             "subjects": None,
             "practice_mode": "short_answer",
@@ -116,6 +118,30 @@ def _set_embedding_config(root, extra: str) -> None:
     config_path.write_text(text.replace(anchor, anchor + extra), encoding="utf-8")
 
 
+def _set_embedding_model(root, model_id: str) -> None:
+    config_path = root / "learnloop.toml"
+    text = config_path.read_text(encoding="utf-8")
+    anchor = f'model = "{load_vault(root).config.embedding.model}"\n'
+    assert text.count(anchor) == 1
+    config_path.write_text(text.replace(anchor, f'model = "{model_id}"\n'), encoding="utf-8")
+
+
+def _store_ranking(paths, model_id: str, item_id: str, *, limit: int = 4) -> list[tuple[str, float]]:
+    """``retrieve()``'s top ``limit`` for one item over every current stem of ``model_id``."""
+    hashes = _stem_hashes(paths.root)
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        query = get_vector(
+            connection, record_kind="item", record_id=item_id, field="stem",
+            content_hash=hashes[item_id], model_id=model_id, task_prefix=TASK_PREFIX,
+        )
+        matches = retrieve(
+            connection, record_kind="item", field="stem", model_id=model_id,
+            task_prefix=TASK_PREFIX, query=query, expected_records=hashes,
+            candidate_ids=set(hashes) - {item_id}, limit=limit,
+        )
+    return [(match.record_id, match.score) for match in matches]
+
+
 def test_item_text_ranks_like_the_store_and_leaves_the_map_geometry_alone(vault_paths):
     baseline = _map(vault_paths.root)
     item_ids = sorted(load_vault(vault_paths.root).practice_items)
@@ -133,7 +159,7 @@ def test_item_text_ranks_like_the_store_and_leaves_the_map_geometry_alone(vault_
     loaded = load_vault(vault_paths.root)
     model = loaded.config.embedding.model
     assert snapshot["itemTextNeighbors"] == {
-        "enabled": True, "modelId": model, "stems": 6, "embedded": 6,
+        "enabled": True, "modelId": model, "stems": 6, "embedded": 6, "pendingModel": None,
     }
     items, _concepts, distances, _coords, _stress = _item_map_geometry(loaded, _vault_edge_tuples(loaded))
     index_of = {item.id: index for index, item in enumerate(items)}
@@ -198,12 +224,49 @@ def test_missing_and_stale_stems_degrade_per_item(vault_paths):
     }
 
 
-def test_other_models_and_prefixes_are_ignored(vault_paths):
+def test_other_task_prefixes_are_ignored(vault_paths):
     item_ids = sorted(load_vault(vault_paths.root).practice_items)
     baseline = _map(vault_paths.root)
-    _store_vectors(vault_paths, _random_vectors(item_ids), model_id="another/embedder")
     _store_vectors(vault_paths, _random_vectors(item_ids, dims=8, seed=3), task_prefix="retrieval-query")
     assert _map(vault_paths.root) == baseline
+
+
+def test_a_previous_model_ranks_alone_and_is_named(vault_paths):
+    # Vectors of a model other than `embedding.model` (the vault's previous
+    # model) keep ranking until the configured model's re-embed catches up
+    # (Slice 2 §4). They rank alone: the configured model's two stored stems
+    # never mix in, and the summary names both models.
+    item_ids = sorted(load_vault(vault_paths.root).practice_items)
+    configured = load_vault(vault_paths.root).config.embedding.model
+    _store_vectors(vault_paths, _random_vectors(item_ids), model_id="another/embedder")
+    _store_vectors(vault_paths, _random_vectors(item_ids[:2], seed=5), model_id=configured)
+    snapshot = _map(vault_paths.root)
+    assert snapshot["itemTextNeighbors"] == {
+        "enabled": True, "modelId": "another/embedder", "stems": 6, "embedded": 6,
+        "pendingModel": {"modelId": configured, "embedded": 2},
+    }
+    for point in snapshot["points"]:
+        expected = _store_ranking(vault_paths, "another/embedder", point["id"])
+        assert [(n["id"], n["similarity"]) for n in point["neighbors"]] == [
+            (item_id, pytest.approx(score)) for item_id, score in expected
+        ]
+
+
+@pytest.mark.parametrize(
+    ("coverage", "expected"),
+    [
+        ({}, None),
+        ({"cfg": "a"}, "cfg"),
+        ({"old": "ab"}, "old"),
+        ({"cfg": "ab", "old": "ab"}, "cfg"),  # caught up: the configured model takes over
+        ({"cfg": "abc", "old": "a"}, "cfg"),
+        ({"cfg": "bc", "old": "ab"}, "old"),  # as many stems, but not everything "old" covers
+        ({"cfg": "a", "older": "ab", "old": "ab"}, "old"),  # ties go to the smaller model ID
+        ({"cfg": "a", "old": "abc", "older": "ab"}, "old"),  # otherwise the best-covered one
+    ],
+)
+def test_ranking_model_moves_only_after_a_full_re_embed(coverage, expected):
+    assert ranking_model("cfg", {model: frozenset(ids) for model, ids in coverage.items()}) == expected
 
 
 def test_kill_switch_restores_facet_graph_neighbors(vault_paths):
@@ -216,6 +279,7 @@ def test_kill_switch_restores_facet_graph_neighbors(vault_paths):
     switched_off = _map(vault_paths.root)
     assert switched_off["itemTextNeighbors"] == {
         "enabled": False, "modelId": baseline["itemTextNeighbors"]["modelId"], "stems": 0, "embedded": 0,
+        "pendingModel": None,
     }
     switched_off["itemTextNeighbors"] = baseline["itemTextNeighbors"]
     assert switched_off == baseline
@@ -259,3 +323,81 @@ def test_render_never_calls_a_model_or_writes(vault_paths, monkeypatch):
     assert {p["neighborBasis"] for p in snapshot["points"]} == {"item_text"}
     assert events == []
     assert after == before
+
+
+REPLACEMENT_MODEL = "other/replacement-embedder"
+
+
+def test_interrupted_replacement_backfill_keeps_the_activated_model(vault_paths):
+    """Slice 2 §4: retrieval moves to a new `embedding.model` only after its full re-embed."""
+    item_ids = sorted(load_vault(vault_paths.root).practice_items)
+    model_a = load_vault(vault_paths.root).config.embedding.model
+    _store_vectors(vault_paths, _random_vectors(item_ids), model_id=model_a)
+    on_a = _map(vault_paths.root)
+    assert {point["neighborBasis"] for point in on_a["points"]} == {"item_text"}
+
+    # The owner switches `embedding.model` to B. Nothing is re-embedded yet,
+    # then the backfill stops after five of the six stems.
+    _set_embedding_model(vault_paths.root, REPLACEMENT_MODEL)
+    vectors_b = _random_vectors(item_ids, seed=11)
+    for embedded_b in (0, 5):
+        _store_vectors(
+            vault_paths, {item_id: vectors_b[item_id] for item_id in item_ids[:embedded_b]},
+            model_id=REPLACEMENT_MODEL,
+        )
+        interrupted = _map(vault_paths.root)
+        # The spokes stay exactly A's: B ranks nothing until it covers every stem A does.
+        assert interrupted["points"] == on_a["points"], embedded_b
+        assert interrupted["itemTextNeighbors"] == {
+            "enabled": True, "modelId": model_a, "stems": 6, "embedded": 6,
+            "pendingModel": {"modelId": REPLACEMENT_MODEL, "embedded": embedded_b},
+        }
+
+    # The resumed backfill embeds the last stem: the map moves to B, ranked by B alone.
+    _store_vectors(vault_paths, {item_ids[5]: vectors_b[item_ids[5]]}, model_id=REPLACEMENT_MODEL)
+    on_b = _map(vault_paths.root)
+    assert on_b["itemTextNeighbors"] == {
+        "enabled": True, "modelId": REPLACEMENT_MODEL, "stems": 6, "embedded": 6, "pendingModel": None,
+    }
+    for point in on_b["points"]:
+        assert point["neighborBasis"] == "item_text"
+        expected = _store_ranking(vault_paths, REPLACEMENT_MODEL, point["id"])
+        assert [n["id"] for n in point["neighbors"]] == [item_id for item_id, _score in expected]
+        assert [n["similarity"] for n in point["neighbors"]] == pytest.approx([s for _id, s in expected])
+    assert [p["neighbors"] for p in on_b["points"]] != [p["neighbors"] for p in on_a["points"]]
+
+    # Once B is active, an edited stem is stale for A and B alike: B stays
+    # active and only the edited item falls back to facet/graph neighbours.
+    prompt, facets = EXTRA_ITEMS["pi_t7_rank"]
+    _add_item(vault_paths.root, "pi_t7_rank", prompt + " Justify it.", facets)
+    edited = _map(vault_paths.root)
+    assert edited["itemTextNeighbors"] == {
+        "enabled": True, "modelId": REPLACEMENT_MODEL, "stems": 6, "embedded": 5, "pendingModel": None,
+    }
+    assert {p["id"] for p in edited["points"] if p["neighborBasis"] == "facet_graph"} == {"pi_t7_rank"}
+
+
+@pytest.mark.parametrize("retire_others", [False, True])
+def test_coverage_counts_an_embedded_singleton(tmp_path, retire_others):
+    if retire_others:
+        # Every other map item retired: one eligible stem remains.
+        paths = create_basic_vault(tmp_path / "vault")
+        for item_id, (prompt, facets) in EXTRA_ITEMS.items():
+            _add_item(paths.root, item_id, prompt, facets)
+        item_ids = sorted(load_vault(paths.root).practice_items)
+        _store_vectors(paths, _random_vectors(item_ids))
+        for item_id, (prompt, facets) in EXTRA_ITEMS.items():
+            _add_item(paths.root, item_id, prompt, facets, status="retired")
+    else:
+        paths = create_basic_vault(tmp_path / "vault")
+        item_ids = sorted(load_vault(paths.root).practice_items)
+        assert len(item_ids) == 1
+        _store_vectors(paths, _random_vectors(item_ids))
+    (stem_id,) = _stem_hashes(paths.root)
+    snapshot = _map(paths.root)
+    # The stored vector is counted although one stem has nobody to rank against.
+    assert snapshot["itemTextNeighbors"] == {
+        "enabled": True, "modelId": load_vault(paths.root).config.embedding.model,
+        "stems": 1, "embedded": 1, "pendingModel": None,
+    }
+    assert {point["id"]: point["neighborBasis"] for point in snapshot["points"]}[stem_id] == "facet_graph"

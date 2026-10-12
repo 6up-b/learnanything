@@ -8,12 +8,16 @@ export function neighborCaption(
   itemText: KnowledgeItemTextNeighbors | undefined
 ): string {
   const coverage = itemText ? `${itemText.embedded}/${itemText.stems} items embedded` : null;
+  // A replacement `embedding.model` ranks nothing until its re-embed catches up.
+  const pending = itemText?.enabled && itemText.pendingModel
+    ? ` · ${itemText.pendingModel.modelId}: ${itemText.pendingModel.embedded}/${itemText.stems} re-embedded, used once complete`
+    : "";
   if (point.neighborBasis === "item_text") {
     const source = itemText ? `stored ${itemText.modelId} vectors, ${coverage}` : "stored vectors";
-    return `by similar wording · ${source} · not a same-skill match`;
+    return `by similar wording · ${source} · not a same-skill match${pending}`;
   }
   if (itemText?.enabled && itemText.embedded > 0) {
-    return `by shared facets + concept graph · wording vectors: ${coverage}`;
+    return `by shared facets + concept graph · wording vectors: ${coverage}${pending}`;
   }
   return "by shared facets + concept graph";
 }

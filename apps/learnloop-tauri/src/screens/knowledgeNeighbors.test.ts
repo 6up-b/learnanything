@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { neighborCaption } from "./knowledgeNeighbors";
 
-const coverage = { enabled: true, modelId: "qwen/qwen3-embedding-8b", stems: 6, embedded: 5 };
+const coverage = { enabled: true, modelId: "qwen/qwen3-embedding-8b", stems: 6, embedded: 5, pendingModel: null };
 
 it("names the wording ranking, its model and coverage, and disclaims a skill match", () => {
   expect(neighborCaption({ neighborBasis: "item_text" }, coverage)).toBe(
@@ -23,4 +23,16 @@ it("claims nothing about wording when nothing is embedded or the switch is off",
     "by shared facets + concept graph"
   );
   expect(neighborCaption({ neighborBasis: "facet_graph" }, undefined)).toBe("by shared facets + concept graph");
+});
+
+it("names a replacement model that ranks nothing until its re-embed completes", () => {
+  const switching = { ...coverage, embedded: 6, pendingModel: { modelId: "other/embedder", embedded: 4 } };
+  expect(neighborCaption({ neighborBasis: "item_text" }, switching)).toBe(
+    "by similar wording · stored qwen/qwen3-embedding-8b vectors, 6/6 items embedded · not a same-skill match"
+      + " · other/embedder: 4/6 re-embedded, used once complete"
+  );
+  expect(neighborCaption({ neighborBasis: "facet_graph" }, switching)).toBe(
+    "by shared facets + concept graph · wording vectors: 6/6 items embedded"
+      + " · other/embedder: 4/6 re-embedded, used once complete"
+  );
 });
