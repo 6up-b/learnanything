@@ -554,6 +554,29 @@ uv run learnloop router log --vault "$VAULT" --limit 1 --candidates --json
 #   log_decisions = false         # stop writing router decisions (no serving effect)
 ```
 
+## Gate
+
+Run on `8fc4dea3` (the code is final there; later commits are generated
+references and this file). `TMPDIR` = the worktree's `fixtures-local/tmp`.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev --extra mobile`, then `uv pip install pypdfium2` | OK |
+| `uv run lint-imports --no-cache` | **13 kept, 0 broken** (adds `router-log-is-a-leaf`) |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **8,023 passed**, 0 failed, 46 existing warnings; 169 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **86 passed**, 7,937 deselected; 63 s |
+| `db_generate_reference.py` / `db_validate_reference.py` | Schema **176**, 293 table notes, 632 config leaves in 37 sections, **0 errors** |
+| `validate_vault.py` | Passed (1,063 notes) |
+| Head fixture | `migration_head_176`: delete journal, integrity ok, FK-clean, `max(version)=176`, no WAL companions |
+| Frontend | Not changed (no npm run) |
+| Tracked working vaults | Untouched (`git status` clean for `fixtures/linear_algebra`, `probability`, `arxiv_v2`) |
+
+The first full run failed one existing test,
+`test_judge_routes.py::test_migration_175_preserves_every_judgment_and_its_references`,
+which asserted that migrating a pre-175 database applies exactly `[175]`;
+it now asserts 175 runs first and only later migrations follow
+(`8fc4dea3`). The run above is after that fix.
+
 ## Open questions
 
 1. **Teach-backs in the tie-break.** Closing the PROBE-intent exclusion
