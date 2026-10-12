@@ -3,13 +3,13 @@ title: "scheduler_slates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite scheduler_slates"
   - "table scheduler_slates"
-schema_head: 166
+schema_head: 167
 table_name: "scheduler_slates"
 table_role: "workflow"
 functionality_status: "active"
@@ -124,6 +124,7 @@ Indexes and uniqueness:
 
 - `tests/test_answer_calibration_duel.py`
 - `tests/test_collection_dataset.py`
+- `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`

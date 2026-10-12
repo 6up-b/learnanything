@@ -3,13 +3,13 @@ title: "probe_presentations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_presentations"
   - "table probe_presentations"
-schema_head: 166
+schema_head: 167
 table_name: "probe_presentations"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/field/outcomes.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
@@ -117,6 +118,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/field/outcomes.py`
 
 ### Direct SQL writers
 
@@ -143,6 +145,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_facet_outcome_view.py`
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_causal_repair_sidecar_rpcs.py`
 - `tests/test_probe_audit.py`

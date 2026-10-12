@@ -3,13 +3,13 @@ title: "learner_state_beliefs"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learner_state_beliefs"
   - "table learner_state_beliefs"
-schema_head: 166
+schema_head: 167
 table_name: "learner_state_beliefs"
 table_role: "compat"
 functionality_status: "legacy-preserved"

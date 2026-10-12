@@ -3,13 +3,13 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "fc87225bacaeba3883d9e00be8987b81e7f241df"
-source_commit_timestamp: "2026-10-11T22:12:28-04:00"
+source_commit: "528b08feea902a533ce1426320f3d1f6b72fd9dd"
+source_commit_timestamp: "2026-10-11T23:19:23-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
   - "table judgment_ledger"
-schema_head: 166
+schema_head: 167
 table_name: "judgment_ledger"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -109,6 +109,8 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/test_embedding_store.py`
+- `tests/test_eval_harness.py`
+- `tests/test_interaction_signals.py`
 - `tests/test_judgment_ledger.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
