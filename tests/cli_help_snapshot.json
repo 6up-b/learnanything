@@ -276,12 +276,16 @@
     "sha256": "323d1d1b749967326456178b1bdb65bf25bec2cddaaec47f36a8ecdf1d135892"
   },
   "eval": {
-    "bytes": 7454,
-    "sha256": "2910cafb51c5033778ad15e8e3d3123db1fe5ad93bc3a888f1ba83e3bdb8a8ed"
+    "bytes": 9072,
+    "sha256": "cf5164fb7eb7ce639d67df9f5389f54c3ed534a8c104f1506e33a25617e663e6"
   },
   "eval families": {
     "bytes": 3491,
     "sha256": "5f262a093a607c08e55fdf64b56d9e19856049638acf8fce37424e74f297d569"
+  },
+  "eval judges": {
+    "bytes": 1802,
+    "sha256": "b4f03890efa37fd17c0032ad22e98b19e55486e54f054719398494441f583dfd"
   },
   "exam": {
     "bytes": 1842,

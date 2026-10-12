@@ -66,6 +66,9 @@ def test_probability_arms_need_a_cache_and_the_switches(seeded, tmp_path):
     code, report = run("eval", "--vault", str(seeded.root), "--section", "field",
                        "--probability-arm", "v1", "--json")
     assert code == 1 and "requires --llm-cache" in report["reason"]
+    code, report = run("eval", "--vault", str(seeded.root), "--probability-arm", "v1",
+                       "--llm-cache", str(tmp_path / "c"), "--json")
+    assert code == 1 and "needs --section field" in report["reason"]
     code, report = run("eval", "--vault", str(seeded.root), "--section", "field",
                        "--probability-arm", "v9", "--llm-cache", str(tmp_path / "c"), "--json")
     assert code == 1 and "Unknown probability arm" in report["reason"]

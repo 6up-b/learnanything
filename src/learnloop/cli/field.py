@@ -158,6 +158,8 @@ def field_eval(
             raise typer.Exit(code=2)
         if prepare_llm and llm_cache is None:
             raise ValueError("--prepare-llm requires --llm-cache outside the vault")
+        if probability_arm and FIELD_SECTION not in sections:
+            raise ValueError("--probability-arm needs --section field")
         loaded = _load_offline(vault)
         legacy_report = None
         if sections - {FIELD_SECTION}:
