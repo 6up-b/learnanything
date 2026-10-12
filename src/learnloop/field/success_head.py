@@ -70,7 +70,10 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
     # v4 (owner, 2026-10-12, before any run on owner data): a cluster-robust t
     # interval over items (CR1, df = items - 1) decides, and a real gain below
     # delta is kill. The percentile item bootstrap stays for descriptive
-    # intervals only. See docs/reviews/slice-2-t8.md.
+    # intervals only. See docs/reviews/slice-2-t8.md. Amended in review before
+    # merge (still before any owner-data run): emb_ridge_vs_tag_logistic, the
+    # primary comparison itself whenever e* is tag_logistic, takes the t
+    # interval too, and a real_gain_below_delta kill is provisional.
     "registered": "2026-10-12",
     "question": "Does a frozen-embedding success predictor add held-out value over explicit arms?",
     "primary_arm": PRIMARY_ARM,
@@ -87,6 +90,9 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
     "decision_rule": {
         "kill": "ci95 upper bound < smallest_worthwhile_gain (reason real_gain_below_delta "
                 "when the lower bound is also > margin)",
+        # The realized prequential gain includes the period in which the embedding
+        # block is still learning, so a real gain grows with data.
+        "real_gain_below_delta": "provisional: rerun when the data has grown; not terminal",
         "embeddings_add_value": "otherwise, ci95 lower bound > margin",
         "insufficient_data": "otherwise, or no interval",
     },
@@ -96,7 +102,8 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
         "standard_error": "CR1 sandwich: sqrt(G / (G - 1) * sum over items of (sum of the item's "
                           "residuals)^2) / n",
         "degrees_of_freedom": "items - 1",
-        "scope": "the primary and gated verdicts",
+        "scope": "the primary and gated verdicts, and the descriptive emb_ridge_vs_tag_logistic "
+                 "comparison (the primary comparison itself whenever e* is tag_logistic)",
     },
     # No interval only for degenerate inputs; there is no minimum item count
     # (t widens on its own with few items). The report shows the item count.
@@ -106,7 +113,7 @@ PREREGISTRATION: Mapping[str, object] = MappingProxyType({
     "coverage_caveat_below": 0.8,
     "bootstrap": {"samples": 1000, "seed": 0, "unit": "item", "paired": True,
                   "interval": "percentile_95", "statistic": "mean over the drawn attempts",
-                  "scope": "descriptive intervals only: the splits, the descriptive comparisons, "
+                  "scope": "descriptive intervals only: the splits, the LLM comparisons, "
                            "report 1 and report 2"},
     "embedding_view": {"dimensions": EMBEDDING_DIMENSIONS, "projection": "mrl_prefix_l2",
                        "centering": "mean_of_previously_observed_attempts", "renormalize": True},

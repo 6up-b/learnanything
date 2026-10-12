@@ -365,7 +365,7 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 
 | Deferred | Revisit when |
 |---|---|
-| **A learned action scorer** (frozen or fine-tuned embeddings, LoRA; the Qwen-LoRA proposal) | All four hold:<br>1. R2 is live with exact propensities;<br>2. ≥ 500 decisions with matured `R_cold`, and ≥ 50 randomized observations for each of ≥ 3 block types;<br>3. Slice 2 T8 shows embeddings add held-out predictive value;<br>4. The better of Decider-argmax and LLM-argmax beats staged on DR `S`, so a cheaper learned version has a measured gap to close |
+| **A learned action scorer** (frozen or fine-tuned embeddings, LoRA; the Qwen-LoRA proposal) | All four hold:<br>1. R2 is live with exact propensities;<br>2. ≥ 500 decisions with matured `R_cold`, and ≥ 50 randomized observations for each of ≥ 3 block types;<br>3. Slice 2 T8 shows embeddings add held-out predictive value: the primary verdict's 95% interval has its lower bound above m. That is `embeddings_add_value`, or `kill` with reason code `real_gain_below_delta` (D10). Read `reason_code`, not the verdict name alone: since T8 v4, `kill` also covers a real gain below the success head's δ;<br>4. The better of Decider-argmax and LLM-argmax beats staged on DR `S`, so a cheaper learned version has a measured gap to close |
 | **Item-level routing by a model** (within a block) | R3 shows block-level gains and the within-block transparent selectors are the measured bottleneck |
 | **Affect sensors** (fatigue, frustration) | P4 U-011's affect stream is wired into the snapshot |
 
@@ -384,6 +384,7 @@ This follows honest labels: nothing pretends to be an explanation that wasn't co
 | D7 | Label when a model chose | "LearnLoop's model picked this among N close options" (Decider), or the labelled rationale (LLM) |
 | D8 | Card budget | 16K tokens; revisit after the harness V3 results |
 | D9 | Which LLM for `router_llm` | The configured frontier route; Codex on the owner's subscription is allowed (owner, 2026-10-12). Pin the model id per receipt |
+| D10 | Which T8 outcomes meet §13 condition 3 | The primary verdict's lower bound above m: `embeddings_add_value`, or `kill` / `real_gain_below_delta`. T8's δ (0.005 nats per attempt) is the bar for building the *success head*, not for a learned action scorer, which conditions 2 and 4 gate on their own. Before T8 v4 every interval with its lower bound above m was `embeddings_add_value`, so this keeps condition 3's meaning. The owner may narrow it to `embeddings_add_value` only (recorded 2026-10-12, T8 v4 review F1) |
 
 ---
 

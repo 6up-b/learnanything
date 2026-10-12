@@ -12,6 +12,15 @@ base `main` at `0583648d`).
 t interval. 2. Yes you can "kill" but log it with our delta value so we can
 monitor if delta needs changing in the future as a value."
 - They answer open questions 2, 3 and 5 of `t8-interval-rule.md` (v3).
+
+**Amended in review** (`t8-t-interval-codex-review.md`, before merge and
+before any owner-data run). `emb_ridge_vs_tag_logistic` now takes the t
+interval (F4), a `real_gain_below_delta` kill is provisional (F2), every
+verdict carries a numeric `flipping_delta` and its reason never contradicts
+the rule at the δ boundary (F3), and router §13 condition 3 reads the lower
+bound (router D10, F1). The pre-registration hash changed to
+`9f686a23048ea1403b233ee15983c83a93f38f0af75da219f31c53f1f087866b`. Where
+this file disagrees with the review, the review wins.
 - The rule had run only on fakes, never on owner data, so revising it is
   legitimate. It is recorded as v4 in `docs/reviews/slice-2-t8.md`, the same
   way v2 and v3 were.
@@ -41,8 +50,10 @@ additive: only the T8 analysis calls it.
   - With equal-sized items it is the t interval on the item means.
 - **The t quantile.** `student_t_quantile(p, df)` inverts the
   incomplete-beta identity P(|T| > t) = I_{df/(df+t²)}(df/2, ½) with the
-  existing stdlib `beta_quantile`. It matches R's `qt` to better than 1e-9.
-  scipy is not a dependency, so it isn't used.
+  existing stdlib `beta_quantile`. It agrees with scipy's `t.ppf` to better
+  than 1e-9 up to df = 1e6 (2.5e-9 at 1e7, 1.9e-8 at 1e8; corrected in
+  review). T8's df is items − 1. scipy is not a declared dependency (it is
+  only transitive), so it isn't used.
 - **Output.** The result returns `n`, `clusters`, `mean`, `se`, `df`,
   `t_critical`, `ci95`, `degenerate` and `method = "cluster_robust_t_cr1"`.
 
@@ -58,13 +69,20 @@ additive: only the T8 analysis calls it.
 | `insufficient_data` | `undecided` | otherwise: the interval reaches both m and δ |
 | `insufficient_data` | `no_interval` | no interval: degenerate input, or the arm not run |
 
-- **Verdict names are unchanged.** The learned-router trigger
-  (`spec_action_router_v1.md` §13) reads them.
+- **Verdict names are unchanged, but `kill` now covers a real gain.** As
+  first staged, this said the router was safe because the names were. That
+  was wrong (review F1): the learned-router trigger
+  (`spec_action_router_v1.md` §13, condition 3) asks whether embeddings add
+  held-out value at all, and v3 called every such interval
+  `embeddings_add_value`. Condition 3 now reads the lower bound:
+  `embeddings_add_value` or a `real_gain_below_delta` kill (router D10).
 - **The reason code is new.** It is `reason_code` on each verdict and
   `verdict_reason_code` on each gated comparison. The human `reason` stays.
 - **The `real_gain_below_delta` reason names the δ that would have flipped
   it,** for example "it would be embeddings_add_value for any δ <= 0.003982".
-  That is the number to watch if δ needs revisiting.
+  That is the number to watch if δ needs revisiting. (Review F3: that figure
+  is now rounded down and the bounds printed with enough digits to read on
+  the right side of δ, and the number is a field, `flipping_delta`.)
 - **The gate is unchanged.** `success_head`, then `success_head+difficulty`,
   use the same rule and interval. Only `embeddings_add_value` opens the gate.
   A `real_gain_below_delta` kill closes it.
@@ -117,10 +135,11 @@ reason code, and the gated lines. From the fake-vector copy:
   report 2 are labelled by the manifest: for the item unit (T8 only), it gains
   `interval = "percentile_95"`, and its `scope` now says that an analysis's
   verdict intervals name their own method.
-- **The v3 interval stays in the report as a side effect.** When e* is
-  `tag_logistic`, the descriptive `emb_ridge_vs_tag_logistic` comparison is
-  the primary comparison, so its bootstrap is exactly v3's interval. On the
-  fakes copy it reads [−0.00586, 0.00017], next to v4's t interval.
+- **The v3 interval stays in the report as a side effect** (as first
+  staged; removed in review F4). When e* is `tag_logistic`, the descriptive
+  `emb_ridge_vs_tag_logistic` comparison is the primary comparison, so its
+  bootstrap was exactly v3's interval. On the fakes copy it read [−0.00586,
+  0.00017], next to v4's t interval. It now takes the t interval.
 
 ### Other reports are byte-identical
 
@@ -134,8 +153,10 @@ The only harness-output change is the item-unit manifest, which only T8 uses.
 
 ### Pre-registration v4 (`field/success_head.py`)
 
-- **Version:** `t8-preregistration-v4`, hash
-  `6c7223178ce70c10b83364e356fc5bafea7e7c799c6bed8f60f213fa97717e18`. v3 was
+- **Version:** `t8-preregistration-v4`, hash as first staged
+  `6c7223178ce70c10b83364e356fc5bafea7e7c799c6bed8f60f213fa97717e18`
+  (`9f686a23048ea1403b233ee15983c83a93f38f0af75da219f31c53f1f087866b` after
+  review). v3 was
   `a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372`.
 - **New keys:**
   - `decision_interval`: method, unit, level, estimate, standard error,

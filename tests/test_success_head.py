@@ -2,6 +2,7 @@
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import json
+import re
 
 import numpy as np
 import pytest
@@ -14,7 +15,7 @@ from learnloop.field.success_head import (
     EXPLICIT_ARMS, PREREGISTRATION, AttemptContent, ContentIndex, HeadPriors, LogisticHead,
     newton_map, preregistration_hash, success_head_arms,
 )
-from learnloop.field.success_head_analysis import make_t8_analysis, summary_lines
+from learnloop.field.success_head_analysis import _verdict, make_t8_analysis, summary_lines
 from learnloop.field.types import AttemptRow, ItemFeatures
 
 
@@ -208,6 +209,8 @@ V2_HASH = "746e4938a258896ac884aeaf95d544d3a148e26429a86b9307f83532a1e142ee"
 # v3 as first staged, with the six-item cutoff that review F2 removed.
 V3_STAGED_HASH = "e7a174f459e7613857e072a59d00c92b5dd495047e31f7bf01c9729117dc9976"
 V3_HASH = "a2beed27c4ee19db039c55d112e732850c223c2e6cbb277ee6cbdd9278cc1372"
+# v4 as first staged, before its review moved emb_ridge_vs_tag_logistic to the t interval (F4).
+V4_STAGED_HASH = "6c7223178ce70c10b83364e356fc5bafea7e7c799c6bed8f60f213fa97717e18"
 DELTA = .005
 T_METHOD, BOOTSTRAP_METHOD = "cluster_robust_t_cr1", "item_bootstrap_percentile"
 ADDS_VALUE, NULL, NOISY_NULL = (.05, .02), (.01, .02), (.01, .2)  # (mean gain, per-attempt sd)
@@ -300,10 +303,15 @@ def test_a_real_gain_below_delta_is_kill_with_its_reason():
     assert verdict["reason_code"] == "real_gain_below_delta"
     assert verdict["reason"].startswith("lower bound ")
     assert f"δ = {DELTA}" in verdict["reason"] and "smaller than the smallest worth building" in verdict["reason"]
-    # The reason says which delta would have decided otherwise, so delta can be monitored.
-    upper = float(f"{verdict['ci95'][1]:.4g}")
-    assert f"it would be embeddings_add_value for any δ <= {upper:.4g})" in verdict["reason"]
+    # The reason says which delta would have decided otherwise, so delta can be monitored;
+    # the number is also a field (review F3), and never above the upper bound.
+    flip = re.findall(r"it would be embeddings_add_value for any δ <= (\S+)\)", verdict["reason"])
+    assert flip and float(flip[0]) <= verdict["ci95"][1] == verdict["flipping_delta"]
     assert verdict["smallest_worthwhile_gain_nats_per_attempt"] == DELTA
+    # Review F2: the realized prequential gain includes the embedding block's
+    # learning period, so this kill is provisional, and every report says so.
+    assert "provisional: " in verdict["reason"] and "rerun when the data has grown" in verdict["reason"]
+    assert PREREGISTRATION["decision_rule"]["real_gain_below_delta"].startswith("provisional")
     # A gated secondary in (0, delta) is kill too, and closes the gate.
     analysis = make_t8_analysis()(_arrays(8000, {
         "emb_ridge": ADDS_VALUE, "success_head": (.0125, .05), "success_head+difficulty": ADDS_VALUE}))
@@ -312,6 +320,92 @@ def test_a_real_gain_below_delta_is_kill_with_its_reason():
     assert analysis["gated"]["success_head+difficulty"]["interpretation"] == "not_interpreted"
     text = "\n".join(summary_lines(analysis))
     assert "kill (`real_gain_below_delta`)" in text
+    assert "provisional" in gated["verdict_reason"]
+    assert analysis["decision_rule"]["real_gain_below_delta"].startswith("provisional")
+    assert "A real_gain_below_delta kill is provisional" in analysis["kill_rule"]
+
+
+def _interval_only(lower, upper):
+    """A computed primary comparison with exactly this verdict interval."""
+    return {"status": "computed", "n": 100, "log_loss_gain": {
+        "n": 100, "clusters": 50, "mean": (lower + upper) / 2, "se": .001, "df": 49,
+        "t_critical": 2.0096, "ci95": [lower, upper], "degenerate": None, "method": T_METHOD}}
+
+
+BOUNDARIES = {
+    # Review F3: an upper bound just under delta, which 4 significant figures print as delta.
+    "just_under_delta": (.001, .0049996, "kill", "real_gain_below_delta"),
+    "upper_at_delta": (.001, DELTA, "embeddings_add_value", "lower_bound_above_margin"),
+    "lower_at_margin": (0., .004, "kill", "upper_bound_below_delta"),
+    "both_at_bounds": (0., DELTA, "insufficient_data", "undecided"),
+    "just_over_delta": (-.001, .0050004, "insufficient_data", "undecided"),
+    "tiny_real_gain": (1e-9, .00499999999, "kill", "real_gain_below_delta"),
+}
+
+
+@pytest.mark.parametrize("case", BOUNDARIES)
+def test_the_verdict_at_the_boundaries_never_contradicts_its_reason(case):
+    # Review F3: the rule at exactly upper = delta and lower = m, and a reason
+    # whose printed numbers always sit on the side of m and delta the rule says.
+    lower, upper, decision, code = BOUNDARIES[case]
+    verdict = _verdict(_interval_only(lower, upper), 100)
+    assert (verdict["decision"], verdict["reason_code"]) == (decision, code)
+    reason = verdict["reason"]
+    for printed, relation, bound in re.findall(r"(?:lower|upper) bound (\S+) (<=|>=|<|>) (m|δ) =", reason):
+        value, threshold = float(printed), (0. if bound == "m" else DELTA)
+        assert {"<": value < threshold, ">": value > threshold, "<=": value <= threshold,
+                ">=": value >= threshold}[relation], (printed, relation, bound, reason)
+    flips = re.findall(r"embeddings_add_value for any δ <= (\S+)\)", reason)
+    if code == "real_gain_below_delta":
+        assert flips and float(flips[0]) <= upper and float(flips[0]) > lower, reason
+    else:
+        assert not flips
+    # The delta at which the verdict changes is a number, not only text (review F3).
+    assert verdict["flipping_delta"] == upper
+
+
+def test_the_flipping_delta_is_where_the_verdict_changes(monkeypatch):
+    # kill exactly when delta > flipping_delta; at or below it, embeddings_add_value
+    # when the lower bound is above m, otherwise insufficient_data.
+    from learnloop.field import success_head_analysis
+
+    for lower, upper in ((.001, .0049996), (.002, .03), (-.01, .003), (-.01, .02)):
+        flip = _verdict(_interval_only(lower, upper), 100)["flipping_delta"]
+        for delta, expected in ((flip, "embeddings_add_value" if lower > 0 else "insufficient_data"),
+                                (np.nextafter(flip, 1), "kill")):
+            monkeypatch.setattr(success_head_analysis, "PREREGISTRATION", {
+                **PREREGISTRATION, "smallest_worthwhile_gain_nats_per_attempt": delta})
+            assert _verdict(_interval_only(lower, upper), 100)["decision"] == expected, (lower, upper, delta)
+    monkeypatch.undo()
+    no_interval = _verdict({"status": "unavailable", "reason": "arm not run"}, 100)
+    assert no_interval["flipping_delta"] is None
+    analysis = make_t8_analysis()(_arrays(400, {"emb_ridge": ADDS_VALUE, "success_head": NULL}))
+    gated = analysis["gated"]["success_head"]
+    assert gated["verdict_flipping_delta"] == gated["log_loss_gain"]["ci95"][1]
+    assert analysis["primary"]["verdict"]["flipping_delta"] == analysis["primary"]["verdict"]["ci95"][1]
+    assert "flipping_delta" in analysis["decision_rule"]
+
+
+def test_the_primary_comparison_is_never_reported_with_a_second_interval():
+    # Review F4: with e* = tag_logistic the descriptive emb_ridge_vs_tag_logistic
+    # comparison is the primary comparison; it carries the verdict's t interval,
+    # not the narrower percentile bootstrap.
+    analysis = make_t8_analysis()(_arrays(400, {"tag_logistic": .03, "emb_ridge": (.032, .05)},
+                                          per_item=4))
+    primary = analysis["primary"]["comparison"]
+    assert primary["baseline"] == "tag_logistic"
+    descriptive = analysis["descriptive"]["emb_ridge_vs_tag_logistic"]
+    assert descriptive["log_loss_gain"] == primary["log_loss_gain"]
+    assert descriptive["log_loss_gain"]["method"] == T_METHOD
+    # It uses the t interval whatever e* is, so its method never depends on the data.
+    other = make_t8_analysis()(_arrays(400, {"tag_logistic": .005, "emb_ridge": ADDS_VALUE}))
+    assert other["primary"]["comparison"]["baseline"] == "lo_general"
+    assert other["descriptive"]["emb_ridge_vs_tag_logistic"]["log_loss_gain"]["method"] == T_METHOD
+    # The LLM comparisons and every split stay descriptive percentile item bootstraps.
+    assert all(split["method"] == BOOTSTRAP_METHOD
+               for split in descriptive["splits"]["item_position"].values())
+    assert "emb_ridge_vs_tag_logistic" in PREREGISTRATION["decision_interval"]["scope"]
+    assert "emb_ridge_vs_tag_logistic" not in PREREGISTRATION["bootstrap"]["scope"]
 
 
 def test_no_interval_is_insufficient_data_with_the_reason():
@@ -431,7 +525,7 @@ def test_every_interval_in_the_t8_report_clusters_items_and_names_its_method():
             stack.extend(value)
     assert set(methods) == {T_METHOD, BOOTSTRAP_METHOD}
     descriptive = t8["descriptive"]["emb_ridge_vs_tag_logistic"]
-    assert descriptive["log_loss_gain"]["method"] == BOOTSTRAP_METHOD
+    assert descriptive["log_loss_gain"]["method"] == T_METHOD  # review F4
     assert all(split["method"] == BOOTSTRAP_METHOD
                for split in t8["primary"]["comparison"]["splits"]["item_position"].values())
     assert "verdict intervals name their method" in report["manifest"]["bootstrap"]["scope"]
@@ -504,6 +598,10 @@ def test_delta_and_the_interval_are_recorded_in_every_report():
         "kill": "upper bound < δ (real_gain_below_delta when the lower bound is also > m)",
         "embeddings_add_value": "otherwise, lower bound > m",
         "insufficient_data": "otherwise, or no interval",
+        "real_gain_below_delta": "provisional: rerun when the data has grown; not terminal",
+        "flipping_delta": ("each verdict's upper bound: the verdict is kill exactly when "
+                           "δ > flipping_delta; at or below it, embeddings_add_value if the lower "
+                           "bound is > m, otherwise insufficient_data"),
     }
     verdict = analysis["primary"]["verdict"]
     assert {"n", "item_clusters", "mean", "se", "df", "t_critical", "ci95", "method",
@@ -558,7 +656,7 @@ def test_preregistration_v4_changes_the_hash_and_every_report_carries_it():
     assert PREREGISTRATION["no_interval"]["zero_spread_nats"] == ZERO_SPREAD
     assert "min_clusters" not in json.dumps(dict(PREREGISTRATION))
     digest = preregistration_hash()
-    assert digest not in (V2_HASH, V3_STAGED_HASH, V3_HASH)
+    assert digest not in (V2_HASH, V3_STAGED_HASH, V3_HASH, V4_STAGED_HASH)
     analysis = make_t8_analysis()(_arrays(100, {"emb_ridge": ADDS_VALUE}))
     assert analysis["preregistration"] == {"version": "t8-preregistration-v4", "hash": digest,
                                            "deviations": ["bootstrap_samples"]}
