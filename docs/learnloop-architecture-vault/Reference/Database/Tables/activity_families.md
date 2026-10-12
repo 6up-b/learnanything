@@ -3,8 +3,8 @@ title: "activity_families"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "326313e01056dde9d5ffe0c7fde77cc003ca2c94"
-source_commit_timestamp: "2026-10-12T12:47:38-04:00"
+source_commit: "f47c31aafda3a19e060945717bd6e33495efa25d"
+source_commit_timestamp: "2026-10-12T13:52:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite activity_families"
@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `tests/test_family_memory_projection.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_pf_generation.py`
+- `tests/test_pf_reports.py`
 - `tests/test_activity_contract_extensions.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_card_lineage.py`
@@ -126,7 +127,6 @@ Indexes and uniqueness:
 - `tests/test_progression.py`
 - `tests/test_reader_authoring.py`
 - `tests/test_substrate_cutover.py`
-- `tests/test_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

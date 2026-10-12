@@ -3,8 +3,8 @@ title: "item_skeletons"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "326313e01056dde9d5ffe0c7fde77cc003ca2c94"
-source_commit_timestamp: "2026-10-12T12:47:38-04:00"
+source_commit: "f47c31aafda3a19e060945717bd6e33495efa25d"
+source_commit_timestamp: "2026-10-12T13:52:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite item_skeletons"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/169_pf_generation.sql"
   - "src/learnloop/db/stores/pf.py"
   - "src/learnloop/ops/pf_generation.py"
+  - "src/learnloop/substrate/item_fingerprints.py"
   - "src/learnloop/vault/embedding_recipes.py"
   - "src/learnloop/vault/hashes.py"
 tags:

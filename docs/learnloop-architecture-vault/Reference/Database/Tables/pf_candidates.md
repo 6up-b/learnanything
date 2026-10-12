@@ -3,8 +3,8 @@ title: "pf_candidates"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "326313e01056dde9d5ffe0c7fde77cc003ca2c94"
-source_commit_timestamp: "2026-10-12T12:47:38-04:00"
+source_commit: "f47c31aafda3a19e060945717bd6e33495efa25d"
+source_commit_timestamp: "2026-10-12T13:52:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite pf_candidates"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/169_pf_generation.sql"
   - "src/learnloop/db/stores/pf.py"
   - "src/learnloop/ops/pf_generation.py"
+  - "src/learnloop/ops/pf_publish.py"
   - "src/learnloop/ops/pf_reports.py"
 tags:
   - "learnloop/database/table"
@@ -82,6 +83,7 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `panel_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `selection_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
 | `cost_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
+| `judged_inputs_json` | `TEXT` | yes | `'{}'` | — | JSON-encoded structured payload |
 | `published_item_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `published_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
 | `created_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
@@ -124,7 +126,7 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
-No table-specific test contains the table name or a detected repository method call. The schema/role invariants are still pinned by `tests/test_migrations.py` and `tests/test_table_roles.py`.
+- `tests/test_pf_reports.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -173,6 +175,9 @@ CREATE TABLE pf_candidates (
   panel_json TEXT,
   selection_json TEXT,
   cost_json TEXT NOT NULL DEFAULT '{}',
+  -- The parent/family revisions and effective rubric the judges saw;
+  -- publication revalidates them and refuses a stale selection.
+  judged_inputs_json TEXT NOT NULL DEFAULT '{}',
   published_item_id TEXT,
   published_at TEXT,
   created_at TEXT NOT NULL,

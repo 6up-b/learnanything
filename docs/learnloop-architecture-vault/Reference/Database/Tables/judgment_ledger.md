@@ -3,8 +3,8 @@ title: "judgment_ledger"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "326313e01056dde9d5ffe0c7fde77cc003ca2c94"
-source_commit_timestamp: "2026-10-12T12:47:38-04:00"
+source_commit: "f47c31aafda3a19e060945717bd6e33495efa25d"
+source_commit_timestamp: "2026-10-12T13:52:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite judgment_ledger"
@@ -101,6 +101,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/cli/families.py`
 - `src/learnloop/db/stores/families.py`
+- `src/learnloop/db/stores/pf.py`
 - `src/learnloop/diagnosis/offline_review/links.py`
 - `src/learnloop/diagnosis/offline_review/report.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`
