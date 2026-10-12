@@ -140,11 +140,31 @@ class PoolContext:
 
 @dataclass(frozen=True)
 class PlanPolicy:
-    """The source and chooser pair. Router R2 supplies its own (§6.8 table)."""
+    """The source and chooser pair. Router R2 supplies its own (§6.8 table).
+
+    ``chooser`` makes the logged block decisions, at block boundaries only.
+    ``projection_chooser`` is what the plan view runs forward to project the
+    blocks after the chosen ones ("Block 2 of about 3", the re-entry figures,
+    G3). It runs on every plan read and logs nothing, so it must be cheap,
+    pure and deterministic: never a sampled or model-backed chooser (review F3).
+    The source is shared; sources are pure already (the container probes them
+    for redistribution).
+    """
 
     source_name: str
     chooser: BlockChooser
     make_source: Callable[[PoolContext], BlockSource]
+    projection_chooser: BlockChooser = field(default_factory=LaneQuotaChooser)
+
+    def projection(self) -> "PlanPolicy":
+        """The pair the view projects with: this source, the projection chooser."""
+
+        return PlanPolicy(
+            source_name=self.source_name,
+            chooser=self.projection_chooser,
+            make_source=self.make_source,
+            projection_chooser=self.projection_chooser,
+        )
 
 
 def legacy_source(context: PoolContext) -> BlockSource:

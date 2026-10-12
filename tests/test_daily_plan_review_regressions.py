@@ -210,3 +210,53 @@ def test_f2_the_break_still_shows_when_the_only_open_session_began_today(tmp_pat
     record_attempt(env.repository, "pi_a", "lo_a", NOW - timedelta(minutes=2), session_id="s_today")
     record = get_or_create_today(env)
     assert record.kind == "reentry" and record.split["reentry_gap"]["gap_days"] == 12
+
+
+# -- F3: the view's projection never runs the live chooser --
+
+
+def test_f3_plan_reads_never_call_the_live_chooser(tmp_path):
+    from dataclasses import dataclass, field
+
+    from learnloop.daily_plan.chooser import LaneQuotaChooser
+    from learnloop.daily_plan.engine import PlanPolicy, advance_with_context, legacy_source
+    from learnloop.daily_plan.view import plan_view
+    from tests.daily_plan_fakes import make_env, scheduled, seed_due
+
+    @dataclass
+    class GuardedChooser:
+        """A router-like chooser: every call is a (paid, logged) decision."""
+
+        name: str = "fake_router"
+        armed: bool = False
+        calls: list = field(default_factory=list)
+
+        def choose(self, state, feasible):
+            self.calls.append(len(feasible))
+            if self.armed:
+                raise AssertionError("a plan read called the live chooser")
+            choice = LaneQuotaChooser().choose(state, feasible)
+            from dataclasses import replace
+
+            return replace(choice, chosen_by="mixture", propensity=0.5)
+
+    los = {f"lo_p{i}": [(f"pi_p{i}", 1.0)] for i in range(10)}
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=los)
+    chooser = GuardedChooser()
+    policy = PlanPolicy(source_name="fake_source", chooser=chooser, make_source=legacy_source)
+    env = make_env(
+        paths.root, [scheduled(f"pi_p{i}", f"lo_p{i}", forgetting_risk=0.7) for i in range(10)],
+        clock=MovableClock(NOW), policy=policy,
+    )
+    for i in range(10):
+        seed_due(env.repository, f"pi_p{i}", due=NOW - timedelta(days=1), last=NOW - timedelta(days=30))
+    record, step, context = advance_with_context(env, serve=False)  # the first block: a real decision
+    assert chooser.calls and record.blocks[0].chosen_by == "mixture"
+    chooser.armed = True
+    before = len(chooser.calls)
+    view = plan_view(env, record, context=context, next_step=step)
+    assert len(chooser.calls) == before
+    assert view["plan"]["projected"]  # still projected, deterministically
+    assert all(row["why"] for row in view["plan"]["projected"])
+    # Same figures on every read.
+    assert plan_view(env, record, context=context, next_step=step)["plan"]["projected"] == view["plan"]["projected"]

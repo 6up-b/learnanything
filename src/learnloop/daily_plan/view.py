@@ -3,8 +3,11 @@
 Every count and minute figure Start, Today, the done screen and the re-entry
 panel show is read from this payload: the split line, each lane's minutes,
 block estimates ("about"), the items done and the minutes taken. The upcoming
-blocks after the current one are a projection (the deterministic pair run
-forward without logging), labelled as such: "Block 2 of about 3".
+blocks after the current one are a projection, labelled as such: "Block 2 of
+about 3". It runs the policy's source with its deterministic projection
+chooser (``lane_quota_v1`` by default), forward and without logging; the live
+chooser (router R2's sampled or model-backed mixture) is never called from a
+read (review F3).
 """
 
 from __future__ import annotations
@@ -37,10 +40,15 @@ MAX_PROJECTED_BLOCKS = 12
 def project_blocks(
     record: PlanRecord, context: PoolContext | None, policy: PlanPolicy, *, max_blocks: int = MAX_PROJECTED_BLOCKS
 ) -> list[dict[str, Any]]:
-    """The blocks after the chosen ones, if nothing changes: a projection only."""
+    """The blocks after the chosen ones, if nothing changes: a projection only.
+
+    Always with ``policy.projection()``: the policy's deterministic projection
+    chooser, never its live chooser (review F3).
+    """
 
     if context is None or not record.is_open:
         return []
+    policy = policy.projection()
     sim = PlanRecord(row=copy.deepcopy(record.row), blocks=copy.deepcopy(record.blocks))
     projected: list[dict[str, Any]] = []
     reading_used = any(block.is_reading for block in sim.blocks)
