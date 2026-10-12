@@ -160,3 +160,118 @@ cap flag (`8fdb14d4`), a docstring (`001f33e5`) and regenerated references
 New or changed tests: 13 new (7,111 at the stage gate, now 7,124), in
 `tests/test_graph_nomination.py` (2 new, 1 updated for F4) and
 `tests/test_graph_nomination_ingest.py` (11 new, 1 strengthened).
+
+## Re-review
+
+Codex re-review job `codex-agent/jobs/20261012-131204-P6Iomg`, against
+`858645b9..slice-2/t5` (at `ccee600c`). Verdict REOPENED: F1 reopened, one new
+Low (F7). The reviewer's isolated checks passed for F2–F5. Each finding was
+reproduced first with a failing test, then fixed, one commit per finding.
+Tests use fakes only. No paid call was made: the one manual run is the
+append dry run on the `fixtures-local/t5-linear_algebra` backup copy, which
+constructs no client.
+
+### Findings
+
+| id | severity | title | verdict | commit | test or reason |
+|---|---|---|---|---|---|
+| F1 | High | Nominated bootstrap caches made before the identity fix are reused with the kill switch off | fixed | `a04e8e7a` | `tests/test_graph_nomination_ingest.py::test_kill_switch_never_reuses_a_nominated_bootstrap_cached_before_the_fix` (failed on `ccee600c` with `reused=True`) |
+| F7 | Low | Dry run undercounts embedding calls across query groups | fixed | `301e60bc` | `tests/test_graph_nomination.py::test_dry_run_counts_the_calls_each_query_group_sends` (on `ccee600c`, `max_query_calls = 1` gave `exceeds_caps = False`); `test_synthesize_dry_run_cli_prints_the_plan_and_resolves_no_provider` now checks the printed call count |
+
+No finding was rejected.
+
+### What changed, by finding
+
+- **F1 (legacy nominated caches).**
+  - **The defect.** T5 runs made before `5db6cb62` built the manifest
+    before the nominator, so a nominated run carries the kill-switch hash
+    (the pre-T5 scope). After the fix, the switch off keeps that hash on
+    purpose (pre-T5 caches stay reusable). So a nominated, unapplied
+    proposal from the pre-fix code matched, and `--apply` accepted it.
+  - **The fix: provenance, not hash.** The completed-run lookup now walks
+    every completed run for the manifest, newest first
+    (`Repository.completed_agent_runs_by_context`). With the switch off it
+    skips any run whose synthesis record shows nominations reached it
+    (`_nominations_shaped`): `coverage_decisions.graph_nomination` (every
+    completed run made with a nominator writes it, before and after the
+    fix) or `registry_nominated_candidates` / `registry_merges` usage, which
+    a later revalidation keeps. With the switch on no check is needed: the
+    manifest carries the nominator's identity, so a match was made under it.
+  - **Result.** The legacy proposal is never reused or applied with the
+    switch off. The structuring pass reruns lexical-only (shards stay
+    checkpointed). That rerun becomes the cache: a repeat reuses it with no
+    model or embedding call, and `--apply` accepts it, not the legacy one.
+    Pre-T5 runs still reuse. No manifest hash moves, no migration.
+  - **Why not invalidate by hash.** Moving the kill-switch hash would also
+    invalidate every pre-T5 bootstrap cache. That breaks the stage's
+    "switch off is the pre-T5 behaviour exactly" contract
+    (`test_kill_switch_restores_the_pre_t5_request`).
+  - **The regression.** The test emulates the pre-fix code by wrapping
+    `build_manifest` so the scope is the brief's even with a nominator, as
+    at `858645b9`. It makes a nominated run that merges into the registry,
+    turns the switch off, and synthesizes. It asserts the same manifest
+    hash, `reused=False`, a lexical-only structuring context, zero
+    embedding calls, then a repeat with `apply=True`: reused, zero model
+    calls, and only the rerun's proposal applied (two concepts, no registry
+    merge).
+  - **Append.** An append's manifest record gains `nomination` only when
+    the switch is on, at `858645b9` (`summary()`) as now (`identity()`).
+    So a pre-fix nominated append never shares the kill-switch hash. It is
+    not affected.
+  - **Reach.** T5 is not merged. The only vaults that ran the pre-fix code
+    are this stage's `fixtures-local` copies. The guard is still needed: it
+    holds wherever such a run exists.
+- **F7 (dry-run call count).**
+  - **The defect.** An append embeds its claim queries
+    (`nominate(facet/definition)`) and its defined concept queries
+    (`nominate(concept/definition)`) in separate `vectors()` calls. `_embed`
+    batches each call's distinct queries by task prefix, 32 at a time. The
+    planner counted every pending query as one batch.
+  - **The fix.** `_embed_calls` counts requests per group and prefix,
+    de-duplicated by the same key `vectors()` uses. `exceeds_caps` compares
+    that count with `max_query_calls`. The plan reports
+    `known_queries.estimated_calls`, and the CLI prints
+    "N to embed in C calls".
+  - **The regression.** One claim and one defined concept, with complete
+    facet and concept indexes. `max_query_calls = 2` plans two calls within
+    caps. `max_query_calls = 1` plans two calls, `exceeds_caps = True`. The
+    run agrees: one embedding call (the claim), the concept is not embedded
+    (`query_caps_reached`) and keeps lexical matching.
+
+## Re-review manual run (fixtures-local, no paid call)
+
+`learnloop synthesize sset_quickadd_src_01KY2YG27G1SDWA4FN939ZBB34 --dry-run
+[--json] --vault fixtures-local/t5-linear_algebra`:
+
+- 632 known texts, 0 stored, about 285,787 tokens, $0.002858, now planned
+  as **21 calls** (claims and concept mentions batched separately; the old
+  single-batch count implied 20). The caps are 8 calls, 256 texts and 200,000
+  tokens, so `exceeds_caps` is true, as before. Maximum $0.002000, the cap.
+- **No data change.** The copy's `state.sqlite` sha256 (`f7b0dd2a…`) was
+  identical before and after. Paid calls: 0. Cost: $0.
+
+## Re-review gate
+
+Run on `23ba7251` (clean tree apart from this review note): the two fixes
+(`a04e8e7a`, `301e60bc`) and regenerated references (`23ba7251`).
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | ok (no mobile extra: the stage does not touch `learnloop_mobile`) |
+| `uv run lint-imports --no-cache` | **10 contracts kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` (run with `-q -p no:cacheprovider`) | **7,126 passed**, 14 warnings (the existing fork-in-multi-threaded-process and sqlite3 datetime-adapter DeprecationWarnings), 210 s |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **69 passed**, 7,057 deselected, 44 s |
+| T5 modules (`test_graph_nomination*.py`, 46 tests) with `--durable-sqlite` | 46 passed |
+| DB/config reference generate + validate | no schema change (head 168, 266 table notes), zero errors after regenerating: line anchors into `source_set_synthesis.py` and `graph_nomination.py` had moved. Global docs-vault validator passed (1,030 notes) |
+| CLI help snapshot | unchanged (no option changed) |
+| Frontend | not touched (no `npm` run needed) |
+
+New tests: 2 (7,124 at the review-fix gate, now 7,126), one in each of
+`tests/test_graph_nomination_ingest.py` (F1) and `tests/test_graph_nomination.py`
+(F7). One existing test is strengthened (the CLI dry run prints the call count).
+
+Not part of the gate: `module_validate.py` reports 142 missing module notes
+across the project, most of them from other stages. The count is the same
+before and after these fixes. During this step the shared `/tmp` tmpfs filled
+up (other sessions' data). The suite was unaffected, because test roots live
+in the worktree's `.pytest_tmp`; gate output was saved on disk.
