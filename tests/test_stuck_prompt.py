@@ -510,7 +510,7 @@ def test_tui_ctrl_d_opens_the_stuck_prompt_and_an_empty_submit_records_it(tmp_pa
             assert screen.stuck is True and screen.has_class("-stuck")
             # The key opens the prompt; it records nothing.
             assert {row["id"] for row in repository.list_attempt_history()} == before
-            return screen.submit_stuck_empty()
+            return await screen.submit_stuck_empty()
 
     result = asyncio.run(scenario())
     attempt = Repository(paths.sqlite_path).fetch_practice_attempt(result.attempt_id)
@@ -786,3 +786,94 @@ def test_a_joint_regrade_rereads_the_stuck_answer_and_supersedes(tmp_path):
     assert len(latest) == 1 and latest[0]["supersedes_id"] == first["id"]
     with connect(repository.sqlite_path, read_only=True) as connection:
         assert stuck_answers(connection)[0]["describes_confusion"] is False
+
+
+# -- review F4: the TUI shows the worked answer after an empty stuck answer -----------
+
+
+def test_tui_empty_stuck_submit_shows_the_result_and_the_worked_answer(tmp_path):
+    import asyncio
+
+    from learnloop.tui.app import LearnLoopApp
+    from learnloop.tui.screens.feedback import FeedbackScreen
+    from learnloop.tui.screens.practice import PracticeScreen
+
+    from tests.helpers import begin_session
+
+    paths, vault, repository = _stuck_vault(tmp_path)
+
+    async def scenario():
+        app = LearnLoopApp(paths.root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            await today.open_practice()
+            await pilot.pause()
+            practice = app.screen
+            assert isinstance(practice, PracticeScreen)
+            expected = practice.practice_item.expected_answer
+            await pilot.press("ctrl+d")
+            await pilot.pause()
+            await practice.action_submit()
+            await pilot.pause()
+            feedback = app.screen
+            assert isinstance(feedback, FeedbackScreen), type(feedback).__name__
+            assert feedback.graded and feedback.has_class("-graded")
+            assert feedback.result is not None and feedback.result.rubric_score == 0
+            assert feedback.result.grading_source == "deterministic"
+            worked = str(feedback.query_one("#worked-answer").render())
+            assert expected in worked
+            assert feedback.query_one("#worked-answer").display
+            return feedback.result
+
+    result = asyncio.run(scenario())
+    attempt = Repository(paths.sqlite_path).fetch_practice_attempt(result.attempt_id)
+    assert attempt["declared_stuck"] is True and attempt["rubric_score"] == 0
+    assert attempt["entry_surface"] == "tui_practice"
+
+
+def test_tui_empty_stuck_probe_answer_keeps_feedback_deferred(tmp_path, monkeypatch):
+    """Inside a diagnostic check the answer is not revealed (as for "I don't
+    know"): the empty stuck answer is recorded and the screen returns."""
+
+    import asyncio
+
+    import learnloop.attempts.post_attempt as post_attempt
+    import learnloop.tui.screens.practice as practice_module
+    from learnloop.tui.app import LearnLoopApp
+    from learnloop.tui.screens.feedback import FeedbackScreen
+    from learnloop.tui.screens.practice import PracticeScreen
+
+    from tests.helpers import begin_session
+
+    paths, _vault, _repository = _stuck_vault(tmp_path)
+    recorded: list = []
+
+    def fake_record(vault, repository, draft, **_kwargs):
+        recorded.append(draft)
+        return SimpleNamespace(attempt_id="att-probe", practice_item_id=draft.practice_item_id)
+
+    monkeypatch.setattr(practice_module, "complete_empty_stuck_attempt", fake_record)
+    monkeypatch.setattr(post_attempt, "run_post_attempt_pipeline", lambda *args, **kwargs: None)
+
+    async def scenario():
+        app = LearnLoopApp(paths.root)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            today = await begin_session(app, pilot)
+            await today.open_practice()
+            await pilot.pause()
+            practice = app.screen
+            assert isinstance(practice, PracticeScreen)
+            practice.probe_presentation_id = "pres-1"  # a committed diagnostic presentation
+            await pilot.press("ctrl+d")
+            await pilot.pause()
+            await practice.action_submit()
+            await pilot.pause()
+            assert not isinstance(app.screen, FeedbackScreen)
+            assert not isinstance(app.screen, PracticeScreen)
+
+    asyncio.run(scenario())
+    assert [(draft.attempt_type, draft.declared_stuck, draft.probe_presentation_id) for draft in recorded] == [
+        ("diagnostic_probe", True, "pres-1")
+    ]

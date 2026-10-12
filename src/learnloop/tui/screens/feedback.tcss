@@ -78,6 +78,15 @@ FeedbackScreen.-graded #grade-form {
 }
 
 #result-head { height: auto; }
+/* mvp-0.11: the worked answer after an empty "I'm stuck" answer only. */
+#worked-answer {
+    display: none;
+    height: auto;
+    margin-top: 1;
+}
+FeedbackScreen.-reveal-answer #worked-answer {
+    display: block;
+}
 
 #score-block {
     border: round $border-blurred;

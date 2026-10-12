@@ -213,10 +213,10 @@ class PracticeScreen(Screen):
         if self.hints_used < len(self.practice_item.hints):
             self.hints_used += 1
 
-    async def open_feedback(self):
+    async def open_feedback(self, committed=None):
         from learnloop.tui.screens.feedback import FeedbackScreen
 
-        feedback = FeedbackScreen(self.state, self.item, self._draft())
+        feedback = FeedbackScreen(self.state, self.item, self._draft(), committed=committed)
         await self.app.push_screen(feedback)
         return feedback
 
@@ -231,8 +231,14 @@ class PracticeScreen(Screen):
         if self.is_mounted:
             self.query_one("#answer-input", TextArea).focus()
 
-    def submit_stuck_empty(self):
-        """Record an empty stuck answer: an ordinary attempt scored 0, no model."""
+    async def submit_stuck_empty(self):
+        """Record an empty stuck answer: an ordinary attempt scored 0, no model.
+
+        Then show it (review F4): the feedback screen opens on the committed
+        result with the worked answer, and asks for no grade. Inside a
+        diagnostic check, feedback stays deferred as it was for "I don't
+        know": the screen returns to Today without revealing the answer.
+        """
 
         from learnloop.attempts.post_attempt import (
             committed_submission_result,
@@ -244,6 +250,11 @@ class PracticeScreen(Screen):
             result = complete_empty_stuck_attempt(
                 self.state.vault, self.state.repository, self._draft()
             )
+        if self.probe_presentation_id is None:
+            self.submitting = True
+            # The feedback screen runs the post-attempt pipeline (no model).
+            await self.open_feedback(committed=result)
+            return result
         run_post_attempt_pipeline(self.state.vault, self.state.repository, result=result)
         self.app.last_attempt_result = result
         self.state.refresh()
@@ -300,7 +311,7 @@ class PracticeScreen(Screen):
     # ── actions ──────────────────────────────────────────────────────────
     async def action_submit(self) -> None:
         if self.stuck and not self.answer.strip():
-            self.submit_stuck_empty()
+            await self.submit_stuck_empty()
             return
         self.submitting = True
         await self.open_feedback()
@@ -410,7 +421,11 @@ class PracticeScreen(Screen):
             (" · ", "$text-disabled"),
             (STUCK_PROMPT_TEXT, "$text"),
             "\n",
-            ("an empty answer is fine: submit records it as an answer scored 0", "$text-muted italic"),
+            (
+                "an empty answer is fine: submit records it as an answer scored 0"
+                + ("" if self.probe_presentation_id is not None else " and shows the worked answer"),
+                "$text-muted italic",
+            ),
         )
 
     def _hints_content(self) -> Content:
