@@ -181,22 +181,27 @@ but not used; switching is one profile (`api = "perplexity"`, `PERPLEXITY_API_KE
     before the cutoff, as (item excerpt, knowledge-component names, result).
   - V3: V1 plus a `LearnerStateCardV1`-style card for the LO, its same-concept LOs
     and one-hop prerequisites: the incumbent's (`mastery_ekf`) P(success) with a
-    95% interval and per-LO ability, status (`tested`/`untested`) and explicit
-    unknowns; recent attempts (item excerpt, answer excerpt, blind-grade fields:
-    score, failed criteria, error types, first-divergence quotes, assisted,
-    primed, hints); typed prior hypotheses with lifecycle and evidence count (the
-    Slice 1 `VaultHistoryStore` as-of rules); tutor questions (type, context,
+    95% interval and per-LO ability, fitted only on observations before the
+    cutoff, status (`tested`/`untested`) and explicit unknowns; recent attempts
+    (item excerpt from the verified revision, answer excerpt, blind-grade fields:
+    score, frozen-rubric max points and failed criteria, error types,
+    first-divergence quotes, assisted, primed, hint totals, tutor-question
+    timing); typed prior hypotheses with their source attempt, evidence for and
+    against, repairs tried and an as-of status; tutor questions (type, context,
     excerpt, timing). Budget: `router.card_token_budget`'s default, 16K tokens
     (bytes/4); older successes drop first, then older excerpts, then older
     attempts and questions; typed fields never drop, and the card says what was
-    omitted.
-- **No leakage.** The cutoff is the attempt's start (`created_at − latency_seconds`,
-  floored to a second). Without a logged latency it is one second after the
-  previous submission in the vault (any type), the latest instant the attempt
-  provably hadn't started; with neither, no history is shown. Every record must
-  be strictly before the cutoff. Questions linked to the predicted attempt are
-  excluded even if timestamped earlier. Hypotheses must be written, and their
-  source attempt submitted, before the cutoff.
+    omitted. *(Revised by the Codex review fixes, F2, F3 and F5; see
+    `router-r0-codex-review.md`.)*
+- **No leakage.** The cutoff is the attempt's start as recorded before grading:
+  the submission intent's time minus `latency_seconds` minus a 2 s rounding
+  margin. `created_at` includes grading time and never sets it. Without an
+  intent and a latency the start is unknown and V2/V3 show no history at all
+  and say so. Every record must be strictly before the cutoff. Questions linked
+  to the predicted attempt are excluded even if timestamped earlier. Hypotheses
+  must be written, and their source attempt submitted, before the cutoff.
+  *(Revised by the Codex review fixes, F1; the earlier rule used `created_at −
+  latency` and a previous-submission fallback, both of which could leak.)*
 - **Questions.** Decider: one `noul` question `will_pass` ("Will the learner answer
   this item correctly on this attempt? …", with true/false criteria), question set
   `llm_probability_qs_v1`. LLM: the same question as structured output
@@ -305,7 +310,8 @@ example uses `linear_algebra`; repeat for `probability` and `arxiv_v2`.
    llm_probability_enabled = true
    ```
 
-3. **Readiness** (free; `--probe` reads OpenRouter's public listing):
+3. **Readiness** (free; `--probe` reads OpenRouter's public listing;
+   `--live-decider --dry-run` prints the paid check's estimate without sending it):
 
    ```sh
    uv run learnloop eval judges --vault fixtures-local/la-r0 --probe
@@ -328,7 +334,11 @@ example uses `linear_algebra`; repeat for `probability` and `arxiv_v2`.
    | LLM | `codex` (`gpt-5.6-sol`), subscription | 143 | 1,373,011 tokens (UTF-8 bytes, conservative), cost estimated only |
 
    Your live vault has more history, so expect larger numbers; read them from the
-   dry run. If it says `over_budget`, raise the cap it names.
+   dry run. If it says `over_budget`, raise the cap it names. *(After the review
+   fixes the same dry run gives 111 requests per judge, Decider $0.0014, and
+   `history.start_established = 0` of 53: these July attempts predate submission
+   intents, so V2 and V3 carry no history on this copy. Check that count on your
+   live vault's dry run before paying; see `router-r0-codex-review.md`.)*
 
 5. **The real run** (same flags, `--prepare-llm` instead of `--dry-run`, plus a
    report directory):
@@ -342,7 +352,8 @@ example uses `linear_algebra`; repeat for `probability` and `arxiv_v2`.
    ```
 
    It is resumable: an interrupted or partly invalid run pays only for what is
-   missing when rerun. Rerunning without `--prepare-llm` replays from the cache
+   missing when rerun, including a verdict that committed before the cache file
+   was written (recovered from `judgment_ledger`, review F4). Rerunning without `--prepare-llm` replays from the cache
    with zero calls. A metered LLM route (OpenRouter chat) also needs
    `--price-per-million`.
 
