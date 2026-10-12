@@ -251,6 +251,20 @@ def _escalated_class(proposal: Mapping[str, Any], classes: Mapping[str, list[dic
     return None
 
 
+def escalation_card_enabled(vault: LoadedVault) -> bool:
+    return bool(getattr(getattr(vault.config, "recurrence", None), "escalation_card_enabled", True))
+
+
+def _diagnosis_in_force(repository: Repository, attempt_id: str) -> bool:
+    """A blind-graded answer counts only while a completed live diagnosis is
+    in force for its current grade (a regrade that left nothing to explain,
+    or a failed rediagnosis, takes it out); a pre-split answer counts as is."""
+
+    if repository.latest_blind_grade_record(attempt_id) is None:
+        return True
+    return repository.current_live_diagnosis(attempt_id) is not None
+
+
 def _shown_repairs(repository: Repository, attempt_ids: list[str]) -> list[dict[str, Any]]:
     """Every repair shown for these answers: their feedback's suggestions and
     any repair an earlier escalation wrote for them."""
@@ -304,12 +318,16 @@ def record_escalation(
     order = (str(current.get("created_at") or ""), attempt_id)
     earlier: dict[str, tuple[str, str]] = {}
     for member_statement in statements:
+        # Only heads that still stand as a learner belief count (candidate or
+        # validated, learner_state): a refuted cause ("That's wrong" retires
+        # or demotes it) or an item/grader/session-scoped cause in the group
+        # is not a recurrence of the learner's belief (second review F8).
         for row in repository.causal_hypotheses_with_statement(member_statement):
             other = str(row.get("attempt_id") or "")
             if other == attempt_id or other in earlier:
                 continue
             attempt = repository.fetch_practice_attempt(other)
-            if attempt is None:
+            if attempt is None or not _diagnosis_in_force(repository, other):
                 continue
             other_order = (str(attempt.get("created_at") or ""), other)
             if other_order < order:
@@ -329,7 +347,10 @@ def record_escalation(
     source = "diagnosis" if chosen is not None else "none"
     generated: dict[str, Any] | None = None
     generation: dict[str, Any] = {"requested": False}
-    if chosen is None:
+    if chosen is None and not escalation_card_enabled(vault):
+        # Nobody would see it: the card is switched off (second review F9).
+        generation = {"requested": False, "status": "card_disabled"}
+    elif chosen is None:
         generated, generation = _request_repair(
             vault, statement=statement, classes=classes, count=count, earlier_repairs=earlier_repairs,
             current_repairs=repairs, writer_factory=writer_factory, spend=spend, reserve=reserve,
@@ -410,6 +431,7 @@ def _request_repair(
 
 __all__ = [
     "PLANNED_EMBED_TOKENS_PER_JOB",
+    "escalation_card_enabled",
     "PLANNED_JUDGE_PROMPT_TOKENS",
     "default_live_judge_factory",
     "live_judge_caps",

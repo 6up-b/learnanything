@@ -9,7 +9,9 @@ through a different operator and representation, given the operators,
 practice modes and questions already shown. The answer is used only when its
 operator is new; otherwise, or when the request fails, is refused by the
 spend caps or is switched off (``recurrence.escalation_repair_enabled``), the
-card keeps the honest label: the repair is the same kind as before.
+card keeps the honest label: the repair is the same kind as before. Nothing
+is requested while the card itself is off (``escalation_card_enabled``):
+nobody would see the repair.
 
 The request is admitted on the enclosing command's budget when there is one
 (and only while the command's remaining diagnoses still fit), else on a

@@ -14417,16 +14417,32 @@ class Repository(
         return [row for row in decoded if recurrence_key(row, groups) == key]
 
     def causal_hypotheses_with_statement(
-        self, statement_normalized: str
+        self,
+        statement_normalized: str,
+        *,
+        statuses: Sequence[str] = ("candidate", "validated"),
+        cause_scope: str | None = "learner_state",
     ) -> list[dict[str, Any]]:
-        """Episode heads, vault-wide, of one exact statement class (Slice 2 T1)."""
+        """Episode heads, vault-wide, of one exact statement class (Slice 2 T1).
 
+        By default only the heads that still stand as a learner belief: a
+        head retired or demoted (the cause was refuted, e.g. "That's wrong")
+        or scoped to the item, the grader or the session is not a recurrence
+        of the learner's belief (second review F8).
+        """
+
+        status_list = tuple(statuses)
+        if not status_list:
+            return []
+        placeholders = ",".join("?" for _ in status_list)
+        scope_clause = "AND h.cause_scope = ?" if cause_scope is not None else ""
         with self.connection() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT h.* FROM causal_hypotheses h
                  WHERE h.statement_normalized = ?
-                   AND h.status != 'open_set'
+                   AND h.status IN ({placeholders})
+                   {scope_clause}
                    AND h.version = (
                      SELECT MAX(head.version)
                        FROM causal_hypotheses head
@@ -14434,7 +14450,7 @@ class Repository(
                    )
                  ORDER BY h.created_at, h.id
                 """,
-                (statement_normalized,),
+                (statement_normalized, *status_list, *((cause_scope,) if cause_scope is not None else ())),
             ).fetchall()
         return [_decode_causal_hypothesis(row) for row in rows]
 

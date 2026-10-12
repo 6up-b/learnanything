@@ -1280,7 +1280,11 @@ def _recurrence_plan(
     judging = bool(config.judge_enabled) and bool(vault.config.embedding.enabled) and int(config.judge_max_pairs_per_attempt) > 0
     judge_calls = jobs * int(config.judge_max_pairs_per_attempt) if judging else 0
     embed_calls = jobs if judging and RETRIEVAL_ROUTE in spend.routes else 0
-    repair_calls = jobs if bool(getattr(config, "escalation_repair_enabled", True)) else 0
+    # No repair is requested for a card nobody sees (second review F9).
+    repair_calls = (
+        jobs if bool(getattr(config, "escalation_repair_enabled", True))
+        and bool(getattr(config, "escalation_card_enabled", True)) else 0
+    )
     for route, source in ((SAME_CAUSE_ROUTE, SAME_CAUSE_ROUTE), (ESCALATION_REPAIR_ROUTE, DIAGNOSIS_ROUTE)):
         if route not in spend.routes:
             profile = route_profile(vault, source)

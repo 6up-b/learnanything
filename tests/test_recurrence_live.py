@@ -412,3 +412,87 @@ def test_a_cancelled_command_stops_the_judge(tmp_path):
     outcomes = _drain_on(vault, repository, client, embedder, spend, clock, cancelled=lambda: flag["stop"])
     assert [outcome.state for outcome in outcomes] == ["done"], "the diagnosis that was already paid completes"
     assert len(client.judged) == before, "cancellation reaches the recurrence step"
+
+
+# -- second review: what the K=3 count counts, and what a hidden card pays for ------------
+
+
+def _answer(vault, repository, client, embedder, offset, answer):
+    result = submit(vault, repository, client, item_id=answer[0], answer=answer[1], when=at(10 + 2 * offset))
+    drain_jobs(vault, repository, client, embedding=embedder, judge_factory=lambda: client,
+               clock=FrozenClock(at(11 + 2 * offset)))
+    return result
+
+
+def _with_status(repository, head, status):
+    """Append a new version of an episode head with another status (a refutation)."""
+
+    repository.append_causal_hypothesis(
+        episode_key=str(head["episode_key"]), attempt_id=str(head["attempt_id"]),
+        learning_object_id=str(head["learning_object_id"]), cause_scope=str(head["cause_scope"]),
+        statement=str(head["statement"]), statement_normalized=str(head["statement_normalized"]),
+        error_event_id=head.get("error_event_id"), mechanism=head.get("mechanism"), operation=head.get("operation"),
+        target_ref=head.get("target_ref"), evidence=head.get("evidence"), status=status,
+    )
+
+
+@pytest.mark.parametrize("status", ["retired", "demoted"])
+def test_a_refuted_earlier_cause_does_not_count_toward_the_escalation(tmp_path, status):
+    """Second review F8: an earlier answer whose cause was rejected (its head
+    retired or demoted) is not a recurrence of it."""
+
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), operators={"third": "worked_contrast"})
+    embedder = FakeEmbeddingClient()
+    first, _second = (_answer(vault, repository, client, embedder, offset, answer) for offset, answer in enumerate(ANSWERS[:2]))
+    _with_status(repository, _heads(repository, first.attempt_id)[0], status)
+    third = _answer(vault, repository, client, embedder, 2, ANSWERS[2])
+    diagnosis = repository.current_live_diagnosis(third.attempt_id)
+    assert repository.recurrence_escalation(diagnosis["id"]) is None, "two live recurrences are not three"
+
+
+def test_a_content_scoped_cause_in_the_group_does_not_count_toward_the_escalation(tmp_path):
+    """Second review F8: only learner-state heads count. An item-defect cause
+    of an earlier answer, even with the same statement, is not a recurrence
+    of the learner's belief."""
+
+    _paths, vault, repository = _vault(tmp_path)
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), operators={"third": "worked_contrast"})
+    embedder = FakeEmbeddingClient()
+    first, _second = (_answer(vault, repository, client, embedder, offset, answer) for offset, answer in enumerate(ANSWERS[:2]))
+    head = _heads(repository, first.attempt_id)[0]
+    repository.append_causal_hypothesis(
+        episode_key=f"{head['episode_key']}:content", attempt_id=str(head["attempt_id"]),
+        learning_object_id=str(head["learning_object_id"]), cause_scope="item_contract",
+        statement=str(head["statement"]), statement_normalized=str(head["statement_normalized"]),
+        target_ref=head.get("target_ref"), status="candidate",
+    )
+    _with_status(repository, head, "retired")
+    third = _answer(vault, repository, client, embedder, 2, ANSWERS[2])
+    diagnosis = repository.current_live_diagnosis(third.attempt_id)
+    assert repository.recurrence_escalation(diagnosis["id"]) is None
+
+
+def test_a_hidden_escalation_card_pays_for_no_escalated_repair(tmp_path):
+    """Second review F9: with the card switched off nobody sees the repair,
+    so none is requested; the receipt still records the recurrence."""
+
+    _paths, vault, repository = _vault(tmp_path, config="[recurrence]\nescalation_card_enabled = false")
+    client = StatementFake(STATEMENTS, decide=shares_word("transpos"), escalation_operator="worked_contrast")
+    *_rest, third = _run(vault, repository, client, FakeEmbeddingClient(), ANSWERS)
+    assert "recurrence_escalation_repair" not in client.calls
+    escalation = repository.recurrence_escalation(repository.current_live_diagnosis(third.attempt_id)["id"])
+    assert escalation is not None and escalation["repair_source"] == "diagnosis"
+    assert escalation["generation"]["status"] == "card_disabled"
+
+
+def test_a_hidden_escalation_card_plans_no_escalated_repair(tmp_path):
+    from learnloop.ai.spend import SpendCaps
+    from learnloop.diagnosis.split.jobs import command_spend, plan_diagnosis_jobs
+
+    vault, repository, *_rest = _third_queued(tmp_path)
+    append_config(vault.root, "[recurrence]\nescalation_card_enabled = false")
+    vault = load_vault(vault.root)
+    caps = SpendCaps(max_candidates=50, max_pairs=0, max_retries=5, max_calls=50, max_total_tokens=1_000_000, max_estimated_usd=1.0)
+    plan = plan_diagnosis_jobs(vault, repository, spend=command_spend(vault, caps))
+    assert plan["recurrence"]["by_part"]["escalation_repair"]["calls"] == 0
