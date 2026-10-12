@@ -3,13 +3,13 @@ title: "schema_migrations"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea1b0a12d3d146afa401604edc24256de01cb841"
-source_commit_timestamp: "2026-10-12T17:46:55-04:00"
+source_commit: "75d76b8dbaeae01c859dab8820f061798e07a395"
+source_commit_timestamp: "2026-10-12T19:18:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite schema_migrations"
   - "table schema_migrations"
-schema_head: 175
+schema_head: 176
 table_name: "schema_migrations"
 table_role: "receipt"
 functionality_status: "active"
@@ -97,6 +97,7 @@ None found by exact static reference scan.
 - `tests/test_mobile_host_auth.py`
 - `tests/test_persistence_open.py`
 - `tests/test_practice_index_adapters.py`
+- `tests/test_source_block_fts.py`
 - `tests/test_sqlite_wal.py`
 - `tests/test_sqlite_wal_lifecycle.py`
 - `tests/test_vault_template.py`

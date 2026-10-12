@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea1b0a12d3d146afa401604edc24256de01cb841"
-source_commit_timestamp: "2026-10-12T17:46:55-04:00"
+source_commit: "75d76b8dbaeae01c859dab8820f061798e07a395"
+source_commit_timestamp: "2026-10-12T19:18:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 175
+schema_head: 176
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"

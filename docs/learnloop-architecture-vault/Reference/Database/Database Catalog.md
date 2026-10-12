@@ -3,31 +3,31 @@ title: "Database Catalog"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea1b0a12d3d146afa401604edc24256de01cb841"
-source_commit_timestamp: "2026-10-12T17:46:55-04:00"
+source_commit: "75d76b8dbaeae01c859dab8820f061798e07a395"
+source_commit_timestamp: "2026-10-12T19:18:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 175
+schema_head: 176
 table_count: 292
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
-  - "fixtures/migration_head_175/state.sqlite"
+  - "fixtures/migration_head_176/state.sqlite"
   - "migrations/"
   - "tests/test_table_roles.py"
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-175"
+  - "learnloop/database/schema-head-176"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 292 user tables at migration head 175. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 292 user tables at migration head 176. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -282,7 +282,7 @@ Source acquisition, normalized source ir, synthesis, and durable ingest work. Th
 - [[Reference/Database/Tables/source_annotation_versions|source_annotation_versions]] — `raw_ledger` · `active` · Pins immutable versions of source annotation so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `annotation_id`, `annotation_type`, `version_ordinal`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_annotations|source_annotations]] — `raw_ledger` · `active` · Gives source annotation a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `source_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_artifacts|source_artifacts]] — `raw_ledger` · `active` · Identifies an acquired canonical source independently from any one revision or extraction. It supplies replay-stable input rather than a disposable cache. Rows bind `work_id`, `current_revision_id`, `acquisition_kind`, making the operational relationship explicit.
-- [[Reference/Database/Tables/source_block_fts|source_block_fts]] — `derived` · `active` · Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity, and `learnloop doctor` reports stale or missing rows. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit.
+- [[Reference/Database/Tables/source_block_fts|source_block_fts]] — `derived` · `active` · Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity (migration 176 recreates the delete paths for vaults that applied the earlier 175), and `learnloop doctor` reports stale or missing rows. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_block_health|source_block_health]] — `raw_ledger` · `active` · Gives source block health a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It supplies replay-stable input rather than a disposable cache. Rows bind `extraction_id`, `span_id`, `analyzer_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_conflict_resolutions|source_conflict_resolutions]] — `receipt` · `active` · Records explicit resolutions of source conflict without erasing the original evidence so canonical-source work can be retried without losing provenance or silently changing its input set. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `conflict_id`, `resolution_kind`, `actor`, making the operational relationship explicit.
 - [[Reference/Database/Tables/source_conflicts|source_conflicts]] — `workflow` · `active` · Gives source conflict a stable database identity so canonical-source work can be retried without losing provenance or silently changing its input set. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `subject_id`, `entity_id`, `left_source_id`, making the operational relationship explicit.

@@ -3,13 +3,13 @@ title: "source_block_fts"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "ea1b0a12d3d146afa401604edc24256de01cb841"
-source_commit_timestamp: "2026-10-12T17:46:55-04:00"
+source_commit: "75d76b8dbaeae01c859dab8820f061798e07a395"
+source_commit_timestamp: "2026-10-12T19:18:07-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite source_block_fts"
   - "table source_block_fts"
-schema_head: 175
+schema_head: 176
 table_name: "source_block_fts"
 table_role: "derived"
 functionality_status: "active"
@@ -41,7 +41,7 @@ tags:
 
 ## Why it exists
 
-Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity, and `learnloop doctor` reports stale or missing rows. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit. ^table-purpose
+Indexes source block text for FTS5 BM25 keyword search (Slice 2 T6: library search, tutor spans, Quick Add scope); triggers keep it in step with `source_document_blocks` and its one replayer rebuilds it, so it never holds anything the block ledger does not. Hazard: rows are keyed by the blocks' implicit rowid (the block table has a composite key), so a migration that rebuilds `source_document_blocks` must recreate the triggers and rerun the replayer (`learnloop rebuild-derived-state`); deletes also match the block's identity (migration 176 recreates the delete paths for vaults that applied the earlier 175), and `learnloop doctor` reports stale or missing rows. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `extraction_id`, `span_id`, `text`, making the operational relationship explicit. ^table-purpose
 
 It belongs to the **sources and ingest** navigation family. The family context lives in [[Database Catalog#Sources And Ingest]]. Its persistence behavior follows [[Table Roles#Derived]].
 
@@ -50,7 +50,7 @@ It belongs to the **sources and ingest** navigation family. The family context l
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/175_source_block_fts.sql`.
-- **Schema touched by:** `175_source_block_fts.sql`.
+- **Schema touched by:** `175_source_block_fts.sql`, `176_source_block_fts_identity_triggers.sql`.
 - **Rebuild owner:** `source_block_fts`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
