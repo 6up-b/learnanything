@@ -2,7 +2,7 @@ import { listen } from "@tauri-apps/api/event";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
-import type { AppSnapshot, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
+import type { AppSnapshot, CommandError, GuidedRedoDto, ProbeBlockEndDto, ReviewCountsDto, RuntimeHealth, SessionEndSummary, SessionSnapshot } from "../api/dto";
 import { AskOverlay, type AskTarget } from "../components/AskOverlay";
 import { CommandPalette } from "../components/CommandPalette";
 import { InspectorOverlay } from "../components/InspectorOverlay";
@@ -120,6 +120,10 @@ export function App() {
   // for its next target is in flight — coming back from that round remounts the
   // screen, which refreshes progress. Entered from the command palette.
   const [calibrationSessionId, setCalibrationSessionId] = useState<string | null>(null);
+  // Learner field F2: the overlay is a "Check what I already know" quick check.
+  // Its answers return straight to the check (results are revealed at the end),
+  // instead of opening feedback after each one.
+  const [quickCheckActive, setQuickCheckActive] = useState(false);
   const [inspectorId, setInspectorId] = useState<string | null>(null);
   // Review is a command overlay (`learnloop diff`), not a body-replacing tab.
   // Keep the current screen mounted beneath it just as `learnloop show` does.
@@ -518,8 +522,30 @@ export function App() {
   function openFeedback(id: string) {
     setPrimedRetry(false);
     setRedoContext(null);
+    if (calibrationSessionId && quickCheckActive) {
+      // Quick check: hold the result until the check ends (field §5.2). The
+      // calibration screen lists every answer, with its feedback, at the end.
+      setAttemptId(null);
+      setTodayStage("queue");
+      return;
+    }
     setAttemptId(id);
     setTodayStage("feedback");
+  }
+
+  // Learner field F2: "Check what I already know" from the LO inspector.
+  async function startQuickCheck(learningObjectIds: string[]) {
+    if (!session) {
+      setToast("Start a session first: the quick check runs inside a practice session.");
+      return;
+    }
+    try {
+      const progress = await api.startQuickCheck({ sessionId: session.sessionId, learningObjectIds });
+      setInspectorId(null);
+      openCalibration(progress.calibrationSessionId, { quickCheck: true });
+    } catch (error) {
+      onError((error as CommandError).message);
+    }
   }
 
   function openBlockReview(blockEnd: ProbeBlockEndDto, learningObjectId: string, learningObjectTitle: string) {
@@ -567,6 +593,7 @@ export function App() {
     setBlockReview(null);
     // Calibration attaches to the practice session — drop the overlay with it.
     setCalibrationSessionId(null);
+    setQuickCheckActive(false);
     setTodayStage("queue");
     setTab("start");
     // The finish HUD replaces the plain toast: it overlays the (now reset)
@@ -613,8 +640,9 @@ export function App() {
   }
 
   // Enter the calibration overlay (command palette "calibrate").
-  function openCalibration(id: string) {
+  function openCalibration(id: string, options?: { quickCheck?: boolean }) {
     setCalibrationSessionId(id);
+    setQuickCheckActive(options?.quickCheck ?? false);
     setTab("today");
     setTodayStage("queue");
   }
@@ -622,6 +650,7 @@ export function App() {
   // Exit calibration back to the today tab.
   function exitCalibration() {
     setCalibrationSessionId(null);
+    setQuickCheckActive(false);
     setTab("today");
     setTodayStage("queue");
   }
@@ -694,6 +723,7 @@ export function App() {
     setAttemptId(null);
     setBlockReview(null);
     setCalibrationSessionId(null);
+    setQuickCheckActive(false);
     setPendingPrimedItemId(null);
     setPendingRedo(null);
     setIngestJobId(null);
@@ -799,6 +829,15 @@ export function App() {
         <CalibrationScreen
           calibrationSessionId={calibrationSessionId}
           onPractice={openPractice}
+          onReviewAnswer={(id) => {
+            // Results of a finished quick check: feedback is revealed now.
+            setQuickCheckActive(false);
+            setPrimedRetry(false);
+            setRedoContext(null);
+            setAttemptId(id);
+            setTab("today");
+            setTodayStage("feedback");
+          }}
           onOpenRepair={openRepair}
           onGuidedRedo={openGuidedRedo}
           onExit={exitCalibration}
@@ -1072,6 +1111,7 @@ export function App() {
         onClose={() => setInspectorId(null)}
         onInspect={setInspectorId}
         onError={onError}
+        onQuickCheck={(ids) => void startQuickCheck(ids)}
       />
       <AskOverlay target={askTarget} onClose={() => setAskTarget(null)} onToast={setToast} />
       {openSource ? (

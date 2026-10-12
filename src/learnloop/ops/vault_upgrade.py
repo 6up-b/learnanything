@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learnloop.algorithm_versions import PLACEMENT_ALGORITHM_VERSION
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.learner.assessment_contracts import (
@@ -241,6 +242,74 @@ def upgrade_to_mvp09(root: Path, *, clock: Clock | None = None) -> UpgradeResult
         upgraded=True,
         from_version=current,
         to_version=REVEAL_LEDGER_ALGORITHM_VERSION,
+    )
+
+
+def upgrade_to_mvp010(root: Path, *, clock: Clock | None = None) -> UpgradeResult:
+    """Activate learner field F2: starting new material without ceremony.
+
+    ``mvp-0.10`` changes what is served (no opening probe per new LO, new
+    material as learning, assumed-known checked in the first review), not the
+    authority-propagation projection, so like ``mvp-0.9`` it is an
+    immediate-successor tag plus an idempotent rebuild of the same projection
+    namespace, prepared before the atomic config rename. The kill switch
+    ``placement.enabled`` (default on) restores the predecessor's serving.
+
+    Nothing is rewritten: raw attempts, reveal history and any diagnostic
+    episode already open stay as they are, so turning the switch off restores
+    them exactly. Placement receipts start empty.
+    """
+
+    from learnloop.params import parameter_registry as registry_service
+    from learnloop.substrate.p0_projection import activate_p0_projection
+
+    vault = load_vault(root)
+    current = vault.config.algorithms.algorithm_version
+    if current == PLACEMENT_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=current,
+            to_version=PLACEMENT_ALGORITHM_VERSION,
+            problems=[f"vault is already {PLACEMENT_ALGORITHM_VERSION}"],
+        )
+    if current != REVEAL_LEDGER_ALGORITHM_VERSION:
+        return UpgradeResult(
+            upgraded=False,
+            from_version=current,
+            to_version=PLACEMENT_ALGORITHM_VERSION,
+            problems=[
+                f"cannot upgrade from {current!r}; only {REVEAL_LEDGER_ALGORITHM_VERSION!r} "
+                f"may activate {PLACEMENT_ALGORITHM_VERSION}"
+            ],
+        )
+
+    sqlite_path = VaultPaths(vault.root, vault.config).sqlite_path
+    # Repository construction applies the additive migrations (169's receipt
+    # tables) before anything reads them.
+    repository = Repository(sqlite_path)
+    registry_service.freeze_manifest(
+        vault,
+        repository,
+        algorithm_version=REVEAL_LEDGER_ALGORITHM_VERSION,
+        clock=clock,
+    )
+    vault.config.algorithms.algorithm_version = PLACEMENT_ALGORITHM_VERSION
+    activate_p0_projection(
+        vault,
+        repository,
+        from_version=current,
+        clock=clock,
+    )
+    registry_service.refresh(vault, repository, clock=clock)
+    _rewrite_algorithm_version(
+        root / "learnloop.toml",
+        current,
+        PLACEMENT_ALGORITHM_VERSION,
+    )
+    return UpgradeResult(
+        upgraded=True,
+        from_version=current,
+        to_version=PLACEMENT_ALGORITHM_VERSION,
     )
 
 

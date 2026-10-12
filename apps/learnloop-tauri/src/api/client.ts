@@ -141,6 +141,10 @@ import type {
   GoalSeriesSnapshot,
   GoalsListSnapshot,
   StartCalibrationSessionInput,
+  PlacementSelfReportInput,
+  PlacementSelfReportResult,
+  PlacementStateDto,
+  StartQuickCheckInput,
   SourceSetDto,
   SourceSetsSnapshot,
   SourceCoverageDto,
@@ -897,7 +901,15 @@ export const api = {
   getCalibrationSession: (calibrationSessionId: string) =>
     call<CalibrationSessionProgressDto>("get_calibration_session", { calibrationSessionId }),
   stopCalibrationSession: (calibrationSessionId: string) =>
-    call<CalibrationSessionProgressDto>("stop_calibration_session", { calibrationSessionId }),
+    mutating([TAG.queue, TAG.graph], call<CalibrationSessionProgressDto>("stop_calibration_session", { calibrationSessionId })),
+  // Learner field F2: "I know this" / "too easy" / "I don't know this", and the
+  // optional "Check what I already know". Receipts only; never evidence.
+  placementSelfReport: (input: PlacementSelfReportInput) =>
+    mutating([TAG.queue, TAG.graph], call<PlacementSelfReportResult>("placement_self_report", { input })),
+  getPlacementState: (learningObjectIds?: string[]) =>
+    call<PlacementStateDto>("get_placement_state", { input: { learningObjectIds: learningObjectIds ?? null } }),
+  startQuickCheck: (input: StartQuickCheckInput) =>
+    mutating([TAG.queue], call<CalibrationSessionProgressDto>("start_quick_check", { input })),
   beginProbeDialogue: (learningObjectId: string) =>
     mutating(ATTEMPT_TAGS, call<BeginProbeDialogueResult>("begin_probe_dialogue", { learningObjectId })),
   nextProbeDialogueTurn: (dialogueState: string) =>

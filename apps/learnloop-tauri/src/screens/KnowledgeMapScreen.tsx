@@ -8,7 +8,7 @@ import { COLOR, Dim, Faint, FONT_MONO, KeyBar, Meta, Pill, SectionHeader } from 
 import { FacetInspector } from "../components/FacetInspector";
 import { masteryTone } from "../app/algoConfig";
 import { KnowledgeTerrainView } from "./KnowledgeTerrainView";
-import { KnowledgeWellView } from "./KnowledgeWellView";
+import { ASSUMED_LABEL, KnowledgeWellView } from "./KnowledgeWellView";
 import { KnowledgeStrataView } from "./KnowledgeStrataView";
 import { useElementSize } from "./wire3d";
 
@@ -394,7 +394,14 @@ export function FacetFieldDetail({
       ) : null}
       <SectionHeader>Two independent axes</SectionHeader>
       {stat("Demonstrated", `${Math.round(point.demonstratedMass * 100)}%`, COLOR.green)}
-      {point.untested ? <Pill color="slate">untested</Pill> : <>
+      {point.assumed ? (
+        // Learner field F2: a label, never a depth. The first review checks it.
+        <div style={{ margin: "4px 0" }} title="assumed known from a self-report, fast-track or quick check; its first ordinary review is the check">
+          <Pill color="purple">{ASSUMED_LABEL}</Pill>
+        </div>
+      ) : null}
+      {point.untested && !point.assumed ? <Pill color="slate">untested</Pill> : null}
+      {point.untested ? null : <>
         {stat("Ready", `${Math.round(point.ready * 100)}%`, COLOR.cyan)}
         {point.readyGhost - point.ready >= 0.01 ? stat("Ready before decay", `${Math.round(point.readyGhost * 100)}%`, COLOR.textDim) : null}
         {stat("Ready variance", point.readyVariance.toFixed(4))}
@@ -423,7 +430,10 @@ export function FacetFieldDetail({
       ) : null}
       <SectionHeader>Used by</SectionHeader>
       {point.learningObjectIds.length ? point.learningObjectIds.map((id) => (
-        <div key={id}><EntityLink id={id} onInspect={onInspect}><Meta>{id}</Meta></EntityLink></div>
+        <div key={id}>
+          <EntityLink id={id} onInspect={onInspect}><Meta>{id}</Meta></EntityLink>
+          {point.assumedLearningObjectIds?.includes(id) ? <Faint> · {ASSUMED_LABEL}</Faint> : null}
+        </div>
       )) : <Faint>no BlueprintRecipe references this facet</Faint>}
     </div>
   );

@@ -3,13 +3,13 @@ title: "derived_state_rebuilds"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite derived_state_rebuilds"
   - "table derived_state_rebuilds"
-schema_head: 168
+schema_head: 169
 table_name: "derived_state_rebuilds"
 table_role: "receipt"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/doctor.py"
   - "src/learnloop/ops/vault_upgrade.py"
+  - "src/learnloop/placement/report.py"
   - "src/learnloop/substrate/canonical_projection_rollout.py"
   - "src/learnloop/substrate/compat/substrate_cutover.py"
   - "src/learnloop/substrate/p0_projection.py"
@@ -91,6 +92,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/placement/report.py`
 
 ### Direct SQL writers
 
@@ -128,6 +130,7 @@ Indexes and uniqueness:
 - `tests/test_learner_review_system_entries.py`
 - `tests/test_measurement_corrections.py`
 - `tests/test_mvp09_upgrade.py`
+- `tests/test_placement_upgrade.py`
 - `tests/test_replay.py`
 - `tests/test_surfaced_belief_corrections.py`
 

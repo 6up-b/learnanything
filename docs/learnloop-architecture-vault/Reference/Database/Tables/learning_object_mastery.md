@@ -3,13 +3,13 @@ title: "learning_object_mastery"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite learning_object_mastery"
   - "table learning_object_mastery"
-schema_head: 168
+schema_head: 169
 table_name: "learning_object_mastery"
 table_role: "derived"
 functionality_status: "active"
@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/ops/doctor.py"
+  - "src/learnloop/placement/predictor.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
   - "src/learnloop/substrate/shadow_rebuild.py"
   - "src/learnloop/attempts/attempts.py"
@@ -115,14 +116,15 @@ Indexes and uniqueness:
 - `src/learnloop/learner/mastery.py`
 - `src/learnloop/learner/recall_calibration.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/placement/predictor.py`
 - `src/learnloop/reader/reader_guidance.py`
-- `src/learnloop/scheduling/scheduler.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_assumed_known.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_migrations.py`
 - `tests/test_p0_cutover_mvp08.py`
@@ -142,7 +144,6 @@ Indexes and uniqueness:
 - `tests/test_daily_loop_reader_authored_practice.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_diagnostic_probe_freshness.py`
-- `tests/test_diagnostic_probe_single_use.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

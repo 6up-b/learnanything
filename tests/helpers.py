@@ -390,3 +390,81 @@ def production_journal_mode() -> str:
     from learnloop.db.connection import wal_reset_bug_fixed
 
     return "wal" if wal_reset_bug_fixed() else "delete"
+
+
+# ── Learner field F2 (Slice A Phase 6) ───────────────────────────────────────
+
+PLACEMENT_LOS = {
+    # lo id: (concept, prerequisite concepts, {item id: authored difficulty})
+    "lo_eigen_basics": ("eigenvalues", [], {"pi_eig_easy": 0.2, "pi_eig_mid": 0.5, "pi_eig_hard": 0.8}),
+    "lo_spectral": ("spectral_theorem", ["eigenvalues"], {"pi_spec_easy": 0.3, "pi_spec_hard": 0.7}),
+    "lo_diag": ("diagonalization", [], {"pi_diag_easy": 0.25, "pi_diag_mid": 0.45, "pi_diag_hard": 0.75}),
+}
+
+
+def create_placement_vault(
+    root: Path,
+    *,
+    version: str = "mvp-0.10",
+    placement_toml: str | None = None,
+) -> VaultPaths:
+    """The basic vault plus three never-practised LOs outside any goal.
+
+    ``lo_spectral`` declares ``eigenvalues`` (``lo_eigen_basics``) as its
+    prerequisite, so it sits one layer below it. Items carry authored
+    difficulties so the incumbent's predicted success orders them.
+    """
+
+    paths = create_basic_vault(root)
+    concepts = {
+        "singular_value_decomposition": {
+            "title": "Singular Value Decomposition", "type": "procedure", "aliases": ["SVD"],
+            "description": "Matrix factorization.", "tags": [], "created_at": NOW_ISO, "updated_at": NOW_ISO,
+        }
+    }
+    for lo_id, (concept, prerequisites, items) in PLACEMENT_LOS.items():
+        concepts[concept] = {
+            "title": concept.replace("_", " ").title(), "type": "concept", "aliases": [],
+            "description": f"{concept}.", "tags": [], "created_at": NOW_ISO, "updated_at": NOW_ISO,
+        }
+        write_yaml(
+            paths.learning_object_path("linear-algebra", lo_id),
+            {
+                "schema_version": 1, "id": lo_id, "title": concept.replace("_", " ").title(),
+                "subjects": ["linear-algebra"], "concept": concept, "knowledge_type": "definition",
+                "status": "active", "contradicts": None, "summary": f"About {concept}.",
+                "prerequisites": prerequisites, "confusables": [], "difficulty_prior": 0.5, "tags": [],
+                "provenance": {"origin": "human", "source_refs": []},
+                "created_at": NOW_ISO, "updated_at": NOW_ISO,
+            },
+        )
+        for item_id, difficulty in items.items():
+            write_yaml(
+                paths.practice_item_path("linear-algebra", item_id),
+                {
+                    "schema_version": 1, "id": item_id, "learning_object_id": lo_id, "subjects": None,
+                    "practice_mode": "short_answer",
+                    "attempt_types_allowed": ["independent_attempt", "hinted_attempt", "dont_know"],
+                    "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
+                    "prompt": f"Question {item_id}.", "expected_answer": f"Answer {item_id}.",
+                    "difficulty": difficulty, "tags": [], "hints": ["A hint."],
+                    "hint_policy": {
+                        "max_useful_hints": 1,
+                        "fsrs_rating_cap_by_hint": {"1": "good"},
+                        "mastery_alpha_dampening_by_hint": {"1": 0.5},
+                    },
+                    "grading_rubric": {
+                        "max_points": 4,
+                        "criteria": [{"id": "correctness", "points": 4, "description": "Correct."}],
+                        "fatal_errors": [],
+                    },
+                    "provenance": {"origin": "human", "source_refs": []},
+                    "created_at": NOW_ISO, "updated_at": NOW_ISO,
+                },
+            )
+    write_yaml(paths.concepts_path, {"schema_version": 1, "concepts": concepts})
+    set_algorithm_version(paths, version)
+    if placement_toml:
+        append_config_toml(paths.root, placement_toml)
+    vault = load_vault(paths.root)
+    return VaultPaths(vault.root, vault.config)

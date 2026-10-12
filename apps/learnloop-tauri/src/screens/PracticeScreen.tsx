@@ -923,6 +923,17 @@ export function PracticeScreen({
                 onBack();
               }}
               onTeachBack={isTeachBack ? undefined : onContinueDiagnostic}
+              onKnowThis={
+                item.placementActive
+                  ? () => {
+                      // The LO is now assumed known (not tested): its new items
+                      // leave the queue, and its first review checks it.
+                      suppressDraftFlush.current = true;
+                      onCheckpointCleared();
+                      onBack();
+                    }
+                  : undefined
+              }
             />
           ) : null}
           {item.sourceRefs.length > 0 ? (

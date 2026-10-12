@@ -32,6 +32,7 @@ Algorithm versions identify persisted meaning, not package releases.
 | `mvp-0.7` | canonical knowledge-model state and assessment contracts |
 | `mvp-0.8` | authority-propagation projection with robust composition/reliability discounting |
 | `mvp-0.9` | successor retaining mvp-0.8 projection semantics and adding cross-channel reveal accounting |
+| `mvp-0.10` | successor retaining that projection and changing serving only: no opening probe per new LO, new material as learning, "assumed known (not tested)" checked in the first review (learner field F2; kill switch `placement.enabled`) |
 
 Successor sets are explicit so a new version does not accidentally fall back to a legacy projection through an equality check.
 

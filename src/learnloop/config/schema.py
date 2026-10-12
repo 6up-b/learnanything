@@ -1376,6 +1376,30 @@ class FieldConfig(BaseModel):
     llm_probability_enabled: bool = False
 
 
+class PlacementConfig(BaseModel):
+    """Learner field F2: starting new material without ceremony (spec §5.2).
+
+    Acts only on a vault at a placement algorithm version (``mvp-0.10``).
+    ``enabled`` is the kill switch: off restores the predecessor's opening
+    probes, serving and ordering exactly, and ignores recorded assumptions.
+    """
+
+    enabled: bool = True
+    # D11: no opening diagnostic episode per new LO. True restores them while
+    # keeping assumed-known (a narrower switch than ``enabled``).
+    initial_probes: bool = False
+    # D6: the assumed LO's first review is the check.
+    assumed_first_interval_days: int = Field(default=14, ge=1)
+    # D6: at least this many cold, unhinted, unhelped, full-marks first answers.
+    fast_track_min_correct: int = Field(default=2, ge=2)
+    # D6: P(theta_L > theta_known) >= q, theta_known = logit(known_probability).
+    fast_track_q: float = Field(default=0.8, gt=0.5, lt=1.0)
+    known_probability: float = Field(default=0.75, gt=0.5, lt=1.0)
+    # D4: the optional quick check ("Check what I already know").
+    quick_check_k: int = Field(default=4, ge=1, le=4)
+    quick_check_budget_minutes: int = Field(default=8, ge=1, le=8)
+
+
 class LearnLoopConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -1404,6 +1428,7 @@ class LearnLoopConfig(BaseModel):
     project: ProjectConfig = Field(default_factory=ProjectConfig)
     field: FieldConfig = Field(default_factory=FieldConfig)
     families: FamiliesConfig = Field(default_factory=FamiliesConfig)
+    placement: PlacementConfig = Field(default_factory=PlacementConfig)
     capabilities: CapabilitiesConfig = Field(default_factory=CapabilitiesConfig)
     locks: LocksConfig = Field(default_factory=LocksConfig)
     error_impacts: dict[str, ErrorImpact] = Field(default_factory=dict)

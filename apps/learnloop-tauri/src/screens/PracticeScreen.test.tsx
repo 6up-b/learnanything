@@ -7,7 +7,8 @@ import { selectWithDraftFlush } from "../app/vaultTransition";
 const { api } = vi.hoisted(() => ({ api: {
   getPracticeItem: vi.fn(), getProbeContract: vi.fn(), recoverPracticeSubmission: vi.fn(),
   acknowledgePracticeSubmission: vi.fn(), savePracticeDraft: vi.fn(), submitAttempt: vi.fn(),
-  getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn()
+  getNextProbeItem: vi.fn(), startTeachBack: vi.fn(), submitTeachBackTurn: vi.fn(),
+  placementSelfReport: vi.fn()
 } }));
 vi.mock("../api/client", () => ({ api }));
 const windowApi = vi.hoisted(() => ({
@@ -209,4 +210,29 @@ it("tells the tutor whether an answer was started when the learner asks", async 
   fireEvent.keyDown(window, { key: "?" });
   expect(callbacks.onAsk).toHaveBeenLastCalledWith(expect.objectContaining({ attemptProgress: "draft_started" }));
   expect(callbacks.onAsk).toHaveBeenCalledTimes(3);
+});
+
+// Learner field F2: "I know this" on a card is offered only while placement is
+// on; it marks the card's LO assumed known (not tested) and moves on.
+it("does not offer 'I know this' while placement is off", async () => {
+  render(<PracticeScreen {...props()} />);
+  await screen.findByRole("textbox", { name: "answer" });
+  expect(screen.queryByText("✓ I know this")).toBeNull();
+});
+
+it("offers 'I know this' while placement is on, then leaves the card", async () => {
+  api.placementSelfReport.mockResolvedValue({});
+  api.getPracticeItem.mockResolvedValue({
+    id: "old-item", learningObjectId: "lo", learningObjectTitle: "Topic", practiceMode: "open_text",
+    attemptTypesAllowed: ["independent_attempt"], evidenceFacets: [], evidenceWeights: {}, hints: [],
+    hintPolicy: { maxUsefulHints: 0 }, candidateErrorTypes: [], tags: [], sourceRefs: [], attempts: [], rubric: null,
+    placementActive: true
+  });
+  const callbacks = props();
+  render(<PracticeScreen {...callbacks} />);
+  const action = await screen.findByText("✓ I know this");
+  await act(async () => { fireEvent.click(action); });
+  expect(api.placementSelfReport).toHaveBeenCalledWith({ report: "know_this", practiceItemId: "old-item" });
+  expect(callbacks.onBack).toHaveBeenCalled();
+  expect(callbacks.onCheckpointCleared).toHaveBeenCalled();
 });

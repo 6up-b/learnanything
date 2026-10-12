@@ -3,13 +3,13 @@ title: "causal_activity_classification_events"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite causal_activity_classification_events"
   - "table causal_activity_classification_events"
-schema_head: 168
+schema_head: 169
 table_name: "causal_activity_classification_events"
 table_role: "raw_ledger"
 functionality_status: "active"
@@ -20,6 +20,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/122_causal_activity_events.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/placement/state.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
@@ -100,6 +101,7 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/placement/state.py`
 
 ### Direct SQL writers
 

@@ -3,13 +3,13 @@ title: "probe_calibration_sessions"
 status: "current"
 doc_version: "1.0"
 architecture_version: "post-refactor"
-source_commit: "247d474756cf5e3a7eb1019f900fe0dba0ee0ff5"
-source_commit_timestamp: "2026-10-12T03:54:53-04:00"
+source_commit: "974c5647efbeb07e7d477ae1608dc6b5554f5382"
+source_commit_timestamp: "2026-10-12T11:26:57-04:00"
 last_verified: "2026-09-23"
 aliases:
   - "state.sqlite probe_calibration_sessions"
   - "table probe_calibration_sessions"
-schema_head: 168
+schema_head: 169
 table_name: "probe_calibration_sessions"
 table_role: "workflow"
 functionality_status: "active"
@@ -21,6 +21,7 @@ source_paths:
   - "migrations/029_probe_selection_and_calibration.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/diagnosis/calibration_sessions.py"
+  - "src/learnloop/diagnosis/quick_check.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -47,7 +48,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/029_probe_selection_and_calibration.sql`.
-- **Schema touched by:** `029_probe_selection_and_calibration.sql`.
+- **Schema touched by:** `029_probe_selection_and_calibration.sql`, `169_placement_assumptions.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -97,12 +98,14 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/diagnosis/calibration_sessions.py`
+- `src/learnloop/diagnosis/quick_check.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/test_quick_check.py`
 - `tests/test_graph_correction.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

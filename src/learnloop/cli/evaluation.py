@@ -2,7 +2,8 @@
 
 The group callback keeps `learnloop eval --vault ...` as the legacy decision
 calibration report; `--section field` adds learner-field reports 1-2. The
-`families` subcommand is the PF-a arm set over the same harness. None of these
+`families` subcommand is the PF-a arm set over the same harness; `placement`
+is learner-field report 3 (assumed known, checked in review). None of these
 initialize or migrate a vault, and replay never calls a model.
 """
 from __future__ import annotations
@@ -13,6 +14,7 @@ from typing import Annotated
 import typer
 
 from learnloop.cli.field import _LEGACY_FALLBACK_HELP, families_eval, field_eval
+from learnloop.cli.placement import placement_eval
 from learnloop.cli.runtime import _root
 
 eval_app = typer.Typer(
@@ -59,3 +61,4 @@ def evaluate_existing(
 
 
 eval_app.command("families")(families_eval)
+eval_app.command("placement")(placement_eval)

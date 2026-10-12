@@ -22,11 +22,19 @@ P0_ALGORITHM_VERSION = "mvp-0.8"
 # is unchanged and uses the mvp-0.8 authority-propagation substrate.
 REVEAL_LEDGER_ALGORITHM_VERSION = "mvp-0.9"
 
+# mvp-0.10 (Slice A Phase 6, learner field F2): starting new material without
+# ceremony. No opening probe per new LO; new material starts as learning in
+# prerequisite and predicted-difficulty order; "assumed known (not tested)" LOs
+# wait for their first review. It changes what is SERVED, not the projection,
+# so it is another successor tag on the mvp-0.8 namespace. Kill switch:
+# ``placement.enabled``.
+PLACEMENT_ALGORITHM_VERSION = "mvp-0.10"
+
 # Successors inherit mvp-0.8 projection semantics wholesale. Gates asking "is
 # this the P0 projection?" must use this set rather than equality against
 # P0_ALGORITHM_VERSION, or each version bump silently demotes fresh vaults.
 P0_SUCCESSOR_VERSIONS: frozenset[str] = frozenset(
-    {REVEAL_LEDGER_ALGORITHM_VERSION}
+    {REVEAL_LEDGER_ALGORITHM_VERSION, PLACEMENT_ALGORITHM_VERSION}
 )
 P0_PROJECTION_VERSIONS: frozenset[str] = (
     frozenset({P0_ALGORITHM_VERSION}) | P0_SUCCESSOR_VERSIONS
@@ -38,3 +46,8 @@ P0_PROJECTION_VERSIONS: frozenset[str] = (
 CANONICAL_STATE_VERSIONS: frozenset[str] = (
     frozenset({KM_ALGORITHM_VERSION}) | P0_PROJECTION_VERSIONS
 )
+
+# Versions whose serving includes F2 placement (behind ``placement.enabled``).
+# A later successor that keeps placement adds itself here; gates must use this
+# set, never equality against PLACEMENT_ALGORITHM_VERSION.
+PLACEMENT_VERSIONS: frozenset[str] = frozenset({PLACEMENT_ALGORITHM_VERSION})

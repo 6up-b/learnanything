@@ -33,8 +33,10 @@ sqlite_path = "state.sqlite"
 # legacy mvp-0.6 content upgrades to mvp-0.7 first. Legacy `probe_<lo_id>` phases
 # recorded under earlier versions replay through the frozen path forever; new
 # diagnostic episodes replay exclusively through probe_observations under the
-# pinned channel snapshot.
-algorithm_version = "mvp-0.9"
+# pinned channel snapshot. mvp-0.10 (Slice A Phase 6) keeps that projection and
+# changes only serving: no opening probe per new LO, assumed-known LOs checked
+# in their first review (kill switch placement.enabled).
+algorithm_version = "mvp-0.10"
 
 # Single source of truth for per-attempt-type evidence (Fable's-take item 3).
 # evidence_mass weights ability-belief updates (mastery EKF / reliability);
@@ -710,7 +712,7 @@ DEFAULT_CONFIG_TEXT = """schema_version = 2
 sqlite_path = "state.sqlite"
 
 [algorithms]
-algorithm_version = "mvp-0.9"
+algorithm_version = "mvp-0.10"
 
 # AI is optional; an unavailable provider keeps today's manual workflow.
 # Precedence: explicit flag > LEARNLOOP_AI_PROVIDER > task route > active provider.
@@ -801,6 +803,10 @@ DEFAULTS_SNAPSHOT_BY_ALGORITHM: dict[str, str] = {
     # the kill switch over the daily-loop reference-question adoption sweep;
     # its default keeps the merged behaviour.
     "mvp-0.9": "c1f6c55cd95d91515286ca27e010d05fdfb15f8718f220bf46097bd16f9696ca",
+    # Slice A Phase 6 (learner field F2) mints mvp-0.10 and adds [placement]:
+    # no opening probes, assumed-known checked in the first review, the
+    # optional quick check. Kill switch placement.enabled.
+    "mvp-0.10": "94d7a3e93b9f27d1e28f78c17b4e3597474870352d1a6a9a08282d8654cbf65b",
 }
 
 

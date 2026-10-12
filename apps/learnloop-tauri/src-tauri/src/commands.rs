@@ -900,6 +900,12 @@ sidecar_passthrough!(submit_exam_answer, "submit_exam_answer");
 
 sidecar_passthrough!(start_calibration_session, "start_calibration_session");
 
+sidecar_passthrough!(placement_self_report, "placement_self_report");
+
+sidecar_passthrough!(get_placement_state, "get_placement_state");
+
+sidecar_passthrough!(start_quick_check, "start_quick_check");
+
 #[tauri::command]
 pub async fn get_calibration_session(
     calibration_session_id: String,

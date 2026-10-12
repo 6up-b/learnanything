@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { DecayPressureDto, KnowledgeFacetField, KnowledgeFacetPoint } from "../api/dto";
+import { ASSUMED_LABEL } from "../components/PlacementControls";
 import { COLOR, FONT_MONO } from "../components/term";
 import { useScrollZoom } from "./scrollZoom";
 import { depthFade, polyPath, project, useOrbitCamera, type Projected } from "./wire3d";
@@ -47,6 +48,12 @@ const CONTOUR_QS = [0.12, 0.24, 0.36, 0.48, 0.6, 0.72]; // fractions of DEPTH
 const SPOKE_STEPS = 26;
 const EASE = "stroke 0.22s ease, fill 0.22s ease, opacity 0.22s ease, stroke-width 0.22s ease";
 
+// Learner field F2 (§5.1): the honest label for an LO assumed known from a
+// self-report, fast-track or quick check. Its first ordinary review checks it.
+export { ASSUMED_LABEL };
+const ASSUMED_NOTE = "assumed known, not tested: its first review is the check";
+const ASSUMED_DASH = "1.6 1.8";
+
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 const smooth = (t: number) => t * t * (3 - 2 * t);
 const visibility = (evidenceMass: number) => evidenceMass / (evidenceMass + EVIDENCE_K);
@@ -89,6 +96,10 @@ interface FacetState {
   instructed: boolean;
   absent: boolean; // no blueprint ⇒ content debt, not a learner gap (§1.7)
   noHistory: boolean; // FSRS-held-flat ⇒ must not get confident geometry (§1.4)
+  // Learner field F2: an LO on this facet is "assumed known (not tested)". A
+  // LABEL channel only — it never enters depth, ghosts or the demonstrated bead
+  // (F8, never blend); its first review is the check.
+  assumed: boolean;
   crossesInDays: number | null;
   showGhost: boolean;
 }
@@ -139,6 +150,7 @@ export function buildStates(field: KnowledgeFacetField, decay: DecayPressureDto 
       instructed: (point.coldCheckPending ?? false) && !demonstrated && !absent && !noHistory,
       absent,
       noHistory,
+      assumed: point.assumed ?? false,
       crossesInDays: entry?.crossesInDays ?? null,
       showGhost: !absent && !noHistory && ghostDepth - wellDepth >= 0.01
     };
@@ -536,7 +548,12 @@ export function KnowledgeWellView({
         const hit = 11 * zoom.markerScale;
         const tooltip =
           `${s.point.title}\n` +
-          (s.point.untested ? "untested" : `Ready ${Math.round(s.point.ready * 100)}% · Demonstrated ${Math.round(s.point.demonstratedMass * 100)}% · evidence ${s.point.evidenceMass.toFixed(2)}`) +
+          (s.point.untested
+            ? s.assumed
+              ? ASSUMED_LABEL
+              : "untested"
+            : `Ready ${Math.round(s.point.ready * 100)}% · Demonstrated ${Math.round(s.point.demonstratedMass * 100)}% · evidence ${s.point.evidenceMass.toFixed(2)}`) +
+          (s.assumed ? `\n${ASSUMED_NOTE}` : "") +
           (s.absent ? "\nabsent: no blueprint (content debt)" : "") +
           (s.noHistory ? "\nheld flat: not enough history" : "") +
           (s.instructed
@@ -559,7 +576,17 @@ export function KnowledgeWellView({
         if (s.point.untested) {
           return (
             <g key={`bead-${s.point.id}`} opacity={isActive ? 1 : fade} style={{ cursor: "pointer" }} onMouseEnter={onEnter} onClick={onClick}>
-              <circle cx={p.x} cy={p.y} r={size} fill="none" stroke={COLOR.textDim} strokeWidth={1.1} />
+              {/* Assumed (not tested): a dashed purple outline, never filled —
+                  distinct from an untested outline and from a demonstrated bead. */}
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={size}
+                fill="none"
+                stroke={s.assumed ? COLOR.purpleText : COLOR.textDim}
+                strokeWidth={1.1}
+                strokeDasharray={s.assumed ? ASSUMED_DASH : undefined}
+              />
               <circle cx={p.x} cy={p.y} r={hit} fill="transparent" />
               <title>{tooltip}</title>
             </g>
@@ -596,6 +623,11 @@ export function KnowledgeWellView({
         }
         return (
           <g key={`bead-${s.point.id}`} opacity={isActive ? 1 : fade} style={{ cursor: "pointer", transition: EASE }} onMouseEnter={onEnter} onClick={onClick}>
+            {/* Assumed known (not tested) on a facet that has evidence from
+                elsewhere: an outer dashed purple ring, outside the bead itself. */}
+            {s.assumed ? (
+              <circle cx={p.x} cy={p.y} r={size + 5.5} fill="none" stroke={COLOR.purpleText} strokeWidth={0.9} strokeDasharray={ASSUMED_DASH} />
+            ) : null}
             {/* Locked facets get a subtle padlock ring, per the terrain view. */}
             {s.point.locked ? (
               <circle cx={p.x} cy={p.y} r={size + 3.5} fill="none" stroke={COLOR.amber} strokeWidth={0.8} strokeDasharray="2 2" opacity={0.7} />
@@ -692,10 +724,10 @@ export function KnowledgeWellView({
                 textAnchor={anchor}
                 dominantBaseline="middle"
                 fontSize={9.5}
-                fill={COLOR.cyan}
+                fill={s.point.untested && s.assumed ? COLOR.purpleText : COLOR.cyan}
                 style={{ transition: EASE }}
               >
-                {s.point.untested ? "untested" : `Ready ${Math.round(s.point.ready * 100)}%`}
+                {s.point.untested ? (s.assumed ? ASSUMED_LABEL : "untested") : `Ready ${Math.round(s.point.ready * 100)}%`}
               </text>
             ) : null}
           </g>

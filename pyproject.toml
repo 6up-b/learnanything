@@ -221,10 +221,14 @@ name = "Placement and map consumers do not import predictor implementations"
 type = "forbidden"
 source_modules = [
     "learnloop_sidecar.handlers.knowledge_map",
+    "learnloop_sidecar.handlers.placement",
     "learnloop.diagnosis.calibration_sessions",
+    "learnloop.diagnosis.quick_check",
+    "learnloop.placement",
+    "learnloop.scheduling.scheduler",
     "learnloop.substrate.state_sync",
 ]
-forbidden_modules = ["learnloop.field.predictors"]
+forbidden_modules = ["learnloop.field.predictors", "learnloop.field.evaluation", "learnloop.field.memory"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
@@ -236,6 +240,13 @@ depth = 0
 ignore_imports = [
     # Composition-root registration of the field's sole DERIVED-table owner.
     "learnloop.substrate.rebuild_orchestrator -> learnloop.field.outcomes",
+    # Learner field F2: placement consumes the field's two pure leaf modules,
+    # the LearnerPredictor contract (field.types) and the shared fast-track
+    # blocking rule (field.signals). Both import only the standard library and
+    # field.types, and field/__init__ imports only field.types, so these edges
+    # cannot form a runtime cycle with the scheduling/substrate consumers.
+    "learnloop.placement.* -> learnloop.field.types",
+    "learnloop.placement.signals -> learnloop.field.signals",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_activity_policy",
     "learnloop.attempts.attempts -> learnloop.diagnosis.causal_attribution",
     "learnloop.attempts.attempts -> learnloop.diagnosis.diagnostic_augmentation",

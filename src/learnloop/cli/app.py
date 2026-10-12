@@ -75,21 +75,24 @@ def upgrade(
         str,
         typer.Option(
             "--to",
-            help="Target algorithm version (mvp-0.7, mvp-0.8, or mvp-0.9).",
+            help="Target algorithm version (mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10).",
         ),
-    ] = "mvp-0.9",
+    ] = "mvp-0.10",
 ) -> None:
     """Atomically activate a knowledge-model version for this vault.
 
     ``--to mvp-0.7`` activates the KM2 canonical model over legacy mvp-0.6 content
     (KM §15); ``--to mvp-0.8`` activates the P0 authority-propagation
-    projection over an mvp-0.7 vault; ``--to mvp-0.9`` (default) activates
-    cross-channel reveal accounting over an mvp-0.8 vault."""
+    projection over an mvp-0.7 vault; ``--to mvp-0.9`` activates
+    cross-channel reveal accounting over an mvp-0.8 vault; ``--to mvp-0.10``
+    (default) starts new material without ceremony over an mvp-0.9 vault
+    (kill switch ``placement.enabled``)."""
 
     from learnloop.ops.vault_upgrade import (
         upgrade_to_mvp07,
         upgrade_to_mvp08,
         upgrade_to_mvp09,
+        upgrade_to_mvp010,
     )
 
     if to == "mvp-0.7":
@@ -98,9 +101,11 @@ def upgrade(
         result = upgrade_to_mvp08(_root(vault))
     elif to == "mvp-0.9":
         result = upgrade_to_mvp09(_root(vault))
+    elif to == "mvp-0.10":
+        result = upgrade_to_mvp010(_root(vault))
     else:
         typer.echo(
-            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, or mvp-0.9."
+            f"Unknown target version {to!r}; expected mvp-0.7, mvp-0.8, mvp-0.9, or mvp-0.10."
         )
         raise typer.Exit(code=2)
     if result.upgraded:
