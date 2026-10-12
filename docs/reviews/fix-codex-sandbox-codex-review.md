@@ -204,3 +204,157 @@ Run at `e4a5a7b6`. The commit that adds this file changes only this file.
    `AGENT_SYSTEM_CONFIG` list the ones Codex 0.161 has, so a new one is a one-line addition.
    The stage review's open questions 1 and 2 still apply here. A readiness-time startup probe
    would catch a new failure mode before a paid sweep.
+
+---
+
+# Re-review: Codex re-review fixes
+
+**Branch:** `fix/codex-sandbox`, on top of `01207d31` (the first round's review record).
+**Re-review:** codex-job `20261012-033602-X9W2M4`. F1 was confirmed fixed and F2 was reopened
+with three remaining bypasses. No new defects were reported.
+**Scope:** `src/learnloop/ai/isolation.py` and `tests/test_ai_tool_isolation.py` only. The
+Codex provider, the project runtime, config, schema and frontend are unchanged.
+**Kill switch:** unchanged (`project.require_tool_isolation`). Every new case is a refusal
+before launch (`ToolIsolationUnavailable`), never a weaker sandbox.
+
+## Findings
+
+| ID | Severity | Title | Verdict | Commit | Test or reason |
+|---|---|---|---|---|---|
+| F1 | High | A later mount can expose the private agent home | **confirmed fixed** by the re-review; no change | `e4a5a7b6` | first-round tests; the re-review's parent, equal and Node-package layouts were all refused |
+| F2a | Medium | Host-bound descendants of the home pass the `sqlite_home` check | **fixed** | `312213a9` | `test_a_working_directory_inside_the_agent_home_is_refused` (6 params), `test_a_state_location_under_any_host_bind_in_the_home_is_refused` (3) |
+| F2b | Medium | An escaped TOML key bypasses the parse-error check | **fixed** | `312213a9` | `test_an_unparseable_config_that_could_spell_the_setting_with_an_escape_is_refused` (4), `test_an_escaped_setting_name_in_toml_1_0_is_read` |
+| F2c | Medium | `-c=key=value` bypasses the override check | **fixed** | `312213a9` | `test_short_option_overrides_with_an_equals_sign_are_read_like_clap`, `test_an_argument_that_names_the_setting_in_an_unread_form_is_refused` (3) |
+
+All three F2 cases reproduced before the fix, both with real Codex and with failing tests.
+No finding was rejected.
+
+## Reproduction (at `01207d31`)
+
+Credential-free real Codex 0.161 startups. Each run used a synthetic agent home with no
+`auth.json` and launched the real `codex app-server` through `sandboxed_command`. It sent
+`initialize`, closed stdin, then listed the host side of the working directory. No turn was
+started.
+
+| Case | Layout | Result at `01207d31` |
+|---|---|---|
+| default | separate home and working directory | rc 0; host working directory empty |
+| F2a | `workdir=<home>/work`, `sqlite_home = "<workdir>"` | rc 0; **15 files** (`state_5`, `logs_2`, `goals_1`, `memories_1`, `queue_1` `.sqlite` with `-wal`/`-shm`) in the host working directory |
+| F2b | `"sqlite_home" = "<workdir>"` plus a TOML 1.1 multi-line inline table | rc 0; **the same 15 files** |
+| F2c | `codex -c=sqlite_home="<workdir>" app-server` | rc 0; **the same 15 files** |
+| F2a, no setting | `workdir=<home>/skills` | rc 0; **71 files**: Codex installed its system skills (`.system/...`) into the host working directory |
+| F2a, no setting | `workdir=<home>/sessions` | rc 0; nothing at startup (rollouts are written during a turn) |
+
+The last two rows widen F2a. With no setting at all, a working directory inside the home
+still receives whatever Codex keeps under that part of its home. So the guard has to cover the
+mount itself, not only the `sqlite_home` value.
+
+The new tests failed at `01207d31`: 17 failed, 1 passed. The one that passed is
+`test_an_escaped_setting_name_in_toml_1_0_is_read`, a regression guard: `tomllib` already
+decodes the escape when the file is TOML 1.0. In the bwrap tests, the Codex-like fake wrote
+its databases (and, for `sessions`, its transcript) into the host-bound working directory.
+
+## Fix (`312213a9`)
+
+### F2a: validate against the effective mounts
+
+- **A working directory inside the agent home is refused.** It is bound from the host on top
+  of the in-memory home. Together with F1 (a working directory that *contains* the home), the
+  rule is that the two must be disjoint:
+
+  > the working directory /…/home/work is inside the agent home (/…/home); it is bound from
+  > the host on top of the private in-memory home, so whatever the agent keeps under that part
+  > of its home (its databases, sessions, skills and caches) would reach the host; use a
+  > working directory outside the agent home
+
+  The project runtime always uses a fresh `tempfile` directory (`learnloop-project-*`), so
+  real launches are unaffected.
+- **A `sqlite_home` must have the home tmpfs as its effective mount.** `sandbox_arguments`
+  now records every host bind that follows the home tmpfs: `auth.json`, `config.toml`, the
+  executable's package or file outside the system trees, and the working directory. A
+  location inside the home but under one of those binds is refused, and the message names the
+  bind. An executable inside the home stays allowed, because it is a read-only bind of the
+  host's files. A state location inside it is refused.
+
+### F2b: refuse a file that could spell the key and that `tomllib` cannot read
+
+Codex parses TOML 1.1, and `tomllib` only TOML 1.0. A key is bare, a literal string or a
+basic string. Every spelling of `sqlite_home` without an escape contains the text
+`sqlite_home`, and every escape (`\u`, `\U`, `\x`, ...) needs a backslash. A file `tomllib`
+cannot parse is therefore refused when it names the key **or holds any backslash**. A TOML 1.1
+file with neither cannot set the key, and still runs. The control below confirms that real
+Codex accepts such a file and leaves the host empty. Codex's `ConfigToml` has no serde alias
+or `rename_all` for the field, and profiles carry no `sqlite_home`, so there is no other key
+spelling. This was checked in the local Codex source.
+
+### F2c: read every override form clap accepts, refuse the rest
+
+Codex 0.161 reads an override from `-c V`, `-cV`, `-c=V`, `--config V` and `--config=V`. clap
+drops one leading `=` from a short option's attached value. Its other short options (`-i -m
+-p -s -C -a`) take values, and `-h`/`-V` exit, so a cluster can't hide a `-c`. Codex rejects
+the abbreviation `--conf`. The override key is split on the first `=` and trimmed, with no
+unquoting, so an override has to contain the literal key. The parser now:
+
+- reads `-c=V` (strips the one `=`);
+- checks every reading of an argument that has more than one, such as `-c -cV`;
+- refuses any argument that contains `sqlite_home` and is not read as an override of exactly
+  that key: a flag cluster, a dotted path, an option it doesn't know. The refusal message says
+  it "cannot tell where the agent would keep its run state".
+
+`test_a_config_file_tomllib_cannot_parse_is_refused_only_when_it_names_the_setting` was
+renamed `..._only_when_it_could_name_the_setting`. Its assertions are unchanged.
+
+### After the fix (same credential-free startups, `312213a9`)
+
+| Case | Result |
+|---|---|
+| default | rc 0, `initialize` OK; host working directory and home empty |
+| F2a `<home>/work` + `sqlite_home` | **refused before launch** (working directory inside the agent home) |
+| F2b escaped key + TOML 1.1 | **refused before launch** (`cannot parse … sqlite_home …`) |
+| F2c `-c=sqlite_home="<workdir>"` | **refused before launch** (`sqlite_home override … outside its private in-memory home`) |
+| `<home>/skills`, `<home>/sessions` | **refused before launch** |
+| control: TOML 1.1 inline table, no backslash, no key | rc 0, `initialize` OK; host working directory empty, host home holds only its `config.toml` |
+| control: `-c=sqlite_home="<home>/state"` | rc 0, `initialize` OK; host working directory and home empty |
+
+The owner's real layout was checked without a launch: the default `~/.codex` home (no
+`CODEX_HOME` set) and a fresh `learnloop-project-*` working directory. `sandboxed_command`
+**accepted** it. Only "accepted" or "refused" was printed. The check parses `config.toml` in
+process and prints none of it. `auth.json` was not read.
+
+## Calls and cost (re-review)
+
+- **Real Codex app-server launches:** 9, all credential-free with synthetic homes, `initialize`
+  only. 6 ran before the fix and 3 after; the 5 other cases after the fix were refused before
+  launch.
+- **Codex CLI:** 5 `--help`/`--version` invocations with a throwaway `CODEX_HOME`, to list
+  0.161's flags and confirm that `-c=` is accepted and `--conf` is not.
+- **Model requests:** 0, so no tokens and no spend. The subscription estimate is $0.
+- **OpenRouter:** no calls.
+- **Vaults:** none touched. All files were synthetic, in the session scratchpad.
+
+## Gate results (re-review)
+
+Run at `312213a9`. The commit that adds this section changes only this file.
+
+| Check | Result |
+|---|---|
+| `uv sync --extra dev` + `uv pip install pypdfium2` | OK (pypdfium2 5.14.0) |
+| `uv run lint-imports --no-cache` | **8 kept, 0 broken** |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -n auto` | **6,389 passed**, 0 failed, 0 skipped, 14 warnings (149.3 s); the first round's 6,371 plus 18 new tests |
+| `flock /tmp/learnloop-fullsuite.lock uv run pytest -m durability` | **63 passed**, 6,326 deselected (25.8 s) |
+| `tests/test_ai_tool_isolation.py --durable-sqlite` | **68 passed**, none skipped: bubblewrap ran for real (50 before, 18 new) |
+| Tests matching `isolation`, `codex` or `project` (`-k`, `-n auto`) | **654 passed** |
+| Frontend | not touched, not run |
+| DB reference scripts | schema not touched, not run |
+
+## Residual limits (re-review)
+
+The first round's three residual limits still apply: wrappers inside `sdk_launch_command`,
+arguments the SDK appends to a `write_launcher` program, and newer Codex versions. Two more:
+
+4. **An unparseable config with a backslash is refused** even when the backslash is in a
+   harmless value, because there is no TOML 1.1 parser to tell where it is. The fix is to
+   rewrite that file in TOML 1.0 (or use the kill switch). The owner's `~/.codex/config.toml`
+   parses with `tomllib`, so this doesn't affect the owner today.
+5. **Any command-line argument that mentions `sqlite_home`** must be an exact `-c`/`--config`
+   override of it, or the launch is refused. LearnLoop's own launches pass none.
