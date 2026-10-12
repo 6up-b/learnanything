@@ -588,7 +588,7 @@ Facet dossiers moved here from the learner-field spec. That spec was reshaped an
   - **Labels** (revised 2026-10-11: no owner labelling chore). LLM relevance labels on held-out queries, in two passes with agreement reported, plus **usage signals**: which proposed items the learner actually practised, skipped, or marked "too easy" or "not what I asked for". All are stored in `judgment_ledger`. Owner labels are optional.
   - **Metrics.** Recall@10 and nDCG@10.
   - **The bar.** Two-level search through dossiers must beat **direct item search** (BM25 + item-outline or item-text embeddings) on held-out queries to stay in the path. Otherwise `find_practice` uses direct item search, and dossiers remain only as readable facet explanations for the tutor, diagnoser and map.
-- **Not a router.** A learned action router using dossier embeddings as features is deferred (learner-field spec §11). The near-term version is an LLM agent that reads dossiers as **text** when choosing practice.
+- **Not a router.** Block-level routing is `spec_action_router_v1.md`: Perplexity Decider v1.1 inside the P4 staged frame. Within a "practice on X" block, `find_practice` proposes the items. A learned router using dossier embeddings as features stays deferred (router spec §13).
 
 ---
 

@@ -358,8 +358,26 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
   | `lo_general` and its four extension arms (+ composite) | §4.3 |
   | `idea_hier` | §4.3, after PF-a creates families |
   | `family_memory` (per item / family / LO) | The practice-family idea-identity replay |
-  | `llm_probability` | **Optional, off by default** (D8). A frontier model reads recent graded attempts and predicts the next item; one-parameter recalibration on past predictions only; spend-capped; cached outside the vault. It can't be active (G11). It is a one-off offline test of "LLM as sensor", nothing more |
+  | `llm_probability` V1–V3 | **Optional, off by default** (D8). Three input variants of one sensor, run together as one offline comparison (revised 2026-10-11, owner). Details are below the table |
 
+- **`llm_probability` variants** (added 2026-10-11, owner). They test whether the model predicts better from the learner's rich history than from the item alone. JevKT (2610.11135) fed only a 25-item right/wrong window and found more marks added nothing, but never tested answer text, error traces or diagnoses.
+  - **Model:** Perplexity Decider v1.1 (`pplx-decider-v1.1-27b`), through `ai.routing.llm_probability` and provider type `perplexity_decisions` (`spec_action_router_v1.md` §6). Jev is not used.
+  - **The question:** one `noul` question, "Will the learner answer this item correctly on this attempt?". P(yes) is the prediction.
+  - **The variants:**
+
+    | Variant | `state` sent to the model |
+    |---|---|
+    | **V1 item only** | The item stem, its LO and facet names, and its difficulty prior (solver-panel difficulty once Phase 5a lands; otherwise empirical or authored) |
+    | **V2 right/wrong window** | V1, plus the learner's last 25 graded interactions as (item, KC names, correct/incorrect). This reproduces JevKT's history format, without its population statistics, which LearnLoop doesn't have |
+    | **V3 rich state** | V1, plus a `LearnerStateCardV1`-style rendering restricted to this LO and its prerequisite neighbours: recent answers (excerpts), blind grades, diagnosis hypotheses with evidence, hints and their timing, typed tutor questions, and the active predictor's numbers. Same token budget as the router card (router spec §4) |
+
+  - **Recalibration.** Each variant is reported raw and with one-parameter recalibration fit on past predictions only.
+  - **No leakage.** A prediction never includes the outcome being predicted, or any material revealed after the attempt began.
+  - **Spend and storage.** Spend-capped, with `--dry-run` first. Responses are cached outside the vault, so replay makes zero calls.
+  - **What the result decides.**
+    - If V3 clearly beats V2 (bootstrap interval excluding 0 at D9's margin), the rich history carries information the numeric arms miss. That is evidence for the router's card (router spec §4), and for reconsidering `idea_hier_llm_prior` (§11).
+    - If V1 ≈ V2 ≈ V3, the model's value lies in judgment, and the numbers keep coming from the explicit arms.
+  - **Never active** (G11): this is a point predictor.
 - **Metrics.**
   - Log loss, Brier, a reliability diagram, and AUC at attempt level.
   - Splits: **first attempt on a never-seen LO vs later attempts** (cross-LO prediction only matters for the first), serving origin, revision status and topic.
@@ -466,7 +484,7 @@ logit P(success) = a_i · ( θ_general + θ_L ) − b_i
 | D5 | Self-report | "I know this" or "too easy" marks an LO assumed known immediately; "I don't know this" returns it to learning immediately. No triage screen |
 | D6 | Fast-track and first review | ≥ 2 cold correct first answers and `P(θ_L > θ_known) ≥ q`, with `q = 0.8` at `θ_known = logit(0.75)` (0.9 if report 2 lacked data); first review after 14 days. Tune from report 3 |
 | D7 | Wait for Slice 1's grader probes before F2? | No, per the owner's live-with-kill-switch preference. Confirm probes are the safety net; review E1 when Slice 1 produces it |
-| D8 | `llm_probability` | Off by default; at most a one-off offline test |
+| D8 | `llm_probability` | Off by default. The V1–V3 comparison (§7.2) runs once, offline, owner-run and spend-capped, on Perplexity Decider v1.1 |
 | D9 | Switching margin | The attempt-level log-loss improvement's bootstrap interval excludes 0, overall and on first attempts, and the miss rate is no worse. Fixed before running |
 | D10 | Revisions missing from snapshots | `exclude` by default; `current_content` only by explicit config, flagged |
 | D12 | Interaction-signal constants | Hint depth: `1 − 0.2k` (floor 0.2), and help before any work caps at 0.3. Typed-question masses: 0.15 (prerequisite), 0.1 (mechanism or clarification after a correct answer); capped per LO per day. A priori and versioned, and the harness reports a sweep. Routing use (§5.2) is live with F2; predictor use waits for §7.4 activation |
@@ -486,7 +504,7 @@ The full design for everything below is preserved at commit `936813f` (`docs/spe
 | **Probe targeting** by the active predictor | A challenger is active, and the daily loop's finite plan (Q9) makes propensities known for evaluation |
 | **`idea_hier_llm_prior`**, or any live use of `llm_probability` | The offline test shows calibrated gains over the best LO-level arm on first attempts |
 | **Public-data benchmark** (time-to-useful-vault, kernel fits, transfer guard) | A specific question the owner's replay can't answer, such as whether a deferred facet-level design is worth reviving |
-| **Learned action router** using dossier embeddings as features | Pipeline plan F/G gates. Prefer an LLM agent reading dossiers as text first (`spec_embedding_consumers_v1.md` §5.9) |
+| **Learned action router** (frozen or fine-tuned embeddings, LoRA) | The non-learned router is specified in `spec_action_router_v1.md`: the Decider inside the P4 staged frame, with exact propensities. A learned scorer's trigger is in that spec's §13 |
 | **Facet dossiers** | Not deferred: **moved** to the practice-family track as the practice index (`spec_embedding_consumers_v1.md` §5.9) |
 
 ---

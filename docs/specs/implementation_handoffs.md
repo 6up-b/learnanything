@@ -92,11 +92,14 @@ These are the prompts for the agents that build the rest of Slice A and the slic
 | | Daily-loop spec draft | Nothing; docs only |
 | | Project understanding M1 | Nothing; standalone store |
 | | Mobile M1, if not already running | Nothing |
+| **After Phase 2 merges** | Router R0: the Decider client and the `llm_probability` V1–V3 harness arms | Phase 2 |
 | **After Phase 3 merges** | Phase 5a (generation) | Phase 3 |
 | **After Phase 2's checkpoint and the bug fixes merge** | Phase 6 (starting new material) | Phase 2 reviewed; `fix/daily-loop-bugs` |
+| **After Phase 6 merges** | Router R1: decision logging with full candidate sets and propensities | R0; Phase 6 (same scheduler files) |
 | **Only if a challenger predictor won reports 1–2** | Phase 4 (activation + map fog) | Phase 2 checkpoint; preferably after Phase 6 |
 | **After Slice A stops and the owner reviews** | Daily-loop implementation, from its spec | Daily-loop spec accepted |
 | | Slice 2 T6 (source retrieval), alongside the daily loop | Slice A merged; it reuses the Phase 5a compare harness |
+| **After the daily loop's finite plan** | Router R2: the Decider router live for the daily plan | R1; daily-loop P1–P3 |
 | | Slice 1 M1 (offline review) | It can be built any time. The owner runs it once `learnloop field data-check` shows ≥ ~40 graded wrong answers across topics |
 | | Slice 1 M2, then PF-c | M1 report reviewed |
 | **After Slice 1's exit review (S1.5) supports it** | Slice 2 T1 (M3: recurrence with authority) | Slice 1 M2 merged; trustworthy pattern links |
@@ -682,6 +685,130 @@ Track rules:
 Done also means: the track's report (Slice 2 §13) generates with fakes on a
 fixtures-local copy, and the review file gives the owner the commands to run it for
 real, with the dry-run first.
+```
+
+### Router R0: the Decider client and the `llm_probability` V1–V3 harness arms
+
+```text
+Implement phase R0 of LearnLoop's action router: the Perplexity Decider client and the
+learner field's llm_probability V1–V3 harness arms. Follow the standard rules in
+docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/router-r0.md.
+
+Specs:
+- docs/specs/spec_action_router_v1.md: §0, §6 (the facts, provider, routes and
+  question format) and §11's R0 row;
+- docs/specs/spec_learner_field_v1.md: §7.2 (the variant table and its rules), G11,
+  D8 and D9.
+The Decider facts in router §6.1 were checked against Perplexity's docs on
+2026-10-11. Re-check https://docs.perplexity.ai/docs/decisions/quickstart before
+coding, and note any change in the review file.
+
+Branch router/r0 from origin/main after Slice A Phase 2 has merged.
+
+Must hold:
+- Provider type perplexity_decisions, with profile perplexity_decider:
+  - PERPLEXITY_API_KEY and model pplx-decider-v1.1-27b;
+  - typed question classes (noul, choice, score) and response parsing;
+  - unknown fields refused.
+- Routes ai.routing.router_decider and ai.routing.llm_probability:
+  - no fallback to a chat provider;
+  - LEARNLOOP_AI_PROVIDER does not override them, the same rule as
+    ai.routing.embedding.
+- Readiness, receipts (model_call purpose llm_probability / router_decision), the
+  Slice A spend controls with --dry-run, and the settings privacy disclosure.
+- Harness arms V1, V2 and V3 exactly as the field spec's table defines them:
+  - each reported raw and recalibrated (one parameter, fit on past predictions
+    only);
+  - no outcome or post-attempt material in any prediction;
+  - responses cached outside the vault, so replay makes zero calls;
+  - never active (G11).
+- Tests use a fake Decisions endpoint. Make no live calls.
+
+Done also means the review file gives the owner:
+- where to put PERPLEXITY_API_KEY: ~/.config/learnloop/settings.env;
+- the dry-run cost estimate, then the real `learnloop eval` command with the three
+  arms on a copy of their vault;
+- what each outcome of V1 vs V2 vs V3 means, per the field spec.
+```
+
+### Router R1: decision logging on today's paths
+
+```text
+Implement phase R1 of LearnLoop's action router: decision logging with full candidate
+sets and exact propensities on today's serving paths. Follow the standard rules in
+docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/router-r1.md.
+
+Specs:
+- docs/specs/spec_action_router_v1.md: §2 (code truth), §9 (router_decisions) and
+  §11's R1 row;
+- docs/specs/spec_p4_controller_and_scale.md: §3.3 (the trace contract) and §9.3
+  (the randomization layer);
+- docs/specs/spec_learner_field_v1.md: §3 (serving origin and serving_propensity).
+
+Prerequisites: R0 and Slice A Phase 6 have merged, since R1 touches the same
+scheduler files. Branch router/r1 from origin/main.
+
+Must hold:
+- Every Today-queue offer and every staged P2 decision writes a router_decisions
+  row with:
+  - the full candidate set and planner values;
+  - the chosen candidate;
+  - the true propensity, or an explicit "deterministic", where it is 1/0;
+  - learner picks marked learner_pick.
+- "continue" is logged as a candidate wherever a block or item is in progress.
+- Probe near-ties are admitted to epsilon_tiebreak with logged propensity, closing
+  the probe exclusion at scheduler.py:1544-1551. This is the only serving change:
+  an algorithm successor with its own kill switch.
+- router_outcomes (DERIVED, one replayer) joins R_next and R_cold under the
+  Pipeline plan's S definition, with pending outcomes right-censored.
+- No Decider calls in R1.
+
+Done also means:
+- a shadow rebuild of a fixtures-local copy shows only the probe-tie difference;
+- the review file shows the logged fields on a sample decision.
+```
+
+### Router R2: the Decider router, live for the daily plan
+
+```text
+Implement phase R2 of LearnLoop's action router: the Decider choosing the daily plan's
+blocks inside the P4 staged frame. Follow the standard rules in
+docs/specs/implementation_handoffs.md §0. Review file: docs/reviews/router-r2.md.
+
+Specs:
+- docs/specs/spec_action_router_v1.md, in full;
+- docs/specs/spec_p4_controller_and_scale.md: §3–§5, §7.1 (revised) and §9.3;
+- the daily-loop spec's finite-plan sections (P1–P3);
+- docs/specs/spec_learner_field_v1.md: §3.1 and §4.1.
+
+Prerequisites: R1 and the daily loop's finite plan have merged, and the owner has
+answered router D1–D8 (or said "defaults"). Branch router/r2 from origin/main.
+
+Must hold:
+- LearnerStateCardV1 (§4):
+  - deterministic from the ledger, with the token budget;
+  - no cold-answer or reserved material;
+  - never sent to the grader.
+- decision/context embeddings and similar-decision retrieval (§5), using matured
+  outcomes only.
+- One Decider request per decision with question set router_qs_v1 (§6.3).
+- Selection:
+  - the three modes (§7.3) and the decider_mixture randomization design, applied to
+    reversible candidates only;
+  - irreversible actions are never sampled (§7.1);
+  - the restraint asymmetry (§7.2);
+  - fallback to the staged choice;
+  - learner picks win.
+- Authority and switches:
+  - the staged frame composes Today's plan blocks, as an algorithm successor;
+  - kill switch router.enabled restores the legacy scheduler exactly;
+  - launch mode per D1.
+- The learner-facing "why" (§7.4), and `learnloop router report` (§10.3).
+- Gates G1–G9 (§12) pass, with a fake Decider.
+
+Done also means:
+- a shadow rebuild of a fixtures-local copy shows only the documented differences;
+- the review file gives the owner the commands for the report after 200 decisions.
 ```
 
 ---
