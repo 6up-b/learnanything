@@ -326,6 +326,15 @@ class DiagnosisStoreMixin:
 
         if status != "completed":
             return False
+        return DiagnosisStoreMixin._diagnosis_concerns_grade(record_id, current_record_id)
+
+    @staticmethod
+    def _diagnosis_concerns_grade(record_id: Any, current_record_id: str | None) -> bool:
+        """Whether a diagnosis row read the blind grade ``current_record_id``
+        (the half of :meth:`_diagnosis_in_force` that does not look at status).
+        Placement asks it of a row against the grade current when the row
+        landed, to decide each miss once."""
+
         return record_id is None or current_record_id in (None, str(record_id))
 
     def current_live_diagnosis(self, attempt_id: str) -> dict[str, Any] | None:

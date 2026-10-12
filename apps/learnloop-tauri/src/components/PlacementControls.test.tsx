@@ -115,6 +115,9 @@ it("says why a first review short of full marks kept the LO in maintenance (owne
   section({ ...maintained, outcomeReason: "unassessed" });
   expect(screen.getByText(/took a route the grader could not check/)).toBeTruthy();
   cleanup();
+  section({ ...maintained, outcomeReason: "interaction_context" });
+  expect(screen.getByText(/thrown by how it was presented, not a knowledge gap/)).toBeTruthy();
+  cleanup();
   section({ ...maintained, outcomeReason: "clean" });
   expect(screen.getByText("its first review passed: in maintenance, the rest of its new items are skipped")).toBeTruthy();
   cleanup();
@@ -129,4 +132,8 @@ it("says why a first review short of full marks kept the LO in maintenance (owne
   cleanup();
   section({ ...base, intent: "learning", intentReason: "check_missed", outcomeReason: "knowledge_gap", lastOutcome: "failed" });
   expect(screen.getByText("the first review showed a knowledge gap, so this is back to learning")).toBeTruthy();
+  cleanup();
+  // Codex review F5: a diagnosis that named no cause is not a pass.
+  section({ ...base, intent: "learning", intentReason: "check_missed", outcomeReason: "no_gap_attributed", lastOutcome: "failed" });
+  expect(screen.getByText("the first review missed, so this is back to learning")).toBeTruthy();
 });

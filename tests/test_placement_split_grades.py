@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from learnloop.attempts.blind_grading import BlindErrorAttribution
 from learnloop.attempts.regrade import regrade_attempt
-from learnloop.clock import FrozenClock
+from learnloop.clock import FrozenClock, utc_now_iso
 from learnloop.field.types import RegionEstimate
 from learnloop.placement.decisions import record_self_report
 from learnloop.placement.rules import (
@@ -47,6 +47,8 @@ CORRECT = "B = U Sigma V^T"
 # verifies it, so an unlocated mark-down is recorded unverified.
 VERIFYING = "A different route.\nFinal answer: U Sigma V^T"
 DUE_HOURS = 14 * 24
+#: When the tests read placement state: within the diagnosis wait of every miss.
+READ_AT = utc_now_iso(FrozenClock(at(DUE_HOURS + 100)))
 
 
 class _LocatedResultError(ReviewFakeClient):
@@ -86,7 +88,7 @@ def _assumed(tmp_path):
 
 
 def _state(vault, repository):
-    state = load_placement_state(vault, repository)
+    state = load_placement_state(vault, repository, now_iso=READ_AT)
     (assumption,) = [a for a in state.assumptions if a.learning_object_id == LO]
     return assumption, state.intent_by_lo[LO].intent
 
@@ -130,7 +132,7 @@ def test_an_unverified_pfc_grade_on_the_check_keeps_the_topic_in_maintenance(tmp
     assert (assumption.status, assumption.resolving_attempt_id, assumption.resolution_reason, intent) == (
         "passed", unverified.attempt_id, "unassessed", "maintenance",
     )
-    entry = load_placement_state(vault, repository).intent_by_lo[LO]
+    entry = load_placement_state(vault, repository, now_iso=READ_AT).intent_by_lo[LO]
     assert (entry.reason, entry.outcome_reason) == ("check_passed", "unassessed")
 
 
@@ -156,7 +158,7 @@ def test_an_unverified_answer_in_maintenance_is_not_a_lapse(tmp_path):
     kept = submit(vault, repository, _ZeroWithoutAttribution(), item_id="pi_svd_compute_002",
                   answer=VERIFYING, when=at(DUE_HOURS + 30))
     assert _state(vault, repository)[1] == "maintenance"
-    entry = load_placement_state(vault, repository).intent_by_lo[LO]
+    entry = load_placement_state(vault, repository, now_iso=READ_AT).intent_by_lo[LO]
     assert entry.kept_misses == ((kept.attempt_id, "unassessed"),)
 
 

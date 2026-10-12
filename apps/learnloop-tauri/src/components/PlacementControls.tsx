@@ -32,10 +32,10 @@ const MAINTENANCE_LABEL: Record<string, string> = {
   slip: "its first review slipped, not a knowledge gap: in maintenance, the rest of its new items are skipped",
   item_contract:
     "its first review missed what the question expected, not a knowledge gap: in maintenance, the rest of its new items are skipped",
+  interaction_context:
+    "its first review was thrown by how it was presented, not a knowledge gap: in maintenance, the rest of its new items are skipped",
   unassessed:
-    "its first review took a route the grader could not check: in maintenance, the rest of its new items are skipped",
-  no_gap_attributed:
-    "the diagnosis found no knowledge gap in its first review: in maintenance, the rest of its new items are skipped"
+    "its first review took a route the grader could not check: in maintenance, the rest of its new items are skipped"
 };
 const MAINTENANCE_PASSED = "its first review passed: in maintenance, the rest of its new items are skipped";
 const AWAITING_DIAGNOSIS = "waiting for the diagnosis of your last answer before deciding";

@@ -15,6 +15,7 @@ from statistics import median
 from typing import Any
 
 from learnloop.algorithm_versions import PLACEMENT_VERSIONS
+from learnloop.clock import utc_now_iso
 from learnloop.placement.rules import RULES_VERSION
 from learnloop.placement.state import (
     INTENT_ASSUMED,
@@ -77,8 +78,8 @@ def _minutes_per_item(connection: Any) -> tuple[float, str]:
     return DEFAULT_MINUTES_PER_ITEM, "flat_3_minutes"
 
 
-def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
-    """Report 3 over one read-only snapshot."""
+def placement_report(connection: Any, vault: Any, *, now_iso: str | None = None) -> dict[str, Any]:
+    """Report 3 over one read-only snapshot, as of ``now_iso`` (default: now)."""
 
     version = vault.config.algorithms.algorithm_version
     manifest = {
@@ -93,7 +94,9 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
     }
     if not placement_tables_present(connection):
         return {"manifest": manifest, "status": "no_placement_tables", "sources": {}, "counts": {}}
-    state = load_placement_state_from_connection(connection, active=False, diagnosis_live=diagnosis_can_arrive(vault))
+    state = load_placement_state_from_connection(
+        connection, active=False, diagnosis_live=diagnosis_can_arrive(vault), now_iso=now_iso or utc_now_iso(),
+    )
     returns = connection.execute(
         "SELECT assumption_id FROM assumption_returns ORDER BY created_at, id"
     ).fetchall()
@@ -164,6 +167,13 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             "returned_by_learner": statuses["returned"],
             "first_review_miss_rate": round(statuses["failed"] / resolved, 6) if resolved else None,
             "first_review_miss_rate_wilson_ci95": _wilson(statuses["failed"], resolved),
+            # The raw rate before the diagnosis decides (Phase 6's original
+            # miss): any first review short of clean full marks, kept or not.
+            "first_review_full_marks_misses": _full_marks_misses(rows),
+            "first_review_full_marks_miss_rate": (
+                round(_full_marks_misses(rows) / resolved, 6) if resolved else None
+            ),
+            "first_review_full_marks_miss_rate_wilson_ci95": _wilson(_full_marks_misses(rows), resolved),
             "resolved_on_schedule": len(on_schedule),
             "resolved_early": len(early),
             "on_schedule_miss_rate": (
@@ -224,6 +234,7 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
     provisional = sum(values["items_deferred_pending_check"] for values in sources.values())
     all_resolved = sum(values["passed"] + values["failed"] for values in sources.values())
     all_failed = sum(values["failed"] for values in sources.values())
+    all_full_marks_misses = sum(values["first_review_full_marks_misses"] for values in sources.values())
     return {
         "manifest": manifest,
         "status": "complete",
@@ -233,6 +244,10 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             "open": sum(values["open"] for values in sources.values()),
             "first_review_miss_rate": round(all_failed / all_resolved, 6) if all_resolved else None,
             "first_review_miss_rate_wilson_ci95": _wilson(all_failed, all_resolved),
+            "first_review_full_marks_miss_rate": (
+                round(all_full_marks_misses / all_resolved, 6) if all_resolved else None
+            ),
+            "first_review_full_marks_miss_rate_wilson_ci95": _wilson(all_full_marks_misses, all_resolved),
         },
         "maintenance": _maintenance_outcomes(state),
         "returns_to_learning": {
@@ -264,14 +279,20 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
         "definitions": {
             "first_review": "The first recorded answer on the LO from first_review_due on (an earlier miss "
                             "can resolve it early).",
-            "miss": "A first review that returned the LO to learning: a miss the diagnosis attributed to a "
-                    "knowledge gap (causal_class learner_state on a valid_measurement attribution), learner-side "
-                    "help (hints, priming, \"don't know\", assistance), or, when no diagnosis can arrive, any "
-                    "answer short of clean full marks (today's rule, reason no_diagnosis).",
+            "miss": "A first review that returned the LO to learning (first_review_miss_rate): a miss the "
+                    "diagnosis attributed to a knowledge gap (causal_class learner_state on a valid_measurement "
+                    "attribution) or to no cause at all (no_gap_attributed), learner-side help (hints, priming, "
+                    "\"don't know\", assistance), or, when no diagnosis landed within the wait, any answer short "
+                    "of clean full marks (today's rule, reason no_diagnosis).",
+            "full_marks_miss": "A first review short of clean full marks, whatever the diagnosis decided "
+                               "(first_review_full_marks_miss_rate, the rate before the owner's 2026-10-12 "
+                               "decision): returned to learning, or kept by the diagnosis. An unassessed (PF-c) "
+                               "answer is no failure evidence and is not one.",
             "kept_by_diagnosis": "A first review short of clean full marks that kept the LO in maintenance: a "
-                                 "slip, an item-contract or grader-interpretation problem, an unassessed (PF-c) "
-                                 "criterion, or no gap attributed.",
-            "awaiting_diagnosis": "An open assumption whose miss waits on its diagnosis (the decision waits).",
+                                 "slip, an item-contract or grader-interpretation problem, the interaction "
+                                 "rather than knowledge, or an unassessed (PF-c) criterion.",
+            "awaiting_diagnosis": "An open assumption whose miss waits on its diagnosis (the decision waits, at "
+                                  "most placement.rules.DIAGNOSIS_WAIT_DAYS from the miss's first diagnose job).",
             "returned_by_learner": "\"I don't know this\" before any answer on the LO.",
             "on_schedule": "Resolved at or after the decision's first_review_due.",
             "early_practice": "A clean answer before first_review_due (explicit practice): recorded, never the check.",
@@ -285,6 +306,18 @@ def placement_report(connection: Any, vault: Any) -> dict[str, Any]:
             "items_used_as_checks": "Items whose answer resolved an assumption's check.",
         },
     }
+
+
+def _full_marks_misses(rows: Any) -> int:
+    """Resolved first reviews whose answer fell short of clean full marks:
+    returned to learning, or kept by the diagnosis (an unassessed PF-c answer
+    is no failure evidence, so it is not one)."""
+
+    return sum(
+        a.status == "failed"
+        or (a.status == "passed" and a.resolution_reason not in (None, "clean", "unassessed"))
+        for a in rows
+    )
 
 
 def _maintenance_outcomes(state: Any) -> dict[str, Any]:

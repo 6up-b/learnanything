@@ -335,6 +335,7 @@ def quick_check_progress(
             answers = quick_check_answers(connection, calibration_session_id=calibration_session_id, scope=scope)
             state = load_placement_state_from_connection(
                 connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+                now_iso=utc_now_iso(clock),
             )
             blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))
         predictor = active_predictor(vault, repository, now_iso=utc_now_iso(clock))

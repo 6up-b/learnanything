@@ -25,7 +25,8 @@ is reviewed. At the first review (and in maintenance) it keeps the topic, with
 the reason ``unassessed`` (owner decision 2026-10-12, :func:`decide_miss`).
 
 Misses on an assumed or maintained LO are decided by the diagnosis, not by
-full marks (:func:`decide_miss`, :func:`diagnosis_reason`).
+full marks (:func:`decide_miss`, :func:`diagnosis_reason`): once, by the first
+diagnosis that lands for the miss, within :data:`DIAGNOSIS_WAIT_DAYS`.
 """
 from __future__ import annotations
 
@@ -292,13 +293,20 @@ MISS_TO_LEARNING = "learning"  # back to learning (new items served again)
 MISS_KEPT = "kept"  # stays assumed (early) or in maintenance, reason recorded
 MISS_PENDING = "pending"  # the diagnosis has not landed: the decision waits
 
-#: Why. A knowledge gap returns the LO to learning; the four kept reasons do not.
+#: Why. Only a positive non-gap reading keeps the LO: a slip, an item-contract
+#: (or grader-interpretation) problem, the interaction rather than knowledge, or
+#: an unassessed (PF-c unverified) criterion. A knowledge gap returns it to
+#: learning, and so does a diagnosis that attributes no cause
+#: (``no_gap_attributed``: the diagnoser abstained, or the grader left the
+#: validity unknown): the diagnosis did not decide it, so today's rule applies
+#: (Codex review F5, fail closed).
 REASON_KNOWLEDGE_GAP = "knowledge_gap"
 REASON_SLIP = "slip"
 REASON_ITEM_CONTRACT = "item_contract"
+REASON_INTERACTION_CONTEXT = "interaction_context"
 REASON_UNASSESSED = "unassessed"
 REASON_NO_GAP_ATTRIBUTED = "no_gap_attributed"
-KEPT_REASONS = frozenset({REASON_SLIP, REASON_ITEM_CONTRACT, REASON_UNASSESSED, REASON_NO_GAP_ATTRIBUTED})
+KEPT_REASONS = frozenset({REASON_SLIP, REASON_ITEM_CONTRACT, REASON_INTERACTION_CONTEXT, REASON_UNASSESSED})
 #: Today's rule (any miss returns the LO to learning), said so on the receipt:
 #: no diagnosis can arrive (``fallback`` names why), or the answer was not an
 #: unaided cold answer (hints, priming, "don't know", assistance, a walkthrough
@@ -314,6 +322,15 @@ FALLBACK_BUDGET_SKIPPED = "diagnosis_budget_skipped"
 FALLBACK_NOT_NEEDED = "diagnosis_not_needed"
 FALLBACK_REJECTED = "diagnosis_rejected"
 FALLBACK_NOT_DIAGNOSED = "not_diagnosed"
+#: The diagnosis did not land within :data:`DIAGNOSIS_WAIT_DAYS` of the miss's
+#: first live diagnose job (provider never ready, the queue held behind a stuck
+#: job, the split switched off and on): today's rule, decided at the deadline.
+FALLBACK_DIAGNOSIS_UNAVAILABLE = "diagnosis_unavailable"
+#: How long a graded miss waits on its diagnosis (Codex review F3). A diagnosis
+#: that lands later does not change the decision made at the deadline. A
+#: hard-coded bound for now, like ``placement.fast_track_q``; versioned with
+#: :data:`RULES_VERSION`.
+DIAGNOSIS_WAIT_DAYS = 7
 #: Blind-grade validity scopes that put the miss on the item, not the learner.
 ITEM_CONTRACT_SCOPES = frozenset({"item_contract", "grader_interpretation"})
 
@@ -322,9 +339,17 @@ ITEM_CONTRACT_SCOPES = frozenset({"item_contract", "grader_interpretation"})
 class MissVerdict:
     """How one miss on an assumed or maintained LO was decided: the receipt.
 
-    ``events`` holds what the decision read from the diagnosis in force:
-    ``(attribution index, validity_scope, causal_class)`` per blind-grade error
-    attribution (``causal_class`` is ``None`` where the diagnosis wrote no event).
+    ``events`` holds what the decision read from the diagnosis that decided
+    it: ``(attribution index, validity_scope, causal_class)`` per blind-grade
+    error attribution (``causal_class`` is ``None`` where the diagnosis wrote
+    no event).
+
+    ``decided_at``/``decided_ref`` say when the decision became known: the
+    deciding diagnosis row's ``created_at`` and id, or the wait deadline (no
+    ref). Both None for a decision known with the answer itself (learner-side
+    help, an unassessed grade, a joint grade) or still pending. A miss is
+    decided once: a later regrade, ``diagnose retry`` or switch toggle does not
+    change a decision that has landed.
     """
 
     attempt_id: str
@@ -335,6 +360,8 @@ class MissVerdict:
     blind_grade_record_id: str | None = None
     job_state: str | None = None
     events: tuple[tuple[int, str, str | None], ...] = ()
+    decided_at: str | None = None
+    decided_ref: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -347,11 +374,13 @@ def diagnosis_reason(
     """The diagnosis's reading of a graded miss (Slice 1 M2 vocabulary).
 
     A knowledge gap is ``causal_class = learner_state`` on a
-    ``valid_measurement`` attribution: the only reading that returns the LO to
-    learning. Otherwise an item-contract or grader-interpretation attribution
-    names the item, a ``transient_execution`` class on a valid measurement a
-    slip, and anything else (the diagnoser abstained, or wrote no event) is
-    ``no_gap_attributed``.
+    ``valid_measurement`` attribution. Otherwise a positive non-gap reading
+    keeps the LO: an item-contract or grader-interpretation attribution names
+    the item, a ``transient_execution`` class on a valid measurement a slip,
+    and an ``interaction_context`` attribution the presentation rather than
+    knowledge. Anything else (the diagnoser abstained, the grader left the
+    validity unknown, or no attribution at all) is ``no_gap_attributed``,
+    which returns the LO to learning (:data:`KEPT_REASONS`).
     """
 
     indexes = sorted(set(attribution_scopes) | set(event_classes))
@@ -362,6 +391,8 @@ def diagnosis_reason(
         return REASON_ITEM_CONTRACT
     if any(scope == "valid_measurement" and cls == "transient_execution" for scope, cls in pairs):
         return REASON_SLIP
+    if any(scope == "interaction_context" for scope, _cls in pairs):
+        return REASON_INTERACTION_CONTEXT
     return REASON_NO_GAP_ATTRIBUTED
 
 

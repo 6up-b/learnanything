@@ -804,8 +804,8 @@ def _placement_serving(
         return None
     if persist:
         reconcile_fast_track(vault, repository, clock=clock)
-    state = load_placement_state(vault, repository)
     now_iso = utc_now_iso(clock)
+    state = load_placement_state(vault, repository, now_iso=now_iso)
     predictor = active_predictor(vault, repository, now_iso=now_iso)
     # A check answer whose diagnosis has not landed is the check: the decision
     # waits on it (owner decision 2026-10-12), so no second check item is served.

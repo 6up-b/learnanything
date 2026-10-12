@@ -127,9 +127,9 @@ def _decision_row(
     }
 
 
-def _open_assumption_id(connection: Any, vault: LoadedVault, learning_object_id: str) -> str | None:
+def _open_assumption_id(connection: Any, vault: LoadedVault, learning_object_id: str, *, now_iso: str) -> str | None:
     state = load_placement_state_from_connection(
-        connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+        connection, active=True, diagnosis_live=diagnosis_can_arrive(vault), now_iso=now_iso,
     )
     open_ = state.open_by_lo.get(learning_object_id)
     return open_.id if open_ is not None else None
@@ -228,7 +228,7 @@ def record_self_report(
                     results.append({"learning_object_id": lo_id, "status": f"not_active:{learning_object.status}"})
                     continue
                 state = load_placement_state_from_connection(
-                    connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+                    connection, active=True, diagnosis_live=diagnosis_can_arrive(vault), now_iso=now_iso,
                 )
                 open_ = state.open_by_lo.get(lo_id)
                 open_id = open_.id if open_ is not None else None
@@ -339,7 +339,7 @@ def reconcile_fast_track(
     written: list[dict[str, Any]] = []
     with repository.connection() as connection:
         state = load_placement_state_from_connection(
-            connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+            connection, active=True, diagnosis_live=diagnosis_can_arrive(vault), now_iso=now_iso,
         )
         answers_by_lo = load_answers(connection)
         excluded = (
@@ -423,7 +423,7 @@ def reconcile_predictor_assumptions(
     with repository.atomic():
         with repository.connection() as connection:
             state = load_placement_state_from_connection(
-                connection, active=True, diagnosis_live=diagnosis_can_arrive(vault),
+                connection, active=True, diagnosis_live=diagnosis_can_arrive(vault), now_iso=now_iso,
             )
             answered = set(load_answers(connection))
             excluded = set(state.decided_learning_object_ids) | set(state.returned_learning_object_ids)
@@ -609,6 +609,7 @@ def finish_quick_check_split(
         answers = quick_check_answers(connection, calibration_session_id=calibration_session_id, scope=scope)
         state = load_placement_state_from_connection(
             connection, active=placement_active(vault), diagnosis_live=diagnosis_can_arrive(vault),
+            now_iso=now_iso,
         )
         blocking = blocking_signals_by_lo(connection, vault, load_answers(connection))
     predictor = active_predictor(vault, repository, now_iso=now_iso)
@@ -623,7 +624,7 @@ def finish_quick_check_split(
                 return json.loads(current["outcome_json"] or "{}")
             if placement_active(vault):
                 for lo, verdict in split.items():
-                    if verdict["verdict"] != "assumed" or _open_assumption_id(connection, vault, lo) is not None:
+                    if verdict["verdict"] != "assumed" or _open_assumption_id(connection, vault, lo, now_iso=now_iso) is not None:
                         continue
                     region = predictor.region_estimates([lo]).get(lo)
                     decision = _decision_row(

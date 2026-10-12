@@ -37,6 +37,7 @@ def placement_status(
 ) -> None:
     """Whether placement serves, and every open assumed-known LO with its check date."""
 
+    from learnloop.clock import utc_now_iso
     from learnloop.placement.state import (
         assumption_summary,
         diagnosis_can_arrive,
@@ -50,6 +51,7 @@ def placement_status(
             connection.execute("BEGIN")
             state = load_placement_state_from_connection(
                 connection, active=placement_active(loaded), diagnosis_live=diagnosis_can_arrive(loaded),
+                now_iso=utc_now_iso(),
             )
         payload = {
             "algorithm_version": loaded.config.algorithms.algorithm_version,
