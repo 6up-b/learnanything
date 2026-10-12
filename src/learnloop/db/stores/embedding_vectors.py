@@ -39,6 +39,11 @@ def _vector(value: Sequence[float] | np.ndarray) -> np.ndarray:
     return array
 
 
+def _unit_rows(matrix: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    return np.divide(matrix, norms, out=np.zeros_like(matrix), where=norms != 0)
+
+
 def get_vector(connection: sqlite3.Connection, *, record_kind: str, record_id: str,
                field: str, content_hash: str, model_id: str, task_prefix: str) -> np.ndarray | None:
     row = connection.execute(
@@ -82,9 +87,12 @@ def retrieve(connection: sqlite3.Connection, *, record_kind: str, field: str,
     Old revisions and other models/prefixes/fields never enter its centroid.
     Zero centered vectors score zero; ties are deterministic by record ID.
     Without dimensions, query and stored dimensions must match. With dimensions,
-    both are truncated to that positive prefix length BEFORE centering/ranking.
-    Callers may pass a full or already-truncated query; each vector must have at
-    least dimensions elements. Storage retains one full dimension per model.
+    both are truncated to that positive prefix length BEFORE centering/ranking;
+    a view narrower than storage then L2-normalizes rows and query, as MRL
+    requires and as the client does when it truncates at write time, so a view
+    ranks like vectors embedded at that width. Callers may pass a full or
+    already-truncated query; each vector must have at least dimensions
+    elements. Storage retains one full dimension per model.
     """
     if limit < 0:
         raise ValueError("limit must be nonnegative")
@@ -115,8 +123,10 @@ def retrieve(connection: sqlite3.Connection, *, record_kind: str, field: str,
     matrix = np.stack([np.frombuffer(current[key][3], dtype="<f2").astype(np.float64)
                        for key in ids])
     if dimensions is not None:
-        matrix = matrix[:, :dimensions]
         q = q[:dimensions]
+        if matrix.shape[1] > dimensions:
+            matrix = _unit_rows(matrix[:, :dimensions])
+            q = _unit_rows(q[np.newaxis, :])[0]
     mean = matrix.mean(axis=0)
     centered = matrix - mean
     centered_query = q - mean

@@ -102,8 +102,11 @@ def test_mrl_retrieval_truncates_before_centering_and_ranking(connection, tmp_pa
     matches = retrieve(connection, **args, dimensions=2)
     assert matches[0].record_id == "a"
     assert retrieve(connection, **(args | {"query": [10, 1]}), dimensions=2) == matches
-    centered = vectors[:, :2] - vectors[:, :2].mean(axis=0)
-    query = np.array([10, 1]) - vectors[:, :2].mean(axis=0)
+    # The view truncates, L2-normalizes, then centers (MRL convention).
+    view = vectors[:, :2] / np.linalg.norm(vectors[:, :2], axis=1, keepdims=True)
+    unit_query = np.array([10, 1]) / np.linalg.norm([10, 1])
+    centered = view - view.mean(axis=0)
+    query = unit_query - view.mean(axis=0)
     scores = centered @ query / (np.linalg.norm(centered, axis=1) * np.linalg.norm(query))
     for match in matches:
         assert match.score == pytest.approx(scores["abc".index(match.record_id)])
@@ -117,6 +120,23 @@ def test_mrl_retrieval_truncates_before_centering_and_ranking(connection, tmp_pa
     assert EmbeddingVectorStore(tmp_path / "state.sqlite").retrieve(**args, dimensions=2) == matches
     assert connection.execute("SELECT DISTINCT dims FROM embedding_vectors").fetchall()[0][0] == 3
     np.testing.assert_array_equal(get_vector(connection, **identity()), vectors[0])
+
+
+def test_mrl_view_ranks_like_vectors_embedded_at_that_width(connection):
+    # Unit vectors whose 2-d prefixes have different norms (1.0, 0.6, 0.6).
+    full = np.array([[0.6, 0.8, 0.0], [0.6, 0.0, 0.8], [0.0, 0.6, 0.8]])
+    native = full[:, :2] / np.linalg.norm(full[:, :2], axis=1, keepdims=True)
+    for name, wide, narrow in zip("abc", full, native):
+        put_vector(connection, **identity(record_id=name, model_id="wide"), vector=wide)
+        put_vector(connection, **identity(record_id=name, model_id="narrow"), vector=narrow)
+    args = dict(record_kind="item", field="stem", task_prefix="similarity",
+                expected_records=dict.fromkeys("abc", "h"))
+    query = np.array([0.0, 0.8, 0.6])
+    view = retrieve(connection, **args, model_id="wide", query=query, dimensions=2)
+    embedded = retrieve(connection, **args, model_id="narrow",
+                        query=query[:2] / np.linalg.norm(query[:2]))
+    assert [m.record_id for m in view] == [m.record_id for m in embedded]
+    assert [m.score for m in view] == pytest.approx([m.score for m in embedded], abs=1e-3)
 
 
 @pytest.mark.parametrize("dimensions,query", [
